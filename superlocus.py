@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import operator # standard python library
+import re
 
 class transcript:
     
@@ -23,7 +24,8 @@ class transcript:
         self.splices = []
         self.monoexonic = False
         self.finalized = False # Flag. We do not want to repeat the finalising more than once.
-        self.parent = None
+        self.parent = gffLine.parent
+        self.attributes = gffLine.attributes
         
     def __str__(self):
         '''Each transcript will be printed out in the GFF style.
@@ -37,15 +39,22 @@ class transcript:
             strand="."
         else:
             strand=self.strand
+            
+        for attribute in self.attributes:
+            if attribute in ("Parent","ID"): continue
+            attribute=attribute.lower()
+            attribute=re.sub(";",":", attribute)
+            value=re.sub(";",":",attribute)
+            attr_field="{0};{1}={2}".format(attribute, value)
         
-        parent_line = [self.chrom, "intronChain", "transcript", self.start, self.end, ".", strand, ".",  attr_field ]
+        parent_line = [self.chrom, "locus_pipeline", "transcript", self.start, self.end, ".", strand, ".",  attr_field ]
         
         parent_line ="\t".join( str(s) for s in parent_line )
         
         exon_lines = []
         for index in range(len(self.exons)):
             exon=self.exons[index]
-            exon_line = [self.chrom, "intronChain", "exon", exon[0], exon[1],
+            exon_line = [self.chrom, "locus_pipeline", "exon", exon[0], exon[1],
                          ".", strand, ".",
                          "Parent={0};ID={0}.{1}".format(self.id, index) ]
             exon_lines.append("\t".join(str(s) for s in exon_line))
@@ -122,9 +131,16 @@ class superlocus:
     def overlap(a, b, flank=0):
         '''This static method returns the overlap between two intervals. Values<=0 indicate no overlap.
         The optional "flank" argument (default 0) allows to expand a superlocus upstream and downstream.
-        As a static method, it can be used also outside of any instance - "superlocus.overlap()" will function.'''
-        right_boundary=min(a.end+flank, b.end+flank)
-        left_boundary=max(a.start-flank, b.start-flank)
+        As a static method, it can be used also outside of any instance - "superlocus.overlap()" will function.
+        The method takes as input either two objects/namedtuples that have the "start", "end" attributes,
+        or two 2-tuples. 
+        '''
+        if hasattr(a, "start") and hasattr(b,"start"):
+            right_boundary=min(a.end+flank, b.end+flank)
+            left_boundary=max(a.start-flank, b.start-flank)
+        elif type(a)==type(b)==tuple and len(a)==len(b)==2:
+            right_boundary=min(a[1]+flank, b[1]+flank)
+            left_boundary=max(a[0]-flank, b[0]-flank)
         
         return right_boundary + 1 - left_boundary #+1 because otherwise the intervals (15,20),(20,25) have an overlap of 0
     
@@ -267,7 +283,7 @@ class superlocus:
         self.define_subloci()
         superlocus_id = "superlocus:{0}{3}:{1}-{2}".format(self.chrom, self.start, self.end,strand)
 
-        superlocus_line = [self.chrom, "intronChain", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(superlocus_id) ]
+        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(superlocus_id) ]
         superlocus_line = "\t".join(str(s) for s in superlocus_line)
         
         sublocus_lines = []
@@ -286,7 +302,7 @@ class superlocus:
                 substrand="."
             else:
                 substrand=sublocus.strand
-            sublocus_line = [ self.chrom, "intronChain", "sublocus", sublocus.start, sublocus.end,
+            sublocus_line = [ self.chrom, "locus_pipeline", "sublocus", sublocus.start, sublocus.end,
                              ".", substrand, ".", attr_field]
             sublocus_line = "\t".join([str(s) for s in sublocus_line])
             

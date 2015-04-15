@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-from superlocus import superlocus,transcript
+from superlocus import superlocus
+from transcript import transcript
 import sys,argparse
 from myRecords.GFF import GFF3
 
@@ -15,8 +16,8 @@ def add_transcripts(transcript_instance, sloci):
     else:
         for sindex in range(len(sloci)):
             slocus=sloci[sindex]
-            if superlocus.in_superlocus(slocus, transcript_instance) is True:
-                sloci[sindex].add_to_superlocus(transcript_instance)
+            if superlocus.in_locus(slocus, transcript_instance) is True:
+                sloci[sindex].add_transcript_to_locus(transcript_instance)
                 foundLocus=True
                 break
         if foundLocus is False:

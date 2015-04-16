@@ -82,12 +82,21 @@ class transcript:
         # We do not want to repeat this step multiple times
         if self.finalized is True:
             return
+        self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
+        if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
+            raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
+                                                                                                                                                            tstart=self.start,
+                                                                                                                                                            tend=self.end,
+                                                                                                                                                            id=self.id,
+                                                                                                                                                            eend=self.exons[-1][1],
+                                                                                                                                                            estart=self.exons[0][0],
+                                                                                                                                                            ))
         
         if len(self.exons)==1:
             self.monoexonic = True
             return # There is no sense in performing any operation on single exon transcripts
         
-        self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
+        
         
         
         for index in range(len(self.exons)-1):

@@ -1,7 +1,12 @@
 import abc
+import superlocus
+import operator
+import random
 
 
 class abstractlocus:
+    
+    __metaclass__  = abc.ABCMeta
     
     @abc.abstractmethod
     def __init__(self):
@@ -12,17 +17,18 @@ class abstractlocus:
         '''This static method returns the overlap between two intervals. Values<=0 indicate no overlap.
         The optional "flank" argument (default 0) allows to expand a superlocus upstream and downstream.
         As a static method, it can be used also outside of any instance - "superlocus.overlap()" will function.
-        The method takes as input either two objects/namedtuples that have the "start", "end" attributes,
-        or two 2-tuples. 
+        Input: two 2-tuples of integers.
         '''
-        if hasattr(a, "start") and hasattr(b,"start"):
-            right_boundary=min(a.end+flank, b.end+flank)
-            left_boundary=max(a.start-flank, b.start-flank)
-        elif type(a)==type(b)==tuple and len(a)==len(b)==2:
-            right_boundary=min(a[1]+flank, b[1]+flank)
-            left_boundary=max(a[0]-flank, b[0]-flank)
         
-        return right_boundary + 1 - left_boundary #+1 because otherwise the intervals (15,20),(20,25) have an overlap of 0
+        #Removed the flexibility, as this will allow to transform the function cythonically
+#         if hasattr(a, "start") and hasattr(b,"start"):
+#             right_boundary=min(a.end+flank, b.end+flank)
+#             left_boundary=max(a.start-flank, b.start-flank)
+#         elif type(a)==type(b)==tuple and len(a)==len(b)==2:
+        right_boundary=min(a[1]+flank, b[1]+flank)
+        left_boundary=max(a[0]-flank, b[0]-flank)
+        
+        return right_boundary - left_boundary 
 
     def add_transcript_to_locus(self, transcript):
         '''This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method) and
@@ -35,7 +41,9 @@ class abstractlocus:
             self.end = max(self.end, transcript.end)
             self.transcripts.add(transcript)
             self.splices=set.union(self.splices, transcript.splices)
-            self.junctions=set.union(self.junctions, transcript.splices)
+            for junction in transcript.junctions:
+                if type(junction)!=tuple: raise TypeError(transcript.id,junction)
+                self.junctions.add(junction) 
         return
 
     @classmethod
@@ -50,49 +58,47 @@ class abstractlocus:
         transcript.finalize()
         if superlocus.chrom == transcript.chrom and \
             superlocus.strand == transcript.strand and \
-            cls.overlap( superlocus, transcript, flank=flank  ) > 0:
+            cls.overlap( (superlocus.start,superlocus.end), (transcript.start,transcript.end), flank=flank  ) > 0:
             return True
         return False 
 
-    @abc.abstractclassmethod
+    @abc.abstractmethod
     def is_intersecting(self):
         '''This class method defines how two transcript objects will be considered as overlapping.
         It is used by the BronKerbosch method, and must be implemented at the class level for each child object.'''        
-        pass
+        raise NotImplementedError("The is_intersecting method should be defined for each child!")
     
     @classmethod    
-    def BronKerbosch(cls, clique, candidates, non_clique ):
+    def BronKerbosch(cls, clique, candidates, non_clique, original ):
         '''Implementation of the Bron-Kerbosch algorithm with pivot to define the subloci.
         We are using the class method "is_intersecting" to define the neighbours.
         Wiki: http://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm '''
-        
-        if len(candidates)==0 and len(non_clique)==0:
-            
-            return clique
-       
-        #Define the pivot
-        pivot = list(set.union(candidates, non_clique ))[0] #Choose a random member of the remaining non-neighbours
-        pivot_neighbours = set(filter(
-                                lambda candidate: cls.is_intersecting(pivot, candidate),
-                                candidates )
-                         )
-        #Choose the vertices not neighbours of the pivot
-        
-        for vertex in set.difference(candidates, pivot_neighbours):
-            vertex_neighbours = set(filter(lambda candidate: cls.is_intersecting(vertex, candidate), candidates ))
-            #Now the recursive part:
-            #Arguments:
-            # clique u {vertex}
-            # candidates intersect {vertex_neighbours}
-            # non-clique intersect {vertex_neighbours}
-            
-            result = cls.BronKerbosch(
-                                      set.union(clique, set([vertex])),
-                                      set.intersection(candidates, vertex_neighbours),
-                                      set.intersection(non_clique, vertex_neighbours)
-                                      )
-            if result is not None:
-                return result
-            
+
+        pool=set.union(candidates,non_clique)
+
+        if not any((candidates, non_clique)) or len( pool )==0:
+            yield clique
+            return
+
+        pivot = random.sample( pool, 1)[0]
+        pivot_neighbours = cls.neighbours(pivot, original )
+#        print(pivot_neighbours)                                                                                                                                                                             
+        excluded = set.difference( candidates, pivot_neighbours)
+
+
+        for vertex in excluded:
+            vertex_neighbours = cls.neighbours(vertex, original)
+            clique_vertex = set.union(clique, set([vertex]))
+            for result in cls.BronKerbosch(
+                    clique_vertex,
+                    set.intersection(candidates, vertex_neighbours),
+                    set.intersection(non_clique, vertex_neighbours),
+                    original):
+                yield result
             candidates.remove(vertex)
             non_clique.add(vertex)
+#        return clique
+
+    @classmethod
+    def neighbours( cls, vertex, graph):
+        return set(filter(lambda x: cls.is_intersecting(vertex, x), graph))                   

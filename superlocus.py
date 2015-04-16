@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from abstractlocus import abstractlocus
+import operator
+from copy import copy
 
 class superlocus(abstractlocus):
     
@@ -27,33 +29,43 @@ class superlocus(abstractlocus):
     
     @classmethod
     def is_intersecting(cls,transcript, other):
-        '''I use this class method to verify that two transcripts are intersecting.
-        If both are multiexonic, this amounts to checking whether there is at least one intron in common.
-        If both are monoexonic, this amounts to checking whether there is some overlap between them.
-        If one is monoexonic and the other is not, this function will return False by definition.        
+        '''When comparing two transcripts, for the definition of subloci inside superloci we follow these rules:
+        If both are multiexonic, the function verifies whether there is at least one intron in common.
+        If both are monoexonic, the function verifies whether there is some overlap between them.
+        If one is monoexonic and the other is not,  the function will return False by definition.        
         '''
         
         if transcript.id==other.id: return False # We do not want intersection with oneself
         monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript, other]   )  )   )
         
+        flag=False
         if monoexonic_check==0: #Both multiexonic
-            inter=set.intersection(transcript.junctions, other.junctions )
-            #print(transcript.id, other.id, inter)
-            if len(inter)>0: return True
+            for junc in transcript.junctions:
+                if junc in other.junctions:
+                    flag=True
+                    break
+                    
+            else:
+                flag=False
+#             return any( filter( lambda j: j in other.junctions, transcript.junctions ) )
         
         elif monoexonic_check==1: #One monoexonic, the other multiexonic: different subloci by definition
-            return False
+            flag=False
         
         elif monoexonic_check==2:
-            if cls.overlap(transcript, other)>0: #A simple overlap analysis will suffice
-                return True
-        
-        return False
+            if cls.overlap(
+                           (transcript.start, transcript.end),
+                           (other.start, other.end)
+                           )>=0: #A simple overlap analysis will suffice
+                flag=True
+        print(transcript.id, other.id, flag)
+        return flag
     
     def define_subloci(self):
         '''This method will define all subloci inside the superlocus.
         The method performs multiple calls to the BronKerbosch class method to define the possible groups of transcripts.        
         '''
+        
         candidates = set(self.transcripts) # This will order the transcripts based on their position
         if len(candidates)==0:
             raise ValueError("This superlocus has no transcripts in it!")
@@ -61,17 +73,25 @@ class superlocus(abstractlocus):
         subloci = dict()
         index=0
         
-        while len(candidates)>0:
-            result=self.BronKerbosch(set(), candidates, set())
-            index+=1
-            subloci[index]=result
-            candidates = set.difference( candidates, result )
+        original=copy(candidates)
+        
+        subloci = [ sublocus for sublocus in self.BronKerbosch(set(), candidates, set(), original)]
+        
+        found=sum(len(x) for x in subloci )
+            
+        assert found==len(self.transcripts), """Lost transcripts in translation ... {foundc} vs. {tc};
+        keys:
+        Found: {found}
+        Original: {orig}""".format(foundc=found,
+                                   tc=len(self.transcripts),
+                                   found=[",".join([t.id for t in s]) for s in subloci],
+                                   orig=[s.id for s in self.transcripts] )
 
         #Now we should define each sublocus and store it in a permanent structure of the class
         self.subloci = []
     
         for sublocus in subloci:
-            transcripts = list(subloci[sublocus])
+            transcripts = sorted( list(subloci[sublocus]), key=operator.attrgetter("start","end"))
             if len(transcripts)==0:
                 continue
             new_superlocus = superlocus(transcripts[0])
@@ -80,6 +100,33 @@ class superlocus(abstractlocus):
                     new_superlocus.add_transcript_to_locus(ttt)
                     
             self.subloci.append((new_superlocus, transcripts[0].monoexonic))
+    
+    
+    def __eq__(self, other):
+        if self.strand==other.strand and self.chrom==other.chrom and self.start==other.start and self.end==other.end:
+            return True
+        return False
+    
+    def __lt__(self, other):
+        if self.strand!=other.strand or self.chrom!=other.chrom:
+            return False
+        if self==other:
+            return False
+        if self.start<other.start:
+            return True
+        elif self.start==other.start and self.end<other.end:
+            return True
+        return False
+    
+    def __gt__(self, other):
+        return not self<other
+    
+    def __le__(self, other):
+        return (self==other) or (self<other)
+    
+    def __ge__(self, other):
+        return (self==other) or (self>other)         
+    
     
     def __str__(self):
         
@@ -102,7 +149,10 @@ class superlocus(abstractlocus):
         
         sublocus_lines = []
         counter=0
-        for sublocus in self.subloci:
+        print(self.subloci)
+        order=sorted(self.subloci, key=operator.itemgetter(0) )
+        
+        for sublocus in order:
             counter+=1
             sublocus, monoexonic = sublocus
             sublocus_id = "{0}.{1}".format(superlocus_id, counter)
@@ -121,7 +171,7 @@ class superlocus(abstractlocus):
             sublocus_line = "\t".join([str(s) for s in sublocus_line])
             
             sublocus_lines.append(sublocus_line)
-            for transcript in sublocus.transcripts:
+            for transcript in sorted(sublocus.transcripts, key=operator.attrgetter("start","end")):
                 transcript.parent=sublocus_id
                 sublocus_lines.append(str(transcript).rstrip())
                 

@@ -3,7 +3,7 @@
 from abstractlocus import abstractlocus
 import operator
 from copy import copy
-import random
+from sublocus import sublocus
 
 class superlocus(abstractlocus):
     
@@ -21,6 +21,7 @@ class superlocus(abstractlocus):
         - transcripts - a *set* which holds the transcripts added to the superlocus'''
         
         transcript.finalize()
+        self.feature="superlocus"
         self.__dict__.update(transcript.__dict__)
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
@@ -65,10 +66,8 @@ class superlocus(abstractlocus):
         '''This method will define all subloci inside the superlocus.
         Steps:
             - Call the BronKerbosch algorithm to define cliques
-            - 
-        
-        
-              
+            - Call the "merge_cliques" algorithm the merge the cliques.
+            - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
         '''
         
         candidates = set(self.transcripts) # This will order the transcripts based on their position
@@ -82,56 +81,30 @@ class superlocus(abstractlocus):
         
         subloci = self.merge_cliques(cliques)
         
-        found=sum(len(x) for x in subloci )
-            
-        assert found==len(self.transcripts), """Lost transcripts in translation ... {foundc} vs. {tc};
-        keys:
-        Found: {found}
-        Original: {orig}""".format(foundc=found,
-                                   tc=len(self.transcripts),
-                                   found=[[t.id for t in s] for s in  subloci],
-                                   orig=[s.id for s in self.transcripts] )
-
-        #Now we should define each sublocus and store it in a permanent structure of the class
+##         Got rid of the assertion control - it might suck up time significantly.
+#         found=sum(len(x) for x in subloci )
+#                     
+#         assert found==len(self.transcripts), """Lost transcripts in translation ... {foundc} vs. {tc};
+#         keys:
+#         Found: {found}
+#         Original: {orig}""".format(foundc=found,
+#                                    tc=len(self.transcripts),
+#                                    found=[[t.id for t in s] for s in  subloci],
+#                                    orig=[s.id for s in self.transcripts] )
+# 
+#         #Now we should define each sublocus and store it in a permanent structure of the class
         self.subloci = []
     
-        for sublocus in subloci:
-            transcripts = sorted( list(sublocus), key=operator.attrgetter("start","end"))
-            if len(transcripts)==0:
+        for subl in subloci:
+            if len(subl)==0:
                 continue
-            new_superlocus = superlocus(transcripts[0])
-            if len(transcripts)>1:
-                for ttt in transcripts[1:]:
-                    new_superlocus.add_transcript_to_locus(ttt)
+            
+            new_sublocus = sublocus(subl[0])
+            if len(subl)>1:
+                for ttt in subl[1:]:
+                    new_sublocus.add_transcript_to_locus(ttt)
                     
-            self.subloci.append((new_superlocus, transcripts[0].monoexonic))
-    
-    
-    def __eq__(self, other):
-        if self.strand==other.strand and self.chrom==other.chrom and self.start==other.start and self.end==other.end:
-            return True
-        return False
-    
-    def __lt__(self, other):
-        if self.strand!=other.strand or self.chrom!=other.chrom:
-            return False
-        if self==other:
-            return False
-        if self.start<other.start:
-            return True
-        elif self.start==other.start and self.end<other.end:
-            return True
-        return False
-    
-    def __gt__(self, other):
-        return not self<other
-    
-    def __le__(self, other):
-        return (self==other) or (self<other)
-    
-    def __ge__(self, other):
-        return (self==other) or (self>other)         
-    
+            self.subloci.append(new_sublocus)
     
     def __str__(self):
         
@@ -151,39 +124,17 @@ class superlocus(abstractlocus):
 
         superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(superlocus_id) ]
         superlocus_line = "\t".join(str(s) for s in superlocus_line)
-        
-        sublocus_lines = []
         counter=0
-        order=sorted(self.subloci, key=operator.itemgetter(0) )
         
-        for sublocus in order:
+        lines=[superlocus_line]        
+        for subl in iter(sorted(self.subloci, key=operator.attrgetter("start","end") )):
             counter+=1
-            sublocus, monoexonic = sublocus
-            sublocus_id = "{0}.{1}".format(superlocus_id, counter)
-            attr_field = "ID={0};Parent={1};".format(sublocus_id, superlocus_id)
-            if monoexonic is True:
-                tag="multiexonic=false;"
-            else:
-                tag="multiexonic=true;"
-            attr_field="{0}{1}".format(attr_field, tag)
-            if sublocus.strand is None:
-                substrand="."
-            else:
-                substrand=sublocus.strand
-            sublocus_line = [ self.chrom, "locus_pipeline", "sublocus", sublocus.start, sublocus.end,
-                             ".", substrand, ".", attr_field]
-            sublocus_line = "\t".join([str(s) for s in sublocus_line])
-            
-            sublocus_lines.append(sublocus_line)
-            for transcript in sorted(sublocus.transcripts, key=operator.attrgetter("start","end")):
-                transcript.parent=sublocus_id
-                sublocus_lines.append(str(transcript).rstrip())
-                
-        sublocus_lines="\n".join(sublocus_lines)
-        lines=[superlocus_line]
-        lines.append(sublocus_lines)
+            subl.id = "{0}.{1}".format(superlocus_id, counter)
+            subl.parent = superlocus_id
+            #attr_field = "ID={0};Parent={1};".format(sublocus_id, superlocus_id)
+            lines.append(str(subl).rstrip())
+
         try:
             return "\n".join(lines)
         except TypeError:
             raise TypeError(lines)
-            

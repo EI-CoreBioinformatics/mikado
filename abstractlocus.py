@@ -1,7 +1,5 @@
 import abc
-import operator
 import random
-from copy import deepcopy as copy
 
 class abstractlocus:
     
@@ -127,3 +125,29 @@ class abstractlocus:
             merged_cliques.add(tuple(new_node))
 
         return merged_cliques
+
+    
+    def __eq__(self, other):
+        if self.strand==other.strand and self.chrom==other.chrom and self.start==other.start and self.end==other.end:
+            return True
+        return False
+    
+    def __lt__(self, other):
+        if self.strand!=other.strand or self.chrom!=other.chrom:
+            return False
+        if self==other:
+            return False
+        if self.start<other.start:
+            return True
+        elif self.start==other.start and self.end<other.end:
+            return True
+        return False
+    
+    def __gt__(self, other):
+        return not self<other
+    
+    def __le__(self, other):
+        return (self==other) or (self<other)
+    
+    def __ge__(self, other):
+        return (self==other) or (self>other)         

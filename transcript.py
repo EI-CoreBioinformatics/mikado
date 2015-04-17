@@ -13,6 +13,7 @@ class transcript:
 #             raise AttributeError("Wrong feature line provided:\n{0}\n{1}".format( gffLine.feature, gffLine ))
         
         self.chrom = gffLine.chrom
+        self.feature="transcript"
         self.id = gffLine.attributes["ID"]
         self.start=gffLine.start
         self.strand = gffLine.strand

@@ -4,6 +4,7 @@ from superlocus import superlocus
 from transcript import transcript
 import sys,argparse
 from myRecords.GFF import GFF3
+from myRecords.GTF import GTF
 
 def add_transcripts(transcript_instance, sloci):
     if transcript_instance is None:
@@ -14,7 +15,7 @@ def add_transcripts(transcript_instance, sloci):
         slocus=superlocus(transcript_instance)
         sloci.append(slocus)
     else:
-        for sindex in range(len(sloci)):
+        for sindex in reversed(range(len(sloci))):
             slocus=sloci[sindex]
             if superlocus.in_locus(slocus, transcript_instance) is True:
                 sloci[sindex].add_transcript_to_locus(transcript_instance)
@@ -38,10 +39,12 @@ def main():
     currentTranscript=None
     currentChrom=None
     
-    for row in GFF3(args.gff):
+    if args.gff.name[-3:]=="gtf": rower=GTF(args.gff)
+    else: rower=GFF3(args.gff)
+    
+    for row in rower:
         
         if row.header is True: continue
-        
         if row.chrom!=currentChrom:
             if currentChrom is not None:
                 sloci=add_transcripts(currentTranscript, sloci)

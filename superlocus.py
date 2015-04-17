@@ -3,6 +3,7 @@
 from abstractlocus import abstractlocus
 import operator
 from copy import copy
+import random
 
 class superlocus(abstractlocus):
     
@@ -58,7 +59,6 @@ class superlocus(abstractlocus):
                            (other.start, other.end)
                            )>=0: #A simple overlap analysis will suffice
                 flag=True
-        print(transcript.id, other.id, flag)
         return flag
     
     def define_subloci(self):
@@ -70,12 +70,29 @@ class superlocus(abstractlocus):
         if len(candidates)==0:
             raise ValueError("This superlocus has no transcripts in it!")
         
-        subloci = dict()
-        index=0
         
         original=copy(candidates)
         
-        subloci = [ sublocus for sublocus in self.BronKerbosch(set(), candidates, set(), original)]
+        cliques = set( tuple(clique) for clique in self.BronKerbosch(set(), candidates, set(), original))
+        subloci=set()
+        
+        #Naive implementation of the merge-cliques problem
+        while True:
+            if len(cliques)==0: break
+            node=random.sample(cliques,1)[0]
+            #print([n.id for n in node])
+            cliques.remove(node)
+            new_node = set(node)
+            intersecting=set()
+            for sublocus in subloci:
+                if set.intersection(set(sublocus), new_node   ) != set():
+                    new_node=set.union(new_node, set(sublocus))
+                    intersecting.add(sublocus)
+            for s in intersecting: subloci.remove(s)
+            subloci.add(tuple(new_node))
+        
+        #cliques_copy = copy(cliques)
+        #subloci = [ sublocus for sublocus in self.BronKerbosch(set(), cliques, set(), cliques_copy, basic = True ) ]
         
         found=sum(len(x) for x in subloci )
             
@@ -84,14 +101,14 @@ class superlocus(abstractlocus):
         Found: {found}
         Original: {orig}""".format(foundc=found,
                                    tc=len(self.transcripts),
-                                   found=[",".join([t.id for t in s]) for s in subloci],
+                                   found=[[[t.id for t in r] for r in s] for s in subloci],
                                    orig=[s.id for s in self.transcripts] )
 
         #Now we should define each sublocus and store it in a permanent structure of the class
         self.subloci = []
     
         for sublocus in subloci:
-            transcripts = sorted( list(subloci[sublocus]), key=operator.attrgetter("start","end"))
+            transcripts = sorted( list(sublocus), key=operator.attrgetter("start","end"))
             if len(transcripts)==0:
                 continue
             new_superlocus = superlocus(transcripts[0])
@@ -149,7 +166,6 @@ class superlocus(abstractlocus):
         
         sublocus_lines = []
         counter=0
-        print(self.subloci)
         order=sorted(self.subloci, key=operator.itemgetter(0) )
         
         for sublocus in order:

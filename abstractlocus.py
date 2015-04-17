@@ -69,7 +69,7 @@ class abstractlocus:
         raise NotImplementedError("The is_intersecting method should be defined for each child!")
     
     @classmethod    
-    def BronKerbosch(cls, clique, candidates, non_clique, original ):
+    def BronKerbosch(cls, clique, candidates, non_clique, original, basic=False ):
         '''Implementation of the Bron-Kerbosch algorithm with pivot to define the subloci.
         We are using the class method "is_intersecting" to define the neighbours.
         Wiki: http://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm '''
@@ -81,24 +81,31 @@ class abstractlocus:
             return
 
         pivot = random.sample( pool, 1)[0]
-        pivot_neighbours = cls.neighbours(pivot, original )
-#        print(pivot_neighbours)                                                                                                                                                                             
+        pivot_neighbours = cls.neighbours(pivot, original, basic = basic )
+#        print(pivot_neighbours)                                                                                                                            
         excluded = set.difference( candidates, pivot_neighbours)
 
-
         for vertex in excluded:
-            vertex_neighbours = cls.neighbours(vertex, original)
+            vertex_neighbours = cls.neighbours(vertex, original, basic = basic)
             clique_vertex = set.union(clique, set([vertex]))
             for result in cls.BronKerbosch(
                     clique_vertex,
                     set.intersection(candidates, vertex_neighbours),
                     set.intersection(non_clique, vertex_neighbours),
-                    original):
+                    original,
+                    basic = basic):
                 yield result
             candidates.remove(vertex)
             non_clique.add(vertex)
 #        return clique
 
     @classmethod
-    def neighbours( cls, vertex, graph):
-        return set(filter(lambda x: cls.is_intersecting(vertex, x), graph))                   
+    def neighbours( cls, vertex, graph, basic=False):
+        if basic is False:
+            return set(filter(lambda x: cls.is_intersecting(vertex, x), graph))
+        else:
+            intersecting=set()
+            for node in graph:
+                if node==vertex: continue
+                if any(filter( lambda node_mem: node_mem in vertex, node  )): intersecting.add(node)
+            return intersecting

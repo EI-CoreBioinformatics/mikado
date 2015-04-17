@@ -8,9 +8,9 @@ Chr1	foo	exon	100	200	.	+	.	ID=t1:exon1;Parent=t1;
 Chr1	foo	exon	300	400	.	+	.	ID=t1:exon2;Parent=t1;
 Chr1	foo	exon	500	600	.	+	.	ID=t1:exon3;Parent=t1;
 ###
-Chr1	foo	transcript	500	1600	.	+	.	ID=t3;
-#Chr1	foo	exon	100	200	.	+	.	ID=t3:exon1;Parent=t3;
-#Chr1	foo	exon	300	390	.	+	.	ID=t3:exon2;Parent=t3;
+Chr1	foo	transcript	100	1600	.	+	.	ID=t3;
+Chr1	foo	exon	100	200	.	+	.	ID=t3:exon1;Parent=t3;
+Chr1	foo	exon	300	390	.	+	.	ID=t3:exon2;Parent=t3;
 Chr1	foo	exon	500	600	.	+	.	ID=t3:exon3;Parent=t3;
 Chr1	foo	exon	1000	1100	.	+	.	ID=t3:exon4;Parent=t3;
 Chr1	foo	exon	1200	1300	.	+	.	ID=t3:exon5;Parent=t3;
@@ -29,3 +29,33 @@ Chr1	foo	exon	1800	2000	.	+	.	ID=t2:exon3;Parent=t2;
 Chr1	foo	transcript	1550	1900	.	+	.	ID=t5;
 Chr1	foo	exon	1550	1600	.	+	.	ID=t5:exon1;Parent=t5;
 Chr1	foo	exon	1800	1900	.	+	.	ID=t5:exon2;Parent=t5;
+##
+Chr1	foo	transcript	100	200	.	-	.	ID=t0;
+Chr1	foo	exon	100	200	.	-	.	ID=t0:exon1;Parent=t0;
+###
+Chr1	foo	transcript	100	600	.	-	.	ID=t1;
+Chr1	foo	exon	100	200	.	-	.	ID=t1:exon1;Parent=t1;
+Chr1	foo	exon	300	400	.	-	.	ID=t1:exon2;Parent=t1;
+Chr1	foo	exon	500	600	.	-	.	ID=t1:exon3;Parent=t1;
+###
+Chr1	foo	transcript	100	1600	.	-	.	ID=t3;
+Chr1	foo	exon	100	200	.	-	.	ID=t3:exon1;Parent=t3;
+Chr1	foo	exon	300	390	.	-	.	ID=t3:exon2;Parent=t3;
+Chr1	foo	exon	500	600	.	-	.	ID=t3:exon3;Parent=t3;
+Chr1	foo	exon	1000	1100	.	-	.	ID=t3:exon4;Parent=t3;
+Chr1	foo	exon	1200	1300	.	-	.	ID=t3:exon5;Parent=t3;
+Chr1	foo	exon	1500	1600	.	-	.	ID=t3:exon6;Parent=t3;
+###
+Chr1	foo	transcript	350	550	.	-	.	ID=t4;
+Chr1	foo	exon	350	390	.	-	.	ID=t4:exon1;Parent=t4;
+Chr1	foo	exon	500	550	.	-	.	ID=t4:exon2;Parent=t4;
+###
+Chr1	foo	transcript	1000	2000	.	-	.	ID=t2;
+Chr1	foo	exon	1000	1100	.	-	.	ID=t2:exon1;Parent=t2;
+Chr1	foo	exon	1200	1300	.	-	.	ID=t2:exon2;Parent=t2;
+Chr1	foo	exon	1500	1600	.	-	.	ID=t2:exon3;Parent=t2;
+Chr1	foo	exon	1800	2000	.	-	.	ID=t2:exon3;Parent=t2;
+###
+Chr1	foo	transcript	1550	1900	.	-	.	ID=t5;
+Chr1	foo	exon	1550	1600	.	-	.	ID=t5:exon1;Parent=t5;
+Chr1	foo	exon	1800	1900	.	-	.	ID=t5:exon2;Parent=t5;

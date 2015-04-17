@@ -61,6 +61,9 @@ class transcript:
         lines.extend(exon_lines) 
         return "\n".join(lines)
         
+#     def __eq__(self, other):
+#         if self.id==other.id and self.start==other.start and self.end==other.end and self.chrom==other.chrom: return True
+#         else: return False
         
     def addExon(self, gffLine):
         '''This function will append an exon/CDS feature to the object.'''

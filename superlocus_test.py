@@ -46,7 +46,7 @@ def main():
             if currentChrom is not None:
                 sloci=add_transcripts(currentTranscript, sloci)
                 for slocus in sloci:
-                    print(slocus)
+                    print(slocus, file=args.out)
             currentChrom=row.chrom
             currentTranscript=None
             sloci=[]
@@ -60,7 +60,7 @@ def main():
         
     sloci=add_transcripts(currentTranscript, sloci)
     for slocus in sloci:
-        print(slocus)
+        print(slocus, file=args.out)
 
 if __name__=="__main__":
     main()

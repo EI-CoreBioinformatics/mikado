@@ -1,8 +1,7 @@
 import abc
-import superlocus
 import operator
 import random
-
+from copy import deepcopy as copy
 
 class abstractlocus:
     
@@ -69,7 +68,7 @@ class abstractlocus:
         raise NotImplementedError("The is_intersecting method should be defined for each child!")
     
     @classmethod    
-    def BronKerbosch(cls, clique, candidates, non_clique, original, basic=False ):
+    def BronKerbosch(cls, clique, candidates, non_clique, original ):
         '''Implementation of the Bron-Kerbosch algorithm with pivot to define the subloci.
         We are using the class method "is_intersecting" to define the neighbours.
         Wiki: http://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm '''
@@ -81,31 +80,50 @@ class abstractlocus:
             return
 
         pivot = random.sample( pool, 1)[0]
-        pivot_neighbours = cls.neighbours(pivot, original, basic = basic )
+        pivot_neighbours = cls.neighbours(pivot, original, )
 #        print(pivot_neighbours)                                                                                                                            
         excluded = set.difference( candidates, pivot_neighbours)
 
         for vertex in excluded:
-            vertex_neighbours = cls.neighbours(vertex, original, basic = basic)
+            vertex_neighbours = cls.neighbours(vertex, original )
             clique_vertex = set.union(clique, set([vertex]))
             for result in cls.BronKerbosch(
                     clique_vertex,
                     set.intersection(candidates, vertex_neighbours),
                     set.intersection(non_clique, vertex_neighbours),
-                    original,
-                    basic = basic):
+                    original):
                 yield result
             candidates.remove(vertex)
             non_clique.add(vertex)
 #        return clique
 
     @classmethod
-    def neighbours( cls, vertex, graph, basic=False):
-        if basic is False:
-            return set(filter(lambda x: cls.is_intersecting(vertex, x), graph))
-        else:
+    def neighbours( cls, vertex, graph):
+        '''Function to define the vertices which are near a given vertex in the graph.'''
+        return set(filter(lambda x: cls.is_intersecting(vertex, x), graph))
+        
+    @classmethod
+    def merge_cliques(cls, cliques):
+        '''This class method will merge together intersecting cliques found by the Bron-Kerbosch algorithm.
+        It is therefore used to e.g. create the subloci.
+        It is a somewhat naive implementation; it might be made better by looking for a more specific algorithm.
+        Usually the method should be called as follows:
+            - cliques = self.BronKerbosch( set(), candidates, set(), copy(candidates))
+            - merged_cliques = self.merge_cliques(cliques) 
+        '''
+        merged_cliques = set()
+        
+        while len(cliques)>0:
+            node=random.sample(cliques,1)[0]
+            cliques.remove(node)
+            new_node = set(node)
             intersecting=set()
-            for node in graph:
-                if node==vertex: continue
-                if any(filter( lambda node_mem: node_mem in vertex, node  )): intersecting.add(node)
-            return intersecting
+            for merged_clique in merged_cliques:
+                mc = set(merged_clique)
+                if set.intersection(mc, new_node ) != set():
+                    new_node=set.union(new_node, mc)
+                    intersecting.add(merged_clique)
+            for s in intersecting: merged_cliques.remove(s)
+            merged_cliques.add(tuple(new_node))
+
+        return merged_cliques

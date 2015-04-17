@@ -63,7 +63,12 @@ class superlocus(abstractlocus):
     
     def define_subloci(self):
         '''This method will define all subloci inside the superlocus.
-        The method performs multiple calls to the BronKerbosch class method to define the possible groups of transcripts.        
+        Steps:
+            - Call the BronKerbosch algorithm to define cliques
+            - 
+        
+        
+              
         '''
         
         candidates = set(self.transcripts) # This will order the transcripts based on their position
@@ -74,25 +79,8 @@ class superlocus(abstractlocus):
         original=copy(candidates)
         
         cliques = set( tuple(clique) for clique in self.BronKerbosch(set(), candidates, set(), original))
-        subloci=set()
         
-        #Naive implementation of the merge-cliques problem
-        while True:
-            if len(cliques)==0: break
-            node=random.sample(cliques,1)[0]
-            #print([n.id for n in node])
-            cliques.remove(node)
-            new_node = set(node)
-            intersecting=set()
-            for sublocus in subloci:
-                if set.intersection(set(sublocus), new_node   ) != set():
-                    new_node=set.union(new_node, set(sublocus))
-                    intersecting.add(sublocus)
-            for s in intersecting: subloci.remove(s)
-            subloci.add(tuple(new_node))
-        
-        #cliques_copy = copy(cliques)
-        #subloci = [ sublocus for sublocus in self.BronKerbosch(set(), cliques, set(), cliques_copy, basic = True ) ]
+        subloci = self.merge_cliques(cliques)
         
         found=sum(len(x) for x in subloci )
             
@@ -101,7 +89,7 @@ class superlocus(abstractlocus):
         Found: {found}
         Original: {orig}""".format(foundc=found,
                                    tc=len(self.transcripts),
-                                   found=[[[t.id for t in r] for r in s] for s in subloci],
+                                   found=[[t.id for t in s] for s in  subloci],
                                    orig=[s.id for s in self.transcripts] )
 
         #Now we should define each sublocus and store it in a permanent structure of the class

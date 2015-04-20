@@ -27,22 +27,26 @@ def main():
         
         if row.header is True: continue
         
-        if row.feature=="sublocus":
-            if currentTranscript is not None:
-                currentSub.add_transcript_to_locus(currentTranscript)
+        elif row.feature=="sublocus":
             if currentSub is not None:
+                currentSub.add_transcript_to_locus(currentTranscript)
                 currentSub.load_scores(scores)
                 currentSub.define_loci()
                 print(currentSub, file=args.out)
-                
-            currentSub=sublocus(row)
+                currentTranscript=None
             
+            currentSub=sublocus(row)
         elif row.feature=="transcript":
-            if currentTranscript is not None:
+            try:
                 currentSub.add_transcript_to_locus(currentTranscript)
+            except Exception as err:
+                print(currentSub)
+                raise err
             currentTranscript=transcript(row)
-        elif row.feature in ("exon", "CDS"):
+            
+        elif row.feature in ("exon","CDS"):
             currentTranscript.addExon(row)
+        
         else:
             continue
         

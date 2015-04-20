@@ -9,14 +9,18 @@ class locus(abstractlocus):
     '''Very basic class which holds a single transcript.'''
     
     def __init__(self, transcript):
-
+        
+        transcript.finalize()
+        self.__dict__.update(transcript.__dict__)
+        self.feature="locus"
+        self.splices = set(self.splices)
+        self.junctions = set(self.junctions)
         self.transcripts = set()
-        self.junctions = set()
-        self.splices = set()
+        self.transcripts.add(transcript)
         self.id=None
         self.parent=None
         
-        super().add_transcript_to_locus(transcript)
+#        super().add_transcript_to_locus(transcript)
         
  
     def add_transcript_to_locus(self, transcript):
@@ -37,12 +41,13 @@ class locus(abstractlocus):
                                         self.id,
                                         "{0};".format(self.parent) if self.parent is not None else ""
                                         )
-        self_line = [ self.chrom, "locus_pipeline", "sublocus", self.start, self.end,
+        self_line = [ self.chrom, "locus_pipeline", self.feature, self.start, self.end,
                              ".", strand, ".", attr_field]
-        lines.append("\t".join(self_line))
+        lines.append("\t".join([str(s) for s in self_line]))
         transcript=list(self.transcripts)[0]
+        transcript.parent=self.id
         lines.append(str(transcript).rstrip())
-        return lines
+        return "\n".join(lines)
     
 #     @property
 #     def splitted(self):

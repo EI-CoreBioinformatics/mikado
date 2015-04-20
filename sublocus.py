@@ -32,6 +32,7 @@ class sublocus(abstractlocus):
         
     
     def add_transcript_to_locus(self, transcript):
+        if transcript is None: return
         transcript.finalize()
         if self.monoexonic is None:
             self.monoexonic = transcript.monoexonic
@@ -55,18 +56,6 @@ class sublocus(abstractlocus):
             raise TypeError()
         self.__splitted=verified
     
-#     @classmethod
-#     def is_intersecting(cls, first, second):
-#                 
-#         
-#         ''' For the definition of the subloci we are interested in exonic overlaps, not intronic overlaps.'''
-#         
-#         for exon in first.exons:
-#             if any(filter( lambda oexon: cls.overlap(exon, oexon), second.exons  ) ):
-#                 return True
-#         return False
-# #        raise NotImplementedError()
-
     @classmethod
     def is_intersecting(cls, transcript, other):
         '''
@@ -78,7 +67,7 @@ class sublocus(abstractlocus):
             if any(
                    filter(
                           #Check that at least one couple of exons are overlapping
-                          lambda oexon: cls.overlap( (exon.start,exon.end), (oexon.start,oexon.end) )>=0, 
+                          lambda oexon: cls.overlap( exon, oexon )>=0, 
                           other.exons
                           )
                    ) is True:
@@ -93,13 +82,15 @@ class sublocus(abstractlocus):
         best_tid,best_score=self.choose_best(self.metrics)
         best_transcript=next(filter(lambda x: x.id==best_tid, self.transcripts))
         best_transcript.score=best_score
+        new_locus = locus(best_transcript)
+        self.loci.append(new_locus)
         remaining = self.transcripts.copy()
         remaining.remove(best_transcript)
         not_intersecting=set(filter(lambda x: not self.is_intersecting(best_transcript, x), remaining ))
         
         while len(not_intersecting)>0:
             metrics=dict((tid, self.metrics[tid]) for tid in self.metrics if tid in [ trans.id for trans in not_intersecting ]  )
-            best_tid=self.choose_best(metrics)
+            best_tid,best_score=self.choose_best(metrics)
             best_transcript=next(filter(lambda x: x.id==best_tid, not_intersecting))
             new_locus = locus(best_transcript)
             self.loci.append(new_locus)
@@ -142,7 +133,8 @@ class sublocus(abstractlocus):
             if len(best_tid)==0:
                 raise ValueError("Odd. I have not been able to find the transcript with the best score: {0}".format(best_score))
             else:
-                print("WARNING: multiple transcripts with the same score. I will choose one randomly.", file=sys.stderr)
+                print("WARNING: multiple transcripts with the same score ({0}). I will choose one randomly.".format(", ".join(best_tid)
+                                                                                                                    ) , file=sys.stderr)
                 best_tid=random.sample(best_tid, 1) #this returns a list
         best_tid=best_tid[0]
         return best_tid, best_score
@@ -155,19 +147,17 @@ class sublocus(abstractlocus):
             strand="."
         
         lines=[]
-        if self.splitted is False:
         
-            lines=[]
+        if self.splitted is False:
             attr_field="ID={0};Parent={1};multiexonic={2}".format(
-                                                                  self.id,
-                                                                  self.parent,
-                                                                  str(not self.monoexonic)
-                                                                  )
+                                                              self.id,
+                                                              self.parent,
+                                                              str(not self.monoexonic)
+                                                            )
                             
             self_line = [ self.chrom, "locus_pipeline", "sublocus", self.start, self.end,
-                             ".", strand, ".", attr_field]
+                     ".", strand, ".", attr_field]
             lines.append("\t".join([str(s) for s in self_line]))
-
         
             transcripts = iter(sorted(self.transcripts, key=operator.attrgetter("start", "end")))
             for transcript in transcripts:
@@ -175,6 +165,7 @@ class sublocus(abstractlocus):
                 lines.append(str(transcript).rstrip())
                 
         else:
+#            print(len(self.loci))
             for slocus in sorted(self.loci): #this should function ... I have implemented the sorting in the class ...
                 lines.append(str(slocus).rstrip())
                 

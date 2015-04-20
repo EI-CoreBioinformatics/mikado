@@ -11,7 +11,7 @@ def add_transcripts(transcript_instance, sloci):
         return sloci
     transcript_instance.finalize()
     foundLocus=False
-    if len(sloci)==0 or transcript_instance.start>sloci[-1].end:
+    if len(sloci)==0:
         slocus=superlocus(transcript_instance)
         sloci.append(slocus)
     else:

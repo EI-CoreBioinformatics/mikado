@@ -1,8 +1,7 @@
 #coding: utf_8
 
-from myRecords import Parser,HeaderError
+from myRecords import Parser
 import re
-import io
 
 class gtfLine(object):
     '''This class defines a typical GTF line, with some added functionality to make it useful in e.g. parsing cufflinks GTF files or creating GTF lines from scratch.
@@ -24,24 +23,29 @@ class gtfLine(object):
     - tss_id
     - ccode'''
 
-    _slots=['chrom','source','feature','start',\
-    'stop','score','strand','phase','info']
+    #_slots=['chrom','source','feature','start',\
+    #'stop','score','strand','phase','info']
 
     def __init__(self,line):
+        self.header=False
+        self.info={}
+        self.attributes=self.info
+        
         if line==None or line[0]=="#":
             for i in self._slots:
                 self.__dict__[i]=None
             self.fields=[]
             self.info={'gene_id': None, 'transcript_id': None}
+            
             self.transcript=None
             self.gene=None
-
-
+            self.header=True
         else:
             assert isinstance(line,str)
             self.fields=line.rstrip().split('\t')
             self.chrom,self.source,self.feature=self.fields[0:3]
             self.start,self.stop=tuple(int(i) for i in self.fields[3:5])
+            self.end=self.stop
             try: self.score=float(self.fields[5])
             except ValueError:
                 if self.fields[5]=='.': self.score=None
@@ -74,6 +78,12 @@ class gtfLine(object):
             self.ccode=None
             if 'gene_id' in self.info: self.gene=self.info['gene_id']
             if 'transcript_id' in self.info: self.transcript= self.info['transcript_id']
+            if self.feature=="transcript":
+                self.attributes["ID"]=self.id=self.transcript
+                self.parent=self.attributes["Parent"]=self.gene
+            else:
+                self.attributes["Parent"]=self.parent=self.transcript
+            
             if 'nearest_ref' in self.info: self.nearest_ref= self.info['nearest_ref']
             if 'tss_id' in self.info: self.tss_id= self.info['tss_id']
             if 'class_code' in self.info: self.ccode=self.info['class_code']

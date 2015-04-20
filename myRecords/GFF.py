@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 #coding: utf_8
 
-from myRecords import HeaderError
-import io,sys
+import io
 
 class gffLine(object):
 
@@ -23,9 +22,9 @@ class gffLine(object):
 				
 				Typical fields in attributes are: ID/Parent, Name'''
 
+        self.attributes=dict()
         self.id=None
         self.parent=None
-
 
         if line=='' and my_line!="":
             self._line=my_line
@@ -37,9 +36,7 @@ class gffLine(object):
         #     print(*self._line, file=sys.stderr)
 
         if self.header or len(self._fields)!=9 or self._line=='':
-            self.attributes={}
             self.feature=None
-            
             return
 
         if len(self._fields)!=9: return None
@@ -60,7 +57,6 @@ class gffLine(object):
             except: raise
 
         self._Attr=self._fields[8]
-        self.attributes={}
 
         self.attributeOrder=[]
 
@@ -72,28 +68,39 @@ class gffLine(object):
             except IndexError:
                 pass
 #                raise IndexError(item, itemized, self._Attr)
+            
+        if self.id is None:
+            id_key = list(filter(lambda x: x.upper()=="ID", self.attributes.keys()))
+            if len(id_key)>0:
+                id_key=id_key[0]
+                self.id = self.attributes[id_key]
+        if self.parent is None:
+            parent_key = list(filter(lambda x: x.upper()=="PARENT", self.attributes.keys()))
+            if len(parent_key)>0:
+                parent_key = parent_key[0]
+                self.parent = self.attributes[parent_key]
 
-        if "ID" in self.attributes or "Parent" in self.attributes or "PARENT" in self.attributes:
-            tags=['Name','ID','Parent']
-            if 'ID' in self.attributes:
-                self.id=self.attributes['ID']
-            elif "rank" in self.attributes:
-                self.id=None
-                if "ID" in self.attributes: del self.attributes['ID']
-            elif "Name" in self.attributes:
-                self.id=self.attributes['Name']
-            elif "NAME" in self.attributes:
-                self.id=self.attributes['NAME']
-            # else:
-            #     self.id=self.attributes['Parent']
-
-        for tag in self.attributes:
-            #self.__dict__[tag.lower()]=self.attributes[tag]
-            if tag in self.attributes: self.__dict__[tag.lower()]=self.attributes[tag]
+        assert self.parent is not None or self.id is not None
+            
         if "PARENT" in self.attributes and "Parent" not in self.attributes:
             self.attributes['Parent']=self.attributes['PARENT'][:]
             del self.attributes['PARENT']
-            self.parent=self.attributes['Parent']
+
+    @property
+    def id(self):
+        return self.attributes["ID"]
+    
+    @id.setter
+    def id(self,Id):
+        self.attributes["ID"]=Id
+        
+    @property
+    def parent(self):
+        return self.attributes["Parent"]
+    @parent.setter
+    def parent(self,parent):
+        self.attributes["Parent"]=parent
+    
 
     def __str__(self): 
         if not self.feature: return self._line.rstrip()
@@ -104,14 +111,10 @@ class gffLine(object):
         else: strand=self.strand
         if self.phase!=None: phase=str(self.phase)
         else: phase="."
-        if self.id is not None and "rank" not in self.attributes:
-            attrs=["ID={0}".format(self.id)]
-        else:
-            attrs=[]
+        attrs=["ID={0}".format(self.id)]
         if self.parent is not None:
-            attrs.append("Parent={0}".format(self.attributes['Parent']))
-        for att in self.attributeOrder:
-            if att in ["ID","Parent"]: continue
+            attrs.append("Parent={0}".format(self.parent))
+        for att in filter(lambda x: x not in ["ID","Parent"],  self.attributeOrder):
             try: attrs.append("{0}={1}".format(att, self.attributes[att]))
             except: continue #Hack for those times when we modify the attributes at runtime
             
@@ -149,12 +152,5 @@ class GFF3(object):
 
         if line[0]=="#":
             return gffLine(line, header=True)
-        # while line[0]=='#':
-        #     self.header+=line
-        #     line=self._handle.readline()
-        #     if len(line)==0: raise StopIteration
-        #     if line=='': raise StopIteration
-#        gff_line=gffLine(line)
-#        print(line, gff_line, file=sys.stderr)
 
         return gffLine(line)

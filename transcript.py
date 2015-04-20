@@ -41,9 +41,9 @@ class transcript:
             
         for attribute in self.attributes:
             if attribute in ("Parent","ID"): continue
-            attribute=attribute.lower()
-            attribute=re.sub(";",":", attribute)
-            value=re.sub(";",":",attribute)
+            value=self.attributes[attribute]
+            #ttribute=attribute.lower()
+            attribute=re.sub(";",":", attribute.lower())
             attr_field="{0};{1}={2}".format(attr_field,attribute, value)
         
         parent_line = [self.chrom, "locus_pipeline", "transcript", self.start, self.end, ".", strand, ".",  attr_field ]

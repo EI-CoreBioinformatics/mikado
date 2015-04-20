@@ -174,19 +174,3 @@ class locus(abstractlocus):
 #         
 #         
 #     
-#     def has_retained_introns(self, transcript_instance):
-#         
-#         '''This method checks the number of exons that are possibly retained introns for a given transcript.
-#         To perform this operation, it checks for each exon whether it exists a sublocus intron that
-#         is *completely* contained within a transcript exon.'''
-#         
-#         retained_introns=0
-#         for exon in transcript_instance.exons:
-#            
-#             if any(filter(
-#                           lambda junction: self.overlap(exon,junction)==junction[1]-junction[0],
-#                           self.junctions                          
-#                           )) is True:
-#                 retained_introns+=1
-#         return retained_introns
-#     

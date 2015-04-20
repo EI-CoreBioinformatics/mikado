@@ -56,7 +56,7 @@ def main():
         if row.feature=="transcript" or "RNA" in row.feature.upper() or row.feature=="mRNA":
             sloci=add_transcripts(currentTranscript, sloci)
             currentTranscript=transcript(row)
-        elif row.feature in ("exon", "CDS"):
+        elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper():
             currentTranscript.addExon(row)
         else:
             continue

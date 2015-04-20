@@ -20,6 +20,7 @@ class sublocus(abstractlocus):
         self.junctions = set()
         self.metrics=dict()
         self.splitted=False
+        self.exons=set()
 
         #Copy attributes into the current dictionary
         for key in ["parent", "id", "start", "end", "chrom", "strand", "attributes"]:
@@ -44,10 +45,13 @@ class sublocus(abstractlocus):
                                                                                                            self.monoexonic,
                                                                                                            transcript))
         super().add_transcript_to_locus(transcript)
+        self.exons = set.union(self.exons, transcript.exons)
         self.metrics[transcript.id]=dict()
     
     @property
     def splitted(self):
+        '''The splitted flag indicates whether a sublocus has already been processed to produce the necessary loci.
+        It must be set as a boolean flag (hence why it is coded as a property)'''
         return self.__splitted
     
     @splitted.setter
@@ -59,7 +63,8 @@ class sublocus(abstractlocus):
     @classmethod
     def is_intersecting(cls, transcript, other):
         '''
-        Implementation of the is_intersecting method. For the loci, it should be 
+        Implementation of the is_intersecting method. Here at the level of the sublocus,
+        the intersection is seen as overlap between exons. 
         '''
           
         if transcript.id==other.id: return False # We do not want intersection with oneself
@@ -100,6 +105,58 @@ class sublocus(abstractlocus):
     
         self.splitted=True
         return
+    
+    
+    def calculate_score(self, tid):
+        '''This function will try to calculate a score for a transcript various inputs.
+        The scoring function must consider the following factors:
+        - No. of exons
+        - % of exons on the total of the exons of the sublocus
+        - % of introns on the total of the intronts of the sublocus
+        - % of retained introns (see has_retained_introns)
+        - (if portcullis-like data available) % of high/low confidence introns
+        - No. and % of CDS exons
+        - CDS length
+        - multiple ORFS (negative)
+        - CDS exons present in the longest ORF
+        - Top CDS length
+        - Fraction of the transcript which is coding
+        - Total CDS length
+        - Difference between maximum and total CDS length (for transcripts with multiple ORFs)        
+        '''
+        
+        transcript_instance = next(filter( lambda t: t.id==tid, self.transcripts))
+        
+        self.metrics[tid]["exons"]=len(transcript_instance.exons)
+        self.metrics[tid]["exon_frac"] = len(set.intersection( self.exons,transcript_instance.exons   ))/len(self.exons)
+        self.metrics[tid]["intron_frac"] = len(set.intersection( self.junctions,transcript_instance.junctions   ))/len(self.junctions)
+        self.metrics[tid]["retained_introns"] = self.count_retained_introns(transcript_instance)
+        
+        self.metrics[tid]["cds"] = len(transcript_instance.cds)
+        self.metrics[tid]["cds_length"] = transcript_instance.cds_length
+        self.metrics["cds_fraction"] = transcript_instance.length
+        
+        pass
+        
+    
+    
+    def count_retained_introns(self, transcript_instance):
+         
+        '''This method checks the number of exons that are possibly retained introns for a given transcript.
+        To perform this operation, it checks for each exon whether it exists a sublocus intron that
+        is *completely* contained within a transcript exon.'''
+         
+        retained_introns=0
+        for exon in transcript_instance.exons:
+            
+            if any(filter(
+                          lambda junction: self.overlap(exon,junction)==junction[1]-junction[0],
+                          self.junctions                          
+                          )) is True:
+                retained_introns+=1
+        return retained_introns
+    
+    
     
     def load_scores(self, scores):
         '''Simple mock function to load scores for the transcripts from a tab-delimited file.

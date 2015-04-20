@@ -18,7 +18,7 @@ class transcript:
         self.start=gffLine.start
         self.strand = gffLine.strand
         self.end=gffLine.end
-        self.exons = []
+        self.exons, self.cds, self.utr = [], [], []
         self.junctions = []
         self.splices = []
         self.monoexonic = False
@@ -51,12 +51,38 @@ class transcript:
         parent_line ="\t".join( str(s) for s in parent_line )
         
         exon_lines = []
-        for index in range(len(self.exons)):
-            exon=self.exons[index]
-            exon_line = [self.chrom, "locus_pipeline", "exon", exon[0], exon[1],
+        
+        cds_begin = False
+        
+        cds_count=0
+        exon_count=0
+        utr_count=0
+        
+        for segment in self.segments:
+            if cds_begin is False and segment[0]=="CDS": cds_begin = True
+            if segment[0]=="UTR":
+                utr_count+=1
+                index=utr_count
+                if cds_begin is True:
+                    if self.strand=="-": feature="five_prime_utr"
+                    else: feature="three_prime_utr"
+                else:
+                    if self.strand=="-": feature="three_prime_utr"
+                    else: feature="five_prime_utr"
+            else:
+                if segment[0]=="CDS":
+                    cds_count+=1
+                    index=cds_count
+                else:
+                    exon_count+=1
+                    index=exon_count
+                feature=segment[0]
+            
+            exon_line = [self.chrom, "locus_pipeline", feature, segment[1], segment[2],
                          ".", strand, ".",
                          "Parent={0};ID={0}.{1}".format(self.id, index) ]
             exon_lines.append("\t".join(str(s) for s in exon_line))
+        
         
         lines=[parent_line]
         lines.extend(exon_lines) 
@@ -66,18 +92,40 @@ class transcript:
 #         if self.id==other.id and self.start==other.start and self.end==other.end and self.chrom==other.chrom: return True
 #         else: return False
         
+    @property
+    def cds_length(self):
+        return sum([ c[1]-c[0]+1 for c in self.cds ])
+        
+    @property
+    def length(self):
+        return sum([ e[1]-e[0]+1 for e in self.exons ])
+    
+    @property
+    def utr_length(self):
+        return sum([ e[1]-e[0]+1 for e in self.utr ])
+        
     def addExon(self, gffLine):
         '''This function will append an exon/CDS feature to the object.'''
-        if gffLine.feature not in ("exon", "CDS"):
-            raise AttributeError()
+#         if gffLine.feature not in ("exon", "CDS") or "UTR" not in gffLine.feature:
+#             raise AttributeError(gffLine.feature)
+    
+        if self.finalized is True:
+            raise RuntimeError("You cannot add exons to a finalized transcript!")
         
         if gffLine.attributes["Parent"]!=self.id:
             raise AssertionError("""Mismatch between transcript and exon:\n
             {0}\n
             {1}
             """.format(self.id, gffLine))
+        if gffLine.feature=="CDS":
+            store=self.cds
+        elif "UTR" in gffLine.feature:
+            store=self.utr
+        elif gffLine.feature=="exon":
+            store=self.exons
+            
         start,end=sorted([gffLine.start, gffLine.end])
-        self.exons.append((start, end) )
+        store.append((start, end) )
         
     def finalize(self):
         '''Function to calculate the internal introns from the exons.
@@ -86,7 +134,14 @@ class transcript:
         # We do not want to repeat this step multiple times
         if self.finalized is True:
             return
+
+        if self.utr!=[] and self.cds==[]:
+            raise ValueError("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
+
+        assert self.length == self.utr_length + self.cds_length, (self.length, self.utr_length, self.cds_length )
+
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
+        
         if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
             raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
                                                                                                                                                             tstart=self.start,
@@ -95,14 +150,17 @@ class transcript:
                                                                                                                                                             eend=self.exons[-1][1],
                                                                                                                                                             estart=self.exons[0][0],
                                                                                                                                                             ))
+        self.cds = sorted(self.cds, key=operator.itemgetter(0,1))
+        self.utr = sorted(self.utr, key=operator.itemgetter(0,1))
+        self.segments = [ ("exon",e[0],e[1]) for e in self.exons] + \
+                    [("CDS", c[0],c[1]) for c in self.cds ] + \
+                    [ ("UTR", u[0], u[1]) for u in self.utr ]
+        self.segments = sorted(self.segments, key=operator.itemgetter(1,2) )
         
         if len(self.exons)==1:
             self.monoexonic = True
             return # There is no sense in performing any operation on single exon transcripts
-        
-        
-        
-        
+
         for index in range(len(self.exons)-1):
             exonA, exonB = self.exons[index:index+2]
             if exonA[1]>=exonB[0]:

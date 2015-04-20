@@ -138,7 +138,7 @@ class transcript:
         if self.utr!=[] and self.cds==[]:
             raise ValueError("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
-        assert self.length == self.utr_length + self.cds_length, (self.length, self.utr_length, self.cds_length )
+        assert self.cds_length==self.utr_length==0 or  self.length == self.utr_length + self.cds_length, (self.length, self.utr_length, self.cds_length )
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
         

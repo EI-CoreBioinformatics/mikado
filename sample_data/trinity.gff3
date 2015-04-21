@@ -1,281 +1,430 @@
 ##gff-version   3
-##sequence-region   Chr2 627314 636160
-Chr2	trinityGG_Denovo	transcript	627314	628064	.	+	.	ID=transcript1;Name=TR10910|c6_g1_i1;coverage=100.0;identity=99.7;matches=367;mismatches=1;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	627314	627397	98	+	.	Parent=transcript1;Name=TR10910|c6_g1_i1;Target=TR10910|c6_g1_i1 1 84 +
-Chr2	trinityGG_Denovo	exon	627488	627559	100	+	.	Parent=transcript1;Name=TR10910|c6_g1_i1;Target=TR10910|c6_g1_i1 85 156 +
-Chr2	trinityGG_Denovo	exon	627696	627768	100	+	.	Parent=transcript1;Name=TR10910|c6_g1_i1;Target=TR10910|c6_g1_i1 157 229 +
-Chr2	trinityGG_Denovo	exon	627840	627915	100	+	.	Parent=transcript1;Name=TR10910|c6_g1_i1;Target=TR10910|c6_g1_i1 230 305 +
-Chr2	trinityGG_Denovo	exon	628002	628064	100	+	.	Parent=transcript1;Name=TR10910|c6_g1_i1;Target=TR10910|c6_g1_i1 306 368 +
+##sequence-region   Chr2 628931 635212
+Chr2	transdecoder	gene	628931	630869	.	+	.	ID=TR33059|c0_g1_i2.mrna1|g.3124;Name=ORF
+Chr2	transdecoder	mRNA	628931	630869	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|g.3124;Name=ORF
+Chr2	transdecoder	exon	628931	629017	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon1;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	628931	629017	.	+	0	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon2;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	629114	629201	.	+	0	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	629297	629353	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon3;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	629297	629353	.	+	2	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	629539	629624	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon4;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	629539	629624	.	+	2	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon5;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon6;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon7;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon8;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	CDS	630530	630607	.	+	0	ID=cds.TR33059|c0_g1_i2.mrna1|m.3124;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	exon	630530	630869	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.exon9;Parent=TR33059|c0_g1_i2.mrna1|m.3124
+Chr2	transdecoder	three_prime_UTR	630608	630869	.	+	.	ID=TR33059|c0_g1_i2.mrna1|m.3124.utr3p1;Parent=TR33059|c0_g1_i2.mrna1|m.3124
 ###
-Chr2	trinityGG_Denovo	transcript	627314	628064	.	+	.	ID=transcript2;Name=TR10910|c6_g1_i2;coverage=100.0;identity=99.8;matches=438;mismatches=1;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	627314	627397	98	+	.	Parent=transcript2;Name=TR10910|c6_g1_i2;Target=TR10910|c6_g1_i2 1 84 +
-Chr2	trinityGG_Denovo	exon	627488	627559	100	+	.	Parent=transcript2;Name=TR10910|c6_g1_i2;Target=TR10910|c6_g1_i2 85 156 +
-Chr2	trinityGG_Denovo	exon	627696	627915	100	+	.	Parent=transcript2;Name=TR10910|c6_g1_i2;Target=TR10910|c6_g1_i2 157 376 +
-Chr2	trinityGG_Denovo	exon	628002	628064	100	+	.	Parent=transcript2;Name=TR10910|c6_g1_i2;Target=TR10910|c6_g1_i2 377 439 +
+Chr2	transdecoder	gene	628931	630869	.	+	.	ID=TR33059|c0_g1_i6.mrna1|g.13571;Name=ORF
+Chr2	transdecoder	mRNA	628931	630869	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|g.13571;Name=ORF
+Chr2	transdecoder	exon	628931	629017	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon1;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	628931	629017	.	+	0	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon2;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	629114	629201	.	+	0	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	629297	629353	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon3;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	629297	629353	.	+	2	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	629518	629624	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon4;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	629518	629624	.	+	2	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon5;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon6;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon7;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon8;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	CDS	630530	630607	.	+	0	ID=cds.TR33059|c0_g1_i6.mrna1|m.13571;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	exon	630530	630869	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.exon9;Parent=TR33059|c0_g1_i6.mrna1|m.13571
+Chr2	transdecoder	three_prime_UTR	630608	630869	.	+	.	ID=TR33059|c0_g1_i6.mrna1|m.13571.utr3p1;Parent=TR33059|c0_g1_i6.mrna1|m.13571
 ###
-Chr2	trinityGG_Denovo	transcript	628042	628579	.	+	.	ID=transcript3;Name=TR10910|c10_g1_i1;coverage=100.0;identity=99.2;matches=237;mismatches=2;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628042	628105	100	+	.	Parent=transcript3;Name=TR10910|c10_g1_i1;Target=TR10910|c10_g1_i1 1 64 +
-Chr2	trinityGG_Denovo	exon	628182	628241	98	+	.	Parent=transcript3;Name=TR10910|c10_g1_i1;Target=TR10910|c10_g1_i1 65 124 +
-Chr2	trinityGG_Denovo	exon	628465	628579	99	+	.	Parent=transcript3;Name=TR10910|c10_g1_i1;Target=TR10910|c10_g1_i1 125 239 +
+Chr2	transdecoder	gene	628931	631017	.	+	.	ID=TR33059|c0_g1_i1.mrna1|g.231;Name=ORF
+Chr2	transdecoder	mRNA	628931	631017	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|g.231;Name=ORF
+Chr2	transdecoder	five_prime_UTR	628931	629017	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.utr5p1;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	628931	629017	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon1;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	five_prime_UTR	629114	629201	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.utr5p2;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon2;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	five_prime_UTR	629297	629477	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.utr5p3;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	629297	629624	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon3;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	CDS	629478	629624	.	+	0	ID=cds.TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon4;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon5;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon6;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon7;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	630530	630589	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon8;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	CDS	630530	630589	.	+	0	ID=cds.TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	CDS	630848	630955	.	+	0	ID=cds.TR33059|c0_g1_i1.mrna1|m.231;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	exon	630848	631017	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.exon9;Parent=TR33059|c0_g1_i1.mrna1|m.231
+Chr2	transdecoder	three_prime_UTR	630956	631017	.	+	.	ID=TR33059|c0_g1_i1.mrna1|m.231.utr3p1;Parent=TR33059|c0_g1_i1.mrna1|m.231
 ###
-Chr2	trinityGG_Denovo	transcript	628047	628578	.	+	.	ID=transcript4;Name=TR33059|c1_g1_i1;coverage=100.0;identity=98.7;matches=230;mismatches=3;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628047	628105	98	+	.	Parent=transcript4;Name=TR33059|c1_g1_i1;Target=TR33059|c1_g1_i1 175 233 -
-Chr2	trinityGG_Denovo	exon	628182	628241	98	+	.	Parent=transcript4;Name=TR33059|c1_g1_i1;Target=TR33059|c1_g1_i1 115 174 -
-Chr2	trinityGG_Denovo	exon	628465	628578	99	+	.	Parent=transcript4;Name=TR33059|c1_g1_i1;Target=TR33059|c1_g1_i1 1 114 -
+Chr2	transdecoder	gene	628931	631145	.	+	.	ID=TR33059|c0_g1_i3.mrna1|g.7012;Name=ORF
+Chr2	transdecoder	mRNA	628931	631145	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|g.7012;Name=ORF
+Chr2	transdecoder	exon	628931	629017	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon1;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	628931	629017	.	+	0	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon2;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	629114	629201	.	+	0	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	629297	629353	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon3;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	629297	629353	.	+	2	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	629518	629624	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon4;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	629518	629624	.	+	2	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon5;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon6;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon7;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon8;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	630530	630589	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon9;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	630530	630589	.	+	0	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	CDS	630848	630955	.	+	0	ID=cds.TR33059|c0_g1_i3.mrna1|m.7012;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	exon	630848	631145	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.exon10;Parent=TR33059|c0_g1_i3.mrna1|m.7012
+Chr2	transdecoder	three_prime_UTR	630956	631145	.	+	.	ID=TR33059|c0_g1_i3.mrna1|m.7012.utr3p1;Parent=TR33059|c0_g1_i3.mrna1|m.7012
 ###
-Chr2	trinityGG_Denovo	transcript	628220	628462	.	+	.	ID=transcript5;Name=TR10910|c2_g1_i1;coverage=100.0;identity=100.0;matches=243;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628220	628462	100	+	.	Parent=transcript5;Name=TR10910|c2_g1_i1;Target=TR10910|c2_g1_i1 1 243 +
+Chr2	transdecoder	gene	628931	631145	.	+	.	ID=TR33059|c0_g1_i4.mrna1|g.14861;Name=ORF
+Chr2	transdecoder	mRNA	628931	631145	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|g.14861;Name=ORF
+Chr2	transdecoder	exon	628931	629017	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon1;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	628931	629017	.	+	0	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon2;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	629114	629201	.	+	0	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	629297	629353	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon3;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	629297	629353	.	+	2	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	629539	629624	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon4;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	629539	629624	.	+	2	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon5;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon6;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon7;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon8;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	630530	630589	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon9;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	630530	630589	.	+	0	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	CDS	630848	630955	.	+	0	ID=cds.TR33059|c0_g1_i4.mrna1|m.14861;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	exon	630848	631145	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.exon10;Parent=TR33059|c0_g1_i4.mrna1|m.14861
+Chr2	transdecoder	three_prime_UTR	630956	631145	.	+	.	ID=TR33059|c0_g1_i4.mrna1|m.14861.utr3p1;Parent=TR33059|c0_g1_i4.mrna1|m.14861
 ###
-Chr2	trinityGG_Denovo	transcript	628931	630869	.	+	.	ID=transcript6;Name=TR33059|c0_g1_i2;coverage=100.0;identity=100.0;matches=922;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628931	629017	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 836 922 -
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 748 835 -
-Chr2	trinityGG_Denovo	exon	629297	629353	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 691 747 -
-Chr2	trinityGG_Denovo	exon	629539	629624	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 605 690 -
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 533 604 -
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 479 532 -
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 403 478 -
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 341 402 -
-Chr2	trinityGG_Denovo	exon	630530	630869	100	+	.	Parent=transcript6;Name=TR33059|c0_g1_i2;Target=TR33059|c0_g1_i2 1 340 -
+Chr2	transdecoder	gene	628949	631017	.	+	.	ID=TR10910|c5_g1_i1.mrna1|g.11526;Name=ORF
+Chr2	transdecoder	mRNA	628949	631017	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|g.11526;Name=ORF
+Chr2	transdecoder	exon	628949	629017	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon1;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	628949	629017	.	+	0	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon2;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	629114	629201	.	+	0	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	629297	629353	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon3;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	629297	629353	.	+	2	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	629518	629624	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon4;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	629518	629624	.	+	2	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon5;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon6;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon7;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon8;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	630530	630589	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon9;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	630530	630589	.	+	0	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	CDS	630848	630955	.	+	0	ID=cds.TR10910|c5_g1_i1.mrna1|m.11526;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	exon	630848	631017	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.exon10;Parent=TR10910|c5_g1_i1.mrna1|m.11526
+Chr2	transdecoder	three_prime_UTR	630956	631017	.	+	.	ID=TR10910|c5_g1_i1.mrna1|m.11526.utr3p1;Parent=TR10910|c5_g1_i1.mrna1|m.11526
 ###
-Chr2	trinityGG_Denovo	transcript	628931	630869	.	+	.	ID=transcript7;Name=TR33059|c0_g1_i6;coverage=100.0;identity=100.0;matches=943;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628931	629017	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 857 943 -
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 769 856 -
-Chr2	trinityGG_Denovo	exon	629297	629353	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 712 768 -
-Chr2	trinityGG_Denovo	exon	629518	629624	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 605 711 -
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 533 604 -
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 479 532 -
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 403 478 -
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 341 402 -
-Chr2	trinityGG_Denovo	exon	630530	630869	100	+	.	Parent=transcript7;Name=TR33059|c0_g1_i6;Target=TR33059|c0_g1_i6 1 340 -
+Chr2	transdecoder	gene	628949	631017	.	+	.	ID=TR10910|c5_g2_i1.mrna1|g.7659;Name=ORF
+Chr2	transdecoder	mRNA	628949	631017	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|g.7659;Name=ORF
+Chr2	transdecoder	exon	628949	629017	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon1;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	628949	629017	.	+	0	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon2;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	629114	629201	.	+	0	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	629297	629353	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon3;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	629297	629353	.	+	2	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	629539	629624	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon4;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	629539	629624	.	+	2	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon5;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon6;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon7;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon8;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	630530	630589	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon9;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	630530	630589	.	+	0	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	CDS	630848	630955	.	+	0	ID=cds.TR10910|c5_g2_i1.mrna1|m.7659;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	exon	630848	631017	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.exon10;Parent=TR10910|c5_g2_i1.mrna1|m.7659
+Chr2	transdecoder	three_prime_UTR	630956	631017	.	+	.	ID=TR10910|c5_g2_i1.mrna1|m.7659.utr3p1;Parent=TR10910|c5_g2_i1.mrna1|m.7659
 ###
-Chr2	trinityGG_Denovo	transcript	628931	631017	.	+	.	ID=transcript8;Name=TR33059|c0_g1_i1;coverage=99.7;identity=100.0;matches=997;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628931	629017	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 914 1000 -
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 826 913 -
-Chr2	trinityGG_Denovo	exon	629297	629624	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 498 825 -
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 426 497 -
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 372 425 -
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 296 371 -
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 234 295 -
-Chr2	trinityGG_Denovo	exon	630530	630589	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 174 233 -
-Chr2	trinityGG_Denovo	exon	630848	631017	100	+	.	Parent=transcript8;Name=TR33059|c0_g1_i1;Target=TR33059|c0_g1_i1 4 173 -
+Chr2	transdecoder	gene	628949	631017	.	+	.	ID=TR10910|c5_g3_i1.mrna1|g.3546;Name=ORF
+Chr2	transdecoder	mRNA	628949	631017	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|g.3546;Name=ORF
+Chr2	transdecoder	five_prime_UTR	628949	629017	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.utr5p1;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	628949	629017	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon1;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	five_prime_UTR	629114	629201	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.utr5p2;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	629114	629201	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon2;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	five_prime_UTR	629297	629477	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.utr5p3;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	629297	629624	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon3;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	CDS	629478	629624	.	+	0	ID=cds.TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	629720	629791	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon4;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	CDS	629720	629791	.	+	0	ID=cds.TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	629950	630003	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon5;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	CDS	629950	630003	.	+	0	ID=cds.TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	630090	630165	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon6;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	CDS	630090	630165	.	+	0	ID=cds.TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	630312	630373	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon7;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	CDS	630312	630373	.	+	2	ID=cds.TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	630530	630589	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon8;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	CDS	630530	630589	.	+	0	ID=cds.TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	CDS	630848	630955	.	+	0	ID=cds.TR10910|c5_g3_i1.mrna1|m.3546;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	exon	630848	631017	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.exon9;Parent=TR10910|c5_g3_i1.mrna1|m.3546
+Chr2	transdecoder	three_prime_UTR	630956	631017	.	+	.	ID=TR10910|c5_g3_i1.mrna1|m.3546.utr3p1;Parent=TR10910|c5_g3_i1.mrna1|m.3546
 ###
-Chr2	trinityGG_Denovo	transcript	628931	631145	.	+	.	ID=transcript9;Name=TR33059|c0_g1_i3;coverage=100.0;identity=99.8;matches=959;mismatches=2;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628931	629017	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 875 961 -
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 787 874 -
-Chr2	trinityGG_Denovo	exon	629297	629353	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 730 786 -
-Chr2	trinityGG_Denovo	exon	629518	629624	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 623 729 -
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 551 622 -
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 497 550 -
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 421 496 -
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 359 420 -
-Chr2	trinityGG_Denovo	exon	630530	630589	100	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 299 358 -
-Chr2	trinityGG_Denovo	exon	630848	631145	99	+	.	Parent=transcript9;Name=TR33059|c0_g1_i3;Target=TR33059|c0_g1_i3 1 298 -
+Chr2	transdecoder	gene	630569	633893	.	+	.	ID=TR10910|c7_g1_i6.mrna1|g.8919;Name=ORF
+Chr2	transdecoder	mRNA	630569	633893	.	+	.	ID=TR10910|c7_g1_i6.mrna1|m.8919;Parent=TR10910|c7_g1_i6.mrna1|g.8919;Name=ORF
+Chr2	transdecoder	exon	630569	630589	.	+	.	ID=TR10910|c7_g1_i6.mrna1|m.8919.exon1;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	CDS	630569	630589	.	+	0	ID=cds.TR10910|c7_g1_i6.mrna1|m.8919;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	exon	633209	633280	.	+	.	ID=TR10910|c7_g1_i6.mrna1|m.8919.exon2;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	CDS	633209	633280	.	+	0	ID=cds.TR10910|c7_g1_i6.mrna1|m.8919;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	exon	633400	633524	.	+	.	ID=TR10910|c7_g1_i6.mrna1|m.8919.exon3;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	CDS	633400	633524	.	+	0	ID=cds.TR10910|c7_g1_i6.mrna1|m.8919;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	CDS	633628	633820	.	+	1	ID=cds.TR10910|c7_g1_i6.mrna1|m.8919;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	exon	633628	633893	.	+	.	ID=TR10910|c7_g1_i6.mrna1|m.8919.exon4;Parent=TR10910|c7_g1_i6.mrna1|m.8919
+Chr2	transdecoder	three_prime_UTR	633821	633893	.	+	.	ID=TR10910|c7_g1_i6.mrna1|m.8919.utr3p1;Parent=TR10910|c7_g1_i6.mrna1|m.8919
 ###
-Chr2	trinityGG_Denovo	transcript	628931	631145	.	+	.	ID=transcript10;Name=TR33059|c0_g1_i4;coverage=100.0;identity=99.8;matches=938;mismatches=2;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628931	629017	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 854 940 -
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 766 853 -
-Chr2	trinityGG_Denovo	exon	629297	629353	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 709 765 -
-Chr2	trinityGG_Denovo	exon	629539	629624	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 623 708 -
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 551 622 -
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 497 550 -
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 421 496 -
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 359 420 -
-Chr2	trinityGG_Denovo	exon	630530	630589	100	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 299 358 -
-Chr2	trinityGG_Denovo	exon	630848	631145	99	+	.	Parent=transcript10;Name=TR33059|c0_g1_i4;Target=TR33059|c0_g1_i4 1 298 -
+Chr2	transdecoder	gene	630569	635212	.	+	.	ID=TR10910|c7_g1_i7.mrna1|g.12861;Name=ORF
+Chr2	transdecoder	mRNA	630569	635212	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861;Parent=TR10910|c7_g1_i7.mrna1|g.12861;Name=ORF
+Chr2	transdecoder	five_prime_UTR	630569	630589	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.utr5p1;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	630569	630589	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon1;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	five_prime_UTR	633209	633280	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.utr5p2;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	633209	633280	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon2;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	five_prime_UTR	633400	633524	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.utr5p3;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	633400	633524	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon3;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	five_prime_UTR	633617	633700	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.utr5p4;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	633617	633791	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon4;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	CDS	633701	633791	.	+	0	ID=cds.TR10910|c7_g1_i7.mrna1|m.12861;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon5;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i7.mrna1|m.12861;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon6;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i7.mrna1|m.12861;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	634177	634260	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon7;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	CDS	634177	634260	.	+	0	ID=cds.TR10910|c7_g1_i7.mrna1|m.12861;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	634340	634378	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon8;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	CDS	634340	634378	.	+	0	ID=cds.TR10910|c7_g1_i7.mrna1|m.12861;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	CDS	634458	634613	.	+	0	ID=cds.TR10910|c7_g1_i7.mrna1|m.12861;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.exon9;Parent=TR10910|c7_g1_i7.mrna1|m.12861
+Chr2	transdecoder	three_prime_UTR	634614	635212	.	+	.	ID=TR10910|c7_g1_i7.mrna1|m.12861.utr3p1;Parent=TR10910|c7_g1_i7.mrna1|m.12861
 ###
-Chr2	trinityGG_Denovo	transcript	628949	631017	.	+	.	ID=transcript11;Name=TR10910|c5_g3_i1;coverage=99.4;identity=100.0;matches=979;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628949	629017	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 2 70 +
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 71 158 +
-Chr2	trinityGG_Denovo	exon	629297	629624	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 159 486 +
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 487 558 +
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 559 612 +
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 613 688 +
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 689 750 +
-Chr2	trinityGG_Denovo	exon	630530	630589	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 751 810 +
-Chr2	trinityGG_Denovo	exon	630848	631017	100	+	.	Parent=transcript11;Name=TR10910|c5_g3_i1;Target=TR10910|c5_g3_i1 811 980 +
+Chr2	transdecoder	gene	631336	632332	.	-	.	ID=TR10910|c4_g1_i1.mrna1|g.12688;Name=ORF
+Chr2	transdecoder	mRNA	631336	632332	.	-	.	ID=TR10910|c4_g1_i1.mrna1|m.12688;Parent=TR10910|c4_g1_i1.mrna1|g.12688;Name=ORF
+Chr2	transdecoder	three_prime_UTR	631336	631975	.	-	.	ID=TR10910|c4_g1_i1.mrna1|m.12688.utr3p1;Parent=TR10910|c4_g1_i1.mrna1|m.12688
+Chr2	transdecoder	exon	631336	632332	.	-	.	ID=TR10910|c4_g1_i1.mrna1|m.12688.exon1;Parent=TR10910|c4_g1_i1.mrna1|m.12688
+Chr2	transdecoder	CDS	631976	632332	.	-	0	ID=cds.TR10910|c4_g1_i1.mrna1|m.12688;Parent=TR10910|c4_g1_i1.mrna1|m.12688
 ###
-Chr2	trinityGG_Denovo	transcript	628949	631017	.	+	.	ID=transcript12;Name=TR10910|c5_g1_i1;coverage=99.3;identity=100.0;matches=815;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628949	629017	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 2 70 +
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 71 158 +
-Chr2	trinityGG_Denovo	exon	629297	629353	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 159 215 +
-Chr2	trinityGG_Denovo	exon	629518	629624	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 216 322 +
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 323 394 +
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 395 448 +
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 449 524 +
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 525 586 +
-Chr2	trinityGG_Denovo	exon	630530	630589	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 587 646 +
-Chr2	trinityGG_Denovo	exon	630848	631017	100	+	.	Parent=transcript12;Name=TR10910|c5_g1_i1;Target=TR10910|c5_g1_i1 647 816 +
+Chr2	transdecoder	gene	631336	632332	.	-	.	ID=TR10910|c4_g2_i1.mrna1|g.1433;Name=ORF
+Chr2	transdecoder	mRNA	631336	632332	.	-	.	ID=TR10910|c4_g2_i1.mrna1|m.1433;Parent=TR10910|c4_g2_i1.mrna1|g.1433;Name=ORF
+Chr2	transdecoder	three_prime_UTR	631336	631412	.	-	.	ID=TR10910|c4_g2_i1.mrna1|m.1433.utr3p1;Parent=TR10910|c4_g2_i1.mrna1|m.1433
+Chr2	transdecoder	exon	631336	631904	.	-	.	ID=TR10910|c4_g2_i1.mrna1|m.1433.exon2;Parent=TR10910|c4_g2_i1.mrna1|m.1433
+Chr2	transdecoder	CDS	631413	631904	.	-	0	ID=cds.TR10910|c4_g2_i1.mrna1|m.1433;Parent=TR10910|c4_g2_i1.mrna1|m.1433
+Chr2	transdecoder	exon	631985	632332	.	-	.	ID=TR10910|c4_g2_i1.mrna1|m.1433.exon1;Parent=TR10910|c4_g2_i1.mrna1|m.1433
+Chr2	transdecoder	CDS	631985	632332	.	-	0	ID=cds.TR10910|c4_g2_i1.mrna1|m.1433;Parent=TR10910|c4_g2_i1.mrna1|m.1433
 ###
-Chr2	trinityGG_Denovo	transcript	628949	631017	.	+	.	ID=transcript13;Name=TR10910|c5_g2_i1;coverage=99.2;identity=100.0;matches=794;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	628949	629017	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 2 70 +
-Chr2	trinityGG_Denovo	exon	629114	629201	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 71 158 +
-Chr2	trinityGG_Denovo	exon	629297	629353	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 159 215 +
-Chr2	trinityGG_Denovo	exon	629539	629624	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 216 301 +
-Chr2	trinityGG_Denovo	exon	629720	629791	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 302 373 +
-Chr2	trinityGG_Denovo	exon	629950	630003	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 374 427 +
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 428 503 +
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 504 565 +
-Chr2	trinityGG_Denovo	exon	630530	630589	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 566 625 +
-Chr2	trinityGG_Denovo	exon	630848	631017	100	+	.	Parent=transcript13;Name=TR10910|c5_g2_i1;Target=TR10910|c5_g2_i1 626 795 +
+Chr2	transdecoder	gene	631337	632559	.	-	.	ID=TR33060|c0_g1_i1.mrna1|g.11050;Name=ORF
+Chr2	transdecoder	mRNA	631337	632559	.	-	.	ID=TR33060|c0_g1_i1.mrna1|m.11050;Parent=TR33060|c0_g1_i1.mrna1|g.11050;Name=ORF
+Chr2	transdecoder	three_prime_UTR	631337	631975	.	-	.	ID=TR33060|c0_g1_i1.mrna1|m.11050.utr3p1;Parent=TR33060|c0_g1_i1.mrna1|m.11050
+Chr2	transdecoder	exon	631337	632559	.	-	.	ID=TR33060|c0_g1_i1.mrna1|m.11050.exon1;Parent=TR33060|c0_g1_i1.mrna1|m.11050
+Chr2	transdecoder	CDS	631976	632449	.	-	0	ID=cds.TR33060|c0_g1_i1.mrna1|m.11050;Parent=TR33060|c0_g1_i1.mrna1|m.11050
+Chr2	transdecoder	five_prime_UTR	632450	632559	.	-	.	ID=TR33060|c0_g1_i1.mrna1|m.11050.utr5p1;Parent=TR33060|c0_g1_i1.mrna1|m.11050
 ###
-Chr2	trinityGG_Denovo	transcript	629981	631145	.	+	.	ID=transcript14;Name=TR33059|c0_g1_i5;coverage=100.0;identity=99.6;matches=536;mismatches=2;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	629981	630022	100	+	.	Parent=transcript14;Name=TR33059|c0_g1_i5;Target=TR33059|c0_g1_i5 497 538 -
-Chr2	trinityGG_Denovo	exon	630090	630165	100	+	.	Parent=transcript14;Name=TR33059|c0_g1_i5;Target=TR33059|c0_g1_i5 421 496 -
-Chr2	trinityGG_Denovo	exon	630312	630373	100	+	.	Parent=transcript14;Name=TR33059|c0_g1_i5;Target=TR33059|c0_g1_i5 359 420 -
-Chr2	trinityGG_Denovo	exon	630530	630589	100	+	.	Parent=transcript14;Name=TR33059|c0_g1_i5;Target=TR33059|c0_g1_i5 299 358 -
-Chr2	trinityGG_Denovo	exon	630848	631145	99	+	.	Parent=transcript14;Name=TR33059|c0_g1_i5;Target=TR33059|c0_g1_i5 1 298 -
+Chr2	transdecoder	gene	631337	632559	.	-	.	ID=TR33060|c0_g2_i1.mrna1|g.9373;Name=ORF
+Chr2	transdecoder	mRNA	631337	632559	.	-	.	ID=TR33060|c0_g2_i1.mrna1|m.9373;Parent=TR33060|c0_g2_i1.mrna1|g.9373;Name=ORF
+Chr2	transdecoder	three_prime_UTR	631337	631412	.	-	.	ID=TR33060|c0_g2_i1.mrna1|m.9373.utr3p1;Parent=TR33060|c0_g2_i1.mrna1|m.9373
+Chr2	transdecoder	exon	631337	631904	.	-	.	ID=TR33060|c0_g2_i1.mrna1|m.9373.exon2;Parent=TR33060|c0_g2_i1.mrna1|m.9373
+Chr2	transdecoder	CDS	631413	631904	.	-	0	ID=cds.TR33060|c0_g2_i1.mrna1|m.9373;Parent=TR33060|c0_g2_i1.mrna1|m.9373
+Chr2	transdecoder	CDS	631985	632449	.	-	0	ID=cds.TR33060|c0_g2_i1.mrna1|m.9373;Parent=TR33060|c0_g2_i1.mrna1|m.9373
+Chr2	transdecoder	exon	631985	632559	.	-	.	ID=TR33060|c0_g2_i1.mrna1|m.9373.exon1;Parent=TR33060|c0_g2_i1.mrna1|m.9373
+Chr2	transdecoder	five_prime_UTR	632450	632559	.	-	.	ID=TR33060|c0_g2_i1.mrna1|m.9373.utr5p1;Parent=TR33060|c0_g2_i1.mrna1|m.9373
 ###
-Chr2	trinityGG_Denovo	transcript	630352	630552	.	+	.	ID=transcript15;Name=TR10910|c1_g1_i1;coverage=100.0;identity=98.5;matches=198;mismatches=3;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	630352	630552	98	+	.	Parent=transcript15;Name=TR10910|c1_g1_i1;Target=TR10910|c1_g1_i1 1 201 +
+Chr2	transdecoder	gene	632370	635212	.	+	.	ID=TR10910|c7_g1_i1.mrna1|g.11151;Name=ORF
+Chr2	transdecoder	mRNA	632370	635212	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|g.11151;Name=ORF
+Chr2	transdecoder	five_prime_UTR	632370	632886	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.utr5p1;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	632370	632904	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon1;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	CDS	632887	632904	.	+	0	ID=cds.TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	633209	633280	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon2;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	CDS	633209	633280	.	+	0	ID=cds.TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	633400	633524	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon3;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	CDS	633400	633524	.	+	0	ID=cds.TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	633628	633791	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon4;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	CDS	633628	633791	.	+	1	ID=cds.TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon5;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon6;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	CDS	634177	634329	.	+	0	ID=cds.TR10910|c7_g1_i1.mrna1|m.11151;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	634177	634378	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon7;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	three_prime_UTR	634330	634378	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.utr3p1;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.exon8;Parent=TR10910|c7_g1_i1.mrna1|m.11151
+Chr2	transdecoder	three_prime_UTR	634458	635212	.	+	.	ID=TR10910|c7_g1_i1.mrna1|m.11151.utr3p2;Parent=TR10910|c7_g1_i1.mrna1|m.11151
 ###
-Chr2	trinityGG_Denovo	transcript	630568	630797	.	+	.	ID=transcript16;Name=TR10910|c8_g1_i1;coverage=100.0;identity=100.0;matches=230;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	630568	630797	100	+	.	Parent=transcript16;Name=TR10910|c8_g1_i1;Target=TR10910|c8_g1_i1 1 230 +
+Chr2	transdecoder	gene	632370	635212	.	+	.	ID=TR10910|c7_g1_i11.mrna1|g.11406;Name=ORF
+Chr2	transdecoder	mRNA	632370	635212	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406;Parent=TR10910|c7_g1_i11.mrna1|g.11406;Name=ORF
+Chr2	transdecoder	five_prime_UTR	632370	632874	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.utr5p1;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	exon	632370	632874	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.exon1;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	five_prime_UTR	633209	633524	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.utr5p2;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	exon	633209	633524	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.exon2;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	five_prime_UTR	633617	633700	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.utr5p3;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	exon	633617	633791	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.exon3;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	CDS	633701	633791	.	+	0	ID=cds.TR10910|c7_g1_i11.mrna1|m.11406;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.exon4;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i11.mrna1|m.11406;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.exon5;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i11.mrna1|m.11406;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	CDS	634177	634329	.	+	0	ID=cds.TR10910|c7_g1_i11.mrna1|m.11406;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	exon	634177	634378	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.exon6;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	three_prime_UTR	634330	634378	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.utr3p1;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.exon7;Parent=TR10910|c7_g1_i11.mrna1|m.11406
+Chr2	transdecoder	three_prime_UTR	634458	635212	.	+	.	ID=TR10910|c7_g1_i11.mrna1|m.11406.utr3p2;Parent=TR10910|c7_g1_i11.mrna1|m.11406
 ###
-Chr2	trinityGG_Denovo	transcript	630568	630869	.	-	.	ID=transcript17;Name=TR33059|c0_g2_i1;coverage=100.0;identity=99.7;matches=301;mismatches=1;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	630568	630869	99	-	.	Parent=transcript17;Name=TR33059|c0_g2_i1;Target=TR33059|c0_g2_i1 1 302 +
+Chr2	transdecoder	gene	632370	635212	.	+	.	ID=TR10910|c7_g1_i2.mrna1|g.8926;Name=ORF
+Chr2	transdecoder	mRNA	632370	635212	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926;Parent=TR10910|c7_g1_i2.mrna1|g.8926;Name=ORF
+Chr2	transdecoder	five_prime_UTR	632370	632904	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.utr5p1;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	632370	632904	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon1;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	five_prime_UTR	633209	633280	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.utr5p2;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	633209	633280	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon2;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	five_prime_UTR	633400	633524	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.utr5p3;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	633400	633524	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon3;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	five_prime_UTR	633617	633700	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.utr5p4;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	633617	633791	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon4;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	CDS	633701	633791	.	+	0	ID=cds.TR10910|c7_g1_i2.mrna1|m.8926;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon5;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i2.mrna1|m.8926;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon6;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i2.mrna1|m.8926;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	CDS	634177	634329	.	+	0	ID=cds.TR10910|c7_g1_i2.mrna1|m.8926;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	634177	634378	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon7;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	three_prime_UTR	634330	634378	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.utr3p1;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.exon8;Parent=TR10910|c7_g1_i2.mrna1|m.8926
+Chr2	transdecoder	three_prime_UTR	634458	635212	.	+	.	ID=TR10910|c7_g1_i2.mrna1|m.8926.utr3p2;Parent=TR10910|c7_g1_i2.mrna1|m.8926
 ###
-Chr2	trinityGG_Denovo	transcript	630569	633893	.	+	.	ID=transcript18;Name=TR10910|c7_g1_i6;coverage=100.0;identity=100.0;matches=484;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	630569	630589	100	+	.	Parent=transcript18;Name=TR10910|c7_g1_i6;Target=TR10910|c7_g1_i6 1 21 +
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript18;Name=TR10910|c7_g1_i6;Target=TR10910|c7_g1_i6 22 93 +
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript18;Name=TR10910|c7_g1_i6;Target=TR10910|c7_g1_i6 94 218 +
-Chr2	trinityGG_Denovo	exon	633628	633893	100	+	.	Parent=transcript18;Name=TR10910|c7_g1_i6;Target=TR10910|c7_g1_i6 219 484 +
+Chr2	transdecoder	gene	632370	635212	.	+	.	ID=TR10910|c7_g1_i4.mrna1|g.7885;Name=ORF
+Chr2	transdecoder	mRNA	632370	635212	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|g.7885;Name=ORF
+Chr2	transdecoder	five_prime_UTR	632370	632712	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.utr5p1;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	632370	632874	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon1;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	CDS	632713	632874	.	+	0	ID=cds.TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	633209	633280	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon2;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	CDS	633209	633280	.	+	0	ID=cds.TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	633400	633524	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon3;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	CDS	633400	633524	.	+	0	ID=cds.TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	633628	633791	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon4;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	CDS	633628	633791	.	+	1	ID=cds.TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon5;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon6;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	CDS	634177	634329	.	+	0	ID=cds.TR10910|c7_g1_i4.mrna1|m.7885;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	634177	634378	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon7;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	three_prime_UTR	634330	634378	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.utr3p1;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.exon8;Parent=TR10910|c7_g1_i4.mrna1|m.7885
+Chr2	transdecoder	three_prime_UTR	634458	635212	.	+	.	ID=TR10910|c7_g1_i4.mrna1|m.7885.utr3p2;Parent=TR10910|c7_g1_i4.mrna1|m.7885
 ###
-Chr2	trinityGG_Denovo	transcript	630569	633893	.	+	.	ID=transcript19;Name=TR10910|c7_g1_i10;coverage=100.0;identity=100.0;matches=495;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	630569	630589	100	+	.	Parent=transcript19;Name=TR10910|c7_g1_i10;Target=TR10910|c7_g1_i10 1 21 +
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript19;Name=TR10910|c7_g1_i10;Target=TR10910|c7_g1_i10 22 93 +
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript19;Name=TR10910|c7_g1_i10;Target=TR10910|c7_g1_i10 94 218 +
-Chr2	trinityGG_Denovo	exon	633617	633893	100	+	.	Parent=transcript19;Name=TR10910|c7_g1_i10;Target=TR10910|c7_g1_i10 219 495 +
+Chr2	transdecoder	gene	632370	635212	.	+	.	ID=TR10910|c7_g1_i5.mrna1|g.9198;Name=ORF
+Chr2	transdecoder	mRNA	632370	635212	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|g.9198;Name=ORF
+Chr2	transdecoder	five_prime_UTR	632370	632874	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.utr5p1;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	632370	632874	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon1;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	five_prime_UTR	633209	633423	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.utr5p2;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	633209	633524	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon2;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	CDS	633424	633524	.	+	0	ID=cds.TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	633628	633791	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon3;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	CDS	633628	633791	.	+	1	ID=cds.TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon4;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon5;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	634177	634260	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon6;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	CDS	634177	634260	.	+	0	ID=cds.TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	634340	634378	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon7;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	CDS	634340	634378	.	+	0	ID=cds.TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	CDS	634458	634613	.	+	0	ID=cds.TR10910|c7_g1_i5.mrna1|m.9198;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.exon8;Parent=TR10910|c7_g1_i5.mrna1|m.9198
+Chr2	transdecoder	three_prime_UTR	634614	635212	.	+	.	ID=TR10910|c7_g1_i5.mrna1|m.9198.utr3p1;Parent=TR10910|c7_g1_i5.mrna1|m.9198
 ###
-Chr2	trinityGG_Denovo	transcript	630569	635212	.	+	.	ID=transcript20;Name=TR10910|c7_g1_i7;coverage=99.9;identity=99.8;matches=1393;mismatches=1;indels=2;unknowns=0
-Chr2	trinityGG_Denovo	exon	630569	630589	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 1 21 +
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 22 93 +
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 94 218 +
-Chr2	trinityGG_Denovo	exon	633617	633791	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 219 393 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 394 463 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 464 518 +
-Chr2	trinityGG_Denovo	exon	634177	634260	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 519 602 +
-Chr2	trinityGG_Denovo	exon	634340	634378	100	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 603 641 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript20;Name=TR10910|c7_g1_i7;Target=TR10910|c7_g1_i7 642 1394 +
+Chr2	transdecoder	gene	632370	635212	.	+	.	ID=TR10910|c7_g1_i8.mrna1|g.13260;Name=ORF
+Chr2	transdecoder	mRNA	632370	635212	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260;Parent=TR10910|c7_g1_i8.mrna1|g.13260;Name=ORF
+Chr2	transdecoder	five_prime_UTR	632370	632874	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.utr5p1;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	exon	632370	632874	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.exon1;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	five_prime_UTR	633209	633423	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.utr5p2;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	exon	633209	633524	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.exon2;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	CDS	633424	633524	.	+	0	ID=cds.TR10910|c7_g1_i8.mrna1|m.13260;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	exon	633628	633791	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.exon3;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	CDS	633628	633791	.	+	1	ID=cds.TR10910|c7_g1_i8.mrna1|m.13260;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.exon4;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i8.mrna1|m.13260;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.exon5;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i8.mrna1|m.13260;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	CDS	634177	634329	.	+	0	ID=cds.TR10910|c7_g1_i8.mrna1|m.13260;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	exon	634177	634378	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.exon6;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	three_prime_UTR	634330	634378	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.utr3p1;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.exon7;Parent=TR10910|c7_g1_i8.mrna1|m.13260
+Chr2	transdecoder	three_prime_UTR	634458	635212	.	+	.	ID=TR10910|c7_g1_i8.mrna1|m.13260.utr3p2;Parent=TR10910|c7_g1_i8.mrna1|m.13260
 ###
-Chr2	trinityGG_Denovo	transcript	630630	630869	.	-	.	ID=transcript21;Name=TR33059|c0_g3_i1;coverage=100.0;identity=99.6;matches=239;mismatches=1;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	630630	630869	99	-	.	Parent=transcript21;Name=TR33059|c0_g3_i1;Target=TR33059|c0_g3_i1 1 240 +
+Chr2	transdecoder	gene	632370	635212	.	+	.	ID=TR10910|c7_g1_i9.mrna1|g.7080;Name=ORF
+Chr2	transdecoder	mRNA	632370	635212	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|g.7080;Name=ORF
+Chr2	transdecoder	five_prime_UTR	632370	632886	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.utr5p1;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	632370	632904	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon1;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	632887	632904	.	+	0	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	633209	633280	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon2;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	633209	633280	.	+	0	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	633400	633524	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon3;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	633400	633524	.	+	0	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	633628	633791	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon4;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	633628	633791	.	+	1	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon5;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon6;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	634177	634260	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon7;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	634177	634260	.	+	0	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	634340	634378	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon8;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	634340	634378	.	+	0	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	CDS	634458	634613	.	+	0	ID=cds.TR10910|c7_g1_i9.mrna1|m.7080;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.exon9;Parent=TR10910|c7_g1_i9.mrna1|m.7080
+Chr2	transdecoder	three_prime_UTR	634614	635212	.	+	.	ID=TR10910|c7_g1_i9.mrna1|m.7080.utr3p1;Parent=TR10910|c7_g1_i9.mrna1|m.7080
 ###
-Chr2	trinityGG_Denovo	transcript	630994	631196	.	+	.	ID=transcript22;Name=TR10910|c11_g1_i1;coverage=100.0;identity=98.0;matches=199;mismatches=4;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	630994	631196	98	+	.	Parent=transcript22;Name=TR10910|c11_g1_i1;Target=TR10910|c11_g1_i1 1 203 +
+Chr2	transdecoder	gene	632761	634476	.	+	.	ID=TR33051|c0_g1_i1.mrna1|g.14025;Name=ORF
+Chr2	transdecoder	mRNA	632761	634476	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|g.14025;Name=ORF
+Chr2	transdecoder	exon	632761	632874	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon1;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	632761	632874	.	+	0	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	633209	633280	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon2;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	633209	633280	.	+	0	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	633400	633524	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon3;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	633400	633524	.	+	0	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	633628	633791	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon4;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	633628	633791	.	+	1	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	633873	633942	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon5;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	633873	633942	.	+	2	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	634027	634081	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon6;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	634027	634081	.	+	1	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	634177	634260	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon7;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	634177	634260	.	+	0	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	634340	634378	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon8;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	634340	634378	.	+	0	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	CDS	634458	634475	.	+	0	ID=cds.TR33051|c0_g1_i1.mrna1|m.14025;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	exon	634458	634476	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.exon9;Parent=TR33051|c0_g1_i1.mrna1|m.14025
+Chr2	transdecoder	three_prime_UTR	634476	634476	.	+	.	ID=TR33051|c0_g1_i1.mrna1|m.14025.utr3p1;Parent=TR33051|c0_g1_i1.mrna1|m.14025
 ###
-Chr2	trinityGG_Denovo	transcript	631336	632332	.	-	.	ID=transcript23;Name=TR10910|c4_g2_i1;coverage=99.8;identity=99.7;matches=914;mismatches=3;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	631336	631904	99	-	.	Parent=transcript23;Name=TR10910|c4_g2_i1;Target=TR10910|c4_g2_i1 2 570 -
-Chr2	trinityGG_Denovo	exon	631985	632332	99	-	.	Parent=transcript23;Name=TR10910|c4_g2_i1;Target=TR10910|c4_g2_i1 571 918 -
-###
-Chr2	trinityGG_Denovo	transcript	631336	632332	.	+	.	ID=transcript24;Name=TR10910|c4_g1_i1;coverage=99.8;identity=99.7;matches=994;mismatches=3;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	631336	632332	99	+	.	Parent=transcript24;Name=TR10910|c4_g1_i1;Target=TR10910|c4_g1_i1 2 998 +
-###
-Chr2	trinityGG_Denovo	transcript	631337	632559	.	-	.	ID=transcript25;Name=TR33060|c0_g2_i1;coverage=99.8;identity=99.5;matches=1137;mismatches=6;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	631337	631904	99	-	.	Parent=transcript25;Name=TR33060|c0_g2_i1;Target=TR33060|c0_g2_i1 576 1143 +
-Chr2	trinityGG_Denovo	exon	631985	632559	99	-	.	Parent=transcript25;Name=TR33060|c0_g2_i1;Target=TR33060|c0_g2_i1 1 575 +
-###
-Chr2	trinityGG_Denovo	transcript	631337	632559	.	-	.	ID=transcript26;Name=TR33060|c0_g1_i1;coverage=99.8;identity=99.5;matches=1217;mismatches=6;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	631337	632559	99	-	.	Parent=transcript26;Name=TR33060|c0_g1_i1;Target=TR33060|c0_g1_i1 1 1223 +
-###
-Chr2	trinityGG_Denovo	transcript	632370	635212	.	+	.	ID=transcript27;Name=TR10910|c7_g1_i4;coverage=99.8;identity=99.7;matches=1944;mismatches=2;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	632370	632874	99	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 4 509 +
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 510 581 +
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 582 706 +
-Chr2	trinityGG_Denovo	exon	633628	633791	100	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 707 870 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 871 940 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 941 995 +
-Chr2	trinityGG_Denovo	exon	634177	634378	100	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 996 1197 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript27;Name=TR10910|c7_g1_i4;Target=TR10910|c7_g1_i4 1198 1950 +
-###
-Chr2	trinityGG_Denovo	transcript	632370	635212	.	+	.	ID=transcript28;Name=TR10910|c7_g1_i8;coverage=99.8;identity=99.8;matches=2063;mismatches=2;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	632370	632874	99	+	.	Parent=transcript28;Name=TR10910|c7_g1_i8;Target=TR10910|c7_g1_i8 4 509 +
-Chr2	trinityGG_Denovo	exon	633209	633524	100	+	.	Parent=transcript28;Name=TR10910|c7_g1_i8;Target=TR10910|c7_g1_i8 510 825 +
-Chr2	trinityGG_Denovo	exon	633628	633791	100	+	.	Parent=transcript28;Name=TR10910|c7_g1_i8;Target=TR10910|c7_g1_i8 826 989 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript28;Name=TR10910|c7_g1_i8;Target=TR10910|c7_g1_i8 990 1059 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript28;Name=TR10910|c7_g1_i8;Target=TR10910|c7_g1_i8 1060 1114 +
-Chr2	trinityGG_Denovo	exon	634177	634378	100	+	.	Parent=transcript28;Name=TR10910|c7_g1_i8;Target=TR10910|c7_g1_i8 1115 1316 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript28;Name=TR10910|c7_g1_i8;Target=TR10910|c7_g1_i8 1317 2069 +
-###
-Chr2	trinityGG_Denovo	transcript	632370	635212	.	+	.	ID=transcript29;Name=TR10910|c7_g1_i5;coverage=99.8;identity=99.7;matches=1984;mismatches=2;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	632370	632874	99	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 4 509 +
-Chr2	trinityGG_Denovo	exon	633209	633524	100	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 510 825 +
-Chr2	trinityGG_Denovo	exon	633628	633791	100	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 826 989 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 990 1059 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 1060 1114 +
-Chr2	trinityGG_Denovo	exon	634177	634260	100	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 1115 1198 +
-Chr2	trinityGG_Denovo	exon	634340	634378	100	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 1199 1237 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript29;Name=TR10910|c7_g1_i5;Target=TR10910|c7_g1_i5 1238 1990 +
-###
-Chr2	trinityGG_Denovo	transcript	632370	635212	.	+	.	ID=transcript30;Name=TR10910|c7_g1_i2;coverage=99.8;identity=99.7;matches=1985;mismatches=2;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	632370	632904	99	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 4 539 +
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 540 611 +
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 612 736 +
-Chr2	trinityGG_Denovo	exon	633617	633791	100	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 737 911 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 912 981 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 982 1036 +
-Chr2	trinityGG_Denovo	exon	634177	634378	100	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 1037 1238 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript30;Name=TR10910|c7_g1_i2;Target=TR10910|c7_g1_i2 1239 1991 +
-###
-Chr2	trinityGG_Denovo	transcript	632370	635212	.	+	.	ID=transcript31;Name=TR10910|c7_g1_i1;coverage=99.8;identity=99.7;matches=1974;mismatches=2;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	632370	632904	99	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 4 539 +
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 540 611 +
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 612 736 +
-Chr2	trinityGG_Denovo	exon	633628	633791	100	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 737 900 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 901 970 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 971 1025 +
-Chr2	trinityGG_Denovo	exon	634177	634378	100	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 1026 1227 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript31;Name=TR10910|c7_g1_i1;Target=TR10910|c7_g1_i1 1228 1980 +
-###
-Chr2	trinityGG_Denovo	transcript	632370	635212	.	+	.	ID=transcript32;Name=TR10910|c7_g1_i11;coverage=99.8;identity=99.8;matches=2074;mismatches=2;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	632370	632874	99	+	.	Parent=transcript32;Name=TR10910|c7_g1_i11;Target=TR10910|c7_g1_i11 4 509 +
-Chr2	trinityGG_Denovo	exon	633209	633524	100	+	.	Parent=transcript32;Name=TR10910|c7_g1_i11;Target=TR10910|c7_g1_i11 510 825 +
-Chr2	trinityGG_Denovo	exon	633617	633791	100	+	.	Parent=transcript32;Name=TR10910|c7_g1_i11;Target=TR10910|c7_g1_i11 826 1000 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript32;Name=TR10910|c7_g1_i11;Target=TR10910|c7_g1_i11 1001 1070 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript32;Name=TR10910|c7_g1_i11;Target=TR10910|c7_g1_i11 1071 1125 +
-Chr2	trinityGG_Denovo	exon	634177	634378	100	+	.	Parent=transcript32;Name=TR10910|c7_g1_i11;Target=TR10910|c7_g1_i11 1126 1327 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript32;Name=TR10910|c7_g1_i11;Target=TR10910|c7_g1_i11 1328 2080 +
-###
-Chr2	trinityGG_Denovo	transcript	632370	635212	.	+	.	ID=transcript33;Name=TR10910|c7_g1_i9;coverage=99.8;identity=99.7;matches=1895;mismatches=2;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	632370	632904	99	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 4 539 +
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 540 611 +
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 612 736 +
-Chr2	trinityGG_Denovo	exon	633628	633791	100	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 737 900 +
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 901 970 +
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 971 1025 +
-Chr2	trinityGG_Denovo	exon	634177	634260	100	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 1026 1109 +
-Chr2	trinityGG_Denovo	exon	634340	634378	100	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 1110 1148 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript33;Name=TR10910|c7_g1_i9;Target=TR10910|c7_g1_i9 1149 1901 +
-###
-Chr2	trinityGG_Denovo	transcript	632761	634476	.	+	.	ID=transcript34;Name=TR33051|c0_g1_i1;coverage=100.0;identity=100.0;matches=742;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	632761	632874	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 629 742 -
-Chr2	trinityGG_Denovo	exon	633209	633280	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 557 628 -
-Chr2	trinityGG_Denovo	exon	633400	633524	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 432 556 -
-Chr2	trinityGG_Denovo	exon	633628	633791	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 268 431 -
-Chr2	trinityGG_Denovo	exon	633873	633942	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 198 267 -
-Chr2	trinityGG_Denovo	exon	634027	634081	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 143 197 -
-Chr2	trinityGG_Denovo	exon	634177	634260	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 59 142 -
-Chr2	trinityGG_Denovo	exon	634340	634378	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 20 58 -
-Chr2	trinityGG_Denovo	exon	634458	634476	100	+	.	Parent=transcript34;Name=TR33051|c0_g1_i1;Target=TR33051|c0_g1_i1 1 19 -
-###
-Chr2	trinityGG_Denovo	transcript	632890	633226	.	+	.	ID=transcript35;Name=TR10910|c9_g1_i1;coverage=99.7;identity=99.7;matches=336;mismatches=1;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	632890	633226	99	+	.	Parent=transcript35;Name=TR10910|c9_g1_i1;Target=TR10910|c9_g1_i1 2 338 +
-###
-Chr2	trinityGG_Denovo	transcript	633920	635212	.	+	.	ID=transcript36;Name=TR10910|c7_g1_i3;coverage=99.9;identity=99.6;matches=1116;mismatches=1;indels=3;unknowns=0
-Chr2	trinityGG_Denovo	exon	633920	634081	99	+	.	Parent=transcript36;Name=TR10910|c7_g1_i3;Target=TR10910|c7_g1_i3 1 163 +
-Chr2	trinityGG_Denovo	exon	634177	634378	100	+	.	Parent=transcript36;Name=TR10910|c7_g1_i3;Target=TR10910|c7_g1_i3 164 365 +
-Chr2	trinityGG_Denovo	exon	634458	635212	99	+	.	Parent=transcript36;Name=TR10910|c7_g1_i3;Target=TR10910|c7_g1_i3 366 1118 +
-###
-Chr2	trinityGG_Denovo	transcript	634060	634361	.	+	.	ID=transcript37;Name=TR10910|c7_g2_i1;coverage=100.0;identity=100.0;matches=223;mismatches=0;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	634060	634260	100	+	.	Parent=transcript37;Name=TR10910|c7_g2_i1;Target=TR10910|c7_g2_i1 1 201 +
-Chr2	trinityGG_Denovo	exon	634340	634361	100	+	.	Parent=transcript37;Name=TR10910|c7_g2_i1;Target=TR10910|c7_g2_i1 202 223 +
-###
-Chr2	trinityGG_Denovo	transcript	634550	634834	.	-	.	ID=transcript38;Name=TR33051|c1_g1_i1;coverage=100.0;identity=98.9;matches=282;mismatches=1;indels=2;unknowns=0
-Chr2	trinityGG_Denovo	exon	634550	634834	98	-	.	Parent=transcript38;Name=TR33051|c1_g1_i1;Target=TR33051|c1_g1_i1 1 283 +
-###
-Chr2	trinityGG_Denovo	transcript	635406	635958	.	+	.	ID=transcript39;Name=TR10911|c0_g1_i1;coverage=99.7;identity=99.3;matches=303;mismatches=2;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	635406	635629	99	+	.	Parent=transcript39;Name=TR10911|c0_g1_i1;Target=TR10911|c0_g1_i1 1 224 +
-Chr2	trinityGG_Denovo	exon	635878	635958	100	+	.	Parent=transcript39;Name=TR10911|c0_g1_i1;Target=TR10911|c0_g1_i1 225 305 +
-###
-Chr2	trinityGG_Denovo	transcript	635944	636160	.	+	.	ID=transcript40;Name=TR10911|c1_g1_i1;coverage=100.0;identity=99.5;matches=216;mismatches=1;indels=0;unknowns=0
-Chr2	trinityGG_Denovo	exon	635944	636160	99	+	.	Parent=transcript40;Name=TR10911|c1_g1_i1;Target=TR10911|c1_g1_i1 1 217 +
+Chr2	transdecoder	gene	633920	635212	.	+	.	ID=TR10910|c7_g1_i3.mrna1|g.14545;Name=ORF
+Chr2	transdecoder	mRNA	633920	635212	.	+	.	ID=TR10910|c7_g1_i3.mrna1|m.14545;Parent=TR10910|c7_g1_i3.mrna1|g.14545;Name=ORF
+Chr2	transdecoder	exon	633920	634081	.	+	.	ID=TR10910|c7_g1_i3.mrna1|m.14545.exon1;Parent=TR10910|c7_g1_i3.mrna1|m.14545
+Chr2	transdecoder	CDS	633920	634081	.	+	0	ID=cds.TR10910|c7_g1_i3.mrna1|m.14545;Parent=TR10910|c7_g1_i3.mrna1|m.14545
+Chr2	transdecoder	CDS	634177	634329	.	+	0	ID=cds.TR10910|c7_g1_i3.mrna1|m.14545;Parent=TR10910|c7_g1_i3.mrna1|m.14545
+Chr2	transdecoder	exon	634177	634378	.	+	.	ID=TR10910|c7_g1_i3.mrna1|m.14545.exon2;Parent=TR10910|c7_g1_i3.mrna1|m.14545
+Chr2	transdecoder	three_prime_UTR	634330	634378	.	+	.	ID=TR10910|c7_g1_i3.mrna1|m.14545.utr3p1;Parent=TR10910|c7_g1_i3.mrna1|m.14545
+Chr2	transdecoder	exon	634458	635212	.	+	.	ID=TR10910|c7_g1_i3.mrna1|m.14545.exon3;Parent=TR10910|c7_g1_i3.mrna1|m.14545
+Chr2	transdecoder	three_prime_UTR	634458	635212	.	+	.	ID=TR10910|c7_g1_i3.mrna1|m.14545.utr3p2;Parent=TR10910|c7_g1_i3.mrna1|m.14545
 ###

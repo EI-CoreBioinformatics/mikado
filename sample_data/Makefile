@@ -1,10 +1,7 @@
-all: sample.loci.gff3 trinity.diff
+all: sample.loci.gff3 trinity.loci.gff3 trinity.loci.from_gff.gff3
 
 clean:
 	rm -f ./*loci* ./trinity.diff
-
-trinity.diff: trinity.loci.gff3 trinity.loci.from_gff.gff3
-	diff --suppress-common-lines trinity.loci.gff3 trinity.loci.from_gff.gff3 > trinity.diff
 
 sample.loci.gff3: sample.subloci.gff3 sample.scores
 	python3 ../sublocus_test.py -s sample.scores sample.subloci.gff3 sample.loci.gff3

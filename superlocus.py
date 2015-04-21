@@ -10,7 +10,7 @@ class superlocus(abstractlocus):
     '''The superlocus class is used to define overlapping regions on the genome, and it receives as input
     transcript class instances.'''
     
-    def __init__(self, transcript):
+    def __init__(self, transcript, stranded=True):
         
         '''The superlocus class is instantiated from a transcript class, which it copies in its entirety.
         
@@ -21,6 +21,7 @@ class superlocus(abstractlocus):
         - transcripts - a *set* which holds the transcripts added to the superlocus'''
         
         transcript.finalize()
+        self.stranded=stranded
         self.feature="superlocus"
         self.__dict__.update(transcript.__dict__)
         self.splices = set(self.splices)
@@ -28,6 +29,33 @@ class superlocus(abstractlocus):
         self.transcripts = set()
         self.transcripts.add(transcript)
         return
+    
+
+    def split_strands(self):
+        '''This method will divide the superlocus on the basis of the strand.
+        The rationale is to parse a GFF file without regard for the strand, in order to find all intersecting loci;
+        and subsequently break the superlocus into the different components.
+        '''
+        
+        if self.stranded is True:
+            yield self
+        
+        else:
+            plus, minus, nones = [], [], []
+            for cdna in self.transcripts:
+                if cdna.strand == "+":
+                    plus.append(cdna)
+                elif cdna.strand == "-":
+                    minus.append(cdna)
+                elif cdna.strand is None:
+                    nones.append(cdna)
+
+            for strand in plus, minus, nones:
+                if len(strand)>0:
+                    new_locus = superlocus(strand[0])
+                    for cdna in strand[1:]:
+                        new_locus.add_transcript_to_locus(cdna)
+                    yield new_locus
     
     @classmethod
     def is_intersecting(cls,transcript, other):
@@ -81,18 +109,7 @@ class superlocus(abstractlocus):
         
         subloci = self.merge_cliques(cliques)
         
-##         Got rid of the assertion control - it might suck up time significantly.
-#         found=sum(len(x) for x in subloci )
-#                     
-#         assert found==len(self.transcripts), """Lost transcripts in translation ... {foundc} vs. {tc};
-#         keys:
-#         Found: {found}
-#         Original: {orig}""".format(foundc=found,
-#                                    tc=len(self.transcripts),
-#                                    found=[[t.id for t in s] for s in  subloci],
-#                                    orig=[s.id for s in self.transcripts] )
-# 
-#         #Now we should define each sublocus and store it in a permanent structure of the class
+        #Now we should define each sublocus and store it in a permanent structure of the class
         self.subloci = []
     
         for subl in subloci:

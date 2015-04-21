@@ -54,9 +54,10 @@ class abstractlocus:
         - flank - optional keyword'''
         transcript.finalize()
         if superlocus.chrom == transcript.chrom and \
-            superlocus.strand == transcript.strand and \
             cls.overlap( (superlocus.start,superlocus.end), (transcript.start,transcript.end), flank=flank  ) > 0:
-            return True
+                #We want to check for the strand only if we are considering the strand
+                if superlocus.stranded is False or superlocus.strand == transcript.strand:
+                    return True
         return False 
 
     @abc.abstractmethod
@@ -126,6 +127,22 @@ class abstractlocus:
 
         return merged_cliques
 
+    @property
+    def stranded(self):
+        '''This property determines whether a locus will consider the strand for e.g. the in_locus method.
+        By default, the parameter is set to True (i.e. the loci are strand-specific).
+        At the moment, the only class which modifies the parameter is the superlocus class.'''
+        return self.__stranded
+    
+    @stranded.setter
+    def stranded(self, *args):
+        if len(args)==0:
+            args=[True]
+        stranded=args[0]
+        if type(stranded)!=bool:
+            raise ValueError("The stranded attribute must be boolean!")
+        self.__stranded=stranded
+    
     
     def __eq__(self, other):
         if self.strand==other.strand and self.chrom==other.chrom and self.start==other.start and self.end==other.end:

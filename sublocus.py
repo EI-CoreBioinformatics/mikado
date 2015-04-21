@@ -1,6 +1,8 @@
 from abstractlocus import abstractlocus
 import random,sys,operator
+from copy import copy
 from locus import locus
+import transcript
 
 class sublocus(abstractlocus):
     
@@ -21,6 +23,7 @@ class sublocus(abstractlocus):
         self.metrics=dict()
         self.splitted=False
         self.exons=set()
+        self.stranded=True
 
         #Copy attributes into the current dictionary
         for key in ["parent", "id", "start", "end", "chrom", "strand", "attributes"]:
@@ -107,57 +110,76 @@ class sublocus(abstractlocus):
         return
     
     
-    def calculate_score(self, tid):
-        '''This function will try to calculate a score for a transcript various inputs.
+    def calculate_metrics(self, tid):
+        '''This function will calculate the metrics which will be used to derive a score for a transcript.
+        The different attributes of the transcript will be stored inside the transcript class itself,
+        to be more precise, into an internal dictionary ("metrics").
+        One thing - this metrics dictionary is potentially a memory drag as I am replicating various attributes, for convenience.
+        Another detail - as I need transcripts to be held in a set rather than a dictionary, for most cases,
+        I have to remove the transcript I am analyzing from the "transcripts" store and readd it later after calculating the metrics .. 
+         
         The scoring function must consider the following factors:
-        - No. of exons
-        - % of exons on the total of the exons of the sublocus
-        - % of introns on the total of the intronts of the sublocus
-        - % of retained introns (see has_retained_introns)
-        - (if portcullis-like data available) % of high/low confidence introns
-        - No. and % of CDS exons
-        - CDS length
-        - multiple ORFS (negative)
-        - CDS exons present in the longest ORF
-        - Top CDS length
-        - Fraction of the transcript which is coding
-        - Total CDS length
-        - Difference between maximum and total CDS length (for transcripts with multiple ORFs)        
+        - "exons":              No. of exons 
+        - "exon_frac":          % of exons on the total of the exons of the sublocus
+        - "intron_frac":        % of introns on the total of the intronts of the sublocus
+        - "retained_introns":   no. of retained introns (see has_retained_introns)
+        - "retained_frac":      % of cdna_length that is in retained introns 
+        - "cds_length":         length of the CDS
+        - "cds_fraction":       length of the CDS/length of the cDNA
+        - "internal_cds_num":   number of internal CDSs. 1 is top, 0 is worst, each number over 1 is negative.             
+        - "max_internal_cds_exon_num":   number of CDS exons present in the longest ORF.
+        - "max_internal_cds_length":     length of the greatest CDS
+        - "max_internal_cds_fraction":   fraction of the cDNA which is in the maximal CDS
+        - "cds_not_maximal":            length of CDS *not* in the maximal ORF
+        - "cds_not_maximal_fraction"    fraction of CDS *not* in the maximal ORF 
         '''
-        
+    
         transcript_instance = next(filter( lambda t: t.id==tid, self.transcripts))
+        self.transcripts.remove(transcript_instance)
+        transcript_instance.finalize() # The transcript must be finalized before we can calculate the score.
         
-        self.metrics[tid]["exons"]=len(transcript_instance.exons)
-        self.metrics[tid]["exon_frac"] = len(set.intersection( self.exons,transcript_instance.exons   ))/len(self.exons)
-        self.metrics[tid]["intron_frac"] = len(set.intersection( self.junctions,transcript_instance.junctions   ))/len(self.junctions)
-        self.metrics[tid]["retained_introns"] = self.count_retained_introns(transcript_instance)
+        transcript_instance.metrics["exons"]=len(transcript_instance.exons)
+        transcript_instance.metrics["exon_frac"] = len(set.intersection( self.exons,transcript_instance.exons   ))/len(self.exons)
+        if len(self.junctions)>0:
+            transcript_instance.metrics["intron_frac"] = len(set.intersection( self.junctions,transcript_instance.junctions   ))/len(self.junctions)
+        else:
+            transcript_instance.metrics["intron_frac"]=None
+        self.find_retained_introns(transcript_instance)
+        transcript_instance.metrics["retained_introns"] = len(transcript_instance.retained_introns)
+        transcript_instance.metrics["retained_frac"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
+        transcript_instance.metrics["cds_exons"] = len(transcript_instance.cds)
+        transcript_instance.metrics["cds_length"] = transcript_instance.cds_length
+        transcript_instance.metrics["cds_fraction"] = transcript_instance.cds_length/transcript_instance.cdna_length
+        transcript_instance.metrics["internal_cds_num"] = transcript_instance.internal_cds_num
+        transcript_instance.metrics["max_internal_cds_num"] = len(transcript_instance.max_internal_cds)
+        transcript_instance.metrics["max_internal_cds_length"] = transcript_instance.max_internal_cds_length
+        transcript_instance.metrics["max_internal_cds_fraction"] = transcript_instance.max_internal_cds_length/transcript_instance.cdna_length
+        transcript_instance.metrics["cds_not_maximal"] = transcript_instance.cds_length - transcript_instance.max_internal_cds_length
+        if transcript_instance.max_internal_cds_length>0:
+            transcript_instance.metrics["cds_not_maximal_fraction"] = (transcript_instance.cds_length - transcript_instance.max_internal_cds_length)/transcript_instance.cds_length
+        else:
+            transcript_instance.metrics["cds_not_maximal_fraction"] = 0
+        transcript_instance.metrics["cdna_length"] = transcript_instance.cdna_length
+        self.transcripts.add(transcript_instance)
         
-        self.metrics[tid]["cds"] = len(transcript_instance.cds)
-        self.metrics[tid]["cds_length"] = transcript_instance.cds_length
-        self.metrics["cds_fraction"] = transcript_instance.length
         
-        pass
-        
-    
-    
-    def count_retained_introns(self, transcript_instance):
+    def find_retained_introns(self, transcript_instance):
          
         '''This method checks the number of exons that are possibly retained introns for a given transcript.
         To perform this operation, it checks for each exon whether it exists a sublocus intron that
-        is *completely* contained within a transcript exon.'''
+        is *completely* contained within a transcript exon.
+        The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
          
-        retained_introns=0
+        transcript_instance.retained_introns=[]
         for exon in transcript_instance.exons:
-            
+            #Check that the overlap is at least as long as the minimum between the exon and the intron.
             if any(filter(
-                          lambda junction: self.overlap(exon,junction)==junction[1]-junction[0],
+                          lambda junction: self.overlap(exon,junction)>=min(junction[1]-junction[0]+1, exon[1]-exon[0]+1),
                           self.junctions                          
                           )) is True:
-                retained_introns+=1
-        return retained_introns
-    
-    
-    
+                transcript_instance.retained_introns.append(exon)
+        transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
+            
     def load_scores(self, scores):
         '''Simple mock function to load scores for the transcripts from a tab-delimited file.
         This implementation will have to be rewritten for the final pipeline.
@@ -176,10 +198,43 @@ class sublocus(abstractlocus):
         except TypeError as err:
             raise TypeError("{0}\n{1}".format(err, self.metrics) )
             
+            
+    def calculate_scores(self, maximum_utr=3, minimum_cds_fraction=0.5, order=("intron_frac", "cds_length")):
+        '''Function to calculate a score for each transcript, given the metrics derived
+         with the calculate_metrics method.
+         Keyword arguments:
+         
+         - maximum_utr                Maximum number of UTR exons
+         - minimum_cds_fraction       How much of the cdna should be CDS, at a minimum
+         '''
+        
+        self.metrics=dict()
+        score=0
+        
+        for transcript in self.transcripts:
+            self.calculate_metrics(transcript.id)
+        
+        def keyfunction(transcript_instance, order=[]   ):
+            if len(order)==0:
+                raise ValueError("No information on how to sort!")
+            return tuple([transcript_instance.metrics[x] for x in order])
+        
+        current_score=0
+        
+        for transcript_instance in sorted( self.transcripts, key=lambda item: keyfunction(item, order=order)):
+            self.metrics[transcript_instance.id]=copy(transcript_instance.metrics)
+            if len(transcript_instance.utr)>maximum_utr or self.metrics[transcript_instance.id]["cds_fraction"]<minimum_cds_fraction:
+                score=float("-Inf")
+            else:
+                score=current_score
+                current_score+=1
+            self.metrics[transcript_instance.id]["score"]=score
+         
+        return
     
     @classmethod
     def choose_best(cls, metrics):
-        best_score,best_tid=float("-Inf"),[None]
+        best_score,best_tid=float("-Inf"),[]
         for tid in metrics:
             score=metrics[tid]["score"]
             if score>best_score:
@@ -222,7 +277,6 @@ class sublocus(abstractlocus):
                 lines.append(str(transcript).rstrip())
                 
         else:
-#            print(len(self.loci))
             for slocus in sorted(self.loci): #this should function ... I have implemented the sorting in the class ...
                 lines.append(str(slocus).rstrip())
                 

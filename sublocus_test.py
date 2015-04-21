@@ -30,7 +30,9 @@ def main():
         elif row.feature=="sublocus":
             if currentSub is not None:
                 currentSub.add_transcript_to_locus(currentTranscript)
-                currentSub.load_scores(scores)
+                #print(currentSub, file=args.out)
+                currentSub.calculate_scores()
+                #currentSub.load_scores(scores)
                 currentSub.define_loci()
                 print(currentSub, file=args.out)
                 currentTranscript=None
@@ -44,7 +46,7 @@ def main():
                 raise err
             currentTranscript=transcript(row)
             
-        elif row.feature in ("exon","CDS"):
+        elif row.feature in ("exon","CDS") or "utr" in row.feature.lower():
             currentTranscript.addExon(row)
         
         else:
@@ -53,7 +55,9 @@ def main():
     if currentTranscript is not None:
         if currentSub is not None:
             currentSub.add_transcript_to_locus(currentTranscript)
-            currentSub.load_scores(scores)
+            #print(currentSub, file=args.out)
+            #currentSub.load_scores(scores)
+            currentSub.calculate_scores()
             currentSub.define_loci()
             print(currentSub, file=args.out)
             

@@ -6,7 +6,7 @@ import sys,argparse
 from myRecords.GFF import GFF3
 from myRecords.GTF import GTF
 
-def add_transcripts(transcript_instance, sloci):
+def add_transcripts_old(transcript_instance, sloci):
     if transcript_instance is None:
         return sloci
     transcript_instance.finalize()
@@ -26,6 +26,12 @@ def add_transcripts(transcript_instance, sloci):
             sloci.append(slocus)
     return sloci 
 
+def locus_printer( slocus, out=sys.stdout ):
+    stranded_loci = sorted(list(slocus.split_strands()))
+    for stranded_locus in stranded_loci:
+        print(stranded_locus, file=out)
+    
+
 def main():
     
     parser=argparse.ArgumentParser("Quick test utility for the superlocus classes.")
@@ -33,9 +39,7 @@ def main():
     parser.add_argument("out", type=argparse.FileType("w"), default=sys.stdout, nargs="?")
     args=parser.parse_args()
 
-    sloci=[]
-    
-    #currentLocus=None
+    currentLocus=None
     currentTranscript=None
     currentChrom=None
     
@@ -47,23 +51,47 @@ def main():
         if row.header is True: continue
         if row.chrom!=currentChrom:
             if currentChrom is not None:
-                sloci=add_transcripts(currentTranscript, sloci)
-                for slocus in sloci:
-                    print(slocus, file=args.out)
+                if currentTranscript is None:
+                    pass
+                elif superlocus.in_locus(currentLocus, currentTranscript):
+                    currentLocus.add_transcript_to_locus(currentTranscript)
+                else:
+                    locus_printer(currentLocus, out=args.out)
+                    currentLocus=superlocus(currentTranscript, stranded=False)
+                locus_printer(currentLocus, out=args.out)
+            #print("Changed chrom", file=sys.stderr)
             currentChrom=row.chrom
             currentTranscript=None
-            sloci=[]
+            currentLocus=None
+            
         if row.feature=="transcript" or "RNA" in row.feature.upper() or row.feature=="mRNA":
-            sloci=add_transcripts(currentTranscript, sloci)
+            if currentLocus is not None:
+                if currentTranscript is None:
+                    pass
+                elif superlocus.in_locus(currentLocus, currentTranscript):
+                    currentLocus.add_transcript_to_locus(currentTranscript)
+                else:
+                    locus_printer(currentLocus, out=args.out)
+                    currentLocus=superlocus(currentTranscript, stranded=False)
+            elif currentLocus is None:
+                if currentTranscript is not None:
+                    currentLocus=superlocus(currentTranscript, stranded=False)
             currentTranscript=transcript(row)
+#            print("New transcript: {0}".format(currentTranscript.id))
         elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper():
             currentTranscript.addExon(row)
         else:
             continue
         
-    sloci=add_transcripts(currentTranscript, sloci)
-    for slocus in sloci:
-        print(slocus, file=args.out)
+    if currentLocus is not None:
+        if currentTranscript is None:
+            pass
+        elif superlocus.in_locus(currentLocus, currentTranscript):
+            currentLocus.add_transcript_to_locus(currentTranscript)
+        else:
+            locus_printer(currentLocus, out=args.out)
+            currentLocus=superlocus(currentTranscript, stranded=False)
+        locus_printer(currentLocus, out=args.out)
 
 if __name__=="__main__":
     main()

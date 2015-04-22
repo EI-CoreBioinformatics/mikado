@@ -36,7 +36,7 @@ class gtfLine(object):
                 self.__dict__[i]=None
             self.fields=[]
             self.info={'gene_id': None, 'transcript_id': None}
-            
+            self.attributes = self.info
             self.transcript=None
             self.gene=None
             self.header=True

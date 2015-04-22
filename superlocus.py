@@ -10,11 +10,13 @@ class superlocus(abstractlocus):
     '''The superlocus class is used to define overlapping regions on the genome, and it receives as input
     transcript class instances.'''
     
+    __name__ = "superlocus"
+    
     ####### Special methods ############
     
-    def __init__(self, transcript, stranded=True):
+    def __init__(self, transcript_instance, stranded=True):
         
-        '''The superlocus class is instantiated from a transcript class, which it copies in its entirety.
+        '''The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
         
         It will therefore have the following attributes:
         - chrom, strand, start, end
@@ -22,15 +24,17 @@ class superlocus(abstractlocus):
         - junctions - a *set* which contains the positions of each *splice junction* (registered as 2-tuples)
         - transcripts - a *set* which holds the transcripts added to the superlocus'''
         
-        transcript.finalize()
+        transcript_instance.finalize()
         self.stranded=stranded
         self.feature="superlocus"
-        self.__dict__.update(transcript.__dict__)
+        self.__dict__.update(transcript_instance.__dict__)
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
         self.transcripts = dict()
-        super().add_transcript_to_locus(transcript)
-        
+        super().add_transcript_to_locus(transcript_instance)
+        self.available_metrics = []
+        self.monosubloci_defined = False
+        self.loci_defined = False
         return
 
     def __str__(self):
@@ -47,18 +51,14 @@ class superlocus(abstractlocus):
             strand="."
         
         self.define_subloci()
-        superlocus_id = "superlocus:{0}{3}:{1}-{2}".format(self.chrom, self.start, self.end,strand)
-
-        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(superlocus_id) ]
+        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(self.id) ]
         superlocus_line = "\t".join(str(s) for s in superlocus_line)
         counter=0
         
         lines=[superlocus_line]        
         for subl in iter(sorted(self.subloci, key=operator.attrgetter("start","end") )):
             counter+=1
-            #subl.id = "{0}.{1}".format(superlocus_id, counter)
-            subl.parent = superlocus_id
-            #attr_field = "ID={0};Parent={1};".format(sublocus_id, superlocus_id)
+            subl.parent = self.id
             lines.append(str(subl).rstrip())
 
         try:
@@ -128,6 +128,93 @@ class superlocus(abstractlocus):
                     
             self.subloci.append(new_sublocus)
 
+    def define_monosubloci(self):
+
+        '''This function calculates the monosubloci from the subloci present in the superlocus.'''
+        if self.monosubloci_defined is True:
+            return
+        
+        self.define_subloci()
+        self.monosubloci = []
+        self.monosubloci_transcripts = dict()
+        self.monosubloci_exons=set()
+        self.monosubloci_splices=set()
+        self.monosubloci_junctions=set()
+        #Extract the relevant transcripts
+        for sublocus_instance in sorted(self.subloci):
+            sublocus_instance.define_monosubloci()
+            for monosublocus_instance in sublocus_instance.monosubloci:
+                tid = monosublocus_instance.tid
+                self.monosubloci_transcripts[tid]=self.transcripts[tid]
+                self.monosubloci_exons.update(self.transcripts[tid].exons)
+                self.monosubloci_splices.update(self.transcripts[tid].splices)
+                self.monosubloci_junctions.update(self.transcripts[tid].junctions)
+                
+            self.monosubloci.extend(sublocus_instance.monosubloci)
+        self.monosubloci_defined = True
+
+
+    def get_monolocus_metrics(self):
+        self.define_monosubloci()
+        for tid in self.monosubloci_transcripts:
+            self.calculate_monolocus_metrics(tid)
+
+
+            
+    def define_loci(self):
+        self.get_monolocus_metrics()
+        raise NotImplementedError()
+            
+        #Calculate the best transcripts
+            
+        
+    def calculate_monolocus_metrics(self, tid):
+        '''This function will calculate the metrics which will be used to derive a score for a transcript.
+        The different attributes of the transcript will be stored inside the transcript class itself,
+        to be more precise, into an internal dictionary ("metrics").
+         
+        This function re-generates only the following metrics, as they are relative:
+        The scoring function must consider the following factors:
+        - "exon_frac":          % of exons on the total of the exons present in the monosubloci
+        - "intron_frac":        % of introns on the total of the introns present in the monosubloci
+        - "retained_introns":   no. of retained introns
+        - "retained_frac":      % of cdna_length that is in retained introns 
+        '''
+
+        transcript_instance = self.monosubloci_transcripts[tid]
+        transcript_instance.metrics["exon_frac"] = len(set.intersection( self.monosubloci_exons,transcript_instance.exons   ))/len(self.monosubloci_exons)
+        if len(self.monosubloci_junctions)>0:
+            transcript_instance.metrics["intron_frac"] = len(set.intersection( self.monosubloci_junctions,transcript_instance.junctions   ))/len(self.monosubloci_junctions)
+        else:
+            transcript_instance.metrics["intron_frac"]=None
+        self.find_retained_introns_in_monosubloci(transcript_instance)
+        transcript_instance.metrics["retained_introns"] = len(transcript_instance.retained_introns)
+        transcript_instance.metrics["retained_frac"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
+        for metric in transcript_instance.metrics:
+            if metric not in self.available_metrics:
+                self.available_metrics.append(metric)
+
+        self.transcripts[tid]=transcript_instance
+
+    def find_retained_introns_in_monosubloci(self, transcript_instance):
+         
+        '''This method checks the number of exons that are possibly retained introns for a given transcript.
+        To perform this operation, it checks for each non-CDS exon whether it exists a sublocus intron that
+        is *completely* contained within a transcript exon.
+        CDS exons are ignored because their retention might be perfectly valid.
+        The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
+         
+        transcript_instance.retained_introns=[]
+        for exon in filter(lambda e: e not in transcript_instance.cds, transcript_instance.exons):
+            #Check that the overlap is at least as long as the minimum between the exon and the intron.
+            if any(filter(
+                          lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
+                          self.monosubloci_junctions
+                          )) is True:
+                    transcript_instance.retained_introns.append(exon)
+#                     print("Retained:", transcript_instance.id, exon, file=sys.stderr)
+        transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
+
     ############# Class methods ###########
     
     @classmethod
@@ -162,4 +249,3 @@ class superlocus(abstractlocus):
                            )>=0: #A simple overlap analysis will suffice
                 flag=True
         return flag
-    

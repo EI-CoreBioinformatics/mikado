@@ -1,9 +1,11 @@
 import abc
 import random
+#import sys
 
 class abstractlocus:
     
     __metaclass__  = abc.ABCMeta
+    __name__ = "abstractlocus"
     
     ###### Special methods #########
     
@@ -54,27 +56,27 @@ class abstractlocus:
         Input: two 2-tuples of integers.
         '''
         
-        right_boundary=min(a[1]+flank, b[1]+flank)
         left_boundary=max(a[0]-flank, b[0]-flank)
+        right_boundary=min(a[1]+flank, b[1]+flank)
         
         return right_boundary - left_boundary 
     
     ##### Class methods ########
 
     @classmethod
-    def in_locus(cls, superlocus, transcript, flank=0):
-        '''Function to determine whether a transcript should be added or not to the superlocus.
+    def in_locus(cls, locus_instance, transcript, flank=0):
+        '''Function to determine whether a transcript should be added or not to the locus_instance.
         This is a class method, i.e. it can be used also unbound from any specific instance of the class.
-        It will be possible therefore to use it to compare any superlocus to any transcript.
+        It will be possible therefore to use it to compare any locus_instance to any transcript.
         Arguments: 
-        - a "superlocus" object
+        - a "locus_instance" object
         - a "transcript" object (it must possess the "finalize" method)
         - flank - optional keyword'''
         transcript.finalize()
         #We want to check for the strand only if we are considering the strand
-        if superlocus.chrom == transcript.chrom and \
-            (superlocus.stranded is False or superlocus.strand == transcript.strand) and \
-            cls.overlap( (superlocus.start,superlocus.end), (transcript.start,transcript.end), flank=flank  ) > 0:
+        if locus_instance.chrom == transcript.chrom and \
+            (locus_instance.stranded is False or locus_instance.strand == transcript.strand) and \
+            cls.overlap( (locus_instance.start,locus_instance.end), (transcript.start,transcript.end), flank=flank  ) > 0:
                 return True
         return False 
 
@@ -146,19 +148,16 @@ class abstractlocus:
         More precisely, it updates the boundaries (start and end), adds the transcript to the internal "transcripts" store,
         and extends the splices and junctions with those found inside the transcript.'''
         transcript.finalize()
-        if self.in_locus(self, transcript) is True:
-            if transcript.id in self.transcripts:
-                if transcript==self.transcripts[transcript.id]:
-                    return
-                else:
-                    raise KeyError("Trying to add transcript {0} to the locus, but a different transcript with the same name is already present!".format(transcript.id))
-            self.start = min(self.start, transcript.start)
-            self.end = max(self.end, transcript.end)
-            self.transcripts[transcript.id]=transcript
-            self.splices=set.union(self.splices, transcript.splices)
-            for junction in transcript.junctions:
-                if type(junction)!=tuple: raise TypeError(transcript.id,junction)
-                self.junctions.add(junction) 
+#         if self.in_locus(self, transcript) is True:
+#             if transcript.id in self.transcripts:
+#                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
+        self.start = min(self.start, transcript.start)
+        self.end = max(self.end, transcript.end)
+        self.transcripts[transcript.id]=transcript
+        self.splices=set.union(self.splices, transcript.splices)
+        for junction in transcript.junctions:
+            if type(junction)!=tuple: raise TypeError(transcript.id,junction)
+            self.junctions.add(junction) 
         return
 
     @abc.abstractmethod
@@ -171,7 +170,7 @@ class abstractlocus:
 
     @property
     def stranded(self):
-        '''This property determines whether a locus will consider the strand for e.g. the in_locus method.
+        '''This property determines whether a monosublocus will consider the strand for e.g. the in_locus method.
         By default, the parameter is set to True (i.e. the loci are strand-specific).
         At the moment, the only class which modifies the parameter is the superlocus class.'''
         return self.__stranded
@@ -184,3 +183,12 @@ class abstractlocus:
         if type(stranded)!=bool:
             raise ValueError("The stranded attribute must be boolean!")
         self.__stranded=stranded
+        
+    @property
+    def id(self):
+        return "{0}:{1}{2}:{3}-{4}".format(
+                                            self.__name__,
+                                            self.chrom,
+                                            self.strand,
+                                            self.start,
+                                            self.end)

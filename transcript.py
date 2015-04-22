@@ -11,9 +11,6 @@ class transcript:
         Note: I am assuming that the input line is an object from my own "GFF" class.
         The transcript instance must be initialised by a "(m|r|lnc|whatever)RNA" or "transcript" gffLine.'''
         
-#         if gffLine.feature!="transcript" or "RNA" not in gffLine.feature.upper():
-#             raise AttributeError("Wrong feature line provided:\n{0}\n{1}".format( gffLine.feature, gffLine ))
-        
         self.chrom = gffLine.chrom
         self.feature="transcript"
         self.id = gffLine.attributes["ID"]

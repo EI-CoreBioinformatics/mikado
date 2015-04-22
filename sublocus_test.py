@@ -49,7 +49,7 @@ def main():
                         args.metrics_file = csv.DictWriter(args.metrics_file, metrics, delimiter="\t"  )
                         args.metrics_file.writeheader()
                     currentSub.print_metrics(args.metrics_file)
-                currentSub.define_loci()
+                currentSub.define_monosubloci()
                 print(currentSub, file=args.out)
                 currentTranscript=None
             
@@ -82,7 +82,7 @@ def main():
                     args.metrics_file.writeheader()
                 currentSub.print_metrics(args.metrics_file)
                 
-            currentSub.define_loci()
+            currentSub.define_monosubloci()
             print(currentSub, file=args.out)
             
 if __name__=="__main__":

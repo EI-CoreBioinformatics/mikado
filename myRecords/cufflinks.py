@@ -52,7 +52,7 @@ class cuffTrans(cuffLine):
     def __init__(self,line):
         super(cuffTrans, self).__init__(line)
         if len(self._fields)<12: raise SizeError
-        self.type='transcript'
+        self.type='transcript_instance'
         self.fpkm_lo,self.fpkm_hi,self.coverage=tuple(float(i) for i in self._fields[8:11])
         self.length=int(self._fields[11])
         self.eff_len=float(self._fields[12])

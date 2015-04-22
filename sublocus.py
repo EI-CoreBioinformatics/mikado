@@ -1,21 +1,23 @@
 from abstractlocus import abstractlocus
-import random,sys
+import random
 from copy import copy
-from locus import locus
+from monosublocus import monosublocus
 #import transcript
 
 class sublocus(abstractlocus):
     
     '''
     The sublocus class is created either by the superlocus class during the subloci definition, or directly using a G(T|F)line-like object.
-    It is used to define the final loci.
+    It is used to define the final monosubloci.
     '''
+    
+    __name__ = "sublocus"
     
     ################ Class special methods ##############
     
     def __init__(self, span, source=None):
         
-        '''This class takes as input a "span" feature - e.g. a gffLine or a transcript. 
+        '''This class takes as input a "span" feature - e.g. a gffLine or a transcript_instance. 
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
         
         self.transcripts = dict()
@@ -44,7 +46,7 @@ class sublocus(abstractlocus):
         self.available_metrics=[] # List to retrieve the available metrics. Calculated at runtime.
 
     def __str__(self):
-        
+        #print(self.id, len(self.transcripts), file=sys.stderr)
         if self.strand is not None:
             strand=self.strand
         else:
@@ -67,7 +69,7 @@ class sublocus(abstractlocus):
                 lines.append(str(self.transcripts[tid]).rstrip())
                 
         else:
-            for slocus in sorted(self.loci): #this should function ... I have implemented the sorting in the class ...
+            for slocus in sorted(self.monosubloci): #this should function ... I have implemented the sorting in the class ...
                 lines.append(str(slocus).rstrip())
                 
         return "\n".join(lines)
@@ -95,14 +97,14 @@ class sublocus(abstractlocus):
         self.exons = set.union(self.exons, transcript.exons)
         self.metrics[transcript.id]=dict()
 
-    def define_loci(self):
+    def define_monosubloci(self):
          
-        self.loci=[]
+        self.monosubloci=[]
         best_tid,best_score=self.choose_best(self.metrics)
         best_transcript=self.transcripts[best_tid]
         best_transcript.score=best_score
-        new_locus = locus(best_transcript)
-        self.loci.append(new_locus)
+        new_locus = monosublocus(best_transcript)
+        self.monosubloci.append(new_locus)
         remaining = self.transcripts.copy()
         del remaining[best_tid]
         for tid in list(remaining.keys()):
@@ -115,8 +117,8 @@ class sublocus(abstractlocus):
                             )
             best_tid,best_score=self.choose_best(metrics)
             best_transcript = remaining[best_tid]
-            new_locus = locus(best_transcript)
-            self.loci.append(new_locus)
+            new_locus = monosublocus(best_transcript)
+            self.monosubloci.append(new_locus)
             remaining = remaining.copy()
             del remaining[best_tid]
             for tid in list(remaining.keys()):
@@ -130,9 +132,6 @@ class sublocus(abstractlocus):
         '''This function will calculate the metrics which will be used to derive a score for a transcript.
         The different attributes of the transcript will be stored inside the transcript class itself,
         to be more precise, into an internal dictionary ("metrics").
-        One thing - this metrics dictionary is potentially a memory drag as I am replicating various attributes, for convenience.
-        Another detail - as I need transcripts to be held in a set rather than a dictionary, for most cases,
-        I have to remove the transcript I am analyzing from the "transcripts" store and readd it later after calculating the metrics .. 
          
         The scoring function must consider the following factors:
         - "exons":              No. of exons 
@@ -194,14 +193,14 @@ class sublocus(abstractlocus):
         The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
          
         transcript_instance.retained_introns=[]
-        for exon in filter(lambda e: e not in transcript_instance.cds, transcript_instance.exons[1:-1]):
+        for exon in filter(lambda e: e not in transcript_instance.cds, transcript_instance.exons):
             #Check that the overlap is at least as long as the minimum between the exon and the intron.
             if any(filter(
-                          lambda junction: self.overlap(exon,junction)>=min(junction[1]-junction[0], exon[1]-exon[0]),
+                          lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
                           self.junctions                          
                           )) is True:
                     transcript_instance.retained_introns.append(exon)
-                    print("Retained:", transcript_instance.id, exon, file=sys.stderr)
+#                     print("Retained:", transcript_instance.id, exon, file=sys.stderr)
         transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
             
     def load_scores(self, scores):
@@ -330,8 +329,8 @@ class sublocus(abstractlocus):
             if len(best_tid)==0:
                 raise ValueError("Odd. I have not been able to find the transcript with the best score: {0}".format(best_score))
             else:
-                print("WARNING: multiple transcripts with the same score ({0}). I will choose one randomly.".format(", ".join(best_tid)
-                                                                                                                    ) , file=sys.stderr)
+#                 print("WARNING: multiple transcripts with the same score ({0}). I will choose one randomly.".format(", ".join(best_tid)
+#                                                                                                                     ) , file=sys.stderr)
                 best_tid=random.sample(best_tid, 1) #this returns a list
         best_tid=best_tid[0]
         return best_tid, best_score
@@ -340,7 +339,7 @@ class sublocus(abstractlocus):
     
     @property
     def splitted(self):
-        '''The splitted flag indicates whether a sublocus has already been processed to produce the necessary loci.
+        '''The splitted flag indicates whether a sublocus has already been processed to produce the necessary monosubloci.
         It must be set as a boolean flag (hence why it is coded as a property)'''
         return self.__splitted
     
@@ -349,13 +348,3 @@ class sublocus(abstractlocus):
         if type(verified)!=bool:
             raise TypeError()
         self.__splitted=verified
-    
-    @property
-    def id(self):
-        return "sublocus:{0}{1}:{2}-{3}".format(
-                                                self.chrom,
-                                                self.strand,
-                                                self.start,
-                                                self.end)
-        
-    

@@ -43,7 +43,9 @@ def main():
     currentTranscript=None
     currentChrom=None
     
-    if args.gff.name[-3:]=="gtf": rower=GTF(args.gff)
+    if args.gff.name[-3:]=="gtf":
+        print("Parsing a GTF", file=sys.stderr)
+        rower=GTF(args.gff)
     else: rower=GFF3(args.gff)
     
     for row in rower:
@@ -64,7 +66,7 @@ def main():
             currentTranscript=None
             currentLocus=None
             
-        if row.feature=="transcript" or "RNA" in row.feature.upper() or row.feature=="mRNA":
+        if row.feature=="transcript" or "RNA" in row.feature.upper():
             if currentLocus is not None:
                 if currentTranscript is None:
                     pass
@@ -92,6 +94,6 @@ def main():
             locus_printer(currentLocus, out=args.out)
             currentLocus=superlocus(currentTranscript, stranded=False)
         locus_printer(currentLocus, out=args.out)
-
+        
 if __name__=="__main__":
     main()

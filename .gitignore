@@ -6,3 +6,16 @@ sample_data/trinity.loci.gff3
 sample_data/trinity.subloci.from_gff.gff3
 sample_data/trinity.subloci.gff3
 sample_data/trinity.diff
+myRecords/__pycache__/BatchBlast.cpython-34.pyc
+myRecords/__pycache__/Blast.cpython-34.pyc
+myRecords/__pycache__/Blat.cpython-34.pyc
+myRecords/__pycache__/cufflinks.cpython-34.pyc
+myRecords/__pycache__/Fastq.cpython-34.pyc
+myRecords/__pycache__/GFF.cpython-32.pyc
+myRecords/__pycache__/GFF.cpython-34.pyc
+myRecords/__pycache__/gff_mrna.cpython-34.pyc
+myRecords/__pycache__/GTF.cpython-34.pyc
+myRecords/__pycache__/gtfRecord.cpython-34.pyc
+myRecords/__pycache__/__init__.cpython-32.pyc
+myRecords/__pycache__/__init__.cpython-34.pyc
+myRecords/__pycache__/Sam.cpython-34.pyc

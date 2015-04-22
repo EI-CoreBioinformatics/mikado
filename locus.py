@@ -9,6 +9,8 @@ class locus(abstractlocus):
     
     '''Very basic class which holds a single transcript.'''
     
+    ########### Special methods ############
+    
     def __init__(self, transcript):
         
         transcript.finalize()
@@ -22,15 +24,6 @@ class locus(abstractlocus):
         self.parent=None
         self.source = "locus_pipeline"
         
-#        super().add_transcript_to_locus(transcript)
-        
- 
-    def add_transcript_to_locus(self, transcript):
-        '''For this basic class, this method raises a NotImplementedError -
-        as this container should hold only one transcript.'''
-        
-        raise NotImplementedError("In a locus there should be one and only one transcript!")
-    
     def __str__(self):
         
         lines=[]
@@ -53,7 +46,18 @@ class locus(abstractlocus):
         transcript.parent=self.id
         lines.append(str(transcript).rstrip())
         return "\n".join(lines)
+        
+        
+    ########### Class instance methods ##############
+        
+ 
+    def add_transcript_to_locus(self, transcript):
+        '''For this basic class, this method raises a NotImplementedError -
+        as this container should hold only one transcript.'''
+        
+        raise NotImplementedError("In a locus there should be one and only one transcript!")
 
+    ########## Properties ############
 
     @property
     def source(self):
@@ -65,6 +69,3 @@ class locus(abstractlocus):
             args=["locus_pipeline"]
         assert len(args)==1 and type(args[0]) is str
         self.__source = args[0]        
-        
-        
-        

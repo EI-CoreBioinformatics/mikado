@@ -11,6 +11,8 @@ class sublocus(abstractlocus):
     It is used to define the final loci.
     '''
     
+    ################ Class special methods ##############
+    
     def __init__(self, span):
         
         '''This '''
@@ -24,6 +26,7 @@ class sublocus(abstractlocus):
         self.splitted=False
         self.exons=set()
         self.stranded=True
+        self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
 
         #Copy attributes into the current dictionary
         for key in ["parent", "id", "start", "end", "chrom", "strand", "attributes"]:
@@ -33,7 +36,41 @@ class sublocus(abstractlocus):
         
         if span.feature=="transcript" or "RNA" in span.feature.upper():
             self.add_transcript_to_locus(span)
+        self.available_metrics=[] # List to retrieve the available metrics. Calculated at runtime.
+
+    def __str__(self):
         
+        if self.strand is not None:
+            strand=self.strand
+        else:
+            strand="."
+        
+        lines=[]
+        
+        if self.splitted is False:
+            attr_field="ID={0};Parent={1};multiexonic={2}".format(
+                                                              self.id,
+                                                              self.parent,
+                                                              str(not self.monoexonic)
+                                                            )
+                            
+            self_line = [ self.chrom, "locus_pipeline", "sublocus", self.start, self.end,
+                     ".", strand, ".", attr_field]
+            lines.append("\t".join([str(s) for s in self_line]))
+        
+            transcripts = iter(sorted(self.transcripts, key=operator.attrgetter("start", "end")))
+            for transcript in transcripts:
+                transcript.parent=self.id
+                lines.append(str(transcript).rstrip())
+                
+        else:
+            for slocus in sorted(self.loci): #this should function ... I have implemented the sorting in the class ...
+                lines.append(str(slocus).rstrip())
+                
+        return "\n".join(lines)
+
+    
+    ########### Class instance methods #####################
     
     def add_transcript_to_locus(self, transcript):
         if transcript is None: return
@@ -50,40 +87,7 @@ class sublocus(abstractlocus):
         super().add_transcript_to_locus(transcript)
         self.exons = set.union(self.exons, transcript.exons)
         self.metrics[transcript.id]=dict()
-    
-    @property
-    def splitted(self):
-        '''The splitted flag indicates whether a sublocus has already been processed to produce the necessary loci.
-        It must be set as a boolean flag (hence why it is coded as a property)'''
-        return self.__splitted
-    
-    @splitted.setter
-    def splitted(self,verified):
-        if type(verified)!=bool:
-            raise TypeError()
-        self.__splitted=verified
-    
-    @classmethod
-    def is_intersecting(cls, transcript, other):
-        '''
-        Implementation of the is_intersecting method. Here at the level of the sublocus,
-        the intersection is seen as overlap between exons. 
-        '''
-          
-        if transcript.id==other.id: return False # We do not want intersection with oneself
-        for exon in transcript.exons:
-            if any(
-                   filter(
-                          #Check that at least one couple of exons are overlapping
-                          lambda oexon: cls.overlap( exon, oexon )>=0, 
-                          other.exons
-                          )
-                   ) is True:
-                return True
-        
-        return False
-        
-    
+
     def define_loci(self):
          
         self.loci=[]
@@ -108,7 +112,6 @@ class sublocus(abstractlocus):
     
         self.splitted=True
         return
-    
     
     def calculate_metrics(self, tid):
         '''This function will calculate the metrics which will be used to derive a score for a transcript.
@@ -161,6 +164,10 @@ class sublocus(abstractlocus):
             transcript_instance.metrics["cds_not_maximal_fraction"] = 0
         transcript_instance.metrics["cdna_length"] = transcript_instance.cdna_length
         self.transcripts.add(transcript_instance)
+        for metric in transcript_instance.metrics:
+            if metric not in self.available_metrics:
+                self.available_metrics.append(metric)
+        
         
         
     def find_retained_introns(self, transcript_instance):
@@ -208,11 +215,8 @@ class sublocus(abstractlocus):
          - minimum_cds_fraction       How much of the cdna should be CDS, at a minimum
          '''
         
-        self.metrics=dict()
+        self.get_metrics()
         score=0
-        
-        for transcript in self.transcripts:
-            self.calculate_metrics(transcript.id)
         
         def keyfunction(transcript_instance, order=[]   ):
             if len(order)==0:
@@ -222,15 +226,82 @@ class sublocus(abstractlocus):
         current_score=0
         
         for transcript_instance in sorted( self.transcripts, key=lambda item: keyfunction(item, order=order)):
-            self.metrics[transcript_instance.id]=copy(transcript_instance.metrics)
             if len(transcript_instance.utr)>maximum_utr or self.metrics[transcript_instance.id]["cds_fraction"]<minimum_cds_fraction:
                 score=float("-Inf")
             else:
                 score=current_score
                 current_score+=1
             self.metrics[transcript_instance.id]["score"]=score
+
+        self.scores_calculated=True
          
         return
+    
+    
+    def print_metrics(self, rower):
+        
+        '''This class takes as input a csv.DictWriter class, which it uses to print out a table of each transcript metrics.'''
+        
+        #Check that rower is an instance of the csv.DictWriter class
+        if not hasattr(rower, "fieldnames") or not hasattr(rower, "writerow") or not hasattr(rower, "writer"):
+            raise AttributeError("Invalid rower provided: should be a DictWriter instance, instead is {0}".format(type(rower)))
+        
+        self.get_metrics() 
+        
+        #The rower is an instance of the DictWriter class from the standard CSV module
+        
+        for transcript_instance in sorted(self.transcripts):
+            row=dict()
+            for key in rower.fieldnames:
+                if not key in self.metrics[transcript_instance.id]:
+                    row[key]=getattr(transcript_instance, key, "NA")
+                else:
+                    row[key]=self.metrics[transcript_instance.id][key]
+                if type(row[key]) is float:
+                    row[key] = round(row[key],2)
+                elif row[key] is None:
+                    row[key]="NA"
+            rower.writerow(row)
+        return
+    
+    def get_metrics(self):
+        
+        '''Quick wrapper to calculated the metrics for all the transcripts.'''
+        
+        if self.metrics_calculated is True:
+            return
+        
+        self.metrics=dict()
+        
+        for transcript_instance in self.transcripts:
+            self.calculate_metrics(transcript_instance.id)
+            self.metrics[transcript_instance.id]=copy(transcript_instance.metrics)
+
+        self.metrics_calculated = True
+        return
+
+
+    ############### Class methods ################
+
+    @classmethod
+    def is_intersecting(cls, transcript, other):
+        '''
+        Implementation of the is_intersecting method. Here at the level of the sublocus,
+        the intersection is seen as overlap between exons. 
+        '''
+          
+        if transcript.id==other.id: return False # We do not want intersection with oneself
+        for exon in transcript.exons:
+            if any(
+                   filter(
+                          #Check that at least one couple of exons are overlapping
+                          lambda oexon: cls.overlap( exon, oexon )>=0, 
+                          other.exons
+                          )
+                   ) is True:
+                return True
+        
+        return False
     
     @classmethod
     def choose_best(cls, metrics):
@@ -250,39 +321,21 @@ class sublocus(abstractlocus):
                 best_tid=random.sample(best_tid, 1) #this returns a list
         best_tid=best_tid[0]
         return best_tid, best_score
+
+    ########### Properties
     
-    def __str__(self):
-        
-        if self.strand is not None:
-            strand=self.strand
-        else:
-            strand="."
-        
-        lines=[]
-        
-        if self.splitted is False:
-            attr_field="ID={0};Parent={1};multiexonic={2}".format(
-                                                              self.id,
-                                                              self.parent,
-                                                              str(not self.monoexonic)
-                                                            )
-                            
-            self_line = [ self.chrom, "locus_pipeline", "sublocus", self.start, self.end,
-                     ".", strand, ".", attr_field]
-            lines.append("\t".join([str(s) for s in self_line]))
-        
-            transcripts = iter(sorted(self.transcripts, key=operator.attrgetter("start", "end")))
-            for transcript in transcripts:
-                transcript.parent=self.id
-                lines.append(str(transcript).rstrip())
-                
-        else:
-            for slocus in sorted(self.loci): #this should function ... I have implemented the sorting in the class ...
-                lines.append(str(slocus).rstrip())
-                
-        return "\n".join(lines)
-        
-        
-        
+    @property
+    def splitted(self):
+        '''The splitted flag indicates whether a sublocus has already been processed to produce the necessary loci.
+        It must be set as a boolean flag (hence why it is coded as a property)'''
+        return self.__splitted
+    
+    @splitted.setter
+    def splitted(self,verified):
+        if type(verified)!=bool:
+            raise TypeError()
+        self.__splitted=verified
+    
+    
         
     

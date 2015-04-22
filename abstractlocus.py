@@ -5,9 +5,46 @@ class abstractlocus:
     
     __metaclass__  = abc.ABCMeta
     
+    ###### Special methods #########
+    
     @abc.abstractmethod
     def __init__(self):
         raise NotImplementedError("This is an abstract class and should not be called directly!")
+    
+    def __eq__(self, other):
+        if self.strand==other.strand and self.chrom==other.chrom and self.start==other.start and self.end==other.end:
+            return True
+        return False
+    
+    def __hash__(self):
+        '''This has to be defined, otherwise the abstractloci objects won't be hashable
+        (and therefore operations like adding to sets will be forbidden)'''
+        return super().__hash__()
+    
+    def __len__(self):
+        return self.end-self.start+1
+    
+    def __lt__(self, other):
+        if self.strand!=other.strand or self.chrom!=other.chrom:
+            return False
+        if self==other:
+            return False
+        if self.start<other.start:
+            return True
+        elif self.start==other.start and self.end<other.end:
+            return True
+        return False
+    
+    def __gt__(self, other):
+        return not self<other
+    
+    def __le__(self, other):
+        return (self==other) or (self<other)
+    
+    def __ge__(self, other):
+        return (self==other) or (self>other)         
+    
+    ##### Static methods #######
     
     @staticmethod
     def overlap(a, b, flank=0):
@@ -17,31 +54,12 @@ class abstractlocus:
         Input: two 2-tuples of integers.
         '''
         
-        #Removed the flexibility, as this will allow to transform the function cythonically
-#         if hasattr(a, "start") and hasattr(b,"start"):
-#             right_boundary=min(a.end+flank, b.end+flank)
-#             left_boundary=max(a.start-flank, b.start-flank)
-#         elif type(a)==type(b)==tuple and len(a)==len(b)==2:
         right_boundary=min(a[1]+flank, b[1]+flank)
         left_boundary=max(a[0]-flank, b[0]-flank)
         
         return right_boundary - left_boundary 
-
-    def add_transcript_to_locus(self, transcript):
-        '''This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method) and
-        upon a successful check extends the superlocus with the new transcript.
-        More precisely, it updates the boundaries (start and end), adds the transcript to the internal "transcripts" store,
-        and extends the splices and junctions with those found inside the transcript.'''
-        transcript.finalize()
-        if self.in_locus(self, transcript) is True:
-            self.start = min(self.start, transcript.start)
-            self.end = max(self.end, transcript.end)
-            self.transcripts.add(transcript)
-            self.splices=set.union(self.splices, transcript.splices)
-            for junction in transcript.junctions:
-                if type(junction)!=tuple: raise TypeError(transcript.id,junction)
-                self.junctions.add(junction) 
-        return
+    
+    ##### Class methods ########
 
     @classmethod
     def in_locus(cls, superlocus, transcript, flank=0):
@@ -60,12 +78,6 @@ class abstractlocus:
                     return True
         return False 
 
-    @abc.abstractmethod
-    def is_intersecting(self):
-        '''This class method defines how two transcript objects will be considered as overlapping.
-        It is used by the BronKerbosch method, and must be implemented at the class level for each child object.'''        
-        raise NotImplementedError("The is_intersecting method should be defined for each child!")
-    
     @classmethod    
     def BronKerbosch(cls, clique, candidates, non_clique, original ):
         '''Implementation of the Bron-Kerbosch algorithm with pivot to define the subloci.
@@ -80,7 +92,6 @@ class abstractlocus:
 
         pivot = random.sample( pool, 1)[0]
         pivot_neighbours = cls.neighbours(pivot, original, )
-#        print(pivot_neighbours)                                                                                                                            
         excluded = set.difference( candidates, pivot_neighbours)
 
         for vertex in excluded:
@@ -94,7 +105,6 @@ class abstractlocus:
                 yield result
             candidates.remove(vertex)
             non_clique.add(vertex)
-#        return clique
 
     @classmethod
     def neighbours( cls, vertex, graph):
@@ -127,6 +137,33 @@ class abstractlocus:
 
         return merged_cliques
 
+    ####### Class instance methods  #######
+
+
+    def add_transcript_to_locus(self, transcript):
+        '''This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method) and
+        upon a successful check extends the superlocus with the new transcript.
+        More precisely, it updates the boundaries (start and end), adds the transcript to the internal "transcripts" store,
+        and extends the splices and junctions with those found inside the transcript.'''
+        transcript.finalize()
+        if self.in_locus(self, transcript) is True:
+            self.start = min(self.start, transcript.start)
+            self.end = max(self.end, transcript.end)
+            self.transcripts.add(transcript)
+            self.splices=set.union(self.splices, transcript.splices)
+            for junction in transcript.junctions:
+                if type(junction)!=tuple: raise TypeError(transcript.id,junction)
+                self.junctions.add(junction) 
+        return
+
+    @abc.abstractmethod
+    def is_intersecting(self):
+        '''This class method defines how two transcript objects will be considered as overlapping.
+        It is used by the BronKerbosch method, and must be implemented at the class level for each child object.'''        
+        raise NotImplementedError("The is_intersecting method should be defined for each child!")
+
+    ###### Properties #######
+
     @property
     def stranded(self):
         '''This property determines whether a locus will consider the strand for e.g. the in_locus method.
@@ -142,29 +179,3 @@ class abstractlocus:
         if type(stranded)!=bool:
             raise ValueError("The stranded attribute must be boolean!")
         self.__stranded=stranded
-    
-    
-    def __eq__(self, other):
-        if self.strand==other.strand and self.chrom==other.chrom and self.start==other.start and self.end==other.end:
-            return True
-        return False
-    
-    def __lt__(self, other):
-        if self.strand!=other.strand or self.chrom!=other.chrom:
-            return False
-        if self==other:
-            return False
-        if self.start<other.start:
-            return True
-        elif self.start==other.start and self.end<other.end:
-            return True
-        return False
-    
-    def __gt__(self, other):
-        return not self<other
-    
-    def __le__(self, other):
-        return (self==other) or (self<other)
-    
-    def __ge__(self, other):
-        return (self==other) or (self>other)         

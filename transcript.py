@@ -3,6 +3,8 @@ import re
 
 class transcript:
     
+    ######### Class special methods ####################
+    
     def __init__(self, gffLine):
         
         '''Initialise the transcript object, using a mRNA/transcript line.
@@ -87,6 +89,51 @@ class transcript:
         lines=[parent_line]
         lines.extend(exon_lines) 
         return "\n".join(lines)
+    
+    def __eq__(self, other):
+        if not type(self)==type(other): return False
+        self.finalize()
+        other.finalize()
+           
+        if self.strand == other.strand and self.chrom == other.chrom and \
+            self.start==other.start and self.end == other.end and \
+            self.exons == other.exons and self.id == other.id:
+            return True
+          
+        return False
+    
+    def __hash__(self):
+        '''This has to be defined, otherwise the transcript objects won't be hashable
+        (and therefore operations like adding to sets will be forbidden)'''
+
+        return super().__hash__()
+    
+    def __len__(self):
+        return self.end-self.start+1
+
+     
+    def __lt__(self, other):
+        if self.chrom!=other.chrom:
+            return self.chrom<other.chrom
+        if self==other:
+            return False
+        if self.start<other.start:
+            return True
+        elif self.start==other.start and self.end<other.end:
+            return True
+        return False
+     
+    def __gt__(self, other):
+        return not self<other
+     
+    def __le__(self, other):
+        return (self==other) or (self<other)
+     
+    def __ge__(self, other):
+        return (self==other) or (self>other)          
+    
+    ######### Class instance methods ####################
+
 
     def addExon(self, gffLine):
         '''This function will append an exon/CDS feature to the object.'''
@@ -218,32 +265,14 @@ class transcript:
         assert sum(len(x) for x in self.__internal_cds) == len(self.cds)
         return self.__internal_cds
     
-#     @internal_cds.setter
-#     def internal_cds(self, *args):
-#         if len(args)==0:
-#             args.append(None)
-#         assert len(args)==1 and type(args[0]) in (None,list)
-#         self.__internal_cds = args[0]
-    
-    #internal_cds=property(get_internal_cds, set_internal_cds) 
-        
     @property
     def max_internal_cds_length(self):
         '''This property calculates the length of the greatest CDS inside the cDNA.'''
-        #_ = self.max_internal_cds #Calculate on the fly  
         if len(self.cds)==0:
             self.__max_internal_cds_length=0
         else:
             self.__max_internal_cds_length=sum(x[1]-x[0]+1 for x in self.max_internal_cds)
         return self.__max_internal_cds_length
-
-#     @max_internal_cds_length.setter
-#     def max_internal_cds_length(self, *args):
-#         if len(*args)==0:
-#             self.__max_internal_cds_index = None
-#             args=[0]
-#         assert len(args)==1 and type(args[0]) is int
-#         self.__max_internal_cds_length = args[0]
 
     @property
     def max_internal_cds(self):
@@ -283,3 +312,4 @@ class transcript:
         assert len(args)==1
         self.__max_internal_cds=args[0]
         
+    

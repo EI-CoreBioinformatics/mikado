@@ -10,6 +10,8 @@ class superlocus(abstractlocus):
     '''The superlocus class is used to define overlapping regions on the genome, and it receives as input
     transcript class instances.'''
     
+    ####### Special methods ############
+    
     def __init__(self, transcript, stranded=True):
         
         '''The superlocus class is instantiated from a transcript class, which it copies in its entirety.
@@ -29,7 +31,41 @@ class superlocus(abstractlocus):
         self.transcripts = set()
         self.transcripts.add(transcript)
         return
-    
+
+    def __str__(self):
+        
+        '''Before printing, the class calls the define_subloci method. It will then print:
+        # a "superlocus" line
+        # for each "sublocus":
+        ## a "sublocus" line
+        ## all the transcripts inside the sublocus (see the transcript class)'''
+
+        if self.strand is not None:
+            strand=self.strand
+        else:
+            strand="."
+        
+        self.define_subloci()
+        superlocus_id = "superlocus:{0}{3}:{1}-{2}".format(self.chrom, self.start, self.end,strand)
+
+        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(superlocus_id) ]
+        superlocus_line = "\t".join(str(s) for s in superlocus_line)
+        counter=0
+        
+        lines=[superlocus_line]        
+        for subl in iter(sorted(self.subloci, key=operator.attrgetter("start","end") )):
+            counter+=1
+            subl.id = "{0}.{1}".format(superlocus_id, counter)
+            subl.parent = superlocus_id
+            #attr_field = "ID={0};Parent={1};".format(sublocus_id, superlocus_id)
+            lines.append(str(subl).rstrip())
+
+        try:
+            return "\n".join(lines)
+        except TypeError:
+            raise TypeError(lines)    
+
+    ############ Class instance methods ############
 
     def split_strands(self):
         '''This method will divide the superlocus on the basis of the strand.
@@ -56,6 +92,41 @@ class superlocus(abstractlocus):
                     for cdna in strand[1:]:
                         new_locus.add_transcript_to_locus(cdna)
                     yield new_locus
+                    
+    def define_subloci(self):
+        '''This method will define all subloci inside the superlocus.
+        Steps:
+            - Call the BronKerbosch algorithm to define cliques
+            - Call the "merge_cliques" algorithm the merge the cliques.
+            - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
+        '''
+        
+        candidates = set(self.transcripts) # This will order the transcripts based on their position
+        if len(candidates)==0:
+            raise ValueError("This superlocus has no transcripts in it!")
+        
+        
+        original=copy(candidates)
+        
+        cliques = set( tuple(clique) for clique in self.BronKerbosch(set(), candidates, set(), original))
+        
+        subloci = self.merge_cliques(cliques)
+        
+        #Now we should define each sublocus and store it in a permanent structure of the class
+        self.subloci = []
+    
+        for subl in subloci:
+            if len(subl)==0:
+                continue
+            
+            new_sublocus = sublocus(subl[0])
+            if len(subl)>1:
+                for ttt in subl[1:]:
+                    new_sublocus.add_transcript_to_locus(ttt)
+                    
+            self.subloci.append(new_sublocus)
+
+    ############# Class methods ###########
     
     @classmethod
     def is_intersecting(cls,transcript, other):
@@ -90,68 +161,3 @@ class superlocus(abstractlocus):
                 flag=True
         return flag
     
-    def define_subloci(self):
-        '''This method will define all subloci inside the superlocus.
-        Steps:
-            - Call the BronKerbosch algorithm to define cliques
-            - Call the "merge_cliques" algorithm the merge the cliques.
-            - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
-        '''
-        
-        candidates = set(self.transcripts) # This will order the transcripts based on their position
-        if len(candidates)==0:
-            raise ValueError("This superlocus has no transcripts in it!")
-        
-        
-        original=copy(candidates)
-        
-        cliques = set( tuple(clique) for clique in self.BronKerbosch(set(), candidates, set(), original))
-        
-        subloci = self.merge_cliques(cliques)
-        
-        #Now we should define each sublocus and store it in a permanent structure of the class
-        self.subloci = []
-    
-        for subl in subloci:
-            if len(subl)==0:
-                continue
-            
-            new_sublocus = sublocus(subl[0])
-            if len(subl)>1:
-                for ttt in subl[1:]:
-                    new_sublocus.add_transcript_to_locus(ttt)
-                    
-            self.subloci.append(new_sublocus)
-    
-    def __str__(self):
-        
-        '''Before printing, the class calls the define_subloci method. It will then print:
-        # a "superlocus" line
-        # for each "sublocus":
-        ## a "sublocus" line
-        ## all the transcripts inside the sublocus (see the transcript class)'''
-
-        if self.strand is not None:
-            strand=self.strand
-        else:
-            strand="."
-        
-        self.define_subloci()
-        superlocus_id = "superlocus:{0}{3}:{1}-{2}".format(self.chrom, self.start, self.end,strand)
-
-        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(superlocus_id) ]
-        superlocus_line = "\t".join(str(s) for s in superlocus_line)
-        counter=0
-        
-        lines=[superlocus_line]        
-        for subl in iter(sorted(self.subloci, key=operator.attrgetter("start","end") )):
-            counter+=1
-            subl.id = "{0}.{1}".format(superlocus_id, counter)
-            subl.parent = superlocus_id
-            #attr_field = "ID={0};Parent={1};".format(sublocus_id, superlocus_id)
-            lines.append(str(subl).rstrip())
-
-        try:
-            return "\n".join(lines)
-        except TypeError:
-            raise TypeError(lines)

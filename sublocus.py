@@ -1,8 +1,8 @@
 from abstractlocus import abstractlocus
-import random,sys,operator
+import random,sys
 from copy import copy
 from locus import locus
-import transcript
+#import transcript
 
 class sublocus(abstractlocus):
     
@@ -13,13 +13,18 @@ class sublocus(abstractlocus):
     
     ################ Class special methods ##############
     
-    def __init__(self, span):
+    def __init__(self, span, source=None):
         
-        '''This '''
+        '''This class takes as input a "span" feature - e.g. a gffLine or a transcript. 
+        The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
         
-        self.transcripts = set()
+        self.transcripts = dict()
         self.fixedSize=True if span.feature=="sublocus" else False
         self.feature="sublocus"
+        if source is not None:
+            self.source = source
+        else:
+            self.source = "locus_pipeline"
         self.splices = set()
         self.junctions = set()
         self.metrics=dict()
@@ -29,7 +34,7 @@ class sublocus(abstractlocus):
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
 
         #Copy attributes into the current dictionary
-        for key in ["parent", "id", "start", "end", "chrom", "strand", "attributes"]:
+        for key in ["parent", "start", "end", "chrom", "strand", "attributes"]:
             setattr(self, key, getattr(span, key))
         
         setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
@@ -54,14 +59,12 @@ class sublocus(abstractlocus):
                                                               str(not self.monoexonic)
                                                             )
                             
-            self_line = [ self.chrom, "locus_pipeline", "sublocus", self.start, self.end,
+            self_line = [ self.chrom, self.source, "sublocus", self.start, self.end,
                      ".", strand, ".", attr_field]
             lines.append("\t".join([str(s) for s in self_line]))
         
-            transcripts = iter(sorted(self.transcripts, key=operator.attrgetter("start", "end")))
-            for transcript in transcripts:
-                transcript.parent=self.id
-                lines.append(str(transcript).rstrip())
+            for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
+                lines.append(str(self.transcripts[tid]).rstrip())
                 
         else:
             for slocus in sorted(self.loci): #this should function ... I have implemented the sorting in the class ...
@@ -85,6 +88,10 @@ class sublocus(abstractlocus):
                                                                                                            self.monoexonic,
                                                                                                            transcript))
         super().add_transcript_to_locus(transcript)
+        #Update the id
+        for transcript_id in self.transcripts:
+            self.transcripts[transcript_id].parent=self.id
+        
         self.exons = set.union(self.exons, transcript.exons)
         self.metrics[transcript.id]=dict()
 
@@ -92,23 +99,29 @@ class sublocus(abstractlocus):
          
         self.loci=[]
         best_tid,best_score=self.choose_best(self.metrics)
-        best_transcript=next(filter(lambda x: x.id==best_tid, self.transcripts))
+        best_transcript=self.transcripts[best_tid]
         best_transcript.score=best_score
         new_locus = locus(best_transcript)
         self.loci.append(new_locus)
         remaining = self.transcripts.copy()
-        remaining.remove(best_transcript)
-        not_intersecting=set(filter(lambda x: not self.is_intersecting(best_transcript, x), remaining ))
+        del remaining[best_tid]
+        for tid in list(remaining.keys()):
+            if self.is_intersecting(best_transcript, remaining[tid] ):
+                del remaining[tid]
         
-        while len(not_intersecting)>0:
-            metrics=dict((tid, self.metrics[tid]) for tid in self.metrics if tid in [ trans.id for trans in not_intersecting ]  )
+        while len(remaining)>0:
+            metrics = dict( 
+                           (tid, self.metrics[tid]) for tid in self.metrics if tid in remaining
+                            )
             best_tid,best_score=self.choose_best(metrics)
-            best_transcript=next(filter(lambda x: x.id==best_tid, not_intersecting))
+            best_transcript = remaining[best_tid]
             new_locus = locus(best_transcript)
             self.loci.append(new_locus)
-            remaining = not_intersecting.copy()
-            remaining.remove(best_transcript)
-            not_intersecting=set(filter(lambda x: not self.is_intersecting(best_transcript, x), remaining ))
+            remaining = remaining.copy()
+            del remaining[best_tid]
+            for tid in list(remaining.keys()):
+                if self.is_intersecting(best_transcript, remaining[tid] ):
+                    del remaining[tid]
     
         self.splitted=True
         return
@@ -137,8 +150,7 @@ class sublocus(abstractlocus):
         - "cds_not_maximal_fraction"    fraction of CDS *not* in the maximal ORF 
         '''
     
-        transcript_instance = next(filter( lambda t: t.id==tid, self.transcripts))
-        self.transcripts.remove(transcript_instance)
+        transcript_instance = self.transcripts[tid]
         transcript_instance.finalize() # The transcript must be finalized before we can calculate the score.
         
         transcript_instance.metrics["exons"]=len(transcript_instance.exons)
@@ -153,46 +165,47 @@ class sublocus(abstractlocus):
         transcript_instance.metrics["cds_exons"] = len(transcript_instance.cds)
         transcript_instance.metrics["cds_length"] = transcript_instance.cds_length
         transcript_instance.metrics["cds_fraction"] = transcript_instance.cds_length/transcript_instance.cdna_length
+        transcript_instance.metrics["utr_fraction"] = 1-transcript_instance.metrics["cds_fraction"] 
         transcript_instance.metrics["internal_cds_num"] = transcript_instance.internal_cds_num
         transcript_instance.metrics["max_internal_cds_num"] = len(transcript_instance.max_internal_cds)
         transcript_instance.metrics["max_internal_cds_length"] = transcript_instance.max_internal_cds_length
-        transcript_instance.metrics["max_internal_cds_fraction"] = transcript_instance.max_internal_cds_length/transcript_instance.cdna_length
+        if transcript_instance.cds_length>0:
+            transcript_instance.metrics["max_internal_cds_fraction"] = transcript_instance.max_internal_cds_length/transcript_instance.cds_length
+        else:
+            transcript_instance.metrics["max_internal_cds_fraction"] = 0
         transcript_instance.metrics["cds_not_maximal"] = transcript_instance.cds_length - transcript_instance.max_internal_cds_length
         if transcript_instance.max_internal_cds_length>0:
             transcript_instance.metrics["cds_not_maximal_fraction"] = (transcript_instance.cds_length - transcript_instance.max_internal_cds_length)/transcript_instance.cds_length
         else:
             transcript_instance.metrics["cds_not_maximal_fraction"] = 0
         transcript_instance.metrics["cdna_length"] = transcript_instance.cdna_length
-        self.transcripts.add(transcript_instance)
         for metric in transcript_instance.metrics:
             if metric not in self.available_metrics:
                 self.available_metrics.append(metric)
-        
-        
+
+        self.transcripts[tid]=transcript_instance
         
     def find_retained_introns(self, transcript_instance):
          
         '''This method checks the number of exons that are possibly retained introns for a given transcript.
-        To perform this operation, it checks for each exon whether it exists a sublocus intron that
+        To perform this operation, it checks for each non-CDS exon whether it exists a sublocus intron that
         is *completely* contained within a transcript exon.
+        CDS exons are ignored because their retention might be perfectly valid.
         The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
          
         transcript_instance.retained_introns=[]
-        for exon in transcript_instance.exons:
+        for exon in filter(lambda e: e not in transcript_instance.cds, transcript_instance.exons[1:-1]):
             #Check that the overlap is at least as long as the minimum between the exon and the intron.
             if any(filter(
-                          lambda junction: self.overlap(exon,junction)>=min(junction[1]-junction[0]+1, exon[1]-exon[0]+1),
+                          lambda junction: self.overlap(exon,junction)>=min(junction[1]-junction[0], exon[1]-exon[0]),
                           self.junctions                          
                           )) is True:
-                transcript_instance.retained_introns.append(exon)
+                    transcript_instance.retained_introns.append(exon)
+                    print("Retained:", transcript_instance.id, exon, file=sys.stderr)
         transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
             
     def load_scores(self, scores):
-        '''Simple mock function to load scores for the transcripts from a tab-delimited file.
-        This implementation will have to be rewritten for the final pipeline.
-        Moreover, this is potentially a disk-killer - each sublocus will have to parse the whole shebang!
-        It will probably be much better to write down everything in a SQLite DB, or parse it separately once
-        and write a "connector" to the global dictionary. Or something.
+        '''Simple mock function to load scores for the transcripts from an external dictionary.
         '''
         
         for tid in filter(lambda tid: tid in self.metrics, scores):
@@ -206,7 +219,7 @@ class sublocus(abstractlocus):
             raise TypeError("{0}\n{1}".format(err, self.metrics) )
             
             
-    def calculate_scores(self, maximum_utr=3, minimum_cds_fraction=0.5, order=("intron_frac", "cds_length")):
+    def calculate_scores(self, maximum_utr=3, minimum_cds_fraction=0.2, order=("intron_frac", "cds_length", "utr_fraction")):
         '''Function to calculate a score for each transcript, given the metrics derived
          with the calculate_metrics method.
          Keyword arguments:
@@ -216,7 +229,6 @@ class sublocus(abstractlocus):
          '''
         
         self.get_metrics()
-        score=0
         
         def keyfunction(transcript_instance, order=[]   ):
             if len(order)==0:
@@ -225,13 +237,15 @@ class sublocus(abstractlocus):
         
         current_score=0
         
-        for transcript_instance in sorted( self.transcripts, key=lambda item: keyfunction(item, order=order)):
+        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid], order=order)  ):
+            transcript_instance = self.transcripts[tid]
             if len(transcript_instance.utr)>maximum_utr or self.metrics[transcript_instance.id]["cds_fraction"]<minimum_cds_fraction:
                 score=float("-Inf")
             else:
                 score=current_score
                 current_score+=1
-            self.metrics[transcript_instance.id]["score"]=score
+            self.metrics[tid]["score"]=score
+            self.transcripts[tid].score=score
 
         self.scores_calculated=True
          
@@ -250,13 +264,13 @@ class sublocus(abstractlocus):
         
         #The rower is an instance of the DictWriter class from the standard CSV module
         
-        for transcript_instance in sorted(self.transcripts):
+        for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid] ):
             row=dict()
             for key in rower.fieldnames:
-                if not key in self.metrics[transcript_instance.id]:
-                    row[key]=getattr(transcript_instance, key, "NA")
+                if not key in self.metrics[tid]:
+                    row[key]=getattr(self.transcripts[tid], key, "NA")
                 else:
-                    row[key]=self.metrics[transcript_instance.id][key]
+                    row[key]=self.metrics[tid][key]
                 if type(row[key]) is float:
                     row[key] = round(row[key],2)
                 elif row[key] is None:
@@ -273,9 +287,9 @@ class sublocus(abstractlocus):
         
         self.metrics=dict()
         
-        for transcript_instance in self.transcripts:
-            self.calculate_metrics(transcript_instance.id)
-            self.metrics[transcript_instance.id]=copy(transcript_instance.metrics)
+        for tid in self.transcripts:
+            self.calculate_metrics(tid)
+            self.metrics[tid]=copy(self.transcripts[tid].metrics)
 
         self.metrics_calculated = True
         return
@@ -336,6 +350,12 @@ class sublocus(abstractlocus):
             raise TypeError()
         self.__splitted=verified
     
-    
+    @property
+    def id(self):
+        return "sublocus:{0}{1}:{2}-{3}".format(
+                                                self.chrom,
+                                                self.strand,
+                                                self.start,
+                                                self.end)
         
     

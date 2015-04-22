@@ -28,8 +28,9 @@ class superlocus(abstractlocus):
         self.__dict__.update(transcript.__dict__)
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
-        self.transcripts = set()
-        self.transcripts.add(transcript)
+        self.transcripts = dict()
+        super().add_transcript_to_locus(transcript)
+        
         return
 
     def __str__(self):
@@ -55,7 +56,7 @@ class superlocus(abstractlocus):
         lines=[superlocus_line]        
         for subl in iter(sorted(self.subloci, key=operator.attrgetter("start","end") )):
             counter+=1
-            subl.id = "{0}.{1}".format(superlocus_id, counter)
+            #subl.id = "{0}.{1}".format(superlocus_id, counter)
             subl.parent = superlocus_id
             #attr_field = "ID={0};Parent={1};".format(sublocus_id, superlocus_id)
             lines.append(str(subl).rstrip())
@@ -78,7 +79,8 @@ class superlocus(abstractlocus):
         
         else:
             plus, minus, nones = [], [], []
-            for cdna in self.transcripts:
+            for cdna_id in self.transcripts:
+                cdna=self.transcripts[cdna_id]
                 if cdna.strand == "+":
                     plus.append(cdna)
                 elif cdna.strand == "-":
@@ -88,7 +90,7 @@ class superlocus(abstractlocus):
 
             for strand in plus, minus, nones:
                 if len(strand)>0:
-                    new_locus = superlocus(strand[0])
+                    new_locus = superlocus(strand[0], stranded=True)
                     for cdna in strand[1:]:
                         new_locus.add_transcript_to_locus(cdna)
                     yield new_locus
@@ -101,7 +103,7 @@ class superlocus(abstractlocus):
             - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
         '''
         
-        candidates = set(self.transcripts) # This will order the transcripts based on their position
+        candidates = set(self.transcripts.values()) # This will order the transcripts based on their position
         if len(candidates)==0:
             raise ValueError("This superlocus has no transcripts in it!")
         

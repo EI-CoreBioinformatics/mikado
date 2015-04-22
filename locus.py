@@ -18,9 +18,9 @@ class locus(abstractlocus):
         self.feature="locus"
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
-        self.transcripts = set()
-        self.transcripts.add(transcript)
-        self.id=None
+        self.transcripts = dict()
+        self.stranded=True
+        super().add_transcript_to_locus(transcript)
         self.parent=None
         self.source = "locus_pipeline"
         
@@ -42,9 +42,10 @@ class locus(abstractlocus):
         self_line = [ self.chrom, self.source, self.feature, self.start, self.end,
                              ".", strand, ".", attr_field]
         lines.append("\t".join([str(s) for s in self_line]))
-        transcript=list(self.transcripts)[0]
-        transcript.parent=self.id
-        lines.append(str(transcript).rstrip())
+        for tid in self.transcripts:
+            transcript_instance=self.transcripts[tid]
+            transcript_instance.parent=self.id
+            lines.append(str(transcript_instance).rstrip())
         return "\n".join(lines)
         
         
@@ -69,3 +70,11 @@ class locus(abstractlocus):
             args=["locus_pipeline"]
         assert len(args)==1 and type(args[0]) is str
         self.__source = args[0]        
+
+    @property
+    def id(self):
+        return "locus:{0}{1}:{2}-{3}".format(
+                                            self.chrom,
+                                            self.strand,
+                                            self.start,
+                                            self.end)

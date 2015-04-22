@@ -71,11 +71,11 @@ class abstractlocus:
         - a "transcript" object (it must possess the "finalize" method)
         - flank - optional keyword'''
         transcript.finalize()
+        #We want to check for the strand only if we are considering the strand
         if superlocus.chrom == transcript.chrom and \
+            (superlocus.stranded is False or superlocus.strand == transcript.strand) and \
             cls.overlap( (superlocus.start,superlocus.end), (transcript.start,transcript.end), flank=flank  ) > 0:
-                #We want to check for the strand only if we are considering the strand
-                if superlocus.stranded is False or superlocus.strand == transcript.strand:
-                    return True
+                return True
         return False 
 
     @classmethod    
@@ -147,9 +147,14 @@ class abstractlocus:
         and extends the splices and junctions with those found inside the transcript.'''
         transcript.finalize()
         if self.in_locus(self, transcript) is True:
+            if transcript.id in self.transcripts:
+                if transcript==self.transcripts[transcript.id]:
+                    return
+                else:
+                    raise KeyError("Trying to add transcript {0} to the locus, but a different transcript with the same name is already present!".format(transcript.id))
             self.start = min(self.start, transcript.start)
             self.end = max(self.end, transcript.end)
-            self.transcripts.add(transcript)
+            self.transcripts[transcript.id]=transcript
             self.splices=set.union(self.splices, transcript.splices)
             for junction in transcript.junctions:
                 if type(junction)!=tuple: raise TypeError(transcript.id,junction)

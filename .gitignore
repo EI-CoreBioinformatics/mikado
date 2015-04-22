@@ -1,4 +1,5 @@
-__pycache__sample_data/sample.loci.gff3
+__pycache__/
+__pycache__/*
 sample_data/sample.subloci.gff3
 sample_data/trinity.loci.from_gff.gff3
 sample_data/trinity.loci.gff3

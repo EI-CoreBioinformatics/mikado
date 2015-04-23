@@ -2,24 +2,40 @@ import abc
 import random
 #import sys
 
-class abstractlocus:
+class abstractlocus(metaclass=abc.ABCMeta):
     
-    __metaclass__  = abc.ABCMeta
+    '''This abstract class defines the basic features of any locus-like object.
+    It also defines methods/properties that are needed throughout the program,
+    e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method.'''
+    
     __name__ = "abstractlocus"
     
     ###### Special methods #########
     
     @abc.abstractmethod
     def __init__(self):
-        raise NotImplementedError("This is an abstract class and should not be called directly!")
+        self.transcripts = dict()
+        self.junctions, self.exons, self.splices = set(), set(), set()
+        self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+        self.stranded=True
+        self.initialized = False
+        #raise NotImplementedError("This is an abstract class and should not be called directly!")
+    
+    @abc.abstractmethod
+    def __str__(self):
+        pass
+    
     
     def __eq__(self, other):
-        if self.strand==other.strand and self.chrom==other.chrom and self.start==other.start and self.end==other.end:
-            return True
-        return False
+        if type(self)!=type(other):
+            return False
+        for feature in ["chrom", "strand","start","end","exons","junctions","splices","stranded"]:
+            if getattr(self,feature )!=getattr(other,feature):
+                return False
+        return True
     
     def __hash__(self):
-        '''This has to be defined, otherwise the abstractloci objects won't be hashable
+        '''This has to be defined, otherwise abstractloci objects won't be hashable
         (and therefore operations like adding to sets will be forbidden)'''
         return super().__hash__()
     
@@ -139,27 +155,100 @@ class abstractlocus:
 
         return merged_cliques
 
+    @classmethod
+    def choose_best(cls, metrics):
+        '''Given a dictionary of metrics, this function will select the best according to the "score" item inside the dictionary itself.
+        Form of the dictionary:
+        
+        dict( (<transcript_id>, dict( (key,val),.. (<"score">, val), ...)))
+        
+        It returns two items:
+            transcript_id, score
+        
+        '''
+        
+        best_score,best_tid=float("-Inf"),[]
+        for tid in metrics:
+            score=metrics[tid]["score"]
+            if score>best_score:
+                best_score,best_tid=score,[tid]
+            elif score==best_score:
+                best_tid.append(tid)
+        if len(best_tid)!=1:
+            if len(best_tid)==0:
+                raise ValueError("Odd. I have not been able to find the transcript with the best score: {0}".format(best_score))
+            else:
+#                 print("WARNING: multiple transcripts with the same score ({0}). I will choose one randomly.".format(", ".join(best_tid)
+#                                                                                                                     ) , file=sys.stderr)
+                best_tid=random.sample(best_tid, 1) #this returns a list
+        best_tid=best_tid[0]
+        return best_tid, best_score
+
+
     ####### Class instance methods  #######
 
 
-    def add_transcript_to_locus(self, transcript):
+    def add_transcript_to_locus(self, transcript_instance, check_in_locus = True):
         '''This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method) and
         upon a successful check extends the superlocus with the new transcript.
         More precisely, it updates the boundaries (start and end), adds the transcript to the internal "transcripts" store,
         and extends the splices and junctions with those found inside the transcript.'''
-        transcript.finalize()
+        transcript_instance.finalize()
+        if self.initialized is True:
+            if check_in_locus is False:
+                pass
+            elif not self.in_locus(self, transcript_instance):
+                raise AssertionError("""Trying to merge a locus with an incompatible transcript!
+                Locus: {lchrom}:{lstart}-{lend} {lstrand}
+                Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
+                """.format(
+                           lchrom = self.chrom, lstart=self.start, lend = self.end, lstrand = self.strand,
+                           tchrom = transcript_instance.chrom,
+                           tstart =  transcript_instance.start,
+                           tend =  transcript_instance.end,
+                           tstrand = transcript_instance.strand,
+                           tid = transcript_instance.id
+                           
+                           ))
+        else:
+            self.strand = transcript_instance.strand
+            self.chrom = transcript_instance.chrom
 #         if self.in_locus(self, transcript) is True:
 #             if transcript.id in self.transcripts:
 #                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
-        self.start = min(self.start, transcript.start)
-        self.end = max(self.end, transcript.end)
-        self.transcripts[transcript.id]=transcript
-        self.splices=set.union(self.splices, transcript.splices)
-        for junction in transcript.junctions:
-            if type(junction)!=tuple: raise TypeError(transcript.id,junction)
-            self.junctions.add(junction) 
+        self.start = min(self.start, transcript_instance.start)
+        self.end = max(self.end, transcript_instance.end)
+        self.transcripts[transcript_instance.id]=transcript_instance
+        self.splices.update(transcript_instance.splices)
+        self.junctions.update(transcript_instance.junctions)
+        self.exons.update(set(transcript_instance.exons))
+        for transcript_id in self.transcripts:
+            self.transcripts[transcript_id].parent=self.id
+
+        if self.initialized is False:
+            self.initialized = True
+        
         return
 
+    def find_retained_introns(self, transcript_instance):
+         
+        '''This method checks the number of exons that are possibly retained introns for a given transcript.
+        To perform this operation, it checks for each non-CDS exon whether it exists a sublocus intron that
+        is *completely* contained within a transcript exon.
+        CDS exons are ignored because their retention might be perfectly valid.
+        The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
+         
+        transcript_instance.retained_introns=[]
+        for exon in filter(lambda e: e not in transcript_instance.cds, transcript_instance.exons):
+            #Check that the overlap is at least as long as the minimum between the exon and the intron.
+            if any(filter(
+                          lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
+                          self.junctions                          
+                          )) is True:
+                    transcript_instance.retained_introns.append(exon)
+        transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
+
+    @classmethod
     @abc.abstractmethod
     def is_intersecting(self):
         '''This class method defines how two transcript objects will be considered as overlapping.

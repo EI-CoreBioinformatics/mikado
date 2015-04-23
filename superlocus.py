@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 from abstractlocus import abstractlocus
-import operator
+#import operator
 from copy import copy
 from sublocus import sublocus
+from monosublocus_holder import monosublocus_holder
 
 class superlocus(abstractlocus):
     
@@ -24,17 +25,17 @@ class superlocus(abstractlocus):
         - junctions - a *set* which contains the positions of each *splice junction* (registered as 2-tuples)
         - transcripts - a *set* which holds the transcripts added to the superlocus'''
         
-        transcript_instance.finalize()
+        super().__init__()
         self.stranded=stranded
-        self.feature="superlocus"
-        self.__dict__.update(transcript_instance.__dict__)
+        self.feature=self.__name__
+        #self.__dict__.update(transcript_instance.__dict__)
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
         self.transcripts = dict()
         super().add_transcript_to_locus(transcript_instance)
-        self.available_metrics = []
-        self.monosubloci_defined = False
-        self.loci_defined = False
+        self.available_monolocus_metrics = []
+        self.available_sublocus_metrics = []
+        self.set_flags()
         return
 
     def __str__(self):
@@ -49,22 +50,23 @@ class superlocus(abstractlocus):
             strand=self.strand
         else:
             strand="."
-        
-        self.define_subloci()
+
         superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(self.id) ]
         superlocus_line = "\t".join(str(s) for s in superlocus_line)
-        counter=0
-        
-        lines=[superlocus_line]        
-        for subl in iter(sorted(self.subloci, key=operator.attrgetter("start","end") )):
-            counter+=1
-            subl.parent = self.id
-            lines.append(str(subl).rstrip())
+        lines=[superlocus_line]
 
-        try:
-            return "\n".join(lines)
-        except TypeError:
-            raise TypeError(lines)    
+        if self.loci_defined is True:
+            for locus_instance in self.loci:
+                lines.append(str(locus_instance).rstrip())
+        elif self.monosubloci_defined is True:
+            for monosublocus_instance in self.monosubloci:
+                lines.append(str(monosublocus_instance).rstrip())
+        else:
+            self.define_subloci()
+            for sublocus_instance in self.subloci:
+                lines.append(str(sublocus_instance).rstrip())
+        
+        return "\n".join(lines)
 
     ############ Class instance methods ############
 
@@ -72,6 +74,8 @@ class superlocus(abstractlocus):
         '''This method will divide the superlocus on the basis of the strand.
         The rationale is to parse a GFF file without regard for the strand, in order to find all intersecting loci;
         and subsequently break the superlocus into the different components.
+        Notice that each strand might generate more than one superlocus, if genes on a different strand link what are
+        two different superloci.
         '''
         
         if self.stranded is True:
@@ -88,12 +92,31 @@ class superlocus(abstractlocus):
                 elif cdna.strand is None:
                     nones.append(cdna)
 
+            new_loci = []
             for strand in plus, minus, nones:
                 if len(strand)>0:
+                    strand = sorted(strand)
                     new_locus = superlocus(strand[0], stranded=True)
                     for cdna in strand[1:]:
-                        new_locus.add_transcript_to_locus(cdna)
-                    yield new_locus
+                        if new_locus.in_locus(new_locus, cdna):
+                            new_locus.add_transcript_to_locus(cdna)
+                        else:
+                            new_loci.append(new_locus)
+                            new_locus = superlocus(cdna, stranded=True)
+                            
+                    new_loci.append(new_locus)
+            for new_locus in iter(sorted(new_loci)):
+                yield new_locus
+
+    def set_flags(self):
+        '''Method called by __init__ to set basic flags. These are used throughout the program to avoid unnecessary calculations.'''
+        self.subloci_defined = False
+        self.monosubloci_defined = False
+        self.loci_defined = False
+        self.monosubloci_metrics_calculated = False
+
+
+    ###### Sublocus-related steps ######
                     
     def define_subloci(self):
         '''This method will define all subloci inside the superlocus.
@@ -102,6 +125,9 @@ class superlocus(abstractlocus):
             - Call the "merge_cliques" algorithm the merge the cliques.
             - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
         '''
+        
+        if self.subloci_defined is True:
+            return
         
         candidates = set(self.transcripts.values()) # This will order the transcripts based on their position
         if len(candidates)==0:
@@ -113,107 +139,83 @@ class superlocus(abstractlocus):
         cliques = set( tuple(clique) for clique in self.BronKerbosch(set(), candidates, set(), original))
         
         subloci = self.merge_cliques(cliques)
-        
-        #Now we should define each sublocus and store it in a permanent structure of the class
         self.subloci = []
-    
+        #Now we should define each sublocus and store it in a permanent structure of the class
         for subl in subloci:
             if len(subl)==0:
                 continue
-            
+            subl=sorted(subl)
             new_sublocus = sublocus(subl[0])
-            if len(subl)>1:
-                for ttt in subl[1:]:
-                    new_sublocus.add_transcript_to_locus(ttt)
-                    
+            for ttt in subl[1:]:
+                new_sublocus.add_transcript_to_locus(ttt)
+            new_sublocus.parent = self.id
             self.subloci.append(new_sublocus)
+        self.subloci=sorted(self.subloci)
+        self.subloci_defined = True
+
+    def get_sublocus_metrics(self):
+        '''Wrapper function to calculate the metrics inside each sublocus.'''
+        
+        self.define_subloci()
+        self.sublocus_metrics = []
+        for sublocus_instance in self.subloci:
+            sublocus_instance.get_metrics(self)
+            for metric in sublocus_instance.metrics:
+                if metric not in self.sublocus_metrics:
+                    self.sublocus_metrics.append(metric)
 
     def define_monosubloci(self):
 
-        '''This function calculates the monosubloci from the subloci present in the superlocus.'''
+        '''This is a wrapper method that defines the monosubloci for each sublocus.
+        '''
         if self.monosubloci_defined is True:
             return
         
         self.define_subloci()
-        self.monosubloci = []
-        self.monosubloci_transcripts = dict()
-        self.monosubloci_exons=set()
-        self.monosubloci_splices=set()
-        self.monosubloci_junctions=set()
+        self.monosubloci=[]
         #Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
             sublocus_instance.define_monosubloci()
-            for monosublocus_instance in sublocus_instance.monosubloci:
-                tid = monosublocus_instance.tid
-                self.monosubloci_transcripts[tid]=self.transcripts[tid]
-                self.monosubloci_exons.update(self.transcripts[tid].exons)
-                self.monosubloci_splices.update(self.transcripts[tid].splices)
-                self.monosubloci_junctions.update(self.transcripts[tid].junctions)
-                
-            self.monosubloci.extend(sublocus_instance.monosubloci)
+            for ml in sublocus_instance.monosubloci:
+                ml.parent = self.id
+                self.monosubloci.append(ml)
+            
+        self.monosubloci = sorted(self.monosubloci)
         self.monosubloci_defined = True
 
-
-    def get_monolocus_metrics(self):
-        self.define_monosubloci()
-        for tid in self.monosubloci_transcripts:
-            self.calculate_monolocus_metrics(tid)
-
+    def print_monolocus_metrics(self, rower):
+        '''Wrapper function to pass to a csv.DictWriter object the metrics of the transcripts in the monosubloci.'''
+        
+        raise NotImplementedError()
 
             
     def define_loci(self):
-        self.get_monolocus_metrics()
-        raise NotImplementedError()
-            
-        #Calculate the best transcripts
-            
+        '''This is the final method in the pipeline. It creates a container for all the monosubloci
+        (an instance of the class monosublocus_holder) and retrieves the loci it calculates internally.'''
         
-    def calculate_monolocus_metrics(self, tid):
-        '''This function will calculate the metrics which will be used to derive a score for a transcript.
-        The different attributes of the transcript will be stored inside the transcript class itself,
-        to be more precise, into an internal dictionary ("metrics").
-         
-        This function re-generates only the following metrics, as they are relative:
-        The scoring function must consider the following factors:
-        - "exon_frac":          % of exons on the total of the exons present in the monosubloci
-        - "intron_frac":        % of introns on the total of the introns present in the monosubloci
-        - "retained_introns":   no. of retained introns
-        - "retained_frac":      % of cdna_length that is in retained introns 
-        '''
-
-        transcript_instance = self.monosubloci_transcripts[tid]
-        transcript_instance.metrics["exon_frac"] = len(set.intersection( self.monosubloci_exons,transcript_instance.exons   ))/len(self.monosubloci_exons)
-        if len(self.monosubloci_junctions)>0:
-            transcript_instance.metrics["intron_frac"] = len(set.intersection( self.monosubloci_junctions,transcript_instance.junctions   ))/len(self.monosubloci_junctions)
-        else:
-            transcript_instance.metrics["intron_frac"]=None
-        self.find_retained_introns_in_monosubloci(transcript_instance)
-        transcript_instance.metrics["retained_introns"] = len(transcript_instance.retained_introns)
-        transcript_instance.metrics["retained_frac"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
-        for metric in transcript_instance.metrics:
-            if metric not in self.available_metrics:
-                self.available_metrics.append(metric)
-
-        self.transcripts[tid]=transcript_instance
-
-    def find_retained_introns_in_monosubloci(self, transcript_instance):
-         
-        '''This method checks the number of exons that are possibly retained introns for a given transcript.
-        To perform this operation, it checks for each non-CDS exon whether it exists a sublocus intron that
-        is *completely* contained within a transcript exon.
-        CDS exons are ignored because their retention might be perfectly valid.
-        The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
-         
-        transcript_instance.retained_introns=[]
-        for exon in filter(lambda e: e not in transcript_instance.cds, transcript_instance.exons):
-            #Check that the overlap is at least as long as the minimum between the exon and the intron.
-            if any(filter(
-                          lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
-                          self.monosubloci_junctions
-                          )) is True:
-                    transcript_instance.retained_introns.append(exon)
-#                     print("Retained:", transcript_instance.id, exon, file=sys.stderr)
-        transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
+        if self.loci_defined is True:
+            return
+        
+        self.monoholder = None
+        
+        for monosublocus_instance in sorted(self.monosubloci):
+            if self.monoholder is None:
+                self.monoholder = monosublocus_holder(monosublocus_instance)
+            else:
+                self.monoholder.add_monosublocus(monosublocus_instance)
+                
+            pass
+            
+        self.monoholder.define_loci()
+        self.loci = []
+        for locus_instance in self.monoholder.loci:
+            locus_instance.parent = self.id
+            self.loci.append(locus_instance)
+            
+        self.loci=sorted(self.loci)
+        self.loci_defined = True
+        
+        return
 
     ############# Class methods ###########
     

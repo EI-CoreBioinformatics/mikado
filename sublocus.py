@@ -1,8 +1,8 @@
 from abstractlocus import abstractlocus
-import random
+#import random
 from copy import copy
 from monosublocus import monosublocus
-#import transcript
+from transcript import transcript
 
 class sublocus(abstractlocus):
     
@@ -19,32 +19,28 @@ class sublocus(abstractlocus):
         
         '''This class takes as input a "span" feature - e.g. a gffLine or a transcript_instance. 
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
+        super().__init__()
         
-        self.transcripts = dict()
         self.fixedSize=True if span.feature=="sublocus" else False
         self.feature="sublocus"
         if source is not None:
             self.source = source
         else:
             self.source = "locus_pipeline"
-        self.splices = set()
-        self.junctions = set()
         self.metrics=dict()
         self.splitted=False
-        self.exons=set()
-        self.stranded=True
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
-
-        #Copy attributes into the current dictionary
-        for key in ["parent", "start", "end", "chrom", "strand", "attributes"]:
-            setattr(self, key, getattr(span, key))
-        
-        setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
-        
-        if span.feature=="transcript" or "RNA" in span.feature.upper():
-            self.add_transcript_to_locus(span)
         self.available_metrics=[] # List to retrieve the available metrics. Calculated at runtime.
+        setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
+        assert hasattr(self, "monoexonic")
 
+        if type(span) is transcript:
+            self.add_transcript_to_locus(span)
+        else:
+            for key in ["parent", "start", "end", "chrom", "strand", "attributes"]:
+                setattr(self, key, getattr(span, key))
+        
+        
     def __str__(self):
         #print(self.id, len(self.transcripts), file=sys.stderr)
         if self.strand is not None:
@@ -77,39 +73,37 @@ class sublocus(abstractlocus):
     
     ########### Class instance methods #####################
     
-    def add_transcript_to_locus(self, transcript):
-        if transcript is None: return
-        transcript.finalize()
-        if self.monoexonic is None:
-            self.monoexonic = transcript.monoexonic
-        elif self.monoexonic!=transcript.monoexonic:
+    def add_transcript_to_locus(self, transcript_instance):
+        
+        '''This is an override of the original method, as at the sublocus stage we need to accomplish a couple of things more:
+        - check that transcripts added to the sublocus are either all monoexonic or all multiexonic
+        - change the id of the transcripts to  
+        '''
+        
+        if transcript_instance is None: return
+        assert hasattr(self, "monoexonic")
+        if self.initialized is False:
+            self.monoexonic = transcript_instance.monoexonic
+        elif self.monoexonic!=transcript_instance.monoexonic:
             raise ValueError("Sublocus and transcript are not compatible!\n{0}\t{1}\t{2}\t{3}\t{4}\n{5}".format(self.chrom,
                                                                                                            self.start,
                                                                                                            self.end,
                                                                                                            self.strand,
                                                                                                            self.monoexonic,
                                                                                                            transcript))
-        super().add_transcript_to_locus(transcript)
-        #Update the id
-        for transcript_id in self.transcripts:
-            self.transcripts[transcript_id].parent=self.id
+
+        super().add_transcript_to_locus(transcript_instance)
         
-        self.exons = set.union(self.exons, transcript.exons)
-        self.metrics[transcript.id]=dict()
+        #Update the id
+        self.metrics[transcript_instance.id]=dict()
 
     def define_monosubloci(self):
-         
+        '''This function retrieves the best non-overlapping transcripts inside the sublocus, according to the score
+        calculated by calculate_scores (explicitly called inside the method).'''
+        
         self.monosubloci=[]
-        best_tid,best_score=self.choose_best(self.metrics)
-        best_transcript=self.transcripts[best_tid]
-        best_transcript.score=best_score
-        new_locus = monosublocus(best_transcript)
-        self.monosubloci.append(new_locus)
+        self.calculate_scores()
         remaining = self.transcripts.copy()
-        del remaining[best_tid]
-        for tid in list(remaining.keys()):
-            if self.is_intersecting(best_transcript, remaining[tid] ):
-                del remaining[tid]
         
         while len(remaining)>0:
             metrics = dict( 
@@ -117,6 +111,7 @@ class sublocus(abstractlocus):
                             )
             best_tid,best_score=self.choose_best(metrics)
             best_transcript = remaining[best_tid]
+            best_transcript.score = best_score
             new_locus = monosublocus(best_transcript)
             self.monosubloci.append(new_locus)
             remaining = remaining.copy()
@@ -157,7 +152,7 @@ class sublocus(abstractlocus):
         if len(self.junctions)>0:
             transcript_instance.metrics["intron_frac"] = len(set.intersection( self.junctions,transcript_instance.junctions   ))/len(self.junctions)
         else:
-            transcript_instance.metrics["intron_frac"]=None
+            transcript_instance.metrics["intron_frac"]=0
         self.find_retained_introns(transcript_instance)
         transcript_instance.metrics["retained_introns"] = len(transcript_instance.retained_introns)
         transcript_instance.metrics["retained_frac"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
@@ -219,7 +214,8 @@ class sublocus(abstractlocus):
             
             
     def calculate_scores(self, maximum_utr=3, minimum_cds_fraction=0.2, order=("intron_frac", "cds_length", "utr_fraction")):
-        '''Function to calculate a score for each transcript, given the metrics derived
+        '''
+        Function to calculate a score for each transcript, given the metrics derived
          with the calculate_metrics method.
          Keyword arguments:
          
@@ -316,25 +312,6 @@ class sublocus(abstractlocus):
         
         return False
     
-    @classmethod
-    def choose_best(cls, metrics):
-        best_score,best_tid=float("-Inf"),[]
-        for tid in metrics:
-            score=metrics[tid]["score"]
-            if score>best_score:
-                best_score,best_tid=score,[tid]
-            elif score==best_score:
-                best_tid.append(tid)
-        if len(best_tid)!=1:
-            if len(best_tid)==0:
-                raise ValueError("Odd. I have not been able to find the transcript with the best score: {0}".format(best_score))
-            else:
-#                 print("WARNING: multiple transcripts with the same score ({0}). I will choose one randomly.".format(", ".join(best_tid)
-#                                                                                                                     ) , file=sys.stderr)
-                best_tid=random.sample(best_tid, 1) #this returns a list
-        best_tid=best_tid[0]
-        return best_tid, best_score
-
     ########### Properties
     
     @property
@@ -348,3 +325,12 @@ class sublocus(abstractlocus):
         if type(verified)!=bool:
             raise TypeError()
         self.__splitted=verified
+        
+    @property
+    def id(self):
+        if self.monoexonic is True:
+            addendum = "mono"
+        else:
+            addendum = "multi"
+        
+        return "{0}.{1}".format(super().id, addendum)

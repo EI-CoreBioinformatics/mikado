@@ -1,5 +1,6 @@
 import operator
 import re
+from abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 
 class transcript:
     
@@ -100,8 +101,10 @@ class transcript:
         return False
     
     def __hash__(self):
-        '''This has to be defined, otherwise the transcript objects won't be hashable
-        (and therefore operations like adding to sets will be forbidden)'''
+        '''Returns the hash of the object (call to super().__hash__())'''
+
+#         This has to be defined, otherwise the transcript objects won't be hashable
+#         (and therefore operations like adding to sets will be forbidden)
 
         return super().__hash__()
     
@@ -163,6 +166,9 @@ class transcript:
         if self.finalized is True:
             return
 
+        if len(self.exons)>1 and self.strand is None:
+            raise AttributeError("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
+
         self.metrics=dict() # create the store for the metrics
         if self.utr!=[] and self.cds==[]:
             raise ValueError("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
@@ -182,10 +188,11 @@ class transcript:
                                                                                                                                                             ))
         self.cds = sorted(self.cds, key=operator.itemgetter(0,1))
         self.utr = sorted(self.utr, key=operator.itemgetter(0,1))
-        self.segments = [ ("exon",e[0],e[1]) for e in self.exons] + \
+        self.cds_runs = []
+        segments = [ ("exon",e[0],e[1]) for e in self.exons] + \
                     [("CDS", c[0],c[1]) for c in self.cds ] + \
                     [ ("UTR", u[0], u[1]) for u in self.utr ]
-        self.segments = sorted(self.segments, key=operator.itemgetter(1,2) )
+        self.cds_runs.append(sorted(segments, key=operator.itemgetter(1,2) ))
         
         if len(self.exons)==1:
             self.finalized = True
@@ -206,22 +213,162 @@ class transcript:
         return
 
 
+    def load_cds(self, cds_dict):
+        
+        '''This function is used to load the various CDSs from an external dictionary, loaded from a BED file.
+        It replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
+        TransDecoder suite.
+        Briefly, it follows this logic:
+        - Finalise the transcript
+        - Retrieve from the dictionary (input) the CDS object
+        - Sort CDSs on the basis of their length (useful for monoexonic transcripts where we might want to set the strand)
+        - For each CDS:
+            - If the ORF is on the + strand:
+                - all good
+            - If the ORF is on the - strand:
+                - if the transcript is monoexonic: invert its strand
+                - if the transcript is multiexonic: skip
+            - Start looking at the exons
+        
+        '''
+        
+        self.utr = []
+        self.cds = []
+        self.cds_runs = []
+        self.finalize()
+        if self.id not in cds_dict:
+            # No CDS information for this transcript
+            return
+        
+        self.finalized = False
+        
+        #Ordering the CDSs by CDS length.
+        for cds_run in sorted(cds_dict[self.id], reverse=True, key=lambda tup: tup[1]-tup[0]+1 ):
+            
+            cds_start, cds_end, strand = cds_run
+            assert cds_start>=0 and cds_end<=self.cdna_length
+            if self.strand is None:
+                    self.strand=strand
+
+            if strand == "-":
+                if self.monoexonic is False:
+                    continue
+            elif self.strand is None and strand =="+":
+                self.strand="+"
+                
+            cds_exons = []
+            current_start, current_end = 0,0
+            if self.strand == "+":
+                for exon in sorted(self.exons, key=operator.itemgetter(0,1)):
+                    current_start+=1
+                    current_end+=exon[1]-exon[0]+1
+                    #Whole UTR
+                    if current_end<cds_start or current_start>cds_end:
+                        cds_exons.append( ("UTR", exon[0], exon[1])  )
+                    else:
+                        c_start = exon[0] + max(0, cds_start-current_start )
+                        if c_start > exon[0]:
+                            u_end = c_start-1
+                            cds_exons.append("UTR", exon[0], u_end)
+                        c_end = exon[1] - max(0, current_end - cds_end )
+                        cds_exons.append(("CDS", c_start, c_end))
+                        if c_end < exon[1]:
+                            cds_exons.append( ("UTR", c_end+1, exon[1]  ) )
+                            
+            elif strand=="-":
+                for exon in sorted(self.exons, key=operator.itemgetter(0,1), reverse=True):
+                    current_start+=1
+                    current_end+=exon[1]-exon[0]+1
+                    if current_end<cds_start or current_start>cds_end:
+                        cds_exons.append( ("UTR", exon[0], exon[1] ))
+                    else:
+                        c_end = exon[1] - max(0,cds_start - current_start)
+                        if c_end < exon[1]:
+                            cds_exons.append(("UTR", c_end+1, exon[1]))
+                        c_start = exon[0] + max(0, current_end - cds_end  )
+                        cds_exons.append("CDS", c_start, c_end)
+                        if c_start>exon[0]:
+                            cds_exons.append("UTR", exon[0], c_start-1)
+        
+            self.cds_runs.append( sorted(cds_exons, key=operator.itemgetter(1,2)   ) )
+            
+        if len(self.cds_runs)==1:
+            self.cds = sorted(
+                              [(a[1],a[2]) for a in filter(lambda x: x[0]=="CDS", self.cds_runs[0])],
+                              key=operator.itemgetter(0,1)
+                              
+                              )
+            self.utr = sorted(
+                              [(a[1],a[2]) for a in filter(lambda x: x[0]=="UTR", self.cds_runs[0])],
+                              key=operator.itemgetter(0,1)
+                              
+                              )
+        else:
+            
+            cds_spans = []
+            candidates = []
+            for cds_run in self.cds_runs:
+                candidates.extend([tuple([a[1],a[2]]) for a in filter(lambda tup: tup[0]=="CDS", cds_run  )])
+                              
+            candidates=set(candidates)
+            original=candidates.copy()
+            for mc in self.merge_cliques(self.BronKerbosch(set(), candidates, set(), original)):
+                span=tuple([min(t[0] for t in mc),
+                            max(t[1] for t in mc)                        
+                            ])
+                cds_spans.append(span)
+                
+            cds_spans=sorted(cds_spans, key = operator.itemgetter(0,1))
+            self.cds = cds_spans
+            
+            
+            for exon in self.exons:
+                if exon[1]<
+            
+            
+        self.finalized=True
+                        
+    ####################Class methods#####################################
+    
+    @classmethod
+    def BronKerbosch(cls, clique, candidates, non_clique, original):
+        '''Wrapper for the abstractlocus method.'''
+        for clique in abstractlocus.BronKerbosch(clique, candidates, non_clique, original):
+            yield clique
+    
+    @classmethod
+    def is_intersecting(cls, first, second):
+        if first==second or cls.overlap(first,second)<=0:
+            return False
+        return True
+
+    @classmethod
+    def overlap(cls, first,second):
+        lend = max(first[0], second[0])
+        rend = min(first[1], second[1])
+        return rend-lend
+    
+    @classmethod
+    def merge_cliques(cls, cliques):
+        '''Wrapper for the abstractlocus method.'''
+        return abstractlocus.merge_cliques(cliques)
+
     ####################Class properties##################################
 
     @property
     def cds_length(self):
         '''This property return the length of the CDS part of the transcript.'''
         return sum([ c[1]-c[0]+1 for c in self.cds ])
+            
+    @property
+    def utr_length(self):
+        '''This property return the length of the UTR part of the transcript.'''
+        return sum([ e[1]-e[0]+1 for e in self.utr ])
         
     @property
     def cdna_length(self):
         '''This property returns the length of the transcript.'''
         return sum([ e[1]-e[0]+1 for e in self.exons ])
-    
-    @property
-    def utr_length(self):
-        '''This property return the length of the UTR part of the transcript.'''
-        return sum([ e[1]-e[0]+1 for e in self.utr ])
     
     @property
     def internal_cds_num(self):
@@ -308,5 +455,4 @@ class transcript:
             args.append(None)
         assert len(args)==1
         self.__max_internal_cds=args[0]
-        
     

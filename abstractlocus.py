@@ -109,7 +109,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
             return
 
         pivot = random.sample( pool, 1)[0]
-        pivot_neighbours = cls.neighbours(pivot, original, )
+        pivot_neighbours = cls.neighbours(pivot, original)
         excluded = set.difference( candidates, pivot_neighbours)
 
         for vertex in excluded:
@@ -199,7 +199,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
                 pass
             elif not self.in_locus(self, transcript_instance):
                 raise AssertionError("""Trying to merge a locus with an incompatible transcript!
-                Locus: {lchrom}:{lstart}-{lend} {lstrand}
+                Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
                 """.format(
                            lchrom = self.chrom, lstart=self.start, lend = self.end, lstrand = self.strand,
@@ -207,7 +207,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
                            tstart =  transcript_instance.start,
                            tend =  transcript_instance.end,
                            tstrand = transcript_instance.strand,
-                           tid = transcript_instance.id
+                           tid = transcript_instance.id,
+                           stids = ", ".join(list( self.transcripts.keys()) ),
                            
                            ))
         else:

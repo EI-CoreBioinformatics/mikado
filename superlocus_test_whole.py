@@ -7,6 +7,8 @@ from myRecords.GFF import GFF3
 from myRecords.GTF import GTF
 
 def locus_printer( slocus, args ):
+#     if slocus is None:
+#         return
     stranded_loci = sorted(list(slocus.split_strands()))
     for stranded_locus in stranded_loci:
         stranded_locus.define_subloci()

@@ -230,24 +230,18 @@ class superlocus(abstractlocus):
         if transcript.id==other.id: return False # We do not want intersection with oneself
         monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript, other]   )  )   )
         
-        flag=False
         if monoexonic_check==0: #Both multiexonic
             for junc in transcript.junctions:
                 if junc in other.junctions:
-                    flag=True
-                    break
-                    
-            else:
-                flag=False
-#             return any( filter( lambda j: j in other.junctions, transcript.junctions ) )
+                    return True
         
         elif monoexonic_check==1: #One monoexonic, the other multiexonic: different subloci by definition
-            flag=False
+            return False
         
         elif monoexonic_check==2:
             if cls.overlap(
                            (transcript.start, transcript.end),
                            (other.start, other.end)
-                           )>=0: #A simple overlap analysis will suffice
-                flag=True
-        return flag
+                           )>0: #A simple overlap analysis will suffice
+                return True
+        return False

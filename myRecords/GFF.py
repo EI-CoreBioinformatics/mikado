@@ -47,8 +47,6 @@ class gffLine(object):
         else: self.score=float(self._fields[5])
 
         self.strand=self._fields[6]
-        if self.strand=='.': self.strand=None
-        assert self.strand in (None,'+','-','?')
 
         if self._fields[7]=='.': self.phase=None
         else: 
@@ -89,17 +87,39 @@ class gffLine(object):
     @property
     def id(self):
         return self.attributes["ID"]
-    
     @id.setter
     def id(self,Id):
         self.attributes["ID"]=Id
         
     @property
     def parent(self):
+        if "Parent" not in self.attributes:
+            self.parent=None
         return self.attributes["Parent"]
     @parent.setter
     def parent(self,parent):
         self.attributes["Parent"]=parent
+    
+    @property
+    def name(self):
+        if "Name" not in self.attributes:
+            self.name=self.id
+        return self.attributes["Name"]
+    @name.setter
+    def name(self,name):
+        self.attributes["Name"]=name
+
+    @property
+    def strand(self):
+        return self.__strand
+    @strand.setter
+    def strand(self,strand):
+        if strand in ("+", "-"):
+            self.__strand=strand
+        elif strand in (None,".","?"):
+            self.__strand=None
+        else:
+            raise ValueError("Invalid value for strand: {0}".format(strand)) 
     
 
     def __str__(self): 

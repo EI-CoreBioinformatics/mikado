@@ -213,7 +213,7 @@ class sublocus(abstractlocus):
             raise TypeError("{0}\n{1}".format(err, self.metrics) )
             
             
-    def calculate_scores(self, maximum_utr=3, minimum_cds_fraction=0.2, order=("intron_frac", "cds_length", "utr_fraction")):
+    def calculate_scores(self, maximum_utr=3, minimum_cds_fraction=0.2, order=("exons", "cdna_length", "intron_frac", "utr_fraction", )):
         '''
         Function to calculate a score for each transcript, given the metrics derived
          with the calculate_metrics method.
@@ -232,7 +232,7 @@ class sublocus(abstractlocus):
         
         current_score=0
         
-        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid], order=order)  ):
+        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid], order=order), reverse=True  ):
             transcript_instance = self.transcripts[tid]
             if len(transcript_instance.utr)>maximum_utr or self.metrics[transcript_instance.id]["cds_fraction"]<minimum_cds_fraction:
                 score=float("-Inf")

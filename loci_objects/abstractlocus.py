@@ -97,37 +97,61 @@ class abstractlocus(metaclass=abc.ABCMeta):
         return False 
 
     @classmethod    
-    def BronKerbosch(cls, clique, candidates, non_clique, original ):
+    def BronKerbosch(cls, clique, candidates, non_clique, original, inters = None, neighbours = None ):
         '''Implementation of the Bron-Kerbosch algorithm with pivot to define the subloci.
         We are using the class method "is_intersecting" to define the neighbours.
-        Wiki: http://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm '''
+        Wiki: http://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm
+        The function takes four arguments and two keyword arguments:
+            - clique            the cliques already found. This should be initialised as an empty set.
+            - candidates        the elements to be analysed. This should be a set.
+            - non_clique        Elements which have already been analysed and determined not to be cliques
+            - original          A copy of the candidates set. Needed for the iteration.
+            
+        Keyword arguments:
+             - inters=None      The intersection function to determine the cliques. It defaults to the class "is_intersecting" method.
+             - neighbours=None  The function used to determine the neighbours of an element. It defaults to the class "neighbours" method.
+        '''
 
         pool=set.union(candidates,non_clique)
 
         if not any((candidates, non_clique)) or len( pool )==0:
             yield clique
             return
+        
+        if inters is None:
+            inters = cls.is_intersecting
+        if neighbours is None:
+            neighbours = cls.neighbours
+        
+        #Check the functions are actually functions
+        assert hasattr(inters, "__call__") and hasattr(neighbours, "__call__")
 
         pivot = random.sample( pool, 1)[0]
-        pivot_neighbours = cls.neighbours(pivot, original)
+        pivot_neighbours = neighbours(pivot, original, inters = inters)
         excluded = set.difference( candidates, pivot_neighbours)
 
         for vertex in excluded:
-            vertex_neighbours = cls.neighbours(vertex, original )
+            vertex_neighbours = neighbours(vertex, original, inters = inters )
             clique_vertex = set.union(clique, set([vertex]))
             for result in cls.BronKerbosch(
                     clique_vertex,
                     set.intersection(candidates, vertex_neighbours),
                     set.intersection(non_clique, vertex_neighbours),
-                    original):
+                    original,
+                    neighbours = neighbours,
+                    inters = inters
+                    ):
                 yield result
             candidates.remove(vertex)
             non_clique.add(vertex)
 
     @classmethod
-    def neighbours( cls, vertex, graph):
+    def neighbours( cls, vertex, graph, inters = None):
+        if inters is None:
+            inters = cls.is_intersecting
+        
         '''Function to define the vertices which are near a given vertex in the graph.'''
-        return set(filter(lambda x: cls.is_intersecting(vertex, x), graph))
+        return set(filter(lambda x: inters(vertex, x), graph))
         
     @classmethod
     def merge_cliques(cls, cliques):

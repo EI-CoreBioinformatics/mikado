@@ -1,5 +1,5 @@
-from monosublocus import monosublocus
-from abstractlocus import abstractlocus
+from loci_objects.monosublocus import monosublocus
+from loci_objects.abstractlocus import abstractlocus
 
 class locus(monosublocus,abstractlocus):
     
@@ -30,4 +30,4 @@ class locus(monosublocus,abstractlocus):
     
     @property
     def id(self):
-        return abstractlocus.id.fget(self)
+        return abstractlocus.id.fget(self)  # @UndefinedVariable

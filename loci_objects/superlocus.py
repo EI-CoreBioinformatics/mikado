@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from abstractlocus import abstractlocus
+from loci_objects.abstractlocus import abstractlocus
 #import operator
 from copy import copy
-from sublocus import sublocus
-from monosublocus_holder import monosublocus_holder
+from loci_objects.sublocus import sublocus
+from loci_objects.monosublocus_holder import monosublocus_holder
 
 class superlocus(abstractlocus):
     
@@ -114,6 +114,12 @@ class superlocus(abstractlocus):
         self.monosubloci_defined = False
         self.loci_defined = False
         self.monosubloci_metrics_calculated = False
+
+    def load_cds(self, cds_dict):
+        if cds_dict is None:
+            return
+        for tid in self.transcripts:
+            self.transcripts[tid].load_cds(cds_dict)
 
 
     ###### Sublocus-related steps ######

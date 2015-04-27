@@ -1,6 +1,6 @@
 #coding: utf_8
 
-from myRecords import Parser
+from loci_objects import Parser
 import re
 
 class gtfLine(object):

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from superlocus import superlocus
-from transcript import transcript
+from loci_objects.superlocus import superlocus
+from loci_objects.transcript import transcript
 import sys,argparse
-from myRecords.GFF import GFF3
-from myRecords.GTF import GTF
+from loci_objects.GFF import GFF3
+from loci_objects.GTF import GTF
 
 def add_transcripts_old(transcript_instance, sloci):
     if transcript_instance is None:

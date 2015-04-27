@@ -1,8 +1,8 @@
-from abstractlocus import abstractlocus
+from loci_objects.abstractlocus import abstractlocus
 #import random
 from copy import copy
-from monosublocus import monosublocus
-from transcript import transcript
+from loci_objects.monosublocus import monosublocus
+from loci_objects.transcript import transcript
 
 class sublocus(abstractlocus):
     

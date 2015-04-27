@@ -1,6 +1,6 @@
-from abstractlocus import abstractlocus
-from sublocus import sublocus
-from locus import locus
+from loci_objects.abstractlocus import abstractlocus
+from loci_objects.sublocus import sublocus
+from loci_objects.locus import locus
 
 #Resolution order is important here!
 class monosublocus_holder(sublocus,abstractlocus):
@@ -137,5 +137,4 @@ class monosublocus_holder(sublocus,abstractlocus):
 
     @property
     def id(self):
-        #the fget is necessary
-        return abstractlocus.id.fget(self)
+        return abstractlocus.id.fget(self)  # @UndefinedVariable

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
-from sublocus import sublocus
-from transcript import transcript
+from loci_objects.sublocus import sublocus
+from loci_objects.transcript import transcript
 import sys,argparse
 import csv
-from myRecords.GFF import GFF3
+from loci_objects.GFF import GFF3
 #from myRecords.GTF import GTF
 
 def main():

@@ -3,7 +3,7 @@
 
 import io
 
-__all__=['BatchBlast','Blast','Blat','Fastq','GTF','Sam','GFF','cufflinks']
+__all__=["abstractlocus", "bed12", "GFF", "GTF", "locus", "monosublocus", "monosublocus_holder", "sublocus", "superlocus", "transcript", ]
 
 class HeaderError(Exception): pass
 

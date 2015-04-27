@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from abstractlocus import abstractlocus
+from loci_objects.abstractlocus import abstractlocus
 from builtins import str
 #from transcript import transcript
 #import random, sys

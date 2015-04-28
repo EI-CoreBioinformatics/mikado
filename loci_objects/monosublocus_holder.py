@@ -14,13 +14,14 @@ class monosublocus_holder(sublocus,abstractlocus):
     
     ___name__ = "monosublocus_holder"
     
-    def __init__(self, monosublocus_instance):
+    def __init__(self, monosublocus_instance, json_dict=None):
         
         abstractlocus.__init__(self)
         self.metrics=dict()
         self.splitted=False
         self.available_metrics = []
         self.metrics_calculated = False
+        self.json_dict = json_dict
         #Add the transcript to the locus
         self.add_monosublocus(monosublocus_instance)
 
@@ -51,7 +52,7 @@ class monosublocus_holder(sublocus,abstractlocus):
 
         self.find_retained_introns(transcript_instance)
         transcript_instance.metrics["retained_introns"] = len(transcript_instance.retained_introns)
-        transcript_instance.metrics["retained_frac"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
+        transcript_instance.metrics["retained_fraction"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
         for metric in transcript_instance.metrics:
             if metric not in self.available_metrics:
                 self.available_metrics.append(metric)

@@ -5,6 +5,8 @@ from loci_objects.abstractlocus import abstractlocus
 from copy import copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
+import io,csv,sys
+from os.path import exists
 
 class superlocus(abstractlocus):
     
@@ -15,7 +17,7 @@ class superlocus(abstractlocus):
     
     ####### Special methods ############
     
-    def __init__(self, transcript_instance, stranded=True):
+    def __init__(self, transcript_instance, stranded=True, json_dict = None ):
         
         '''The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
         
@@ -28,6 +30,9 @@ class superlocus(abstractlocus):
         super().__init__()
         self.stranded=stranded
         self.feature=self.__name__
+        if json_dict is None or type(json_dict) is not dict:
+            raise ValueError("I am missing the configuration for prioritizing transcripts!")
+        self.json_dict = json_dict
         #self.__dict__.update(transcript_instance.__dict__)
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
@@ -96,13 +101,13 @@ class superlocus(abstractlocus):
             for strand in plus, minus, nones:
                 if len(strand)>0:
                     strand = sorted(strand)
-                    new_locus = superlocus(strand[0], stranded=True)
+                    new_locus = superlocus(strand[0], stranded=True, json_dict=self.json_dict)
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
                             new_locus.add_transcript_to_locus(cdna)
                         else:
                             new_loci.append(new_locus)
-                            new_locus = superlocus(cdna, stranded=True)
+                            new_locus = superlocus(cdna, stranded=True, json_dict=self.json_dict)
                             
                     new_loci.append(new_locus)
             for new_locus in iter(sorted(new_loci)):
@@ -151,7 +156,7 @@ class superlocus(abstractlocus):
             if len(subl)==0:
                 continue
             subl=sorted(subl)
-            new_sublocus = sublocus(subl[0])
+            new_sublocus = sublocus(subl[0], json_dict=self.json_dict)
             for ttt in subl[1:]:
                 new_sublocus.add_transcript_to_locus(ttt)
             new_sublocus.parent = self.id
@@ -165,7 +170,7 @@ class superlocus(abstractlocus):
         self.define_subloci()
         self.sublocus_metrics = []
         for sublocus_instance in self.subloci:
-            sublocus_instance.get_metrics(self)
+            sublocus_instance.get_metrics()
             for metric in sublocus_instance.metrics:
                 if metric not in self.sublocus_metrics:
                     self.sublocus_metrics.append(metric)
@@ -194,6 +199,83 @@ class superlocus(abstractlocus):
         
         raise NotImplementedError()
 
+    def print_subloci_metrics(self, out_file, fieldnames = ["tid", "parent"] ):
+        
+        '''Wrapper method to create a csv.DictWriter instance and call the sublocus.print_metrics method
+        on it for each sublocus.'''
+        
+        print_header=True
+        if type(out_file) is str:
+            if exists(out_file):
+                handle = open(out_file, 'a')
+                print_header=False
+            else:
+                handle = open(out_file, 'w')
+        elif type(out_file) in (io.IOBase, io.TextIOWrapper):
+            if "a" in out_file.mode: print_header=False
+            handle=out_file
+        else:
+            raise TypeError("Unrecognized output file type: {0}".format(type(out_file)))
+        
+        self.get_sublocus_metrics()
+        
+        if self.available_sublocus_metrics == []:
+            avail=[]
+            it=iter(self.subloci)
+            for x in it:
+                avail = x.available_metrics
+                if avail != []: break
+            if avail==[]:
+                raise ValueError() 
+            self.available_sublocus_metrics = avail
+        
+        #fieldnames = ["id", "parent"]
+        if len(fieldnames)==2:
+            fieldnames.extend(sorted(set(self.available_sublocus_metrics)))
+        rower = csv.DictWriter( handle, fieldnames, delimiter="\t" )
+        if print_header is True: rower.writeheader()
+        for slocus in self.subloci:
+            slocus.print_metrics(rower)
+
+    def print_monoholder_metrics(self, out_file, fieldnames = ["tid", "parent"] ):
+
+        '''Wrapper method to create a csv.DictWriter instance and call the monosublocus_holder.print_metrics method
+        on it.'''
+        
+        print_header=True
+        if type(out_file) is str:
+            if exists(out_file):
+                handle=open(out_file,"a")
+                print_header = False
+            else:
+                handle = open(out_file, 'w')
+        elif type(out_file) in (io.IOBase, io.TextIOWrapper):
+            if out_file.mode=="a":
+                print_header=False
+            handle=out_file
+        else:
+            raise TypeError("Unrecognized output file type: {0}".format(type(out_file)))
+        
+        self.define_loci()
+
+#         if self.available_monolocus_metrics == []:
+#             avail=[]
+#             it=iter(self.subloci)
+#             for x in it:
+#                 avail = x.available_metrics
+#                 if avail != []: break
+#             if avail==[]:
+#                 raise ValueError() 
+#             self.available_monolocus_metrics = avail
+
+        self.available_monolocus_metrics = set(self.monoholder.available_metrics)
+        if len(fieldnames)==2:
+            fieldnames.extend(sorted(set(self.available_monolocus_metrics)))
+        
+        rower = csv.DictWriter( handle, fieldnames, delimiter="\t" )
+        if print_header is True: rower.writeheader()
+        
+        self.monoholder.print_metrics(rower)
             
     def define_loci(self):
         '''This is the final method in the pipeline. It creates a container for all the monosubloci
@@ -206,7 +288,7 @@ class superlocus(abstractlocus):
         
         for monosublocus_instance in sorted(self.monosubloci):
             if self.monoholder is None:
-                self.monoholder = monosublocus_holder(monosublocus_instance)
+                self.monoholder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict)
             else:
                 self.monoholder.add_monosublocus(monosublocus_instance)
                 

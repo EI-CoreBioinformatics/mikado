@@ -1,0 +1,21 @@
+{
+	"requirements":{
+		"cds_fraction":{
+			"type":"min",
+			"value":"0.2"
+		},
+		"utr_num":{
+			"type":"max",
+			"value":"3"
+		}
+	},
+	"order":[
+	"intron_fraction",
+	"has_start",
+	"has_stop",
+	"exons",
+	"cds_length",
+	"cdna_length",
+	"utr_fraction"
+		]	
+}

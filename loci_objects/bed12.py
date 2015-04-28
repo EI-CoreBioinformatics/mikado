@@ -1,8 +1,14 @@
 from builtins import str
+import io,sys
+import random
+try:
+    import Bio.File
+except:
+    pass
 
 class bed12:
     
-    def __init__(self, line):
+    def __init__(self, line, fasta_index = None, transcriptomic=True):
         if type(line) is str:
             if line[0]=="#":
                 self.header=True
@@ -14,6 +20,7 @@ class bed12:
         if len(line)!=12:
             raise ValueError("Erroneous number of fields detected")
         
+        self.transcriptomic = transcriptomic
         self.header=False
         self.chrom, self.start, self.end, \
             self.name, self.score, self.strand, \
@@ -28,6 +35,22 @@ class bed12:
         self.blockCount = int(self.blockCount)
         self.blockSizes = [int(x) for x in self.blockSizes.split(",")]
         self.blockStarts = [int(x) for x in self.blockStarts.split(",")]
+        self.has_start = False
+        self.has_stop = False
+        
+        if fasta_index is not None:
+            assert self.id in fasta_index
+            start_codon = fasta_index[self.id][self.cdsStart-1:self.cdsStart+2] # I have translated into 1-offset
+            stop_codon = fasta_index[self.id][self.cdsEnd-3:self.cdsEnd]
+            if self.strand=="-":
+                start_codon=start_codon.reverse_complement()
+                stop_codon=stop_codon.reverse_complement()
+                start_codon,stop_codon=stop_codon,start_codon
+            if str(start_codon.seq)=="ATG":
+                self.has_start=True
+            if str(stop_codon.seq) in ("TAA", "TGA", "TAG"):
+                self.has_stop=True
+        
         assert self.blockCount==len(self.blockStarts)==len(self.blockSizes)
         
         
@@ -41,7 +64,7 @@ class bed12:
         line.extend( [self.score, self.cdsStart-1, self.cdsEnd, self.blockCount] )
         line.append( ",".join([str(x) for x in self.blockSizes]  ) )
         line.append( ",".join([str(x) for x in self.blockStarts]  ) )
-        return "\t".join(line)
+        return "\t".join([str(x) for x in line])
         
         
     @property
@@ -60,3 +83,66 @@ class bed12:
     @property
     def cds_len(self):
         return self.cdsEnd-self.cdsStart+1
+    
+    @property
+    def has_start(self):
+        return self.__has_start
+    
+    @has_start.setter
+    def has_start(self,value):
+        if value not in (None,True,False):
+            raise ValueError()
+        self.__has_start = value 
+
+    @property
+    def has_stop(self):
+        return self.__has_stop
+    
+    @has_stop.setter
+    def has_stop(self,value):
+        if value not in (None,True,False):
+            raise ValueError()
+        self.__has_stop = value 
+
+    @property
+    def full_orf(self):
+        return self.has_stop and self.has_start
+
+    @property
+    def id(self):
+        if self.transcriptomic:
+            return self.chrom
+        else:
+            return self.name
+
+class BED12:
+
+    '''Parser class for a BED12 file. It accepts optionally a fasta index which  '''
+    
+    def __init__(self,handle, fasta_index=None):
+        
+        if isinstance(handle,io.IOBase):
+            self.__handle=handle
+        else:
+            assert isinstance(handle,str)
+            try: self.__handle=open(handle)
+            except: raise ValueError('File not found: {0}'.format(handle))
+
+
+        if type(fasta_index) is dict:
+                #check that this is a bona fide dictionary ...
+            assert type( fasta_index[random.sample(fasta_index.keys(),1)] ) is Bio.SeqRecord.SeqRecord
+        elif fasta_index is not None:
+            assert type(fasta_index) in (Bio.File._IndexedSeqFileDict, Bio.File._SQLiteManySeqFilesDict), (type(fasta_index))
+
+        self.fasta_index = fasta_index
+
+        self.header=False
+
+    def __iter__(self): return self
+
+    def __next__(self):
+        line=self.__handle.readline()
+        if line=='': raise StopIteration
+        return bed12(line, fasta_index=self.fasta_index)
+    

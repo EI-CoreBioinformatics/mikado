@@ -15,7 +15,7 @@ class sublocus(abstractlocus):
     
     ################ Class special methods ##############
     
-    def __init__(self, span, source=None):
+    def __init__(self, span, source=None, json_dict = None ):
         
         '''This class takes as input a "span" feature - e.g. a gffLine or a transcript_instance. 
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
@@ -32,6 +32,10 @@ class sublocus(abstractlocus):
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
         self.available_metrics=[] # List to retrieve the available metrics. Calculated at runtime.
         setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
+        if json_dict is None or type(json_dict) is not dict:
+            raise ValueError("I am missing the configuration for prioritizing transcripts!")
+        self.json_dict = json_dict
+            
         assert hasattr(self, "monoexonic")
 
         if type(span) is transcript:
@@ -42,7 +46,6 @@ class sublocus(abstractlocus):
         
         
     def __str__(self):
-        #print(self.id, len(self.transcripts), file=sys.stderr)
         if self.strand is not None:
             strand=self.strand
         else:
@@ -130,36 +133,40 @@ class sublocus(abstractlocus):
          
         The scoring function must consider the following factors:
         - "exons":              No. of exons 
-        - "exon_frac":          % of exons on the total of the exons of the sublocus
-        - "intron_frac":        % of introns on the total of the intronts of the sublocus
+        - "exon_fraction":          % of exons on the total of the exons of the sublocus
+        - "intron_fraction":        % of introns on the total of the intronts of the sublocus
         - "retained_introns":   no. of retained introns (see has_retained_introns)
-        - "retained_frac":      % of cdna_length that is in retained introns 
+        - "retained_fraction":      % of cdna_length that is in retained introns 
         - "cds_length":         length of the CDS
         - "cds_fraction":       length of the CDS/length of the cDNA
+        - "utr_num":            number of UTR segments
         - "internal_cds_num":   number of internal CDSs. 1 is top, 0 is worst, each number over 1 is negative.             
         - "max_internal_cds_exon_num":   number of CDS exons present in the longest ORF.
         - "max_internal_cds_length":     length of the greatest CDS
         - "max_internal_cds_fraction":   fraction of the cDNA which is in the maximal CDS
         - "cds_not_maximal":            length of CDS *not* in the maximal ORF
         - "cds_not_maximal_fraction"    fraction of CDS *not* in the maximal ORF 
+        - "has_start"                    Boolean. Indicates whether the transcript has a proper start codon.
+        - "has_stop"                     Boolean. Indicates whether the transcript has a proper start codon.
         '''
     
         transcript_instance = self.transcripts[tid]
         transcript_instance.finalize() # The transcript must be finalized before we can calculate the score.
         
         transcript_instance.metrics["exons"]=len(transcript_instance.exons)
-        transcript_instance.metrics["exon_frac"] = len(set.intersection( self.exons,transcript_instance.exons   ))/len(self.exons)
+        transcript_instance.metrics["exon_fraction"] = len(set.intersection( self.exons,transcript_instance.exons   ))/len(self.exons)
         if len(self.junctions)>0:
-            transcript_instance.metrics["intron_frac"] = len(set.intersection( self.junctions,transcript_instance.junctions   ))/len(self.junctions)
+            transcript_instance.metrics["intron_fraction"] = len(set.intersection( self.junctions,transcript_instance.junctions   ))/len(self.junctions)
         else:
-            transcript_instance.metrics["intron_frac"]=0
+            transcript_instance.metrics["intron_fraction"]=0
         self.find_retained_introns(transcript_instance)
         transcript_instance.metrics["retained_introns"] = len(transcript_instance.retained_introns)
-        transcript_instance.metrics["retained_frac"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
+        transcript_instance.metrics["retained_fraction"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
         transcript_instance.metrics["cds_exons"] = len(transcript_instance.cds)
         transcript_instance.metrics["cds_length"] = transcript_instance.cds_length
         transcript_instance.metrics["cds_fraction"] = transcript_instance.cds_length/transcript_instance.cdna_length
-        transcript_instance.metrics["utr_fraction"] = 1-transcript_instance.metrics["cds_fraction"] 
+        transcript_instance.metrics["utr_fraction"] = 1-transcript_instance.metrics["cds_fraction"]
+        transcript_instance.metrics["utr_num"] = len(transcript_instance.utr) 
         transcript_instance.metrics["internal_cds_num"] = transcript_instance.internal_cds_num
         transcript_instance.metrics["max_internal_cds_num"] = len(transcript_instance.max_internal_cds)
         transcript_instance.metrics["max_internal_cds_length"] = transcript_instance.max_internal_cds_length
@@ -173,6 +180,9 @@ class sublocus(abstractlocus):
         else:
             transcript_instance.metrics["cds_not_maximal_fraction"] = 0
         transcript_instance.metrics["cdna_length"] = transcript_instance.cdna_length
+        transcript_instance.metrics["has_start"] = transcript_instance.has_start
+        transcript_instance.metrics["has_stop"] = transcript_instance.has_stop
+
         for metric in transcript_instance.metrics:
             if metric not in self.available_metrics:
                 self.available_metrics.append(metric)
@@ -195,7 +205,6 @@ class sublocus(abstractlocus):
                           self.junctions                          
                           )) is True:
                     transcript_instance.retained_introns.append(exon)
-#                     print("Retained:", transcript_instance.id, exon, file=sys.stderr)
         transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
             
     def load_scores(self, scores):
@@ -213,14 +222,12 @@ class sublocus(abstractlocus):
             raise TypeError("{0}\n{1}".format(err, self.metrics) )
             
             
-    def calculate_scores(self, maximum_utr=3, minimum_cds_fraction=0.2, order=("exons", "cdna_length", "intron_frac", "utr_fraction", )):
+    def calculate_scores(self):
         '''
         Function to calculate a score for each transcript, given the metrics derived
-         with the calculate_metrics method.
-         Keyword arguments:
+        with the calculate_metrics method.
+        The exact ordering must be provided from outside using a JSON file.
          
-         - maximum_utr                Maximum number of UTR exons
-         - minimum_cds_fraction       How much of the cdna should be CDS, at a minimum
          '''
         
         self.get_metrics()
@@ -232,15 +239,37 @@ class sublocus(abstractlocus):
         
         current_score=0
         
-        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid], order=order), reverse=True  ):
+        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid], order=self.json_dict["order"]), reverse=False  ):
             transcript_instance = self.transcripts[tid]
-            if len(transcript_instance.utr)>maximum_utr or self.metrics[transcript_instance.id]["cds_fraction"]<minimum_cds_fraction:
-                score=float("-Inf")
+            score=current_score
+            if "requirements" in self.json_dict:
+                for key in self.json_dict["requirements"]:
+                    key, conf = key, self.json_dict["requirements"][key]
+                    if conf["type"]=="min":
+                        oper=">="
+                    elif conf["type"]=="eq":
+                        oper="=="
+                    elif conf["type"]=="max":
+                        oper="<="
+                    elif conf["type"]=="uneq":
+                        oper="!="
+                    else:
+                        raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
+                    validator_str = "{score} {oper} {ref_val}".format(score=self.metrics[transcript_instance.id][key],
+                                                               oper=oper,
+                                                               ref_val=conf["value"])
+                    validator = eval(validator_str)
+                    
+                    if validator is False:
+                        score = float("-Inf")
+                        break
+                
+            self.metrics[tid]["score"]=score    
+            if score == float("-Inf"):
+                self.transcripts[tid].score=0
             else:
-                score=current_score
-                current_score+=1
-            self.metrics[tid]["score"]=score
-            self.transcripts[tid].score=score
+                self.transcripts[tid].score=score
+            
 
         self.scores_calculated=True
          
@@ -260,16 +289,19 @@ class sublocus(abstractlocus):
         #The rower is an instance of the DictWriter class from the standard CSV module
         
         for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid] ):
-            row=dict()
+            row=dict().fromkeys(rower.fieldnames)
             for key in rower.fieldnames:
-                if not key in self.metrics[tid]:
+                if key.lower() in ("id", "tid"):
+                    row[key]=tid
+                elif not key in self.metrics[tid]:
                     row[key]=getattr(self.transcripts[tid], key, "NA")
                 else:
                     row[key]=self.metrics[tid][key]
                 if type(row[key]) is float:
                     row[key] = round(row[key],2)
-                elif row[key] is None:
+                elif row[key] is None or row[key]=="":
                     row[key]="NA"
+            assert len(row)==len(rower.fieldnames), (len(row), len(rower.fieldnames), set.symmetric_difference(set(row.keys()), set(rower.fieldnames)) )
             rower.writerow(row)
         return
     

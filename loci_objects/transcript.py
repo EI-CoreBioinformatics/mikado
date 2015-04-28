@@ -26,7 +26,8 @@ class transcript:
         self.finalized = False # Flag. We do not want to repeat the finalising more than once.
         self.parent = gffLine.parent
         self.attributes = gffLine.attributes
-        self.max_internal_cds_index = -1
+        self.max_internal_cds_index = 0
+        self.has_start, self.has_stop = False,False
         
     def __str__(self):
         '''Each transcript will be printed out in the GFF style.
@@ -244,23 +245,29 @@ class transcript:
         return
 
 
-    def load_cds(self, cds_dict):
+    def load_cds(self, cds_dict, transcript_index=None):
         
         '''This function is used to load the various CDSs from an external dictionary, loaded from a BED file.
         It replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
         TransDecoder suite.
+        The method expects as argument a dictionary containing BED entries, and indexed by the transcript name.
+        The indexed name *must* equal the "id" property, otherwise the method returns immediately. 
+        If no entry is found for the transcript, the method exits immediately. Otherwise, any CDS information present in
+        the original GFF/GTF file is completely overwritten.
+        At the beginning of the loading, the method looks for the relevant information in the 
         Briefly, it follows this logic:
         - Finalise the transcript
         - Retrieve from the dictionary (input) the CDS object
-        - Sort CDSs on the basis of their length (useful for monoexonic transcripts where we might want to set the strand)
+        - Sort in decreasing order the CDSs on the basis of:
+            - Presence of start/stop codon
+            - CDS length (useful for monoexonic transcripts where we might want to set the strand)
         - For each CDS:
             - If the ORF is on the + strand:
                 - all good
             - If the ORF is on the - strand:
-                - if the transcript is monoexonic: invert its strand
+                - if the transcript is monoexonic: invert its genomic strand
                 - if the transcript is multiexonic: skip
             - Start looking at the exons
-        
         '''
         self.finalize()
 
@@ -272,16 +279,19 @@ class transcript:
         self.internal_cds = []
         
         self.finalized = False
+        self.has_start,self.has_stop = None,None
         
-        #Ordering the CDSs by CDS length.
-
-        for cds_run in sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("cds_len") ):
+        #Ordering the CDSs by: presence of start/stop codons, cds length
+        for cds_run in sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("has_start","has_stop","cds_len") ):
             
             cds_start, cds_end, strand = cds_run.cdsStart, cds_run.cdsEnd, cds_run.strand
+            if self.has_start is None or self.has_stop is None:
+                self.has_start,self.has_stop = cds_run.has_start, cds_run.has_stop 
+
             assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )
             if self.strand is None:
-                    self.strand=strand
-
+                self.strand=strand
+                    
             if strand == "-":
                 if self.monoexonic is False:
                     continue
@@ -494,30 +504,32 @@ class transcript:
             self.__max_internal_cds_length=0
             self.max_internal_cds_index=0
             return tuple([])
+        else:
+            return self.internal_cds[self.max_internal_cds_index]
         
-        elif self.max_internal_cds_index==-1:
-            greatest=0
-            self.max_internal_cds_index=-1
-            for index in range(len(self.internal_cds)):
-                cds=self.internal_cds[index]
-                length = sum( c[2]-c[1]+1  for c in filter(lambda x: x[0]=="CDS",  cds  ))
-                    
-                if length>greatest:
-                    #self.__max_internal_cds_length=length
-                    self.max_internal_cds_index=index
-            if self.max_internal_cds_index==-1: raise ValueError("""Index not modified for transcript {0}!
-            Monoexonic: {1}; CDS length: {2};
-            CDS: {3};
-            greatest: {4};
-            internal: {5};
-            __internal: {6}""".format(self.id,
-                               self.monoexonic,
-                               self.cds_length,
-                               self.cds,
-                               greatest,
-                               self.internal_cds,
-                               self.__internal_cds))
-        return self.internal_cds[self.max_internal_cds_index]
+#         elif self.max_internal_cds_index==-1:
+#             greatest=0
+#             self.max_internal_cds_index=-1
+#             for index in range(len(self.internal_cds)):
+#                 cds=self.internal_cds[index]
+#                 length = sum( c[2]-c[1]+1  for c in filter(lambda x: x[0]=="CDS",  cds  ))
+#                     
+#                 if length>greatest:
+#                     #self.__max_internal_cds_length=length
+#                     self.max_internal_cds_index=index
+#             if self.max_internal_cds_index==-1: raise ValueError("""Index not modified for transcript {0}!
+#             Monoexonic: {1}; CDS length: {2};
+#             CDS: {3};
+#             greatest: {4};
+#             internal: {5};
+#             __internal: {6}""".format(self.id,
+#                                self.monoexonic,
+#                                self.cds_length,
+#                                self.cds,
+#                                greatest,
+#                                self.internal_cds,
+#                                self.__internal_cds))
+#         return self.internal_cds[self.max_internal_cds_index]
 
     @max_internal_cds.setter
     def max_internal_cds(self,*args):

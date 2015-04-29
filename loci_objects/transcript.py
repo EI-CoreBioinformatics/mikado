@@ -251,7 +251,7 @@ class transcript:
                                                                                                                self.utr, self.cds, self.exons )
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
-        assert len(self.exon)>0
+        assert len(self.exons)>0
         try:
             if self.exons[0][0]<self.start or self.exons[-1][1]>self.end:
                 raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(

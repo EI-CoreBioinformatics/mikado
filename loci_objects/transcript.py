@@ -404,9 +404,7 @@ class transcript:
                             u_end = c_start-1
                             cds_exons.append( ("UTR", exon[0], u_end) )
                         c_end = exon[1] - max(0, current_end - cds_end )
-                        if c_end==exon[0]:
-                            cds_exons.append( ("UTR", exon[0], exon[1]) )
-                            continue
+                        assert c_end>=exon[0] 
                         if c_start<c_end:
                             cds_exons.append(("CDS", c_start, c_end))
                         if c_end < exon[1]:
@@ -422,9 +420,7 @@ class transcript:
                         cds_exons.append( ("UTR", exon[0], exon[1] ))
                     else:
                         c_end = exon[1] - max(0,cds_start - current_start ) 
-                        if c_end == exon[0]:
-                            cds_exons.append(("UTR", exon[0], exon[1]))
-                            continue
+                        assert c_end>=exon[0]
                         if c_end < exon[1]:
                             cds_exons.append(("UTR", c_end+1, exon[1]))
                         c_start = exon[0] + max(0, current_end - cds_end )

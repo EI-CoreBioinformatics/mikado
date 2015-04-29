@@ -1,5 +1,5 @@
 from builtins import str
-import io,sys
+import io#,sys
 import random
 try:
     import Bio.File
@@ -18,7 +18,9 @@ class bed12:
         elif type(line) not in (list, tuple):
             raise TypeError("I need an ordered array, not {0}".format(type(line)))
         if len(line)!=12:
-            raise ValueError("Erroneous number of fields detected")
+            self.header=True
+            return
+            #raise ValueError("Erroneous number of fields detected")
         
         self.transcriptomic = transcriptomic
         self.header=False

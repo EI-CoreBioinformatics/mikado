@@ -251,15 +251,20 @@ class transcript:
                                                                                                                self.utr, self.cds, self.exons )
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
-        
-        if self.exons[0][0]<self.start or self.exons[-1][1]>self.end:
-            raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
+        assert len(self.exon)>0
+        try:
+            if self.exons[0][0]<self.start or self.exons[-1][1]>self.end:
+                raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
                                                                                                                                                             tstart=self.start,
                                                                                                                                                             tend=self.end,
                                                                                                                                                             id=self.id,
                                                                                                                                                             eend=self.exons[-1][1],
                                                                                                                                                             estart=self.exons[0][0],
                                                                                                                                                             ))
+        except IndexError as err:
+            raise IndexError(err+"\n"+str(self.exons ))
+            
+        
         self.cds = sorted(self.cds, key=operator.itemgetter(0,1))
         self.utr = sorted(self.utr, key=operator.itemgetter(0,1))
         if len(self.utr)>0 and self.utr[0][0]<self.cds[0][0]:

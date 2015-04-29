@@ -460,7 +460,6 @@ class transcript:
                 cds_spans.append(span)
                 
             cds_spans=sorted(cds_spans, key = operator.itemgetter(0,1))
-            self.cds = cds_spans
             
             new_cds_spans = []
             for span in cds_spans:
@@ -470,6 +469,7 @@ class transcript:
                     new_cds_spans.append(span)
                 elif new_cds_spans[-1]==span[0]:
                     new_cds_spans[-1]=(new_cds_spans[-1][0], span[1])
+            self.cds = new_cds_spans
             
             #This method is probably OBSCENELY inefficient, but I cannot think of a better one for the moment.
             curr_utr_segment = None

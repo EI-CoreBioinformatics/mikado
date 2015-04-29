@@ -117,7 +117,8 @@ def main():
                 elif currentLocus is not None and superlocus.in_locus(currentLocus, currentTranscript):
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
-                    locus_printer(currentLocus, args, cds_dict=cds_dict)
+                    if currentLocus is not None:
+                        locus_printer(currentLocus, args, cds_dict=cds_dict)
                     currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
                 locus_printer(currentLocus, args)
             #print("Changed chrom", file=sys.stderr)

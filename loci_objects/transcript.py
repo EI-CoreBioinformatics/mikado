@@ -262,10 +262,10 @@ class transcript:
                                                                                                                                                             ))
         self.cds = sorted(self.cds, key=operator.itemgetter(0,1))
         self.utr = sorted(self.utr, key=operator.itemgetter(0,1))
-        if self.utr[0][0]<self.cds[0][0]:
+        if len(self.utr)>0 and self.utr[0][0]<self.cds[0][0]:
             if self.strand=="+": self.has_start=True
             elif self.strand=="-": self.has_stop=True
-        if self.utr[-1][1]>self.cds[-1][1]:
+        if len(self.utr)>0 and self.utr[-1][1]>self.cds[-1][1]:
             if self.strand=="+": self.has_stop=True
             elif self.strand=="-": self.has_start=True
         

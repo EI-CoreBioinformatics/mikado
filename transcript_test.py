@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import sys,argparse
-from collections import namedtuple
+#from collections import namedtuple
 from loci_objects.abstractlocus import abstractlocus
-from loci_objects.GFF import GFF3
-from loci_objects.transcript import transcript
+# from loci_objects.GFF import GFF3
+# from loci_objects.transcript import transcript
 from loci_objects.bed12 import BED12
 from Bio import SeqIO
 
@@ -47,8 +47,8 @@ def main():
                 bed_entries[line.chrom].append(line)
                 
     
-    currentTranscript = None
-    bed_finals=dict.fromkeys(bed_entries.keys())
+#     currentTranscript = None
+#     bed_finals=dict.fromkeys(bed_entries.keys())
     for tid in bed_entries:
         for b in bed_entries[tid]:
             print(str(b), b.has_start, b.has_stop, sep="\t")

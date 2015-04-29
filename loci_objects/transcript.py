@@ -4,6 +4,39 @@ from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbos
 
 class transcript:
     
+    '''This class defines a transcript, down to its exon/CDS/UTR components. It is instantiated by a transcript
+    GT/GFF3 line.
+    Key attributes:
+    - chrom    The chromosome
+    - source
+    - feature            mRNA if at least one CDS is defined
+    - start
+    - end
+    - score
+    - strand            one of +,-,None
+    - phase            set to None
+    - id            the ID of the transcripts (or tid)
+    - parent        
+    - attributes    a dictionary with additional informations from the GFFline
+    
+    After all exons have been loaded into the instance (see "addExon"), the class must be finalized with the appropriate method.
+    
+    Other important attributes:
+    - exons                        an ordered list of tuples (start,end)
+    - cds                          list of CDS segments. In the case of multiple ORFs, this holds the overlapping set
+    - utr                          list of UTR segments. In the case of multiple ORFs, this holds the overlapping set
+    - non_overlapping_cds          If there are multiple ORFs, this is a set of the original CDS features
+    - junctions                    a list of the introns
+    - splices                      a list of the splice sites
+    - monoexonic                   Boolean flag - True if the transcript has only one exon, False otherwise
+    - finalized                    Boolean flag. It is used to understand whether a transcript instance has been finalized (after all exon data has been loaded) or not.
+    - has_start, has_stop          Boolean flags. Set to True if a start/stop codon has been detected in the GFF or loaded through external data.
+    - internal_cds                 Internal ORFs.
+    - max_internal_cds             Maximum CDS
+    - max_internal_cds_index       Index of the maximum CDS in the internal_cds store
+    '''
+    
+    
     ######### Class special methods ####################
     
     def __init__(self, gffLine):
@@ -29,6 +62,7 @@ class transcript:
         self.attributes = gffLine.attributes
         self.max_internal_cds_index = 0
         self.has_start, self.has_stop = False,False
+        self.non_overlapping_cds = None
         
     def __str__(self):
         '''Each transcript will be printed out in the GFF style.
@@ -71,7 +105,7 @@ class transcript:
             if self.internal_cds_num>1:
                 attr_field="{0};maximal={1}".format(attr_field,maximal)
             
-            if self.score is None:
+            if self.score is None or self.score==float("-inf"):
                 score="."
             else:
                 score=self.score
@@ -143,6 +177,7 @@ class transcript:
         return super().__hash__()
     
     def __len__(self):
+        '''Returns the length occupied by the unspliced transcript on the genome.'''
         return self.end-self.start+1
 
      
@@ -217,16 +252,23 @@ class transcript:
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
         
-#         if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
-#             raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
-#                                                                                                                                                             tstart=self.start,
-#                                                                                                                                                             tend=self.end,
-#                                                                                                                                                             id=self.id,
-#                                                                                                                                                             eend=self.exons[-1][1],
-#                                                                                                                                                             estart=self.exons[0][0],
-#                                                                                                                                                             ))
+        if self.exons[0][0]<self.start or self.exons[-1][1]>self.end:
+            raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
+                                                                                                                                                            tstart=self.start,
+                                                                                                                                                            tend=self.end,
+                                                                                                                                                            id=self.id,
+                                                                                                                                                            eend=self.exons[-1][1],
+                                                                                                                                                            estart=self.exons[0][0],
+                                                                                                                                                            ))
         self.cds = sorted(self.cds, key=operator.itemgetter(0,1))
         self.utr = sorted(self.utr, key=operator.itemgetter(0,1))
+        if self.utr[0][0]<self.cds[0][0]:
+            if self.strand=="+": self.has_start=True
+            elif self.strand=="-": self.has_stop=True
+        if self.utr[-1][1]>self.cds[-1][1]:
+            if self.strand=="+": self.has_stop=True
+            elif self.strand=="-": self.has_start=True
+        
         self.internal_cds, self.junctions, self.splices = [], [], []
         self.segments = [ ("exon",e[0],e[1]) for e in self.exons] + \
                     [("CDS", c[0],c[1]) for c in self.cds ] + \
@@ -257,16 +299,20 @@ class transcript:
         return
 
 
-    def load_cds(self, cds_dict, transcript_index=None):
+    def load_cds(self, cds_dict, trust_strand=False):
         
-        '''This function is used to load the various CDSs from an external dictionary, loaded from a BED file.
+        '''Arguments:
+        - cds_dict        a dictionary (indexed on the TIDs) that holds BED12 information on the transcript
+        - trust_strand    for monoexonic transcripts, whether to trust the strand information or to overwrite it with the one provided by TD.
+        
+        
+        This function is used to load the various CDSs from an external dictionary, loaded from a BED file.
         It replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
         TransDecoder suite.
         The method expects as argument a dictionary containing BED entries, and indexed by the transcript name.
         The indexed name *must* equal the "id" property, otherwise the method returns immediately. 
         If no entry is found for the transcript, the method exits immediately. Otherwise, any CDS information present in
         the original GFF/GTF file is completely overwritten.
-        At the beginning of the loading, the method looks for the relevant information in the 
         Briefly, it follows this logic:
         - Finalise the transcript
         - Retrieve from the dictionary (input) the CDS object
@@ -294,6 +340,9 @@ class transcript:
         self.has_start,self.has_stop = None,None
         
         #Ordering the CDSs by: presence of start/stop codons, cds length
+        original_strand = self.strand
+        new_strand = None
+        
         for cds_run in sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("has_start","has_stop","cds_len") ):
             
             cds_start, cds_end, strand = cds_run.cdsStart, cds_run.cdsEnd, cds_run.strand
@@ -301,14 +350,38 @@ class transcript:
                 self.has_start,self.has_stop = cds_run.has_start, cds_run.has_stop 
 
             assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )
+            
             if self.strand is None:
-                self.strand=strand
-                    
-            if strand == "-":
+                self.strand=new_strand=strand
+            elif strand == "-":
+                #Basic case
                 if self.monoexonic is False:
                     continue
-            elif self.strand is None and strand == "+":
-                self.strand="+"
+                if trust_strand is True:
+                    continue
+                #Case 1 we trust the strand
+                if new_strand is not None:
+                    if original_strand is None:
+                    #We already assigned to + strand
+                        if self.strand=="+":
+                            continue
+                        else:
+                            pass
+                    elif original_strand=="+":
+                        if self.strand=="+":
+                            continue
+                        else:
+                            pass
+                    elif original_strand=="-":
+                        if self.strand=="+":
+                            pass
+                        else:
+                            continue
+                else:
+                    if self.strand=="+":
+                        self.strand=new_strand="-"
+                    elif self.strand=="-":
+                        self.strand=new_strand="+"
                 
             cds_exons = []
             current_start, current_end = 0,0
@@ -601,5 +674,22 @@ class transcript:
                     break
         return distance
             
+    @property
+    def non_overlapping_cds(self):
+        '''This property returns a set containing the set union of all CDS segments inside the internal CDSs.
+        In the case of a transcript with no CDS, this is empty.
+        In the case where there is only one CDS, this returns the cds holder.
+        In the case instead where there are multiple CDSs, the property will calculate the set union of all CDS segments.'''
+        if self.__non_overlapping_cds is None: 
+            self.finalize()
+            self.__non_overlapping_cds=set()
+            for internal_cds in self.internal_cds:
+                segments = set([(x[1],x[2]) for x in filter(lambda segment: segment[0]=="CDS", internal_cds   )])
+                self.__non_overlapping_cds.update(segments)
+        return self.__non_overlapping_cds
+    
+    @non_overlapping_cds.setter
+    def non_overlapping_cds(self,arg):
+        self.__non_overlapping_cds = arg
         
         

@@ -16,8 +16,9 @@ The logic of the pipeline is as follows:
 3. In each sublocus, the pipeline selects the best transcript according to a user-defined prioritization scheme.
 4. The resulting *monosubloci* are merged together, if applicable, into *monosubloci_holders*
 5. The best non-overlapping transcripts are selected, in order to define the *loci* contained inside the superlocus.
-   * At this stage, monoexonic and multiexonic transcript are checked for overlaps
-   * Moreover, two multiexonic transcripts are considered to belong to the same locus if they share a splice *site* (not junction)
+
+    - At this stage, monoexonic and multiexonic transcript are checked for overlaps
+    - Moreover, two multiexonic transcripts are considered to belong to the same locus if they share a splice *site* (not junction)
 
 The resulting, cleaned file does contain therefore only one transcript per locus.
 The criteria used to select the "*best*" transcript are left to the user's discretion.
@@ -42,6 +43,7 @@ Any multiexonic CDS found on the negative transcript strand will be therefore ig
 At each selection stage, the best transcript for the span is selected according to user-defined criteria, supplied
 through a JSON file.
 The JSON file has the following fields:
+
 - order
 - reverse
 - requirements

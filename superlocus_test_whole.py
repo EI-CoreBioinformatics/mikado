@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import sys,argparse,os
+#import sys
+import argparse,os
 import json
 
 from loci_objects.superlocus import superlocus
@@ -13,7 +14,7 @@ from loci_objects.abstractlocus import abstractlocus
 def locus_printer( slocus, args, cds_dict=None ):
 #     if slocus is None:
 #         return
-    slocus.load_cds(cds_dict)
+    slocus.load_cds(cds_dict, trust_strand = args.strand_specific )
     stranded_loci = sorted(list(slocus.split_strands()))
     
     if not os.path.exists(args.sub_metrics ):
@@ -57,6 +58,7 @@ def main():
     
     parser=argparse.ArgumentParser("Quick test utility for the superlocus classes.")
     parser.add_argument("--json_conf", type=argparse.FileType("r"), required=True, help="JSON configuration file for scoring transcripts.")
+    parser.add_argument("--strand_specific", action="store_true", default=False)
     parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--mono_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--locus_out", type=argparse.FileType("w"), required=True)

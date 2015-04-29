@@ -11,11 +11,16 @@
 	},
 	"order":[
 	"intron_fraction",
+	"retained_fraction",
 	"has_start",
 	"has_stop",
 	"exons",
 	"cds_length",
 	"cdna_length",
 	"utr_fraction"
-		]	
+		],
+	"reverse":[
+		"retained_fraction"
+	]
+	
 }

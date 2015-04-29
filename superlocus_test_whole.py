@@ -32,8 +32,9 @@ def locus_printer( slocus, args, cds_dict=None ):
         print(stranded_locus, file=args.sub_out)
         stranded_locus.define_monosubloci()
         print(stranded_locus, file=args.mono_out)
-        stranded_locus.define_loci()
+        stranded_locus.calculate_mono_metrics()
         stranded_locus.print_monoholder_metrics(locus_metrics)
+        stranded_locus.define_loci()
         print(stranded_locus, file=args.locus_out)
     
     locus_metrics.close()
@@ -79,7 +80,6 @@ def main():
         os.remove(args.locus_metrics)
     
     if args.gff.name[-3:]=="gtf":
-        print("Parsing a GTF", file=sys.stderr)
         rower=GTF(args.gff)
     else: rower=GFF3(args.gff)
     

@@ -5,7 +5,7 @@ from loci_objects.abstractlocus import abstractlocus
 from copy import copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
-import io,csv,sys
+import io,csv#,sys
 from os.path import exists
 
 class superlocus(abstractlocus):
@@ -284,15 +284,8 @@ class superlocus(abstractlocus):
         if self.loci_defined is True:
             return
         
-        self.monoholder = None
+        self.calculate_mono_metrics()
         
-        for monosublocus_instance in sorted(self.monosubloci):
-            if self.monoholder is None:
-                self.monoholder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict)
-            else:
-                self.monoholder.add_monosublocus(monosublocus_instance)
-                
-            pass
             
         self.monoholder.define_loci()
         self.loci = []
@@ -304,6 +297,18 @@ class superlocus(abstractlocus):
         self.loci_defined = True
         
         return
+    
+    def calculate_mono_metrics(self):
+        '''Wrapper to calculate the metrics for the monosubloci'''
+        self.monoholder = None
+        
+        for monosublocus_instance in sorted(self.monosubloci):
+            if self.monoholder is None:
+                self.monoholder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict)
+            else:
+                self.monoholder.add_monosublocus(monosublocus_instance)
+                
+        
 
     ############# Class methods ###########
     

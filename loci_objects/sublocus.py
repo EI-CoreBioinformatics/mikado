@@ -144,10 +144,12 @@ class sublocus(abstractlocus):
         - "max_internal_cds_exon_num":   number of CDS exons present in the longest ORF.
         - "max_internal_cds_length":     length of the greatest CDS
         - "max_internal_cds_fraction":   fraction of the cDNA which is in the maximal CDS
+        - "max_internal_cds_start_distance_from_start":    distance (in transcript coordinates) of the CDS start for the maximal CDS from the 5' cDNA boundary.
         - "cds_not_maximal":            length of CDS *not* in the maximal ORF
         - "cds_not_maximal_fraction"    fraction of CDS *not* in the maximal ORF 
         - "has_start"                    Boolean. Indicates whether the transcript has a proper start codon.
         - "has_stop"                     Boolean. Indicates whether the transcript has a proper start codon.
+        - "is_complete"                Boolean: has_start & has_stop
         '''
     
         transcript_instance = self.transcripts[tid]
@@ -179,9 +181,12 @@ class sublocus(abstractlocus):
             transcript_instance.metrics["cds_not_maximal_fraction"] = (transcript_instance.cds_length - transcript_instance.max_internal_cds_length)/transcript_instance.cds_length
         else:
             transcript_instance.metrics["cds_not_maximal_fraction"] = 0
+        transcript_instance.metrics["max_internal_cds_start_distance_from_start"]=transcript_instance.max_internal_cds_start_distance_from_start
         transcript_instance.metrics["cdna_length"] = transcript_instance.cdna_length
         transcript_instance.metrics["has_start"] = transcript_instance.has_start
         transcript_instance.metrics["has_stop"] = transcript_instance.has_stop
+        transcript_instance.metrics["is_complete"] = transcript_instance.is_complete
+        
 
         for metric in transcript_instance.metrics:
             if metric not in self.available_metrics:
@@ -232,18 +237,34 @@ class sublocus(abstractlocus):
         
         self.get_metrics()
         
-        def keyfunction(transcript_instance, order=[]   ):
+        def keyfunction(transcript_instance, order=[] , reverse=[]  ):
             if len(order)==0:
                 raise ValueError("No information on how to sort!")
-            return tuple([transcript_instance.metrics[x] for x in order])
+            t_metrics = []
+            for o in order:
+                if o in reverse:
+                    if type(transcript_instance.metrics[o]) is bool:
+                        t_metrics.append(not transcript_instance.metrics[o])
+                    else:
+                        t_metrics.append(-1*transcript_instance.metrics[o])
+                else:
+                    t_metrics.append(transcript_instance.metrics[o])
+            return tuple(t_metrics)
         
         current_score=0
+        num_transcripts_with_cds = len(list(filter(lambda t: len(self.transcripts[t].cds), self.transcripts  )))
         
-        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid], order=self.json_dict["order"]), reverse=False  ):
+        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid],
+                                                                           order=self.json_dict["order"], reverse=self.json_dict["reverse"] ),
+                          reverse=False  ):
             transcript_instance = self.transcripts[tid]
             score=current_score
+            
             if "requirements" in self.json_dict:
                 for key in self.json_dict["requirements"]:
+                    #Ignore requirements based on CDS if all the transcripts in the locus are without a CDS
+                    if num_transcripts_with_cds==0 and ("cds" in key.lower() or "utr" in key.lower()):
+                        continue
                     key, conf = key, self.json_dict["requirements"][key]
                     if conf["type"]=="min":
                         oper=">="
@@ -265,11 +286,9 @@ class sublocus(abstractlocus):
                         break
                 
             self.metrics[tid]["score"]=score    
-            if score == float("-Inf"):
-                self.transcripts[tid].score=0
-            else:
-                self.transcripts[tid].score=score
-            
+            self.transcripts[tid].score=score
+            if score!=float("-Inf"):
+                current_score+=1
 
         self.scores_calculated=True
          
@@ -293,6 +312,8 @@ class sublocus(abstractlocus):
             for key in rower.fieldnames:
                 if key.lower() in ("id", "tid"):
                     row[key]=tid
+                elif key.lower()=="parent":
+                    row[key]=self.id
                 elif not key in self.metrics[tid]:
                     row[key]=getattr(self.transcripts[tid], key, "NA")
                 else:
@@ -307,7 +328,7 @@ class sublocus(abstractlocus):
     
     def get_metrics(self):
         
-        '''Quick wrapper to calculated the metrics for all the transcripts.'''
+        '''Quick wrapper to calculate the metrics for all the transcripts.'''
         
         if self.metrics_calculated is True:
             return

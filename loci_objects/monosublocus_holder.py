@@ -11,8 +11,8 @@ class monosublocus_holder(sublocus,abstractlocus):
     Internally, the most important method is define_loci - which will select the best transcript(s) and remove all the overlapping ones.
     The intersection function for this object is quite laxer than in previous stages, and so are the requirements for the inclusion.
     '''
-    
-    ___name__ = "monosublocus_holder"
+
+    __name__ = "monosubloci_holder"
     
     def __init__(self, monosublocus_instance, json_dict=None):
         
@@ -45,6 +45,9 @@ class monosublocus_holder(sublocus,abstractlocus):
         Relative metrics include, at this stage, only the fraction of retained introns.
         '''
     
+        if self.metrics_calculated is True:
+            return
+        
         transcript_instance = self.transcripts[tid]
         #Check that metrics had already been calculated
         assert transcript_instance.finalized is True
@@ -57,8 +60,11 @@ class monosublocus_holder(sublocus,abstractlocus):
             if metric not in self.available_metrics:
                 self.available_metrics.append(metric)
 
+        transcript_instance.parent=self.id
         self.transcripts[tid]=transcript_instance
 
+        self.metrics_calculated = True
+        return
 
     def define_monosubloci(self):
         '''Overriden and set to NotImplemented to avoid cross-calling it when inappropriate.'''

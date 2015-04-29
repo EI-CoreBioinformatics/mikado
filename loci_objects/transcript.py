@@ -19,6 +19,7 @@ class transcript:
         self.start=gffLine.start
         self.strand = gffLine.strand
         self.end=gffLine.end
+        self.score = gffLine.score
         self.exons, self.cds, self.utr = [], [], []
         self.junctions = []
         self.splices = []
@@ -70,7 +71,11 @@ class transcript:
             if self.internal_cds_num>1:
                 attr_field="{0};maximal={1}".format(attr_field,maximal)
             
-            parent_line = [self.chrom, "locus_pipeline", "transcript", self.start, self.end, ".", strand, ".",  attr_field ]
+            if self.score is None:
+                score="."
+            else:
+                score=self.score
+            parent_line = [self.chrom, "locus_pipeline", self.feature, self.start, self.end, score, strand, ".",  attr_field ]
         
             parent_line ="\t".join( str(s) for s in parent_line )
         
@@ -87,11 +92,11 @@ class transcript:
                 if cds_begin is False and segment[0]=="CDS": cds_begin = True
                 if segment[0]=="UTR":
                     if cds_begin is True:
-                        if self.strand=="-": feature="five_prime_utr"
-                        else: feature="three_prime_utr"
+                        if self.strand=="-": feature="five_prime_UTR"
+                        else: feature="three_prime_UTR"
                     else:
-                        if self.strand=="-": feature="three_prime_utr"
-                        else: feature="five_prime_utr"
+                        if self.strand=="-": feature="three_prime_UTR"
+                        else: feature="five_prime_UTR"
                     if "five" in feature:
                         five_utr_count+=1
                         index=five_utr_count
@@ -181,6 +186,11 @@ class transcript:
             store=self.utr
         elif gffLine.feature=="exon":
             store=self.exons
+        elif gffLine.feature=="start_codon":
+            self.has_start = True
+            return
+        elif gffLine.feature=="stop_codon":
+            self.has_stop = True
         else:
             raise AttributeError("Unknown feature: {0}".format(gffLine.feature))
             
@@ -240,6 +250,8 @@ class transcript:
         self.splices = set(self.splices)
         _ = self.max_internal_cds
         assert self.max_internal_cds_index > -1
+        if len(self.cds)>0:
+            self.feature="mRNA"
         
         self.finalized = True
         return
@@ -397,6 +409,7 @@ class transcript:
         if self.internal_cds == []:
             self.finalize()
         else:
+            self.feature="mRNA"
             self.finalized=True
         return
                         
@@ -531,6 +544,10 @@ class transcript:
 #                                self.__internal_cds))
 #         return self.internal_cds[self.max_internal_cds_index]
 
+    @property
+    def is_complete(self):
+        return self.has_start and self.has_stop
+
     @max_internal_cds.setter
     def max_internal_cds(self,*args):
         if len(args)==0:
@@ -556,4 +573,33 @@ class transcript:
             lengths.append( sum( x[2]-x[1]+1 for x in filter(lambda c: c[0]=="CDS", internal_cds) ) )
         lengths = sorted(lengths, reverse=True)
         return lengths
+        
+    @property
+    def max_internal_cds_start_distance_from_start(self):
+        if len(self.cds)==0:
+            return 0
+        distance = 0
+        if self.strand=="+":
+            five_start = list(filter(lambda x: x[0]=="CDS", self.max_internal_cds))[0][1]
+            for exon in self.exons:
+                if exon[1]<five_start:
+                    distance+=exon[1]+1-exon[0]
+                elif exon[0]==five_start:
+                    break
+                elif exon[1]>=five_start:
+                    distance+=five_start-exon[0]+1
+                    break
+        else:
+            five_start = list(filter(lambda x: x[0]=="CDS", self.max_internal_cds))[-1][2]
+            for exon in sorted(self.exons, key=operator.itemgetter(0,1), reverse=True):
+                if exon[0]>five_start:
+                    distance+=exon[1]+1-exon[0]
+                elif exon[1]==five_start:
+                    break
+                elif exon[0]<=five_start:
+                    distance+=exon[1]-five_start+1
+                    break
+        return distance
+            
+        
         

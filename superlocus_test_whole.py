@@ -114,7 +114,7 @@ def main():
             if currentChrom is not None:
                 if currentTranscript is None:
                     pass
-                elif superlocus.in_locus(currentLocus, currentTranscript):
+                elif currentLocus is not None and superlocus.in_locus(currentLocus, currentTranscript):
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
                     locus_printer(currentLocus, args, cds_dict=cds_dict)

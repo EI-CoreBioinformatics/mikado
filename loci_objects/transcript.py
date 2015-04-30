@@ -342,7 +342,7 @@ class transcript:
         self.internal_cds = []
         
         self.finalized = False
-        self.has_start,self.has_stop = None,None
+        has_start,has_stop = None,None
         
         #Ordering the CDSs by: presence of start/stop codons, cds length
         original_strand = self.strand
@@ -351,10 +351,15 @@ class transcript:
         for cds_run in sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("has_start","has_stop","cds_len") ):
             
             cds_start, cds_end, strand = cds_run.cdsStart, cds_run.cdsEnd, cds_run.strand
-            if self.has_start is None or self.has_stop is None:
-                self.has_start,self.has_stop = cds_run.has_start, cds_run.has_stop 
+            if not (cds_start>=1 and cds_end<=self.cdna_length):
+                continue
+            
+            if has_start is None:
+                has_start = cds_run.has_start
+            if has_stop is None:
+                has_stop = cds_run.has_stop
 
-            assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )
+            # assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )
             
             if self.strand is None:
                 self.strand=new_strand=strand
@@ -430,6 +435,11 @@ class transcript:
                     current_start=current_end
         
             self.internal_cds.append( sorted(cds_exons, key=operator.itemgetter(1,2)   ) )
+
+        if has_start is not None:
+            self.has_start = has_start
+        if has_stop is not None:
+            self.has_stop = has_stop
             
         if len(self.internal_cds)==1:
             self.cds = sorted(

@@ -108,7 +108,7 @@ class transcript:
             if self.score is None or self.score==float("-inf"):
                 score="."
             else:
-                score=self.score
+                score=round(self.score,2)
             parent_line = [self.chrom, "locus_pipeline", self.feature, self.start, self.end, score, strand, ".",  attr_field ]
         
             parent_line ="\t".join( str(s) for s in parent_line )
@@ -470,17 +470,18 @@ class transcript:
                             ])
                 cds_spans.append(span)
                 
-            cds_spans=sorted(cds_spans, key = operator.itemgetter(0,1))
-            
-            new_cds_spans = []
-            for span in cds_spans:
-                if new_cds_spans == []:
-                    new_cds_spans.append(span)
-                elif new_cds_spans[-1][1]<span[0]:
-                    new_cds_spans.append(span)
-                elif new_cds_spans[-1]==span[0]:
-                    new_cds_spans[-1]=(new_cds_spans[-1][0], span[1])
-            self.cds = new_cds_spans
+
+            self.cds = sorted(cds_spans, key = operator.itemgetter(0,1))
+#             cds_spans=sorted(cds_spans, key = operator.itemgetter(0,1))
+#             new_cds_spans = []
+#             for span in cds_spans:
+#                 if new_cds_spans == []:
+#                     new_cds_spans.append(span)
+#                 elif new_cds_spans[-1][1]<span[0]:
+#                     new_cds_spans.append(span)
+#                 elif new_cds_spans[-1]==span[0]:
+#                     new_cds_spans[-1]=(new_cds_spans[-1][0], span[1])
+#             self.cds = new_cds_spans
             
             #This method is probably OBSCENELY inefficient, but I cannot think of a better one for the moment.
             curr_utr_segment = None
@@ -526,7 +527,7 @@ class transcript:
     @classmethod
     def is_intersecting(cls, first, second):
         '''Implementation of the is_intersecting method.'''
-        if first==second or cls.overlap(first,second)<=0:
+        if first==second or cls.overlap(first,second)<0:
             return False
         return True
 

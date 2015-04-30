@@ -5,7 +5,7 @@ from loci_objects.abstractlocus import abstractlocus
 from copy import copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
-import io,csv#,sys
+import io,csv,sys
 from os.path import exists
 
 class superlocus(abstractlocus):
@@ -33,6 +33,13 @@ class superlocus(abstractlocus):
         if json_dict is None or type(json_dict) is not dict:
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
         self.json_dict = json_dict
+        
+        #Dynamically load required modules
+        if "modules" in self.json_dict:
+            import importlib
+            for mod in self.json_dict["modules"]:
+                globals()[mod]=importlib.import_module(mod)
+                
         #self.__dict__.update(transcript_instance.__dict__)
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
@@ -199,7 +206,7 @@ class superlocus(abstractlocus):
         
         raise NotImplementedError()
 
-    def print_subloci_metrics(self, out_file, fieldnames = ["tid", "parent"] ):
+    def print_subloci_metrics(self, out_file, fieldnames = ["tid", "parent", "score"] ):
         
         '''Wrapper method to create a csv.DictWriter instance and call the sublocus.print_metrics method
         on it for each sublocus.'''
@@ -228,16 +235,16 @@ class superlocus(abstractlocus):
             if avail==[]:
                 raise ValueError() 
             self.available_sublocus_metrics = avail
-        
+        #print(self.available_sublocus_metrics, file=sys.stderr)
         #fieldnames = ["id", "parent"]
-        if len(fieldnames)==2:
+        if len(fieldnames)==3:
             fieldnames.extend(sorted(set(self.available_sublocus_metrics)))
         rower = csv.DictWriter( handle, fieldnames, delimiter="\t" )
         if print_header is True: rower.writeheader()
         for slocus in self.subloci:
             slocus.print_metrics(rower)
 
-    def print_monoholder_metrics(self, out_file, fieldnames = ["tid", "parent"] ):
+    def print_monoholder_metrics(self, out_file, fieldnames = ["tid", "parent", "score"] ):
 
         '''Wrapper method to create a csv.DictWriter instance and call the monosublocus_holder.print_metrics method
         on it.'''
@@ -269,7 +276,7 @@ class superlocus(abstractlocus):
 #             self.available_monolocus_metrics = avail
 
         self.available_monolocus_metrics = set(self.monoholder.available_metrics)
-        if len(fieldnames)==2:
+        if len(fieldnames)==3:
             fieldnames.extend(sorted(set(self.available_monolocus_metrics)))
         
         rower = csv.DictWriter( handle, fieldnames, delimiter="\t" )

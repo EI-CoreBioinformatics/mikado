@@ -1,6 +1,7 @@
 from loci_objects.abstractlocus import abstractlocus
 #import random
 from copy import copy
+import re
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
 
@@ -35,7 +36,13 @@ class sublocus(abstractlocus):
         if json_dict is None or type(json_dict) is not dict:
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
         self.json_dict = json_dict
-            
+        
+        #This part is necessary to import modules
+        if "modules" in self.json_dict:
+            import importlib
+            for mod in self.json_dict["modules"]:
+                globals()[mod]=importlib.import_module(mod)
+        
         assert hasattr(self, "monoexonic")
 
         if type(span) is transcript:
@@ -238,62 +245,110 @@ class sublocus(abstractlocus):
         
         self.get_metrics()
         
-        def keyfunction(transcript_instance, order=[] , reverse=[]  ):
-            if len(order)==0:
-                raise ValueError("No information on how to sort!")
-            t_metrics = []
-            for o in order:
-                if o in reverse:
-                    if type(transcript_instance.metrics[o]) is bool:
-                        t_metrics.append(not transcript_instance.metrics[o])
+#         def keyfunction(transcript_instance, order=[] , reverse=[]  ):
+#             if len(order)==0:
+#                 raise ValueError("No information on how to sort!")
+#             t_metrics = []
+#             for o in order:
+#                 if o in reverse:
+#                     if type(transcript_instance.metrics[o]) is bool:
+#                         t_metrics.append(not transcript_instance.metrics[o])
+#                     else:
+#                         t_metrics.append(-1*transcript_instance.metrics[o])
+#                 else:
+#                     t_metrics.append(transcript_instance.metrics[o])
+#             return tuple(t_metrics)
+        
+        for tid in self.transcripts:
+            values = []
+            for param in self.json_dict["parameters"]:
+                val = self.transcripts[tid].metrics[param]
+                if "operation" in self.json_dict["parameters"][param]:
+                    try:
+                        val = eval( re.sub("x", str(val),  self.json_dict["parameters"][param]["operation"] ) )
+                    except ZeroDivisionError:
+                        val = 0
+                if "multiplier" in self.json_dict["parameters"][param]:
+                    val*=self.json_dict["parameters"][param]["multiplier"]
+                elif "bool_value" in self.json_dict["parameters"][param]:
+                    assert type(val) is bool
+                    if val is True:
+                        val = self.json_dict["parameters"][param]["bool_value"][0]
                     else:
-                        t_metrics.append(-1*transcript_instance.metrics[o])
+                        val = self.json_dict["parameters"][param]["bool_value"][1]
+                assert type(val) in (int,float)
+                values.append(val)
+            score=sum(values)
+            self.transcripts[tid].score=self.metrics[tid]["score"]=score
+        
+        if "requirements" in self.json_dict:
+            for key in self.json_dict["requirements"]:
+                key, conf = key, self.json_dict["requirements"][key]
+                if conf["type"]=="min":
+                    oper=">="
+                elif conf["type"]=="eq":
+                    oper="=="
+                elif conf["type"]=="max":
+                    oper="<="
+                elif conf["type"]=="uneq":
+                    oper="!="
                 else:
-                    t_metrics.append(transcript_instance.metrics[o])
-            return tuple(t_metrics)
-        
-        current_score=0
-        num_transcripts_with_cds = len(list(filter(lambda t: len(self.transcripts[t].cds), self.transcripts  )))
-        
-        for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid],
-                                                                           order=self.json_dict["order"], reverse=self.json_dict["reverse"] ),
-                          reverse=False  ):
-            transcript_instance = self.transcripts[tid]
-            score=current_score
-            
-            if "requirements" in self.json_dict:
-                for key in self.json_dict["requirements"]:
-                    #Ignore requirements based on CDS if all the transcripts in the locus are without a CDS
-                    if num_transcripts_with_cds==0 and ("cds" in key.lower() or "utr" in key.lower()):
-                        continue
-                    key, conf = key, self.json_dict["requirements"][key]
-                    if conf["type"]=="min":
-                        oper=">="
-                    elif conf["type"]=="eq":
-                        oper="=="
-                    elif conf["type"]=="max":
-                        oper="<="
-                    elif conf["type"]=="uneq":
-                        oper="!="
-                    else:
-                        raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
-                    validator_str = "{score} {oper} {ref_val}".format(score=self.metrics[transcript_instance.id][key],
-                                                               oper=oper,
-                                                               ref_val=conf["value"])
-                    validator = eval(validator_str)
-                    
-                    if validator is False:
-                        score = float("-Inf")
-                        break
+                    raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
+                validator_str = "{score} {oper} {ref_val}"
+                not_passing = set(filter( lambda tid: eval(validator_str.format(
+                                                                              score=self.transcripts[tid].metrics[key],
+                                                                              oper=oper,
+                                                                              ref_val=conf["value"]
+                                                                              )) is False, self.metrics
+                                           ))
+                if len(not_passing)==len(self.metrics): #all transcripts in the locus fail to pass the filter
+                    continue
+                else:
+                    for tid in not_passing:
+                        self.transcripts[tid].score=self.metrics[tid]["score"]=0
+                      
                 
-            self.metrics[tid]["score"]=score    
-            self.transcripts[tid].score=score
-            if score!=float("-Inf"):
-                current_score+=1
-
-        self.scores_calculated=True
-         
-        return
+                
+        
+#         for tid in sorted( self.transcripts, key = lambda tid: keyfunction(self.transcripts[tid],
+#                                                                            order=self.json_dict["order"], reverse=self.json_dict["reverse"] ),
+#                           reverse=False  ):
+#             transcript_instance = self.transcripts[tid]
+#             score=current_score
+#             
+#             if "requirements" in self.json_dict:
+#                 for key in self.json_dict["requirements"]:
+#                     #Ignore requirements based on CDS if all the transcripts in the locus are without a CDS
+#                     if num_transcripts_with_cds==0 and ("cds" in key.lower() or "utr" in key.lower()):
+#                         continue
+#                     key, conf = key, self.json_dict["requirements"][key]
+#                     if conf["type"]=="min":
+#                         oper=">="
+#                     elif conf["type"]=="eq":
+#                         oper="=="
+#                     elif conf["type"]=="max":
+#                         oper="<="
+#                     elif conf["type"]=="uneq":
+#                         oper="!="
+#                     else:
+#                         raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
+#                     validator_str = "{score} {oper} {ref_val}".format(score=self.metrics[transcript_instance.id][key],
+#                                                                oper=oper,
+#                                                                ref_val=conf["value"])
+#                     validator = eval(validator_str)
+#                     
+#                     if validator is False:
+#                         score = float("-Inf")
+#                         break
+#                 
+#             self.metrics[tid]["score"]=score    
+#             self.transcripts[tid].score=score
+#             if score!=float("-Inf"):
+#                 current_score+=1
+# 
+#         self.scores_calculated=True
+#          
+#         return
     
     
     def print_metrics(self, rower):
@@ -304,7 +359,8 @@ class sublocus(abstractlocus):
         if not hasattr(rower, "fieldnames") or not hasattr(rower, "writerow") or not hasattr(rower, "writer"):
             raise AttributeError("Invalid rower provided: should be a DictWriter instance, instead is {0}".format(type(rower)))
         
-        self.get_metrics() 
+#        self.get_metrics()
+        self.calculate_scores() 
         
         #The rower is an instance of the DictWriter class from the standard CSV module
         
@@ -315,10 +371,12 @@ class sublocus(abstractlocus):
                     row[key]=tid
                 elif key.lower()=="parent":
                     row[key]=self.id
-                elif not key in self.metrics[tid]:
+                elif key=="score":
+                    row[key]=self.transcripts[tid].score
+                elif not key in self.transcripts[tid].metrics:
                     row[key]=getattr(self.transcripts[tid], key, "NA")
                 else:
-                    row[key]=self.metrics[tid][key]
+                    row[key]=self.transcripts[tid].metrics[key]
                 if type(row[key]) is float:
                     row[key] = round(row[key],2)
                 elif row[key] is None or row[key]=="":

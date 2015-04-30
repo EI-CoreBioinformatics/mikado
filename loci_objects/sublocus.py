@@ -13,6 +13,37 @@ class sublocus(abstractlocus):
     '''
     
     __name__ = "sublocus"
+    available_metrics = [
+                "tid",
+                "parent",
+                "score",
+                "exons",
+                "exon_fraction",
+                "intron_fraction",
+                "retained_introns",
+                "retained_fraction",
+                "cds_length",
+                "cds_fraction",
+                "utr_num",
+                "internal_cds_num",             
+                "max_internal_cds_exon_num",
+                "max_internal_cds_length",
+                "max_internal_cds_fraction",
+                "max_internal_cds_start_distance_from_start",
+                "cds_not_maximal",
+                "cds_not_maximal_fraction", 
+                "has_start",
+                "has_stop",
+                "is_complete",
+                'utr_fraction',
+                'cdna_length',
+                'max_internal_cds_num',
+                'cds_exons'
+                ]
+    am=available_metrics[:3]
+    am.extend(sorted(available_metrics[3:]))
+    available_metrics=am[:]
+    del am
     
     ################ Class special methods ##############
     
@@ -31,7 +62,6 @@ class sublocus(abstractlocus):
         self.metrics=dict()
         self.splitted=False
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
-        self.available_metrics=[] # List to retrieve the available metrics. Calculated at runtime.
         setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
         if json_dict is None or type(json_dict) is not dict:
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
@@ -133,6 +163,7 @@ class sublocus(abstractlocus):
         self.splitted=True
         return
     
+   
     def calculate_metrics(self, tid):
         '''This function will calculate the metrics which will be used to derive a score for a transcript.
         The different attributes of the transcript will be stored inside the transcript class itself,
@@ -194,11 +225,6 @@ class sublocus(abstractlocus):
         transcript_instance.metrics["has_stop"] = transcript_instance.has_stop
         transcript_instance.metrics["is_complete"] = transcript_instance.is_complete
         
-
-        for metric in transcript_instance.metrics:
-            if metric not in self.available_metrics:
-                self.available_metrics.append(metric)
-
         self.transcripts[tid]=transcript_instance
         
     def find_retained_introns(self, transcript_instance):
@@ -351,22 +377,19 @@ class sublocus(abstractlocus):
 #         return
     
     
-    def print_metrics(self, rower):
+    def print_metrics(self):
         
-        '''This class takes as input a csv.DictWriter class, which it uses to print out a table of each transcript metrics.'''
+        '''This class yields dictionary "rows" that will be given to a csv.DictWriter class.'''
         
         #Check that rower is an instance of the csv.DictWriter class
-        if not hasattr(rower, "fieldnames") or not hasattr(rower, "writerow") or not hasattr(rower, "writer"):
-            raise AttributeError("Invalid rower provided: should be a DictWriter instance, instead is {0}".format(type(rower)))
-        
 #        self.get_metrics()
         self.calculate_scores() 
         
         #The rower is an instance of the DictWriter class from the standard CSV module
         
-        for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid] ):
-            row=dict().fromkeys(rower.fieldnames)
-            for key in rower.fieldnames:
+        for tid in sorted(self.transcripts.keys(), key=lambda tid: self.transcripts[tid] ):
+            row={}
+            for key in self.available_metrics:
                 if key.lower() in ("id", "tid"):
                     row[key]=tid
                 elif key.lower()=="parent":
@@ -381,8 +404,7 @@ class sublocus(abstractlocus):
                     row[key] = round(row[key],2)
                 elif row[key] is None or row[key]=="":
                     row[key]="NA"
-            assert len(row)==len(rower.fieldnames), (len(row), len(rower.fieldnames), set.symmetric_difference(set(row.keys()), set(rower.fieldnames)) )
-            rower.writerow(row)
+            yield row
         return
     
     def get_metrics(self):
@@ -446,3 +468,5 @@ class sublocus(abstractlocus):
             addendum = "multi"
         
         return "{0}.{1}".format(super().id, addendum)
+    
+        

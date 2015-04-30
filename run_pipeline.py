@@ -4,6 +4,7 @@ import sys
 import argparse,os,re
 import json
 import multiprocessing
+import csv
 
 try:
     from Bio import SeqIO
@@ -27,36 +28,30 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     
     for stranded_locus in stranded_loci:
         stranded_locus.define_subloci()
-        lock.acquire()
-        if not os.path.exists(args.sub_metrics ):
-            sub_metrics = open(args.sub_metrics,"w")
-        else:
-            sub_metrics = open(args.sub_metrics,"a")
-        stranded_locus.print_subloci_metrics(sub_metrics)
-        sub_out=open(args.sub_out, "a")
-        print(stranded_locus, file=sub_out)
-        sub_metrics.close()
-        lock.release()
+        sub_lines = str(stranded_locus)
+        sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()] 
         stranded_locus.define_monosubloci()
-        lock.acquire()
-        mono_out=open(args.mono_out, "a")
-        print(stranded_locus, file=mono_out)
-        mono_out.close()
-        lock.release()
+        mono_lines = str(stranded_locus)
         stranded_locus.calculate_mono_metrics()
-        lock.acquire()
-        if not os.path.exists(args.locus_metrics ):
-            locus_metrics = open(args.locus_metrics,"w")
-        else:
-            locus_metrics = open(args.locus_metrics,"a")
-        stranded_locus.print_monoholder_metrics(locus_metrics)
-        locus_metrics.close()
-        lock.release()
+        locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
         stranded_locus.define_loci()
+        locus_lines = str(stranded_locus)
+
+        #Print out
         lock.acquire()
-        locus_out=open(args.locus_out,"a")
-        print(stranded_locus, file=locus_out)
-        locus_out.close()
+        with open(args.sub_metrics,'a') as out_file:
+            csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
+            for row in sub_metrics_rows: csv_out.writerow(row)
+        with open(args.locus_metrics,'a') as out_file:
+            csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
+            for row in locus_metrics_rows: csv_out.writerow(row)
+
+        with open(args.sub_out,'a') as sub_out:
+            print(sub_lines, file=sub_out)
+        with open(args.mono_out,'a') as mono_out:
+            print(mono_lines, file=mono_out)
+        with open(args.locus_out,'a') as locus_out:
+            print(locus_lines, file=locus_out)
         lock.release()
     return
 
@@ -68,9 +63,7 @@ def main():
         return json_dict
     
     def to_index(string):
-        try:
-            from Bio import SeqIO
-        except ImportError as err:
+        if "SeqIO" not in globals():
             print("Error importing the Bio module, no indexing performed:\n{0}",format(err) )
             return None
 
@@ -106,10 +99,12 @@ def main():
 
     args.sub_metrics=re.sub("$",".metrics",  re.sub(".gff3$", "", args.sub_out  ))
     args.locus_metrics = re.sub("$",".metrics",  re.sub(".gff3$", "", args.locus_out  ))
-    if os.path.exists(args.sub_metrics):
-        os.remove(args.sub_metrics) 
-    if os.path.exists(args.locus_metrics):
-        os.remove(args.locus_metrics)
+    with open(args.sub_metrics, "w") as out_file:
+        csv_out=csv.DictWriter( out_file, superlocus.available_metrics, delimiter="\t" )
+        csv_out.writeheader()
+    with open(args.locus_metrics, "w") as out_file:
+        csv_out=csv.DictWriter( out_file, superlocus.available_metrics, delimiter="\t" )
+        csv_out.writeheader()
     
     cds_dict=None
     
@@ -147,9 +142,9 @@ def main():
         rower=GTF(args.gff)
     else: rower=GFF3(args.gff)
 
-    manager=multiprocessing.Manager()
+    manager=multiprocessing.Manager() # @UndefinedVariable
     lock=manager.RLock()
-    pool=multiprocessing.Pool(processes=args.procs)
+    pool=multiprocessing.Pool(processes=args.procs) # @UndefinedVariable
     first = True    
     for row in rower:
         

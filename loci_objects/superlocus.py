@@ -5,8 +5,8 @@ from loci_objects.abstractlocus import abstractlocus
 from copy import copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
-import io,csv,sys
-from os.path import exists
+#import io#,csv#,sys
+#from os.path import exists
 
 class superlocus(abstractlocus):
     
@@ -14,6 +14,7 @@ class superlocus(abstractlocus):
     transcript class instances.'''
     
     __name__ = "superlocus"
+    available_metrics = sublocus.available_metrics
     
     ####### Special methods ############
     
@@ -206,83 +207,28 @@ class superlocus(abstractlocus):
         
         raise NotImplementedError()
 
-    def print_subloci_metrics(self, out_file, fieldnames = ["tid", "parent", "score"] ):
+    def print_subloci_metrics(self ):
         
         '''Wrapper method to create a csv.DictWriter instance and call the sublocus.print_metrics method
         on it for each sublocus.'''
         
-        print_header=True
-        if type(out_file) is str:
-            if exists(out_file):
-                handle = open(out_file, 'a')
-                print_header=False
-            else:
-                handle = open(out_file, 'w')
-        elif type(out_file) in (io.IOBase, io.TextIOWrapper):
-            if "a" in out_file.mode: print_header=False
-            handle=out_file
-        else:
-            raise TypeError("Unrecognized output file type: {0}".format(type(out_file)))
-        
         self.get_sublocus_metrics()
         
-        if self.available_sublocus_metrics == []:
-            avail=[]
-            it=iter(self.subloci)
-            for x in it:
-                avail = x.available_metrics
-                if avail != []: break
-            if avail==[]:
-                raise ValueError() 
-            self.available_sublocus_metrics = avail
-        #print(self.available_sublocus_metrics, file=sys.stderr)
-        #fieldnames = ["id", "parent"]
-        if len(fieldnames)==3:
-            fieldnames.extend(sorted(set(self.available_sublocus_metrics)))
-        rower = csv.DictWriter( handle, fieldnames, delimiter="\t" )
-        if print_header is True: rower.writeheader()
         for slocus in self.subloci:
-            slocus.print_metrics(rower)
+            for row in slocus.print_metrics():
+                yield row
 
-    def print_monoholder_metrics(self, out_file, fieldnames = ["tid", "parent", "score"] ):
+    def print_monoholder_metrics(self ):
 
         '''Wrapper method to create a csv.DictWriter instance and call the monosublocus_holder.print_metrics method
         on it.'''
         
-        print_header=True
-        if type(out_file) is str:
-            if exists(out_file):
-                handle=open(out_file,"a")
-                print_header = False
-            else:
-                handle = open(out_file, 'w')
-        elif type(out_file) in (io.IOBase, io.TextIOWrapper):
-            if out_file.mode=="a":
-                print_header=False
-            handle=out_file
-        else:
-            raise TypeError("Unrecognized output file type: {0}".format(type(out_file)))
         
         self.define_loci()
 
-#         if self.available_monolocus_metrics == []:
-#             avail=[]
-#             it=iter(self.subloci)
-#             for x in it:
-#                 avail = x.available_metrics
-#                 if avail != []: break
-#             if avail==[]:
-#                 raise ValueError() 
-#             self.available_monolocus_metrics = avail
-
-        self.available_monolocus_metrics = set(self.monoholder.available_metrics)
-        if len(fieldnames)==3:
-            fieldnames.extend(sorted(set(self.available_monolocus_metrics)))
-        
-        rower = csv.DictWriter( handle, fieldnames, delimiter="\t" )
-        if print_header is True: rower.writeheader()
-        
-        self.monoholder.print_metrics(rower)
+        #self.available_monolocus_metrics = set(self.monoholder.available_metrics)
+        for row in self.monoholder.print_metrics():
+            yield row
             
     def define_loci(self):
         '''This is the final method in the pipeline. It creates a container for all the monosubloci
@@ -345,3 +291,4 @@ class superlocus(abstractlocus):
                            )>0: #A simple overlap analysis will suffice
                 return True
         return False
+    

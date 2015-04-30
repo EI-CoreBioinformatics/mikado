@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 
 #import sys
-import argparse,os
+import argparse,os,re
 import json
+import multiprocessing
+
+try:
+    from Bio import SeqIO
+except ImportError as err:
+    pass
+
 
 from loci_objects.superlocus import superlocus
 from loci_objects.transcript import transcript
@@ -11,35 +18,47 @@ from loci_objects.GTF import GTF
 from loci_objects.bed12 import BED12
 from loci_objects.abstractlocus import abstractlocus
 
-def locus_printer( slocus, args, cds_dict=None ):
+def locus_printer( slocus, args, cds_dict=None, lock=None ):
 #     if slocus is None:
 #         return
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific )
     stranded_loci = sorted(list(slocus.split_strands()))
-    
-    if not os.path.exists(args.sub_metrics ):
-        sub_metrics = open(args.sub_metrics,"w")
-    else:
-        sub_metrics = open(args.sub_metrics,"a")
-        
-    if not os.path.exists(args.locus_metrics ):
-        locus_metrics = open(args.locus_metrics,"w")
-    else:
-        locus_metrics = open(args.locus_metrics,"a")
+    assert lock is not None
     
     for stranded_locus in stranded_loci:
         stranded_locus.define_subloci()
+        lock.acquire()
+        if not os.path.exists(args.sub_metrics ):
+            sub_metrics = open(args.sub_metrics,"w")
+        else:
+            sub_metrics = open(args.sub_metrics,"a")
         stranded_locus.print_subloci_metrics(sub_metrics)
-        print(stranded_locus, file=args.sub_out)
+        sub_out=open(args.sub_out, "a")
+        print(stranded_locus, file=sub_out)
+        sub_metrics.close()
+        lock.release()
         stranded_locus.define_monosubloci()
-        print(stranded_locus, file=args.mono_out)
+        lock.acquire()
+        mono_out=open(args.mono_out, "a")
+        print(stranded_locus, file=mono_out)
+        mono_out.close()
+        lock.release()
         stranded_locus.calculate_mono_metrics()
+        lock.acquire()
+        if not os.path.exists(args.locus_metrics ):
+            locus_metrics = open(args.locus_metrics,"w")
+        else:
+            locus_metrics = open(args.locus_metrics,"a")
         stranded_locus.print_monoholder_metrics(locus_metrics)
+        locus_metrics.close()
+        lock.release()
         stranded_locus.define_loci()
-        print(stranded_locus, file=args.locus_out)
-    
-    locus_metrics.close()
-    sub_metrics.close()
+        lock.acquire()
+        locus_out=open(args.locus_out,"a")
+        print(stranded_locus, file=locus_out)
+        locus_out.close()
+        lock.release()
+    return
 
 def main():
     
@@ -54,9 +73,12 @@ def main():
         except ImportError as err:
             print("Error importing the Bio module, no indexing performed:\n{0}",format(err) )
             return None
-        return SeqIO.index(string, "fasta")
+        index_db = "{0}.db".format(string)
+        SeqIO.index_db(index_db, format="fasta", filenames=[string])
+        return index_db
     
     parser=argparse.ArgumentParser("Quick test utility for the superlocus classes.")
+    parser.add_argument("-p", "--procs", type=int, default=1, help="Number of processors to use.")
     parser.add_argument("--json_conf", type=argparse.FileType("r"), required=True, help="JSON configuration file for scoring transcripts.")
     parser.add_argument("--strand_specific", action="store_true", default=False)
     parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
@@ -74,23 +96,32 @@ def main():
     currentTranscript=None
     currentChrom=None
 
-    args.sub_metrics = "{0}.metrics".format( args.sub_out.name) 
-    args.locus_metrics = "{0}.metrics".format( args.locus_out.name)
+    args.sub_out.close()
+    args.sub_out=args.sub_out.name
+    
+    args.mono_out.close()
+    args.mono_out=args.mono_out.name
+
+    args.locus_out.close()
+    args.locus_out=args.locus_out.name
+
+    args.sub_metrics=re.sub("$",".metrics",  re.sub(".gff3$", "", args.sub_out  ))
+    args.locus_metrics = re.sub("$",".metrics",  re.sub(".gff3$", "", args.locus_out  ))
     if os.path.exists(args.sub_metrics):
         os.remove(args.sub_metrics) 
     if os.path.exists(args.locus_metrics):
         os.remove(args.locus_metrics)
     
-    if args.gff.name[-3:]=="gtf":
-        rower=GTF(args.gff)
-    else: rower=GFF3(args.gff)
-    
     cds_dict=None
     
     if args.cds is not None:
         cds_dict = dict()
+        if args.transcript_fasta is not None:
+            index=SeqIO.index_db(args.transcript_fasta)
+        else:
+            index=None
         
-        for line in BED12(args.cds, fasta_index=args.transcript_fasta):
+        for line in BED12(args.cds, fasta_index=index):
             if line.header is True: continue
             if line.chrom not in cds_dict:
                 cds_dict[line.chrom]=[]
@@ -108,7 +139,20 @@ def main():
                 for index in indices_to_remove:
                     del cds_dict[line.chrom][index]
                 cds_dict[line.chrom].append(line)
-    
+
+    args.cds.close()
+    args.cds=args.cds.name
+    args.gff.close()
+    args.gff=args.gff.name
+
+    if args.gff[-3:]=="gtf":
+        rower=GTF(args.gff)
+    else: rower=GFF3(args.gff)
+
+    manager=multiprocessing.Manager()
+    lock=manager.RLock()
+    pool=multiprocessing.Pool(processes=args.procs)
+    first = True    
     for row in rower:
         
         if row.header is True: continue
@@ -120,10 +164,14 @@ def main():
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
                     if currentLocus is not None:
-                        locus_printer(currentLocus, args, cds_dict=cds_dict)
+                        if first is True:
+                            locus_printer(currentLocus, args, cds_dict=cds_dict)
+                            first=False
+                        else:
+                            pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                                                                                             "lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
-                locus_printer(currentLocus, args)
-            #print("Changed chrom", file=sys.stderr)
+                    
             currentChrom=row.chrom
             currentTranscript=None
             currentLocus=None
@@ -135,27 +183,38 @@ def main():
                 elif superlocus.in_locus(currentLocus, currentTranscript):
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
-                    locus_printer(currentLocus, args, cds_dict=cds_dict)
+                    if first is True:
+                        locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+                        first=False
+                    else:
+                        pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                                                                                         "lock": lock})
+                        
                     currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
             elif currentLocus is None:
                 if currentTranscript is not None:
                     currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
             currentTranscript=transcript(row)
-#            print("New transcript: {0}".format(currentTranscript.id))
         elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper():
             currentTranscript.addExon(row)
         else:
             continue
-        
+   
     if currentLocus is not None:
         if currentTranscript is None:
             pass
         elif superlocus.in_locus(currentLocus, currentTranscript):
             currentLocus.add_transcript_to_locus(currentTranscript)
         else:
-            locus_printer(currentLocus, args, cds_dict=cds_dict)
+            pool.apply_async(locus_printer, args=(currentLocus, args),
+                             kwds={"cds_dict": cds_dict, "lock": lock})
             currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
-        locus_printer(currentLocus, args, cds_dict=cds_dict)
-        
+        pool.apply_async(locus_printer, args=(currentLocus, args),
+                             kwds={"cds_dict": cds_dict, "lock": lock})
+        #locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+
+    pool.close()
+    pool.join()
+       
 if __name__=="__main__":
     main()

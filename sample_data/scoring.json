@@ -14,8 +14,8 @@
 		"intron_fraction":{
 			"multiplier": 10
 		},
-		"retained_fraction":{
-			"multiplier": -5
+		"retained_introns":{
+			"multiplier": -10
 		},
 		"utr_fraction":{
 			"multiplier": 4
@@ -25,7 +25,20 @@
 		},
 		"internal_cds_num":{
 			"multiplier": 5,
-			"operation": "1/x**2"
+			"operation": "1/(x**2)"
+		},
+		"max_internal_cds_length":{
+			"operation": "math.log(1+x)"
+		},
+		"max_internal_cds_num":{
+			"operation": "math.log(1+x)",
+			"multiplier": 5
+		},
+		"max_internal_cds_start_distance_from_start":{
+			"operation": "math.log(1+x)"
+		},
+		"is_complete":{
+			"bool_value": [5,0]
 		}
 	}
 }

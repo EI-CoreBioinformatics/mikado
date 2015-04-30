@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-#import sys
+import sys
 import argparse,os,re
 import json
 import multiprocessing
@@ -115,6 +115,7 @@ def main():
     cds_dict=None
     
     if args.cds is not None:
+        print("Starting to extract CDS data", file=sys.stderr)
         cds_dict = dict()
         if args.transcript_fasta is not None:
             index=SeqIO.index_db(args.transcript_fasta)
@@ -139,6 +140,7 @@ def main():
                 for index in indices_to_remove:
                     del cds_dict[line.chrom][index]
                 cds_dict[line.chrom].append(line)
+        print("Finished extracting CDS data", file=sys.stderr)
 
     args.cds.close()
     args.cds=args.cds.name

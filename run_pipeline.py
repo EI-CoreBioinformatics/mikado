@@ -73,9 +73,8 @@ def main():
         except ImportError as err:
             print("Error importing the Bio module, no indexing performed:\n{0}",format(err) )
             return None
-        index_db = "{0}.db".format(string)
-        SeqIO.index_db(index_db, format="fasta", filenames=[string])
-        return index_db
+
+        return SeqIO.index(string, format="fasta") 
     
     parser=argparse.ArgumentParser("Quick test utility for the superlocus classes.")
     parser.add_argument("-p", "--procs", type=int, default=1, help="Number of processors to use.")
@@ -117,12 +116,8 @@ def main():
     if args.cds is not None:
         print("Starting to extract CDS data", file=sys.stderr)
         cds_dict = dict()
-        if args.transcript_fasta is not None:
-            index=SeqIO.index_db(args.transcript_fasta)
-        else:
-            index=None
         
-        for line in BED12(args.cds, fasta_index=index):
+        for line in BED12(args.cds, fasta_index=args.transcript_fasta):
             if line.header is True: continue
             if line.chrom not in cds_dict:
                 cds_dict[line.chrom]=[]
@@ -146,6 +141,7 @@ def main():
     args.cds=args.cds.name
     args.gff.close()
     args.gff=args.gff.name
+    args.transcript_fasta = None
 
     if args.gff[-3:]=="gtf":
         rower=GTF(args.gff)

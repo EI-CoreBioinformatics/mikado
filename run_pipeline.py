@@ -24,7 +24,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
 #         return
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific )
     stranded_loci = sorted(list(slocus.split_strands()))
-    assert lock is not None
+#    assert lock is not None
     
     for stranded_locus in stranded_loci:
         stranded_locus.define_subloci()
@@ -38,7 +38,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
         locus_lines = str(stranded_locus)
 
         #Print out
-        lock.acquire()
+#         lock.acquire()
         with open(args.sub_metrics,'a') as out_file:
             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
             for row in sub_metrics_rows: csv_out.writerow(row)
@@ -52,7 +52,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
             print(mono_lines, file=mono_out)
         with open(args.locus_out,'a') as locus_out:
             print(locus_lines, file=locus_out)
-        lock.release()
+#         lock.release()
     return
 
 def main():
@@ -159,7 +159,7 @@ def main():
                     if currentLocus is not None:
                         if first is True:
                             locus_printer(currentLocus, args, cds_dict=cds_dict)
-                            first=False
+#                             first=False
                         else:
                             pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
                                                                                              "lock": lock})
@@ -178,7 +178,7 @@ def main():
                 else:
                     if first is True:
                         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
-                        first=False
+#                         first=False
                     else:
                         pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
                                                                                          "lock": lock})

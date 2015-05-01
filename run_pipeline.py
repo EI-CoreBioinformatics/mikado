@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
-import argparse,os,re
+import argparse,re
 import json
 import multiprocessing
 import csv
@@ -11,13 +11,46 @@ try:
 except ImportError as err:
     pass
 
-
 from loci_objects.superlocus import superlocus
+from loci_objects.sublocus import sublocus
 from loci_objects.transcript import transcript
 from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
 from loci_objects.bed12 import BED12
 from loci_objects.abstractlocus import abstractlocus
+
+def check_json(json_conf):
+    '''Quick function to check that the JSON dictionary is well formed.'''
+    
+    parameters_not_found=[]
+    parameters_found=set()
+    double_parameters=[]
+    for parameter in json_conf["parameters"]:
+        if parameter not in superlocus.available_metrics:
+            parameters_not_found.append(parameter)
+        if parameter in parameters_found:
+            double_parameters.add(parameter)
+        parameters_found.add(parameter)
+    
+    import importlib    
+    mods_not_found = [] 
+    for mod in json_conf["modules"]:
+        try:
+            importlib.import_module(mod)
+        except ImportError:
+            mods_not_found.append(mod)
+
+    if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0:
+        err_message=''
+        if len(parameters_not_found)>0:
+            err_message="The following parameters, present in the JSON file, are not available!\n\t{0}\n".format("\n\t".join(parameters_not_found))
+        if len(double_parameters)>0:
+            err_message+="The following parameters have been specified more than once, please correct:\n\t{0}".format("\n\t".join(list(double_parameters)))
+        if len(mods_not_found)>0:
+            err_message+="The following requested modules are unavailable:\n\t{0}\n".format("\n\t".join(mods_not_found))
+        print(err_message, file=sys.stderr)
+        sys.exit(1)
+           
 
 def locus_printer( slocus, args, cds_dict=None, lock=None ):
 #     if slocus is None:
@@ -83,6 +116,8 @@ def main():
     args=parser.parse_args()
 
     args.json_conf = to_json(args.json_conf.name)
+    check_json(args.json_conf)
+            
 
     currentLocus=None
     currentTranscript=None
@@ -210,4 +245,15 @@ def main():
     pool.join()
        
 if __name__=="__main__":
+    #Check that the metrics are alright
+    metrics_not_found = []
+    for metric in filter(lambda m: m not in ("score","parent","tid"), sublocus.available_metrics ):
+        if not hasattr(transcript, metric):
+            metrics_not_found.append(metric)
+
+    if len(metrics_not_found)>0:
+        raise RuntimeError("The following metrics are requested but are not defined in the transcript class:\n\t{0}".format(
+                                                                                                                        "\n\t".join(metrics_not_found)
+                                                                                                                        ))
+
     main()

@@ -185,6 +185,11 @@ class gtfLine(object):
         line+=[';'.join(attributes)]
         return '\t'.join(line)
 
+    @property
+    def name(self):
+        return self.id
+        
+
 class GTF(Parser):
     '''The parsing class.'''
     def __init__(self,handle): super(GTF, self).__init__(handle)

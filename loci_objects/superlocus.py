@@ -64,7 +64,7 @@ class superlocus(abstractlocus):
         else:
             strand="."
 
-        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0}".format(self.id) ]
+        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0};Name={1}".format(self.id, self.name) ]
         superlocus_line = "\t".join(str(s) for s in superlocus_line)
         lines=[superlocus_line]
 

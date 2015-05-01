@@ -79,6 +79,7 @@ class gffLine(object):
                 self.parent = self.attributes[parent_key]
 
         assert self.parent is not None or self.id is not None
+        _ = self.name # Set the name
             
         if "PARENT" in self.attributes and "Parent" not in self.attributes:
             self.attributes['Parent']=self.attributes['PARENT'][:]

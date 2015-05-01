@@ -32,8 +32,9 @@ class monosublocus(abstractlocus):
         else:
             strand="."
             
-        attr_field="ID={0};{1}{2}".format(
+        attr_field="ID={0};Name={1};{2}{3}".format(
                                         self.id,
+                                        self.name,
                                         "{0};".format(self.parent) if self.parent is not None else "",
                                         "multiexonic={0}".format(not self.monoexonic)
                                         )

@@ -264,7 +264,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
          
         transcript_instance.retained_introns=[]
-        for exon in filter(lambda e: e not in transcript_instance.cds, transcript_instance.exons):
+        for exon in filter(lambda e: e not in transcript_instance.combined_cds, transcript_instance.exons):
             #Check that the overlap is at least as long as the minimum between the exon and the intron.
             if any(filter(
                           lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
@@ -306,3 +306,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
                                             self.strand,
                                             self.start,
                                             self.end)
+        
+    @property
+    def name(self):
+        return self.id

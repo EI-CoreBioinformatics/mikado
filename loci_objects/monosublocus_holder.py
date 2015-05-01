@@ -50,12 +50,8 @@ class monosublocus_holder(sublocus,abstractlocus):
         transcript_instance = self.transcripts[tid]
         #Check that metrics had already been calculated
         assert transcript_instance.finalized is True
-        if not hasattr(transcript_instance, "metrics") or len(transcript_instance.metrics) == 0:
-            super().calculate_metrics(tid)
 
         self.find_retained_introns(transcript_instance)
-        transcript_instance.metrics["retained_introns"] = len(transcript_instance.retained_introns)
-        transcript_instance.metrics["retained_fraction"]=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
         transcript_instance.parent=self.id
         self.transcripts[tid]=transcript_instance
 

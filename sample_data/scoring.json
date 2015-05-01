@@ -25,13 +25,14 @@
 		},
 		"number_internal_orfs":{
 			"multiplier": 5,
-			"operation": "1/(x**2)"
+			"operation": "1/(param**2)"
 		},
 		"cds_length":{
-			"operation": "math.log(1+x)"
+			"operation": "math.log(1+param,10)"
 		},
 		"five_utr_length":{
-			"operation": "math.log(1+x)"
+			"operation": "math.log(1+max(param-100,0) )",
+			"multiplier": -5
 		}
 	}
 }

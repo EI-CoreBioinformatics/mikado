@@ -37,6 +37,7 @@ class sublocus(abstractlocus):
                 "number_internal_orfs",
                 "cds_fraction",
                 "best_cds_number",
+                "best_cds_number_fraction",
                 "cds_num",
                 "cds_fraction",
                 "cds_not_maximal",
@@ -241,7 +242,7 @@ class sublocus(abstractlocus):
                 val = getattr(self.transcripts[tid], param)
                 if "operation" in self.json_dict["parameters"][param]:
                     try:
-                        val = eval( re.sub("x", str(val),  self.json_dict["parameters"][param]["operation"] ) )
+                        val = eval( re.sub("param", str(val),  self.json_dict["parameters"][param]["operation"] ) )
                     except ZeroDivisionError:
                         val = 0
                 if "multiplier" in self.json_dict["parameters"][param]:

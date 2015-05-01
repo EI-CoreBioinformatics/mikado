@@ -5,6 +5,7 @@ import argparse,re
 import json
 import multiprocessing
 import csv
+from Cython.Distutils.build_ext import optimization
 
 try:
     from Bio import SeqIO
@@ -93,6 +94,55 @@ def main():
     def to_json(string):
         with open(string) as json_file:
             json_dict = json.load(json_file)
+            
+        import importlib
+        if "modules" in json_dict:
+            not_found=[]
+            for mod in json_dict["modules"]:
+                try:
+                    globals()[mod]=importlib.import_module(mod)
+                except ImportError:
+                    not_found.append(mod)
+            if len(not_found)>0:
+                raise ImportError("The following modules have not been found:\n{0}".format("\n".join(
+                                                                                                     not_found
+                                                                                                     )))
+            
+            
+        for param in json_dict["parameters"]:
+            if "operation" in json_dict["parameters"][param]:
+                json_dict["parameters"][param]["expression"] = compile(json_dict["parameters"][param]["operation"],
+                                                                      "<json>",
+                                                                      "eval",
+                                                                      optimize=2)
+                #Test validity
+                x=1 
+                try:
+                    _ = eval(json_dict["parameters"][param]["expression"])
+                except Exception as err:
+                    raise Exception("Error encountered in testing parameter {0}:\n{1}".format(param, str(err)))
+                del x
+                
+        if "requirements" in json_dict:
+            for key in json_dict["requirements"]:
+                conf = json_dict["requirements"][key]
+                assert "value" in conf and "type" in conf, (conf)
+                if conf["type"]=="min":
+                    oper=">="
+                elif conf["type"]=="eq":
+                    oper="=="
+                elif conf["type"]=="max":
+                    oper="<="
+                elif conf["type"]=="uneq":
+                    oper="!="
+                else:
+                    raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
+                evaluator = compile("x {oper} {value}".format(oper=oper, value=conf["value"]  ),
+                                    "<json>",
+                                    "eval",
+                                    optimize=2)
+                json_dict["requirements"][key]["expression"]=evaluator
+
         return json_dict
     
     def to_index(string):

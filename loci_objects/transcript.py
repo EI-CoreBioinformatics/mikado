@@ -61,7 +61,7 @@ class transcript:
         self.finalize() #Necessary to sort the exons
         lines = []
         transcript_counter = 0
-        assert self.best_internal_orf_index > -1
+#         assert self.best_internal_orf_index > -1
         
         for index in range(len(self.internal_cds)):
             
@@ -69,8 +69,8 @@ class transcript:
             else: maximal=False
             cds_run = self.internal_cds[index]
             
-            if len(list(filter(lambda x: x[0]=="UTR", cds_run)  )  )>0:
-                assert len(list(filter(lambda x: x[0]=="CDS", cds_run)  )  )>0
+#             if len(list(filter(lambda x: x[0]=="UTR", cds_run)  )  )>0:
+#                 assert len(list(filter(lambda x: x[0]=="CDS", cds_run)  )  )>0
             if self.number_internal_orfs>1:
                 transcript_counter+=1
                 tid = "{0}.orf{1}".format(self.id, transcript_counter)
@@ -246,7 +246,7 @@ class transcript:
                                                                                                                self.combined_utr, self.combined_cds, self.exons )
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
-        assert len(self.exons)>0
+#         assert len(self.exons)>0
         try:
             if self.exons[0][0]<self.start or self.exons[-1][1]>self.end:
                 raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
@@ -292,7 +292,7 @@ class transcript:
         self.junctions = set(self.junctions)
         self.splices = set(self.splices)
         _ = self.best_internal_orf
-        assert self.best_internal_orf_index > -1
+#         assert self.best_internal_orf_index > -1
         if len(self.combined_cds)>0:
             self.feature="mRNA"
         
@@ -404,7 +404,7 @@ class transcript:
                             u_end = c_start-1
                             cds_exons.append( ("UTR", exon[0], u_end) )
                         c_end = exon[1] - max(0, current_end - cds_end )
-                        assert c_end>=exon[0] 
+#                         assert c_end>=exon[0] 
                         if c_start<c_end:
                             cds_exons.append(("CDS", c_start, c_end))
                         if c_end < exon[1]:
@@ -420,7 +420,7 @@ class transcript:
                         cds_exons.append( ("UTR", exon[0], exon[1] ))
                     else:
                         c_end = exon[1] - max(0,cds_start - current_start ) 
-                        assert c_end>=exon[0]
+#                         assert c_end>=exon[0]
                         if c_end < exon[1]:
                             cds_exons.append(("UTR", c_end+1, exon[1]))
                         c_start = exon[0] + max(0, current_end - cds_end )
@@ -619,7 +619,7 @@ class transcript:
     def best_cds_number_fraction(self):
         '''This property returns the proportion of best possible CDS segments vs. the number of exons.
         See best_cds_number.'''
-        return self.best_cds_number/self.exons
+        return self.best_cds_number/self.exon_num
 
     @property
     def best_internal_orf(self):
@@ -636,7 +636,9 @@ class transcript:
     @property
     def cds_not_maximal(self):
         '''This property returns the length of the CDS excluded from the longest CDS.'''
-        return self.combined_cds_length-self.best_cds_length
+        if len(self.internal_cds)<2:
+            return 0
+        return self.combined_cds_length-self.cds_length
     
     @property
     def cds_not_maximal_fraction(self):

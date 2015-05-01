@@ -1,7 +1,6 @@
 from loci_objects.abstractlocus import abstractlocus
 #import random
 #from copy import copy
-import re
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
 
@@ -81,7 +80,7 @@ class sublocus(abstractlocus):
             for mod in self.json_dict["modules"]:
                 globals()[mod]=importlib.import_module(mod)
         
-        assert hasattr(self, "monoexonic")
+        #assert hasattr(self, "monoexonic")
 
         if type(span) is transcript:
             self.add_transcript_to_locus(span)
@@ -239,51 +238,36 @@ class sublocus(abstractlocus):
         for tid in self.transcripts:
             values = []
             for param in self.json_dict["parameters"]:
-                val = getattr(self.transcripts[tid], param)
-                if "operation" in self.json_dict["parameters"][param]:
+                x = getattr(self.transcripts[tid], param)
+                if "expression" in self.json_dict["parameters"][param]:
                     try:
-                        val = eval( re.sub("param", str(val),  self.json_dict["parameters"][param]["operation"] ) )
+                        x = eval(self.json_dict["parameters"][param]["expression"] ) 
                     except ZeroDivisionError:
-                        val = 0
+                        x = 0
+                    except TypeError as err:
+                        raise TypeError(str(err)+"\n"+str((x,param)))
                 if "multiplier" in self.json_dict["parameters"][param]:
-                    val*=self.json_dict["parameters"][param]["multiplier"]
+                    x*=self.json_dict["parameters"][param]["multiplier"]
                 elif "bool_value" in self.json_dict["parameters"][param]:
-                    assert type(val) is bool
-                    if val is True:
-                        val = self.json_dict["parameters"][param]["bool_value"][0]
+                    assert type(x) is bool
+                    if x is True:
+                        x = self.json_dict["parameters"][param]["bool_value"][0]
                     else:
-                        val = self.json_dict["parameters"][param]["bool_value"][1]
-                assert type(val) in (int,float), (param, val)
-                values.append(val)
+                        x = self.json_dict["parameters"][param]["bool_value"][1]
+                #assert type(x) in (int,float), (param, x)
+                values.append(x)
             score=sum(values)
             self.metrics[tid]=dict()
             self.transcripts[tid].score=self.metrics[tid]["score"]=score
         
         if "requirements" in self.json_dict:
             for key in self.json_dict["requirements"]:
-                key, conf = key, self.json_dict["requirements"][key]
-                if conf["type"]=="min":
-                    oper=">="
-                elif conf["type"]=="eq":
-                    oper="=="
-                elif conf["type"]=="max":
-                    oper="<="
-                elif conf["type"]=="uneq":
-                    oper="!="
-                else:
-                    raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
-                validator_str = "{score} {oper} {ref_val}"
-                if hasattr(self.transcripts[tid], key):
-                    val=getattr(self.transcripts[tid], key)
-                else:
-                    val=self.transcripts[tid].metrics[key]
-                not_passing = set(filter( lambda tid: eval(validator_str.format(
-                                                                              score=val,
-                                                                              oper=oper,
-                                                                              ref_val=conf["value"]
-                                                                              )) is False, self.metrics
-                                           ))
-                if len(not_passing)==len(self.metrics): #all transcripts in the locus fail to pass the filter
+                not_passing = set()
+                for tid in self.transcripts:
+                    x=getattr(self.transcripts[tid],key)
+                    #assert "expression" in self.json_dict["requirements"][key], key
+                    if  eval(self.json_dict["requirements"][key]["expression"]) is False: not_passing.add(tid)
+                if len(not_passing)==len(self.transcripts): #all transcripts in the locus fail to pass the filter
                     continue
                 else:
                     for tid in not_passing:
@@ -307,8 +291,6 @@ class sublocus(abstractlocus):
                     row[key]=tid
                 elif key.lower()=="parent":
                     row[key]=self.id
-                elif key=="score":
-                    row[key]=self.transcripts[tid].score
                 else:
                     row[key]=getattr(self.transcripts[tid], key, "NA")
                 if type(row[key]) is float:

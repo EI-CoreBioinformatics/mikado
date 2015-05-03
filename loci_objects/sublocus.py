@@ -3,6 +3,7 @@ from loci_objects.abstractlocus import abstractlocus
 #from copy import copy
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
+import os
 
 class sublocus(abstractlocus):
     
@@ -11,46 +12,52 @@ class sublocus(abstractlocus):
     It is used to define the final monosubloci.
     '''
     
-    __name__ = "sublocus"
-    available_metrics = [
-                "tid",
-                "parent",
-                "score",
-                "exon_num",
-                "exon_fraction",
-                "intron_fraction",
-                "retained_intron_num",
-                "retained_fraction",
-                "combined_cds_length",
-                "combined_cds_num",
-                "combined_cds_num_fraction",
-                "combined_cds_fraction",
-                "combined_utr_length",
-                "cdna_length",
-                "cds_length",
-                "utr_num",
-                "five_utr_length",
-                "five_utr_num",
-                "three_utr_length",
-                "three_utr_num",
-                "number_internal_orfs",
-                "cds_fraction",
-                "best_cds_number",
-                "best_cds_number_fraction",
-                "cds_num",
-                "cds_fraction",
-                "cds_not_maximal",
-                "cds_not_maximal_fraction", 
-                "has_start",
-                "has_stop",
-                "is_complete",
-                'utr_fraction',
-                ]
+    @staticmethod
+    def get_metrics_names():
+        '''Static method to retrieve the available metrics from the metrics.txt
+        file, only when the class is called for the first time.
+        The method also checks that the requested metrics are defined as
+        properties of the transcript class; if that is not the case, it raises
+        an exception.'''
+        
+        __available_metrics = [l.rstrip() for l in open(
+                                              os.path.join(
+                                                           os.path.dirname(__file__),
+                                                           "metrics.txt"
+                                                           )
+                                              )]
+        first = ["tid","parent","score"];
+        extended=[]
+        not_found = []
+        not_properties=[]
+        for x in __available_metrics:
+            if x=='': continue
+            if x not in first:
+                if not hasattr(transcript, x):
+                    not_found.append(x)
+                elif not type(transcript.__dict__[x]) is property:
+                    not_properties.append(x)
+                extended.append(x)
+        if len(not_found)>0 or len(not_properties)>0:
+            err_message=''
+            if len(not_found)>0:
+                err_message+="The following required metrics are not defined.\n\t{0}\n".format(
+                                                                                                                 "\n\t".join(not_found)
+                                                                                                                 )
+            if len(not_properties)>0:
+                err_message+="""The following metrics are not properties but rather
+                methods of the transcript class. I cannot use them properly.
+                \t{0}
+                """.format("\n\t".join(not_properties))
+            raise AttributeError(err_message)
+        __available_metrics=first
+        __available_metrics.extend(sorted(extended))
+        return __available_metrics
     
-    am=available_metrics[:3]
-    am.extend(sorted(available_metrics[3:]))
-    available_metrics=am[:]
-    del am
+    __name__ = "sublocus"
+    available_metrics = []
+    if available_metrics == []:
+        available_metrics = get_metrics_names.__func__()
     
     ################ Class special methods ##############
     
@@ -114,7 +121,7 @@ class sublocus(abstractlocus):
         else:
             for slocus in sorted(self.monosubloci): 
                 lines.append(str(slocus).rstrip())
-                
+        
         return "\n".join(lines)
 
     
@@ -358,3 +365,24 @@ class sublocus(abstractlocus):
             addendum = "multi"
         
         return "{0}.{1}".format(super().id, addendum)
+    
+#     @property
+#     def available_metrics(self):
+# #         if self.__available_metrics == []:
+# #             self.__available_metrics = self.get_metrics()
+#             
+#         return self.__available_metrics
+#     
+#     @available_metrics.setter
+#     def available_metrics(self, arg):
+#         if type(arg) is not list:
+#             raise ValueError("Invalid value for the metrics: {0}, type {1}".format(
+#                                                                                    arg,
+#                                                                                    type(arg)
+#                                                                                    ))     
+#         self.__available_metrics = arg
+        
+        
+        
+        
+        

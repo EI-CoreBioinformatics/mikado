@@ -5,7 +5,6 @@ import argparse,re
 import json
 import multiprocessing
 import csv
-from Cython.Distutils.build_ext import optimization
 
 try:
     from Bio import SeqIO
@@ -172,6 +171,10 @@ def main():
     currentLocus=None
     currentTranscript=None
     currentChrom=None
+
+    print('##gff-version 3', file=args.sub_out)
+    print('##gff-version 3', file=args.mono_out)
+    print('##gff-version 3', file=args.locus_out)
 
     args.sub_out.close()
     args.sub_out=args.sub_out.name

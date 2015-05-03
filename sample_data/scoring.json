@@ -30,9 +30,14 @@
 		"cds_length":{
 			"operation": "math.log(1+x,10)"
 		},
-		"five_utr_length":{
-			"operation": "math.log(1+max(x-100,0) )",
+		"five_utr_length": {
+			"operation": "-math.log(1+max(0,x-500),10)",
 			"multiplier": -5
+		},
+		"three_utr_length": {
+			"operation": "-math.log(1+max(0,x-100),10)",
+			"multiplier": -10
 		}
+		
 	}
 }

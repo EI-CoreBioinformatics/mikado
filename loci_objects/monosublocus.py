@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from loci_objects.abstractlocus import abstractlocus
-from builtins import str
+#from builtins import str
 #from transcript import transcript
 #import random, sys
 
@@ -45,6 +45,7 @@ class monosublocus(abstractlocus):
             transcript_instance=self.transcripts[tid]
 
             lines.append(str(transcript_instance).rstrip())
+            
         return "\n".join(lines)
         
         

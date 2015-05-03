@@ -8,13 +8,11 @@ import re
 metrics = sublocus.available_metrics
 
 not_found=[]
-print("- *tid*:", "Transcript ID", sep="\t")
-print("- *parent*:", "The sublocus to which the transcript is assigned.", sep="\t")
-print("- *score*:", "Final score of the transcript.", sep="\t")
+
 print()
 
-for metric in sorted(filter(lambda x: x not in ("tid", "parent", "score", metrics), metrics)):
-    
+for metric in ["tid", "parent", "score"]+sorted(filter(lambda x: x not in ("tid", "parent", "score", metrics), metrics)):
+
     if hasattr(transcript, metric):
         print( "- *{0}*:".format(metric), re.sub(" +", " ", re.sub("\n", " ", getattr(transcript,metric).__doc__ )), sep="\t")
     else:

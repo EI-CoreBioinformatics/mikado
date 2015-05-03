@@ -79,6 +79,7 @@ class superlocus(abstractlocus):
             for sublocus_instance in self.subloci:
                 lines.append(str(sublocus_instance).rstrip())
         
+        lines.append("###")
         return "\n".join(lines)
 
     ############ Class instance methods ############

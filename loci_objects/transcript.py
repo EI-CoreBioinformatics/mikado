@@ -535,6 +535,56 @@ class transcript:
     ####################Class properties##################################
 
     @property
+    def id(self):
+        '''ID of the transcript - cannot be an undefined value.'''
+        return self.__id
+    
+    @id.setter
+    def id(self, Id):
+        if type(Id) is not str:
+            raise ValueError("Invalid value for id: {0}, type {1}".format(
+                                                                          Id, type(Id)))
+        self.__id = Id
+
+    @property
+    def tid(self):
+        '''ID of the transcript - cannot be an undefined value. Alias of id.'''
+        return self.id
+    
+    @tid.setter
+    def tid(self,tid):
+        self.id=tid
+        
+    @property
+    def parent(self):
+        '''Name of the parent feature of the transcript.'''
+        return self.__parent
+    
+    @parent.setter
+    def parent(self,parent):
+        if parent is not None and type(parent) is not str:
+            raise ValueError("Invalid value for parent: {0}, type {1}".format(
+                                                                          parent, type(parent)))
+            
+        self.__parent=parent
+        
+    @property
+    def score(self):
+        '''Numerical value which summarizes the reliability of the transcript.'''
+        return self.__score
+        
+    @score.setter
+    def score(self,score):
+        if score is not None and type(score) not in (float,int):
+            try: score=float(score)
+            except:
+                raise ValueError("Invalid value for score: {0}, type {1}".format(
+                                                                          score, type(score)))
+        self.__score=score
+                
+        
+
+    @property
     def combined_cds_length(self):
         '''This property return the length of the CDS part of the transcript.'''
         return sum([ c[1]-c[0]+1 for c in self.combined_cds ])

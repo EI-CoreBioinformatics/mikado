@@ -180,9 +180,6 @@ class superlocus(abstractlocus):
         self.sublocus_metrics = []
         for sublocus_instance in self.subloci:
             sublocus_instance.get_metrics()
-            for metric in sublocus_instance.metrics:
-                if metric not in self.sublocus_metrics:
-                    self.sublocus_metrics.append(metric)
 
     def define_monosubloci(self):
 

@@ -180,7 +180,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         return merged_cliques
 
     @classmethod
-    def choose_best(cls, metrics):
+    def choose_best(cls, transcripts):
         '''Given a dictionary of metrics, this function will select the best according to the "score" item inside the dictionary itself.
         Form of the dictionary:
         
@@ -192,8 +192,10 @@ class abstractlocus(metaclass=abc.ABCMeta):
         '''
         
         best_score,best_tid=float("-Inf"),[]
-        for tid in metrics:
-            score=metrics[tid]["score"]
+        if len(transcripts)==0:
+            raise ValueError("Empty dictionary!")
+        for tid in transcripts:
+            score=transcripts[tid].score
             if score>best_score:
                 best_score,best_tid=score,[tid]
             elif score==best_score:
@@ -206,7 +208,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 #                                                                                                                     ) , file=sys.stderr)
                 best_tid=random.sample(best_tid, 1) #this returns a list
         best_tid=best_tid[0]
-        return best_tid, best_score
+        return best_tid
 
 
     ####### Class instance methods  #######

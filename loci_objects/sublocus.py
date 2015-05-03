@@ -35,7 +35,7 @@ class sublocus(abstractlocus):
             if x not in first:
                 if not hasattr(transcript, x):
                     not_found.append(x)
-                elif not type(transcript.__dict__[x]) is property:
+                elif not type(transcript.__dict__[x]) is property: # @UndefinedVariable
                     not_properties.append(x)
                 extended.append(x)
         if len(not_found)>0 or len(not_properties)>0:
@@ -73,7 +73,6 @@ class sublocus(abstractlocus):
             self.source = source
         else:
             self.source = "locus_pipeline"
-        self.metrics=dict()
         self.splitted=False
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
         setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
@@ -149,7 +148,6 @@ class sublocus(abstractlocus):
         super().add_transcript_to_locus(transcript_instance)
         
         #Update the id
-        self.metrics[transcript_instance.id]=dict()
 
     def define_monosubloci(self):
         '''This function retrieves the best non-overlapping transcripts inside the sublocus, according to the score
@@ -160,20 +158,21 @@ class sublocus(abstractlocus):
         remaining = self.transcripts.copy()
         
         while len(remaining)>0:
-            metrics = dict( 
-                           (tid, self.metrics[tid]) for tid in self.metrics if tid in remaining
-                            )
-            best_tid,best_score=self.choose_best(metrics)
+            assert len(remaining)>0
+            best_tid=self.choose_best(remaining.copy())
             best_transcript = remaining[best_tid]
-            best_transcript.score = best_score
+            new_remaining = remaining.copy()
+            del new_remaining[best_tid]
             new_locus = monosublocus(best_transcript)
             self.monosubloci.append(new_locus)
-            remaining = remaining.copy()
-            del remaining[best_tid]
-            for tid in list(remaining.keys()):
-                if self.is_intersecting(best_transcript, remaining[tid] ):
-                    del remaining[tid]
-    
+            for tid in remaining:
+                if tid==best_tid: continue
+                if self.is_intersecting(best_transcript, new_remaining[tid]):
+                    del new_remaining[tid]
+            remaining=new_remaining.copy()
+            if len(remaining)==0: break
+            
+            
         self.splitted=True
         return
     
@@ -220,16 +219,11 @@ class sublocus(abstractlocus):
         '''Simple mock function to load scores for the transcripts from an external dictionary.
         '''
         
-        for tid in filter(lambda tid: tid in self.metrics, scores):
-            self.metrics[tid]["score"]=scores[tid]
-        
-        #Using the _ as variable because it is ignored by checks for used variables
-        try: 
-            if sum([1 for _ in filter(lambda tid: "score" in self.metrics[tid], self.metrics  )])!=len(self.metrics):
-                raise ValueError("I have not been able to find a score for all of the transcripts!")
-        except TypeError as err:
-            raise TypeError("{0}\n{1}".format(err, self.metrics) )
-            
+        for tid in self.transcripts:
+            if tid in scores:
+                self.transcripts[tid].score=scores[tid]
+            else:
+                self.transcripts[tid].score=0            
             
     def calculate_scores(self):
         '''
@@ -240,7 +234,6 @@ class sublocus(abstractlocus):
          '''
         
         self.get_metrics()
-        self.metrics=dict()
         
         for tid in self.transcripts:
             values = []
@@ -264,8 +257,7 @@ class sublocus(abstractlocus):
                 #assert type(x) in (int,float), (param, x)
                 values.append(x)
             score=sum(values)
-            self.metrics[tid]=dict()
-            self.transcripts[tid].score=self.metrics[tid]["score"]=score
+            self.transcripts[tid].score=score
         
         if "requirements" in self.json_dict:
             for key in self.json_dict["requirements"]:
@@ -278,7 +270,7 @@ class sublocus(abstractlocus):
                     continue
                 else:
                     for tid in not_passing:
-                        self.transcripts[tid].score=self.metrics[tid]["score"]=0
+                        self.transcripts[tid].score=0
                       
     
     def print_metrics(self):

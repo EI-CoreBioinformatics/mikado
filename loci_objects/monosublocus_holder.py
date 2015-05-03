@@ -17,7 +17,6 @@ class monosublocus_holder(sublocus,abstractlocus):
     def __init__(self, monosublocus_instance, json_dict=None):
         
         abstractlocus.__init__(self)
-        self.metrics=dict()
         self.splitted=False
         self.metrics_calculated = False
         self.json_dict = json_dict
@@ -73,19 +72,17 @@ class monosublocus_holder(sublocus,abstractlocus):
         remaining = self.transcripts.copy()
         
         while len(remaining)>0:
-            metrics = dict( 
-                           (tid, self.metrics[tid]) for tid in self.metrics if tid in remaining
-                            )
-            best_tid,best_score=self.choose_best(metrics)
+            best_tid=self.choose_best(remaining.copy())
             best_transcript = remaining[best_tid]
-            best_transcript.score = best_score
+            new_remaining = remaining.copy()
+            del new_remaining[best_tid]
             new_locus = locus(best_transcript)
             self.loci.append(new_locus)
-            remaining = remaining.copy()
-            del remaining[best_tid]
-            for tid in list(remaining.keys()):
-                if self.is_intersecting(best_transcript, remaining[tid] ):
-                    del remaining[tid]
+            for tid in remaining:
+                if tid==best_tid: continue
+                if self.is_intersecting(best_transcript, new_remaining[tid]):
+                    del new_remaining[tid]
+            remaining=new_remaining.copy()
     
         self.splitted = True
         return

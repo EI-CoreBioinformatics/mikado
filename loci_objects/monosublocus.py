@@ -41,7 +41,7 @@ class monosublocus(abstractlocus):
             
         for tid in self.transcripts:
             transcript_instance=self.transcripts[tid]
-
+            transcript_instance.source=self.source
             lines.append(str(transcript_instance).rstrip())
             
         return "\n".join(lines)

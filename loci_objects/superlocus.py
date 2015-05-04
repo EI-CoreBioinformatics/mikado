@@ -64,24 +64,33 @@ class superlocus(abstractlocus):
 
         superlocus_line=gffLine('')
         superlocus_line.chrom=self.chrom
-        superlocus_line.source=self.source
-        superlocus_line.feature="superlocus"
+        superlocus_line.feature=self.__name__
         superlocus_line.start,superlocus_line.end,superlocus_line.score=self.start, self.end, "."
         superlocus_line.strand=self.strand
         superlocus_line.phase, superlocus_line.score=None,None
         superlocus_line.id,superlocus_line.name=self.id, self.name
 
-        lines=[str(superlocus_line)]
-
         if self.loci_defined is True:
+            source="{0}_loci".format(self.source)
+            superlocus_line.source=source
+            lines=[str(superlocus_line)]
             for locus_instance in self.loci:
+                locus_instance.source=source
                 lines.append(str(locus_instance).rstrip())
         elif self.monosubloci_defined is True:
+            source="{0}_monosubloci".format(self.source)
+            superlocus_line.source=source
+            lines=[str(superlocus_line)]
             for monosublocus_instance in self.monosubloci:
+                monosublocus_instance.source=source
                 lines.append(str(monosublocus_instance).rstrip())
         else:
+            source="{0}_subloci".format(self.source)
+            superlocus_line.source=source
+            lines=[str(superlocus_line)]
             self.define_subloci()
             for sublocus_instance in self.subloci:
+                sublocus_instance.source=source
                 lines.append(str(sublocus_instance).rstrip())
         
         lines.append("###")

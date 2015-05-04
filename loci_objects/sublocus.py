@@ -113,6 +113,7 @@ class sublocus(abstractlocus):
             lines.append(str(self_line))
         
             for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
+                self.transcripts[tid].source=self.source
                 lines.append(str(self.transcripts[tid]).rstrip())
         else:
             for slocus in sorted(self.monosubloci): 

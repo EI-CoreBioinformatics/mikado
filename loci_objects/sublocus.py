@@ -4,6 +4,7 @@ from loci_objects.abstractlocus import abstractlocus
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
 import os
+from loci_objects.GFF import gffLine
 
 class sublocus(abstractlocus):
     
@@ -96,24 +97,20 @@ class sublocus(abstractlocus):
         
         
     def __str__(self):
-        if self.strand is not None:
-            strand=self.strand
-        else:
-            strand="."
         
         lines=[]
         
         if self.splitted is False:
-            attr_field="ID={0};Name={1};Parent={2};multiexonic={3}".format(
-                                                              self.id,
-                                                              self.name,
-                                                              self.parent,
-                                                              str(not self.monoexonic)
-                                                            )
-                            
-            self_line = [ self.chrom, self.source, "sublocus", self.start, self.end,
-                     ".", strand, ".", attr_field]
-            lines.append("\t".join([str(s) for s in self_line]))
+
+            self_line=gffLine('')
+            for attr in ["chrom", 'feature','source','start','end','strand']:
+                setattr(self_line,attr, getattr(self,attr))
+            self_line.phase,self_line.score=None,None
+            self_line.id=self.id
+            self_line.name=self.name
+            self_line.parent=self.parent
+            self_line.attributes["multiexonic"]=(not self.monoexonic)
+            lines.append(str(self_line))
         
             for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
                 lines.append(str(self.transcripts[tid]).rstrip())

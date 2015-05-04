@@ -9,7 +9,7 @@ class gtfLine(object):
     - chrom
     - source
     - feature
-    - start,stop
+    - start,end
     - score
     - phase
     - strand
@@ -24,12 +24,14 @@ class gtfLine(object):
     - ccode'''
 
     #_slots=['chrom','source','feature','start',\
-    #'stop','score','strand','phase','info']
+    #'end','score','strand','phase','info']
 
     def __init__(self,line):
         self.header=False
         self.info={}
         self.attributes=self.info
+        self.feature = None
+        if line=='': return
         
         if line==None or line[0]=="#":
             for i in self._slots:
@@ -44,8 +46,8 @@ class gtfLine(object):
             assert isinstance(line,str)
             self.fields=line.rstrip().split('\t')
             self.chrom,self.source,self.feature=self.fields[0:3]
-            self.start,self.stop=tuple(int(i) for i in self.fields[3:5])
-            self.end=self.stop
+            self.start,self.end=tuple(int(i) for i in self.fields[3:5])
+            self.end=self.end
             try: self.score=float(self.fields[5])
             except ValueError:
                 if self.fields[5]=='.': self.score=None
@@ -71,18 +73,13 @@ class gtfLine(object):
 
             if 'exon_number' in self.info: self.info['exon_number']=int(self.info['exon_number'])
             assert 'gene_id','transcript_id' in self.info
-            self.gene=None #Questa parte serve per le annotazioni di cufflinks.
-            self.transcript=None
-            self.nearest_ref=None
-            self.tss_id=None
-            self.ccode=None
-            if 'gene_id' in self.info: self.gene=self.info['gene_id']
-            if 'transcript_id' in self.info: self.transcript= self.info['transcript_id']
-            if self.feature=="transcript":
-                self.attributes["ID"]=self.id=self.transcript
-                self.parent=self.attributes["Parent"]=self.gene
-            else:
-                self.attributes["Parent"]=self.parent=self.transcript
+#             self.attributes["ID"]=self.id
+#             self.attributes["Parent"]=self.parent
+#             if self.feature=="transcript":
+#                 self.attributes["ID"]=self.id=self.transcript
+#                 self.parent=self.attributes["Parent"]=self.gene
+#             else:
+#                 self.attributes["Parent"]=self.parent=self.transcript
             
             if 'nearest_ref' in self.info: self.nearest_ref= self.info['nearest_ref']
             if 'tss_id' in self.info: self.tss_id= self.info['tss_id']
@@ -96,7 +93,7 @@ class gtfLine(object):
         self.fields=[]
         if self.fields==[]: #Devo ricostruire i campi se ho inizializzato da una riga vuota
             self.fields=[self.chrom,self.source,self.feature,
-                         self.start,self.stop,self.score,
+                         self.start,self.end,self.score,
                          self.strand, self.phase]
             for i in range(len(self.fields)):
                 if self.fields[i]==None: self.fields[i]='.' #Correggere per campi vuoti
@@ -178,8 +175,8 @@ class gtfLine(object):
         if self.strand==None: strand='.'
         else: strand=self.strand
 
-        start=min(self.start,self.stop)
-        stop=max(self.start,self.stop)
+        start=min(self.start,self.end)
+        stop=max(self.start,self.end)
 
         line=[self.chrom,self.source,self.feature,str(start),str(stop),score,strand,phase]
         line+=[';'.join(attributes)]
@@ -189,6 +186,64 @@ class gtfLine(object):
     def name(self):
         return self.id
         
+    @property
+    def is_transcript(self):
+        if self.feature is None: return False
+        if "transcript"==self.feature or "RNA" in self.feature:
+            return True
+        return False
+    
+    @property
+    def parent(self):
+        if self.is_transcript is True:
+            return self.gene
+        else:
+            return self.transcript
+    
+    @parent.setter
+    def parent(self,parent):
+        assert type(parent) is str
+        if self.is_transcript is True:
+            self.gene=parent
+        else:
+            self.transcript=parent
+        
+    @property
+    def id(self):
+        if self.is_transcript is True:
+            return self.transcript
+        else:
+            return None
+    
+    @id.setter
+    def id(self, Id):
+        if self.is_transcript is True:
+            self.transcript = Id 
+        else:
+            pass
+
+    @property
+    def gene(self):
+        return self.info["gene_id"]
+    
+    @gene.setter
+    def gene(self,gene):
+        self.info["gene_id"]=self.__gene=gene
+        if self.is_transcript:
+            self.attributes["Parent"]=gene
+
+    @property
+    def transcript(self):
+        return self.info["transcript_id"]
+    
+    @transcript.setter
+    def transcript(self,transcript):
+        self.info["transcript_id"]=self.__transcript=transcript
+        if self.is_transcript is True:
+            self.attributes["ID"]=transcript
+        else:
+            self.attributes["Parent"]=transcript
+
 
 class GTF(Parser):
     '''The parsing class.'''

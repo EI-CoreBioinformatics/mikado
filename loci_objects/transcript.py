@@ -1,6 +1,7 @@
 import operator
-import re
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
+from loci_objects.GTF import gtfLine
+from loci_objects.GFF import gffLine
 
 
 class transcript:
@@ -28,7 +29,7 @@ class transcript:
     
     ######### Class special methods ####################
     
-    def __init__(self, gffLine):
+    def __init__(self, gffLine, source=None):
         
         '''Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
@@ -39,6 +40,10 @@ class transcript:
         self.feature="transcript"
         self.id = gffLine.id
         self.name = gffLine.name
+        if source is None:
+            self.source=gffLine.source
+        else:
+            self.source=source
         self.start=gffLine.start
         self.strand = gffLine.strand
         self.end=gffLine.end
@@ -54,7 +59,7 @@ class transcript:
         self.has_start, self.has_stop = False,False
         self.non_overlapping_cds = None
         
-    def __str__(self):
+    def __str__(self, to_gtf=False):
         '''Each transcript will be printed out in the GFF style.
         This is pretty rudimentary, as the class does not hold any information on the original source, feature, score, etc.'''
         
@@ -65,8 +70,9 @@ class transcript:
         
         for index in range(len(self.internal_cds)):
             
-            if index==self.best_internal_orf_index: maximal=True
-            else: maximal=False
+            if self.number_internal_orfs>1:
+                if index==self.best_internal_orf_index: self.attributes["maximal"]=True
+                else: self.attributes["maximal"]=False
             cds_run = self.internal_cds[index]
             
 #             if len(list(filter(lambda x: x[0]=="UTR", cds_run)  )  )>0:
@@ -77,31 +83,40 @@ class transcript:
             else:
                 tid = self.id
             
-            attr_field = "ID={0};Name={1}".format(tid, self.name)
-            if self.parent is not None:
-                attr_field = "{0};Parent={1}".format(attr_field, self.parent)
             if self.strand is None:
                 strand="."
             else:   
                 strand=self.strand
             
-            for attribute in self.attributes:
-                if attribute in ("Parent","ID"): continue
-                value=self.attributes[attribute]
-                #ttribute=attribute.lower()
-                attribute=re.sub(";",":", attribute.lower())
-                attr_field="{0};{1}={2}".format(attr_field,attribute, value)
+#             for attribute in self.attributes:
+#                 if attribute in ("Parent","ID"): continue
+#                 value=self.attributes[attribute]
+#                 #ttribute=attribute.lower()
+#                 attribute=re.sub(";",":", attribute.lower())
+#                 attr_field="{0};{1}={2}".format(attr_field,attribute, value)
             
-            if self.number_internal_orfs>1:
-                attr_field="{0};maximal={1}".format(attr_field,maximal)
             
             if self.score is None or self.score==float("-inf"):
                 score="."
             else:
                 score=round(self.score,2)
-            parent_line = [self.chrom, "locus_pipeline", self.feature, self.start, self.end, score, strand, ".",  attr_field ]
-        
-            parent_line ="\t".join( str(s) for s in parent_line )
+                
+            if to_gtf is True:
+                parent_line = gtfLine('')
+            else:
+                parent_line=gffLine('')
+                
+            parent_line.chrom=self.chrom
+            parent_line.source=self.source
+            parent_line.feature=self.feature
+            parent_line.start,parent_line.end=self.start,self.end
+            parent_line.score=score
+            parent_line.strand=strand
+            parent_line.phase='.'
+            parent_line.attributes=self.attributes
+            
+            parent_line.parent=self.parent
+            parent_line.id=tid
         
             exon_lines = []
         
@@ -116,12 +131,20 @@ class transcript:
                 if cds_begin is False and segment[0]=="CDS": cds_begin = True
                 if segment[0]=="UTR":
                     if cds_begin is True:
-                        if self.strand=="-": feature="five_prime_UTR"
-                        else: feature="three_prime_UTR"
+                        if to_gtf is True:
+                            if self.strand=="-": feature="5UTR"
+                            else: feature="3UTR"
+                        else:
+                            if self.strand=="-": feature="five_prime_UTR"
+                            else: feature="three_prime_UTR"
                     else:
-                        if self.strand=="-": feature="three_prime_UTR"
-                        else: feature="five_prime_UTR"
-                    if "five" in feature:
+                        if to_gtf is True:
+                            if self.strand=="-": feature="3UTR"
+                            else: feature="5UTR"
+                        else:
+                            if self.strand=="-": feature="three_prime_UTR"
+                            else: feature="five_prime_UTR"
+                    if "five" in feature or "5" in feature:
                         five_utr_count+=1
                         index=five_utr_count
                     else:
@@ -135,13 +158,29 @@ class transcript:
                         exon_count+=1
                         index=exon_count
                     feature=segment[0]
-                exon_line = [self.chrom, "locus_pipeline", feature, segment[1], segment[2],
-                         ".", strand, ".",
-                         "ID={0}.{1}{2};Parent={0};".format(tid, feature,index) ]
-                exon_lines.append("\t".join(str(s) for s in exon_line))
+                if to_gtf is True:
+                    exon_line=gtfLine('')
+                else:
+                    exon_line=gffLine('')
+                    
+                exon_line.chrom=self.chrom
+                exon_line.source=self.source
+                exon_line.feature=feature
+                exon_line.start,exon_line.end=segment[1],segment[2]
+                exon_line.strand=strand
+                exon_line.phase=None
+                exon_line.score = None
+                if to_gtf is True:
+                    exon_line.gene=self.parent
+                    exon_line.transcript=tid
+                else:
+                    exon_line.id="{0}.{1}{2}".format(tid, feature,index)
+                    exon_line.parent=tid
+                    
+                exon_lines.append(str(exon_line))
         
         
-            lines.append(parent_line)
+            lines.append(str(parent_line))
             lines.extend(exon_lines) 
         
         return "\n".join(lines)
@@ -257,7 +296,7 @@ class transcript:
                                                                                                                                                             estart=self.exons[0][0],
                                                                                                                                                             ))
         except IndexError as err:
-            raise IndexError(err+"\n"+str(self.exons ))
+            raise IndexError(err, self.id, str(self.exons))
             
         
         self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))

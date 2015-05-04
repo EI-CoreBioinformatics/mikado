@@ -3,11 +3,7 @@
 	"requirements":{
 		"cds_fraction":{
 			"type":"min",
-			"value":"0.2"
-		},
-		"utr_num":{
-			"type":"max",
-			"value":"3"
+			"value":"0.3"
 		}
 	},
 	"parameters":{
@@ -31,8 +27,8 @@
 			"operation": "math.log(1+x,10)"
 		},
 		"five_utr_length": {
-			"operation": "-math.log(1+max(0,x-500),10)",
-			"multiplier": -5
+			"operation": "-math.log(1+max(0,x-100),10)",
+			"multiplier": -10
 		},
 		"three_utr_length": {
 			"operation": "-math.log(1+max(0,x-100),10)",

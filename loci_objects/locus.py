@@ -8,27 +8,10 @@ class locus(monosublocus,abstractlocus):
     __name__ = "locus"
     
     def __str__(self):
-         
-        lines=[]
-        if self.strand is not None:
-            strand=self.strand
-        else:
-            strand="."
-             
-        attr_field="ID={0};Name={1};{1}".format(
-                                        self.id,
-                                        self.name,
-                                        "{0};".format(self.parent) if self.parent is not None else "",
-                                        )
-        self_line = [ self.chrom, self.source, self.__name__, self.start, self.end,
-                             ".", strand, ".", attr_field]
-        lines.append("\t".join([str(s) for s in self_line]))
-        for tid in self.transcripts:
-            transcript_instance=self.transcripts[tid]
-            lines.append(str(transcript_instance).rstrip())
-        return "\n".join(lines)
-     
-    
+          
+        self.feature=self.__name__
+        return super().__str__()
+          
     @property
     def id(self):
         return abstractlocus.id.fget(self)  # @UndefinedVariable

@@ -254,7 +254,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
         if self.initialized is False:
             self.initialized = True
-        
+        self.source=transcript_instance.source
         return
 
     def find_retained_introns(self, transcript_instance):

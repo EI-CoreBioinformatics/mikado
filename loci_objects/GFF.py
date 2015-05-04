@@ -25,11 +25,14 @@ class gffLine(object):
         self.attributes=dict()
         self.id=None
         self.parent=None
+        self.attributeOrder=[]
+        if line=='' and my_line=='': return
 
         if line=='' and my_line!="":
             self._line=my_line
         else:
             self._line=line
+            
         self._fields=line.rstrip().split('\t')
         self.header=header
         # if len(self._fields)!=9:
@@ -128,13 +131,17 @@ class gffLine(object):
 
         if "score" in self.__dict__ and self.score: score=str(self.score)
         else: score="."
-        if 'strand' not in self.__dict__ or not self.strand: strand="."
-        else: strand=self.strand
+        if self.strand is None:
+            strand='.'
+        else:
+            strand=self.strand
         if self.phase!=None: phase=str(self.phase)
         else: phase="."
         attrs=["ID={0}".format(self.id)]
         if self.parent is not None:
             attrs.append("Parent={0}".format(self.parent))
+        if self.attributeOrder==[]:
+            self.attributeOrder=sorted(list(filter(lambda x: x not in ["ID","Parent"], self.attributes.keys())))
         for att in filter(lambda x: x not in ["ID","Parent"],  self.attributeOrder):
             try: attrs.append("{0}={1}".format(att, self.attributes[att]))
             except: continue #Hack for those times when we modify the attributes at runtime

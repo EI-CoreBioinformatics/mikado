@@ -88,62 +88,66 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
 #         lock.release()
     return
 
+def to_json(string):
+    
+    '''Function to serialize the JSON for configuration and check its consistency.'''
+    
+    with open(string) as json_file:
+        json_dict = json.load(json_file)
+        
+    import importlib
+    if "modules" in json_dict:
+        not_found=[]
+        for mod in json_dict["modules"]:
+            try:
+                globals()[mod]=importlib.import_module(mod)
+            except ImportError:
+                not_found.append(mod)
+        if len(not_found)>0:
+            raise ImportError("The following modules have not been found:\n{0}".format("\n".join(
+                                                                                                 not_found
+                                                                                                 )))
+        
+        
+    for param in json_dict["parameters"]:
+        if "operation" in json_dict["parameters"][param]:
+            json_dict["parameters"][param]["expression"] = compile(json_dict["parameters"][param]["operation"],
+                                                                  "<json>",
+                                                                  "eval",
+                                                                  optimize=2)
+            #Test validity
+            x=1 
+            try:
+                _ = eval(json_dict["parameters"][param]["expression"])
+            except Exception as err:
+                raise Exception("Error encountered in testing parameter {0}:\n{1}".format(param, str(err)))
+            del x
+            
+    if "requirements" in json_dict:
+        for key in json_dict["requirements"]:
+            conf = json_dict["requirements"][key]
+            assert "value" in conf and "type" in conf, (conf)
+            if conf["type"]=="min":
+                oper=">="
+            elif conf["type"]=="eq":
+                oper="=="
+            elif conf["type"]=="max":
+                oper="<="
+            elif conf["type"]=="uneq":
+                oper="!="
+            else:
+                raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
+            evaluator = compile("x {oper} {value}".format(oper=oper, value=conf["value"]  ),
+                                "<json>",
+                                "eval",
+                                optimize=2)
+            json_dict["requirements"][key]["expression"]=evaluator
+
+    return json_dict
+
 def main():
     
-    def to_json(string):
-        with open(string) as json_file:
-            json_dict = json.load(json_file)
-            
-        import importlib
-        if "modules" in json_dict:
-            not_found=[]
-            for mod in json_dict["modules"]:
-                try:
-                    globals()[mod]=importlib.import_module(mod)
-                except ImportError:
-                    not_found.append(mod)
-            if len(not_found)>0:
-                raise ImportError("The following modules have not been found:\n{0}".format("\n".join(
-                                                                                                     not_found
-                                                                                                     )))
-            
-            
-        for param in json_dict["parameters"]:
-            if "operation" in json_dict["parameters"][param]:
-                json_dict["parameters"][param]["expression"] = compile(json_dict["parameters"][param]["operation"],
-                                                                      "<json>",
-                                                                      "eval",
-                                                                      optimize=2)
-                #Test validity
-                x=1 
-                try:
-                    _ = eval(json_dict["parameters"][param]["expression"])
-                except Exception as err:
-                    raise Exception("Error encountered in testing parameter {0}:\n{1}".format(param, str(err)))
-                del x
-                
-        if "requirements" in json_dict:
-            for key in json_dict["requirements"]:
-                conf = json_dict["requirements"][key]
-                assert "value" in conf and "type" in conf, (conf)
-                if conf["type"]=="min":
-                    oper=">="
-                elif conf["type"]=="eq":
-                    oper="=="
-                elif conf["type"]=="max":
-                    oper="<="
-                elif conf["type"]=="uneq":
-                    oper="!="
-                else:
-                    raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
-                evaluator = compile("x {oper} {value}".format(oper=oper, value=conf["value"]  ),
-                                    "<json>",
-                                    "eval",
-                                    optimize=2)
-                json_dict["requirements"][key]["expression"]=evaluator
-
-        return json_dict
-    
+   
     def to_index(string):
         if "SeqIO" not in globals():
             print("Error importing the Bio module, no indexing performed:\n{0}",format(err) )
@@ -158,6 +162,8 @@ def main():
     parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--mono_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--locus_out", type=argparse.FileType("w"), required=True)
+    parser.add_argument('--source', type=str, default=None,
+                        help='Source field to use for the output files.')
     parser.add_argument("--cds", type=argparse.FileType("r"), default=None)
     parser.add_argument("--transcript_fasta", type=to_index, default=None)
     parser.add_argument("gff", type=argparse.FileType("r"))
@@ -275,7 +281,7 @@ def main():
             elif currentLocus is None:
                 if currentTranscript is not None:
                     currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
-            currentTranscript=transcript(row)
+            currentTranscript=transcript(row, source=args.source)
         elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper():
             currentTranscript.addExon(row)
         else:
@@ -290,9 +296,9 @@ def main():
             pool.apply_async(locus_printer, args=(currentLocus, args),
                              kwds={"cds_dict": cds_dict, "lock": lock})
             currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
-        pool.apply_async(locus_printer, args=(currentLocus, args),
-                             kwds={"cds_dict": cds_dict, "lock": lock})
-        #locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+#         pool.apply_async(locus_printer, args=(currentLocus, args),
+#                              kwds={"cds_dict": cds_dict, "lock": lock})
+        locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 
     pool.close()
     pool.join()

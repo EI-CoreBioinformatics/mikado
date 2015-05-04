@@ -5,6 +5,7 @@ from loci_objects.abstractlocus import abstractlocus
 from copy import copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
+from loci_objects.GFF import gffLine
 #import io#,csv#,sys
 #from os.path import exists
 
@@ -46,6 +47,8 @@ class superlocus(abstractlocus):
         self.junctions = set(self.junctions)
         self.transcripts = dict()
         super().add_transcript_to_locus(transcript_instance)
+        if self.stranded is True:
+            self.strand = transcript_instance.strand
         self.available_monolocus_metrics = []
         self.available_sublocus_metrics = []
         self.set_flags()
@@ -59,14 +62,16 @@ class superlocus(abstractlocus):
         ## a "sublocus" line
         ## all the transcripts inside the sublocus (see the transcript class)'''
 
-        if self.strand is not None:
-            strand=self.strand
-        else:
-            strand="."
+        superlocus_line=gffLine('')
+        superlocus_line.chrom=self.chrom
+        superlocus_line.source=self.source
+        superlocus_line.feature="superlocus"
+        superlocus_line.start,superlocus_line.end,superlocus_line.score=self.start, self.end, "."
+        superlocus_line.strand=self.strand
+        superlocus_line.phase, superlocus_line.score=None,None
+        superlocus_line.id,superlocus_line.name=self.id, self.name
 
-        superlocus_line = [self.chrom, "locus_pipeline", "superlocus", self.start, self.end, ".", strand, ".", "ID={0};Name={1}".format(self.id, self.name) ]
-        superlocus_line = "\t".join(str(s) for s in superlocus_line)
-        lines=[superlocus_line]
+        lines=[str(superlocus_line)]
 
         if self.loci_defined is True:
             for locus_instance in self.loci:

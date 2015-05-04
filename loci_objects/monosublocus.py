@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from loci_objects.abstractlocus import abstractlocus
+from loci_objects.GFF import gffLine
 #from builtins import str
 #from transcript import transcript
 #import random, sys
@@ -27,20 +28,17 @@ class monosublocus(abstractlocus):
     def __str__(self):
         
         lines=[]
-        if self.strand is not None:
-            strand=self.strand
-        else:
-            strand="."
+
+        self_line=gffLine('')
+        for attr in ["chrom", 'feature','source','start','end','strand']:
+            setattr(self_line,attr, getattr(self,attr))
+        self_line.phase,self_line.score=None,None
+        self_line.id=self.id
+        self_line.name=self.name
+        self_line.parent=self.parent
+        self_line.attributes["multiexonic"]=(not self.monoexonic)
+        lines.append(str(self_line))
             
-        attr_field="ID={0};Name={1};{2}{3}".format(
-                                        self.id,
-                                        self.name,
-                                        "{0};".format(self.parent) if self.parent is not None else "",
-                                        "multiexonic={0}".format(not self.monoexonic)
-                                        )
-        self_line = [ self.chrom, self.source, self.feature, self.start, self.end,
-                             ".", strand, ".", attr_field]
-        lines.append("\t".join([str(s) for s in self_line]))
         for tid in self.transcripts:
             transcript_instance=self.transcripts[tid]
 

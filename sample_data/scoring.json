@@ -3,7 +3,7 @@
 	"requirements":{
 		"cds_fraction":{
 			"type":"min",
-			"value":"0.3"
+			"value":0.3
 		},
 		"utr_fraction":{
 			"type":"max",
@@ -12,7 +12,7 @@
 		"cds_length":{
 			"type":"min",
 			"value":100
-		},
+		}
 	},
 	"parameters":{
 		"intron_fraction":{

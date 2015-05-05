@@ -8,7 +8,7 @@
 		"utr_fraction":{
 			"type":"max",
 			"value":0.3
-		}
+		},
 		"cds_length":{
 			"type":"min",
 			"value":100

@@ -232,8 +232,9 @@ def main():
                 cds_dict[line.chrom].append(line)
         print("Finished extracting CDS data", file=sys.stderr)
 
-    args.cds.close()
-    args.cds=args.cds.name
+    if args.cds is not None:
+        args.cds.close()    
+        args.cds=args.cds.name
     args.gff.close()
     args.gff=args.gff.name
     args.transcript_fasta = None

@@ -311,9 +311,9 @@ def main():
             currentLocus=superlocus(currentTranscript,
                                     stranded=False, json_dict = args.json_conf,
                                     purge=args.purge)
-        pool.apply_async(locus_printer, args=(currentLocus, args),
-                             kwds={"cds_dict": cds_dict, "lock": lock})
-#         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+#         pool.apply_async(locus_printer, args=(currentLocus, args),
+#                              kwds={"cds_dict": cds_dict, "lock": lock})
+        locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 
     pool.close()
     pool.join()

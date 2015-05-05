@@ -191,16 +191,19 @@ class sublocus(abstractlocus):
         self.transcripts[tid].exon_fraction = len(set.intersection( self.exons,self.transcripts[tid].exons   ))/len(self.exons)
 
         if len(self.introns)>0:
-            transcript_instance.intron_fraction = len(set.intersection( self.introns,transcript_instance.introns   ))/len(self.introns)
+            transcript_instance.intron_fraction = len(transcript_instance.introns)/len(self.introns)
         else:
+            assert len(transcript_instance.introns )==0
             transcript_instance.intron_fraction = 0
         if len(self.cds_introns)>0:
-            transcript_instance.cds_intron_fraction = len(set.intersection( self.cds_introns,transcript_instance.cds_introns   ))/len(self.cds_introns)
+            transcript_instance.cds_intron_fraction = len(transcript_instance.cds_introns )/len(self.cds_introns)
         else:
+            assert len(transcript_instance.cds_introns )==0
             transcript_instance.cds_intron_fraction = 0
         if len(self.best_cds_introns)>0:
-            transcript_instance.best_cds_intron_fraction = len(set.intersection( self.best_cds_introns,transcript_instance.best_cds_introns   ))/len(self.best_cds_introns)
+            transcript_instance.best_cds_intron_fraction = len(transcript_instance.best_cds_introns )/len(self.best_cds_introns)
         else:
+            assert len(transcript_instance.best_cds_introns )==0
             transcript_instance.best_cds_intron_fraction = 0
             
         self.find_retained_introns(transcript_instance)

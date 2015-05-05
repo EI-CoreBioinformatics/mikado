@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import sys,os.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 from loci_objects.GFF import gffLine
 #from builtins import str

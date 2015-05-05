@@ -1,9 +1,10 @@
+import sys,os.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 #import random
 #from copy import copy
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
-import os
 from loci_objects.GFF import gffLine
 
 class sublocus(abstractlocus):
@@ -69,6 +70,9 @@ class sublocus(abstractlocus):
         super().__init__()
         
         self.fixedSize=True if span.feature=="sublocus" else False
+        if span.__name__=="transcript":
+            span.finalize()
+            
         self.feature="sublocus"
         if source is not None:
             self.source = source
@@ -94,7 +98,6 @@ class sublocus(abstractlocus):
         else:
             for key in ["parent", "start", "end", "chrom", "strand", "attributes"]:
                 setattr(self, key, getattr(span, key))
-        
         
     def __str__(self):
         
@@ -132,7 +135,6 @@ class sublocus(abstractlocus):
         '''
         
         if transcript_instance is None: return
-        assert hasattr(self, "monoexonic")
         if self.initialized is False:
             self.monoexonic = transcript_instance.monoexonic
         elif self.monoexonic!=transcript_instance.monoexonic:
@@ -156,7 +158,6 @@ class sublocus(abstractlocus):
         remaining = self.transcripts.copy()
         
         while len(remaining)>0:
-            assert len(remaining)>0
             best_tid=self.choose_best(remaining.copy())
             best_transcript = remaining[best_tid]
             new_remaining = remaining.copy()
@@ -188,10 +189,20 @@ class sublocus(abstractlocus):
         self.transcripts[tid].finalize() # The transcript must be finalized before we can calculate the score.
         
         self.transcripts[tid].exon_fraction = len(set.intersection( self.exons,self.transcripts[tid].exons   ))/len(self.exons)
-        if len(self.junctions)>0:
-            transcript_instance.intron_fraction = len(set.intersection( self.junctions,transcript_instance.junctions   ))/len(self.junctions)
+
+        if len(self.introns)>0:
+            transcript_instance.intron_fraction = len(set.intersection( self.introns,transcript_instance.introns   ))/len(self.introns)
         else:
             transcript_instance.intron_fraction = 0
+        if len(self.cds_introns)>0:
+            transcript_instance.cds_intron_fraction = len(set.intersection( self.cds_introns,transcript_instance.cds_introns   ))/len(self.cds_introns)
+        else:
+            transcript_instance.cds_intron_fraction = 0
+        if len(self.best_cds_introns)>0:
+            transcript_instance.best_cds_intron_fraction = len(set.intersection( self.best_cds_introns,transcript_instance.best_cds_introns   ))/len(self.best_cds_introns)
+        else:
+            transcript_instance.best_cds_intron_fraction = 0
+            
         self.find_retained_introns(transcript_instance)
         transcript_instance.retained_fraction=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
         self.transcripts[tid]=transcript_instance
@@ -200,17 +211,26 @@ class sublocus(abstractlocus):
          
         '''This method checks the number of exons that are possibly retained introns for a given transcript.
         To perform this operation, it checks for each non-CDS exon whether it exists a sublocus intron that
-        is *completely* contained within a transcript exon.
+        is *completely* contained within a transcript exon. Such non-CDS exons must be *after* the
+        CDS start; a retained intron should contain a premature stop codon, not a delayed start. 
         CDS exons are ignored because their retention might be perfectly valid.
         The results are stored inside the transcript instance, in the "retained_introns" tuple.'''
          
         transcript_instance.retained_introns=[]
         
-        for exon in filter(lambda e: e not in transcript_instance.non_overlapping_cds, transcript_instance.exons):
+        if transcript_instance.strand=="+":
+            filtering = filter(lambda e: e not in transcript_instance.non_overlapping_cds and e[0]>=transcript_instance.cds_start,
+                               transcript_instance.exons                               
+                               )
+        else:
+            filtering = filter(lambda e: e not in transcript_instance.non_overlapping_cds and e[1]<=transcript_instance.cds_start,
+                               transcript_instance.exons                               
+                               )
+        for exon in filtering:
             #Check that the overlap is at least as long as the minimum between the exon and the intron.
             if any(filter(
                           lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
-                          self.junctions                          
+                          self.introns                          
                           )) is True:
                     transcript_instance.retained_introns.append(exon)
         transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)
@@ -228,14 +248,28 @@ class sublocus(abstractlocus):
     def calculate_scores(self):
         '''
         Function to calculate a score for each transcript, given the metrics derived
-        with the calculate_metrics method.
-        The exact ordering must be provided from outside using a JSON file.
-         
-         '''
+        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
+        If any requirements have been specified, all transcripts which do not pass them
+        will be assigned a score of 0 and subsequently ignored.
+        Scores are rounded to the nearest integer.
+        '''
         
         self.get_metrics()
         
-        for tid in self.transcripts:
+        not_passing = set()
+        if "requirements" in self.json_dict:
+            for key in self.json_dict["requirements"]:
+                for tid in self.transcripts:
+                    x=getattr(self.transcripts[tid],key)
+                    #assert "expression" in self.json_dict["requirements"][key], key
+                    if  eval(self.json_dict["requirements"][key]["expression"]) is False: not_passing.add(tid)
+#                 if len(not_passing)==len(self.transcripts): #all transcripts in the locus fail to pass the filter
+#                     continue
+#                 else:
+        for tid in not_passing:
+            self.transcripts[tid].score=0
+
+        for tid in filter(lambda t: t not in not_passing, self.transcripts):
             values = []
             for param in self.json_dict["parameters"]:
                 x = getattr(self.transcripts[tid], param)
@@ -259,18 +293,6 @@ class sublocus(abstractlocus):
             score=sum(values)
             self.transcripts[tid].score=score
         
-        not_passing = set()
-        if "requirements" in self.json_dict:
-            for key in self.json_dict["requirements"]:
-                for tid in self.transcripts:
-                    x=getattr(self.transcripts[tid],key)
-                    #assert "expression" in self.json_dict["requirements"][key], key
-                    if  eval(self.json_dict["requirements"][key]["expression"]) is False: not_passing.add(tid)
-#                 if len(not_passing)==len(self.transcripts): #all transcripts in the locus fail to pass the filter
-#                     continue
-#                 else:
-        for tid in not_passing:
-            self.transcripts[tid].score=0
     
     def print_metrics(self):
         

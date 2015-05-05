@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
+import sys,os.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
-#import operator
 from copy import copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
 from loci_objects.GFF import gffLine
-#import io#,csv#,sys
-#from os.path import exists
 
 class superlocus(abstractlocus):
     
@@ -26,7 +25,7 @@ class superlocus(abstractlocus):
         It will therefore have the following attributes:
         - chrom, strand, start, end
         - splices - a *set* which contains the position of each splice site
-        - junctions - a *set* which contains the positions of each *splice junction* (registered as 2-tuples)
+        - introns - a *set* which contains the positions of each *splice junction* (registered as 2-tuples)
         - transcripts - a *set* which holds the transcripts added to the superlocus
         
         The constructor method takes the following keyword arguments:
@@ -51,7 +50,7 @@ class superlocus(abstractlocus):
                 
         #self.__dict__.update(transcript_instance.__dict__)
         self.splices = set(self.splices)
-        self.junctions = set(self.junctions)
+        self.introns = set(self.introns)
         self.transcripts = dict()
         self.purge = purge
         super().add_transcript_to_locus(transcript_instance)
@@ -318,8 +317,8 @@ class superlocus(abstractlocus):
         monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript, other]   )  )   )
         
         if monoexonic_check==0: #Both multiexonic
-            for junc in transcript.junctions:
-                if junc in other.junctions:
+            for junc in transcript.introns:
+                if junc in other.introns:
                     return True
         
         elif monoexonic_check==1: #One monoexonic, the other multiexonic: different subloci by definition

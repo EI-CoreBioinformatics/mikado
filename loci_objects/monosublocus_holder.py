@@ -1,3 +1,5 @@
+import sys,os.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 from loci_objects.sublocus import sublocus
 from loci_objects.locus import locus
@@ -37,25 +39,25 @@ class monosublocus_holder(sublocus,abstractlocus):
         '''This special method is explicitly *not* implemented; this locus object is not meant for printing, only for computation!'''
         raise NotImplementedError("This is a container used for computational purposes only, it should not be printed out directly!")
         
-    def calculate_metrics(self, tid):
-        '''This function will recalculate the *relative* metrics for a transcript,
-        which have varied since now we are considering only a subset of the original transcripts.
-        Relative metrics include, at this stage, only the fraction of retained introns.
-        '''
-    
-        if self.metrics_calculated is True:
-            return
-        
-        transcript_instance = self.transcripts[tid]
-        #Check that metrics had already been calculated
-        assert transcript_instance.finalized is True
-
-        self.find_retained_introns(transcript_instance)
-        transcript_instance.parent=self.id
-        self.transcripts[tid]=transcript_instance
-
-        self.metrics_calculated = True
-        return
+#     def calculate_metrics(self, tid):
+#         '''This function will recalculate the *relative* metrics for a transcript,
+#         which have varied since now we are considering only a subset of the original transcripts.
+#         Relative metrics include, at this stage, only the fraction of retained introns.
+#         '''
+#     
+#         if self.metrics_calculated is True:
+#             return
+#         
+#         transcript_instance = self.transcripts[tid]
+#         #Check that metrics had already been calculated
+#         assert transcript_instance.finalized is True
+# 
+#         self.find_retained_introns(transcript_instance)
+#         transcript_instance.parent=self.id
+#         self.transcripts[tid]=transcript_instance
+# 
+#         self.metrics_calculated = True
+#         return
 
     def define_monosubloci(self):
         '''Overriden and set to NotImplemented to avoid cross-calling it when inappropriate.'''
@@ -113,7 +115,7 @@ class monosublocus_holder(sublocus,abstractlocus):
             return False # We do not want intersection with oneself
 
         if cls.overlap((transcript_instance.start,transcript_instance.end), (other.start,other.end) )<=0: return False
-        if len(set.intersection( set(transcript_instance.junctions), set(other.junctions)))>0:
+        if len(set.intersection( set(transcript_instance.introns), set(other.introns)))>0:
             return True
         
         overlapping_exons = set()

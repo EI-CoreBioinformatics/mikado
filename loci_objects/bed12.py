@@ -37,8 +37,8 @@ class bed12:
         self.blockCount = int(self.blockCount)
         self.blockSizes = [int(x) for x in self.blockSizes.split(",")]
         self.blockStarts = [int(x) for x in self.blockStarts.split(",")]
-        self.has_start = False
-        self.has_stop = False
+        self.has_start_codon = False
+        self.has_stop_codon = False
         
         if fasta_index is not None:
             assert self.id in fasta_index
@@ -49,9 +49,9 @@ class bed12:
                 stop_codon=stop_codon.reverse_complement()
                 start_codon,stop_codon=stop_codon,start_codon
             if str(start_codon.seq)=="ATG":
-                self.has_start=True
+                self.has_start_codon=True
             if str(stop_codon.seq) in ("TAA", "TGA", "TAG"):
-                self.has_stop=True
+                self.has_stop_codon=True
         
         assert self.blockCount==len(self.blockStarts)==len(self.blockSizes)
         
@@ -87,28 +87,28 @@ class bed12:
         return self.cdsEnd-self.cdsStart+1
     
     @property
-    def has_start(self):
+    def has_start_codon(self):
         return self.__has_start
     
-    @has_start.setter
-    def has_start(self,value):
+    @has_start_codon.setter
+    def has_start_codon(self,value):
         if value not in (None,True,False):
             raise ValueError()
         self.__has_start = value 
 
     @property
-    def has_stop(self):
+    def has_stop_codon(self):
         return self.__has_stop
     
-    @has_stop.setter
-    def has_stop(self,value):
+    @has_stop_codon.setter
+    def has_stop_codon(self,value):
         if value not in (None,True,False):
             raise ValueError()
         self.__has_stop = value 
 
     @property
     def full_orf(self):
-        return self.has_stop and self.has_start
+        return self.has_stop_codon and self.has_start_codon
 
     @property
     def id(self):

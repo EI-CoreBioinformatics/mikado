@@ -1,6 +1,5 @@
 import abc
 import random
-#import sys
 
 class abstractlocus(metaclass=abc.ABCMeta):
     
@@ -15,7 +14,9 @@ class abstractlocus(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(self):
         self.transcripts = dict()
-        self.junctions, self.exons, self.splices = set(), set(), set()
+        self.introns, self.exons, self.splices = set(), set(), set()
+        #Consider only the CDS part
+        self.cds_introns, self.best_cds_introns = set(), set()
         self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
         self.stranded=True
         self.initialized = False
@@ -29,7 +30,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
     def __eq__(self, other):
         if type(self)!=type(other):
             return False
-        for feature in ["chrom", "strand","start","end","exons","junctions","splices","stranded"]:
+        for feature in ["chrom", "strand","start","end","exons","introns","splices","stranded"]:
             if getattr(self,feature )!=getattr(other,feature):
                 return False
         return True
@@ -218,7 +219,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         '''This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method) and
         upon a successful check extends the superlocus with the new transcript.
         More precisely, it updates the boundaries (start and end), adds the transcript to the internal "transcripts" store,
-        and extends the splices and junctions with those found inside the transcript.'''
+        and extends the splices and introns with those found inside the transcript.'''
         transcript_instance.finalize()
         if self.initialized is True:
             if check_in_locus is False:
@@ -247,7 +248,11 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.end = max(self.end, transcript_instance.end)
         self.transcripts[transcript_instance.id]=transcript_instance
         self.splices.update(transcript_instance.splices)
-        self.junctions.update(transcript_instance.junctions)
+        self.introns.update(transcript_instance.introns)
+        
+        self.cds_introns.update(transcript_instance.cds_introns)
+        self.best_cds_introns.update(transcript_instance.best_cds_introns)
+        
         self.exons.update(set(transcript_instance.exons))
         for transcript_id in self.transcripts:
             self.transcripts[transcript_id].parent=self.id
@@ -270,7 +275,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
             #Check that the overlap is at least as long as the minimum between the exon and the intron.
             if any(filter(
                           lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
-                          self.junctions                          
+                          self.introns                          
                           )) is True:
                     transcript_instance.retained_introns.append(exon)
         transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)

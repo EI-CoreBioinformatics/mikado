@@ -1,47 +1,49 @@
 {
 	"modules":["math"],
 	"requirements":{
-		"cds_fraction":{
-			"type":"min",
-			"value":0.3
-		},
-		"utr_fraction":{
+		"utr_num":{
 			"type":"max",
-			"value":0.3
+			"value":3
 		},
 		"cds_length":{
 			"type":"min",
-			"value":100
+			"value":50
 		}
 	},
 	"parameters":{
-		"intron_fraction":{
+		"best_cds_intron_fraction":{
 			"multiplier": 10
 		},
-		"retained_intron_num":{
+		"cds_intron_fraction":{
+			"multiplier": 5
+		},
+		"intron_fraction":{
+			"multiplier": 3
+		},
+		"retained_fraction":{
 			"multiplier": -10
 		},
 		"utr_fraction":{
 			"multiplier": 4
 		},
 		"cds_fraction":{
+			"operation":"min(x,0.7)",
 			"multiplier": 10
 		},
 		"number_internal_orfs":{
 			"multiplier": 10,
-			"operation": "x if x<=1 else -x"
+			"operation": "x if x<=1 else -x/2"
 		},
 		"cds_length":{
-			"operation": "math.log(1+x,10)"
+			"operation": "math.log(max(x,1),10)"
 		},
 		"five_utr_length": {
-			"operation": "-math.log(1+max(0,x-100),10)",
-			"multiplier": -10
+			"operation": "math.log(max(x-100,0)+1,10)",
+			"multiplier": -3
 		},
 		"three_utr_length": {
-			"operation": "-math.log(1+max(0,x-100),10)",
-			"multiplier": -10
+			"operation": "math.log(max(x-100,0)+1,10)",
+			"multiplier": -3
 		}
-		
 	}
 }

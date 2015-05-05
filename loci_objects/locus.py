@@ -1,3 +1,5 @@
+import sys,os.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.monosublocus import monosublocus
 from loci_objects.abstractlocus import abstractlocus
 

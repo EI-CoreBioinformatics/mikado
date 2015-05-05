@@ -197,8 +197,8 @@ def main():
     args.locus_out.close()
     args.locus_out=args.locus_out.name
 
-    args.sub_metrics=re.sub("$",".metrics",  re.sub(".gff3$", "", args.sub_out  ))
-    args.locus_metrics = re.sub("$",".metrics",  re.sub(".gff3$", "", args.locus_out  ))
+    args.sub_metrics=re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", args.sub_out  ))
+    args.locus_metrics = re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", args.locus_out  ))
     with open(args.sub_metrics, "w") as out_file:
         csv_out=csv.DictWriter( out_file, superlocus.available_metrics, delimiter="\t" )
         csv_out.writeheader()
@@ -311,9 +311,9 @@ def main():
             currentLocus=superlocus(currentTranscript,
                                     stranded=False, json_dict = args.json_conf,
                                     purge=args.purge)
-#         pool.apply_async(locus_printer, args=(currentLocus, args),
-#                              kwds={"cds_dict": cds_dict, "lock": lock})
-        locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+        pool.apply_async(locus_printer, args=(currentLocus, args),
+                             kwds={"cds_dict": cds_dict, "lock": lock})
+#         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 
     pool.close()
     pool.join()

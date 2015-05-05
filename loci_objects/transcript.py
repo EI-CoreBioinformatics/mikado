@@ -1,10 +1,14 @@
 import operator
+import os.path,sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 from loci_objects.GTF import gtfLine
 from loci_objects.GFF import gffLine
 
 
 class transcript:
+    
+    __name__ = "transcript"
     
     '''This class defines a transcript, down to its exon/CDS/UTR components. It is instantiated by a transcript
     GT/GFF3 line.
@@ -49,14 +53,14 @@ class transcript:
         self.end=gffLine.end
         self.score = gffLine.score
         self.exons, self.combined_cds, self.combined_utr = [], [], []
-        self.junctions = []
+        self.introns = []
         self.splices = []
         self.monoexonic = False
         self.finalized = False # Flag. We do not want to repeat the finalising more than once.
         self.parent = gffLine.parent
         self.attributes = gffLine.attributes
         self.best_internal_orf_index = None
-        self.has_start, self.has_stop = False,False
+        self.has_start_codon, self.has_stop_codon = False,False
         self.non_overlapping_cds = None
         
     def __str__(self, to_gtf=False):
@@ -257,10 +261,10 @@ class transcript:
         elif gffLine.feature=="exon":
             store=self.exons
         elif gffLine.feature=="start_codon":
-            self.has_start = True
+            self.has_start_codon = True
             return
         elif gffLine.feature=="stop_codon":
-            self.has_stop = True
+            self.has_stop_codon = True
         else:
             raise AttributeError("Unknown feature: {0}".format(gffLine.feature))
             
@@ -274,6 +278,9 @@ class transcript:
         # We do not want to repeat this step multiple times
         if self.finalized is True:
             return
+
+        self.introns = []
+        self.splices=[]
 
         if len(self.exons)>1 and self.strand is None:
             raise AttributeError("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
@@ -307,20 +314,19 @@ class transcript:
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
                     raise ValueError("Overlapping exons found!")
-                self.junctions.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
+                self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
 
-        
         self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))
         self.combined_utr = sorted(self.combined_utr, key=operator.itemgetter(0,1))
         if len(self.combined_utr)>0 and self.combined_utr[0][0]<self.combined_cds[0][0]:
-            if self.strand=="+": self.has_start=True
-            elif self.strand=="-": self.has_stop=True
+            if self.strand=="+": self.has_start_codon=True
+            elif self.strand=="-": self.has_stop_codon=True
         if len(self.combined_utr)>0 and self.combined_utr[-1][1]>self.combined_cds[-1][1]:
-            if self.strand=="+": self.has_stop=True
-            elif self.strand=="-": self.has_start=True
+            if self.strand=="+": self.has_stop_codon=True
+            elif self.strand=="-": self.has_start_codon=True
         
-        self.internal_cds, self.junctions, self.splices = [], [], []
+        self.internal_cds = []
         self.segments = [ ("exon",e[0],e[1]) for e in self.exons] + \
                     [("CDS", c[0],c[1]) for c in self.combined_cds ] + \
                     [ ("UTR", u[0], u[1]) for u in self.combined_utr ]
@@ -329,9 +335,9 @@ class transcript:
         self.internal_cds.append(self.segments)
         if self.combined_cds_length>0:
             self.best_internal_orf_index=0
-                    
-        self.junctions = set(self.junctions)
-        self.splices = set(self.splices)
+        
+        self.introns = set(self.introns)
+        self.splices = set(self.splices)            
         _ = self.best_internal_orf
 #         assert self.best_internal_orf_index > -1
         if len(self.combined_cds)>0:
@@ -392,7 +398,7 @@ class transcript:
                 continue
             
             if best_cds:
-                self.has_start, self.has_stop = cds_run.has_start, cds_run.has_stop
+                self.has_start_codon, self.has_stop_codon = cds_run.has_start_codon, cds_run.has_stop_codon
             best_cds=False # Exhaust the token
 
             # assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )
@@ -617,7 +623,8 @@ class transcript:
     @score.setter
     def score(self,score):
         if score is not None and type(score) not in (float,int):
-            try: score=float(score)
+            try:
+                score=max(0,round(float(score),0))
             except:
                 raise ValueError("Invalid value for score: {0}, type {1}".format(
                                                                           score, type(score)))
@@ -714,7 +721,7 @@ class transcript:
 
     @property
     def best_internal_orf(self):
-        '''This property will return the tuple of tuples of the CDS with the greatest length
+        '''This property will return the tuple of tuples of the ORF with the greatest CDS length
         inside the transcript. To avoid memory wasting, the tuple is accessed in real-time using 
         a token (__max_internal_orf_index) which holds the position in the __internal_cds list of the longest CDS.'''
         if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
@@ -723,6 +730,18 @@ class transcript:
             return tuple([])
         else:
             return self.internal_cds[self.best_internal_orf_index]
+    
+    @property
+    def best_internal_orf_cds(self):
+        '''This property will return the tuple of tuples of the CDS segments of the ORF with the greatest length
+        inside the transcript. To avoid memory wasting, the tuple is accessed in real-time using 
+        a token (__max_internal_orf_index) which holds the position in the __internal_cds list of the longest CDS.'''
+        if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
+            return tuple([])
+        else:
+            return list(filter(lambda x: x[0]=="CDS", self.internal_cds[self.best_internal_orf_index]))
+    
+    
     
     @property
     def cds_not_maximal(self):
@@ -804,31 +823,31 @@ class transcript:
         return self.three_utr_length+self.five_utr_length
     
     @property
-    def has_start(self):
+    def has_start_codon(self):
         '''Boolean. True if the greatest ORF has a start codon.'''
         return self.__has_start
     
-    @has_start.setter
-    def has_start(self, *args):
+    @has_start_codon.setter
+    def has_start_codon(self, *args):
         if args[0] not in (None, False,True):
-            raise TypeError("Invalid value for has_start: {0}".format(type(args[0])))
+            raise TypeError("Invalid value for has_start_codon: {0}".format(type(args[0])))
         self.__has_start=args[0]
         
     @property
-    def has_stop(self):
+    def has_stop_codon(self):
         '''Boolean. True if the greatest ORF has a stop codon.'''
         return self.__has_stop
     
-    @has_stop.setter
-    def has_stop(self, *args):
+    @has_stop_codon.setter
+    def has_stop_codon(self, *args):
         if args[0] not in (None, False,True):
-            raise TypeError("Invalid value for has_stop: {0}".format(type(args[0])))
+            raise TypeError("Invalid value for has_stop_codon: {0}".format(type(args[0])))
         self.__has_stop=args[0]
 
     @property
     def is_complete(self):
         '''Boolean. True if the best ORF has both start and end.'''
-        return self.has_start and self.has_stop
+        return self.has_start_codon and self.has_stop_codon
 
     @property
     def best_internal_orf_index(self):
@@ -914,7 +933,190 @@ class transcript:
         if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
         self.__intron_fraction=args[0]
+
+    @property
+    def cds_introns(self):
+        '''This property returns the introns which are located between CDS segments in the combined CDS.'''
+        if len(self.combined_cds)<2:
+            return []
+        cintrons=[]
+        for position in range(len(self.combined_cds)-1):
+            former=self.combined_cds[position]
+            latter=self.combined_cds[position+1]
+            junc=(former[1],latter[0])
+            if junc in self.introns:
+                cintrons.append(junc)
+        return set(cintrons)
+
+    @property
+    def best_cds_introns(self):
+        '''This property returns the introns which are located between CDS segments in the best ORF.'''
+        cintrons=[]
+        for position in range(len(self.best_internal_orf_cds)-1):
+            cintrons.append(
+                            (self.best_internal_orf_cds[position][1], self.best_internal_orf_cds[position+1][2])
+                            )
+        return set(cintrons)
+            
+    @property
+    def start_distance_from_tss(self):
+        '''This property returns the distance of the start of the combined CDS from the transcript start site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="+":
+            for exon in self.exons:
+                distance+=min(exon[1],self.cds_start)-exon[0]+1
+                if self.cds_start<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.cds_start,exon[0])
+                if self.cds_start>=exon[0]:break
+        return distance
+                
+    @property
+    def best_start_distance_from_tss(self):
+        '''This property returns the distance of the start of the best CDS from the transcript start site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="+":
+            for exon in self.exons:
+                distance+=min(exon[1],self.best_cds_start)-exon[0]+1
+                if self.best_cds_start<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.best_cds_start,exon[0])
+                if self.best_cds_start>=exon[0]:break
+        return distance
+
+    @property
+    def end_distance_from_tes(self):
+        '''This property returns the distance of the end of the combined CDS from the transcript end site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="-":
+            for exon in self.exons:
+                distance+=min(exon[1],self.cds_end)-exon[0]+1
+                if self.cds_end<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.cds_end,exon[0])
+                if self.cds_end>=exon[0]:break
+        return distance
     
+    @property
+    def best_end_distance_from_tes(self):
+        '''This property returns the distance of the end of the best CDS from the transcript end site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="-":
+            for exon in self.exons:
+                distance+=min(exon[1],self.best_cds_end)-exon[0]+1
+                if self.best_cds_end<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.best_cds_end,exon[0])
+                if self.best_cds_end>=exon[0]:break
+        return distance
+
+
+    @property
+    def cds_start(self):
+        '''This property returns the location of the start of the combined CDS for the transcript.
+        If no CDS is defined, it defaults to the transcript start.'''
+        if len(self.combined_cds)==0:
+            if self.strand=="+":
+                return self.start
+            else:
+                return self.end
+        if self.strand=="+":
+            return self.combined_cds[0][0]
+        else:
+            return self.combined_cds[-1][1]
+       
+    @property
+    def best_cds_start(self):
+        '''This property returns the location of the start of the best CDS for the transcript.
+        If no CDS is defined, it defaults to the transcript start.'''
+
+        if len(self.combined_cds)==0:
+            if self.strand=="+":
+                return self.start
+            else:
+                return self.end
+        if self.strand=="+":
+            return self.best_internal_orf_cds[0][1]
+        else:
+            return self.best_internal_orf_cds[-1][2]
+
+    @property
+    def cds_end(self):
+        '''This property returns the location of the end of the combined CDS for the transcript.
+        If no CDS is defined, it defaults to the transcript end.'''
+        if len(self.combined_cds)==0:
+            if self.strand=="+":
+                return self.end
+            else:
+                return self.start
+        if self.strand=="-":
+            return self.combined_cds[0][0]
+        else:
+            return self.combined_cds[-1][1]
+
+    @property
+    def best_cds_end(self):
+        '''This property returns the location of the end of the best CDS for the transcript.
+        If no CDS is defined, it defaults to the transcript start.'''
+
+        if len(self.combined_cds)==0:
+            if self.strand=="+":
+                return self.end
+            else:
+                return self.start
+        if self.strand=="-":
+            return self.best_internal_orf_cds[0][1]
+        else:
+            return self.best_internal_orf_cds[-1][2]
+
+
+
+    @property
+    def cds_intron_fraction(self):
+        '''This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the locus.
+        If the transcript is by itself, it returns 1.'''
+        return self.__intron_fraction
+    
+    @cds_intron_fraction.setter
+    def cds_intron_fraction(self, *args):
+        if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
+            raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
+        self.__intron_fraction=args[0]
+
+    @property
+    def best_cds_intron_fraction(self):
+        '''This property returns the fraction of CDS introns of the best ORF of the transcript vs. the total number of CDS introns in the locus
+        (considering only the best ORFs).
+        If the transcript is by itself, it should return 1.'''
+        return self.__intron_fraction
+    
+    @best_cds_intron_fraction.setter
+    def best_cds_intron_fraction(self, *args):
+        if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
+            raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
+        self.__intron_fraction=args[0]
+
+
     @property
     def retained_intron_num(self):
         '''This property records the number of introns in the transcripts which are marked as being retained.

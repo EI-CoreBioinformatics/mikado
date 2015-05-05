@@ -51,7 +51,7 @@ def main():
 #     bed_finals=dict.fromkeys(bed_entries.keys())
     for tid in bed_entries:
         for b in bed_entries[tid]:
-            print(str(b), b.has_start, b.has_stop, sep="\t")
+            print(str(b), b.has_start_codon, b.has_stop_codon, sep="\t")
             
 #     for line in GFF3(args.gff):
 #         if line.header is True:

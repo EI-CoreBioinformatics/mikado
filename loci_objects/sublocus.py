@@ -192,6 +192,9 @@ class sublocus(abstractlocus):
 
         if len(self.introns)>0:
             transcript_instance.intron_fraction = len(transcript_instance.introns)/len(self.introns)
+            if transcript_instance.monoexonic is False:
+                assert transcript_instance.intron_fraction>0
+
         else:
             assert len(transcript_instance.introns )==0
             transcript_instance.intron_fraction = 0

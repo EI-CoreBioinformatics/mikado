@@ -298,6 +298,18 @@ class transcript:
         except IndexError as err:
             raise IndexError(err, self.id, str(self.exons))
             
+        if len(self.exons)==1:
+            #self.finalized = True
+            self.monoexonic = True
+            #return # There is no sense in performing any operation on single exon transcripts
+        else:
+            for index in range(len(self.exons)-1):
+                exonA, exonB = self.exons[index:index+2]
+                if exonA[1]>=exonB[0]:
+                    raise ValueError("Overlapping exons found!")
+                self.junctions.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
+                self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
+
         
         self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))
         self.combined_utr = sorted(self.combined_utr, key=operator.itemgetter(0,1))
@@ -315,19 +327,9 @@ class transcript:
         self.segments =  sorted(self.segments, key=operator.itemgetter(1,2,0) )
                 
         self.internal_cds.append(self.segments)
-        
-        if len(self.exons)==1:
-            #self.finalized = True
-            self.monoexonic = True
-            #return # There is no sense in performing any operation on single exon transcripts
-        else:
-            for index in range(len(self.exons)-1):
-                exonA, exonB = self.exons[index:index+2]
-                if exonA[1]>=exonB[0]:
-                    raise ValueError("Overlapping exons found!")
-                self.junctions.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
-                self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
-            
+        if self.combined_cds_length>0:
+            self.best_internal_orf_index=0
+                    
         self.junctions = set(self.junctions)
         self.splices = set(self.splices)
         _ = self.best_internal_orf

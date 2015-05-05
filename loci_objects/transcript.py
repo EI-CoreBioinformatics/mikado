@@ -928,6 +928,8 @@ class transcript:
     def intron_fraction(self, *args):
         if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
+        if not self.monoexonic and args[0]==0:
+            raise ValueError("It is impossible that the intron fraction is null when the transcript has at least one intron!")
         self.__intron_fraction=args[0]
 
     @property

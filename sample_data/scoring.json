@@ -5,18 +5,14 @@
 			"type":"min",
 			"value":"0.3"
 		},
-		"utr_num":{
+		"utr_fraction":{
 			"type":"max",
-			"value":2
-		},
+			"value":0.3
+		}
 		"cds_length":{
 			"type":"min",
 			"value":100
 		},
-		"exon_num":{
-			"type":"min",
-			"value":2
-		}
 	},
 	"parameters":{
 		"intron_fraction":{

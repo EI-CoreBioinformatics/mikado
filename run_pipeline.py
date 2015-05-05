@@ -71,7 +71,8 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
         locus_lines = str(stranded_locus)
 
         #Print out
-#         lock.acquire()
+        if lock is not None:
+            lock.acquire()
         with open(args.sub_metrics,'a') as out_file:
             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
             for row in sub_metrics_rows: csv_out.writerow(row)
@@ -87,7 +88,8 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
         if locus_lines!='':
             with open(args.locus_out,'a') as locus_out:
                 print(locus_lines, file=locus_out)
-#         lock.release()
+        if lock is not None:
+            lock.release()
     return
 
 def to_json(string):

@@ -772,11 +772,9 @@ class transcript:
         if len(self.combined_cds)==0:
             return []
         if self.strand=="+":
-            cds_start=min(x[1] for x in filter(lambda exon: exon[0]=="CDS", self.best_internal_orf)  )
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<cds_start, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.cds_start, self.best_internal_orf  )  )
         elif self.strand=="-":
-            cds_start=max(x[2] for x in filter(lambda exon: exon[0]=="CDS", self.best_internal_orf)  )
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>cds_start, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.cds_start, self.best_internal_orf  )  )
 
     @property
     def five_utr_num(self):
@@ -788,7 +786,7 @@ class transcript:
         '''Returns the length of the 5' UTR of the greatest ORF.'''
         if len(self.combined_cds)==0:
             return 0
-        return sum(x[2]-x[1]+1 for x in self.five_utr)
+        return sum(x[2]-x[1]+1 for x in self.three_utr)
                             
     @property
     def three_utr(self):
@@ -796,11 +794,9 @@ class transcript:
         if len(self.combined_cds)==0:
             return []
         if self.strand=="-":
-            cds_end=min(x[1] for x in filter(lambda exon: exon[0]=="CDS", self.best_internal_orf)  )
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<cds_end, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.cds_end, self.best_internal_orf  )  )
         elif self.strand=="+":
-            cds_end=max(x[2] for x in filter(lambda exon: exon[0]=="CDS", self.best_internal_orf)  )
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>cds_end, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.cds_end, self.best_internal_orf  )  )
 
     @property
     def three_utr_num(self):

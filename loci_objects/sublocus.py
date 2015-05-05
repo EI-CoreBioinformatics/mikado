@@ -147,7 +147,7 @@ class sublocus(abstractlocus):
         
         #Update the id
 
-    def define_monosubloci(self):
+    def define_monosubloci(self, purge=False):
         '''This function retrieves the best non-overlapping transcripts inside the sublocus, according to the score
         calculated by calculate_scores (explicitly called inside the method).'''
         
@@ -161,15 +161,18 @@ class sublocus(abstractlocus):
             best_transcript = remaining[best_tid]
             new_remaining = remaining.copy()
             del new_remaining[best_tid]
-            new_locus = monosublocus(best_transcript)
-            self.monosubloci.append(new_locus)
             for tid in remaining:
                 if tid==best_tid: continue
                 if self.is_intersecting(best_transcript, new_remaining[tid]):
                     del new_remaining[tid]
+            if best_transcript.score==0 and purge is True:
+                pass
+            else:
+                new_locus = monosublocus(best_transcript)
+                self.monosubloci.append(new_locus)
+                    
             remaining=new_remaining.copy()
             if len(remaining)==0: break
-            
             
         self.splitted=True
         return
@@ -183,7 +186,6 @@ class sublocus(abstractlocus):
     
         transcript_instance = self.transcripts[tid]
         self.transcripts[tid].finalize() # The transcript must be finalized before we can calculate the score.
-        
         
         self.transcripts[tid].exon_fraction = len(set.intersection( self.exons,self.transcripts[tid].exons   ))/len(self.exons)
         if len(self.junctions)>0:
@@ -257,19 +259,18 @@ class sublocus(abstractlocus):
             score=sum(values)
             self.transcripts[tid].score=score
         
+        not_passing = set()
         if "requirements" in self.json_dict:
             for key in self.json_dict["requirements"]:
-                not_passing = set()
                 for tid in self.transcripts:
                     x=getattr(self.transcripts[tid],key)
                     #assert "expression" in self.json_dict["requirements"][key], key
                     if  eval(self.json_dict["requirements"][key]["expression"]) is False: not_passing.add(tid)
-                if len(not_passing)==len(self.transcripts): #all transcripts in the locus fail to pass the filter
-                    continue
-                else:
-                    for tid in not_passing:
-                        self.transcripts[tid].score=0
-                      
+#                 if len(not_passing)==len(self.transcripts): #all transcripts in the locus fail to pass the filter
+#                     continue
+#                 else:
+        for tid in not_passing:
+            self.transcripts[tid].score=0
     
     def print_metrics(self):
         

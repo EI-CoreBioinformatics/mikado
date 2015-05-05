@@ -19,10 +19,12 @@ class monosublocus(abstractlocus):
         super().__init__()
         self.monoexonic = transcript_instance.monoexonic # this must be defined straight away
         super().add_transcript_to_locus(transcript_instance)
+        self.score = transcript_instance.score
 #         self.__dict__.update(transcript_instance.__dict__)
         self.feature="monosublocus"
         self.parent=None
-        self.source = "locus_pipeline"
+        self.score = transcript_instance.score
+#         self.source = "locus_pipeline"
         self.tid = transcript_instance.id
         
     def __str__(self):
@@ -32,7 +34,7 @@ class monosublocus(abstractlocus):
         self_line=gffLine('')
         for attr in ["chrom", 'feature','source','start','end','strand']:
             setattr(self_line,attr, getattr(self,attr))
-        self_line.phase,self_line.score=None,None
+        self_line.phase,self_line.score=None,self.score
         self_line.id=self.id
         self_line.name=self.name
         self_line.parent=self.parent

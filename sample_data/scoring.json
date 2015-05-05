@@ -4,6 +4,18 @@
 		"cds_fraction":{
 			"type":"min",
 			"value":"0.3"
+		},
+		"utr_num":{
+			"type":"max",
+			"value":2
+		},
+		"cds_length":{
+			"type":"min",
+			"value":100
+		},
+		"exon_num":{
+			"type":"min",
+			"value":2
 		}
 	},
 	"parameters":{
@@ -17,11 +29,11 @@
 			"multiplier": 4
 		},
 		"cds_fraction":{
-			"multiplier": 5
+			"multiplier": 10
 		},
 		"number_internal_orfs":{
-			"multiplier": 5,
-			"operation": "1/(x**2)"
+			"multiplier": 10,
+			"operation": "x if x<=1 else -x"
 		},
 		"cds_length":{
 			"operation": "math.log(1+x,10)"

@@ -81,10 +81,12 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
 
         with open(args.sub_out,'a') as sub_out:
             print(sub_lines, file=sub_out)
-        with open(args.mono_out,'a') as mono_out:
-            print(mono_lines, file=mono_out)
-        with open(args.locus_out,'a') as locus_out:
-            print(locus_lines, file=locus_out)
+        if mono_lines!='':
+            with open(args.mono_out,'a') as mono_out:
+                print(mono_lines, file=mono_out)
+        if locus_lines!='':
+            with open(args.locus_out,'a') as locus_out:
+                print(locus_lines, file=locus_out)
 #         lock.release()
     return
 
@@ -164,6 +166,9 @@ def main():
     parser.add_argument("--locus_out", type=argparse.FileType("w"), required=True)
     parser.add_argument('--source', type=str, default=None,
                         help='Source field to use for the output files.')
+    parser.add_argument('--purge', action='store_true', default=False,
+                        help='Flag. If set, the pipeline will suppress any loci whose transcripts do not pass the requirements set in the JSON file.'
+                        )
     parser.add_argument("--cds", type=argparse.FileType("r"), default=None)
     parser.add_argument("--transcript_fasta", type=to_index, default=None)
     parser.add_argument("gff", type=argparse.FileType("r"))
@@ -173,7 +178,6 @@ def main():
     args.json_conf = to_json(args.json_conf.name)
     check_json(args.json_conf)
             
-
     currentLocus=None
     currentTranscript=None
     currentChrom=None
@@ -257,7 +261,9 @@ def main():
                         else:
                             pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
                                                                                              "lock": lock})
-                    currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
+                    currentLocus=superlocus(currentTranscript, stranded=False,
+                                            json_dict = args.json_conf,
+                                            purge=args.purge)
                     
             currentChrom=row.chrom
             currentTranscript=None
@@ -277,10 +283,14 @@ def main():
                         pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
                                                                                          "lock": lock})
                         
-                    currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
+                    currentLocus=superlocus(currentTranscript,
+                                            stranded=False, json_dict = args.json_conf,
+                                            purge=args.purge)
             elif currentLocus is None:
                 if currentTranscript is not None:
-                    currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
+                    currentLocus=superlocus(currentTranscript,
+                                            stranded=False, json_dict = args.json_conf,
+                                            purge=args.purge)
             currentTranscript=transcript(row, source=args.source)
         elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper():
             currentTranscript.addExon(row)
@@ -295,7 +305,9 @@ def main():
         else:
             pool.apply_async(locus_printer, args=(currentLocus, args),
                              kwds={"cds_dict": cds_dict, "lock": lock})
-            currentLocus=superlocus(currentTranscript, stranded=False, json_dict = args.json_conf)
+            currentLocus=superlocus(currentTranscript,
+                                    stranded=False, json_dict = args.json_conf,
+                                    purge=args.purge)
 #         pool.apply_async(locus_printer, args=(currentLocus, args),
 #                              kwds={"cds_dict": cds_dict, "lock": lock})
         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)

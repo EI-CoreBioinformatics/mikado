@@ -19,7 +19,7 @@ class superlocus(abstractlocus):
     
     ####### Special methods ############
     
-    def __init__(self, transcript_instance, stranded=True, json_dict = None ):
+    def __init__(self, transcript_instance, stranded=True, json_dict = None, purge=False ):
         
         '''The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
         
@@ -27,7 +27,14 @@ class superlocus(abstractlocus):
         - chrom, strand, start, end
         - splices - a *set* which contains the position of each splice site
         - junctions - a *set* which contains the positions of each *splice junction* (registered as 2-tuples)
-        - transcripts - a *set* which holds the transcripts added to the superlocus'''
+        - transcripts - a *set* which holds the transcripts added to the superlocus
+        
+        The constructor method takes the following keyword arguments:
+        - stranded    True if all transcripts inside the superlocus are required to be on the same strand
+        - json_dict    Required. A dictionary with the coniguration necessary for scoring transcripts.
+        - purge        Flag. If True, all loci holding only transcripts with a 0 score will be deleted from further consideration. 
+        
+        '''
         
         super().__init__()
         self.stranded=stranded
@@ -46,6 +53,7 @@ class superlocus(abstractlocus):
         self.splices = set(self.splices)
         self.junctions = set(self.junctions)
         self.transcripts = dict()
+        self.purge = purge
         super().add_transcript_to_locus(transcript_instance)
         if self.stranded is True:
             self.strand = transcript_instance.strand
@@ -70,20 +78,23 @@ class superlocus(abstractlocus):
         superlocus_line.phase, superlocus_line.score=None,None
         superlocus_line.id,superlocus_line.name=self.id, self.name
 
+        lines=[]
         if self.loci_defined is True:
-            source="{0}_loci".format(self.source)
-            superlocus_line.source=source
-            lines=[str(superlocus_line)]
-            for locus_instance in self.loci:
-                locus_instance.source=source
-                lines.append(str(locus_instance).rstrip())
+            if len(self.loci)>0:
+                source="{0}_loci".format(self.source)
+                superlocus_line.source=source
+                lines.append(str(superlocus_line))
+                for locus_instance in self.loci:
+                    locus_instance.source=source
+                    lines.append(str(locus_instance).rstrip())
         elif self.monosubloci_defined is True:
-            source="{0}_monosubloci".format(self.source)
-            superlocus_line.source=source
-            lines=[str(superlocus_line)]
-            for monosublocus_instance in self.monosubloci:
-                monosublocus_instance.source=source
-                lines.append(str(monosublocus_instance).rstrip())
+            if len(self.monosubloci)>0:
+                source="{0}_monosubloci".format(self.source)
+                superlocus_line.source=source
+                lines.append(str(superlocus_line))
+                for monosublocus_instance in self.monosubloci:
+                    monosublocus_instance.source=source
+                    lines.append(str(monosublocus_instance).rstrip())
         else:
             source="{0}_subloci".format(self.source)
             superlocus_line.source=source
@@ -93,8 +104,10 @@ class superlocus(abstractlocus):
                 sublocus_instance.source=source
                 lines.append(str(sublocus_instance).rstrip())
         
-        lines.append("###")
+        if len(lines)>0:
+            lines.append("###")
         return "\n".join(lines)
+            
 
     ############ Class instance methods ############
 
@@ -124,13 +137,13 @@ class superlocus(abstractlocus):
             for strand in plus, minus, nones:
                 if len(strand)>0:
                     strand = sorted(strand)
-                    new_locus = superlocus(strand[0], stranded=True, json_dict=self.json_dict)
+                    new_locus = superlocus(strand[0], stranded=True, json_dict=self.json_dict, purge=self.purge)
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
                             new_locus.add_transcript_to_locus(cdna)
                         else:
                             new_loci.append(new_locus)
-                            new_locus = superlocus(cdna, stranded=True, json_dict=self.json_dict)
+                            new_locus = superlocus(cdna, stranded=True, json_dict=self.json_dict, purge=self.purge)
                             
                     new_loci.append(new_locus)
             for new_locus in iter(sorted(new_loci)):
@@ -185,6 +198,7 @@ class superlocus(abstractlocus):
             new_sublocus.parent = self.id
             self.subloci.append(new_sublocus)
         self.subloci=sorted(self.subloci)
+        
         self.subloci_defined = True
 
     def get_sublocus_metrics(self):
@@ -206,10 +220,15 @@ class superlocus(abstractlocus):
         self.monosubloci=[]
         #Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            sublocus_instance.define_monosubloci()
+            sublocus_instance.define_monosubloci(purge=self.purge)
             for ml in sublocus_instance.monosubloci:
                 ml.parent = self.id
                 self.monosubloci.append(ml)
+            
+        if self.purge is True:
+            self.monosubloci = list(
+                                    filter(lambda ms: ms.score > 0, self.monosubloci )
+                                    )
             
         self.monosubloci = sorted(self.monosubloci)
         self.monosubloci_defined = True
@@ -239,6 +258,8 @@ class superlocus(abstractlocus):
         self.define_loci()
 
         #self.available_monolocus_metrics = set(self.monoholder.available_metrics)
+        if self.monoholder is None:
+            return ''
         for row in self.monoholder.print_metrics():
             yield row
             
@@ -250,13 +271,21 @@ class superlocus(abstractlocus):
             return
         
         self.calculate_mono_metrics()
-        
-            
-        self.monoholder.define_loci()
-        self.loci = []
+
+        self.loci = []        
+        if self.monoholder is None:
+            self.loci_defined = True
+            return
+        self.monoholder.define_loci(purge=self.purge)
+
         for locus_instance in self.monoholder.loci:
             locus_instance.parent = self.id
             self.loci.append(locus_instance)
+            
+        if self.purge is True:
+            self.loci = list(
+                             filter(lambda lc: lc.score>0, self.loci)
+                             )
             
         self.loci=sorted(self.loci)
         self.loci_defined = True

@@ -19,4 +19,4 @@ stringtie.loci.gff3: stringtie.gtf
 	python3 ../run_pipeline.py --source stringtie --json_conf scoring.json --transcript_fasta stringtie.fasta --cds stringtie.bed --sub_out stringtie.subloci.gff3 --mono_out stringtie.monoloci.gff3 --locus_out stringtie.loci.gff3 stringtie.gtf
 
 all.loci.gff3: all.gtf
-	python3 ../run_pipeline.py --source all --json_conf scoring.json --transcript_fasta all.fasta --cds all.bed --sub_out all.subloci.gff3 --mono_out all.monoloci.gff3 --locus_out all.loci.gff3 all.gtf
+	python3 ../run_pipeline.py --purge --source all --json_conf scoring.json --transcript_fasta all.fasta --cds all.bed --sub_out all.subloci.gff3 --mono_out all.monoloci.gff3 --locus_out all.loci.gff3 all.gtf

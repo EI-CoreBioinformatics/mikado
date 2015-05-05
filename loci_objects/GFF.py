@@ -129,8 +129,10 @@ class gffLine(object):
     def __str__(self): 
         if not self.feature: return self._line.rstrip()
 
-        if "score" in self.__dict__ and self.score: score=str(self.score)
-        else: score="."
+        if self.score is not None:
+            score=str(round(self.score,2))
+        else:
+            score="."
         if self.strand is None:
             strand='.'
         else:
@@ -159,6 +161,20 @@ class gffLine(object):
             return self.end-self.start+1
         else: return 0
 
+    @property
+    def score(self):
+        return self.__score
+    
+    @score.setter
+    def score(self,*args):
+        if type(args[0]) in (float,int):
+            self.__score=args[0]
+        elif args[0] is None or args[0]=='.':
+            self.__score = None
+        elif type(args[0]) is str:
+            self.__score=float(args[0])
+        else:
+            raise TypeError(args[0])
 
 class GFF3(object):
     def __init__(self,handle):

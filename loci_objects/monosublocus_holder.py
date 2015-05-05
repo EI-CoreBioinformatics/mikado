@@ -61,7 +61,7 @@ class monosublocus_holder(sublocus,abstractlocus):
         '''Overriden and set to NotImplemented to avoid cross-calling it when inappropriate.'''
         raise NotImplementedError("Monosubloci are the input of this object, not the output.")
     
-    def define_loci(self):
+    def define_loci(self, purge=False):
         '''This is the main function of the class. It is analogous to the define_subloci class defined
         for sublocus objects, but it returns "locus" objects (not "monosublocus").'''
         if self.splitted is True:
@@ -76,8 +76,11 @@ class monosublocus_holder(sublocus,abstractlocus):
             best_transcript = remaining[best_tid]
             new_remaining = remaining.copy()
             del new_remaining[best_tid]
-            new_locus = locus(best_transcript)
-            self.loci.append(new_locus)
+            if best_transcript.score==0 and purge is True:
+                pass
+            else:
+                new_locus = locus(best_transcript)
+                self.loci.append(new_locus)
             for tid in remaining:
                 if tid==best_tid: continue
                 if self.is_intersecting(best_transcript, new_remaining[tid]):

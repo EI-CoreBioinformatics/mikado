@@ -81,6 +81,9 @@ of the remaining transcripts.
 GFFs can be printed using a simple "print" call, while the metrics have to be retrieved as dictionaries using the
 "print_metrics" file. These dictionaries can be written out using the DictWriter method from the standard csv library.
 
+If the "purge" option is selected, all transcripts which do not pass the minimum requirements will be excluded.
+This option can factively lead to the loss of whole loci, if they contain only low-quality transcripts.
+
 GTF output is not supported, as the output is more hierarchical than what is supportable in a GTF file.
 
 ##Scoring transcripts
@@ -140,6 +143,6 @@ For each parameter, it is possible to specify the following:
     * "math.log(1+x)"
     * "max(100-x, 0)"
     * "1/x**2"
-    In order to use a non-builtin expression like e.g. "log", it is necessary to specify the required modules in the "modules"
-    head field of the JSON.  
+    
+In order to use a non-builtin expression like e.g. "log", it is necessary to specify the required modules in the "modules" head field of the JSON.  
 

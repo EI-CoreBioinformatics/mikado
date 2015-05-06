@@ -628,7 +628,7 @@ class transcript:
             except:
                 raise ValueError("Invalid value for score: {0}, type {1}".format(
                                                                           score, type(score)))
-        self.__score=score
+        self.__score=int(round(score,0))
                 
         
 

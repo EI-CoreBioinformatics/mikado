@@ -624,11 +624,11 @@ class transcript:
     def score(self,score):
         if score is not None and type(score) not in (float,int):
             try:
-                score=max(0,round(float(score),0))
+                score=int(max(0,round(float(score),0)))
             except:
                 raise ValueError("Invalid value for score: {0}, type {1}".format(
                                                                           score, type(score)))
-        self.__score=int(round(score,0))
+        self.__score=score
                 
         
 

@@ -61,13 +61,17 @@ class superlocus(abstractlocus):
         self.set_flags()
         return
 
-    def __str__(self):
+    def __str__(self, level=None):
         
-        '''Before printing, the class calls the define_subloci method. It will then print:
-        # a "superlocus" line
-        # for each "sublocus":
-        ## a "sublocus" line
-        ## all the transcripts inside the sublocus (see the transcript class)'''
+        '''This function will return the desired level of children loci.
+        The keyword level accepts the following four values:
+        - "None" - print whatever is available.
+        - "loci" - print the final loci
+        - "monosubloci" - print the monosubloci
+        - "subloci" - print the subloci.
+        
+        The function will then return the desired location in GFF3-compliant format. 
+        '''
 
         superlocus_line=gffLine('')
         superlocus_line.chrom=self.chrom
@@ -78,7 +82,11 @@ class superlocus(abstractlocus):
         superlocus_line.id,superlocus_line.name=self.id, self.name
 
         lines=[]
-        if self.loci_defined is True:
+        if level not in (None, "loci", "subloci", "monosubloci"):
+            raise ValueError("Unrecognized level: {0}".format(level))
+        
+        if level=="loci" or (level is None and self.loci_defined is True):
+            self.define_loci()
             if len(self.loci)>0:
                 source="{0}_loci".format(self.source)
                 superlocus_line.source=source
@@ -86,7 +94,8 @@ class superlocus(abstractlocus):
                 for locus_instance in self.loci:
                     locus_instance.source=source
                     lines.append(str(locus_instance).rstrip())
-        elif self.monosubloci_defined is True:
+        elif level=="monosubloci" or (level is None and self.monosubloci_defined is True):
+            self.define_monosubloci()
             if len(self.monosubloci)>0:
                 source="{0}_monosubloci".format(self.source)
                 superlocus_line.source=source
@@ -94,7 +103,7 @@ class superlocus(abstractlocus):
                 for monosublocus_instance in self.monosubloci:
                     monosublocus_instance.source=source
                     lines.append(str(monosublocus_instance).rstrip())
-        else:
+        elif level=="subloci" or (level is None and self.monosubloci_defined is False):
             source="{0}_subloci".format(self.source)
             superlocus_line.source=source
             lines=[str(superlocus_line)]
@@ -269,6 +278,7 @@ class superlocus(abstractlocus):
         if self.loci_defined is True:
             return
         
+        self.define_monosubloci()
         self.calculate_mono_metrics()
 
         self.loci = []        

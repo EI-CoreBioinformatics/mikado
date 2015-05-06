@@ -2,11 +2,11 @@
 	"modules":["math"],
 	"requirements":{
 		"utr_num":{
-			"type":"max",
+			"type":"le",
 			"value":4
 		},
 		"cds_length":{
-			"type":"min",
+			"type":"ge",
 			"value":50
 		}
 	},

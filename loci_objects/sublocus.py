@@ -103,24 +103,19 @@ class sublocus(abstractlocus):
         
         lines=[]
         
-        if self.splitted is False:
-
-            self_line=gffLine('')
-            for attr in ["chrom", 'feature','source','start','end','strand']:
-                setattr(self_line,attr, getattr(self,attr))
-            self_line.phase,self_line.score=None,None
-            self_line.id=self.id
-            self_line.name=self.name
-            self_line.parent=self.parent
-            self_line.attributes["multiexonic"]=(not self.monoexonic)
-            lines.append(str(self_line))
-        
-            for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
-                self.transcripts[tid].source=self.source
-                lines.append(str(self.transcripts[tid]).rstrip())
-        else:
-            for slocus in sorted(self.monosubloci): 
-                lines.append(str(slocus).rstrip())
+        self_line=gffLine('')
+        for attr in ["chrom", 'feature','source','start','end','strand']:
+            setattr(self_line,attr, getattr(self,attr))
+        self_line.phase,self_line.score=None,None
+        self_line.id=self.id
+        self_line.name=self.name
+        self_line.parent=self.parent
+        self_line.attributes["multiexonic"]=(not self.monoexonic)
+        lines.append(str(self_line))
+    
+        for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
+            self.transcripts[tid].source=self.source
+            lines.append(str(self.transcripts[tid]).rstrip())
         
         return "\n".join(lines)
 
@@ -162,8 +157,7 @@ class sublocus(abstractlocus):
             best_transcript = remaining[best_tid]
             new_remaining = remaining.copy()
             del new_remaining[best_tid]
-            for tid in remaining:
-                if tid==best_tid: continue
+            for tid in filter(lambda t: t!=best_tid, remaining.keys()):
                 if self.is_intersecting(best_transcript, new_remaining[tid]):
                     del new_remaining[tid]
             if best_transcript.score==0 and purge is True:

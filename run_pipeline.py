@@ -58,16 +58,33 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific )
     stranded_loci = sorted(list(slocus.split_strands()))
 #    assert lock is not None
+
     
     for stranded_locus in stranded_loci:
-        stranded_locus.define_subloci()
-        sub_lines = str(stranded_locus)
-        sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()] 
-        stranded_locus.define_monosubloci()
-        mono_lines = str(stranded_locus)
-        stranded_locus.calculate_mono_metrics()
-        locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
         stranded_locus.define_loci()
+#         
+#         stranded_locus.define_subloci()
+#         sub_lines = str(stranded_locus)
+#         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()] 
+#         stranded_locus.define_monosubloci()
+#         mono_lines = str(stranded_locus)
+#         stranded_locus.calculate_mono_metrics()
+#         locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
+#         stranded_locus.define_loci()
+#         locus_lines = str(stranded_locus)
+    
+    for stranded_locus in stranded_loci:
+        if args.remove_overlapping_fragments is True and len(stranded_loci)>1:
+            for final_locus in stranded_locus.loci:
+                for other_superlocus in filter(lambda x: x!=stranded_locus, stranded_loci):
+                    for other_final_locus in other_superlocus.loci:
+                        if other_final_locus.other_is_fragment( final_locus, percentage=0.5 ) is True:
+                            stranded_locus.loci.remove(final_locus)
+                            break
+        sub_lines = stranded_locus.__str__(level="subloci")
+        sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
+        mono_lines = stranded_locus.__str__(level="monosubloci")
+        locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
         locus_lines = str(stranded_locus)
 
         #Print out
@@ -79,7 +96,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
         with open(args.locus_metrics,'a') as out_file:
             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
             for row in locus_metrics_rows: csv_out.writerow(row)
-
+ 
         with open(args.sub_out,'a') as sub_out:
             print(sub_lines, file=sub_out)
         if mono_lines!='':
@@ -131,13 +148,17 @@ def to_json(string):
         for key in json_dict["requirements"]:
             conf = json_dict["requirements"][key]
             assert "value" in conf and "type" in conf, (conf)
-            if conf["type"]=="min":
+            if conf["type"]=="gt":
+                oper=">"
+            if conf["type"]=="ge":
                 oper=">="
+            elif conf["type"]=="lt":
+                oper="<"
+            elif conf["type"]=="le":
+                oper="<="
             elif conf["type"]=="eq":
                 oper="=="
-            elif conf["type"]=="max":
-                oper="<="
-            elif conf["type"]=="uneq":
+            elif conf["type"]=="ne":
                 oper="!="
             else:
                 raise TypeError("Cannot recognize this type: {0}".format(conf["type"]))
@@ -161,6 +182,9 @@ def main():
     
     parser=argparse.ArgumentParser("Quick test utility for the superlocus classes.")
     parser.add_argument("-p", "--procs", type=int, default=1, help="Number of processors to use.")
+    parser.add_argument('-x',  "--remove_overlapping_fragments", action="store_true",
+                        default=False, help="""Flag. If set, the program will remove monoexonic loci
+                        overlapping non-monoexonic loci on the opposite strand.""")
     parser.add_argument("--json_conf", type=argparse.FileType("r"), required=True, help="JSON configuration file for scoring transcripts.")
     parser.add_argument("--strand_specific", action="store_true", default=False)
     parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
@@ -311,9 +335,9 @@ def main():
             currentLocus=superlocus(currentTranscript,
                                     stranded=False, json_dict = args.json_conf,
                                     purge=args.purge)
-#         pool.apply_async(locus_printer, args=(currentLocus, args),
-#                              kwds={"cds_dict": cds_dict, "lock": lock})
-        locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+        pool.apply_async(locus_printer, args=(currentLocus, args),
+                             kwds={"cds_dict": cds_dict, "lock": lock})
+#         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 
     pool.close()
     pool.join()

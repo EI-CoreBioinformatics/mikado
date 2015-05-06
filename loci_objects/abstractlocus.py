@@ -1,5 +1,6 @@
 import abc
 import random
+from copy import copy
 
 class abstractlocus(metaclass=abc.ABCMeta):
     
@@ -246,7 +247,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 #                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
         self.start = min(self.start, transcript_instance.start)
         self.end = max(self.end, transcript_instance.end)
-        self.transcripts[transcript_instance.id]=transcript_instance
+        self.transcripts[transcript_instance.id]=copy(transcript_instance)
         self.splices.update(transcript_instance.splices)
         self.introns.update(transcript_instance.introns)
         

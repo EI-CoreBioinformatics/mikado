@@ -53,25 +53,12 @@ def check_json(json_conf):
            
 
 def locus_printer( slocus, args, cds_dict=None, lock=None ):
-#     if slocus is None:
-#         return
+
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific )
     stranded_loci = sorted(list(slocus.split_strands()))
-#    assert lock is not None
-
     
     for stranded_locus in stranded_loci:
         stranded_locus.define_loci()
-#         
-#         stranded_locus.define_subloci()
-#         sub_lines = str(stranded_locus)
-#         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()] 
-#         stranded_locus.define_monosubloci()
-#         mono_lines = str(stranded_locus)
-#         stranded_locus.calculate_mono_metrics()
-#         locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
-#         stranded_locus.define_loci()
-#         locus_lines = str(stranded_locus)
     
     for stranded_locus in stranded_loci:
         if args.remove_overlapping_fragments is True and len(stranded_loci)>1:
@@ -79,8 +66,14 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
                 for other_superlocus in filter(lambda x: x!=stranded_locus, stranded_loci):
                     for other_final_locus in other_superlocus.loci:
                         if other_final_locus.other_is_fragment( final_locus, percentage=0.5 ) is True:
-                            stranded_locus.loci.remove(final_locus)
-                            break
+                            try:
+                                stranded_locus.loci.remove(final_locus)
+                            except ValueError as err:
+                                if "not in list" in err: pass
+                                else:
+                                    raise ValueError(err)
+                            finally:
+                                break
         sub_lines = stranded_locus.__str__(level="subloci")
         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
         mono_lines = stranded_locus.__str__(level="monosubloci")

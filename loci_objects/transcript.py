@@ -75,36 +75,20 @@ class transcript:
         for index in range(len(self.internal_cds)):
             
             if self.number_internal_orfs>1:
-                if index==self.best_internal_orf_index: self.attributes["maximal"]=True
-                else: self.attributes["maximal"]=False
-            cds_run = self.internal_cds[index]
-            
-#             if len(list(filter(lambda x: x[0]=="UTR", cds_run)  )  )>0:
-#                 assert len(list(filter(lambda x: x[0]=="CDS", cds_run)  )  )>0
-            if self.number_internal_orfs>1:
                 transcript_counter+=1
                 tid = "{0}.orf{1}".format(self.id, transcript_counter)
+                
+                if index==self.best_internal_orf_index: self.attributes["maximal"]=True
+                else: self.attributes["maximal"]=False
             else:
                 tid = self.id
+            cds_run = self.internal_cds[index]
             
             if self.strand is None:
                 strand="."
             else:   
                 strand=self.strand
             
-#             for attribute in self.attributes:
-#                 if attribute in ("Parent","ID"): continue
-#                 value=self.attributes[attribute]
-#                 #ttribute=attribute.lower()
-#                 attribute=re.sub(";",":", attribute.lower())
-#                 attr_field="{0};{1}={2}".format(attr_field,attribute, value)
-            
-            
-            if self.score is None or self.score==float("-inf"):
-                score="."
-            else:
-                score=round(self.score,2)
-                
             if to_gtf is True:
                 parent_line = gtfLine('')
             else:
@@ -114,13 +98,14 @@ class transcript:
             parent_line.source=self.source
             parent_line.feature=self.feature
             parent_line.start,parent_line.end=self.start,self.end
-            parent_line.score=score
+            parent_line.score=self.score
             parent_line.strand=strand
             parent_line.phase='.'
             parent_line.attributes=self.attributes
             
             parent_line.parent=self.parent
             parent_line.id=tid
+            parent_line.name = self.id
         
             exon_lines = []
         

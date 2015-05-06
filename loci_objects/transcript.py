@@ -1093,26 +1093,26 @@ class transcript:
     def cds_intron_fraction(self):
         '''This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the locus.
         If the transcript is by itself, it returns 1.'''
-        return self.__intron_fraction
+        return self.__cds_intron_fraction
     
     @cds_intron_fraction.setter
     def cds_intron_fraction(self, *args):
         if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
-        self.__intron_fraction=args[0]
+        self.__cds_intron_fraction=args[0]
 
     @property
     def best_cds_intron_fraction(self):
         '''This property returns the fraction of CDS introns of the best ORF of the transcript vs. the total number of CDS introns in the locus
         (considering only the best ORFs).
         If the transcript is by itself, it should return 1.'''
-        return self.__intron_fraction
+        return self.__best_cds_intron_fraction
     
     @best_cds_intron_fraction.setter
     def best_cds_intron_fraction(self, *args):
         if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
-        self.__intron_fraction=args[0]
+        self.__best_cds_intron_fraction=args[0]
 
 
     @property

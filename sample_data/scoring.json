@@ -3,7 +3,7 @@
 	"requirements":{
 		"utr_num":{
 			"type":"max",
-			"value":3
+			"value":4
 		},
 		"cds_length":{
 			"type":"min",
@@ -35,14 +35,15 @@
 			"operation": "x if x<=1 else -x/2"
 		},
 		"cds_length":{
-			"operation": "math.log(max(x,1),10)"
+			"operation": "x/100",
+			"multiplier":3
 		},
 		"five_utr_length": {
-			"operation": "math.log(max(x-100,0)+1,10)",
+			"operation": "max(x-100,0)/100",
 			"multiplier": -3
 		},
 		"three_utr_length": {
-			"operation": "math.log(max(x-100,0)+1,10)",
+			"operation": "max(x-300,0)/100",
 			"multiplier": -3
 		}
 	}

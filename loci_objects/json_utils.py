@@ -57,18 +57,22 @@ def to_json(string):
         
         
     for param in json_dict["parameters"]:
-        if "operation" in json_dict["parameters"][param]:
-            json_dict["parameters"][param]["expression"] = compile(json_dict["parameters"][param]["operation"],
-                                                                  "<json>",
-                                                                  "eval",
-                                                                  optimize=2)
-            #Test validity
-            x=1 
-            try:
-                _ = eval(json_dict["parameters"][param]["expression"])
-            except Exception as err:
-                raise Exception("Error encountered in testing parameter {0}:\n{1}".format(param, str(err)))
-            del x
+        
+        if "rescaling" not in json_dict["parameters"][param]:
+            raise ValueError("No rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(param))
+        elif json_dict["parameters"][param]["rescaling"] not in ("max","min", "target"):
+            raise ValueError("Invalid rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(param))
+        elif json_dict["parameters"][param]["rescaling"]=="target":
+            if "value" not in json_dict["parameters"][param]:
+                raise ValueError("Target rescaling requested for {0}, but no target value specified. Please specify it with the \"value\" keyword.".format(param))
+            json_dict["parameters"][param]["value"]=float(json_dict["parameters"][param]["value"])
+        
+        if "multiplier" not in json_dict["parameters"][param]:
+            json_dict["parameters"][param]["multiplier"]=1
+        else:
+            json_dict["parameters"][param]["multiplier"]=float(json_dict["parameters"][param]["multiplier"])
+            
+            
             
     if "requirements" in json_dict:
         for key in json_dict["requirements"]:

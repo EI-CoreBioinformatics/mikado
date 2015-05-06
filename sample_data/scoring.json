@@ -1,50 +1,82 @@
 {
 	"modules":["math"],
 	"requirements":{
-		"utr_num":{
-			"type":"le",
-			"value":4
-		},
 		"cds_length":{
 			"type":"ge",
 			"value":50
 		}
 	},
 	"parameters":{
-		"best_cds_intron_fraction":{
-			"multiplier": 10
+		"best_cds_number":{
+			"rescaling":"max"
 		},
-		"cds_intron_fraction":{
-			"multiplier": 5
-		},
-		"intron_fraction":{
-			"multiplier": 3
-		},
-		"retained_fraction":{
-			"multiplier": -10
-		},
-		"utr_fraction":{
-			"multiplier": 4
+		"cdna_length":{
+			"rescaling":"max"
 		},
 		"cds_fraction":{
-			"operation":"min(x,0.7)",
-			"multiplier": 10
-		},
-		"number_internal_orfs":{
-			"multiplier": 10,
-			"operation": "x if x<=1 else -x/2"
+			"rescaling":"max"
 		},
 		"cds_length":{
-			"operation": "x/100",
-			"multiplier":3
+			"rescaling":"max"
 		},
-		"five_utr_length": {
-			"operation": "max(x-100,0)/100",
-			"multiplier": -3
+		"cds_not_maximal":{
+			"rescaling":"min"
 		},
-		"three_utr_length": {
-			"operation": "max(x-300,0)/100",
-			"multiplier": -3
+		"cds_not_maximal_fraction":{
+			"rescaling":"min"
+		},
+		"cds_num":{
+			"rescaling":"max"
+		},
+		"combined_cds_fraction":{
+			"rescaling":"max"
+		},
+		"combined_cds_length":{
+			"rescaling":"max"
+		},
+		"combined_cds_num":{
+			"rescaling":"max"
+		},
+		"exon_fraction":{
+			"rescaling":"max"
+		},
+		"exon_num":{
+			"rescaling":"max"
+		},
+		"five_utr_length":{
+			"rescaling":"target",
+			"value":100
+		},
+		"five_utr_num":{
+			"rescaling":"target",
+			"value":3
+		},
+		"intron_fraction":{
+			"rescaling":"max"
+		},
+		"cds_intron_fraction":{
+			"rescaling":"max"
+		},
+		"best_cds_intron_fraction":{
+			"rescaling":"max"
+		},
+		"number_internal_orfs":{
+			"rescaling":"target",
+			"value":1
+		},
+		"retained_fraction":{
+			"rescaling":"min"
+		},
+		"retained_intron_num":{
+			"rescaling":"min"
+		},
+		"three_utr_length":{
+			"rescaling":"target",
+			"value":300
+		},
+		"three_utr_num":{
+			"rescaling":"target",
+			"value":2
 		}
 	}
 }

@@ -269,29 +269,36 @@ class sublocus(abstractlocus):
         for tid in not_passing:
             self.transcripts[tid].score=0
 
-        for tid in filter(lambda t: t not in not_passing, self.transcripts):
-            values = []
-            for param in self.json_dict["parameters"]:
-                x = getattr(self.transcripts[tid], param)
-                if "expression" in self.json_dict["parameters"][param]:
-                    try:
-                        x = eval(self.json_dict["parameters"][param]["expression"] ) 
-                    except ZeroDivisionError:
-                        x = 0
-                    except TypeError as err:
-                        raise TypeError(str(err)+"\n"+str((x,param)))
-                if "multiplier" in self.json_dict["parameters"][param]:
-                    x*=self.json_dict["parameters"][param]["multiplier"]
-                elif "bool_value" in self.json_dict["parameters"][param]:
-                    assert type(x) is bool
-                    if x is True:
-                        x = self.json_dict["parameters"][param]["bool_value"][0]
-                    else:
-                        x = self.json_dict["parameters"][param]["bool_value"][1]
-                #assert type(x) in (int,float), (param, x)
-                values.append(x)
-            score=sum(values)
-            self.transcripts[tid].score=score
+        surviving_tids = list(filter(lambda t: t not in not_passing, self.transcripts))
+        if len(surviving_tids)==0:
+            return
+        scores=dict()
+        for tid in surviving_tids:
+            scores[tid]=dict()
+        for param in self.json_dict["parameters"]:
+            rescaling = self.json_dict["parameters"][param]["rescaling"]
+            metrics = [getattr( self.transcripts[tid], param  ) for tid in surviving_tids]
+            if rescaling=="target":
+                target = self.json_dict["parameters"][param]["value"]
+                denominator = max( abs( x-target ) for x in metrics)
+            else:
+                denominator=(max(metrics)-min(metrics))
+            if denominator==0: denominator=1
+                
+            for tid in surviving_tids:
+                tid_metric = getattr( self.transcripts[tid], param  )
+                if rescaling == "max":
+                    ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
+                    score = abs( ( tid_metric - min(metrics) ) / denominator )
+                elif rescaling=="min":
+                    score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
+                elif rescaling == "target":
+                    score = 1 - (abs( tid_metric  - target )/denominator )
+                score*=self.json_dict["parameters"][param]["multiplier"]
+                scores[tid][param]=score
+                
+        for tid in surviving_tids:
+            self.transcripts[tid].score = sum( scores[tid].values() )
         
     
     def print_metrics(self):

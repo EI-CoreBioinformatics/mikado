@@ -1,8 +1,85 @@
 import sys,os.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.json_utils import check_json,to_json
+from collections import OrderedDict
 import argparse
 import csv
+
+def calculate_score(rows, json_dict):
+    
+    transcripts=OrderedDict((row["tid"],row) for row in rows)
+
+    new_rows=OrderedDict()
+    for tid in transcripts:
+        new_rows[tid]=dict()
+        new_rows[tid]["tid"]=transcripts[tid]["tid"]
+        new_rows[tid]["parent"]=transcripts[tid]["parent"]
+        new_rows[tid]["original_score"]=transcripts[tid]["score"]
+        new_rows[tid]["not_passing"]=False
+        new_rows[tid]["offending_keys"]=[]
+        new_rows[tid]["recalculated_score"]=0
+
+    
+    not_passing=set()
+    if "requirements" in json_dict:
+        for key in json_dict["requirements"]:
+            for tid in transcripts:
+                x=float(transcripts[tid][key])
+                #assert "expression" in json_dict["requirements"][key], key
+                if  eval(json_dict["requirements"][key]["expression"]) is False:
+                    new_rows[tid]["not_passing"]=True
+                    new_rows[tid]["offending_keys"].append(key)
+                    not_passing.add(tid)
+#                 if len(not_passing)==len(transcripts): #all transcripts in the locus fail to pass the filter
+#                     continue
+#                 else:
+    for tid in new_rows:
+        if new_rows[tid]["not_passing"] is True:
+            new_rows[tid]["offending_keys"]=",".join(new_rows[tid]["offending_keys"])
+        else:
+            new_rows[tid]["offending_keys"]="NA"
+    
+    
+    for param in json_dict["parameters"]:
+        rescaling = json_dict["parameters"][param]["rescaling"]
+        metrics = [float(transcripts[tid][param]) for tid in transcripts if tid not in not_passing]
+        if len(metrics)>0:
+            if rescaling=="target":
+                target = json_dict["parameters"][param]["value"]
+                denominator = max( abs( x-target ) for x in metrics)
+            else:
+                denominator=(max(metrics)-min(metrics))
+            if denominator==0:
+                denominator=1
+            
+        if "requirements" in json_dict and param in json_dict["requirements"]:
+            add_original=True
+        else:
+            add_original=False
+            
+        for tid in transcripts.keys():
+            score=0
+            if tid not in not_passing:
+                tid_metric = float(transcripts[tid][param])
+                if rescaling == "max":
+                    ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
+                    score = abs( ( tid_metric - min(metrics) ) / denominator )
+                elif rescaling=="min":
+                    score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
+                elif rescaling == "target":
+                    score = 1 - (abs( tid_metric  - target )/denominator )
+                score*=json_dict["parameters"][param]["multiplier"]
+                score=round(score,2)
+            
+            new_rows[tid]["recalculated_score"]+=score
+            new_rows[tid][param]=score
+            if add_original is True:
+                new_rows[tid]["{0}_original".format(param)]=transcripts[tid][param]
+    
+    for tid in new_rows:
+        new_rows[tid]["recalculated_score"]=max(0,int(round(new_rows[tid]["recalculated_score"])))
+    
+    return new_rows.values()
 
 def main():
     
@@ -48,47 +125,21 @@ def main():
         for mod in args.json_conf["modules"]:
             globals()[mod]=importlib.import_module(mod)
     
+    current_parent=None
+    current_rows=[]
+    
     for row in reader:
-        new_row=dict()
-#         score=int(round(float(row["score"]),0))
-        new_row["tid"]=row["tid"]
-        new_row["parent"]=row["parent"]
-        new_row["original_score"]=row["score"]
-        new_row["not_passing"]=False
-        new_row["offending_keys"]=[]
+        if row["parent"]!=current_parent:
+            if current_parent is not None:
+                for new_row in calculate_score(current_rows, args.json_conf):
+                    writer.writerow(new_row)
+            current_parent=row["parent"]
+            current_rows=[]
+        current_rows.append(row)
         
-        new_score = 0
-        for key in others:
-            if key in ("tid","parent"):
-                new_row[key]=row[key]
-            elif key not in ("score", "not_passing", "offending_keys"):
-                x=row[key]
-                if x=="True": x=True
-                elif x=="False": x=False
-                else: x=float(x)
-                if key in args.json_conf["requirements"]:
-                    if eval(args.json_conf["requirements"][key]["expression"]) is False:
-                        new_row["not_passing"]=True
-                        new_row["offending_keys"].append(key)
-                if key in args.json_conf["parameters"]:
-                    if "expression" in args.json_conf["parameters"][key]:
-                        x=round(eval(args.json_conf["parameters"][key]["expression"]),2)
-                    x=round(x*args.json_conf["parameters"][key]["multiplier"],2)
-                    if key in requirements_and_score:
-                        new_row["{0}_original".format(key)]=row[key]
-                    new_row[key]=x
-                    new_score += new_row[key]
-                else:
-                    new_row[key]=row[key]
-        if new_row["not_passing"] is True:
-            new_score=0
-        new_score=max(0,int(round(new_score)))
-        #assert max(0, new_score) == score, (new_score, score,row["tid"])
-        if len(new_row["offending_keys"])>0:
-            new_row["offending_keys"]=",".join(new_row["offending_keys"])
-        else:
-            new_row["offending_keys"]="NA"
-        new_row["recalculated_score"] = new_score
-        writer.writerow(new_row)
+    if current_parent is not None:
+        for row in calculate_score(current_rows, args.json_conf):
+            writer.writerow(row)
+
     
 if __name__=="__main__": main()

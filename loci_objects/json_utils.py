@@ -16,13 +16,14 @@ def check_json(json_conf):
             double_parameters.add(parameter)
         parameters_found.add(parameter)
     
-    import importlib    
-    mods_not_found = [] 
-    for mod in json_conf["modules"]:
-        try:
-            importlib.import_module(mod)
-        except ImportError:
-            mods_not_found.append(mod)
+    mods_not_found = []
+    if "modules" in json_conf:
+        import importlib    
+        for mod in json_conf["modules"]:
+            try:
+                importlib.import_module(mod)
+            except ImportError:
+                mods_not_found.append(mod)
 
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0:
         err_message=''

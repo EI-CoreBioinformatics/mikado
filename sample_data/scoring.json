@@ -1,11 +1,4 @@
 {
-	"modules":["math"],
-	"requirements":{
-		"cds_length":{
-			"type":"ge",
-			"value":50
-		}
-	},
 	"parameters":{
 		"best_cds_number":{
 			"rescaling":"max"
@@ -14,7 +7,8 @@
 			"rescaling":"max"
 		},
 		"cds_fraction":{
-			"rescaling":"max"
+			"rescaling":"target",
+			"value":0.9
 		},
 		"cds_length":{
 			"rescaling":"max"
@@ -49,7 +43,7 @@
 		},
 		"five_utr_num":{
 			"rescaling":"target",
-			"value":3
+			"value":1
 		},
 		"intron_fraction":{
 			"rescaling":"max"

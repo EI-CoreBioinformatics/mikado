@@ -15,9 +15,11 @@ class locus(monosublocus,abstractlocus):
         return super().__str__()
     
     def other_is_fragment(self,other, percentage=1):
-        '''This function checks that another monoexonic locus is not completely contained within an exon of the instance,
-        only on the opposite strand.
-        This should get rid of monoexonic fragments that plague the output of RNA-Seq reconstruction programs.'''
+        '''This function checks that another *monoexonic locus on the opposite strand* does not verify one of the following:
+            - it is contained for more than (exon_length)*percentage inside one of the locus exons
+            - it is not partially contained inside an intron
+        This should get rid of monoexonic fragments that plague the output of RNA-Seq reconstruction programs.
+        '''
         
         if type(percentage) not in (float,int) or not 0<percentage<=1:
             raise ValueError("Invalid percentage, it should be between 0 and 1. Received: {0}".format(percentage))
@@ -32,6 +34,11 @@ class locus(monosublocus,abstractlocus):
         for exon in self.exons:
             if self.overlap( other_exon, exon  )>=threshold:
                 return True
+            
+        for intron in self.introns:
+            if self.overlap(other_exon,intron)>=threshold: 
+                return True
+            
         return False
     
     @property

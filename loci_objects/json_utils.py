@@ -81,7 +81,7 @@ def to_json(string):
             assert "value" in conf and "type" in conf, (conf)
             if conf["type"]=="gt":
                 oper=">"
-            if conf["type"]=="ge":
+            elif conf["type"]=="ge":
                 oper=">="
             elif conf["type"]=="lt":
                 oper="<"

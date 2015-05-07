@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import sys,os.path
+from loci_objects.monosublocus import monosublocus
+from loci_objects.excluded_locus import excluded_locus
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 from copy import copy
@@ -18,7 +20,7 @@ class superlocus(abstractlocus):
     
     ####### Special methods ############
     
-    def __init__(self, transcript_instance, stranded=True, json_dict = None, purge=False ):
+    def __init__(self, transcript_instance, stranded=True, json_dict = None, purge=False, is_nonpassing=False ):
         
         '''The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
         
@@ -53,6 +55,7 @@ class superlocus(abstractlocus):
         self.introns = set(self.introns)
         self.transcripts = dict()
         self.purge = purge
+        self.is_nonpassing = is_nonpassing
         super().add_transcript_to_locus(transcript_instance)
         if self.stranded is True:
             self.strand = transcript_instance.strand
@@ -183,19 +186,47 @@ class superlocus(abstractlocus):
         
         if self.subloci_defined is True:
             return
-        
+        self.subloci = []
+        not_passing=set()
+        self.excluded_transcripts=None
+        if "requirements" in self.json_dict:
+            pass
+            for key in self.json_dict["requirements"]:
+                for tid in self.transcripts:
+                    x=getattr(self.transcripts[tid],key) # @UndefinedVariable
+                    if  eval(self.json_dict["requirements"][key]["expression"]) is False:
+                        not_passing.add(tid)
+                        continue
+                    del x # this is here only to stop Eclipse from whining about x being an unused variable
+                    
+        if len(not_passing)>0:
+            tid=not_passing.pop()
+            self.transcripts[tid].score=0
+            monosub=monosublocus(self.transcripts[tid])
+            self.excluded_transcripts=excluded_locus(monosub, json_dict=self.json_dict)
+            self.excluded_transcripts.__name__ = "excluded_locus"
+            self.remove_transcript_from_locus(tid)
+            for tid in not_passing:
+                self.transcripts[tid].score=0
+                self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid])
+                self.remove_transcript_from_locus(tid)
+
+        if len(self.transcripts)==0:
+            #we have removed all transcripts from the locus. Set the flag to True and exit.
+            self.subloci_defined=True
+            return
+
         candidates = set(self.transcripts.values()) # This will order the transcripts based on their position
         if len(candidates)==0:
             raise ValueError("This superlocus has no transcripts in it!")
-        
         
         original=copy(candidates)
         
         cliques = set( tuple(clique) for clique in self.BronKerbosch(set(), candidates, set(), original))
         
         subloci = self.merge_cliques(cliques)
-        self.subloci = []
         #Now we should define each sublocus and store it in a permanent structure of the class
+                
         for subl in subloci:
             if len(subl)==0:
                 continue
@@ -228,7 +259,7 @@ class superlocus(abstractlocus):
         self.monosubloci=[]
         #Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            sublocus_instance.define_monosubloci(purge=self.purge)
+            self.excluded_transcripts=sublocus_instance.define_monosubloci(purge=self.purge, excluded=self.excluded_transcripts)
             for ml in sublocus_instance.monosubloci:
                 ml.parent = self.id
                 self.monosubloci.append(ml)
@@ -256,6 +287,10 @@ class superlocus(abstractlocus):
         for slocus in self.subloci:
             for row in slocus.print_metrics():
                 yield row
+        if self.excluded_transcripts is not None:
+            for row in self.excluded_transcripts.print_metrics():
+                yield row
+
 
     def print_monoholder_metrics(self ):
 

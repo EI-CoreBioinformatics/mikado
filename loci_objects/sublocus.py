@@ -1,4 +1,6 @@
 import sys,os.path
+from loci_objects.excluded_locus import excluded_locus
+#from loci_objects.monosublocus_holder import monosublocus_holder
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 #import random
@@ -6,6 +8,7 @@ from loci_objects.abstractlocus import abstractlocus
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
 from loci_objects.GFF import gffLine
+from loci_objects.get_metrics_name import get_metrics_name
 
 class sublocus(abstractlocus):
     
@@ -15,52 +18,17 @@ class sublocus(abstractlocus):
     '''
     
     @staticmethod
-    def get_metrics_names():
-        '''Static method to retrieve the available metrics from the metrics.txt
-        file, only when the class is called for the first time.
-        The method also checks that the requested metrics are defined as
-        properties of the transcript class; if that is not the case, it raises
-        an exception.'''
+    def get_available_metrics(filename=None):
+        '''Wrapper for the "get_metrics_name" function to retrieve the necessary metrics names.'''
         
-        __available_metrics = [l.rstrip() for l in open(
-                                              os.path.join(
-                                                           os.path.dirname(__file__),
-                                                           "metrics.txt"
-                                                           )
-                                              )]
-        first = ["tid","parent","score"];
-        extended=[]
-        not_found = []
-        not_properties=[]
-        for x in __available_metrics:
-            if x=='': continue
-            if x not in first:
-                if not hasattr(transcript, x):
-                    not_found.append(x)
-                elif not type(transcript.__dict__[x]) is property: # @UndefinedVariable
-                    not_properties.append(x)
-                extended.append(x)
-        if len(not_found)>0 or len(not_properties)>0:
-            err_message=''
-            if len(not_found)>0:
-                err_message+="The following required metrics are not defined.\n\t{0}\n".format(
-                                                                                                                 "\n\t".join(not_found)
-                                                                                                                 )
-            if len(not_properties)>0:
-                err_message+="""The following metrics are not properties but rather
-                methods of the transcript class. I cannot use them properly.
-                \t{0}
-                """.format("\n\t".join(not_properties))
-            raise AttributeError(err_message)
-        __available_metrics=first
-        __available_metrics.extend(sorted(extended))
-        return __available_metrics
+        return get_metrics_name(filename=filename)
+    
     
     __name__ = "sublocus"
     available_metrics = []
     if available_metrics == []:
-        available_metrics = get_metrics_names.__func__()
-    
+        available_metrics = get_available_metrics.__func__()
+
     ################ Class special methods ##############
     
     def __init__(self, span, source=None, json_dict = None ):
@@ -68,16 +36,17 @@ class sublocus(abstractlocus):
         '''This class takes as input a "span" feature - e.g. a gffLine or a transcript_instance. 
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
         super().__init__()
-        
         self.fixedSize=True if span.feature=="sublocus" else False
         if span.__name__=="transcript":
             span.finalize()
             
-        self.feature="sublocus"
+
         if source is not None:
             self.source = source
         else:
             self.source = "locus_pipeline"
+            
+        self.excluded=None
         self.splitted=False
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
         setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
@@ -104,6 +73,7 @@ class sublocus(abstractlocus):
         lines=[]
         
         self_line=gffLine('')
+        self.feature=self.__name__
         for attr in ["chrom", 'feature','source','start','end','strand']:
             setattr(self_line,attr, getattr(self,attr))
         self_line.phase,self_line.score=None,None
@@ -144,11 +114,17 @@ class sublocus(abstractlocus):
         
         #Update the id
 
-    def define_monosubloci(self, purge=False):
+    def define_monosubloci(self, purge=False, excluded=None):
         '''This function retrieves the best non-overlapping transcripts inside the sublocus, according to the score
-        calculated by calculate_scores (explicitly called inside the method).'''
+        calculated by calculate_scores (explicitly called inside the method).
+        The "excluded" keyword must contain either None or a monosublocus_holder object. It is used to contain
+        transcripts that must be excluded from the locus due to unmet requirements. 
+        '''
         
         self.monosubloci=[]
+#         if type(excluded) is not excluded_locus or excluded is not None:
+#             raise TypeError("Unmanageable type for the container of excluded transcripts! Type: {0}".format(type(excluded)))
+        self.excluded = excluded
         self.calculate_scores()
         remaining = self.transcripts.copy()
         
@@ -188,10 +164,11 @@ class sublocus(abstractlocus):
             transcript_instance.intron_fraction = len(transcript_instance.introns)/len(self.introns)
             if transcript_instance.monoexonic is False:
                 assert transcript_instance.intron_fraction>0
-
         else:
-            assert len(transcript_instance.introns )==0
+            assert self.monoexonic is True, (self.transcripts.keys())
+            assert len(transcript_instance.introns )==0 
             transcript_instance.intron_fraction = 0
+            
         if len(self.cds_introns)>0:
             transcript_instance.cds_intron_fraction = len(transcript_instance.cds_introns )/len(self.cds_introns)
         else:
@@ -256,28 +233,39 @@ class sublocus(abstractlocus):
         
         self.get_metrics()
         
-        not_passing = set()
         if "requirements" in self.json_dict:
-            for key in self.json_dict["requirements"]:
-                for tid in self.transcripts:
-                    x=getattr(self.transcripts[tid],key)
+            while True:
+                not_passing = set()            
+                for key in self.json_dict["requirements"]:
+                    for tid in self.transcripts:
+                        x=getattr(self.transcripts[tid],key)
                     #assert "expression" in self.json_dict["requirements"][key], key
-                    if  eval(self.json_dict["requirements"][key]["expression"]) is False: not_passing.add(tid)
-#                 if len(not_passing)==len(self.transcripts): #all transcripts in the locus fail to pass the filter
-#                     continue
-#                 else:
-        for tid in not_passing:
-            self.transcripts[tid].score=0
-
-        surviving_tids = list(filter(lambda t: t not in not_passing, self.transcripts))
-        if len(surviving_tids)==0:
+                        if  eval(self.json_dict["requirements"][key]["expression"]) is False: not_passing.add(tid)
+                if len(not_passing)==0:
+                    break
+                
+                self.metrics_calculated = False
+                for tid in not_passing:
+                    self.transcripts[tid].score=0
+                    if self.excluded is None:
+                        excluded = monosublocus(self.transcripts[tid])
+                        self.excluded = excluded_locus(excluded)
+                    else:
+                        self.excluded.add_transcript_to_locus(self.transcripts[tid])
+                    self.remove_transcript_from_locus(tid)
+                if len(self.transcripts)==0:
+                    return
+                else:
+                    #Recalculate the metrics
+                    self.get_metrics()
+        if len(self.transcripts)==0:
             return
         scores=dict()
-        for tid in surviving_tids:
+        for tid in self.transcripts:
             scores[tid]=dict()
         for param in self.json_dict["parameters"]:
             rescaling = self.json_dict["parameters"][param]["rescaling"]
-            metrics = [getattr( self.transcripts[tid], param  ) for tid in surviving_tids]
+            metrics = [getattr( self.transcripts[tid], param  ) for tid in self.transcripts]
             if rescaling=="target":
                 target = self.json_dict["parameters"][param]["value"]
                 denominator = max( abs( x-target ) for x in metrics)
@@ -285,7 +273,7 @@ class sublocus(abstractlocus):
                 denominator=(max(metrics)-min(metrics))
             if denominator==0: denominator=1
                 
-            for tid in surviving_tids:
+            for tid in self.transcripts:
                 tid_metric = getattr( self.transcripts[tid], param  )
                 if rescaling == "max":
                     ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
@@ -297,7 +285,7 @@ class sublocus(abstractlocus):
                 score*=self.json_dict["parameters"][param]["multiplier"]
                 scores[tid][param]=score
                 
-        for tid in surviving_tids:
+        for tid in self.transcripts:
             self.transcripts[tid].score = sum( scores[tid].values() )
         
     
@@ -306,7 +294,7 @@ class sublocus(abstractlocus):
         '''This class yields dictionary "rows" that will be given to a csv.DictWriter class.'''
         
         #Check that rower is an instance of the csv.DictWriter class
-#        self.get_metrics()
+        self.get_metrics()
         self.calculate_scores() 
         
         #The rower is an instance of the DictWriter class from the standard CSV module
@@ -325,6 +313,10 @@ class sublocus(abstractlocus):
                 elif row[key] is None or row[key]=="":
                     row[key]="NA"
             yield row
+        if self.excluded is not None:
+            for row in self.excluded.print_metrics():
+                yield row
+            
         return
     
     def get_metrics(self):
@@ -333,6 +325,7 @@ class sublocus(abstractlocus):
         
         if self.metrics_calculated is True:
             return
+        
         
         for tid in self.transcripts:
             self.calculate_metrics(tid)

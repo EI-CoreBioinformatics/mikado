@@ -266,6 +266,8 @@ class transcript:
 
         self.introns = []
         self.splices=[]
+        if len(self.exons)==0:
+            raise AttributeError("No exon defined for the transcript {0}. Aborting".format(self.tid))
 
         if len(self.exons)>1 and self.strand is None:
             raise AttributeError("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
@@ -328,9 +330,19 @@ class transcript:
         if len(self.combined_cds)>0:
             self.feature="mRNA"
         
+        self.set_relative_properties()
+        
         self.finalized = True
         return
 
+    def set_relative_properties(self):
+        '''Function to set to the basic value relative values like e.g. retained_intron'''
+        self.retained_introns=[]
+        self.retained_fraction=0
+        self.exon_fraction=1
+        self.intron_fraction=1
+        self.cds_intron_fraction=1
+        self.best_cds_intron_fraction=1
 
     def load_cds(self, cds_dict, trust_strand=False):
         
@@ -902,7 +914,7 @@ class transcript:
     
     @exon_fraction.setter
     def exon_fraction(self, *args):
-        if type(args[0]) is not float or (args[0]<=0 or args[0]>1):
+        if type(args[0]) not in (float,int) or (args[0]<=0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
         self.__exon_fraction=args[0]
     

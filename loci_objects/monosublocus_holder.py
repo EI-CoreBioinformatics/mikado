@@ -1,5 +1,6 @@
 import sys,os.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+#from loci_objects.excluded_locus import excluded_locus
 from loci_objects.abstractlocus import abstractlocus
 from loci_objects.sublocus import sublocus
 from loci_objects.locus import locus
@@ -22,6 +23,7 @@ class monosublocus_holder(sublocus,abstractlocus):
         self.splitted=False
         self.metrics_calculated = False
         self.json_dict = json_dict
+        self.excluded=None
         #Add the transcript to the locus
         self.add_monosublocus(monosublocus_instance)
 
@@ -63,15 +65,19 @@ class monosublocus_holder(sublocus,abstractlocus):
         '''Overriden and set to NotImplemented to avoid cross-calling it when inappropriate.'''
         raise NotImplementedError("Monosubloci are the input of this object, not the output.")
     
-    def define_loci(self, purge=False):
+    def define_loci(self, purge=False, excluded=None):
         '''This is the main function of the class. It is analogous to the define_subloci class defined
         for sublocus objects, but it returns "locus" objects (not "monosublocus").'''
         if self.splitted is True:
             return
-        self.calculate_scores()
         
         self.loci=[]
         remaining = self.transcripts.copy()
+#         if type(excluded) is not excluded_locus or excluded is not None:
+#             raise TypeError("Unmanageable storage for excluded transcripts!")
+        self.excluded = excluded
+        
+        self.calculate_scores()
         
         while len(remaining)>0:
             best_tid=self.choose_best(remaining.copy())

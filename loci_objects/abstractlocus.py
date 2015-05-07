@@ -1,3 +1,5 @@
+import os,sys
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import abc
 import random
 from copy import copy
@@ -7,6 +9,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
     '''This abstract class defines the basic features of any locus-like object.
     It also defines methods/properties that are needed throughout the program,
     e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method.'''
+
     
     __name__ = "abstractlocus"
     
@@ -262,6 +265,54 @@ class abstractlocus(metaclass=abc.ABCMeta):
             self.initialized = True
         self.source=transcript_instance.source
         return
+
+    def remove_transcript_from_locus(self, tid):
+        if tid not in self.transcripts:
+            raise KeyError("Transcript {0} is not present in the locus.".format(tid))
+        
+        if len(self.transcripts)==1:
+            self.transcripts = dict()
+            self.introns, self.exons, self.splices = set(), set(), set()
+            self.cds_introns, self.best_cds_introns = set(), set()
+            self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+            self.stranded=True
+            self.initialized = False
+        
+        else:
+            
+            self.end=max(self.transcripts[t].end for t in self.transcripts if t!=tid)
+            self.start=min(self.transcripts[t].start for t in self.transcripts if t!=tid)
+            
+            #Remove excess exons
+            other_exons = [set(self.transcripts[otid].exons) for otid in self.transcripts if otid!=tid]
+            other_exons = set.union( *other_exons )
+            exons_to_remove = set.difference(set(self.transcripts[tid].exons), other_exons)
+            self.exons.difference_update(exons_to_remove) 
+            
+            #Remove excess introns
+            other_introns = set.union(*[ set(self.transcripts[otid].introns) for otid in self.transcripts if otid!=tid  ])
+            introns_to_remove = set.difference(set(self.transcripts[tid].introns), other_introns)
+            self.introns.difference_update(introns_to_remove) 
+
+            #Remove excess cds introns
+            other_cds_introns = set.union(*[ set(self.transcripts[otid].cds_introns) for otid in self.transcripts if otid!=tid  ])
+            cds_introns_to_remove = set.difference(set(self.transcripts[tid].cds_introns), other_cds_introns)
+            self.cds_introns.difference_update(cds_introns_to_remove) 
+
+            #Remove excess best_cds_introns
+            other_best_cds_introns = set.union(*[ set(self.transcripts[otid].best_cds_introns) for otid in self.transcripts if otid!=tid  ])
+            best_cds_introns_to_remove = set.difference(set(self.transcripts[tid].best_cds_introns), other_best_cds_introns)
+            self.best_cds_introns.difference_update(best_cds_introns_to_remove) 
+
+            #Remove excess splices
+            other_splices = set.union(*[ self.transcripts[otid].splices for otid in self.transcripts if otid!=tid  ])
+            splices_to_remove = set.difference(self.transcripts[tid].splices, other_splices)
+            self.splices.difference_update(splices_to_remove) 
+                
+            del self.transcripts[tid]
+            for tid in self.transcripts:
+                self.transcripts[tid].parent = self.id
+
 
     def find_retained_introns(self, transcript_instance):
          

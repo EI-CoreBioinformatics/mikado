@@ -1,4 +1,14 @@
 {
+	"requirements":{
+		"cdna_length":{
+			"type":"ge",
+			"value":500
+		},
+		"retained_fraction":{
+			"type":"le",
+			"value":0.5
+		},
+	},
 	"parameters":{
 		"best_cds_number":{
 			"rescaling":"max"

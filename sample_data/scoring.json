@@ -1,17 +1,29 @@
 {
 	"requirements":{
-		"cdna_length":{
-			"type":"ge",
-			"value":500
+		"parameters":{
+			"cdna_length.1":{
+				"operator":"ge",
+				"value":100
+			},
+			"cdna_length.2":{
+				"operator":"ge",
+				"value":300
+			},
+			"exon_num.1":{
+				"operator":"gt",
+				"value":1
+			},
+			"exon_num.2":{
+				"operator":"eq",
+				"value":1
+			},
+			
+			"cds_length.2":{
+				"operator":"gt",
+				"value":200
+			}
 		},
-		"retained_fraction":{
-			"type":"le",
-			"value":0.5
-		},
-		"retained_fraction":{
-			"type":"lt",
-			"value":0.2
-		}
+		"expression":"(exon_num.1 and cdna_length.1) or (exon_num.2 and cds_length.2 and cdna_length.2)"
 	},
 	"parameters":{
 		"best_cds_number":{

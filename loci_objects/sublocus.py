@@ -230,14 +230,14 @@ class sublocus(abstractlocus):
         if "requirements" in self.json_dict:
             previous_not_passing = set()
             while True:
-                not_passing = set()            
-                for key in self.json_dict["requirements"]:
-                    for tid in self.transcripts:
-                        x=getattr(self.transcripts[tid],key)
-                    #assert "expression" in self.json_dict["requirements"][key], key
-                        if  eval(self.json_dict["requirements"][key]["expression"]) is False:
-                            if tid not in previous_not_passing:
-                                not_passing.add(tid)
+                not_passing = set()
+                for tid in filter(lambda t: t not in previous_not_passing,  self.transcripts):
+                    evaluated=dict()
+                    for key in self.json_dict["requirements"]["parameters"]:
+                        value=getattr(self.transcripts[tid],self.json_dict["requirements"]["parameters"][key]["name"])
+                        evaluated[key]=self.evaluate(value, self.json_dict["requirements"]["parameters"][key])
+                    if eval(self.json_dict["requirements"]["compiled"]) is False:
+                        not_passing.add(tid)
                 if len(not_passing)==0:
                     break
                 
@@ -356,6 +356,7 @@ class sublocus(abstractlocus):
                 return True
         
         return False
+    
     
     ########### Properties
     

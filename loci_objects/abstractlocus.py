@@ -82,6 +82,29 @@ class abstractlocus(metaclass=abc.ABCMeta):
         
         return right_boundary - left_boundary 
     
+    @staticmethod
+    def evaluate(param, conf):
+    
+        '''This static method evaluates a single parameter using the requested operation from the JSON dict file.'''
+        
+        if conf["operator"]=="eq":
+            return float(param)==float(conf["value"])
+        elif conf["operator"]=="ne":
+            return float(param)!=float(conf["value"])
+        elif conf["operator"]=="gt":
+            return float(param)>float(conf["value"])
+        elif conf["operator"]=="lt":
+            return float(param)<float(conf["value"])
+        elif conf["operator"]=="ge":
+            return float(param)>=float(conf["value"])
+        elif conf["operator"]=="le":
+            return float(param)<=float(conf["value"])
+        elif conf["operator"]=="in":
+            return param in conf["value"]
+        elif conf["operator"]=="not in":
+            return param not in conf["value"]
+    
+    
     ##### Class methods ########
 
     @classmethod

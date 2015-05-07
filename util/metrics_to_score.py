@@ -1,6 +1,7 @@
 import sys,os.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.json_utils import check_json,to_json
+from loci_objects.abstractlocus import abstractlocus
 from collections import OrderedDict
 import argparse
 import csv
@@ -16,29 +17,22 @@ def calculate_score(rows, json_dict):
         new_rows[tid]["parent"]=transcripts[tid]["parent"]
         new_rows[tid]["original_score"]=transcripts[tid]["score"]
         new_rows[tid]["not_passing"]=False
-        new_rows[tid]["offending_keys"]=[]
         new_rows[tid]["recalculated_score"]=0
 
     
     not_passing=set()
     if "requirements" in json_dict:
-        for key in json_dict["requirements"]:
-            for tid in transcripts:
-                x=float(transcripts[tid][key])
-                #assert "expression" in json_dict["requirements"][key], key
-                if  eval(json_dict["requirements"][key]["expression"]) is False:
+        for tid in transcripts:
+            evaluated=dict()
+            for key in json_dict["requirements"]["parameters"]:
+                name=json_dict["requirements"]["parameters"][key]["name"]
+                evaluated[key]=abstractlocus.evaluate(transcripts[tid][name],json_dict["requirements"]["parameters"][key] )
+            if eval(json_dict["requirements"]["compiled"]) is False:
                     new_rows[tid]["not_passing"]=True
-                    new_rows[tid]["offending_keys"].append(key)
                     not_passing.add(tid)
 #                 if len(not_passing)==len(transcripts): #all transcripts in the locus fail to pass the filter
 #                     continue
 #                 else:
-    for tid in new_rows:
-        if new_rows[tid]["not_passing"] is True:
-            new_rows[tid]["offending_keys"]=",".join(new_rows[tid]["offending_keys"])
-        else:
-            new_rows[tid]["offending_keys"]="NA"
-    
     
     for param in json_dict["parameters"]:
         rescaling = json_dict["parameters"][param]["rescaling"]
@@ -96,10 +90,10 @@ def main():
     check_json(args.json_conf)
     reader=csv.DictReader(args.metrics, delimiter="\t")
     
-    fieldnames = ["tid", "parent", "original_score", "recalculated_score", "not_passing", "offending_keys"]
+    fieldnames = ["tid", "parent", "original_score", "recalculated_score", "not_passing"]
     others = set.union(
                         set(args.json_conf["parameters"].keys()),
-                        set(args.json_conf["requirements"].keys()) if "requirements" in args.json_conf else set()
+                        set(args.json_conf["requirements"]["parameters"][key]["name"] for key in args.json_conf["requirements"]["parameters"]) if "requirements" in args.json_conf else set()
                         )
 
 

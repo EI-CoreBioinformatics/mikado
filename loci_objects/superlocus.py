@@ -75,6 +75,8 @@ class superlocus(abstractlocus):
         The function will then return the desired location in GFF3-compliant format. 
         '''
 
+        if abs(self.start)==float("inf"): return ''
+
         superlocus_line=gffLine('')
         superlocus_line.chrom=self.chrom
         superlocus_line.feature=self.__name__
@@ -189,14 +191,16 @@ class superlocus(abstractlocus):
         not_passing=set()
         self.excluded_transcripts=None
         if "requirements" in self.json_dict:
-            pass
-            for key in self.json_dict["requirements"]:
-                for tid in self.transcripts:
-                    x=getattr(self.transcripts[tid],key) # @UndefinedVariable
-                    if  eval(self.json_dict["requirements"][key]["expression"]) is False:
-                        not_passing.add(tid)
-                        continue
-                    del x # this is here only to stop Eclipse from whining about x being an unused variable
+            for tid in self.transcripts:
+                evaluated=dict()
+                for key in self.json_dict["requirements"]["parameters"]:
+                    name=self.json_dict["requirements"]["parameters"][key]["name"]
+                    value=getattr(self.transcripts[tid],name)
+                    evaluated[key]=self.evaluate(value, self.json_dict["requirements"]["parameters"][key])
+                
+                if eval(self.json_dict["requirements"]["compiled"]) is False:
+                    not_passing.add(tid)
+                    self.transcripts[tid].score=0
                     
         if len(not_passing)>0 and self.purge is True:
             tid=not_passing.pop()

@@ -112,6 +112,8 @@ def to_json(string):
             keys=json_dict["requirements"]["parameters"].keys()
             newexpr=json_dict["requirements"]["expression"][:]
         else:
+            if type(json_dict["requirements"]["expression"]) is list:
+                json_dict["requirements"]["expression"]=" ".join(json_dict["requirements"]["expression"])
             newexpr=json_dict["requirements"]["expression"][:]
             keys = list(filter(lambda x: x not in ("and","or", "not", "xor"), re.findall("([^ ()]+)", json_dict["requirements"]["expression"])))
             diff_params=set.difference(set(keys), set(json_dict["requirements"]["parameters"].keys()))

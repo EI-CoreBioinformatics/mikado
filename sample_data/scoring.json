@@ -1,29 +1,40 @@
 {
 	"requirements":{
 		"parameters":{
-			"cdna_length.1":{
+			"cdna_length.multi":{
 				"operator":"ge",
 				"value":100
 			},
-			"cdna_length.2":{
-				"operator":"ge",
-				"value":300
-			},
-			"exon_num.1":{
-				"operator":"gt",
-				"value":1
-			},
-			"exon_num.2":{
+			"exon_num.multi":{
 				"operator":"eq",
 				"value":1
 			},
-			
-			"cds_length.2":{
+			"exon_num.mono":{
+				"operator":"gt",
+				"value":1
+			},
+			"cds_length.mono":{
+				"operator":"gt",
+				"value":0
+			},
+			"best_cds_intron_fraction.multi":{
+				"operator":"gt",
+				"value":0.2
+			},
+			"cdna_length.mono":{
 				"operator":"gt",
 				"value":200
+			},
+			"exon_fraction":{
+				"value":0.1,
+				"operator":"ge"
 			}
 		},
-		"expression":"(exon_num.1 and cdna_length.1) or (exon_num.2 and cds_length.2 and cdna_length.2)"
+		"expression":["(exon_num.multi and cdna_length.multi and best_cds_intron_fraction.multi)",
+		 	"or",
+		 	"(exon_num.mono and cds_length.mono and cdna_length.mono)",
+		 	"and",
+		 	"exon_fraction"]
 	},
 	"parameters":{
 		"best_cds_number":{

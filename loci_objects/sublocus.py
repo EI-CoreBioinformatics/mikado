@@ -380,24 +380,6 @@ class sublocus(abstractlocus):
             addendum = "multi"
         
         return "{0}.{1}".format(super().id, addendum)
-    
-#     @property
-#     def available_metrics(self):
-# #         if self.__available_metrics == []:
-# #             self.__available_metrics = self.get_metrics()
-#             
-#         return self.__available_metrics
-#     
-#     @available_metrics.setter
-#     def available_metrics(self, arg):
-#         if type(arg) is not list:
-#             raise ValueError("Invalid value for the metrics: {0}, type {1}".format(
-#                                                                                    arg,
-#                                                                                    type(arg)
-#                                                                                    ))     
-#         self.__available_metrics = arg
-        
-        
         
         
         

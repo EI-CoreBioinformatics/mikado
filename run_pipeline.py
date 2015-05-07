@@ -171,6 +171,7 @@ def main():
     lock=manager.RLock()
     pool=multiprocessing.Pool(processes=args.procs) # @UndefinedVariable
     first = True    
+    jobs=[]
     for row in rower:
         
         if row.header is True: continue
@@ -186,8 +187,8 @@ def main():
                             locus_printer(currentLocus, args, cds_dict=cds_dict)
 #                             first=False
                         else:
-                            pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
-                                                                                             "lock": lock})
+                            jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                                                                                             "lock": lock}))
                     currentLocus=superlocus(currentTranscript, stranded=False,
                                             json_dict = args.json_conf,
                                             purge=args.purge)
@@ -207,8 +208,8 @@ def main():
                         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 #                         first=False
                     else:
-                        pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
-                                                                                         "lock": lock})
+                        jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                                                                                         "lock": lock}))
                         
                     currentLocus=superlocus(currentTranscript,
                                             stranded=False, json_dict = args.json_conf,
@@ -225,19 +226,32 @@ def main():
             continue
    
     if currentLocus is not None:
-        if currentTranscript is None:
-            pass
-        elif superlocus.in_locus(currentLocus, currentTranscript):
-            currentLocus.add_transcript_to_locus(currentTranscript)
-        else:
-            pool.apply_async(locus_printer, args=(currentLocus, args),
-                             kwds={"cds_dict": cds_dict, "lock": lock})
-            currentLocus=superlocus(currentTranscript,
-                                    stranded=False, json_dict = args.json_conf,
-                                    purge=args.purge)
-        pool.apply_async(locus_printer, args=(currentLocus, args),
-                             kwds={"cds_dict": cds_dict, "lock": lock})
-#         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+        if currentTranscript is not None:
+            if superlocus.in_locus(currentLocus, currentTranscript):
+                currentLocus.add_transcript_to_locus(currentTranscript)
+            else:            
+                jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args),
+                                     kwds={"cds_dict": cds_dict, "lock": lock}))
+
+                currentLocus=superlocus(currentTranscript,
+                                        stranded=False, json_dict = args.json_conf,
+                                        purge=args.purge)
+          
+        process = multiprocessing.Process(target=locus_printer,
+                                          args=(currentLocus, args),
+                                          kwargs={"cds_dict": cds_dict, "lock": lock})
+        process.start()
+        process.join()
+#         jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args),
+#                              kwds={"cds_dict": cds_dict, "lock": lock}))
+        
+        for job in jobs:
+            try:
+                job.get()
+            except:
+                print("Something has gone wrong.", file=sys.stderr)
+                print(job)
+#                 locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 
     pool.close()
     pool.join()

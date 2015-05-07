@@ -20,7 +20,7 @@ class superlocus(abstractlocus):
     
     ####### Special methods ############
     
-    def __init__(self, transcript_instance, stranded=True, json_dict = None, purge=False, is_nonpassing=False ):
+    def __init__(self, transcript_instance, stranded=True, json_dict = None, purge=False ):
         
         '''The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
         
@@ -55,7 +55,6 @@ class superlocus(abstractlocus):
         self.introns = set(self.introns)
         self.transcripts = dict()
         self.purge = purge
-        self.is_nonpassing = is_nonpassing
         super().add_transcript_to_locus(transcript_instance)
         if self.stranded is True:
             self.strand = transcript_instance.strand
@@ -199,7 +198,7 @@ class superlocus(abstractlocus):
                         continue
                     del x # this is here only to stop Eclipse from whining about x being an unused variable
                     
-        if len(not_passing)>0:
+        if len(not_passing)>0 and self.purge is True:
             tid=not_passing.pop()
             self.transcripts[tid].score=0
             monosub=monosublocus(self.transcripts[tid])
@@ -263,12 +262,6 @@ class superlocus(abstractlocus):
             for ml in sublocus_instance.monosubloci:
                 ml.parent = self.id
                 self.monosubloci.append(ml)
-            
-        if self.purge is True:
-            self.monosubloci = list(
-                                    filter(lambda ms: ms.score > 0, self.monosubloci )
-                                    )
-            
         self.monosubloci = sorted(self.monosubloci)
         self.monosubloci_defined = True
 
@@ -326,11 +319,6 @@ class superlocus(abstractlocus):
             locus_instance.parent = self.id
             self.loci.append(locus_instance)
             
-        if self.purge is True:
-            self.loci = list(
-                             filter(lambda lc: lc.score>0, self.loci)
-                             )
-            
         self.loci=sorted(self.loci)
         self.loci_defined = True
         
@@ -342,7 +330,7 @@ class superlocus(abstractlocus):
         
         for monosublocus_instance in sorted(self.monosubloci):
             if self.monoholder is None:
-                self.monoholder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict)
+                self.monoholder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, purge=self.purge)
             else:
                 self.monoholder.add_monosublocus(monosublocus_instance)
                 

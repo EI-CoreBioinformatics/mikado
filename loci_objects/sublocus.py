@@ -31,7 +31,7 @@ class sublocus(abstractlocus):
 
     ################ Class special methods ##############
     
-    def __init__(self, span, source=None, json_dict = None ):
+    def __init__(self, span, source=None, json_dict = None, purge = False ):
         
         '''This class takes as input a "span" feature - e.g. a gffLine or a transcript_instance. 
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
@@ -39,7 +39,7 @@ class sublocus(abstractlocus):
         self.fixedSize=True if span.feature=="sublocus" else False
         if span.__name__=="transcript":
             span.finalize()
-            
+        self.purge = purge
 
         if source is not None:
             self.source = source
@@ -162,22 +162,16 @@ class sublocus(abstractlocus):
 
         if len(self.introns)>0:
             transcript_instance.intron_fraction = len(transcript_instance.introns)/len(self.introns)
-            if transcript_instance.monoexonic is False:
-                assert transcript_instance.intron_fraction>0
-        else:
-            assert self.monoexonic is True, (self.transcripts.keys())
-            assert len(transcript_instance.introns )==0 
+        else: 
             transcript_instance.intron_fraction = 0
             
         if len(self.cds_introns)>0:
             transcript_instance.cds_intron_fraction = len(transcript_instance.cds_introns )/len(self.cds_introns)
         else:
-            assert len(transcript_instance.cds_introns )==0
             transcript_instance.cds_intron_fraction = 0
         if len(self.best_cds_introns)>0:
             transcript_instance.best_cds_intron_fraction = len(transcript_instance.best_cds_introns )/len(self.best_cds_introns)
         else:
-            assert len(transcript_instance.best_cds_introns )==0
             transcript_instance.best_cds_intron_fraction = 0
             
         self.find_retained_introns(transcript_instance)
@@ -234,30 +228,37 @@ class sublocus(abstractlocus):
         self.get_metrics()
         
         if "requirements" in self.json_dict:
+            previous_not_passing = set()
             while True:
                 not_passing = set()            
                 for key in self.json_dict["requirements"]:
                     for tid in self.transcripts:
                         x=getattr(self.transcripts[tid],key)
                     #assert "expression" in self.json_dict["requirements"][key], key
-                        if  eval(self.json_dict["requirements"][key]["expression"]) is False: not_passing.add(tid)
+                        if  eval(self.json_dict["requirements"][key]["expression"]) is False:
+                            if tid not in previous_not_passing:
+                                not_passing.add(tid)
                 if len(not_passing)==0:
                     break
                 
-                self.metrics_calculated = False
                 for tid in not_passing:
                     self.transcripts[tid].score=0
-                    if self.excluded is None:
-                        excluded = monosublocus(self.transcripts[tid])
-                        self.excluded = excluded_locus(excluded)
-                    else:
-                        self.excluded.add_transcript_to_locus(self.transcripts[tid])
-                    self.remove_transcript_from_locus(tid)
+                    if self.purge is True:
+                        self.metrics_calculated=False
+                        if self.excluded is None:
+                            excluded = monosublocus(self.transcripts[tid])
+                            self.excluded = excluded_locus(excluded)
+                        else:
+                            self.excluded.add_transcript_to_locus(self.transcripts[tid])
+                        self.remove_transcript_from_locus(tid)
                 if len(self.transcripts)==0:
                     return
                 else:
                     #Recalculate the metrics
                     self.get_metrics()
+                
+                previous_not_passing = not_passing.copy()
+                    
         if len(self.transcripts)==0:
             return
         scores=dict()

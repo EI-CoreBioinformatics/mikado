@@ -8,6 +8,10 @@
 			"type":"le",
 			"value":0.5
 		},
+		"retained_fraction":{
+			"type":"lt",
+			"value":0.2
+		}
 	},
 	"parameters":{
 		"best_cds_number":{

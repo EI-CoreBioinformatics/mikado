@@ -17,13 +17,14 @@ class monosublocus_holder(sublocus,abstractlocus):
 
     __name__ = "monosubloci_holder"
 
-    def __init__(self, monosublocus_instance, json_dict=None):
+    def __init__(self, monosublocus_instance, json_dict=None, purge=False):
         
         abstractlocus.__init__(self)
         self.splitted=False
         self.metrics_calculated = False
         self.json_dict = json_dict
         self.excluded=None
+        self.purge = purge
         #Add the transcript to the locus
         self.add_monosublocus(monosublocus_instance)
 

@@ -255,3 +255,28 @@ class GTF(Parser):
         line=self._handle.readline()
         if line=='': raise StopIteration
         return gtfLine(line)
+    
+    def __exit__(self):
+        self._handle.close()
+        self.closed=True
+
+    def close(self):
+        self.__exit__()
+
+    @property
+    def name(self):
+        return self._handle.name
+
+    @property
+    def closed(self):
+        return self.__closed
+    
+    @closed.setter
+    def closed(self,*args):
+        if type(args[0]) is not bool:
+            raise TypeError("Invalid value: {0}".format(args[0]))
+        
+        self.__closed = args[0]
+    
+    
+    

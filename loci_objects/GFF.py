@@ -175,6 +175,25 @@ class gffLine(object):
             self.__score=float(args[0])
         else:
             raise TypeError(args[0])
+        
+    @property
+    def is_exon(self):
+        if self.feature in ("CDS","exon") or "utr" in self.feature.lower() :
+            return True
+        return False
+        
+    @property
+    def is_transcript(self):
+        if "transcript"==self.feature or "RNA" in self.feature.upper():
+            return True
+        return False
+        
+    @property
+    def is_parent(self):
+        if self.parent is None:
+            return True
+        return False
+        
 
 class GFF3(object):
     def __init__(self,handle):
@@ -187,10 +206,15 @@ class GFF3(object):
             except: raise ValueError('File not found: {0}'.format(handle))
 
         self.header=False
+        self.closed = False
 
     def __iter__(self): return self
 
     def __next__(self):
+        
+        if self.closed:
+            raise StopIteration
+        
         line=self._handle.readline()
         if line=='': raise StopIteration
 
@@ -198,3 +222,27 @@ class GFF3(object):
             return gffLine(line, header=True)
 
         return gffLine(line)
+    
+    def __exit__(self):
+        self._handle.close()
+        self.closed=True
+
+    def close(self):
+        self.__exit__()
+
+    @property
+    def name(self):
+        return self._handle.name
+
+    @property
+    def closed(self):
+        return self.__closed
+    
+    @closed.setter
+    def closed(self,*args):
+        if type(args[0]) is not bool:
+            raise TypeError("Invalid value: {0}".format(args[0]))
+        
+        self.__closed = args[0]
+        
+        

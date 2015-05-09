@@ -5,7 +5,6 @@ from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbos
 from loci_objects.GTF import gtfLine
 from loci_objects.GFF import gffLine
 
-
 class transcript:
     
     __name__ = "transcript"
@@ -343,6 +342,16 @@ class transcript:
         self.intron_fraction=1
         self.cds_intron_fraction=1
         self.best_cds_intron_fraction=1
+
+    def reverse_strand(self):
+        '''Method to reverse the strand'''
+        if self.strand=="+":
+            self.strand="-"
+        elif self.strand=="-":
+            self.strand="+"
+        elif self.strand is None:
+            pass
+        return
 
     def load_cds(self, cds_dict, trust_strand=False):
         

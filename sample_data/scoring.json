@@ -109,5 +109,8 @@
 			"rescaling":"target",
 			"value":2
 		}
+	},
+	"final_filter":{
+		
 	}
 }

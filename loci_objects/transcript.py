@@ -233,7 +233,7 @@ class transcript:
         if self.finalized is True:
             raise RuntimeError("You cannot add exons to a finalized transcript!")
         
-        if gffLine.parent!=self.id:
+        if self.id not in gffLine.parent:
             raise AssertionError("""Mismatch between transcript and exon:\n
             {0}\n
             {1}
@@ -615,11 +615,17 @@ class transcript:
     
     @parent.setter
     def parent(self,parent):
-        if parent is not None and type(parent) is not str:
+        if type(parent) is list or parent is None:
+            self.__parent=parent
+        elif type(parent) is str:
+            if "," in parent:
+                self.__parent=parent.split(",")
+            else:
+                self.__parent=[parent]
+        else:
             raise ValueError("Invalid value for parent: {0}, type {1}".format(
                                                                           parent, type(parent)))
             
-        self.__parent=parent
         
     @property
     def strand(self):

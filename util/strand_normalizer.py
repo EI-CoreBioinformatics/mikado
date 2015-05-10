@@ -183,7 +183,7 @@ def main():
             currentTranscripts.append(new_tran)
         elif record.is_exon:
             for tran in currentTranscripts:
-                if tran.id==record.parent:
+                if tran.id not in record.parent:
                     tran.addExon(record)
 
 

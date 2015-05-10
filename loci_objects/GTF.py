@@ -211,13 +211,17 @@ class gtfLine(object):
     @property
     def parent(self):
         if self.is_transcript is True:
-            return self.gene
+            return [self.gene]
         else:
-            return self.transcript
+            return [self.transcript]
     
     @parent.setter
     def parent(self,parent):
-        assert type(parent) is str
+        if type(parent) is list:
+            assert len(parent)==1 and type(parent[0]) is str
+            parent=parent[0]
+        elif type(parent) is not str:
+            raise TypeError("Invalid type for GTF parent: {0}, {1}".format(parent, type(parent)))
         if self.is_transcript is True:
             self.gene=parent
         else:

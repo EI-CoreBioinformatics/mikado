@@ -2,6 +2,7 @@
 #coding: utf_8
 
 from loci_objects import Parser
+from copy import deepcopy
 
 class gffLine(object):
 
@@ -64,8 +65,13 @@ class gffLine(object):
         for item in [x for x in self._Attr.rstrip().split(';') if x!='']:
             itemized=item.split('=')
             try:
-                self.attributes[itemized[0]]=itemized[1]
-                self.attributeOrder.append(itemized[0])
+                if itemized[0].lower()=="parent":
+                    self.parent=itemized[1]
+                elif itemized[1].upper()=="ID":
+                    self.id=itemized[1]
+                else:
+                    self.attributes[itemized[0]]=itemized[1]
+                    self.attributeOrder.append(itemized[0])
             except IndexError:
                 pass
 #                raise IndexError(item, itemized, self._Attr)
@@ -101,9 +107,10 @@ class gffLine(object):
             strand=self.strand
         if self.phase!=None: phase=str(self.phase)
         else: phase="."
-        attrs=["ID={0}".format(self.id)]
+        if self.id is not None:
+            attrs=["ID={0}".format(self.id)]
         if self.parent is not None:
-            attrs.append("Parent={0}".format(self.parent))
+            attrs.append("Parent={0}".format(",".join(self.parent)))
         if self.attributeOrder==[]:
             self.attributeOrder=sorted(list(filter(lambda x: x not in ["ID","Parent"], self.attributes.keys())))
         for att in filter(lambda x: x not in ["ID","Parent"],  self.attributeOrder):
@@ -137,7 +144,18 @@ class gffLine(object):
         return self.attributes["Parent"]
     @parent.setter
     def parent(self,parent):
-        self.attributes["Parent"]=parent
+        if parent is None:
+            self.attributes["Parent"]=None
+        elif type(parent) is str:
+            if "," in parent:
+                parent=parent.split(",")
+            else:
+                parent=[parent]        
+            self.attributes["Parent"]=parent
+        elif type(parent) is list:
+            self.attributes["Parent"]=parent
+        else:
+            raise TypeError(parent, type(parent))
     
     @property
     def name(self):
@@ -211,6 +229,16 @@ class GFF3(Parser):
         if line[0]=="#":
             return gffLine(line, header=True)
 
-        return gffLine(line)
+        line=gffLine(line)
+        if line.parent is not None and "," in line.parent:
+            print(line.parent.split(","))
+            newLines=[]
+            for parent in line.parent.split(","):
+                newLine=deepcopy(line)
+                newLine.parent = parent
+                newLines.append(newLine)
+            return newLines
+        else:
+            return line
             
         

@@ -210,6 +210,13 @@ class gtfLine(object):
     
     @property
     def parent(self):
+        '''This property looks up the "Parent" field in the "attributes" dictionary. 
+        If the line is a transcript line, it returns the gene field.
+        Otherwise, it returns the transcript field.
+        In order to maintain interface consistency with the GFF objects and contrary to other attributes,
+        this property returns a *list*, not a string. This is due to the fact that GFF files support
+        multiple inheritance by separating the parent entries with a comma.'''
+
         if self.is_transcript is True:
             return [self.gene]
         else:

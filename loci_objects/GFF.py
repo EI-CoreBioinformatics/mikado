@@ -107,15 +107,17 @@ class gffLine(object):
             strand=self.strand
         if self.phase!=None: phase=str(self.phase)
         else: phase="."
+        attrs=[]
         if self.id is not None:
-            attrs=["ID={0}".format(self.id)]
+            attrs.append("ID={0}".format(self.id))
         if self.parent is not None:
             attrs.append("Parent={0}".format(",".join(self.parent)))
         if self.attributeOrder==[]:
             self.attributeOrder=sorted(list(filter(lambda x: x not in ["ID","Parent"], self.attributes.keys())))
         for att in filter(lambda x: x not in ["ID","Parent"],  self.attributeOrder):
-            try: attrs.append("{0}={1}".format(att, self.attributes[att]))
-            except: continue #Hack for those times when we modify the attributes at runtime
+            if self.attributes[att] is not None:
+                try: attrs.append("{0}={1}".format(att, self.attributes[att]))
+                except: continue #Hack for those times when we modify the attributes at runtime
             
         line='\t'.join(
             [self.chrom, self.source,
@@ -139,6 +141,9 @@ class gffLine(object):
         
     @property
     def parent(self):
+        '''This property looks up the "Parent" field in the "attributes" dictionary. Contrary to other attributes,
+        this property returns a *list*, not a string. This is due to the fact that GFF files support
+        multiple inheritance by separating the parent entries with a comma.'''
         if "Parent" not in self.attributes:
             self.parent=None
         return self.attributes["Parent"]

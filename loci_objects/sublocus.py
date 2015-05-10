@@ -68,7 +68,7 @@ class sublocus(abstractlocus):
             for key in ["parent", "start", "end", "chrom", "strand", "attributes"]:
                 setattr(self, key, getattr(span, key))
         
-    def __str__(self):
+    def __str__(self, print_cds=True):
         
         lines=[]
         
@@ -85,7 +85,7 @@ class sublocus(abstractlocus):
     
         for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
             self.transcripts[tid].source=self.source
-            lines.append(str(self.transcripts[tid]).rstrip())
+            lines.append(self.transcripts[tid].__str__(print_cds=print_cds).rstrip())
         
         return "\n".join(lines)
 

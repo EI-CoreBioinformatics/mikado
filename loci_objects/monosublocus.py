@@ -29,7 +29,7 @@ class monosublocus(abstractlocus):
 #         self.source = "locus_pipeline"
         self.tid = transcript_instance.id
         
-    def __str__(self):
+    def __str__(self, print_cds=True):
         
         lines=[]
 
@@ -46,7 +46,7 @@ class monosublocus(abstractlocus):
         for tid in self.transcripts:
             transcript_instance=self.transcripts[tid]
             transcript_instance.source=self.source
-            lines.append(str(transcript_instance).rstrip())
+            lines.append(transcript_instance.__str__(print_cds=print_cds).rstrip())
             
         return "\n".join(lines)
         

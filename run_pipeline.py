@@ -42,11 +42,11 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
                                     raise ValueError(err)
                             finally:
                                 break
-        sub_lines = stranded_locus.__str__(level="subloci")
+        sub_lines = stranded_locus.__str__(level="subloci", print_cds=not args.no_cds )
         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
-        mono_lines = stranded_locus.__str__(level="monosubloci")
+        mono_lines = stranded_locus.__str__(level="monosubloci", print_cds=not args.no_cds)
         locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
-        locus_lines = str(stranded_locus)
+        locus_lines = stranded_locus.__str__(print_cds=not args.no_cds)
 
         #Print out
         if lock is not None:
@@ -90,6 +90,8 @@ def main():
     parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--mono_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--locus_out", type=argparse.FileType("w"), required=True)
+    parser.add_argument("--no_cds", action="store_true", default=False,
+                        help="Flag. If set, not CDS information will be printed out in the GFF output files.")
     parser.add_argument('--source', type=str, default=None,
                         help='Source field to use for the output files.')
     parser.add_argument('--purge', action='store_true', default=False,

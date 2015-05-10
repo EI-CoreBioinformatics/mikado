@@ -9,10 +9,10 @@ class locus(monosublocus,abstractlocus):
     
     __name__ = "locus"
     
-    def __str__(self):
+    def __str__(self, print_cds=True):
           
         self.feature=self.__name__
-        return super().__str__()
+        return super().__str__(print_cds=print_cds)
     
     def other_is_fragment(self,other, percentage=1):
         '''This function checks that another *monoexonic locus on the opposite strand* does not verify one of the following:

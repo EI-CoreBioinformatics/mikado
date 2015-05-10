@@ -63,7 +63,7 @@ class superlocus(abstractlocus):
         self.set_flags()
         return
 
-    def __str__(self, level=None):
+    def __str__(self, level=None, print_cds=True):
         
         '''This function will return the desired level of children loci.
         The keyword level accepts the following four values:
@@ -97,7 +97,7 @@ class superlocus(abstractlocus):
                 lines.append(str(superlocus_line))
                 for locus_instance in self.loci:
                     locus_instance.source=source
-                    lines.append(str(locus_instance).rstrip())
+                    lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
         elif level=="monosubloci" or (level is None and self.monosubloci_defined is True):
             self.define_monosubloci()
             if len(self.monosubloci)>0:
@@ -106,7 +106,7 @@ class superlocus(abstractlocus):
                 lines.append(str(superlocus_line))
                 for monosublocus_instance in self.monosubloci:
                     monosublocus_instance.source=source
-                    lines.append(str(monosublocus_instance).rstrip())
+                    lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
         elif level=="subloci" or (level is None and self.monosubloci_defined is False):
             source="{0}_subloci".format(self.source)
             superlocus_line.source=source
@@ -114,7 +114,7 @@ class superlocus(abstractlocus):
             self.define_subloci()
             for sublocus_instance in self.subloci:
                 sublocus_instance.source=source
-                lines.append(str(sublocus_instance).rstrip())
+                lines.append(sublocus_instance.__str__(print_cds=print_cds).rstrip())
         
         if len(lines)>0:
             lines.append("###")

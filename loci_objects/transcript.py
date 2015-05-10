@@ -62,7 +62,7 @@ class transcript:
         self.has_start_codon, self.has_stop_codon = False,False
         self.non_overlapping_cds = None
         
-    def __str__(self, to_gtf=False):
+    def __str__(self, to_gtf=False, print_cds=True):
         '''Each transcript will be printed out in the GFF style.
         This is pretty rudimentary, as the class does not hold any information on the original source, feature, score, etc.'''
         
@@ -70,29 +70,116 @@ class transcript:
         lines = []
         transcript_counter = 0
 #         assert self.best_internal_orf_index > -1
+
+        print("print_cds", print_cds)
+
+        if self.strand is None:
+            strand="."
+        else:   
+            strand=self.strand
         
-        for index in range(len(self.internal_cds)):
+        if to_gtf is True:
+            parent_line = gtfLine('')
+        else:
+            parent_line=gffLine('')
+
+        if print_cds is True:
             
-            if self.number_internal_orfs>1:
-                transcript_counter+=1
-                tid = "{0}.orf{1}".format(self.id, transcript_counter)
+            for index in range(len(self.internal_cds)):
                 
-                if index==self.best_internal_orf_index: self.attributes["maximal"]=True
-                else: self.attributes["maximal"]=False
-            else:
-                tid = self.id
-            cds_run = self.internal_cds[index]
+                if self.number_internal_orfs>1:
+                    transcript_counter+=1
+                    tid = "{0}.orf{1}".format(self.id, transcript_counter)
+                    
+                    if index==self.best_internal_orf_index: self.attributes["maximal"]=True
+                    else: self.attributes["maximal"]=False
+                else:
+                    tid = self.id
+                cds_run = self.internal_cds[index]
+                    
+                parent_line.chrom=self.chrom
+                parent_line.source=self.source
+                parent_line.feature=self.feature
+                parent_line.start,parent_line.end=self.start,self.end
+                parent_line.score=self.score
+                parent_line.strand=strand
+                parent_line.phase='.'
+                parent_line.attributes=self.attributes
+                
+                parent_line.parent=self.parent
+                parent_line.id=tid
+                parent_line.name = self.id
             
-            if self.strand is None:
-                strand="."
-            else:   
-                strand=self.strand
+                exon_lines = []
             
+                cds_begin = False
+            
+                cds_count=0
+                exon_count=0
+                five_utr_count=0
+                three_utr_count=0
+    
+                for segment in cds_run:
+                    if cds_begin is False and segment[0]=="CDS": cds_begin = True
+                    if segment[0]=="UTR":
+                        if cds_begin is True:
+                            if to_gtf is True:
+                                if self.strand=="-": feature="5UTR"
+                                else: feature="3UTR"
+                            else:
+                                if self.strand=="-": feature="five_prime_UTR"
+                                else: feature="three_prime_UTR"
+                        else:
+                            if to_gtf is True:
+                                if self.strand=="-": feature="3UTR"
+                                else: feature="5UTR"
+                            else:
+                                if self.strand=="-": feature="three_prime_UTR"
+                                else: feature="five_prime_UTR"
+                        if "five" in feature or "5" in feature:
+                            five_utr_count+=1
+                            index=five_utr_count
+                        else:
+                            three_utr_count+=1
+                            index=three_utr_count
+                    else:
+                        if segment[0]=="CDS":
+                            cds_count+=1
+                            index=cds_count
+                        else:
+                            exon_count+=1
+                            index=exon_count
+                        feature=segment[0]
+                    if to_gtf is True:
+                        exon_line=gtfLine('')
+                    else:
+                        exon_line=gffLine('')
+                        
+                    exon_line.chrom=self.chrom
+                    exon_line.source=self.source
+                    exon_line.feature=feature
+                    exon_line.start,exon_line.end=segment[1],segment[2]
+                    exon_line.strand=strand
+                    exon_line.phase=None
+                    exon_line.score = None
+                    if to_gtf is True:
+                        exon_line.gene=self.parent
+                        exon_line.transcript=tid
+                    else:
+                        exon_line.id="{0}.{1}{2}".format(tid, feature,index)
+                        exon_line.parent=tid
+                        
+                    exon_lines.append(str(exon_line))
+            
+            
+                lines.append(str(parent_line))
+                lines.extend(exon_lines) 
+        else:
             if to_gtf is True:
                 parent_line = gtfLine('')
             else:
                 parent_line=gffLine('')
-                
+                    
             parent_line.chrom=self.chrom
             parent_line.source=self.source
             parent_line.feature=self.feature
@@ -101,75 +188,35 @@ class transcript:
             parent_line.strand=strand
             parent_line.phase='.'
             parent_line.attributes=self.attributes
-            
+                
             parent_line.parent=self.parent
-            parent_line.id=tid
+            parent_line.id=self.id
             parent_line.name = self.id
-        
+            
             exon_lines = []
-        
-            cds_begin = False
-        
-            cds_count=0
+            
             exon_count=0
-            five_utr_count=0
-            three_utr_count=0
-
-            for segment in cds_run:
-                if cds_begin is False and segment[0]=="CDS": cds_begin = True
-                if segment[0]=="UTR":
-                    if cds_begin is True:
-                        if to_gtf is True:
-                            if self.strand=="-": feature="5UTR"
-                            else: feature="3UTR"
-                        else:
-                            if self.strand=="-": feature="five_prime_UTR"
-                            else: feature="three_prime_UTR"
-                    else:
-                        if to_gtf is True:
-                            if self.strand=="-": feature="3UTR"
-                            else: feature="5UTR"
-                        else:
-                            if self.strand=="-": feature="three_prime_UTR"
-                            else: feature="five_prime_UTR"
-                    if "five" in feature or "5" in feature:
-                        five_utr_count+=1
-                        index=five_utr_count
-                    else:
-                        three_utr_count+=1
-                        index=three_utr_count
-                else:
-                    if segment[0]=="CDS":
-                        cds_count+=1
-                        index=cds_count
-                    else:
-                        exon_count+=1
-                        index=exon_count
-                    feature=segment[0]
+            for exon in self.exons:
+                exon_count+=1
                 if to_gtf is True:
-                    exon_line=gtfLine('')
+                    exon_line = gtfLine('')
                 else:
-                    exon_line=gffLine('')
-                    
+                    exon_line = gffLine('')
                 exon_line.chrom=self.chrom
                 exon_line.source=self.source
-                exon_line.feature=feature
-                exon_line.start,exon_line.end=segment[1],segment[2]
+                exon_line.feature="exon"
+                exon_line.start,exon_line.end=exon[0],exon[1]
+                exon_line.score=None
                 exon_line.strand=strand
                 exon_line.phase=None
-                exon_line.score = None
-                if to_gtf is True:
-                    exon_line.gene=self.parent
-                    exon_line.transcript=tid
-                else:
-                    exon_line.id="{0}.{1}{2}".format(tid, feature,index)
-                    exon_line.parent=tid
-                    
+                exon_line.attributes=self.attributes
+                
+                exon_line.id="{0}.{1}{2}".format(self.id, "exon",exon_count)
+                exon_line.parent=self.id
                 exon_lines.append(str(exon_line))
-        
-        
-            lines.append(str(parent_line))
-            lines.extend(exon_lines) 
+            
+            lines=[str(parent_line)]
+            lines.extend(exon_lines)
         
         return "\n".join(lines)
     

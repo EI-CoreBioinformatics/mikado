@@ -622,6 +622,19 @@ class transcript:
         self.__parent=parent
         
     @property
+    def strand(self):
+        return self.__strand
+    
+    @strand.setter
+    def strand(self,strand):
+        if strand in ("+", "-"):
+            self.__strand=strand
+        elif strand in (None,".","?"):
+            self.__strand=None
+        else:
+            raise ValueError("Invalid value for strand: {0}".format(strand)) 
+        
+    @property
     def score(self):
         '''Numerical value which summarizes the reliability of the transcript.'''
         return self.__score

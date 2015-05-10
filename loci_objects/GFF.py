@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #coding: utf_8
 
-import io
+from loci_objects import Parser
 
 class gffLine(object):
 
@@ -88,44 +88,6 @@ class gffLine(object):
             self.attributes['Parent']=self.attributes['PARENT'][:]
             del self.attributes['PARENT']
 
-    @property
-    def id(self):
-        return self.attributes["ID"]
-    @id.setter
-    def id(self,Id):
-        self.attributes["ID"]=Id
-        
-    @property
-    def parent(self):
-        if "Parent" not in self.attributes:
-            self.parent=None
-        return self.attributes["Parent"]
-    @parent.setter
-    def parent(self,parent):
-        self.attributes["Parent"]=parent
-    
-    @property
-    def name(self):
-        if "Name" not in self.attributes:
-            self.name=self.id
-        return self.attributes["Name"]
-    @name.setter
-    def name(self,name):
-        self.attributes["Name"]=name
-
-    @property
-    def strand(self):
-        return self.__strand
-    @strand.setter
-    def strand(self,strand):
-        if strand in ("+", "-"):
-            self.__strand=strand
-        elif strand in (None,".","?"):
-            self.__strand=None
-        else:
-            raise ValueError("Invalid value for strand: {0}".format(strand)) 
-    
-
     def __str__(self): 
         if not self.feature: return self._line.rstrip()
 
@@ -162,6 +124,44 @@ class gffLine(object):
         else: return 0
 
     @property
+    def id(self):
+        return self.attributes["ID"]
+    @id.setter
+    def id(self,Id):
+        self.attributes["ID"]=Id
+        
+    @property
+    def parent(self):
+        if "Parent" not in self.attributes:
+            self.parent=None
+        return self.attributes["Parent"]
+    @parent.setter
+    def parent(self,parent):
+        self.attributes["Parent"]=parent
+    
+    @property
+    def name(self):
+        if "Name" not in self.attributes:
+            self.name=self.id
+        return self.attributes["Name"]
+    @name.setter
+    def name(self,name):
+        self.attributes["Name"]=name
+
+    @property
+    def strand(self):
+        return self.__strand
+    
+    @strand.setter
+    def strand(self,strand):
+        if strand in ("+", "-"):
+            self.__strand=strand
+        elif strand in (None,".","?"):
+            self.__strand=None
+        else:
+            raise ValueError("Invalid value for strand: {0}".format(strand)) 
+
+    @property
     def score(self):
         return self.__score
     
@@ -195,21 +195,11 @@ class gffLine(object):
         return False
         
 
-class GFF3(object):
+class GFF3(Parser):
     def __init__(self,handle):
-        if isinstance(handle,io.IOBase):
-            self._handle=handle
-
-        else:
-            assert isinstance(handle,str)
-            try: self._handle=open(handle)
-            except: raise ValueError('File not found: {0}'.format(handle))
-
+        super().__init__(handle)
         self.header=False
-        self.closed = False
-
-    def __iter__(self): return self
-
+        
     def __next__(self):
         
         if self.closed:
@@ -222,27 +212,5 @@ class GFF3(object):
             return gffLine(line, header=True)
 
         return gffLine(line)
-    
-    def __exit__(self):
-        self._handle.close()
-        self.closed=True
-
-    def close(self):
-        self.__exit__()
-
-    @property
-    def name(self):
-        return self._handle.name
-
-    @property
-    def closed(self):
-        return self.__closed
-    
-    @closed.setter
-    def closed(self,*args):
-        if type(args[0]) is not bool:
-            raise TypeError("Invalid value: {0}".format(args[0]))
-        
-        self.__closed = args[0]
-        
+            
         

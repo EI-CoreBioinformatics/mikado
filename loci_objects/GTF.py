@@ -196,6 +196,19 @@ class gtfLine(object):
         return False
     
     @property
+    def strand(self):
+        return self.__strand
+    
+    @strand.setter
+    def strand(self,strand):
+        if strand in ("+", "-"):
+            self.__strand=strand
+        elif strand in (None,".","?"):
+            self.__strand=None
+        else:
+            raise ValueError("Invalid value for strand: {0}".format(strand)) 
+    
+    @property
     def parent(self):
         if self.is_transcript is True:
             return self.gene
@@ -249,34 +262,15 @@ class gtfLine(object):
 
 class GTF(Parser):
     '''The parsing class.'''
-    def __init__(self,handle): super(GTF, self).__init__(handle)
+    def __init__(self,handle):
+        super().__init__(handle)
         
     def __next__(self):
         line=self._handle.readline()
         if line=='': raise StopIteration
         return gtfLine(line)
     
-    def __exit__(self):
-        self._handle.close()
-        self.closed=True
 
-    def close(self):
-        self.__exit__()
-
-    @property
-    def name(self):
-        return self._handle.name
-
-    @property
-    def closed(self):
-        return self.__closed
-    
-    @closed.setter
-    def closed(self,*args):
-        if type(args[0]) is not bool:
-            raise TypeError("Invalid value: {0}".format(args[0]))
-        
-        self.__closed = args[0]
     
     
     

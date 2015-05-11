@@ -123,8 +123,7 @@ def to_json(string):
         for key in keys:
             newexpr=re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)
         json_dict["requirements"]["expression"]=newexpr
-        print(newexpr)
-        newexpr=compile(newexpr, "<json>", "eval")
-        json_dict["requirements"]["compiled"]=newexpr
+#         newexpr=compile(newexpr, "<json>", "eval")
+#         json_dict["requirements"]["compiled"]=newexpr
 
     return json_dict

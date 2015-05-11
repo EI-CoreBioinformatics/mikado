@@ -85,9 +85,9 @@ class gtfLine(object):
             
             if 'nearest_ref' in self.info: self.nearest_ref= self.info['nearest_ref']
             if 'tss_id' in self.info: self.tss_id= self.info['tss_id']
-            if 'class_code' in self.info: self.ccode=self.info['class_code']
+#             if 'class_code' in self.info: self.ccode=self.info['class_code']
             for tag in [x for x in list(self.info.keys()) if x not in ('gene_id','transcript_id','nearest_ref','tss_id','class_code')]:
-                                self.__dict__[tag.lower()]=self.info[tag]
+                self.__dict__[tag.lower()]=self.info[tag]
                                 
           
     def __str__(self):

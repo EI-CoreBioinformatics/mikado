@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
+import pickle
 import argparse,re
 import multiprocessing
 import csv
@@ -105,6 +106,9 @@ def main():
 
     args.json_conf = to_json(args.json_conf.name)
     check_json(args.json_conf)
+    if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
+        raise KeyError("Why is compiled here again?")
+    
             
     currentLocus=None
     currentTranscript=None
@@ -173,7 +177,7 @@ def main():
     lock=manager.RLock()
     pool=multiprocessing.Pool(processes=args.procs) # @UndefinedVariable
     first = True    
-    jobs=[]
+    jobs=dict()
     for row in rower:
         
         if row.header is True: continue
@@ -189,8 +193,11 @@ def main():
                             locus_printer(currentLocus, args, cds_dict=cds_dict)
 #                             first=False
                         else:
-                            jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
-                                                                                             "lock": lock}))
+                            if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
+                                raise KeyError("Why is compiled here again?")
+
+                            jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                                                                                             "lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False,
                                             json_dict = args.json_conf,
                                             purge=args.purge)
@@ -210,8 +217,11 @@ def main():
                         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 #                         first=False
                     else:
-                        jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
-                                                                                         "lock": lock}))
+                        if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
+                            raise KeyError("Why is compiled here again?")
+                        
+                        jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                                                                                         "lock": lock})
                         
                     currentLocus=superlocus(currentTranscript,
                                             stranded=False, json_dict = args.json_conf,
@@ -231,28 +241,36 @@ def main():
         if currentTranscript is not None:
             if superlocus.in_locus(currentLocus, currentTranscript):
                 currentLocus.add_transcript_to_locus(currentTranscript)
-            else:            
-                jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args),
-                                     kwds={"cds_dict": cds_dict, "lock": lock}))
+            else:
+                if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
+                    raise KeyError("Why is compiled here again?")
+            
+                jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args),
+                                     kwds={"cds_dict": cds_dict, "lock": lock})
 
                 currentLocus=superlocus(currentTranscript,
                                         stranded=False, json_dict = args.json_conf,
                                         purge=args.purge)
-          
-        process = multiprocessing.Process(target=locus_printer,
-                                          args=(currentLocus, args),
-                                          kwargs={"cds_dict": cds_dict, "lock": lock})
-        process.start()
-        process.join()
+                
+        jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                                                                                         "lock": lock})
+        
+#         process = multiprocessing.Process(target=locus_printer, # @UndefinedVariable
+#                                           args=(currentLocus, args),
+#                                           kwargs={"cds_dict": cds_dict, "lock": lock})
+#         process.start()
+#         process.join()
 #         jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args),
 #                              kwds={"cds_dict": cds_dict, "lock": lock}))
         
         for job in jobs:
             try:
-                job.get()
+                jobs[job].get()
             except:
-                print("Something has gone wrong.", file=sys.stderr)
-                print(job)
+                print("Something has gone wrong with the final process.", file=sys.stderr)
+                print(job.chrom, job.start, job.end, ",".join(job.transcripts))
+                locus_printer(job, args, cds_dict=cds_dict, lock=lock)
+                pickle.dumps(job)
 #                 locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
 
     pool.close()

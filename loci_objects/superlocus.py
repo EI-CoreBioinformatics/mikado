@@ -5,7 +5,7 @@ from loci_objects.monosublocus import monosublocus
 from loci_objects.excluded_locus import excluded_locus
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
-from copy import copy
+from copy import deepcopy as copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
 from loci_objects.GFF import gffLine
@@ -42,7 +42,7 @@ class superlocus(abstractlocus):
         self.feature=self.__name__
         if json_dict is None or type(json_dict) is not dict:
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
-        self.json_dict = json_dict
+        self.json_dict = copy(json_dict)
         
         #Dynamically load required modules
         if "modules" in self.json_dict:
@@ -184,12 +184,14 @@ class superlocus(abstractlocus):
             - Call the "merge_cliques" algorithm the merge the cliques.
             - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
         '''
-        
+
+        self.compile_requirements()
         if self.subloci_defined is True:
             return
         self.subloci = []
         not_passing=set()
         self.excluded_transcripts=None
+
         if "requirements" in self.json_dict:
             for tid in self.transcripts:
                 evaluated=dict()
@@ -338,7 +340,17 @@ class superlocus(abstractlocus):
             else:
                 self.monoholder.add_monosublocus(monosublocus_instance)
                 
+    def compile_requirements(self):
+        '''Quick function to evaluate the filtering expression, if it is present.'''
         
+        if "requirements" in self.json_dict:
+            if "compiled" in self.json_dict["requirements"]:
+                return
+            else:
+                self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
+                return
+        else:
+            return
 
     ############# Class methods ###########
     

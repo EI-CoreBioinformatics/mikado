@@ -4,7 +4,6 @@ from loci_objects.excluded_locus import excluded_locus
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 #import random
-#from copy import copy
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
 from loci_objects.GFF import gffLine
@@ -228,6 +227,7 @@ class sublocus(abstractlocus):
         self.get_metrics()
         
         if "requirements" in self.json_dict:
+            self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
             previous_not_passing = set()
             while True:
                 not_passing = set()

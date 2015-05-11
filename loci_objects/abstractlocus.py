@@ -3,6 +3,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import abc
 import random
 from copy import copy
+import logging
 
 class abstractlocus(metaclass=abc.ABCMeta):
     
@@ -16,7 +17,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
     ###### Special methods #########
     
     @abc.abstractmethod
-    def __init__(self):
+    def __init__(self, logger=None):
         self.transcripts = dict()
         self.introns, self.exons, self.splices = set(), set(), set()
         #Consider only the CDS part
@@ -25,6 +26,11 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.stranded=True
         self.initialized = False
         #raise NotImplementedError("This is an abstract class and should not be called directly!")
+        if logger is None:
+            self.logger = logging.Logger("{0}_logger".format(self.__name__))
+        else:
+            self.logger=logger
+        
     
     @abc.abstractmethod
     def __str__(self):

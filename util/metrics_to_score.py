@@ -22,6 +22,7 @@ def calculate_score(rows, json_dict):
     
     not_passing=set()
     if "requirements" in json_dict:
+        json_dict["requirements"]["compiled"]=compile(json_dict["requirements"]["expression"], "<json>", "eval")
         for tid in transcripts:
             evaluated=dict()
             for key in json_dict["requirements"]["parameters"]:

@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 from loci_objects.GTF import gtfLine
 from loci_objects.GFF import gffLine
+import logging
 
 class transcript:
     
@@ -70,8 +71,6 @@ class transcript:
         lines = []
         transcript_counter = 0
 #         assert self.best_internal_orf_index > -1
-
-        print("print_cds", print_cds)
 
         if self.strand is None:
             strand="."

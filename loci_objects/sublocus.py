@@ -76,7 +76,7 @@ class sublocus(abstractlocus):
         for attr in ["chrom", 'feature','source','start','end','strand']:
             setattr(self_line,attr, getattr(self,attr))
         self_line.phase,self_line.score=None,None
-        self_line.id=self.id
+        self_line.id="{0}_{1}".format(self.source,self.id)
         self_line.name=self.name
         self_line.parent=self.parent
         self_line.attributes["multiexonic"]=(not self.monoexonic)
@@ -84,6 +84,7 @@ class sublocus(abstractlocus):
     
         for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
             self.transcripts[tid].source=self.source
+            self.transcripts[tid].parent=self_line.id
             lines.append(self.transcripts[tid].__str__(print_cds=print_cds).rstrip())
         
         return "\n".join(lines)
@@ -133,14 +134,14 @@ class sublocus(abstractlocus):
             new_remaining = remaining.copy()
             del new_remaining[best_tid]
             for tid in filter(lambda t: t!=best_tid, remaining.keys()):
-                if self.is_intersecting(best_transcript, new_remaining[tid]):
+                res=self.is_intersecting(best_transcript, new_remaining[tid])
+                if res is True:
                     del new_remaining[tid]
             if best_transcript.score==0 and purge is True:
                 pass
             else:
                 new_locus = monosublocus(best_transcript)
                 self.monosubloci.append(new_locus)
-                    
             remaining=new_remaining.copy()
             if len(remaining)==0: break
             

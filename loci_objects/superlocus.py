@@ -83,7 +83,8 @@ class superlocus(abstractlocus):
         superlocus_line.start,superlocus_line.end,superlocus_line.score=self.start, self.end, "."
         superlocus_line.strand=self.strand
         superlocus_line.phase, superlocus_line.score=None,None
-        superlocus_line.id,superlocus_line.name=self.id, self.name
+        new_id = "{0}_{1}".format(self.source,self.id)
+        superlocus_line.id,superlocus_line.name=new_id, self.name
 
         lines=[]
         if level not in (None, "loci", "subloci", "monosubloci"):
@@ -97,6 +98,7 @@ class superlocus(abstractlocus):
                 lines.append(str(superlocus_line))
                 for locus_instance in self.loci:
                     locus_instance.source=source
+                    locus_instance.parent = new_id
                     lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
         elif level=="monosubloci" or (level is None and self.monosubloci_defined is True):
             self.define_monosubloci()
@@ -106,6 +108,7 @@ class superlocus(abstractlocus):
                 lines.append(str(superlocus_line))
                 for monosublocus_instance in self.monosubloci:
                     monosublocus_instance.source=source
+                    monosublocus_instance.parent = new_id
                     lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
         elif level=="subloci" or (level is None and self.monosubloci_defined is False):
             source="{0}_subloci".format(self.source)
@@ -114,6 +117,7 @@ class superlocus(abstractlocus):
             self.define_subloci()
             for sublocus_instance in self.subloci:
                 sublocus_instance.source=source
+                sublocus_instance.parent = new_id
                 lines.append(sublocus_instance.__str__(print_cds=print_cds).rstrip())
         
         if len(lines)>0:
@@ -221,15 +225,13 @@ class superlocus(abstractlocus):
             self.subloci_defined=True
             return
 
-        candidates = set(self.transcripts.values()) # This will order the transcripts based on their position
+        candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
             raise ValueError("This superlocus has no transcripts in it!")
         
-        original=copy(candidates)
-        
-        cliques = set( tuple(clique) for clique in self.BronKerbosch(set(), candidates, set(), original))
-        
+        cliques = self.find_cliques(candidates, inters=self.is_intersecting)
         subloci = self.merge_cliques(cliques)
+
         #Now we should define each sublocus and store it in a permanent structure of the class
                 
         for subl in subloci:
@@ -362,22 +364,25 @@ class superlocus(abstractlocus):
         If one is monoexonic and the other is not,  the function will return False by definition.        
         '''
         
+        transcript.finalize()
+        other.finalize()
         if transcript.id==other.id: return False # We do not want intersection with oneself
         monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript, other]   )  )   )
         
         if monoexonic_check==0: #Both multiexonic
-            for junc in transcript.introns:
-                if junc in other.introns:
-                    return True
+            intersection = set.intersection(transcript.introns, other.introns)
+            if len(intersection)>0:
+                return True
         
         elif monoexonic_check==1: #One monoexonic, the other multiexonic: different subloci by definition
             return False
         
         elif monoexonic_check==2:
-            if cls.overlap(
+            test_result =cls.overlap(
                            (transcript.start, transcript.end),
                            (other.start, other.end)
-                           )>0: #A simple overlap analysis will suffice
+                           ) 
+            if test_result>0: #A simple overlap analysis will suffice
                 return True
         return False
     

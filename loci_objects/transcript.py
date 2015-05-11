@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 from loci_objects.GTF import gtfLine
 from loci_objects.GFF import gffLine
-import logging
+#import logging
 
 class transcript:
     
@@ -192,6 +192,7 @@ class transcript:
             parent_line.id=self.id
             parent_line.name = self.id
             
+            lines=[str(parent_line)]
             exon_lines = []
             
             exon_count=0
@@ -214,7 +215,6 @@ class transcript:
                 exon_line.parent=self.id
                 exon_lines.append(str(exon_line))
             
-            lines=[str(parent_line)]
             lines.extend(exon_lines)
         
         return "\n".join(lines)
@@ -551,9 +551,7 @@ class transcript:
                 candidates.extend([tuple([a[1],a[2]]) for a in filter(lambda tup: tup[0]=="CDS", internal_cds  )])
                               
             candidates=set(candidates)
-            original=candidates.copy()
-            for mc in self.merge_cliques(list(self.BronKerbosch(set(), candidates, set(), original,
-                                                           ))):
+            for mc in self.merge_cliques(list(self.find_cliques(candidates))):
                 span=tuple([min(t[0] for t in mc),
                             max(t[1] for t in mc)                        
                             ])
@@ -561,16 +559,6 @@ class transcript:
                 
 
             self.combined_cds = sorted(cds_spans, key = operator.itemgetter(0,1))
-#             cds_spans=sorted(cds_spans, key = operator.itemgetter(0,1))
-#             new_cds_spans = []
-#             for span in cds_spans:
-#                 if new_cds_spans == []:
-#                     new_cds_spans.append(span)
-#                 elif new_cds_spans[-1][1]<span[0]:
-#                     new_cds_spans.append(span)
-#                 elif new_cds_spans[-1]==span[0]:
-#                     new_cds_spans[-1]=(new_cds_spans[-1][0], span[1])
-#             self.combined_cds = new_cds_spans
             
             #This method is probably OBSCENELY inefficient, but I cannot think of a better one for the moment.
             curr_utr_segment = None
@@ -605,13 +593,10 @@ class transcript:
       
     @classmethod
     ####################Class methods#####################################  
-    def BronKerbosch(cls, clique, candidates, non_clique, original):
+    def find_cliques(cls, candidates):
         '''Wrapper for the abstractlocus method. It will pass to the function the class's "is_intersecting" method
         (which would be otherwise be inaccessible from the abstractlocus class method)'''
-        for clique in abstractlocus.BronKerbosch(clique, candidates, non_clique, original,
-                                                 inters=cls.is_intersecting,
-                                                 neighbours = None   ):
-            yield clique
+        return abstractlocus.find_cliques( candidates, inters=cls.is_intersecting)
     
     @classmethod
     def is_intersecting(cls, first, second):

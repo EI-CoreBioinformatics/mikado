@@ -37,7 +37,7 @@ class monosublocus(abstractlocus):
         for attr in ["chrom", 'feature','source','start','end','strand']:
             setattr(self_line,attr, getattr(self,attr))
         self_line.phase,self_line.score=None,self.score
-        self_line.id=self.id
+        self_line.id="{0}_{1}".format(self.source,self.id)
         self_line.name=self.name
         self_line.parent=self.parent
         self_line.attributes["multiexonic"]=(not self.monoexonic)
@@ -46,6 +46,7 @@ class monosublocus(abstractlocus):
         for tid in self.transcripts:
             transcript_instance=self.transcripts[tid]
             transcript_instance.source=self.source
+            transcript_instance.parent=self_line.id 
             lines.append(transcript_instance.__str__(print_cds=print_cds).rstrip())
             
         return "\n".join(lines)

@@ -130,70 +130,76 @@ class abstractlocus(metaclass=abc.ABCMeta):
                 return True
         return False 
 
+
+    @classmethod
+    def find_cliques(cls,objects, inters=None):
+        '''Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
+        It is the new interface for the BronKerbosch function, which is not called directly from outside this class any longer.
+        The "inters" keyword provides the function used to determine whether two vertices are connected or not in the graph.
+        '''
+        assert hasattr(inters, "__call__")
+        if inters is None:
+            inters = cls.is_intersecting
+        
+        graph = dict()
+        for obj in objects:
+            graph[obj]=set( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True )
+
+        final_cliques = []
+        candidates = set(graph.keys())
+        non_clique=set()
+        clique=set()  
+        
+        for vertex in graph:
+            neighbours = graph[vertex]
+            vertex_clique = set.union(clique, set([vertex])) # this is identical to neighbours
+            vertex_candidates = set.intersection( candidates, neighbours )
+            vertex_non_clique = set.intersection( non_clique, neighbours)
+            final_cliques.extend(cls.BronKerbosch(graph, vertex_clique, vertex_candidates, vertex_non_clique, []))
+            candidates.remove(vertex)
+            non_clique.add(vertex)
+        return final_cliques
+
+
     @classmethod    
-    def BronKerbosch(cls, clique, candidates, non_clique, original, inters = None, neighbours = None ):
+    def BronKerbosch(cls, graph, clique, candidates, non_clique, final_cliques):
         '''Implementation of the Bron-Kerbosch algorithm with pivot to define the subloci.
         We are using the class method "is_intersecting" to define the neighbours.
         Wiki: http://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm
-        The function takes four arguments and two keyword arguments:
-            - clique            the cliques already found. This should be initialised as an empty set.
+        The function takes five arguments:
+            - graph            The original graph. It must be a *dictionary* of the form dict[vertex]=set(intersecting vertices) - i.e. the neighbours 
+            - clique            the current clique. Initialize to an empty set. 
             - candidates        the elements to be analysed. This should be a set.
-            - non_clique        Elements which have already been analysed and determined not to be cliques
-            - original          A copy of the candidates set. Needed for the iteration.
-            
-        Keyword arguments:
-             - inters=None      The intersection function to determine the cliques. It defaults to the class "is_intersecting" method.
-             - neighbours=None  The function used to determine the neighbours of an element. It defaults to the class "neighbours" method.
+            - non_clique        Elements which have already been analysed and determined not to be in the clique
+            - final_clique    The list of the final cliques. It should be initialised to an empty list.
         '''
 
         pool=set.union(candidates,non_clique)
-
         if not any((candidates, non_clique)) or len( pool )==0:
-            yield clique
-            return
-        
-        if inters is None:
-            inters = cls.is_intersecting
-        if neighbours is None:
-            neighbours = cls.neighbours
-        
-        #Check the functions are actually functions
-        assert hasattr(inters, "__call__") and hasattr(neighbours, "__call__")
+            final_cliques.append(clique)
+        else:
+            pivot = random.sample( pool, 1)[0]
+            excluded = set.difference( candidates, graph[pivot])
 
-        pivot = random.sample( pool, 1)[0]
-        pivot_neighbours = neighbours(pivot, original, inters = inters)
-        excluded = set.difference( candidates, pivot_neighbours)
+            for vertex in excluded:
+                vertex_neighbours = graph[vertex]
+                cls.BronKerbosch(graph, clique.union(set([vertex])),
+                                 candidates.intersection(vertex_neighbours),
+                                 non_clique.intersection(vertex_neighbours),
+                                 final_cliques)
+                
+                candidates.remove(vertex)
+                non_clique.add(vertex)
+                
+        return final_cliques
 
-        for vertex in excluded:
-            vertex_neighbours = neighbours(vertex, original, inters = inters )
-            clique_vertex = set.union(clique, set([vertex]))
-            for result in cls.BronKerbosch(
-                    clique_vertex,
-                    set.intersection(candidates, vertex_neighbours),
-                    set.intersection(non_clique, vertex_neighbours),
-                    original,
-                    neighbours = neighbours,
-                    inters = inters
-                    ):
-                yield result
-            candidates.remove(vertex)
-            non_clique.add(vertex)
-
-    @classmethod
-    def neighbours( cls, vertex, graph, inters = None):
-        if inters is None:
-            inters = cls.is_intersecting
-        
-        '''Function to define the vertices which are near a given vertex in the graph.'''
-        return set(filter(lambda x: inters(vertex, x), graph))
-        
     @classmethod
     def merge_cliques(cls, cliques):
         '''This class method will merge together intersecting cliques found by the Bron-Kerbosch algorithm.
         It is therefore used to e.g. create the subloci.
         It is a somewhat naive implementation; it might be made better by looking for a more specific algorithm.
         Usually the method should be called as follows:
-            - cliques = self.BronKerbosch( set(), candidates, set(), copy(candidates))
+            - cliques = self.find_cliques(objects, inters=intersecting_function)
             - merged_cliques = self.merge_cliques(cliques) 
         '''
         merged_cliques = set()

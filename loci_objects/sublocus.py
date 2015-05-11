@@ -59,8 +59,6 @@ class sublocus(abstractlocus):
             for mod in self.json_dict["modules"]:
                 globals()[mod]=importlib.import_module(mod)
         
-        #assert hasattr(self, "monoexonic")
-
         if type(span) is transcript:
             self.add_transcript_to_locus(span)
         else:
@@ -129,18 +127,18 @@ class sublocus(abstractlocus):
         remaining = self.transcripts.copy()
         
         while len(remaining)>0:
-            best_tid=self.choose_best(remaining.copy())
-            best_transcript = remaining[best_tid]
+            selected_tid=self.choose_best(remaining.copy())
+            selected_transcript = remaining[selected_tid]
             new_remaining = remaining.copy()
-            del new_remaining[best_tid]
-            for tid in filter(lambda t: t!=best_tid, remaining.keys()):
-                res=self.is_intersecting(best_transcript, new_remaining[tid])
+            del new_remaining[selected_tid]
+            for tid in filter(lambda t: t!=selected_tid, remaining.keys()):
+                res=self.is_intersecting(selected_transcript, new_remaining[tid])
                 if res is True:
                     del new_remaining[tid]
-            if best_transcript.score==0 and purge is True:
+            if selected_transcript.score==0 and purge is True:
                 pass
             else:
-                new_locus = monosublocus(best_transcript)
+                new_locus = monosublocus(selected_transcript)
                 self.monosubloci.append(new_locus)
             remaining=new_remaining.copy()
             if len(remaining)==0: break
@@ -161,18 +159,18 @@ class sublocus(abstractlocus):
         self.transcripts[tid].exon_fraction = len(set.intersection( self.exons,self.transcripts[tid].exons   ))/len(self.exons)
 
         if len(self.introns)>0:
-            transcript_instance.intron_fraction = len(transcript_instance.introns)/len(self.introns)
+            transcript_instance.intron_fraction = len(set.intersection(transcript_instance.introns, self.introns))/len(self.introns)
         else: 
             transcript_instance.intron_fraction = 0
+        if len(self.selected_cds_introns)>0:
+            transcript_instance.selected_cds_intron_fraction = len(set.intersection(transcript_instance.selected_cds_introns, set(self.selected_cds_introns)) )/len(self.selected_cds_introns)
+        else:
+            transcript_instance.selected_cds_intron_fraction = 0
             
-        if len(self.cds_introns)>0:
-            transcript_instance.cds_intron_fraction = len(transcript_instance.cds_introns )/len(self.cds_introns)
+        if len(self.combined_cds_introns)>0:
+            transcript_instance.combined_cds_intron_fraction = len(set.intersection(set(transcript_instance.combined_cds_introns), set(self.combined_cds_introns)) )/len(self.combined_cds_introns)
         else:
-            transcript_instance.cds_intron_fraction = 0
-        if len(self.best_cds_introns)>0:
-            transcript_instance.best_cds_intron_fraction = len(transcript_instance.best_cds_introns )/len(self.best_cds_introns)
-        else:
-            transcript_instance.best_cds_intron_fraction = 0
+            transcript_instance.combined_cds_intron_fraction = 0
             
         self.find_retained_introns(transcript_instance)
         transcript_instance.retained_fraction=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
@@ -190,11 +188,11 @@ class sublocus(abstractlocus):
         transcript_instance.retained_introns=[]
         
         if transcript_instance.strand=="+":
-            filtering = filter(lambda e: e not in transcript_instance.non_overlapping_cds and e[0]>=transcript_instance.cds_start,
+            filtering = filter(lambda e: e not in transcript_instance.non_overlapping_cds and e[0]>=transcript_instance.combined_cds_start,
                                transcript_instance.exons                               
                                )
         else:
-            filtering = filter(lambda e: e not in transcript_instance.non_overlapping_cds and e[1]<=transcript_instance.cds_start,
+            filtering = filter(lambda e: e not in transcript_instance.non_overlapping_cds and e[1]<=transcript_instance.combined_cds_start,
                                transcript_instance.exons                               
                                )
         for exon in filtering:
@@ -331,7 +329,7 @@ class sublocus(abstractlocus):
         
         for tid in self.transcripts:
             self.calculate_metrics(tid)
-
+            
         self.metrics_calculated = True
         return
 

@@ -21,7 +21,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.transcripts = dict()
         self.introns, self.exons, self.splices = set(), set(), set()
         #Consider only the CDS part
-        self.cds_introns, self.best_cds_introns = set(), set()
+        self.combined_cds_introns, self.selected_cds_introns = set(), set()
         self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
         self.stranded=True
         self.initialized = False
@@ -231,24 +231,22 @@ class abstractlocus(metaclass=abc.ABCMeta):
         
         '''
         
-        best_score,best_tid=float("-Inf"),[]
+        selected_score,selected_tid=float("-Inf"),[]
         if len(transcripts)==0:
             raise ValueError("Empty dictionary!")
         for tid in transcripts:
             score=transcripts[tid].score
-            if score>best_score:
-                best_score,best_tid=score,[tid]
-            elif score==best_score:
-                best_tid.append(tid)
-        if len(best_tid)!=1:
-            if len(best_tid)==0:
-                raise ValueError("Odd. I have not been able to find the transcript with the best score: {0}".format(best_score))
+            if score>selected_score:
+                selected_score,selected_tid=score,[tid]
+            elif score==selected_score:
+                selected_tid.append(tid)
+        if len(selected_tid)!=1:
+            if len(selected_tid)==0:
+                raise ValueError("Odd. I have not been able to find the transcript with the best score: {0}".format(selected_score))
             else:
-#                 print("WARNING: multiple transcripts with the same score ({0}). I will choose one randomly.".format(", ".join(best_tid)
-#                                                                                                                     ) , file=sys.stderr)
-                best_tid=random.sample(best_tid, 1) #this returns a list
-        best_tid=best_tid[0]
-        return best_tid
+                selected_tid=random.sample(selected_tid, 1) #this returns a list
+        selected_tid=selected_tid[0]
+        return selected_tid
 
 
     ####### Class instance methods  #######
@@ -288,9 +286,9 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.transcripts[transcript_instance.id]=copy(transcript_instance)
         self.splices.update(transcript_instance.splices)
         self.introns.update(transcript_instance.introns)
-        
-        self.cds_introns.update(transcript_instance.cds_introns)
-        self.best_cds_introns.update(transcript_instance.best_cds_introns)
+       
+        self.combined_cds_introns=set.union(self.combined_cds_introns,transcript_instance.combined_cds_introns)
+        self.selected_cds_introns.update(transcript_instance.selected_cds_introns)
         
         self.exons.update(set(transcript_instance.exons))
         for transcript_id in self.transcripts:
@@ -308,7 +306,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if len(self.transcripts)==1:
             self.transcripts = dict()
             self.introns, self.exons, self.splices = set(), set(), set()
-            self.cds_introns, self.best_cds_introns = set(), set()
+            self.cds_introns, self.selected_cds_introns = set(), set()
             self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
             self.stranded=True
             self.initialized = False
@@ -334,10 +332,10 @@ class abstractlocus(metaclass=abc.ABCMeta):
             cds_introns_to_remove = set.difference(set(self.transcripts[tid].cds_introns), other_cds_introns)
             self.cds_introns.difference_update(cds_introns_to_remove) 
 
-            #Remove excess best_cds_introns
-            other_best_cds_introns = set.union(*[ set(self.transcripts[otid].best_cds_introns) for otid in self.transcripts if otid!=tid  ])
-            best_cds_introns_to_remove = set.difference(set(self.transcripts[tid].best_cds_introns), other_best_cds_introns)
-            self.best_cds_introns.difference_update(best_cds_introns_to_remove) 
+            #Remove excess selected_cds_introns
+            other_selected_cds_introns = set.union(*[ set(self.transcripts[otid].selected_cds_introns) for otid in self.transcripts if otid!=tid  ])
+            selected_cds_introns_to_remove = set.difference(set(self.transcripts[tid].selected_cds_introns), other_selected_cds_introns)
+            self.selected_cds_introns.difference_update(selected_cds_introns_to_remove) 
 
             #Remove excess splices
             other_splices = set.union(*[ self.transcripts[otid].splices for otid in self.transcripts if otid!=tid  ])

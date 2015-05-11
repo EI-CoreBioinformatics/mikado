@@ -13,11 +13,11 @@
 				"operator":"gt",
 				"value":1
 			},
-			"cds_length.mono":{
+			"combined_cds_length.mono":{
 				"operator":"gt",
 				"value":0
 			},
-			"best_cds_intron_fraction.multi":{
+			"selected_cds_intron_fraction.multi":{
 				"operator":"gt",
 				"value":0.2
 			},
@@ -30,24 +30,24 @@
 				"operator":"ge"
 			}
 		},
-		"expression":["(exon_num.multi and cdna_length.multi and best_cds_intron_fraction.multi)",
+		"expression":["(exon_num.multi and cdna_length.multi and selected_cds_intron_fraction.multi)",
 		 	"or",
-		 	"(exon_num.mono and cds_length.mono and cdna_length.mono)",
+		 	"(exon_num.mono and combined_cds_length.mono and cdna_length.mono)",
 		 	"and",
 		 	"exon_fraction"]
 	},
 	"parameters":{
-		"best_cds_number":{
+		"selected_cds_number":{
 			"rescaling":"max"
 		},
 		"cdna_length":{
 			"rescaling":"max"
 		},
-		"cds_fraction":{
+		"selected_cds_fraction":{
 			"rescaling":"target",
 			"value":0.9
 		},
-		"cds_length":{
+		"selected_cds_length":{
 			"rescaling":"max"
 		},
 		"cds_not_maximal":{
@@ -56,7 +56,7 @@
 		"cds_not_maximal_fraction":{
 			"rescaling":"min"
 		},
-		"cds_num":{
+		"selected_cds_num":{
 			"rescaling":"max"
 		},
 		"combined_cds_fraction":{
@@ -85,10 +85,10 @@
 		"intron_fraction":{
 			"rescaling":"max"
 		},
-		"cds_intron_fraction":{
+		"combined_cds_intron_fraction":{
 			"rescaling":"max"
 		},
-		"best_cds_intron_fraction":{
+		"selected_cds_intron_fraction":{
 			"rescaling":"max"
 		},
 		"number_internal_orfs":{

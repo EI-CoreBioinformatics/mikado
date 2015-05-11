@@ -59,7 +59,7 @@ class transcript:
         self.finalized = False # Flag. We do not want to repeat the finalising more than once.
         self.parent = gffLine.parent
         self.attributes = gffLine.attributes
-        self.best_internal_orf_index = None
+        self.selected_internal_orf_index = None
         self.has_start_codon, self.has_stop_codon = False,False
         self.non_overlapping_cds = None
         
@@ -70,7 +70,7 @@ class transcript:
         self.finalize() #Necessary to sort the exons
         lines = []
         transcript_counter = 0
-#         assert self.best_internal_orf_index > -1
+#         assert self.selected_internal_orf_index > -1
 
         if self.strand is None:
             strand="."
@@ -90,7 +90,7 @@ class transcript:
                     transcript_counter+=1
                     tid = "{0}.orf{1}".format(self.id, transcript_counter)
                     
-                    if index==self.best_internal_orf_index: self.attributes["maximal"]=True
+                    if index==self.selected_internal_orf_index: self.attributes["maximal"]=True
                     else: self.attributes["maximal"]=False
                 else:
                     tid = self.id
@@ -366,12 +366,12 @@ class transcript:
                 
         self.internal_cds.append(self.segments)
         if self.combined_cds_length>0:
-            self.best_internal_orf_index=0
+            self.selected_internal_orf_index=0
         
         self.introns = set(self.introns)
         self.splices = set(self.splices)            
-        _ = self.best_internal_orf
-#         assert self.best_internal_orf_index > -1
+        _ = self.selected_internal_orf
+#         assert self.selected_internal_orf_index > -1
         if len(self.combined_cds)>0:
             self.feature="mRNA"
         
@@ -387,7 +387,7 @@ class transcript:
         self.exon_fraction=1
         self.intron_fraction=1
         self.cds_intron_fraction=1
-        self.best_cds_intron_fraction=1
+        self.selected_cds_intron_fraction=1
 
     def reverse_strand(self):
         '''Method to reverse the strand'''
@@ -442,16 +442,16 @@ class transcript:
         original_strand = self.strand
         new_strand = None
         
-        best_cds=True # Token to be set to False after the first CDS is exhausted 
+        selected_cds=True # Token to be set to False after the first CDS is exhausted 
         for cds_run in sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("cds_len") ):
             
             cds_start, cds_end, strand = cds_run.cdsStart, cds_run.cdsEnd, cds_run.strand
             if not (cds_start>=1 and cds_end<=self.cdna_length):
                 continue
             
-            if best_cds:
+            if selected_cds:
                 self.has_start_codon, self.has_stop_codon = cds_run.has_start_codon, cds_run.has_stop_codon
-            best_cds=False # Exhaust the token
+            selected_cds=False # Exhaust the token
 
             # assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )
             
@@ -709,7 +709,7 @@ class transcript:
 
     @property
     def combined_cds_fraction(self):
-        '''This property return the length of the CDS part of the transcript.'''
+        '''This property return the percentage of the CDS part of the transcript vs. the cDNA length'''
         return self.combined_cds_length/self.cdna_length
     
     @property
@@ -734,37 +734,37 @@ class transcript:
         return len(self.internal_cds)
 
     @property
-    def cds_length(self):
+    def selected_cds_length(self):
         '''This property calculates the length of the greatest CDS inside the cDNA.'''
         if len(self.combined_cds)==0:
             self.__max_internal_orf_length=0
         else:
-            self.__max_internal_orf_length=sum(x[2]-x[1]+1 for x in filter(lambda x: x[0]=="CDS", self.best_internal_orf))
+            self.__max_internal_orf_length=sum(x[2]-x[1]+1 for x in filter(lambda x: x[0]=="CDS", self.selected_internal_orf))
         return self.__max_internal_orf_length
     
     @property
-    def cds_num(self):
+    def selected_cds_num(self):
         '''This property calculates the number of CDS exons for the greatest ORF'''
-        return len(list( filter(lambda exon: exon[0]=="CDS", self.best_internal_orf) ))
+        return len(list( filter(lambda exon: exon[0]=="CDS", self.selected_internal_orf) ))
     
     @property
-    def cds_fraction(self):
+    def selected_cds_fraction(self):
         '''This property calculates the fraction of the greatest CDS vs. the cDNA length.'''
         return self.__max_internal_orf_length/self.cdna_length
     
     @property
-    def best_cds_exons_num(self):
+    def highest_cds_exons_num(self):
         '''Returns the number of CDS segments in the greatest ORF (irrespective of the number of exons involved)'''
-        return len(list(filter(lambda x: x[0]=="CDS", self.best_internal_orf)))
+        return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))
     
     @property
-    def best_cds_exons_fraction(self):
+    def selected_cds_exons_fraction(self):
         '''Returns the fraction of CDS segments in the greatest ORF (irrespective of the number of exons involved)'''
-        return len(list(filter(lambda x: x[0]=="CDS", self.best_internal_orf)))/len(self.exons)
+        return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))/len(self.exons)
     
 
     @property
-    def best_cds_number(self):
+    def selected_cds_number(self):
         '''This property returns the maximum number of CDS segments among the ORFs; this number
         can refer to an ORF *DIFFERENT* from the maximal ORF.'''
         cds_numbers = []
@@ -773,32 +773,32 @@ class transcript:
         return max(cds_numbers)
     
     @property
-    def best_cds_number_fraction(self):
+    def selected_cds_number_fraction(self):
         '''This property returns the proportion of best possible CDS segments vs. the number of exons.
-        See best_cds_number.'''
-        return self.best_cds_number/self.exon_num
+        See selected_cds_number.'''
+        return self.selected_cds_number/self.exon_num
 
     @property
-    def best_internal_orf(self):
+    def selected_internal_orf(self):
         '''This property will return the tuple of tuples of the ORF with the greatest CDS length
         inside the transcript. To avoid memory wasting, the tuple is accessed in real-time using 
         a token (__max_internal_orf_index) which holds the position in the __internal_cds list of the longest CDS.'''
         if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
             self.__max_internal_orf_length=0
-            self.best_internal_orf_index=0
+            self.selected_internal_orf_index=0
             return tuple([])
         else:
-            return self.internal_cds[self.best_internal_orf_index]
+            return self.internal_cds[self.selected_internal_orf_index]
     
     @property
-    def best_internal_orf_cds(self):
+    def selected_internal_orf_cds(self):
         '''This property will return the tuple of tuples of the CDS segments of the ORF with the greatest length
         inside the transcript. To avoid memory wasting, the tuple is accessed in real-time using 
         a token (__max_internal_orf_index) which holds the position in the __internal_cds list of the longest CDS.'''
         if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
             return tuple([])
         else:
-            return list(filter(lambda x: x[0]=="CDS", self.internal_cds[self.best_internal_orf_index]))
+            return list(filter(lambda x: x[0]=="CDS", self.internal_cds[self.selected_internal_orf_index]))
     
     
     
@@ -807,7 +807,7 @@ class transcript:
         '''This property returns the length of the CDS excluded from the longest CDS.'''
         if len(self.internal_cds)<2:
             return 0
-        return self.combined_cds_length-self.cds_length
+        return self.combined_cds_length-self.selected_cds_length
     
     @property
     def cds_not_maximal_fraction(self):
@@ -831,9 +831,9 @@ class transcript:
         if len(self.combined_cds)==0:
             return []
         if self.strand=="+":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.cds_start, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.combined_cds_start, self.selected_internal_orf  )  )
         elif self.strand=="-":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.cds_start, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.combined_cds_start, self.selected_internal_orf  )  )
 
     @property
     def five_utr_num(self):
@@ -853,9 +853,9 @@ class transcript:
         if len(self.combined_cds)==0:
             return []
         if self.strand=="-":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.cds_end, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.combined_cds_end, self.selected_internal_orf  )  )
         elif self.strand=="+":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.cds_end, self.best_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.combined_cds_end, self.selected_internal_orf  )  )
 
     @property
     def three_utr_num(self):
@@ -870,7 +870,7 @@ class transcript:
     @property
     def utr_fraction(self):
         '''This property calculates the length of the UTR of the greatest CDS vs. the cDNA length.'''
-        return 1-self.cds_fraction
+        return 1-self.selected_cds_fraction
 
     @property
     def utr_length(self):
@@ -905,12 +905,12 @@ class transcript:
         return self.has_start_codon and self.has_stop_codon
 
     @property
-    def best_internal_orf_index(self):
+    def selected_internal_orf_index(self):
         '''Token which memorises the position in the ORF list of the best ORF.'''
         return self.__max_internal_orf_index
     
-    @best_internal_orf_index.setter
-    def best_internal_orf_index(self, index):
+    @selected_internal_orf_index.setter
+    def selected_internal_orf_index(self, index):
         if index is None:
             self.__max_internal_orf_index = index
             return
@@ -992,28 +992,34 @@ class transcript:
         self.__intron_fraction=args[0]
 
     @property
-    def cds_introns(self):
+    def combined_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the combined CDS.'''
         if len(self.combined_cds)<2:
             return []
         cintrons=[]
+        all_cintrons=[]
         for position in range(len(self.combined_cds)-1):
             former=self.combined_cds[position]
             latter=self.combined_cds[position+1]
-            junc=(former[1],latter[0])
+            junc=(former[1]+1,latter[0]-1)
             if junc in self.introns:
                 cintrons.append(junc)
-        return set(cintrons)
+        if len(self.selected_cds_introns)>0:
+            assert len(cintrons)>0,(self.id, self.selected_cds_introns,all_cintrons,self.introns) 
+        cintrons=set(cintrons)
+        assert type(cintrons) is set
+        return cintrons
 
     @property
-    def best_cds_introns(self):
+    def selected_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the best ORF.'''
         cintrons=[]
-        for position in range(len(self.best_internal_orf_cds)-1):
+        for position in range(len(self.selected_internal_orf_cds)-1):
             cintrons.append(
-                            (self.best_internal_orf_cds[position][1], self.best_internal_orf_cds[position+1][2])
+                            (self.selected_internal_orf_cds[position][1]+1, self.selected_internal_orf_cds[position+1][2]-1)
                             )
-        return set(cintrons)
+        cintrons=set(cintrons)
+        return cintrons
             
     @property
     def start_distance_from_tss(self):
@@ -1023,32 +1029,32 @@ class transcript:
         distance=0
         if self.strand=="+":
             for exon in self.exons:
-                distance+=min(exon[1],self.cds_start)-exon[0]+1
-                if self.cds_start<=exon[1]:break
+                distance+=min(exon[1],self.combined_cds_start)-exon[0]+1
+                if self.combined_cds_start<=exon[1]:break
         elif self.strand=="-":
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
-                distance+=exon[1]+1-max(self.cds_start,exon[0])
-                if self.cds_start>=exon[0]:break
+                distance+=exon[1]+1-max(self.combined_cds_start,exon[0])
+                if self.combined_cds_start>=exon[0]:break
         return distance
                 
     @property
-    def best_start_distance_from_tss(self):
+    def selected_start_distance_from_tss(self):
         '''This property returns the distance of the start of the best CDS from the transcript start site.
         If no CDS is defined, it defaults to 0.'''
         if len(self.combined_cds)==0: return 0
         distance=0
         if self.strand=="+":
             for exon in self.exons:
-                distance+=min(exon[1],self.best_cds_start)-exon[0]+1
-                if self.best_cds_start<=exon[1]:break
+                distance+=min(exon[1],self.selected_cds_start)-exon[0]+1
+                if self.selected_cds_start<=exon[1]:break
         elif self.strand=="-":
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
-                distance+=exon[1]+1-max(self.best_cds_start,exon[0])
-                if self.best_cds_start>=exon[0]:break
+                distance+=exon[1]+1-max(self.selected_cds_start,exon[0])
+                if self.selected_cds_start>=exon[0]:break
         return distance
 
     @property
@@ -1059,37 +1065,37 @@ class transcript:
         distance=0
         if self.strand=="-":
             for exon in self.exons:
-                distance+=min(exon[1],self.cds_end)-exon[0]+1
+                distance+=min(exon[1],self.combined_cds_end)-exon[0]+1
                 if self.cds_end<=exon[1]:break
         elif self.strand=="-":
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
-                distance+=exon[1]+1-max(self.cds_end,exon[0])
+                distance+=exon[1]+1-max(self.combined_cds_end,exon[0])
                 if self.cds_end>=exon[0]:break
         return distance
     
     @property
-    def best_end_distance_from_tes(self):
+    def selected_end_distance_from_tes(self):
         '''This property returns the distance of the end of the best CDS from the transcript end site.
         If no CDS is defined, it defaults to 0.'''
         if len(self.combined_cds)==0: return 0
         distance=0
         if self.strand=="-":
             for exon in self.exons:
-                distance+=min(exon[1],self.best_cds_end)-exon[0]+1
-                if self.best_cds_end<=exon[1]:break
+                distance+=min(exon[1],self.selected_cds_end)-exon[0]+1
+                if self.selected_cds_end<=exon[1]:break
         elif self.strand=="-":
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
-                distance+=exon[1]+1-max(self.best_cds_end,exon[0])
-                if self.best_cds_end>=exon[0]:break
+                distance+=exon[1]+1-max(self.selected_cds_end,exon[0])
+                if self.selected_cds_end>=exon[0]:break
         return distance
 
 
     @property
-    def cds_start(self):
+    def combined_cds_start(self):
         '''This property returns the location of the start of the combined CDS for the transcript.
         If no CDS is defined, it defaults to the transcript start.'''
         if len(self.combined_cds)==0:
@@ -1103,7 +1109,7 @@ class transcript:
             return self.combined_cds[-1][1]
        
     @property
-    def best_cds_start(self):
+    def selected_cds_start(self):
         '''This property returns the location of the start of the best CDS for the transcript.
         If no CDS is defined, it defaults to the transcript start.'''
 
@@ -1113,12 +1119,12 @@ class transcript:
             else:
                 return self.end
         if self.strand=="+":
-            return self.best_internal_orf_cds[0][1]
+            return self.selected_internal_orf_cds[0][1]
         else:
-            return self.best_internal_orf_cds[-1][2]
+            return self.selected_internal_orf_cds[-1][2]
 
     @property
-    def cds_end(self):
+    def combined_cds_end(self):
         '''This property returns the location of the end of the combined CDS for the transcript.
         If no CDS is defined, it defaults to the transcript end.'''
         if len(self.combined_cds)==0:
@@ -1132,7 +1138,7 @@ class transcript:
             return self.combined_cds[-1][1]
 
     @property
-    def best_cds_end(self):
+    def selected_cds_end(self):
         '''This property returns the location of the end of the best CDS for the transcript.
         If no CDS is defined, it defaults to the transcript start.'''
 
@@ -1142,36 +1148,36 @@ class transcript:
             else:
                 return self.start
         if self.strand=="-":
-            return self.best_internal_orf_cds[0][1]
+            return self.selected_internal_orf_cds[0][1]
         else:
-            return self.best_internal_orf_cds[-1][2]
+            return self.selected_internal_orf_cds[-1][2]
 
 
 
     @property
-    def cds_intron_fraction(self):
+    def combined_cds_intron_fraction(self):
         '''This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the locus.
         If the transcript is by itself, it returns 1.'''
-        return self.__cds_intron_fraction
+        return self.__combined_cds_intron_fraction
     
-    @cds_intron_fraction.setter
-    def cds_intron_fraction(self, *args):
+    @combined_cds_intron_fraction.setter
+    def combined_cds_intron_fraction(self, *args):
         if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
-        self.__cds_intron_fraction=args[0]
+        self.__combined_cds_intron_fraction=args[0]
 
     @property
-    def best_cds_intron_fraction(self):
+    def selected_cds_intron_fraction(self):
         '''This property returns the fraction of CDS introns of the best ORF of the transcript vs. the total number of CDS introns in the locus
         (considering only the best ORFs).
         If the transcript is by itself, it should return 1.'''
-        return self.__best_cds_intron_fraction
+        return self.__selected_cds_intron_fraction
     
-    @best_cds_intron_fraction.setter
-    def best_cds_intron_fraction(self, *args):
+    @selected_cds_intron_fraction.setter
+    def selected_cds_intron_fraction(self, *args):
         if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
-        self.__best_cds_intron_fraction=args[0]
+        self.__selected_cds_intron_fraction=args[0]
 
 
     @property

@@ -43,4 +43,4 @@ all.loci.scores.tsv: all.loci.gff3
 	python3 ../util/metrics_to_score.py --json_conf scoring.json all.loci.metrics.tsv all.loci.scores.tsv 
 
 all.loci.gff3: all.gtf
-	python3 ../run_pipeline.py --source all --json_conf scoring.json --transcript_fasta all.fasta --cds all.bed --sub_out all.subloci.gff3 --mono_out all.monoloci.gff3 --locus_out all.loci.gff3 all.gtf
+	python3 ../run_pipeline.py -x --source all --json_conf scoring.json --transcript_fasta all.fasta --cds all.bed --sub_out all.subloci.gff3 --mono_out all.monoloci.gff3 --locus_out all.loci.gff3 all.gtf

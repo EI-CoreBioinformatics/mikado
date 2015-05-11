@@ -98,7 +98,7 @@ class gffLine(object):
         if not self.feature: return self._line.rstrip()
 
         if self.score is not None:
-            score=str(round(self.score,2))
+            score=str(int(round(self.score,0)))
         else:
             score="."
         if self.strand is None:

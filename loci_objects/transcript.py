@@ -686,7 +686,6 @@ class transcript:
                 except:
                     raise ValueError("Invalid value for score: {0}, type {1}".format(
                                                                           score, type(score)))
-            score=int(max(0,round(score,0)))
         self.__score=score
                 
         

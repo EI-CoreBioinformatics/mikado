@@ -37,15 +37,15 @@ def calculate_score(rows, json_dict):
     
     for param in json_dict["parameters"]:
         rescaling = json_dict["parameters"][param]["rescaling"]
-        metrics = [float(transcripts[tid][param]) for tid in transcripts if tid not in not_passing]
-        if len(metrics)>0:
-            if rescaling=="target":
-                target = json_dict["parameters"][param]["value"]
-                denominator = max( abs( x-target ) for x in metrics)
-            else:
-                denominator=(max(metrics)-min(metrics))
-            if denominator==0:
-                denominator=1
+        metrics = [float(transcripts[tid][param]) for tid in transcripts ]
+        assert len(metrics)>0, param
+        if rescaling=="target":
+            target = json_dict["parameters"][param]["value"]
+            denominator = max( abs( x-target ) for x in metrics)
+        else:
+            denominator=(max(metrics)-min(metrics))
+        if denominator==0:
+            denominator=1
             
         if "requirements" in json_dict and param in json_dict["requirements"]:
             add_original=True
@@ -54,25 +54,25 @@ def calculate_score(rows, json_dict):
             
         for tid in transcripts.keys():
             score=0
-            if tid not in not_passing:
-                tid_metric = float(transcripts[tid][param])
-                if rescaling == "max":
-                    ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
-                    score = abs( ( tid_metric - min(metrics) ) / denominator )
-                elif rescaling=="min":
-                    score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
-                elif rescaling == "target":
-                    score = 1 - (abs( tid_metric  - target )/denominator )
-                score*=json_dict["parameters"][param]["multiplier"]
-                score=round(score,2)
+            tid_metric = float(transcripts[tid][param])
+            if rescaling == "max":
+                ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
+                score = abs( ( tid_metric - min(metrics) ) / denominator )
+            elif rescaling=="min":
+                score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
+            elif rescaling == "target":
+                score = 1 - (abs( tid_metric  - target )/denominator )
+            score*=json_dict["parameters"][param]["multiplier"]
             
             new_rows[tid]["recalculated_score"]+=score
-            new_rows[tid][param]=score
+            new_rows[tid][param]=round(score,2)
             if add_original is True:
                 new_rows[tid]["{0}_original".format(param)]=transcripts[tid][param]
     
     for tid in new_rows:
-        new_rows[tid]["recalculated_score"]=max(0,int(round(new_rows[tid]["recalculated_score"])))
+        if abs(new_rows[tid]["recalculated_score"]-float(new_rows[tid]["original_score"]))>0.5:
+            raise AssertionError(tid, new_rows[tid]["recalculated_score"], float(new_rows[tid]["original_score"]))
+        new_rows[tid]["recalculated_score"]=round(new_rows[tid]["recalculated_score"],2)
     
     return new_rows.values()
 

@@ -328,9 +328,9 @@ class abstractlocus(metaclass=abc.ABCMeta):
             self.introns.difference_update(introns_to_remove) 
 
             #Remove excess cds introns
-            other_cds_introns = set.union(*[ set(self.transcripts[otid].cds_introns) for otid in self.transcripts if otid!=tid  ])
-            cds_introns_to_remove = set.difference(set(self.transcripts[tid].cds_introns), other_cds_introns)
-            self.cds_introns.difference_update(cds_introns_to_remove) 
+            other_cds_introns = set.union(*[ set(self.transcripts[otid].combined_cds_introns) for otid in self.transcripts if otid!=tid  ])
+            cds_introns_to_remove = set.difference(set(self.transcripts[tid].combined_cds_introns), other_cds_introns)
+            self.combined_cds_introns.difference_update(cds_introns_to_remove) 
 
             #Remove excess selected_cds_introns
             other_selected_cds_introns = set.union(*[ set(self.transcripts[otid].selected_cds_introns) for otid in self.transcripts if otid!=tid  ])

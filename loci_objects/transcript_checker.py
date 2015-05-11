@@ -13,9 +13,14 @@ class transcript_checker(transcript):
     the information of the transcript instance with the information contained in a
     genomic FASTA file, to verify some of the information.
     At the moment, the class implements only a check on the strandedness made by extracting
-    the FASTA sequence of the splice sites and verifying that it is actually '''
+    the FASTA sequence of the splice sites and verifying that they are concordant with the annotated strand.
+    Keyword arguments:
+        - strand_specific: if set, monoexonic transcripts are not set to "unknown" strand.
+        - lenient: boolean. If set to True, a transcript with mixed splices will not throw an exception
+        but rather will just report the number of splices supporting each strand.
+    '''
     
-    def __init__(self, gffLine, fasta_index, strand_specific=False):
+    def __init__(self, gffLine, fasta_index, strand_specific=False, lenient=False):
         if fasta_index is None:
             raise ValueError()
         super().__init__(gffLine)
@@ -25,6 +30,7 @@ class transcript_checker(transcript):
         self.fasta_index = fasta_index
         self.strand_specific=strand_specific
         self.checked = False
+        self.lenient=lenient
                 
     @property
     def strand_specific(self):
@@ -39,7 +45,10 @@ class transcript_checker(transcript):
     def __str__(self, print_cds=True):
         
         self.check_strand()
-        return super().__str__()
+        if self.mixed_splices is True:
+            self.attributes["mixed_splices"]=self.mixed_attribute
+        
+        return super().__str__(print_cds=print_cds)
     
     def check_strand(self):
         
@@ -86,18 +95,24 @@ class transcript_checker(transcript):
                         canonical_counter[None]+=1
 
             if canonical_counter["+"]>0 and canonical_counter["-"]>0:
-                raise IncorrectStrandError("Transcript {0} has {1} positive and {2} negative splice junctions. Aborting.".format(
+                if self.lenient is False:
+                    raise IncorrectStrandError("Transcript {0} has {1} positive and {2} negative splice junctions. Aborting.".format(
                                                                                                                                  self.id,
                                                                                                                                  canonical_counter["+"],
                                                                                                                                  canonical_counter["-"]
                                                                                                                                  )
                                            )
+                else:
+                    self.mixed_splices = True
 
-            if canonical_counter["+"]>canonical_counter["-"]+canonical_counter[None]:
-                pass
-            elif canonical_counter["-"]==len(self.introns):
+                if canonical_counter["+"]>=canonical_counter["-"]:
+                    self.mixed_attribute="{0}concordant,{1}discordant".format(canonical_counter["+"],canonical_counter["-"])
+                else:
+                    self.reverse_strand()
+                    self.mixed_attribute="{0}concordant,{1}discordant".format(canonical_counter["-"],canonical_counter["+"])
+                return
+            
+            if canonical_counter["-"]>0:
                 self.reverse_strand()
-            elif canonical_counter[None]==len(self.introns):
-                self.strand=None
 
         self.checked = True

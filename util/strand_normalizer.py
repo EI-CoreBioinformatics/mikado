@@ -37,6 +37,10 @@ def main():
     parser=argparse.ArgumentParser("Script to check the correctness of the strand for aligned/assembled transcripts.")
     parser.add_argument("--fasta", type=to_seqio, required=True,
                         help="Genome FASTA file. Required." )
+    parser.add_argument("-s", "--strand-specific", dest="strand_specific", action="store_true", default=False,
+                        help="Flag. If set, monoexonic transcripts will be left on their strand rather than being moved to the unknown strand.")
+    parser.add_argument("-l", "--lenient", action="store_true", default=False,
+                        help="Flag. If set, transcripts with mixed +/- splices will not cause exceptions but rather be annotated as problematic.")
     parser.add_argument("gff", type=to_gff, help="Input GFF3/GTF file.")
     parser.add_argument("out", default=sys.stdout, nargs='?', type=argparse.FileType('w'),
                         help="Output file. Default: STDOUT.")
@@ -98,7 +102,7 @@ def main():
         elif record.is_transcript:
             if is_gff is False:
                 print(currentTranscripts[0], file=args.out)
-            new_tran = transcript_checker(record, currentSeq)
+            new_tran = transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
             currentTranscripts.append(new_tran)
         elif record.is_exon:
             for tran in currentTranscripts:

@@ -729,7 +729,7 @@ class transcript:
     
     @property
     def number_internal_orfs(self):
-        '''This property returns the number of CDSs inside a transcript.'''
+        '''This property returns the number of ORFs inside a transcript.'''
         return len(self.internal_cds)
 
     @property
@@ -763,7 +763,7 @@ class transcript:
     
 
     @property
-    def selected_cds_number(self):
+    def highest_cds_exon_number(self):
         '''This property returns the maximum number of CDS segments among the ORFs; this number
         can refer to an ORF *DIFFERENT* from the maximal ORF.'''
         cds_numbers = []
@@ -803,14 +803,14 @@ class transcript:
     
     @property
     def cds_not_maximal(self):
-        '''This property returns the length of the CDS excluded from the longest CDS.'''
+        '''This property returns the length of the CDS excluded from the selected ORF.'''
         if len(self.internal_cds)<2:
             return 0
         return self.combined_cds_length-self.selected_cds_length
     
     @property
     def cds_not_maximal_fraction(self):
-        '''This property returns the fraction of bases not in the greatest ORF compared to
+        '''This property returns the fraction of bases not in the selected ORF compared to
         the total number of CDS bases in the cDNA.'''
         if self.combined_cds_length==0:
             return 0
@@ -819,14 +819,14 @@ class transcript:
     
     @property
     def five_utr_length(self):
-        '''Returns the length of the 5' UTR of the greatest ORF.'''
+        '''Returns the length of the 5' UTR of the selected ORF.'''
         if len(self.combined_cds)==0:
             return 0
         return sum(x[2]-x[1]+1 for x in self.five_utr)
                             
     @property
     def five_utr(self):
-        '''Returns the exons in the 5' UTR of the greatest ORF.'''
+        '''Returns the exons in the 5' UTR of the selected ORF.'''
         if len(self.combined_cds)==0:
             return []
         if self.strand=="+":
@@ -836,19 +836,19 @@ class transcript:
 
     @property
     def five_utr_num(self):
-        '''This property returns the number of 5' UTR segments for the greatest ORF.'''
+        '''This property returns the number of 5' UTR segments for the selected ORF.'''
         return len(self.five_utr)
 
     @property
     def three_utr_length(self):
-        '''Returns the length of the 5' UTR of the greatest ORF.'''
+        '''Returns the length of the 5' UTR of the selected ORF.'''
         if len(self.combined_cds)==0:
             return 0
         return sum(x[2]-x[1]+1 for x in self.three_utr)
                             
     @property
     def three_utr(self):
-        '''Returns the exons in the 3' UTR of the greatest ORF.'''
+        '''Returns the exons in the 3' UTR of the selected ORF.'''
         if len(self.combined_cds)==0:
             return []
         if self.strand=="-":
@@ -858,17 +858,17 @@ class transcript:
 
     @property
     def three_utr_num(self):
-        '''This property returns the number of 3' UTR segments (referred to the greatest ORF).'''
+        '''This property returns the number of 3' UTR segments (referred to the selected ORF).'''
         return len(self.three_utr)
 
     @property
     def utr_num(self):
-        '''Returns the number of UTR segments (referred to the greatest ORF).'''
+        '''Returns the number of UTR segments (referred to the selected ORF).'''
         return len(self.three_utr+self.five_utr)
 
     @property
     def utr_fraction(self):
-        '''This property calculates the length of the UTR of the greatest CDS vs. the cDNA length.'''
+        '''This property calculates the length of the UTR of the selected ORF vs. the cDNA length.'''
         return 1-self.selected_cds_fraction
 
     @property
@@ -878,7 +878,7 @@ class transcript:
     
     @property
     def has_start_codon(self):
-        '''Boolean. True if the greatest ORF has a start codon.'''
+        '''Boolean. True if the selected ORF has a start codon.'''
         return self.__has_start
     
     @has_start_codon.setter
@@ -889,7 +889,7 @@ class transcript:
         
     @property
     def has_stop_codon(self):
-        '''Boolean. True if the greatest ORF has a stop codon.'''
+        '''Boolean. True if the selected ORF has a stop codon.'''
         return self.__has_stop
     
     @has_stop_codon.setter
@@ -900,12 +900,12 @@ class transcript:
 
     @property
     def is_complete(self):
-        '''Boolean. True if the best ORF has both start and end.'''
+        '''Boolean. True if the selected ORF has both start and end.'''
         return self.has_start_codon and self.has_stop_codon
 
     @property
     def selected_internal_orf_index(self):
-        '''Token which memorises the position in the ORF list of the best ORF.'''
+        '''Token which memorizes the position in the ORF list of the selected ORF.'''
         return self.__max_internal_orf_index
     
     @selected_internal_orf_index.setter
@@ -966,7 +966,7 @@ class transcript:
     @property
     def exon_fraction(self):
         '''This property returns the fraction of exons of the transcript which are contained in the sublocus.
-        If the transcript is by itself, it returns None.'''
+        If the transcript is by itself, it returns 1. Set from outside.'''
         
         return self.__exon_fraction
     
@@ -979,7 +979,7 @@ class transcript:
     @property
     def intron_fraction(self):
         '''This property returns the fraction of introns of the transcript vs. the total number of introns in the locus.
-        If the transcript is by itself, it returns 1.'''
+        If the transcript is by itself, it returns 1. Set from outside.'''
         return self.__intron_fraction
     
     @intron_fraction.setter
@@ -1011,7 +1011,7 @@ class transcript:
 
     @property
     def selected_cds_introns(self):
-        '''This property returns the introns which are located between CDS segments in the best ORF.'''
+        '''This property returns the introns which are located between CDS segments in the selected ORF.'''
         cintrons=[]
         for position in range(len(self.selected_internal_orf_cds)-1):
             cintrons.append(
@@ -1167,8 +1167,8 @@ class transcript:
 
     @property
     def selected_cds_intron_fraction(self):
-        '''This property returns the fraction of CDS introns of the best ORF of the transcript vs. the total number of CDS introns in the locus
-        (considering only the best ORFs).
+        '''This property returns the fraction of CDS introns of the selected ORF of the transcript vs. the total number of CDS introns in the locus
+        (considering only the selected ORF).
         If the transcript is by itself, it should return 1.'''
         return self.__selected_cds_intron_fraction
     

@@ -5,7 +5,6 @@ import sys
 import os
 path=os.path.dirname( os.path.dirname(os.path.abspath(__file__) ))
 sys.path.insert(0,path)
-print(sys.path)
 
 from loci_objects.sublocus import sublocus
 from loci_objects.transcript import transcript

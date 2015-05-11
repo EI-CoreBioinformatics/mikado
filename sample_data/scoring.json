@@ -37,7 +37,7 @@
 		 	"exon_fraction"]
 	},
 	"parameters":{
-		"selected_cds_number":{
+		"highest_cds_exon_number":{
 			"rescaling":"max"
 		},
 		"cdna_length":{

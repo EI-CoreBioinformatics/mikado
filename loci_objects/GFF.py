@@ -33,7 +33,7 @@ class gffLine(object):
             self._line=my_line
         else:
             self._line=line
-            
+        
         self._fields=line.rstrip().split('\t')
         self.header=header
         # if len(self._fields)!=9:
@@ -41,6 +41,7 @@ class gffLine(object):
 
         if self.header or len(self._fields)!=9 or self._line=='':
             self.feature=None
+            self.header=True
             return
 
         if len(self._fields)!=9: return None

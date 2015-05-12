@@ -190,7 +190,8 @@ def main():
     first = True    
     jobs=dict()
     for row in rower:
-        if row.header is True: continue
+        if row.header is True:
+            continue
         if row.chrom!=currentChrom:
             if currentChrom is not None:
                 if currentTranscript is None:

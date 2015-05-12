@@ -187,6 +187,12 @@ class gtfLine(object):
     @property
     def name(self):
         return self.id
+    
+    @name.setter
+    def name(self,*args):
+        if type(args[0]) is not str:
+            raise TypeError("Invalid value for name: {0}".format(args[0]))
+        self.id = args[0]
         
     @property
     def is_transcript(self):

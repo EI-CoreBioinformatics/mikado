@@ -92,38 +92,49 @@ GTF output is not supported, as the output is more hierarchical than what is sup
 Metrics are defined into a text file, "metrics.txt". Each of them is defined as a property inside the "transcript" class.
 The documentation for each of them can be generated with the utility "generate_metric_docs.py" inside the util folder.  
 
-* *tid*:	ID of the transcript * cannot be an undefined value. Alias of id.
-* *parent*:	Name of the parent feature of the transcript.
-* *score*:	Numerical value which summarizes the reliability of the transcript.
-* *best_cds_number*:	This property returns the maximum number of CDS segments among the ORFs; this number can refer to an ORF *DIFFERENT* from the maximal ORF.
-* *best_cds_number_fraction*:	This property returns the proportion of best possible CDS segments vs. the number of exons. See best_cds_number.
-* *cdna_length*:	This property returns the length of the transcript.
-* *cds_fraction*:	This property calculates the fraction of the greatest CDS vs. the cDNA length.
-* *cds_fraction*:	This property calculates the fraction of the greatest CDS vs. the cDNA length.
-* *cds_length*:	This property calculates the length of the greatest CDS inside the cDNA.
-* *cds_not_maximal*:	This property returns the length of the CDS excluded from the longest CDS.
-* *cds_not_maximal_fraction*:	This property returns the fraction of bases not in the greatest ORF compared to the total number of CDS bases in the cDNA.
-* *cds_num*:	This property calculates the number of CDS exons for the greatest ORF
-* *combined_cds_fraction*:	This property return the length of the CDS part of the transcript.
-* *combined_cds_length*:	This property return the length of the CDS part of the transcript.
-* *combined_cds_num*:	This property returns the number of non-overlapping CDS segments in the transcript.
-* *combined_cds_num_fraction*:	This property returns the fraction of non-overlapping CDS segments in the transcript vs. the total number of exons
-* *combined_utr_length*:	This property return the length of the UTR part of the transcript.
-* *exon_fraction*:	This property returns the fraction of exons of the transcript which are contained in the sublocus. If the transcript is by itself, it returns None.
-* *exon_num*:	This property returns the number of exons of the transcript.
-* *five_utr_length*:	Returns the length of the 5' UTR of the greatest ORF.
-* *five_utr_num*:	This property returns the number of 5' UTR segments for the greatest ORF.
-* *has_start*:	Boolean. True if the greatest ORF has a start codon.
-* *has_stop*:	Boolean. True if the greatest ORF has a stop codon.
-* *intron_fraction*:	This property returns the fraction of introns of the transcript vs. the total number of introns in the locus. If the transcript is by itself, it returns 1.
-* *is_complete*:	Boolean. True if the best ORF has both start and end.
-* *number_internal_orfs*:	This property returns the number of CDSs inside a transcript.
-* *retained_fraction*:	This property returns the fraction of the cDNA which is contained in retained introns.
-* *retained_intron_num*:	This property records the number of introns in the transcripts which are marked as being retained. See the corresponding method in the sublocus class.
-* *three_utr_length*:	Returns the length of the 5' UTR of the greatest ORF.
-* *three_utr_num*:	This property returns the number of 3' UTR segments (referred to the greatest ORF).
-* *utr_fraction*:	This property calculates the length of the UTR of the greatest CDS vs. the cDNA length.
-* *utr_num*:	Returns the number of UTR segments (referred to the greatest ORF).
+- *tid*:	ID of the transcript - cannot be an undefined value. Alias of id.
+- *parent*:	Name of the parent feature of the transcript.
+- *score*:	Numerical value which summarizes the reliability of the transcript.
+- *cdna_length*:	This property returns the length of the transcript.
+- *cds_not_maximal*:	This property returns the length of the CDS excluded from the selected ORF.
+- *cds_not_maximal_fraction*:	This property returns the fraction of bases not in the selected ORF compared to the total number of CDS bases in the cDNA.
+- *combined_cds_fraction*:	This property return the percentage of the CDS part of the transcript vs. the cDNA length
+- *combined_cds_intron_fraction*:	This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the locus. If the transcript is by itself, it returns 1.
+- *combined_cds_length*:	This property return the length of the CDS part of the transcript.
+- *combined_cds_num*:	This property returns the number of non-overlapping CDS segments in the transcript.
+- *combined_cds_num_fraction*:	This property returns the fraction of non-overlapping CDS segments in the transcript vs. the total number of exons
+- *combined_utr_fraction*:	This property returns the fraction of the cDNA which is not coding according to any ORF. Complement of combined_cds_fraction
+- *combined_utr_length*:	This property return the length of the UTR part of the transcript.
+- *end_distance_from_tes*:	This property returns the distance of the end of the combined CDS from the transcript end site. If no CDS is defined, it defaults to 0.
+- *exon_fraction*:	This property returns the fraction of exons of the transcript which are contained in the sublocus. If the transcript is by itself, it returns 1. Set from outside.
+- *exon_num*:	This property returns the number of exons of the transcript.
+- *five_utr_length*:	Returns the length of the 5' UTR of the selected ORF.
+- *five_utr_num*:	This property returns the number of 5' UTR segments for the selected ORF.
+- *five_utr_num_complete*:	This property returns the number of 5' UTR segments for the selected ORF, considering only those which are complete exons.
+- *has_start_codon*:	Boolean. True if the selected ORF has a start codon.
+- *has_stop_codon*:	Boolean. True if the selected ORF has a stop codon.
+- *highest_cds_exon_number*:	This property returns the maximum number of CDS segments among the ORFs; this number can refer to an ORF *DIFFERENT* from the maximal ORF.
+- *intron_fraction*:	This property returns the fraction of introns of the transcript vs. the total number of introns in the locus. If the transcript is by itself, it returns 1. Set from outside.
+- *is_complete*:	Boolean. True if the selected ORF has both start and end.
+- *number_internal_orfs*:	This property returns the number of ORFs inside a transcript.
+- *retained_fraction*:	This property returns the fraction of the cDNA which is contained in retained introns.
+- *retained_intron_num*:	This property records the number of introns in the transcripts which are marked as being retained. See the corresponding method in the sublocus class.
+- *selected_cds_exons_fraction*:	Returns the fraction of CDS segments in the selected ORF (irrespective of the number of exons involved)
+- *selected_cds_fraction*:	This property calculates the fraction of the selected CDS vs. the cDNA length.
+- *selected_cds_intron_fraction*:	This property returns the fraction of CDS introns of the selected ORF of the transcript vs. the total number of CDS introns in the locus (considering only the selected ORF). If the transcript is by itself, it should return 1.
+- *selected_cds_length*:	This property calculates the length of the CDS selected as best inside the cDNA.
+- *selected_cds_num*:	This property calculates the number of CDS exons for the selected ORF
+- *selected_end_distance_from_tes*:	This property returns the distance of the end of the best CDS from the transcript end site. If no CDS is defined, it defaults to 0.
+- *selected_start_distance_from_tss*:	This property returns the distance of the start of the best CDS from the transcript start site. If no CDS is defined, it defaults to 0.
+- *start_distance_from_tss*:	This property returns the distance of the start of the combined CDS from the transcript start site. If no CDS is defined, it defaults to 0.
+- *three_utr_length*:	Returns the length of the 5' UTR of the selected ORF.
+- *three_utr_num*:	This property returns the number of 3' UTR segments (referred to the selected ORF).
+- *three_utr_num_complete*:	This property returns the number of 3' UTR segments for the selected ORF, considering only those which are complete exons.
+- *utr_fraction*:	This property calculates the length of the UTR of the selected ORF vs. the cDNA length.
+- *utr_length*:	Returns the sum of the 5'+3' UTR lengths
+- *utr_num*:	Returns the number of UTR segments (referred to the selected ORF).
+- *utr_num_complete*:	Returns the number of UTR segments which are complete exons (referred to the selected ORF).
+
 
 ###Defining new metrics
 For the program to be able to use a novel metric, it must be implemented as a *property* inside the
@@ -139,10 +150,10 @@ through a JSON file.Each metric must be specified in the "parameters" head field
 For each parameter, it is possible to specify the following:
 
 * "multiplier"		A number by which the metrics will be multiplied to get the final score.
-* "operation"		A valid python operation string, using "x" as the key for the parameter. Possible examples include the following:
-    * "math.log(1+x)"
-    * "max(100-x, 0)"
-    * "1/x**2"
+* "rescaling"		This key controls the rescaling performed to calculate the score:
+**"max"
+**"min"
+**"target"
     
-In order to use a non-builtin expression like e.g. "log", it is necessary to specify the required modules in the "modules" head field of the JSON.  
+Each parameter will have a score assigned which varies from 0 to 1. If the "target" rescaling is selected, it is *mandatory* to specify a "value" keyword. For details, see [RAMPART supporting material (section 2, page3)](http://bioinformatics.oxfordjournals.org/content/suppl/2015/01/29/btv056.DC1/supplementary.pdf)  
 

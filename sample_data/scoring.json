@@ -78,7 +78,7 @@
 			"rescaling":"target",
 			"value":100
 		},
-		"five_utr_num":{
+		"five_utr_num_complete":{
 			"rescaling":"target",
 			"value":1
 		},
@@ -105,7 +105,7 @@
 			"rescaling":"target",
 			"value":300
 		},
-		"three_utr_num":{
+		"three_utr_num_complete":{
 			"rescaling":"target",
 			"value":2
 		}

@@ -4,6 +4,7 @@ import abc
 import random
 from copy import copy
 import logging
+from loci_objects.exceptions import *
 
 class abstractlocus(metaclass=abc.ABCMeta):
     
@@ -36,6 +37,13 @@ class abstractlocus(metaclass=abc.ABCMeta):
     def __str__(self):
         pass
     
+    def __repr__(self):
+        return "\t".join([self.__name__,
+                          self.chrom,
+                          self.start,
+                          self.end,
+                          self.strand,
+                          ",".join([t.id for t in self.transcripts]) if len(self.transcripts)>0 else "NA" ])
     
     def __eq__(self, other):
         if type(self)!=type(other):
@@ -262,7 +270,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
             if check_in_locus is False:
                 pass
             elif not self.in_locus(self, transcript_instance):
-                raise AssertionError("""Trying to merge a locus with an incompatible transcript!
+                raise NotInLocusError("""Trying to merge a locus with an incompatible transcript!
                 Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
                 """.format(

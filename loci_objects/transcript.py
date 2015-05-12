@@ -734,7 +734,7 @@ class transcript:
 
     @property
     def selected_cds_length(self):
-        '''This property calculates the length of the greatest CDS inside the cDNA.'''
+        '''This property calculates the length of the CDS selected as best inside the cDNA.'''
         if len(self.combined_cds)==0:
             self.__max_internal_orf_length=0
         else:
@@ -743,22 +743,22 @@ class transcript:
     
     @property
     def selected_cds_num(self):
-        '''This property calculates the number of CDS exons for the greatest ORF'''
+        '''This property calculates the number of CDS exons for the selected ORF'''
         return len(list( filter(lambda exon: exon[0]=="CDS", self.selected_internal_orf) ))
     
     @property
     def selected_cds_fraction(self):
-        '''This property calculates the fraction of the greatest CDS vs. the cDNA length.'''
+        '''This property calculates the fraction of the selected CDS vs. the cDNA length.'''
         return self.__max_internal_orf_length/self.cdna_length
     
     @property
     def highest_cds_exons_num(self):
-        '''Returns the number of CDS segments in the greatest ORF (irrespective of the number of exons involved)'''
+        '''Returns the number of CDS segments in the selected ORF (irrespective of the number of exons involved)'''
         return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))
     
     @property
     def selected_cds_exons_fraction(self):
-        '''Returns the fraction of CDS segments in the greatest ORF (irrespective of the number of exons involved)'''
+        '''Returns the fraction of CDS segments in the selected ORF (irrespective of the number of exons involved)'''
         return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))/len(self.exons)
     
 
@@ -779,8 +779,8 @@ class transcript:
 
     @property
     def selected_internal_orf(self):
-        '''This property will return the tuple of tuples of the ORF with the greatest CDS length
-        inside the transcript. To avoid memory wasting, the tuple is accessed in real-time using 
+        '''This property will return the tuple of tuples of the ORF selected as "best".
+        To avoid memory wasting, the tuple is accessed in real-time using 
         a token (__max_internal_orf_index) which holds the position in the __internal_cds list of the longest CDS.'''
         if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
             self.__max_internal_orf_length=0
@@ -791,7 +791,7 @@ class transcript:
     
     @property
     def selected_internal_orf_cds(self):
-        '''This property will return the tuple of tuples of the CDS segments of the ORF with the greatest length
+        '''This property will return the tuple of tuples of the CDS segments of the selected ORF
         inside the transcript. To avoid memory wasting, the tuple is accessed in real-time using 
         a token (__max_internal_orf_index) which holds the position in the __internal_cds list of the longest CDS.'''
         if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
@@ -840,6 +840,12 @@ class transcript:
         return len(self.five_utr)
 
     @property
+    def five_utr_num_complete(self):
+        '''This property returns the number of 5' UTR segments for the selected ORF, considering only those which are complete exons.'''
+        return len(list(filter(lambda utr: (utr[1],utr[2]) in self.exons, self.five_utr)  ))
+
+
+    @property
     def three_utr_length(self):
         '''Returns the length of the 5' UTR of the selected ORF.'''
         if len(self.combined_cds)==0:
@@ -862,9 +868,21 @@ class transcript:
         return len(self.three_utr)
 
     @property
+    def three_utr_num_complete(self):
+        '''This property returns the number of 3' UTR segments for the selected ORF, considering only those which are complete exons.'''
+        return len(list(filter(lambda utr: (utr[1],utr[2]) in self.exons, self.three_utr)   ))
+
+
+    @property
     def utr_num(self):
         '''Returns the number of UTR segments (referred to the selected ORF).'''
         return len(self.three_utr+self.five_utr)
+
+    @property
+    def utr_num_complete(self):
+        '''Returns the number of UTR segments which are complete exons (referred to the selected ORF).'''
+        return self.three_utr_num_complete+self.five_utr_num_complete
+
 
     @property
     def utr_fraction(self):
@@ -1121,6 +1139,34 @@ class transcript:
             return self.selected_internal_orf_cds[0][1]
         else:
             return self.selected_internal_orf_cds[-1][2]
+
+    @property
+    def combined_cds(self):
+        '''This is a list which contains all the non-overlapping CDS segments inside the cDNA.
+        The list comprises the segments as duples (start,end).'''
+        return self.__combined_cds
+
+    @combined_cds.setter
+    def combined_cds(self, *args):
+        if type(args[0]) is not list or (len(args[0])>0 and len(list(filter(
+                                                                            lambda x: len(x)!=2 or type(x[0]) is not int or type(x[1]) is not int, args[0])) )>0):
+            raise TypeError("Invalid value for combined CDS: {0}".format(args[0]))
+        self.__combined_cds = args[0]
+
+    @property
+    def combined_utr(self):
+        '''This is a list which contains all the non-overlapping UTR segments inside the cDNA.
+        The list comprises the segments as duples (start,end).'''
+        return self.__combined_utr
+
+    @combined_utr.setter
+    def combined_utr(self, *args):
+        if type(args[0]) is not list or (len(args[0])>0 and len(list(filter(
+                                                                            lambda x: len(x)!=2 or type(x[0]) is not int or type(x[1]) is not int, args[0])) )>0):
+            raise TypeError("Invalid value for combined CDS: {0}".format(args[0]))
+        self.__combined_utr = args[0]
+
+
 
     @property
     def combined_cds_end(self):

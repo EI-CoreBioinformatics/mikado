@@ -15,7 +15,7 @@ class locus(monosublocus,abstractlocus):
         return super().__str__(print_cds=print_cds)
     
     def other_is_fragment(self,other, percentage=1):
-        '''This function checks that another *monoexonic locus on the opposite strand* does not verify one of the following:
+        '''This function checks that another *monoexonic* locus on the opposite strand* does not verify one of the following:
             - it is contained for more than (exon_length)*percentage inside one of the locus exons
             - it is not partially contained inside an intron
         This should get rid of monoexonic fragments that plague the output of RNA-Seq reconstruction programs.

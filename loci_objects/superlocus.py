@@ -9,6 +9,7 @@ from copy import deepcopy as copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
 from loci_objects.GFF import gffLine
+from loci_objects.exceptions import *
 
 class superlocus(abstractlocus):
     
@@ -41,7 +42,7 @@ class superlocus(abstractlocus):
         self.stranded=stranded
         self.feature=self.__name__
         if json_dict is None or type(json_dict) is not dict:
-            raise ValueError("I am missing the configuration for prioritizing transcripts!")
+            raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.json_dict = copy(json_dict)
         
         #Dynamically load required modules
@@ -227,7 +228,7 @@ class superlocus(abstractlocus):
 
         candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
-            raise ValueError("This superlocus has no transcripts in it!")
+            raise InvalidLocusError("This superlocus has no transcripts in it!")
         
         cliques = self.find_cliques(candidates, inters=self.is_intersecting)
         subloci = self.merge_cliques(cliques)
@@ -302,10 +303,11 @@ class superlocus(abstractlocus):
         self.define_loci()
 
         #self.available_monolocus_metrics = set(self.monoholder.available_metrics)
-        if self.monoholder is None:
+        if len(self.monoholders)==0:
             return ''
-        for row in self.monoholder.print_metrics():
-            yield row
+        for monoholder in self.monoholders:
+            for row in monoholder.print_metrics():
+                yield row
             
     def define_loci(self):
         '''This is the final method in the pipeline. It creates a container for all the monosubloci
@@ -318,14 +320,14 @@ class superlocus(abstractlocus):
         self.calculate_mono_metrics()
 
         self.loci = []        
-        if self.monoholder is None:
+        if len(self.monoholders)==0:
             self.loci_defined = True
             return
-        self.monoholder.define_loci(purge=self.purge)
-
-        for locus_instance in self.monoholder.loci:
-            locus_instance.parent = self.id
-            self.loci.append(locus_instance)
+        for monoholder in self.monoholders:
+            monoholder.define_loci(purge=self.purge)
+            for locus_instance in monoholder.loci:
+                locus_instance.parent = self.id
+                self.loci.append(locus_instance)
             
         self.loci=sorted(self.loci)
         self.loci_defined = True
@@ -334,13 +336,22 @@ class superlocus(abstractlocus):
     
     def calculate_mono_metrics(self):
         '''Wrapper to calculate the metrics for the monosubloci'''
-        self.monoholder = None
+        self.monoholders = []
         
         for monosublocus_instance in sorted(self.monosubloci):
-            if self.monoholder is None:
-                self.monoholder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, purge=self.purge)
+            if self.monoholders == []:
+                holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, purge=self.purge)
+                self.monoholders.append(holder)
             else:
-                self.monoholder.add_monosublocus(monosublocus_instance)
+                found_holder=False
+                for holder in self.monoholders:
+                    if monosublocus_holder.in_locus(holder, monosublocus_instance):
+                        holder.add_monosublocus(monosublocus_instance)
+                        found_holder=True
+                        break
+                if found_holder is False:
+                    holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, purge=self.purge)
+                    self.monoholders.append(holder)
                 
     def compile_requirements(self):
         '''Quick function to evaluate the filtering expression, if it is present.'''

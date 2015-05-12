@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import sys
-import pickle
 import argparse,re
 import multiprocessing
 import csv
@@ -23,12 +22,23 @@ from loci_objects.abstractlocus import abstractlocus
 
 def locus_printer( slocus, args, cds_dict=None, lock=None ):
 
+    '''This function takes as input a "superlocus" instance and the pipeline configuration.
+    It also accepts as optional keywords a dictionary with the CDS information (derived from a BED12)
+    and a "lock" used for avoiding writing collisions during multithreading.
+    The function splits the superlocus into its strand components and calls the relevant methods
+    to define the loci. It also prints out the results to the requested output files.
+    '''
+
+    #Load the CDS information
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific )
+    #Split the superlocus in the stranded components
     stranded_loci = sorted(list(slocus.split_strands()))
     
+    #Define the loci
     for stranded_locus in stranded_loci:
         stranded_locus.define_loci()
-    
+    #Remove overlapping fragments.
+    #This part should be rewritten in order to make it more flexible and powerful.
     for stranded_locus in stranded_loci:
         if args.remove_overlapping_fragments is True and len(stranded_loci)>1:
             for final_locus in stranded_locus.loci:
@@ -43,6 +53,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
                                     raise ValueError(err)
                             finally:
                                 break
+        #Retrieve the lines to print out
         sub_lines = stranded_locus.__str__(level="subloci", print_cds=not args.no_cds )
         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
         mono_lines = stranded_locus.__str__(level="monosubloci", print_cds=not args.no_cds)
@@ -137,7 +148,7 @@ def main():
         csv_out.writeheader()
     
     cds_dict=None
-    
+    #Load the CDS information from the BED12, if one is available
     if args.cds is not None:
         print("Starting to extract CDS data", file=sys.stderr)
         cds_dict = dict()
@@ -168,7 +179,7 @@ def main():
     args.gff.close()
     args.gff=args.gff.name
     args.transcript_fasta = None
-
+    #Determine the type of input file (GTF/GFF3)
     if args.gff[-3:]=="gtf":
         rower=GTF(args.gff)
     else: rower=GFF3(args.gff)
@@ -179,7 +190,6 @@ def main():
     first = True    
     jobs=dict()
     for row in rower:
-        
         if row.header is True: continue
         if row.chrom!=currentChrom:
             if currentChrom is not None:
@@ -191,7 +201,6 @@ def main():
                     if currentLocus is not None:
                         if first is True:
                             locus_printer(currentLocus, args, cds_dict=cds_dict)
-#                             first=False
                         else:
                             if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
                                 raise KeyError("Why is compiled here again?")
@@ -215,14 +224,11 @@ def main():
                 else:
                     if first is True:
                         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
-#                         first=False
                     else:
-                        if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
-                            raise KeyError("Why is compiled here again?")
-                        
-                        jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
-                                                                                         "lock": lock})
-                        
+                        pool.apply_async(locus_printer,
+                                         args=(currentLocus, args),
+                                         kwds={"cds_dict": cds_dict,"lock": lock})
+
                     currentLocus=superlocus(currentTranscript,
                                             stranded=False, json_dict = args.json_conf,
                                             purge=args.purge)
@@ -245,34 +251,17 @@ def main():
                 if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
                     raise KeyError("Why is compiled here again?")
             
-                jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args),
-                                     kwds={"cds_dict": cds_dict, "lock": lock})
+                pool.apply_async(locus_printer, args=(currentLocus, args),
+                                kwds={"cds_dict": cds_dict, "lock": lock})
 
                 currentLocus=superlocus(currentTranscript,
                                         stranded=False, json_dict = args.json_conf,
                                         purge=args.purge)
                 
-        jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
-                                                                                         "lock": lock})
+        pool.apply_async(locus_printer, 
+                         args=(currentLocus, args),
+                         kwds={"cds_dict": cds_dict, "lock": lock})
         
-#         process = multiprocessing.Process(target=locus_printer, # @UndefinedVariable
-#                                           args=(currentLocus, args),
-#                                           kwargs={"cds_dict": cds_dict, "lock": lock})
-#         process.start()
-#         process.join()
-#         jobs.append(pool.apply_async(locus_printer, args=(currentLocus, args),
-#                              kwds={"cds_dict": cds_dict, "lock": lock}))
-        
-        for job in jobs:
-            try:
-                jobs[job].get()
-            except:
-                print("Something has gone wrong with the final process.", file=sys.stderr)
-                print(job.chrom, job.start, job.end, ",".join(job.transcripts))
-                locus_printer(job, args, cds_dict=cds_dict, lock=lock)
-                pickle.dumps(job)
-#                 locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
-
     pool.close()
     pool.join()
        

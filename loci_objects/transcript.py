@@ -1028,6 +1028,14 @@ class transcript:
         return cintrons
 
     @property
+    def max_intron_length(self):
+        '''This property returns the greatest intron length for the transcript.'''
+        if len(self.introns)==0:
+            return 0
+        return max(intron[1]+1-intron[0] for intron in self.introns)
+
+
+    @property
     def selected_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the selected ORF.'''
         cintrons=[]

@@ -40,3 +40,4 @@ utr_fraction
 utr_length
 utr_num
 utr_num_complete
+max_intron_length

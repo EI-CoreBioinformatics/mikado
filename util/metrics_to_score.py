@@ -70,8 +70,8 @@ def calculate_score(rows, json_dict):
                 new_rows[tid]["{0}_original".format(param)]=transcripts[tid][param]
     
     for tid in new_rows:
-        if abs(new_rows[tid]["recalculated_score"]-float(new_rows[tid]["original_score"]))>0.5:
-            raise AssertionError(tid, new_rows[tid]["recalculated_score"], float(new_rows[tid]["original_score"]))
+#         if abs(new_rows[tid]["recalculated_score"]-float(new_rows[tid]["original_score"]))>0.5:
+#             raise AssertionError(tid, new_rows[tid]["recalculated_score"], float(new_rows[tid]["original_score"]))
         new_rows[tid]["recalculated_score"]=round(new_rows[tid]["recalculated_score"],2)
     
     return new_rows.values()

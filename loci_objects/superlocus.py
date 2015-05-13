@@ -98,14 +98,16 @@ class superlocus(abstractlocus):
                 source="{0}_loci".format(self.source)
                 superlocus_line.source=source
                 lines.append(str(superlocus_line))
-                found=set()
+                found=dict()
+                
                 for locus_instance in self.loci:
                     locus_instance.source=source
                     locus_instance.parent = new_id
                     if locus_instance.id in found:
-                        locus_instance.counter +=1
+                        found[locus_instance.id]+=1
+                        locus_instance.counter=found[locus_instance.id]
                     else:
-                        found.add(locus_instance.id) 
+                        found[locus_instance.id]=0
                     lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
         elif level=="monosubloci" or (level is None and self.monosubloci_defined is True):
             self.define_monosubloci()
@@ -113,18 +115,31 @@ class superlocus(abstractlocus):
                 source="{0}_monosubloci".format(self.source)
                 superlocus_line.source=source
                 lines.append(str(superlocus_line))
+                found=dict()
                 for monosublocus_instance in self.monosubloci:
                     monosublocus_instance.source=source
                     monosublocus_instance.parent = new_id
+                    if monosublocus_instance.id in found:
+                        found[monosublocus_instance.id]+=1
+                        monosublocus_instance.counter=found[monosublocus_instance.id]
+                    else:
+                        found[monosublocus_instance.id]=0
+                        
                     lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
         elif level=="subloci" or (level is None and self.monosubloci_defined is False):
             source="{0}_subloci".format(self.source)
             superlocus_line.source=source
             lines=[str(superlocus_line)]
             self.define_subloci()
+            found=dict()
             for sublocus_instance in self.subloci:
                 sublocus_instance.source=source
                 sublocus_instance.parent = new_id
+                if sublocus_instance.id in found:
+                    found[sublocus_instance.id]+=1
+                    sublocus_instance.counter=found[sublocus_instance.id]
+                else:
+                    found[sublocus_instance.id]=0
                 lines.append(sublocus_instance.__str__(print_cds=print_cds).rstrip())
         
         if len(lines)>0:

@@ -26,6 +26,7 @@ class sublocus(abstractlocus):
         
         '''This class takes as input a "span" feature - e.g. a gffLine or a transcript_instance. 
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
+        self.counter=0 # simple tag for avoiding collisions in the GFF output
         super().__init__()
         self.fixedSize=True if span.feature=="sublocus" else False
         if span.__name__=="transcript":
@@ -369,6 +370,8 @@ class sublocus(abstractlocus):
             addendum = "mono"
         else:
             addendum = "multi"
+        if self.counter>0:
+            addendum="{0}.{1}".format(addendum,self.counter)
         
         return "{0}.{1}".format(super().id, addendum)
         

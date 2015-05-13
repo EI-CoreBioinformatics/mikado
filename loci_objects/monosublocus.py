@@ -18,6 +18,7 @@ class monosublocus(abstractlocus):
     
     def __init__(self, transcript_instance):
         
+        self.counter = 0 # simple tag to avoid collisions
         super().__init__()
         self.monoexonic = transcript_instance.monoexonic # this must be defined straight away
         super().add_transcript_to_locus(transcript_instance)
@@ -85,6 +86,7 @@ class monosublocus(abstractlocus):
             addendum = "mono"
         else:
             addendum = "multi"
-        
+        if self.counter>0:
+            addendum="{0}.{1}".format(addendum,self.counter)
         return "{0}.{1}".format(super().id, addendum)
         

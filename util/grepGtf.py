@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 
-import sys,re,argparse
-from myRecords import GTF
+import sys,argparse,os
+sys.path.append(
+                os.path.dirname(os.path.dirname(__file__))
+                )
+from loci_objects import GTF
 
 
 # genes=set()

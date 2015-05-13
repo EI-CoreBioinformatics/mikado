@@ -42,12 +42,15 @@ def define_class_code(transcript_instance, reference_instance):
         elif set.intersection(tran_introns, other_introns)!=set():
             if transcript_instance.introns==reference_instance.introns:
                 return "="
-            elif len(tran_introns)<len(other_introns) and 
+            elif len(tran_introns)<len(other_introns) and True:
+                pass 
              
 
 def ccode_order(ccode):
-    ccodes=["=","j","c",""]
-    return 
+    ccodes=["=","c","j","e","i","o","p","r","u","x","s"]
+    if ccode not in ccodes:
+        raise ValueError("Unknown CCODE: {0}".format(ccode))
+    return ccodes.index(ccode)
     
 
 

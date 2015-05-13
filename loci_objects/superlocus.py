@@ -10,7 +10,7 @@ from copy import deepcopy as copy
 from loci_objects.sublocus import sublocus
 from loci_objects.monosublocus_holder import monosublocus_holder
 from loci_objects.GFF import gffLine
-from loci_objects.exceptions import *
+from loci_objects.exceptions import InvalidLocusError,NoJsonConfigError
 
 class superlocus(abstractlocus):
     
@@ -98,9 +98,14 @@ class superlocus(abstractlocus):
                 source="{0}_loci".format(self.source)
                 superlocus_line.source=source
                 lines.append(str(superlocus_line))
+                found=set()
                 for locus_instance in self.loci:
                     locus_instance.source=source
                     locus_instance.parent = new_id
+                    if locus_instance.id in found:
+                        locus_instance.counter +=1
+                    else:
+                        found.add(locus_instance.id) 
                     lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
         elif level=="monosubloci" or (level is None and self.monosubloci_defined is True):
             self.define_monosubloci()
@@ -369,20 +374,20 @@ class superlocus(abstractlocus):
     ############# Class methods ###########
     
     @classmethod
-    def is_intersecting(cls,transcript, other):
+    def is_intersecting(cls,transcript_instance, other):
         '''When comparing two transcripts, for the definition of subloci inside superloci we follow these rules:
         If both are multiexonic, the function verifies whether there is at least one intron in common.
         If both are monoexonic, the function verifies whether there is some overlap between them.
         If one is monoexonic and the other is not,  the function will return False by definition.        
         '''
         
-        transcript.finalize()
+        transcript_instance.finalize()
         other.finalize()
-        if transcript.id==other.id: return False # We do not want intersection with oneself
-        monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript, other]   )  )   )
+        if transcript_instance.id==other.id: return False # We do not want intersection with oneself
+        monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript_instance, other]   )  )   )
         
         if monoexonic_check==0: #Both multiexonic
-            intersection = set.intersection(transcript.introns, other.introns)
+            intersection = set.intersection(transcript_instance.introns, other.introns)
             if len(intersection)>0:
                 return True
         
@@ -390,8 +395,12 @@ class superlocus(abstractlocus):
             return False
         
         elif monoexonic_check==2:
+            if transcript_instance.start==other.start:
+                return True
+            if transcript_instance.end==other.end:
+                return True
             test_result =cls.overlap(
-                           (transcript.start, transcript.end),
+                           (transcript_instance.start, transcript_instance.end),
                            (other.start, other.end)
                            ) 
             if test_result>0: #A simple overlap analysis will suffice

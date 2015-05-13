@@ -9,6 +9,10 @@ class locus(monosublocus,abstractlocus):
     
     __name__ = "locus"
     
+    def __init__(self,transcript_instance):
+        self.counter=0
+        super().__init__(transcript_instance)
+    
     def __str__(self, print_cds=True):
           
         self.feature=self.__name__
@@ -43,4 +47,8 @@ class locus(monosublocus,abstractlocus):
     
     @property
     def id(self):
-        return abstractlocus.id.fget(self)  # @UndefinedVariable
+        Id = abstractlocus.id.fget(self)  # @UndefinedVariable
+        if self.counter>0:
+            Id = "{0}.{1}".format(Id, self.counter)
+        return Id
+        

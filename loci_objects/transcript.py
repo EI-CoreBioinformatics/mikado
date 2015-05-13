@@ -59,7 +59,6 @@ class transcript:
         self.exons, self.combined_cds, self.combined_utr = [], [], []
         self.introns = []
         self.splices = []
-        self.monoexonic = False
         self.finalized = False # Flag. We do not want to repeat the finalising more than once.
         self.parent = gffLine.parent
         self.attributes = gffLine.attributes
@@ -341,11 +340,7 @@ class transcript:
         except IndexError as err:
             raise IndexError(err, self.id, str(self.exons))
             
-        if len(self.exons)==1:
-            #self.finalized = True
-            self.monoexonic = True
-            #return # There is no sense in performing any operation on single exon transcripts
-        else:
+        if len(self.exons)>1:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
@@ -622,6 +617,7 @@ class transcript:
     
     @classmethod
     def get_available_metrics(cls):
+        '''This function retrieves all metrics available for the class.'''
         return list(x[0] for x in filter(lambda y: "__" not in y[0] and type(cls.__dict__[y[0]]) is metric, inspect.getmembers(cls)))
 
     ####################Class properties##################################
@@ -867,6 +863,12 @@ class transcript:
             return self.selected_internal_orf_cds[0][1]
         else:
             return self.selected_internal_orf_cds[-1][2]
+
+    @property
+    def monoexonic(self):
+        if len(self.exons)==1:
+            return True
+        return False
 
     #################### Class metrics ##################################
 

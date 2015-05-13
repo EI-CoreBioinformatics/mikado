@@ -137,12 +137,20 @@ The documentation for each of them can be generated with the utility "generate_m
 
 
 ###Defining new metrics
-For the program to be able to use a novel metric, it must be implemented as a *property* inside the
-transcript class. If the metric is relative to other transcripts in the locus (e.g. retained introns),
-it must still be implemented as a property, but its value will have to be set by the "calculate_metrics"
-method inside the *sublocus* and *monosublocus_holder* classes.
-Finally, a new metric must be added to the "metrics.txt" file in the loci_object directory for the program
-to be aware that it is available.   
+For the program to be able to use a novel metric, it must be implemented as a *metric* inside the
+transcript class. The "metric" class is an alias of "property", and therefore metrics are coded as properties would:
+
+@metric
+def my_metric(self):
+	return self.__my_metric
+
+@my_metric.setter
+def my_metric(self,value):
+	self.__my_metric = value 
+
+If the metric is relative to other transcripts in the locus (e.g. retained introns),
+it must still be implemented as above, but its value must be set by the "calculate_metrics" method in the
+sublocus/monosublocus_holder class.
 
 ##Scoring configuration
 At each selection stage, the best transcript for the span is selected according to user-defined criteria, supplied

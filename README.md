@@ -142,10 +142,12 @@ transcript class. The "metric" class is an alias of "property", and therefore me
 
 @metric
 def my_metric(self):
+
 	return self.__my_metric
 
 @my_metric.setter
 def my_metric(self,value):
+
 	self.__my_metric = value 
 
 If the metric is relative to other transcripts in the locus (e.g. retained introns),

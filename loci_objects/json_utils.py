@@ -1,6 +1,6 @@
 import sys,os.path,re
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects.superlocus import superlocus
+from loci_objects.transcript import transcript
 import json
 
 class UnrecognizedOperator(ValueError):
@@ -18,8 +18,9 @@ def check_json(json_conf):
     parameters_not_found=[]
     parameters_found=set()
     double_parameters=[]
+    available_metrics = transcript.get_available_metrics()
     for parameter in json_conf["parameters"]:
-        if parameter not in superlocus.available_metrics:
+        if parameter not in available_metrics:
             parameters_not_found.append(parameter)
         if parameter in parameters_found:
             double_parameters.add(parameter)
@@ -39,7 +40,7 @@ def check_json(json_conf):
             raise InvalidJson("The requirements field must have a \"parameters\" subfield!")
         for key in json_conf["requirements"]["parameters"]:
             key_name=key.split(".")[0]
-            if key_name not in superlocus.available_metrics:
+            if key_name not in available_metrics:
                 parameters_not_found.append(key_name) 
 
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0:

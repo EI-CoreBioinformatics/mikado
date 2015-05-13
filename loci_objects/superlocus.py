@@ -3,6 +3,7 @@
 import sys,os.path
 from loci_objects.monosublocus import monosublocus
 from loci_objects.excluded_locus import excluded_locus
+from loci_objects.transcript import transcript
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 from copy import deepcopy as copy
@@ -17,7 +18,7 @@ class superlocus(abstractlocus):
     transcript class instances.'''
     
     __name__ = "superlocus"
-    available_metrics = sublocus.available_metrics
+    available_metrics = transcript.get_available_metrics()
     
     ####### Special methods ############
     

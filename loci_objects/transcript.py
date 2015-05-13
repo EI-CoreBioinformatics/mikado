@@ -4,7 +4,12 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 from loci_objects.GTF import gtfLine
 from loci_objects.GFF import gffLine
+import inspect
 #import logging
+
+class metric(property):
+    '''Simple aliasing of property. All transcript metrics should use this alias, not property, for the decorator.'''
+    pass
 
 class transcript:
     
@@ -29,7 +34,6 @@ class transcript:
 
     CDS locations can be uploaded from the external, using a dictionary of indexed BED12 entries. 
     '''
-    
     
     ######### Class special methods ####################
     
@@ -615,6 +619,10 @@ class transcript:
     def merge_cliques(cls, cliques):
         '''Wrapper for the abstractlocus method.'''
         return abstractlocus.merge_cliques(cliques)
+    
+    @classmethod
+    def get_available_metrics(cls):
+        return list(x[0] for x in filter(lambda y: "__" not in y[0] and type(cls.__dict__[y[0]]) is metric, inspect.getmembers(cls)))
 
     ####################Class properties##################################
 
@@ -631,33 +639,9 @@ class transcript:
         self.__id = Id
 
     @property
-    def tid(self):
-        '''ID of the transcript - cannot be an undefined value. Alias of id.'''
-        return self.id
-    
-    @tid.setter
-    def tid(self,tid):
-        self.id=tid
-        
-    @property
-    def parent(self):
-        '''Name of the parent feature of the transcript.'''
-        return self.__parent
-    
-    @parent.setter
-    def parent(self,parent):
-        if type(parent) is list or parent is None:
-            self.__parent=parent
-        elif type(parent) is str:
-            if "," in parent:
-                self.__parent=parent.split(",")
-            else:
-                self.__parent=[parent]
-        else:
-            raise ValueError("Invalid value for parent: {0}, type {1}".format(
-                                                                          parent, type(parent)))
-            
-        
+    def available_metrics(self):
+        return self.get_metrics()
+
     @property
     def strand(self):
         return self.__strand
@@ -669,114 +653,8 @@ class transcript:
         elif strand in (None,".","?"):
             self.__strand=None
         else:
-            raise ValueError("Invalid value for strand: {0}".format(strand)) 
+            raise ValueError("Invalid value for strand: {0}".format(strand))
         
-    @property
-    def score(self):
-        '''Numerical value which summarizes the reliability of the transcript.'''
-        return self.__score
-        
-    @score.setter
-    def score(self,score):
-        
-        if score is not None:
-            if type(score) not in (float,int):
-                try:
-                    score=float(score)
-                except:
-                    raise ValueError("Invalid value for score: {0}, type {1}".format(
-                                                                          score, type(score)))
-        self.__score=score
-                
-        
-
-    @property
-    def combined_cds_length(self):
-        '''This property return the length of the CDS part of the transcript.'''
-        return sum([ c[1]-c[0]+1 for c in self.combined_cds ])
-    
-    @property
-    def combined_cds_num(self):
-        '''This property returns the number of non-overlapping CDS segments in the transcript.'''
-        return len( self.combined_cds )
-
-    @property
-    def combined_cds_num_fraction(self):
-        '''This property returns the fraction of non-overlapping CDS segments in the transcript
-        vs. the total number of exons'''
-        return len( self.combined_cds )/len(self.exons)
-
-    @property
-    def combined_cds_fraction(self):
-        '''This property return the percentage of the CDS part of the transcript vs. the cDNA length'''
-        return self.combined_cds_length/self.cdna_length
-    
-    @property
-    def combined_utr_length(self):
-        '''This property return the length of the UTR part of the transcript.'''
-        return sum([ e[1]-e[0]+1 for e in self.combined_utr ])
-    
-    @property
-    def combined_utr_fraction(self):
-        '''This property returns the fraction of the cDNA which is not coding according
-        to any ORF. Complement of combined_cds_fraction'''
-        return 1-self.combined_cds_fraction
-        
-    @property
-    def cdna_length(self):
-        '''This property returns the length of the transcript.'''
-        return sum([ e[1]-e[0]+1 for e in self.exons ])
-    
-    @property
-    def number_internal_orfs(self):
-        '''This property returns the number of ORFs inside a transcript.'''
-        return len(self.internal_cds)
-
-    @property
-    def selected_cds_length(self):
-        '''This property calculates the length of the CDS selected as best inside the cDNA.'''
-        if len(self.combined_cds)==0:
-            self.__max_internal_orf_length=0
-        else:
-            self.__max_internal_orf_length=sum(x[2]-x[1]+1 for x in filter(lambda x: x[0]=="CDS", self.selected_internal_orf))
-        return self.__max_internal_orf_length
-    
-    @property
-    def selected_cds_num(self):
-        '''This property calculates the number of CDS exons for the selected ORF'''
-        return len(list( filter(lambda exon: exon[0]=="CDS", self.selected_internal_orf) ))
-    
-    @property
-    def selected_cds_fraction(self):
-        '''This property calculates the fraction of the selected CDS vs. the cDNA length.'''
-        return self.__max_internal_orf_length/self.cdna_length
-    
-    @property
-    def highest_cds_exons_num(self):
-        '''Returns the number of CDS segments in the selected ORF (irrespective of the number of exons involved)'''
-        return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))
-    
-    @property
-    def selected_cds_exons_fraction(self):
-        '''Returns the fraction of CDS segments in the selected ORF (irrespective of the number of exons involved)'''
-        return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))/len(self.exons)
-    
-
-    @property
-    def highest_cds_exon_number(self):
-        '''This property returns the maximum number of CDS segments among the ORFs; this number
-        can refer to an ORF *DIFFERENT* from the maximal ORF.'''
-        cds_numbers = []
-        for cds in self.internal_cds:
-            cds_numbers.append(len(list(filter(lambda x: x[0]=="CDS", cds))))
-        return max(cds_numbers)
-    
-    @property
-    def selected_cds_number_fraction(self):
-        '''This property returns the proportion of best possible CDS segments vs. the number of exons.
-        See selected_cds_number.'''
-        return self.selected_cds_number/self.exon_num
-
     @property
     def selected_internal_orf(self):
         '''This property will return the tuple of tuples of the ORF selected as "best".
@@ -797,33 +675,8 @@ class transcript:
         if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
             return tuple([])
         else:
-            return list(filter(lambda x: x[0]=="CDS", self.internal_cds[self.selected_internal_orf_index]))
-    
-    
-    
-    @property
-    def cds_not_maximal(self):
-        '''This property returns the length of the CDS excluded from the selected ORF.'''
-        if len(self.internal_cds)<2:
-            return 0
-        return self.combined_cds_length-self.selected_cds_length
-    
-    @property
-    def cds_not_maximal_fraction(self):
-        '''This property returns the fraction of bases not in the selected ORF compared to
-        the total number of CDS bases in the cDNA.'''
-        if self.combined_cds_length==0:
-            return 0
-        else:
-            return self.cds_not_maximal/self.combined_cds_length
-    
-    @property
-    def five_utr_length(self):
-        '''Returns the length of the 5' UTR of the selected ORF.'''
-        if len(self.combined_cds)==0:
-            return 0
-        return sum(x[2]-x[1]+1 for x in self.five_utr)
-                            
+            return list(filter(lambda x: x[0]=="CDS", self.internal_cds[self.selected_internal_orf_index])) 
+
     @property
     def five_utr(self):
         '''Returns the exons in the 5' UTR of the selected ORF.'''
@@ -835,24 +688,6 @@ class transcript:
             return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.combined_cds_start, self.selected_internal_orf  )  )
 
     @property
-    def five_utr_num(self):
-        '''This property returns the number of 5' UTR segments for the selected ORF.'''
-        return len(self.five_utr)
-
-    @property
-    def five_utr_num_complete(self):
-        '''This property returns the number of 5' UTR segments for the selected ORF, considering only those which are complete exons.'''
-        return len(list(filter(lambda utr: (utr[1],utr[2]) in self.exons, self.five_utr)  ))
-
-
-    @property
-    def three_utr_length(self):
-        '''Returns the length of the 5' UTR of the selected ORF.'''
-        if len(self.combined_cds)==0:
-            return 0
-        return sum(x[2]-x[1]+1 for x in self.three_utr)
-                            
-    @property
     def three_utr(self):
         '''Returns the exons in the 3' UTR of the selected ORF.'''
         if len(self.combined_cds)==0:
@@ -861,65 +696,6 @@ class transcript:
             return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.combined_cds_end, self.selected_internal_orf  )  )
         elif self.strand=="+":
             return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.combined_cds_end, self.selected_internal_orf  )  )
-
-    @property
-    def three_utr_num(self):
-        '''This property returns the number of 3' UTR segments (referred to the selected ORF).'''
-        return len(self.three_utr)
-
-    @property
-    def three_utr_num_complete(self):
-        '''This property returns the number of 3' UTR segments for the selected ORF, considering only those which are complete exons.'''
-        return len(list(filter(lambda utr: (utr[1],utr[2]) in self.exons, self.three_utr)   ))
-
-
-    @property
-    def utr_num(self):
-        '''Returns the number of UTR segments (referred to the selected ORF).'''
-        return len(self.three_utr+self.five_utr)
-
-    @property
-    def utr_num_complete(self):
-        '''Returns the number of UTR segments which are complete exons (referred to the selected ORF).'''
-        return self.three_utr_num_complete+self.five_utr_num_complete
-
-
-    @property
-    def utr_fraction(self):
-        '''This property calculates the length of the UTR of the selected ORF vs. the cDNA length.'''
-        return 1-self.selected_cds_fraction
-
-    @property
-    def utr_length(self):
-        '''Returns the sum of the 5'+3' UTR lengths'''
-        return self.three_utr_length+self.five_utr_length
-    
-    @property
-    def has_start_codon(self):
-        '''Boolean. True if the selected ORF has a start codon.'''
-        return self.__has_start
-    
-    @has_start_codon.setter
-    def has_start_codon(self, *args):
-        if args[0] not in (None, False,True):
-            raise TypeError("Invalid value for has_start_codon: {0}".format(type(args[0])))
-        self.__has_start=args[0]
-        
-    @property
-    def has_stop_codon(self):
-        '''Boolean. True if the selected ORF has a stop codon.'''
-        return self.__has_stop
-    
-    @has_stop_codon.setter
-    def has_stop_codon(self, *args):
-        if args[0] not in (None, False,True):
-            raise TypeError("Invalid value for has_stop_codon: {0}".format(type(args[0])))
-        self.__has_stop=args[0]
-
-    @property
-    def is_complete(self):
-        '''Boolean. True if the selected ORF has both start and end.'''
-        return self.has_start_codon and self.has_stop_codon
 
     @property
     def selected_internal_orf_index(self):
@@ -975,38 +751,6 @@ class transcript:
         if type(args[0]) not in (set,list):
             raise TypeError(type(args[0]))
         self.__exons=args[0]
-    
-    @property
-    def exon_num(self):
-        '''This property returns the number of exons of the transcript.'''
-        return len(self.exons)
-    
-    @property
-    def exon_fraction(self):
-        '''This property returns the fraction of exons of the transcript which are contained in the sublocus.
-        If the transcript is by itself, it returns 1. Set from outside.'''
-        
-        return self.__exon_fraction
-    
-    @exon_fraction.setter
-    def exon_fraction(self, *args):
-        if type(args[0]) not in (float,int) or (args[0]<=0 or args[0]>1):
-            raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
-        self.__exon_fraction=args[0]
-    
-    @property
-    def intron_fraction(self):
-        '''This property returns the fraction of introns of the transcript vs. the total number of introns in the locus.
-        If the transcript is by itself, it returns 1. Set from outside.'''
-        return self.__intron_fraction
-    
-    @intron_fraction.setter
-    def intron_fraction(self, *args):
-        if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
-            raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
-        if not self.monoexonic and args[0]==0:
-            raise ValueError("It is impossible that the intron fraction is null when the transcript has at least one intron!")
-        self.__intron_fraction=args[0]
 
     @property
     def combined_cds_introns(self):
@@ -1028,14 +772,6 @@ class transcript:
         return cintrons
 
     @property
-    def max_intron_length(self):
-        '''This property returns the greatest intron length for the transcript.'''
-        if len(self.introns)==0:
-            return 0
-        return max(intron[1]+1-intron[0] for intron in self.introns)
-
-
-    @property
     def selected_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the selected ORF.'''
         cintrons=[]
@@ -1045,80 +781,7 @@ class transcript:
                             )
         cintrons=set(cintrons)
         return cintrons
-            
-    @property
-    def start_distance_from_tss(self):
-        '''This property returns the distance of the start of the combined CDS from the transcript start site.
-        If no CDS is defined, it defaults to 0.'''
-        if len(self.combined_cds)==0: return 0
-        distance=0
-        if self.strand=="+":
-            for exon in self.exons:
-                distance+=min(exon[1],self.combined_cds_start)-exon[0]+1
-                if self.combined_cds_start<=exon[1]:break
-        elif self.strand=="-":
-            exons=self.exons[:]
-            exons.reverse()
-            for exon in exons:
-                distance+=exon[1]+1-max(self.combined_cds_start,exon[0])
-                if self.combined_cds_start>=exon[0]:break
-        return distance
-                
-    @property
-    def selected_start_distance_from_tss(self):
-        '''This property returns the distance of the start of the best CDS from the transcript start site.
-        If no CDS is defined, it defaults to 0.'''
-        if len(self.combined_cds)==0: return 0
-        distance=0
-        if self.strand=="+":
-            for exon in self.exons:
-                distance+=min(exon[1],self.selected_cds_start)-exon[0]+1
-                if self.selected_cds_start<=exon[1]:break
-        elif self.strand=="-":
-            exons=self.exons[:]
-            exons.reverse()
-            for exon in exons:
-                distance+=exon[1]+1-max(self.selected_cds_start,exon[0])
-                if self.selected_cds_start>=exon[0]:break
-        return distance
-
-    @property
-    def end_distance_from_tes(self):
-        '''This property returns the distance of the end of the combined CDS from the transcript end site.
-        If no CDS is defined, it defaults to 0.'''
-        if len(self.combined_cds)==0: return 0
-        distance=0
-        if self.strand=="-":
-            for exon in self.exons:
-                distance+=min(exon[1],self.combined_cds_end)-exon[0]+1
-                if self.cds_end<=exon[1]:break
-        elif self.strand=="-":
-            exons=self.exons[:]
-            exons.reverse()
-            for exon in exons:
-                distance+=exon[1]+1-max(self.combined_cds_end,exon[0])
-                if self.cds_end>=exon[0]:break
-        return distance
     
-    @property
-    def selected_end_distance_from_tes(self):
-        '''This property returns the distance of the end of the best CDS from the transcript end site.
-        If no CDS is defined, it defaults to 0.'''
-        if len(self.combined_cds)==0: return 0
-        distance=0
-        if self.strand=="-":
-            for exon in self.exons:
-                distance+=min(exon[1],self.selected_cds_end)-exon[0]+1
-                if self.selected_cds_end<=exon[1]:break
-        elif self.strand=="-":
-            exons=self.exons[:]
-            exons.reverse()
-            for exon in exons:
-                distance+=exon[1]+1-max(self.selected_cds_end,exon[0])
-                if self.selected_cds_end>=exon[0]:break
-        return distance
-
-
     @property
     def combined_cds_start(self):
         '''This property returns the location of the start of the combined CDS for the transcript.
@@ -1205,9 +868,353 @@ class transcript:
         else:
             return self.selected_internal_orf_cds[-1][2]
 
+    #################### Class metrics ##################################
+
+    @metric
+    def tid(self):
+        '''ID of the transcript - cannot be an undefined value. Alias of id.'''
+        return self.id
+    
+    @tid.setter
+    def tid(self,tid):
+        self.id=tid
+        
+    @metric
+    def parent(self):
+        '''Name of the parent feature of the transcript.'''
+        return self.__parent
+    
+    @parent.setter
+    def parent(self,parent):
+        if type(parent) is list or parent is None:
+            self.__parent=parent
+        elif type(parent) is str:
+            if "," in parent:
+                self.__parent=parent.split(",")
+            else:
+                self.__parent=[parent]
+        else:
+            raise ValueError("Invalid value for parent: {0}, type {1}".format(
+                                                                          parent, type(parent)))
+            
+    @metric
+    def score(self):
+        '''Numerical value which summarizes the reliability of the transcript.'''
+        return self.__score
+        
+    @score.setter
+    def score(self,score):
+        
+        if score is not None:
+            if type(score) not in (float,int):
+                try:
+                    score=float(score)
+                except:
+                    raise ValueError("Invalid value for score: {0}, type {1}".format(
+                                                                          score, type(score)))
+        self.__score=score
+                
+        
+
+    @metric
+    def combined_cds_length(self):
+        '''This property return the length of the CDS part of the transcript.'''
+        return sum([ c[1]-c[0]+1 for c in self.combined_cds ])
+    
+    @metric
+    def combined_cds_num(self):
+        '''This property returns the number of non-overlapping CDS segments in the transcript.'''
+        return len( self.combined_cds )
+
+    @metric
+    def combined_cds_num_fraction(self):
+        '''This property returns the fraction of non-overlapping CDS segments in the transcript
+        vs. the total number of exons'''
+        return len( self.combined_cds )/len(self.exons)
+
+    @metric
+    def combined_cds_fraction(self):
+        '''This property return the percentage of the CDS part of the transcript vs. the cDNA length'''
+        return self.combined_cds_length/self.cdna_length
+    
+    @metric
+    def combined_utr_length(self):
+        '''This property return the length of the UTR part of the transcript.'''
+        return sum([ e[1]-e[0]+1 for e in self.combined_utr ])
+    
+    @metric
+    def combined_utr_fraction(self):
+        '''This property returns the fraction of the cDNA which is not coding according
+        to any ORF. Complement of combined_cds_fraction'''
+        return 1-self.combined_cds_fraction
+        
+    @metric
+    def cdna_length(self):
+        '''This property returns the length of the transcript.'''
+        return sum([ e[1]-e[0]+1 for e in self.exons ])
+    
+    @metric
+    def number_internal_orfs(self):
+        '''This property returns the number of ORFs inside a transcript.'''
+        return len(self.internal_cds)
+
+    @metric
+    def selected_cds_length(self):
+        '''This property calculates the length of the CDS selected as best inside the cDNA.'''
+        if len(self.combined_cds)==0:
+            self.__max_internal_orf_length=0
+        else:
+            self.__max_internal_orf_length=sum(x[2]-x[1]+1 for x in filter(lambda x: x[0]=="CDS", self.selected_internal_orf))
+        return self.__max_internal_orf_length
+    
+    @metric
+    def selected_cds_num(self):
+        '''This property calculates the number of CDS exons for the selected ORF'''
+        return len(list( filter(lambda exon: exon[0]=="CDS", self.selected_internal_orf) ))
+    
+    @metric
+    def selected_cds_fraction(self):
+        '''This property calculates the fraction of the selected CDS vs. the cDNA length.'''
+        return self.__max_internal_orf_length/self.cdna_length
+    
+    @metric
+    def highest_cds_exons_num(self):
+        '''Returns the number of CDS segments in the selected ORF (irrespective of the number of exons involved)'''
+        return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))
+    
+    @metric
+    def selected_cds_exons_fraction(self):
+        '''Returns the fraction of CDS segments in the selected ORF (irrespective of the number of exons involved)'''
+        return len(list(filter(lambda x: x[0]=="CDS", self.selected_internal_orf)))/len(self.exons)
+    
+
+    @metric
+    def highest_cds_exon_number(self):
+        '''This property returns the maximum number of CDS segments among the ORFs; this number
+        can refer to an ORF *DIFFERENT* from the maximal ORF.'''
+        cds_numbers = []
+        for cds in self.internal_cds:
+            cds_numbers.append(len(list(filter(lambda x: x[0]=="CDS", cds))))
+        return max(cds_numbers)
+    
+    @metric
+    def selected_cds_number_fraction(self):
+        '''This property returns the proportion of best possible CDS segments vs. the number of exons.
+        See selected_cds_number.'''
+        return self.selected_cds_number/self.exon_num
+
+    @metric
+    def cds_not_maximal(self):
+        '''This property returns the length of the CDS excluded from the selected ORF.'''
+        if len(self.internal_cds)<2:
+            return 0
+        return self.combined_cds_length-self.selected_cds_length
+    
+    @metric
+    def cds_not_maximal_fraction(self):
+        '''This property returns the fraction of bases not in the selected ORF compared to
+        the total number of CDS bases in the cDNA.'''
+        if self.combined_cds_length==0:
+            return 0
+        else:
+            return self.cds_not_maximal/self.combined_cds_length
+    
+    @metric
+    def five_utr_length(self):
+        '''Returns the length of the 5' UTR of the selected ORF.'''
+        if len(self.combined_cds)==0:
+            return 0
+        return sum(x[2]-x[1]+1 for x in self.five_utr)
+                            
+    @metric
+    def five_utr_num(self):
+        '''This property returns the number of 5' UTR segments for the selected ORF.'''
+        return len(self.five_utr)
+
+    @metric
+    def five_utr_num_complete(self):
+        '''This property returns the number of 5' UTR segments for the selected ORF, considering only those which are complete exons.'''
+        return len(list(filter(lambda utr: (utr[1],utr[2]) in self.exons, self.five_utr)  ))
 
 
-    @property
+    @metric
+    def three_utr_length(self):
+        '''Returns the length of the 5' UTR of the selected ORF.'''
+        if len(self.combined_cds)==0:
+            return 0
+        return sum(x[2]-x[1]+1 for x in self.three_utr)
+                            
+    @metric
+    def three_utr_num(self):
+        '''This property returns the number of 3' UTR segments (referred to the selected ORF).'''
+        return len(self.three_utr)
+
+    @metric
+    def three_utr_num_complete(self):
+        '''This property returns the number of 3' UTR segments for the selected ORF, considering only those which are complete exons.'''
+        return len(list(filter(lambda utr: (utr[1],utr[2]) in self.exons, self.three_utr)   ))
+
+
+    @metric
+    def utr_num(self):
+        '''Returns the number of UTR segments (referred to the selected ORF).'''
+        return len(self.three_utr+self.five_utr)
+
+    @metric
+    def utr_num_complete(self):
+        '''Returns the number of UTR segments which are complete exons (referred to the selected ORF).'''
+        return self.three_utr_num_complete+self.five_utr_num_complete
+
+
+    @metric
+    def utr_fraction(self):
+        '''This property calculates the length of the UTR of the selected ORF vs. the cDNA length.'''
+        return 1-self.selected_cds_fraction
+
+    @metric
+    def utr_length(self):
+        '''Returns the sum of the 5'+3' UTR lengths'''
+        return self.three_utr_length+self.five_utr_length
+    
+    @metric
+    def has_start_codon(self):
+        '''Boolean. True if the selected ORF has a start codon.'''
+        return self.__has_start
+    
+    @has_start_codon.setter
+    def has_start_codon(self, *args):
+        if args[0] not in (None, False,True):
+            raise TypeError("Invalid value for has_start_codon: {0}".format(type(args[0])))
+        self.__has_start=args[0]
+        
+    @metric
+    def has_stop_codon(self):
+        '''Boolean. True if the selected ORF has a stop codon.'''
+        return self.__has_stop
+    
+    @has_stop_codon.setter
+    def has_stop_codon(self, *args):
+        if args[0] not in (None, False,True):
+            raise TypeError("Invalid value for has_stop_codon: {0}".format(type(args[0])))
+        self.__has_stop=args[0]
+
+    @metric
+    def is_complete(self):
+        '''Boolean. True if the selected ORF has both start and end.'''
+        return self.has_start_codon and self.has_stop_codon
+
+    @metric
+    def exon_num(self):
+        '''This property returns the number of exons of the transcript.'''
+        return len(self.exons)
+    
+    @metric
+    def exon_fraction(self):
+        '''This property returns the fraction of exons of the transcript which are contained in the sublocus.
+        If the transcript is by itself, it returns 1. Set from outside.'''
+        
+        return self.__exon_fraction
+    
+    @exon_fraction.setter
+    def exon_fraction(self, *args):
+        if type(args[0]) not in (float,int) or (args[0]<=0 or args[0]>1):
+            raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
+        self.__exon_fraction=args[0]
+    
+    @metric
+    def intron_fraction(self):
+        '''This property returns the fraction of introns of the transcript vs. the total number of introns in the locus.
+        If the transcript is by itself, it returns 1. Set from outside.'''
+        return self.__intron_fraction
+    
+    @intron_fraction.setter
+    def intron_fraction(self, *args):
+        if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
+            raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
+        if not self.monoexonic and args[0]==0:
+            raise ValueError("It is impossible that the intron fraction is null when the transcript has at least one intron!")
+        self.__intron_fraction=args[0]
+
+    @metric
+    def max_intron_length(self):
+        '''This property returns the greatest intron length for the transcript.'''
+        if len(self.introns)==0:
+            return 0
+        return max(intron[1]+1-intron[0] for intron in self.introns)
+
+    @metric
+    def start_distance_from_tss(self):
+        '''This property returns the distance of the start of the combined CDS from the transcript start site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="+":
+            for exon in self.exons:
+                distance+=min(exon[1],self.combined_cds_start)-exon[0]+1
+                if self.combined_cds_start<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.combined_cds_start,exon[0])
+                if self.combined_cds_start>=exon[0]:break
+        return distance
+                
+    @metric
+    def selected_start_distance_from_tss(self):
+        '''This property returns the distance of the start of the best CDS from the transcript start site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="+":
+            for exon in self.exons:
+                distance+=min(exon[1],self.selected_cds_start)-exon[0]+1
+                if self.selected_cds_start<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.selected_cds_start,exon[0])
+                if self.selected_cds_start>=exon[0]:break
+        return distance
+
+    @metric
+    def end_distance_from_tes(self):
+        '''This property returns the distance of the end of the combined CDS from the transcript end site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="-":
+            for exon in self.exons:
+                distance+=min(exon[1],self.combined_cds_end)-exon[0]+1
+                if self.cds_end<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.combined_cds_end,exon[0])
+                if self.cds_end>=exon[0]:break
+        return distance
+    
+    @metric
+    def selected_end_distance_from_tes(self):
+        '''This property returns the distance of the end of the best CDS from the transcript end site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="-":
+            for exon in self.exons:
+                distance+=min(exon[1],self.selected_cds_end)-exon[0]+1
+                if self.selected_cds_end<=exon[1]:break
+        elif self.strand=="-":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.selected_cds_end,exon[0])
+                if self.selected_cds_end>=exon[0]:break
+        return distance
+
+    @metric
     def combined_cds_intron_fraction(self):
         '''This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the locus.
         If the transcript is by itself, it returns 1.'''
@@ -1219,7 +1226,7 @@ class transcript:
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
         self.__combined_cds_intron_fraction=args[0]
 
-    @property
+    @metric
     def selected_cds_intron_fraction(self):
         '''This property returns the fraction of CDS introns of the selected ORF of the transcript vs. the total number of CDS introns in the locus
         (considering only the selected ORF).
@@ -1233,13 +1240,13 @@ class transcript:
         self.__selected_cds_intron_fraction=args[0]
 
 
-    @property
+    @metric
     def retained_intron_num(self):
         '''This property records the number of introns in the transcripts which are marked as being retained.
         See the corresponding method in the sublocus class.'''
         return len(self.retained_introns)
     
-    @property
+    @metric
     def retained_fraction(self):
         '''This property returns the fraction of the cDNA which is contained in retained introns.'''
         return self.__retained_fraction        

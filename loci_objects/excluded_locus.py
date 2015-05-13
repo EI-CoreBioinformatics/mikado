@@ -1,5 +1,5 @@
 import sys,os.path
-from loci_objects.get_metrics_name import get_metrics_name
+from loci_objects.transcript import transcript
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 
@@ -12,16 +12,11 @@ class excluded_locus(abstractlocus):
     Internally, the most important method is define_loci - which will select the best transcript(s) and remove all the overlapping ones.
     The intersection function for this object is quite laxer than in previous stages, and so are the requirements for the inclusion.
     '''
-    @staticmethod
-    def get_available_metrics(filename=None):
-        '''Wrapper for the "get_metrics_name" function to retrieve the necessary metrics names.'''
-        
-        return get_metrics_name(filename=filename)
     
     __name__ = "excluded_transcripts"
     available_metrics = []
     if available_metrics == []:
-        available_metrics = get_available_metrics.__func__()
+        available_metrics = transcript.get_available_metrics()
 
     def __init__(self, monosublocus_instance, json_dict=None, metrics=None):
         
@@ -49,12 +44,6 @@ class excluded_locus(abstractlocus):
     def print_metrics(self):
         
         '''This class yields dictionary "rows" that will be given to a csv.DictWriter class.'''
-        
-        #Check that rower is an instance of the csv.DictWriter class
-#        self.get_metrics()
-#         self.calculate_scores() 
-        
-        #The rower is an instance of the DictWriter class from the standard CSV module
         
         for tid in sorted(self.transcripts.keys(), key=lambda tid: self.transcripts[tid] ):
             row={}

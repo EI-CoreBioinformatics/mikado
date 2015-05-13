@@ -7,7 +7,6 @@ from loci_objects.abstractlocus import abstractlocus
 from loci_objects.monosublocus import monosublocus
 from loci_objects.transcript import transcript
 from loci_objects.GFF import gffLine
-from loci_objects.get_metrics_name import get_metrics_name
 
 class sublocus(abstractlocus):
     
@@ -15,18 +14,11 @@ class sublocus(abstractlocus):
     The sublocus class is created either by the superlocus class during the subloci definition, or directly using a G(T|F)line-like object.
     It is used to define the final monosubloci.
     '''
-    
-    @staticmethod
-    def get_available_metrics(filename=None):
-        '''Wrapper for the "get_metrics_name" function to retrieve the necessary metrics names.'''
-        
-        return get_metrics_name(filename=filename)
-    
-    
+
     __name__ = "sublocus"
     available_metrics = []
     if available_metrics == []:
-        available_metrics = get_available_metrics.__func__()
+        available_metrics = transcript.get_available_metrics()
 
     ################ Class special methods ##############
     

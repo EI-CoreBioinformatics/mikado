@@ -271,20 +271,23 @@ class sublocus(abstractlocus):
                 
             for tid in self.transcripts:
                 tid_metric = getattr( self.transcripts[tid], param  )
-                if rescaling == "max":
+                if "filter" in self.json_dict["parameters"][param]:
+                    if self.evaluate( tid_metric, self.json_dict["parameters"][param]["filter"]) is False:
+                        score=0
+                else:
+                    if rescaling == "max":
                     ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
-                    score = abs( ( tid_metric - min(metrics) ) / denominator )
-                elif rescaling=="min":
-                    score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
-                elif rescaling == "target":
-                    score = 1 - (abs( tid_metric  - target )/denominator )
+                        score = abs( ( tid_metric - min(metrics) ) / denominator )
+                    elif rescaling=="min":
+                        score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
+                    elif rescaling == "target":
+                        score = 1 - (abs( tid_metric  - target )/denominator )
                 score*=self.json_dict["parameters"][param]["multiplier"]
                 scores[tid][param]=score
                 
         for tid in self.transcripts:
             if tid in not_passing: self.transcripts[tid].score=0 
             else: self.transcripts[tid].score = sum( scores[tid].values() )
-        
     
     def print_metrics(self):
         

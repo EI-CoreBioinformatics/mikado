@@ -229,6 +229,7 @@ class sublocus(abstractlocus):
                         value=getattr(self.transcripts[tid],self.json_dict["requirements"]["parameters"][key]["name"])
                         evaluated[key]=self.evaluate(value, self.json_dict["requirements"]["parameters"][key])
                     if eval(self.json_dict["requirements"]["compiled"]) is False:
+                        print("{0} not passing muster."format(tid))
                         not_passing.add(tid)
                 if len(not_passing)==0:
                     break

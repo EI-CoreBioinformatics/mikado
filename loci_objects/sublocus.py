@@ -217,7 +217,7 @@ class sublocus(abstractlocus):
         '''
         
         self.get_metrics()
-        
+        not_passing=set()
         if "requirements" in self.json_dict:
             self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
             previous_not_passing = set()
@@ -251,7 +251,9 @@ class sublocus(abstractlocus):
                     self.get_metrics()
                 
                 previous_not_passing = not_passing.copy()
-                    
+            not_passing=previous_not_passing.copy()
+            del previous_not_passing
+        
         if len(self.transcripts)==0:
             return
         scores=dict()
@@ -280,7 +282,8 @@ class sublocus(abstractlocus):
                 scores[tid][param]=score
                 
         for tid in self.transcripts:
-            self.transcripts[tid].score = sum( scores[tid].values() )
+            if tid in not_passing: self.transcripts[tid].score=0 
+            else: self.transcripts[tid].score = sum( scores[tid].values() )
         
     
     def print_metrics(self):

@@ -980,7 +980,7 @@ class transcript:
     @metric
     def selected_cds_fraction(self):
         '''This property calculates the fraction of the selected CDS vs. the cDNA length.'''
-        return self.__max_internal_orf_length/self.cdna_length
+        return self.selected_cds_length/self.cdna_length
     
     @metric
     def highest_cds_exons_num(self):

@@ -140,15 +140,15 @@ The documentation for each of them can be generated with the utility "generate_m
 For the program to be able to use a novel metric, it must be implemented as a *metric* inside the
 transcript class. The "metric" class is an alias of "property", and therefore metrics are coded as properties would:
 
+```
 @metric
 def my_metric(self):
-
 	return self.__my_metric
 
 @my_metric.setter
 def my_metric(self,value):
-
-	self.__my_metric = value 
+	self.__my_metric = value
+``` 
 
 If the metric is relative to other transcripts in the locus (e.g. retained introns),
 it must still be implemented as above, but its value must be set by the "calculate_metrics" method in the
@@ -165,5 +165,21 @@ For each parameter, it is possible to specify the following:
 **"min"
 **"target"
     
-Each parameter will have a score assigned which varies from 0 to 1. If the "target" rescaling is selected, it is *mandatory* to specify a "value" keyword. For details, see [RAMPART supporting material (section 2, page3)](http://bioinformatics.oxfordjournals.org/content/suppl/2015/01/29/btv056.DC1/supplementary.pdf)  
+Each parameter will have a score assigned which varies from 0 to 1. If the "target" rescaling is selected, it is *mandatory* to specify a "value" keyword. For details, see [RAMPART supporting material (section 2, page3)](http://bioinformatics.oxfordjournals.org/content/suppl/2015/01/29/btv056.DC1/supplementary.pdf)
+
+Moreover, for each parameter it is possible to configure a "filter", i.e. boundaries after which the score for this parameter is set automatically to 0 (e.g. a 3'UTR total length over 2.5 kbps). Each "filter" subfield must contain the following:
+
+* "operator": one of
+** "eq": equal to
+** "ne": different from
+** "gt": greater than
+** "ge": greater than or equal to
+** "lt": less than
+** "le": less than or equal to
+** "in": value in array of valid values
+** "not in": value not in array of invalid values
+
+The comparisons are always made against the reference value.
+
+  
 

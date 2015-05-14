@@ -18,12 +18,19 @@ def check_json(json_conf):
     parameters_not_found=[]
     parameters_found=set()
     double_parameters=[]
+    invalid_filter=set()
     available_metrics = transcript.get_available_metrics()
     for parameter in json_conf["parameters"]:
         if parameter not in available_metrics:
             parameters_not_found.append(parameter)
         if parameter in parameters_found:
             double_parameters.add(parameter)
+        if "filter" in json_conf["parameters"][parameter]:
+            conf=json_conf["parameters"][parameter]["filter"]
+            if "operator" not in conf or "value" not in conf:
+                invalid_filter.add(parameter)
+            elif conf["operator"] not in ("gt","ge","eq","lt","le", "ne","in", "not in"):
+                invalid_filter.add(parameter)
         parameters_found.add(parameter)
     
     mods_not_found = []
@@ -43,7 +50,7 @@ def check_json(json_conf):
             if key_name not in available_metrics:
                 parameters_not_found.append(key_name) 
 
-    if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0:
+    if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0 or len(invalid_filter)>0:
         err_message=''
         if len(parameters_not_found)>0:
             err_message="The following parameters, present in the JSON file, are not available!\n\t{0}\n".format("\n\t".join(parameters_not_found))
@@ -51,6 +58,8 @@ def check_json(json_conf):
             err_message+="The following parameters have been specified more than once, please correct:\n\t{0}".format("\n\t".join(list(double_parameters)))
         if len(mods_not_found)>0:
             err_message+="The following requested modules are unavailable:\n\t{0}\n".format("\n\t".join(mods_not_found))
+        if len(invalid_filter)>0:
+            err_message+="The following parameters have an invalid filter, please correct:\n\t{0}".format("\n\t".join(list(invalid_filter)))
         print(err_message, file=sys.stderr)
         sys.exit(1)
 

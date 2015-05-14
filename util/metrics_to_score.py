@@ -55,6 +55,12 @@ def calculate_score(rows, json_dict):
         for tid in transcripts.keys():
             score=0
             tid_metric = float(transcripts[tid][param])
+            if "filter" in json_dict["parameters"][param]:
+                    result=abstractlocus.evaluate( tid_metric, json_dict["parameters"][param]["filter"])
+                    print("Evaluating param {0} for {1}: {2}".format(param, tid, result), file=sys.stderr)
+                    if result is False:
+                        score=0
+            
             if rescaling == "max":
                 ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
                 score = abs( ( tid_metric - min(metrics) ) / denominator )

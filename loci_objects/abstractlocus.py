@@ -238,21 +238,20 @@ class abstractlocus(metaclass=abc.ABCMeta):
             transcript_id, score
         
         '''
-        
-        selected_score,selected_tid=float("-Inf"),[]
         if len(transcripts)==0:
-            raise ValueError("Empty dictionary!")
-        for tid in transcripts:
-            score=transcripts[tid].score
-            if score>selected_score:
-                selected_score,selected_tid=score,[tid]
-            elif score==selected_score:
-                selected_tid.append(tid)
+            raise ValueError("No transcripts provided!")
+        
+        scores=dict((tid,transcripts[tid]) for tid in transcripts  )
+        
+        maximum_value = max(scores.values())
+        selected_tid = list(filter( lambda tid: scores[tid]==maximum_value, scores ))
         if len(selected_tid)!=1:
             if len(selected_tid)==0:
-                raise ValueError("Odd. I have not been able to find the transcript with the best score: {0}".format(selected_score))
+                raise ValueError("Odd. I have not been to select the best transcript among these:\n{0}".format(
+                                                                                                               "\n".join(["{0}\t{1}".format(key, scores[key]) for key in scores ]  )  
+                                                                                                               ))
             else:
-                selected_tid=random.sample(selected_tid, 1) #this returns a list
+                selected_tid = random.sample(selected_tid,1)
         selected_tid=selected_tid[0]
         return selected_tid
 

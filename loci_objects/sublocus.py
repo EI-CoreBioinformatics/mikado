@@ -285,7 +285,7 @@ class sublocus(abstractlocus):
                     elif rescaling=="min":
                         score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
                     elif rescaling == "target":
-                        score = 1 - (abs( tid_metric  - target )/denominator )
+                        score = 1 - abs( tid_metric  - target )/denominator 
                 score*=self.json_dict["parameters"][param]["multiplier"]
                 self.scores[tid][param]=score
                 

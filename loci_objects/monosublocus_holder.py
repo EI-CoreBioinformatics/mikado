@@ -1,5 +1,5 @@
 import sys,os.path
-from loci_objects.exceptions import NotInLocusError
+#from loci_objects.exceptions import NotInLocusError
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 #from loci_objects.excluded_locus import excluded_locus
 from loci_objects.abstractlocus import abstractlocus
@@ -26,6 +26,7 @@ class monosublocus_holder(sublocus,abstractlocus):
         self.json_dict = json_dict
         self.excluded=None
         self.purge = purge
+        self.scores_calculated=False
         #Add the transcript to the locus
         self.add_monosublocus(monosublocus_instance)
 

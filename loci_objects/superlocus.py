@@ -300,6 +300,12 @@ class superlocus(abstractlocus):
         
         raise NotImplementedError()
 
+    def print_monolocus_scores(self, rower):
+        '''Wrapper function to pass to a csv.DictWriter object the metrics of the transcripts in the monosubloci.'''
+        
+        raise NotImplementedError()
+
+
     def print_subloci_metrics(self ):
         
         '''Wrapper method to create a csv.DictWriter instance and call the sublocus.print_metrics method
@@ -312,6 +318,20 @@ class superlocus(abstractlocus):
                 yield row
         if self.excluded_transcripts is not None:
             for row in self.excluded_transcripts.print_metrics():
+                yield row
+
+    def print_subloci_scores(self ):
+        
+        '''Wrapper method to create a csv.DictWriter instance and call the sublocus.print_metrics method
+        on it for each sublocus.'''
+        
+        self.get_sublocus_metrics()
+        
+        for slocus in self.subloci:
+            for row in slocus.print_scores():
+                yield row
+        if self.excluded_transcripts is not None:
+            for row in self.excluded_transcripts.print_scores():
                 yield row
 
 
@@ -329,6 +349,23 @@ class superlocus(abstractlocus):
         for monoholder in self.monoholders:
             for row in monoholder.print_metrics():
                 yield row
+
+    def print_monoholder_scores(self ):
+
+        '''Wrapper method to create a csv.DictWriter instance and call the monosublocus_holder.print_scores method
+        on it.'''
+        
+        
+        self.define_loci()
+
+        #self.available_monolocus_metrics = set(self.monoholder.available_metrics)
+        if len(self.monoholders)==0:
+            return ''
+        for monoholder in self.monoholders:
+            for row in monoholder.print_scores():
+                yield row
+
+
             
     def define_loci(self):
         '''This is the final method in the pipeline. It creates a container for all the monosubloci

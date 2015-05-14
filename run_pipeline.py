@@ -56,8 +56,10 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
         #Retrieve the lines to print out
         sub_lines = stranded_locus.__str__(level="subloci", print_cds=not args.no_cds )
         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
+        sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()]
         mono_lines = stranded_locus.__str__(level="monosubloci", print_cds=not args.no_cds)
         locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
+        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
         locus_lines = stranded_locus.__str__(print_cds=not args.no_cds)
 
         #Print out
@@ -66,9 +68,16 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
         with open(args.sub_metrics,'a') as out_file:
             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
             for row in sub_metrics_rows: csv_out.writerow(row)
+        with open(args.sub_scores,'a') as out_file:
+            csv_out=csv.DictWriter(out_file, args.score_keys, delimiter="\t")
+            for row in sub_scores_rows: csv_out.writerow(row)
+            
         with open(args.locus_metrics,'a') as out_file:
             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
             for row in locus_metrics_rows: csv_out.writerow(row)
+        with open(args.locus_scores,'a') as out_file:
+            csv_out=csv.DictWriter(out_file, args.score_keys, delimiter="\t")
+            for row in locus_scores_rows: csv_out.writerow(row)
  
         with open(args.sub_out,'a') as sub_out:
             print(sub_lines, file=sub_out)
@@ -139,13 +148,26 @@ def main():
     args.locus_out=args.locus_out.name
 
     args.sub_metrics=re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", args.sub_out  ))
+    args.sub_scores=re.sub("$",".scores.tsv",  re.sub(".gff3$", "", args.sub_out  ))
     args.locus_metrics = re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", args.locus_out  ))
+    args.locus_scores = re.sub("$",".scores.tsv",  re.sub(".gff3$", "", args.locus_out  ))
+    
+    args.score_keys = ["tid","parent","score"] + sorted(list(args.json_conf["parameters"].keys()))
+    
+    #Prepare output files
     with open(args.sub_metrics, "w") as out_file:
         csv_out=csv.DictWriter( out_file, superlocus.available_metrics, delimiter="\t" )
+        csv_out.writeheader()
+    with open(args.sub_scores,'w') as out_file:
+        csv_out=csv.DictWriter( out_file, args.score_keys, delimiter="\t" )
         csv_out.writeheader()
     with open(args.locus_metrics, "w") as out_file:
         csv_out=csv.DictWriter( out_file, superlocus.available_metrics, delimiter="\t" )
         csv_out.writeheader()
+    with open(args.locus_scores,'w') as out_file:
+        csv_out=csv.DictWriter( out_file, args.score_keys, delimiter="\t" )
+        csv_out.writeheader()
+        
     
     cds_dict=None
     #Load the CDS information from the BED12, if one is available

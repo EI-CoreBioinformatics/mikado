@@ -41,6 +41,7 @@ class sublocus(abstractlocus):
         self.excluded=None
         self.splitted=False
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
+        self.scores_calculated=False #Flag to indicate that we have not calculated the scores for the transcripts
         setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
         if json_dict is None or type(json_dict) is not dict:
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
@@ -217,6 +218,8 @@ class sublocus(abstractlocus):
         '''
         
         self.get_metrics()
+        if self.scores_calculated is True:
+            return
         not_passing=set()
         if "requirements" in self.json_dict:
             self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
@@ -229,7 +232,6 @@ class sublocus(abstractlocus):
                         value=getattr(self.transcripts[tid],self.json_dict["requirements"]["parameters"][key]["name"])
                         evaluated[key]=self.evaluate(value, self.json_dict["requirements"]["parameters"][key])
                     if eval(self.json_dict["requirements"]["compiled"]) is False:
-                        print("{0} not passing muster.".format(tid), file=sys.stderr)
                         not_passing.add(tid)
                 if len(not_passing)==0:
                     break
@@ -256,9 +258,9 @@ class sublocus(abstractlocus):
         
         if len(self.transcripts)==0:
             return
-        scores=dict()
+        self.scores=dict()
         for tid in self.transcripts:
-            scores[tid]=dict()
+            self.scores[tid]=dict()
         for param in self.json_dict["parameters"]:
             rescaling = self.json_dict["parameters"][param]["rescaling"]
             metrics = [getattr( self.transcripts[tid], param  ) for tid in self.transcripts]
@@ -285,18 +287,19 @@ class sublocus(abstractlocus):
                     elif rescaling == "target":
                         score = 1 - (abs( tid_metric  - target )/denominator )
                 score*=self.json_dict["parameters"][param]["multiplier"]
-                scores[tid][param]=score
+                self.scores[tid][param]=score
                 
         for tid in self.transcripts:
             if tid in not_passing: self.transcripts[tid].score=0 
-            else: self.transcripts[tid].score = sum( scores[tid].values() )
+            else: self.transcripts[tid].score = sum( self.scores[tid].values() )
+            
+        self.scores_calculated=False
     
     def print_metrics(self):
         
-        '''This class yields dictionary "rows" that will be given to a csv.DictWriter class.'''
+        '''This method yields dictionary "rows" that will be given to a csv.DictWriter class.'''
         
         #Check that rower is an instance of the csv.DictWriter class
-        self.get_metrics()
         self.calculate_scores() 
         
         #The rower is an instance of the DictWriter class from the standard CSV module
@@ -320,6 +323,21 @@ class sublocus(abstractlocus):
                 yield row
             
         return
+    
+    def print_scores(self):
+        '''This method yields dictionary rows that are given to a csv.DictWriter class.'''
+        self.calculate_scores()
+        score_keys=sorted(list(self.json_dict["parameters"].keys()))
+        keys = ["tid","parent","score"]+score_keys
+        
+        for tid in self.scores:
+            row=dict().fromkeys(keys)
+            row["tid"]=tid
+            row["parent"]=self.id
+            row["score"]=round(self.transcripts[tid].score,2)
+            for key in score_keys:
+                row[key]=round(self.scores[tid][key],2)
+            yield row
     
     def get_metrics(self):
         

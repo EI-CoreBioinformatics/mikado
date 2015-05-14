@@ -241,10 +241,9 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if len(transcripts)==0:
             raise ValueError("No transcripts provided!")
         
-        scores=dict((tid,transcripts[tid]) for tid in transcripts  )
+        scores=dict((tid,transcripts[tid].score) for tid in transcripts  )
         
-        maximum_value = max(scores.values())
-        selected_tid = list(filter( lambda tid: scores[tid]==maximum_value, scores ))
+        selected_tid = list(filter( lambda tid: scores[tid]==max(scores.values()), scores ))
         if len(selected_tid)!=1:
             if len(selected_tid)==0:
                 raise ValueError("Odd. I have not been to select the best transcript among these:\n{0}".format(

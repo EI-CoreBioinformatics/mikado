@@ -45,10 +45,12 @@
 			"rescaling":"max"
 		},
 		"cds_not_maximal":{
-			"rescaling":"min"
+			"rescaling":"min",
+			"multiplier":-5
 		},
 		"cds_not_maximal_fraction":{
-			"rescaling":"min"
+			"rescaling":"min",
+			"multiplier":-5
 		},
 		"selected_cds_num":{
 			"rescaling":"max"

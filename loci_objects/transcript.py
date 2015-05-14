@@ -618,7 +618,10 @@ class transcript:
     @classmethod
     def get_available_metrics(cls):
         '''This function retrieves all metrics available for the class.'''
-        return list(x[0] for x in filter(lambda y: "__" not in y[0] and type(cls.__dict__[y[0]]) is metric, inspect.getmembers(cls)))
+        metrics = list(x[0] for x in filter(lambda y: "__" not in y[0] and type(cls.__dict__[y[0]]) is metric, inspect.getmembers(cls)))
+        assert "tid" in metrics and "parent" in metrics and "score" in metrics
+        final_metrics = ["tid","parent","score"] + sorted(list(filter(lambda x: x not in ["tid","parent","score"], metrics )))  
+        return final_metrics 
 
     ####################Class properties##################################
 
@@ -679,9 +682,9 @@ class transcript:
         if len(self.combined_cds)==0:
             return []
         if self.strand=="+":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.combined_cds_start, self.selected_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.selected_cds_start, self.selected_internal_orf  )  )
         elif self.strand=="-":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.combined_cds_start, self.selected_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.selected_cds_start, self.selected_internal_orf  )  )
 
     @property
     def three_utr(self):
@@ -689,9 +692,9 @@ class transcript:
         if len(self.combined_cds)==0:
             return []
         if self.strand=="-":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.combined_cds_end, self.selected_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.selected_cds_end, self.selected_internal_orf  )  )
         elif self.strand=="+":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.combined_cds_end, self.selected_internal_orf  )  )
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.selected_cds_end, self.selected_internal_orf  )  )
 
     @property
     def selected_internal_orf_index(self):

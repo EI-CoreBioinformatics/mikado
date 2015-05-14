@@ -102,7 +102,11 @@ class gtfLine(object):
                 self.fields[i]=str(self.fields[i])
             self._info=[]
             assert 'gene_id','transcript_id' in self.info
-            if self.info['gene_id']==None: self.info['gene_id']=self.gene
+            if type(self.gene) is list:
+                gene=",".join(self.gene)
+            else: 
+                gene=self.gene
+            self.info['gene_id']=gene
             if self.info['transcript_id']==None: self.info['transcript_id']=self.transcript
 
             order=['gene_id','transcript_id','exon_number','gene_name','transcript_name'] #Questo è l'ordine originale dei campi nel gtf di umano

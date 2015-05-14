@@ -18,6 +18,7 @@ def main():
                         help="Flag. If selected, it excludes the selected ids.")
     parser.add_argument('ids', type=argparse.FileType('r'), help="The file with the ids.")
     parser.add_argument('gtf', type=argparse.FileType('r'), help="The GTF file to analyze.")
+    parser.add_argument("out", nargs="?", default=sys.stdout, help="Output file. Default: STDOUT")
     args=parser.parse_args()
 
     ids=set([f.rstrip() for f in args.ids])

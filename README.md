@@ -161,23 +161,23 @@ For each parameter, it is possible to specify the following:
 
 * "multiplier"		A number by which the metrics will be multiplied to get the final score.
 * "rescaling"		This key controls the rescaling performed to calculate the score:
-**"max"
-**"min"
-**"target"
+  *"max"
+  *"min"
+  * "target"
     
 Each parameter will have a score assigned which varies from 0 to 1. If the "target" rescaling is selected, it is *mandatory* to specify a "value" keyword. For details, see [RAMPART supporting material (section 2, page3)](http://bioinformatics.oxfordjournals.org/content/suppl/2015/01/29/btv056.DC1/supplementary.pdf)
 
 Moreover, for each parameter it is possible to configure a "filter", i.e. boundaries after which the score for this parameter is set automatically to 0 (e.g. a 3'UTR total length over 2.5 kbps). Each "filter" subfield must contain the following:
 
 * "operator": one of
-** "eq": equal to
-** "ne": different from
-** "gt": greater than
-** "ge": greater than or equal to
-** "lt": less than
-** "le": less than or equal to
-** "in": value in array of valid values
-** "not in": value not in array of invalid values
+  * "eq": equal to
+  * "ne": different from
+  * "gt": greater than
+  * "ge": greater than or equal to
+  * "lt": less than
+  * "le": less than or equal to
+  * "in": value in array of valid values
+  * "not in": value not in array of invalid values
 
 The comparisons are always made against the reference value.
 

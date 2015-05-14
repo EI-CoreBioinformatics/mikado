@@ -24,37 +24,40 @@
 			"cdna_length.mono":{
 				"operator":"gt",
 				"value":100
-			}
+		    }
 		},
-		"expression":["(exon_num.multi and cdna_length.multi and max_intron_length)",
+		"expression":["((exon_num.multi and cdna_length.multi and max_intron_length)",
 		 	"or",
-		 	"(exon_num.mono and combined_cds_length.mono and cdna_length.mono)"]
+		 	      "(exon_num.mono and combined_cds_length.mono and cdna_length.mono))"
+			     ]
 	},
 	"parameters":{
 		"highest_cds_exon_number":{
 			"rescaling":"max"
 		},
 		"cdna_length":{
-			"rescaling":"max"
+		    "rescaling":"max"
 		},
 		"selected_cds_fraction":{
 			"rescaling":"target",
-			"value":0.9
+			"value":0.8
 		},
 		"selected_cds_length":{
 			"rescaling":"max"
 		},
 		"cds_not_maximal":{
-			"rescaling":"min"
+		    "rescaling":"min"
 		},
 		"cds_not_maximal_fraction":{
-			"rescaling":"min"
+		    "rescaling":"min"
 		},
 		"selected_cds_num":{
 			"rescaling":"max"
 		},
 		"combined_cds_fraction":{
-			"rescaling":"max"
+		    "rescaling":"target",
+		    "value":0.8
+		    
 		},
 		"combined_cds_length":{
 			"rescaling":"max"
@@ -69,12 +72,17 @@
 			"rescaling":"max"
 		},
 		"five_utr_length":{
-			"rescaling":"target",
-			"value":100
+		    "rescaling":"target",
+		    "value":200
+		    
 		},
 		"five_utr_num_complete":{
-			"rescaling":"target",
-			"value":1
+		    "rescaling":"target",
+		    "value":1,
+		    "filter":{
+			"operator":"lt",
+			"value":3
+		    }
 		},
 		"intron_fraction":{
 			"rescaling":"max"
@@ -96,15 +104,20 @@
 			"rescaling":"min"
 		},
 		"three_utr_length":{
-			"rescaling":"target",
-			"value":300
+		    "rescaling":"target",
+		    "value":400,
+		    "filter": {
+			"operator": "le",
+			"value": 2500
+		    }
 		},
 		"three_utr_num_complete":{
-			"rescaling":"target",
-			"value":2
+		    "rescaling":"target",
+		    "value":2,
+		    "filter":{
+			"operator":"lt",
+			"value":3
+		    }
 		}
-	},
-	"final_filter":{
-		
 	}
 }

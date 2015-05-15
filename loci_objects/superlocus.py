@@ -194,11 +194,11 @@ class superlocus(abstractlocus):
         self.loci_defined = False
         self.monosubloci_metrics_calculated = False
 
-    def load_cds(self, cds_dict, trust_strand=False):
+    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0):
         if cds_dict is None:
             return
         for tid in self.transcripts:
-            self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand)
+            self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,minimal_secondary_orf_length=minimal_secondary_orf_length )
 
 
     ###### Sublocus-related steps ######

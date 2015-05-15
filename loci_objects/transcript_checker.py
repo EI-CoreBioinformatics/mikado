@@ -43,13 +43,13 @@ class transcript_checker(transcript):
             raise TypeError("Invalid value for boolean property: {0}".format(args[0]))
         self.__strand_specific=args[0]
                 
-    def __str__(self, print_cds=True):
+    def __str__(self, print_cds=True, to_gtf=False):
         
         self.check_strand()
         if self.mixed_splices is True:
             self.attributes["mixed_splices"]=self.mixed_attribute
         
-        return super().__str__(print_cds=print_cds)
+        return super().__str__(print_cds=print_cds, to_gtf=to_gtf)
     
     def check_strand(self):
         

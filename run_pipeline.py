@@ -30,7 +30,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     '''
 
     #Load the CDS information
-    slocus.load_cds(cds_dict, trust_strand = args.strand_specific )
+    slocus.load_cds(cds_dict, trust_strand = args.strand_specific, minimal_secondary_orf_length=args.minimal_secondary_orf_length )
     #Split the superlocus in the stranded components
     stranded_loci = sorted(list(slocus.split_strands()))
     
@@ -107,6 +107,8 @@ def main():
                         default=False, help="""Flag. If set, the program will remove monoexonic loci
                         overlapping non-monoexonic loci on the opposite strand.""")
     parser.add_argument("--json_conf", type=argparse.FileType("r"), required=True, help="JSON configuration file for scoring transcripts.")
+    parser.add_argument("--minimal_secondary_orf_length", type=int, default=200,
+                        help="Any secondary ORF shorter than this value will be ignored. Useful to avoid legitimate cases of ORFs in the UTR. Default: %(default)s.")
     parser.add_argument("--strand_specific", action="store_true", default=False)
     parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--mono_out", type=argparse.FileType("w"), required=True)

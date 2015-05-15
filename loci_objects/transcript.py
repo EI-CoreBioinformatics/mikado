@@ -398,12 +398,15 @@ class transcript:
             pass
         return
 
-    def load_cds(self, cds_dict, trust_strand=False):
+    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0):
         
         '''Arguments:
         - cds_dict        a dictionary (indexed on the TIDs) that holds BED12 information on the transcript
         - trust_strand    for monoexonic transcripts, whether to trust the strand information or to overwrite it with the one provided by TD.
         
+        Optional arguments:
+        - minimal_secondary_orf_length:    Integer. When a transcript has multiple ORFs, ignore those which are shorter than this value.
+                                           By default, it is set at 0.
         
         This function is used to load the various CDSs from an external dictionary, loaded from a BED file.
         It replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
@@ -448,8 +451,11 @@ class transcript:
             if not (cds_start>=1 and cds_end<=self.cdna_length):
                 continue
             
-            if selected_cds:
+            if selected_cds is True:
                 self.has_start_codon, self.has_stop_codon = cds_run.has_start_codon, cds_run.has_stop_codon
+            else:
+                if cds_run.cds_len<minimal_secondary_orf_length: continue
+                
             selected_cds=False # Exhaust the token
 
             # assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )

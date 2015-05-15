@@ -107,7 +107,7 @@ def main():
                 for tran in currentTranscripts:
                     try:
                         tran.check_strand()
-                        print(tran, file=args.out)
+                        print(tran.__str__(to_gtf=True), file=args.out)
                     except IncorrectStrandError:
                         continue
                 currentParent = record.gene
@@ -124,7 +124,7 @@ def main():
     if is_gff is False and len(currentTranscripts)>0:
         for tran in currentTranscripts:
             tran.check_strand()
-            print(tran, file=args.out)
+            print(tran.__str__(to_gtf=True), file=args.out)
     elif is_gff is True:
         if currentParent is not None:
             if len(currentTranscripts)==0:

@@ -3,7 +3,7 @@ from copy import copy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
-from loci_objects.transcript_checker import transcript_checker
+from loci_objects.transcript_checker import transcript_checker,IncorrectStrandError
 from Bio import SeqIO
 import argparse
 
@@ -49,11 +49,12 @@ def main():
     currentTranscripts = []
     currentParent = None
     
-    if args.gff.name[-4:]=="gtf":
+    if args.gff.name[-3:]=="gtf":
         is_gff=False
     else:
         is_gff=True
-    
+
+    print(is_gff, file=sys.stderr)
     
     currentSeq = None
     
@@ -69,12 +70,15 @@ def main():
                 currentSeq[record.chrom] = sequence.seq
                 print("Loaded sequence {0}".format(record.chrom))
         if record.is_parent is True:
-            for tran in currentTranscripts:
-                tran.check_strand()
-            if is_gff is True and currentParent is not None:
-                if len(currentTranscripts)==0:
-                    print(currentParent, file=args.out)
-                else:
+            if is_gff is True and len(currentTranscripts)==0:
+                print(record.is_parent, file=args.out)
+            else:
+                for tran in currentTranscripts:
+                    try:
+                        tran.check_strand()
+                    except IncorrectStrandError:
+                        currentTranscripts.remove(tran)
+                if is_gff is True and currentParent is not None and len(currentTranscripts)>0:
                     strands = set([t.strand for t in currentTranscripts])
                     if len(strands)==1:
                         strand = strands.pop()
@@ -100,9 +104,13 @@ def main():
                 currentTranscripts=[]
             elif is_gff is False:
                 for tran in currentTranscripts:
-                    print(tran, file=args.out)
+                    try:
+                        tran.check_strand()
+                        print(tran, file=args.out)
+                    except IncorrectStrandError:
+                        continue
                 currentParent = record.gene
-                currentTranscripts=[transcript_checker(record)]
+                currentTranscripts=[transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)]
         elif record.is_transcript and is_gff is True:
             new_tran = transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
             currentTranscripts.append(new_tran)

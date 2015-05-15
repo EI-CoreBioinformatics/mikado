@@ -31,6 +31,7 @@ class transcript_checker(transcript):
         self.strand_specific=strand_specific
         self.checked = False
         self.lenient=lenient
+        self.mixed_splices = False
                 
     @property
     def strand_specific(self):

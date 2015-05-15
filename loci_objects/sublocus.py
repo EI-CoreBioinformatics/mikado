@@ -122,6 +122,7 @@ class sublocus(abstractlocus):
         
         while len(remaining)>0:
             selected_tid=self.choose_best(remaining.copy())
+            assert self.transcripts[selected_tid].score==max([remaining[tid].score for tid in  remaining])
             selected_transcript = remaining[selected_tid]
             new_remaining = remaining.copy()
             del new_remaining[selected_tid]

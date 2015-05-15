@@ -70,36 +70,37 @@ def main():
                 currentSeq[record.chrom] = sequence.seq
                 print("Loaded sequence {0}".format(record.chrom))
         if record.is_parent is True:
-            if is_gff is True and len(currentTranscripts)==0:
-                print(record.is_parent, file=args.out)
-            else:
-                for tran in currentTranscripts:
-                    try:
-                        tran.check_strand()
-                    except IncorrectStrandError:
-                        currentTranscripts.remove(tran)
-                if is_gff is True and currentParent is not None and len(currentTranscripts)>0:
-                    strands = set([t.strand for t in currentTranscripts])
-                    if len(strands)==1:
-                        strand = strands.pop()
-                        currentParent.strand = strand
-                        print(currentParent, file=args.out)
-                        for tran in currentTranscripts:
-                            print(tran, file=args.out)
-                    else:
-                        original_strand = currentParent.strand
-                        print(currentParent, file=args.out)
-                        for tran in filter(lambda t: t==original_strand, currentTranscripts):
-                            print(tran, file=args.out)
-                        for strand in filter(lambda s: s!=original_strand, strands):
-                            newPar = copy(currentParent)
-                            new_id = "{0}:{1}".format(currentParent.id, strand)
-                            newPar.id = new_id
-                            newPar.strand = strand
-                            print(newPar, file=args.out)
-                            for tran in filter(lambda t: t==original_strand, currentTranscripts):
-                                tran.parent = new_id
+            if is_gff is True:
+                if len(currentTranscripts)==0:
+                    print(record.is_parent, file=args.out)
+                else:
+                    for tran in currentTranscripts:
+                        try:
+                            tran.check_strand()
+                        except IncorrectStrandError:
+                            currentTranscripts.remove(tran)
+                    if is_gff is True and currentParent is not None and len(currentTranscripts)>0:
+                        strands = set([t.strand for t in currentTranscripts])
+                        if len(strands)==1:
+                            strand = strands.pop()
+                            currentParent.strand = strand
+                            print(currentParent, file=args.out)
+                            for tran in currentTranscripts:
                                 print(tran, file=args.out)
+                        else:
+                            original_strand = currentParent.strand
+                            print(currentParent, file=args.out)
+                            for tran in filter(lambda t: t==original_strand, currentTranscripts):
+                                print(tran, file=args.out)
+                            for strand in filter(lambda s: s!=original_strand, strands):
+                                newPar = copy(currentParent)
+                                new_id = "{0}:{1}".format(currentParent.id, strand)
+                                newPar.id = new_id
+                                newPar.strand = strand
+                                print(newPar, file=args.out)
+                                for tran in filter(lambda t: t==original_strand, currentTranscripts):
+                                    tran.parent = new_id
+                                    print(tran, file=args.out)
                 currentParent=record
                 currentTranscripts=[]
             elif is_gff is False:

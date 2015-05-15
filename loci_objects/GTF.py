@@ -285,6 +285,11 @@ class gtfLine(object):
         if self.is_transcript is True:
             return True
         return False
+    
+    def is_exon(self):
+        if not self.is_parent:
+            return True
+        return False
 
 class GTF(Parser):
     '''The parsing class.'''

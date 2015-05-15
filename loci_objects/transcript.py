@@ -678,8 +678,10 @@ class transcript:
 
     @property
     def five_utr(self):
-        '''Returns the exons in the 5' UTR of the selected ORF.'''
+        '''Returns the exons in the 5' UTR of the selected ORF. If the start codon is absent, no UTR is given.'''
         if len(self.combined_cds)==0:
+            return []
+        elif self.has_start_codon is False:
             return []
         if self.strand=="+":
             return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.selected_cds_start, self.selected_internal_orf  )  )
@@ -688,8 +690,10 @@ class transcript:
 
     @property
     def three_utr(self):
-        '''Returns the exons in the 3' UTR of the selected ORF.'''
+        '''Returns the exons in the 3' UTR of the selected ORF. If the end codon is absent, no UTR is given.'''
         if len(self.combined_cds)==0:
+            return []
+        elif self.has_stop_codon is False:
             return []
         if self.strand=="-":
             return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.selected_cds_end, self.selected_internal_orf  )  )

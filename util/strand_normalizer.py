@@ -58,22 +58,23 @@ def main():
     currentSeq = None
     
     for record in args.gff:
-        if record.header is False:
-            assert record.chrom in args.fasta
-            sequence = args.fasta[record.chrom]
-            if currentSeq is None or list(currentSeq.keys())[0]!=record.chrom:
+        if record.header is True:
+            print(record, file=args.out)
+            continue
+        assert record.chrom in args.fasta
+        sequence = args.fasta[record.chrom]
+        if currentSeq is None or list(currentSeq.keys())[0]!=record.chrom:
                 print("Loading sequence {0}".format(record.chrom))
                 currentSeq=dict()
                 currentSeq[record.chrom] = sequence.seq
                 print("Loaded sequence {0}".format(record.chrom))
-        
-        if record.is_parent:
-            if currentParent is not None:
+        if record.is_parent is True:
+            for tran in currentTranscripts:
+                tran.check_strand()
+            if is_gff is True and currentParent is not None:
                 if len(currentTranscripts)==0:
                     print(currentParent, file=args.out)
                 else:
-                    for tran in currentTranscripts:
-                        tran.check_strand()
                     strands = set([t.strand for t in currentTranscripts])
                     if len(strands)==1:
                         strand = strands.pop()
@@ -95,23 +96,26 @@ def main():
                             for tran in filter(lambda t: t==original_strand, currentTranscripts):
                                 tran.parent = new_id
                                 print(tran, file=args.out)
-            currentParent=record
-            currentTranscripts=[]
-        elif record.header:
-            print(record, file=args.out)
-        elif record.is_transcript:
-            if is_gff is False:
-                print(currentTranscripts[0], file=args.out)
-            new_tran = transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
-            currentTranscripts.append(new_tran)
-        elif record.is_exon:
-            for tran in currentTranscripts:
-                if tran.id not in record.parent:
-                    tran.addExon(record)
+                currentParent=record
+                currentTranscripts=[]
+            elif is_gff is False:
+                for tran in currentTranscripts:
+                    print(tran, file=args.out)
+                currentParent = record.gene
+                currentTranscripts=[transcript_checker(record)]
+            elif record.is_transcript and is_gff is True:
+                new_tran = transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
+                currentTranscripts.append(new_tran)
+            elif record.is_exon:
+                for tran in currentTranscripts:
+                    if tran.id in record.parent:
+                        tran.addExon(record)
 
 
     if is_gff is False and len(currentTranscripts)>0:
-        print(currentTranscripts[0], file=args.out)
+        for tran in currentTranscripts:
+            tran.check_strand()
+            print(tran, file=args.out)
     elif is_gff is True:
         if currentParent is not None:
             if len(currentTranscripts)==0:

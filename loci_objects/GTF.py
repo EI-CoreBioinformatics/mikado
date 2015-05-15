@@ -280,6 +280,11 @@ class gtfLine(object):
         else:
             self.attributes["Parent"]=transcript
 
+    @property
+    def is_parent(self):
+        if self.is_transcript is True:
+            return True
+        return False
 
 class GTF(Parser):
     '''The parsing class.'''

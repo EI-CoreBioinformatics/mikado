@@ -103,13 +103,13 @@ def main():
                     print(tran, file=args.out)
                 currentParent = record.gene
                 currentTranscripts=[transcript_checker(record)]
-            elif record.is_transcript and is_gff is True:
-                new_tran = transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
-                currentTranscripts.append(new_tran)
-            elif record.is_exon:
-                for tran in currentTranscripts:
-                    if tran.id in record.parent:
-                        tran.addExon(record)
+        elif record.is_transcript and is_gff is True:
+            new_tran = transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
+            currentTranscripts.append(new_tran)
+        elif record.is_exon:
+            for tran in currentTranscripts:
+                if tran.id in record.parent:
+                    tran.addExon(record)
 
 
     if is_gff is False and len(currentTranscripts)>0:

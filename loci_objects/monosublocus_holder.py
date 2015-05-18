@@ -113,7 +113,7 @@ class monosublocus_holder(sublocus,abstractlocus):
             min(other.combined_cds_length,transcript_instance.combined_cds_length)==0:
                 for exon in transcript_instance.exons:
                     for oexon in other.exons:
-                        if cls.overlap(exon, oexon) > 0:
+                        if cls.overlap(exon, oexon) >= 0:
                             return True
 
         for cds_segment in transcript_instance.combined_cds:

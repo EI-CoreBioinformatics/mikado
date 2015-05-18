@@ -68,7 +68,15 @@ class bed12:
         line.append( ",".join([str(x) for x in self.blockStarts]  ) )
         return "\t".join([str(x) for x in line])
         
-        
+    def __eq__(self,other):
+        for key in ["chrom","strand","start","end","cdsStart","cdsEnd","blockCount","blockSizes","blockStarts"]:
+            if getattr(self,key)!=getattr(other,key): return False
+        return True
+    
+    def __hash__(self):
+        return super().__hash__()
+    
+    
     @property
     def strand(self):
         return self.__strand

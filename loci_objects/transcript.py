@@ -441,57 +441,43 @@ class transcript:
         self.finalized = False
         
         #Ordering the CDSs by: presence of start/stop codons, combined_cds length
-        original_strand = self.strand
         new_strand = None
         
-        selected_cds=True # Token to be set to False after the first CDS is exhausted 
-        for cds_run in sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("cds_len") ):
-            
-            cds_start, cds_end, strand = cds_run.cdsStart, cds_run.cdsEnd, cds_run.strand
-            if not (cds_start>=1 and cds_end<=self.cdna_length):
+        primary_orf=True # Token to be set to False after the first CDS is exhausted
+        candidate_orfs=sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("cds_len") )
+        if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
+            #Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts
+            candidate_orfs=list(filter(lambda orf: orf.strand!="-", candidate_orfs  ))
+        
+        candidate_cliques=self.find_overlapping_cds(candidate_orfs)
+        new_orfs=[]
+        for clique in candidate_cliques:
+            new_orfs.append(sorted(clique, reverse=True, key=operator.attrgetter("cds_len"))[0])
+        candidate_orfs=new_orfs[:]
+        del new_orfs
+        
+        for orf in candidate_orfs:
+            if primary_orf is False and orf.cds_len < minimal_secondary_orf_length:
                 continue
-            
-            if selected_cds is True:
-                self.has_start_codon, self.has_stop_codon = cds_run.has_start_codon, cds_run.has_stop_codon
-            else:
-                if cds_run.cds_len<minimal_secondary_orf_length: continue
-                
-            selected_cds=False # Exhaust the token
-
-            # assert cds_start>=1 and cds_end<=self.cdna_length, ( self.id, self.cdna_length, (cds_start,cds_end) )
-            
+            #Minimal check
+            if not (orf.cdsStart>=1 and orf.cdsEnd<=self.cdna_length):
+                continue
             if self.strand is None:
-                self.strand=new_strand=strand
-            elif strand == "-":
-                #Basic case
-                if self.monoexonic is False:
-                    continue
-                if trust_strand is True:
-                    continue
-                #Case 1 we trust the strand
-                if new_strand is not None:
-                    if original_strand is None:
-                    #We already assigned to + strand
-                        if self.strand=="+":
-                            continue
-                        else:
-                            pass
-                    elif original_strand=="+":
-                        if self.strand=="+":
-                            continue
-                        else:
-                            pass
-                    elif original_strand=="-":
-                        if self.strand=="+":
-                            pass
-                        else:
-                            continue
-                else:
-                    if self.strand=="+":
-                        self.strand=new_strand="-"
-                    elif self.strand=="-":
-                        self.strand=new_strand="+"
-                
+                self.strand=new_strand=orf.strand
+            
+
+            
+            if self.strand is None: #Must be monoexonic
+                self.strand=new_strand=orf.strand
+            elif orf.strand == "-":
+                assert self.monoexonic is True
+                if new_strand is not None and orf.strand!=new_strand:
+                        continue #Skip
+                if self.strand=="+":
+                    self.strand="-"
+                elif self.strand=="-":
+                    self.strand="+"
+
             cds_exons = []
             current_start, current_end = 0,0
             if self.strand == "+":
@@ -500,14 +486,14 @@ class transcript:
                     current_start+=1
                     current_end+=exon[1]-exon[0]+1
                     #Whole UTR
-                    if current_end<cds_start or current_start>cds_end:
+                    if current_end<orf.cdsStart or current_start>orf.cdsEnd:
                         cds_exons.append( ("UTR", exon[0], exon[1])  )
                     else:
-                        c_start = exon[0] + max(0, cds_start-current_start )
+                        c_start = exon[0] + max(0, orf.cdsStart-current_start )
                         if c_start > exon[0]:
                             u_end = c_start-1
                             cds_exons.append( ("UTR", exon[0], u_end) )
-                        c_end = exon[1] - max(0, current_end - cds_end )
+                        c_end = exon[1] - max(0, current_end - orf.cdsEnd )
 #                         assert c_end>=exon[0] 
                         if c_start<c_end:
                             cds_exons.append(("CDS", c_start, c_end))
@@ -520,14 +506,14 @@ class transcript:
                     cds_exons.append(("exon", exon[0], exon[1] ) )
                     current_start+=1
                     current_end+=exon[1]-exon[0]+1
-                    if current_end<cds_start or current_start>cds_end:
+                    if current_end<orf.cdsStart or current_start>orf.cdsEnd:
                         cds_exons.append( ("UTR", exon[0], exon[1] ))
                     else:
-                        c_end = exon[1] - max(0,cds_start - current_start ) 
+                        c_end = exon[1] - max(0,orf.cdsStart - current_start ) 
 #                         assert c_end>=exon[0]
                         if c_end < exon[1]:
                             cds_exons.append(("UTR", c_end+1, exon[1]))
-                        c_start = exon[0] + max(0, current_end - cds_end )
+                        c_start = exon[0] + max(0, current_end - orf.cdsEnd )
                         cds_exons.append( ("CDS", c_start, c_end) )
                         if c_start>exon[0]:
                             cds_exons.append( ("UTR", exon[0], c_start-1) )
@@ -604,9 +590,26 @@ class transcript:
         return abstractlocus.find_cliques( candidates, inters=cls.is_intersecting)
     
     @classmethod
+    def find_overlapping_cds(cls, candidates):
+        '''Wrapper for the abstractlocus method, used for finding overlapping ORFs.
+        It will pass to the function the class's "is_overlapping_cds" method
+        (which would be otherwise be inaccessible from the abstractlocus class method)'''        
+        return abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
+    
+    
+    @classmethod
+    def is_overlapping_cds(cls, first, second):
+        if first==second or first.strand!=second.strand or cls.overlap(
+                                                                       (first.cdsStart,first.cdsEnd),
+                                                                       (second.cdsStart,second.cdsEnd))<0:
+            return False
+        return True
+        
+    
+    @classmethod
     def is_intersecting(cls, first, second):
         '''Implementation of the is_intersecting method.'''
-        if first==second or cls.overlap(first,second)<0:
+        if first==second or cls.overlap(first, second)<0:
             return False
         return True
 

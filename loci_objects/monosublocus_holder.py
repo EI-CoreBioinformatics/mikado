@@ -125,6 +125,7 @@ class monosublocus_holder(sublocus,abstractlocus):
 
     @classmethod
     def in_locus(cls, locus_instance, transcript_instance, flank=0):
+        '''This method checks whether a transcript / monosbulocus falls inside the locus coordinates.'''
         if hasattr(transcript_instance, "transcripts"):
             assert len(transcript_instance.transcripts)==1
             transcript_instance = transcript_instance.transcripts[list(transcript_instance.transcripts.keys())[0]]

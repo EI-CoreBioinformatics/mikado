@@ -22,6 +22,9 @@ def main():
     parser.add_argument("out", type=argparse.FileType("w"), nargs="?", default=sys.stdout)
     args=parser.parse_args()
 
+    if args.start>=args.end:
+        raise ValueError("Start greater than end: {0}\t{1}".format(args.start,args.end))
+
     currentTranscript=None
     chromFound=False
     with GTF(args.gtf) as gtf:

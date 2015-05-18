@@ -460,11 +460,14 @@ class transcript:
             if primary_orf is False and orf.cds_len < minimal_secondary_orf_length:
                 continue
             #Minimal check
+            if primary_orf is True:
+                self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
+            
             if not (orf.cdsStart>=1 and orf.cdsEnd<=self.cdna_length):
                 continue
             if self.strand is None:
                 self.strand=new_strand=orf.strand
-            
+            primary_orf = True
 
             
             if self.strand is None: #Must be monoexonic

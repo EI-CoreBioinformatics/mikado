@@ -197,17 +197,29 @@ class superlocus(abstractlocus):
     def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False):
         if cds_dict is None:
             return
-        transcript_ids=list(self.transcripts.keys())[:]
-        
-        for tid in transcript_ids:
-            self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,minimal_secondary_orf_length=minimal_secondary_orf_length )
-            if split_chimeras is True and self.transcripts[tid].number_internal_orfs>1:
-                new_transcripts = list(self.transcripts[tid].split_by_cds())
-                assert len(new_transcripts)>0
-                self.remove_transcript_from_locus(tid)
-                for tr in new_transcripts:
-                    self.add_transcript_to_locus(tr, check_in_locus=False)
+#        print(self.transcripts.keys())
 
+        for tid in self.transcripts:
+            self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,minimal_secondary_orf_length=minimal_secondary_orf_length )
+        transcript_ids=list(self.transcripts.keys())[:]
+        assert len(transcript_ids)>0
+
+        if split_chimeras is True:
+            more_than_one_orf=[]
+            for tid in self.transcripts:
+                if self.transcripts[tid].number_internal_orfs>1: more_than_one_orf.append(tid)
+            
+            for tid in more_than_one_orf:
+                new_transcripts=[]
+                for x in self.transcripts[tid].split_by_cds():
+                    new_transcripts.append(x)
+                for tr in new_transcripts:
+                    try:
+                        self.add_transcript_to_locus(tr, check_in_locus=False)
+                    except:
+                        raise
+                    assert tr.id in self.transcripts
+                self.remove_transcript_from_locus(tid)
 
     ###### Sublocus-related steps ######
                     

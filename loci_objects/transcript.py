@@ -321,7 +321,6 @@ class transcript:
         # We do not want to repeat this step multiple times
         if self.finalized is True:
             return
-
         self.introns = []
         self.splices=[]
         if len(self.exons)==0:
@@ -333,11 +332,13 @@ class transcript:
         if self.combined_utr!=[] and self.combined_cds==[]:
             raise ValueError("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
-        assert self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length, \
-            ("\n".join(
+        if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
+            print("Assertion error", "\n".join(
                        [str(x) for x in [self.id, self.cdna_length, self.combined_utr_length, self.combined_cds_length,self.combined_utr, self.combined_cds, self.exons]]
                        )
              )
+            raise AssertionError
+            
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0
@@ -352,11 +353,12 @@ class transcript:
                                                                                                                                                             ))
         except IndexError as err:
             raise IndexError(err, self.id, str(self.exons))
-            
+
         if len(self.exons)>1:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
+                    print(exon[A],exon[B],self.id,self.exons)
                     raise ValueError("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
                 self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
@@ -608,8 +610,9 @@ class transcript:
         '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
         into multiple transcripts. UTR information will be retained only if no ORF is downstream.'''
         self.finalize()
+        new_transcripts=[]
         if self.number_internal_orfs<2:
-            yield self
+            new_transcripts=[self]
         else:
             orf_boundaries = []
             for orf in self.internal_orfs:
@@ -617,13 +620,16 @@ class transcript:
                 orf_boundaries.append((cds[0][1],cds[-1][2]))
             
             counter=0
-            for (orf,loaded_bed12) in zip(self.internal_orfs, self.loaded_bed12):
+            zipper=list(zip(self.internal_orfs, self.loaded_bed12))
+            
+            for (orf,loaded_bed12) in zipper:
                 counter+=1
                 new_transcript=self.__class__()
                 for attribute in ["chrom", "source", "score","strand", "attributes" ]:
                     setattr(new_transcript,attribute, getattr(self, attribute))
                 new_transcript.has_start_codon = loaded_bed12.has_start_codon
                 new_transcript.has_stop_codon = loaded_bed12.has_stop_codon
+                new_transcript.id = "{0}.orf{1}".format(self.id,counter)
                 cds_segments=[(x[1],x[2]) for x in sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))]
                 assert len(cds_segments)>0
                 my_exons=[]
@@ -637,12 +643,10 @@ class transcript:
                         partials.append((seg[0],seg[1]))
                 my_exons=sorted(my_exons,key=operator.itemgetter(0,1))
                 partials=sorted(partials,key=operator.itemgetter(0,1))
-                
                 my_boundaries = (cds_segments[0][0],cds_segments[-1][1])
                 other_orfs = list(filter(lambda x: x!=my_boundaries, orf_boundaries))
                 left_orfs = list(filter(lambda x: x[1]<=my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
                 right_orfs = list(filter(lambda x: x[0]>=my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
-                new_transcript.id = "{0}.orf{1}".format(self.id,counter)
                 if len(left_orfs)==0 and len(right_orfs)==0:
                     raise AssertionError("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
                 elif len(left_orfs)>0 and len(right_orfs)>0:
@@ -680,16 +684,20 @@ class transcript:
                             exon=(max(exon[0], partial[0]), exon[1])
                             if exon[0]<exon[1]:
                                 my_exons.append(exon)
-                            
+
                 my_exons.extend(partials)
-                my_exons=sorted(set(my_exons),key=operator.itemgetter(0,1))
+                my_exons=sorted(list(filter( lambda x: x[0]<x[1],set(my_exons))),key=operator.itemgetter(0,1))
                 new_transcript.exons=my_exons
-                new_transcript.combined_cds = cds_segments
-                new_transcript.combined_utr = my_utr
+                new_transcript.combined_cds = sorted(list(filter(lambda x: x[0]<x[1], cds_segments)), key=operator.itemgetter(0,1))
+                new_transcript.combined_utr = sorted(list(filter(lambda x: x[0]<x[1], my_utr)), key=operator.itemgetter(0,1))
                 new_transcript.start = my_exons[0][0]
                 new_transcript.end = my_exons[-1][1]
                 new_transcript.finalize()
-                yield new_transcript
+                new_transcripts.append(new_transcript)
+        assert len(new_transcripts)>0
+        for nt in new_transcripts:
+            yield nt
+                    
       
     @classmethod
     ####################Class methods#####################################  

@@ -286,10 +286,9 @@ class abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.strand = transcript_instance.strand
             self.chrom = transcript_instance.chrom
-#         if self.in_locus(self, transcript) is True:
-#             if transcript.id in self.transcripts:
-#                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
-    
+            #         if self.in_locus(self, transcript) is True:
+            #             if transcript.id in self.transcripts:
+            #                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
         self.start = min(self.start, transcript_instance.start)
         self.end = max(self.end, transcript_instance.end)
         self.transcripts[transcript_instance.id]=copy(transcript_instance)
@@ -306,6 +305,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if self.initialized is False:
             self.initialized = True
         self.source=transcript_instance.source
+        assert transcript_instance.id in self.transcripts
         return
 
     def remove_transcript_from_locus(self, tid):

@@ -658,9 +658,12 @@ class transcript:
                             assert len(partial)==1, (exon, cds_segments)
                             partial=partial[0]
                             partials.remove(partial)
-                            my_utr.append( (exon[0], partial[0]-1 ) )
+                            utr=(exon[0], partial[0]-1 )
+                            if utr[0]<utr[1]:
+                                my_utr.append( utr )
                             exon=(exon[0],min(exon[1], partial[1]))
-                            my_exons.append(exon)
+                            if exon[0]<exon[1]:
+                                my_exons.append(exon)
                 elif len(left_orfs)>0 and len(right_orfs)==0: #We have ORFs on the left
                     for exon in filter(lambda x: x[1]>my_boundaries[1], self.exons):
                         if exon[0]>=my_boundaries[1]:
@@ -671,9 +674,12 @@ class transcript:
                             assert len(partial)==1, (exon, cds_segments)
                             partial=partial[0]
                             partials.remove(partial)
-                            my_utr.append( (partial[1]+1, exon[1] ))
+                            utr=(partial[1]+1, exon[1] )
+                            if utr[0]<utr[1]:
+                                my_utr.append(utr)
                             exon=(max(exon[0], partial[0]), exon[1])
-                            my_exons.append(exon)
+                            if exon[0]<exon[1]:
+                                my_exons.append(exon)
                             
                 my_exons.extend(partials)
                 my_exons=sorted(set(my_exons),key=operator.itemgetter(0,1))

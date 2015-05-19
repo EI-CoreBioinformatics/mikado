@@ -644,7 +644,7 @@ class transcript:
                 right_orfs = list(filter(lambda x: x[0]>=my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
                 new_transcript.id = "{0}.orf{1}".format(self.id,counter)
                 if len(left_orfs)==0 and len(right_orfs)==0:
-                    raise AssertionError("I have not found any ORFs at my sides - this should not be possible!\n{0}".format(self.id))
+                    raise AssertionError("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
                 elif len(left_orfs)>0 and len(right_orfs)>0:
                     my_exons.extend(partials)
                     partials=[]

@@ -640,11 +640,11 @@ class transcript:
                 
                 my_boundaries = (cds_segments[0][0],cds_segments[-1][1])
                 other_orfs = list(filter(lambda x: x!=my_boundaries, orf_boundaries))
-                left_orfs = list(filter(lambda x: x[1]<my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
-                right_orfs = list(filter(lambda x: x[0]>my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
+                left_orfs = list(filter(lambda x: x[1]<=my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
+                right_orfs = list(filter(lambda x: x[0]>=my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
                 new_transcript.id = "{0}.orf{1}".format(self.id,counter)
                 if len(left_orfs)==0 and len(right_orfs)==0:
-                    raise AssertionError("I have not found any ORFs at my sides - this should not be possible!")
+                    raise AssertionError("I have not found any ORFs at my sides - this should not be possible!\n{0}".format(self.id))
                 elif len(left_orfs)>0 and len(right_orfs)>0:
                     my_exons.extend(partials)
                     partials=[]

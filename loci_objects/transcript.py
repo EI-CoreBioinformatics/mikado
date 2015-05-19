@@ -697,7 +697,7 @@ class transcript:
         '''Wrapper for the abstractlocus method, used for finding overlapping ORFs.
         It will pass to the function the class's "is_overlapping_cds" method
         (which would be otherwise be inaccessible from the abstractlocus class method)'''        
-        return abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
+        return abstractlocus.merge_cliques(abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds))
     
     
     @classmethod

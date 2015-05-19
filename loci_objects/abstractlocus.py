@@ -90,6 +90,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         As a static method, it can be used also outside of any instance - "superlocus.overlap()" will function.
         Input: two 2-tuples of integers.
         '''
+        a=sorted(a)
+        b=sorted(b)
         
         left_boundary=max(a[0]-flank, b[0]-flank)
         right_boundary=min(a[1]+flank, b[1]+flank)

@@ -663,7 +663,7 @@ class transcript:
                             my_exons.append(exon)
                 elif len(left_orfs)>0 and len(right_orfs)==0: #We have ORFs on the left
                     for exon in filter(lambda x: x[1]>my_boundaries[1], self.exons):
-                        if exon[0]>my_boundaries[1]:
+                        if exon[0]>=my_boundaries[1]:
                             my_utr.append(exon)
                             my_exons.append(exon)
                         else:
@@ -676,7 +676,7 @@ class transcript:
                             my_exons.append(exon)
                             
                 my_exons.extend(partials)
-                my_exons=sorted(my_exons,key=operator.itemgetter(0,1))
+                my_exons=sorted(set(my_exons),key=operator.itemgetter(0,1))
                 new_transcript.exons=my_exons
                 new_transcript.combined_cds = cds_segments
                 new_transcript.combined_utr = my_utr

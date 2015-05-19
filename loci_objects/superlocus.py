@@ -203,6 +203,7 @@ class superlocus(abstractlocus):
             self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,minimal_secondary_orf_length=minimal_secondary_orf_length )
             if split_chimeras is True and self.transcripts[tid].number_internal_orfs>1:
                 new_transcripts = list(self.transcripts[tid].split_by_cds())
+                assert len(new_transcripts)>0
                 self.remove_transcript_from_locus(tid)
                 for tr in new_transcripts:
                     self.add_transcript_to_locus(tr, check_in_locus=False)

@@ -37,34 +37,44 @@ class transcript:
     
     ######### Class special methods ####################
     
-    def __init__(self, gffLine, source=None):
+    def __init__(self, *args, source=None):
         
         '''Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
         The transcript instance must be initialised by a "(m|r|lnc|whatever)RNA" or "transcript" gffLine.'''
         
-        self.chrom = gffLine.chrom
-        assert "transcript"==gffLine.feature or "RNA" in gffLine.feature.upper()
-        self.feature="transcript"
-        self.id = gffLine.id
-        self.name = gffLine.name
-        if source is None:
-            self.source=gffLine.source
-        else:
-            self.source=source
-        self.start=gffLine.start
-        self.strand = gffLine.strand
-        self.end=gffLine.end
-        self.score = gffLine.score
+        self.chrom = None
         self.exons, self.combined_cds, self.combined_utr = [], [], []
         self.introns = []
         self.splices = []
-        self.finalized = False # Flag. We do not want to repeat the finalising more than once.
-        self.parent = gffLine.parent
-        self.attributes = gffLine.attributes
+        self.finalized = False # Flag. We do not want to repeat the finalising more than once.        
         self.selected_internal_orf_index = None
         self.has_start_codon, self.has_stop_codon = False,False
         self.non_overlapping_cds = None
+        
+        if len(args)==0:
+            return
+        else:
+            transcript_row=args[0]
+            if type(transcript_row) not in (gffLine, gtfLine):
+                raise TypeError("Invalid data type: {0}".format(type(transcript_row))) 
+                    
+        self.chrom = transcript_row.chrom
+        assert "transcript"==transcript_row.feature or "RNA" in transcript_row.feature.upper()
+        self.feature="transcript"
+        self.id = transcript_row.id
+        self.name = transcript_row.name
+        if source is None:
+            self.source=transcript_row.source
+        else:
+            self.source=source
+        self.start=transcript_row.start
+        self.strand = transcript_row.strand
+        self.end=transcript_row.end
+        self.score = transcript_row.score
+
+        self.parent = transcript_row.parent
+        self.attributes = transcript_row.attributes
         
     def __str__(self, to_gtf=False, print_cds=True):
         '''Each transcript will be printed out in the GFF style.
@@ -87,7 +97,7 @@ class transcript:
 
         if print_cds is True:
             
-            for index in range(len(self.internal_cds)):
+            for index in range(len(self.internal_orfs)):
                 
                 if self.number_internal_orfs>1:
                     transcript_counter+=1
@@ -97,7 +107,7 @@ class transcript:
                     else: self.attributes["maximal"]=False
                 else:
                     tid = self.id
-                cds_run = self.internal_cds[index]
+                cds_run = self.internal_orfs[index]
                     
                 parent_line.chrom=self.chrom
                 parent_line.source=self.source
@@ -323,8 +333,11 @@ class transcript:
         if self.combined_utr!=[] and self.combined_cds==[]:
             raise ValueError("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
-        assert self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length, (self.id, self.cdna_length, self.combined_utr_length, self.combined_cds_length,
-                                                                                                               self.combined_utr, self.combined_cds, self.exons )
+        assert self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length, \
+            ("\n".join(
+                       [str(x) for x in [self.id, self.cdna_length, self.combined_utr_length, self.combined_cds_length,self.combined_utr, self.combined_cds, self.exons]]
+                       )
+             )
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0
@@ -357,13 +370,13 @@ class transcript:
             if self.strand=="+": self.has_stop_codon=True
             elif self.strand=="-": self.has_start_codon=True
         
-        self.internal_cds = []
+        self.internal_orfs = []
         self.segments = [ ("exon",e[0],e[1]) for e in self.exons] + \
                     [("CDS", c[0],c[1]) for c in self.combined_cds ] + \
                     [ ("UTR", u[0], u[1]) for u in self.combined_utr ]
         self.segments =  sorted(self.segments, key=operator.itemgetter(1,2,0) )
                 
-        self.internal_cds.append(self.segments)
+        self.internal_orfs.append(self.segments)
         if self.combined_cds_length>0:
             self.selected_internal_orf_index=0
         
@@ -436,7 +449,7 @@ class transcript:
 
         self.combined_utr = []
         self.combined_cds = []
-        self.internal_cds = []
+        self.internal_orfs = []
         
         self.finalized = False
         
@@ -455,6 +468,8 @@ class transcript:
             new_orfs.append(sorted(clique, reverse=True, key=operator.attrgetter("cds_len"))[0])
         candidate_orfs=new_orfs[:]
         del new_orfs
+        
+        self.loaded_bed12 = [] #This will keep in memory the original BED12 objects
         
         for orf in candidate_orfs:
             if primary_orf is False and orf.cds_len < minimal_secondary_orf_length:
@@ -481,6 +496,7 @@ class transcript:
                 elif self.strand=="-":
                     self.strand="+"
 
+            self.loaded_bed12.append(orf)
             cds_exons = []
             current_start, current_end = 0,0
             if self.strand == "+":
@@ -522,26 +538,31 @@ class transcript:
                             cds_exons.append( ("UTR", exon[0], c_start-1) )
                     current_start=current_end
         
-            self.internal_cds.append( sorted(cds_exons, key=operator.itemgetter(1,2)   ) )
+            #Self.internal_orfs therefore will appear like thus:
+            #[ 
+            # [ ("UTR",a,b),("CDS",c,d),...],
+            #  [ ("UTR",a',b'),("CDS",c',d'),...],
+            # ]
+            self.internal_orfs.append( sorted(cds_exons, key=operator.itemgetter(1,2)   ) )
 
-        if len(self.internal_cds)==1:
+        if len(self.internal_orfs)==1:
             self.combined_cds = sorted(
-                              [(a[1],a[2]) for a in filter(lambda x: x[0]=="CDS", self.internal_cds[0])],
+                              [(a[1],a[2]) for a in filter(lambda x: x[0]=="CDS", self.internal_orfs[0])],
                               key=operator.itemgetter(0,1)
                               
                               )
             self.combined_utr = sorted(
-                              [(a[1],a[2]) for a in filter(lambda x: x[0]=="UTR", self.internal_cds[0])],
+                              [(a[1],a[2]) for a in filter(lambda x: x[0]=="UTR", self.internal_orfs[0])],
                               key=operator.itemgetter(0,1)
                               
                               )
             
             
-        elif len(self.internal_cds)>1:
+        elif len(self.internal_orfs)>1:
             
             cds_spans = []
             candidates = []
-            for internal_cds in self.internal_cds:
+            for internal_cds in self.internal_orfs:
                 candidates.extend([tuple([a[1],a[2]]) for a in filter(lambda tup: tup[0]=="CDS", internal_cds  )])
                               
             candidates=set(candidates)
@@ -550,8 +571,7 @@ class transcript:
                             max(t[1] for t in mc)                        
                             ])
                 cds_spans.append(span)
-                
-
+ 
             self.combined_cds = sorted(cds_spans, key = operator.itemgetter(0,1))
             
             #This method is probably OBSCENELY inefficient, but I cannot think of a better one for the moment.
@@ -576,7 +596,7 @@ class transcript:
                                    
             assert self.cdna_length == self.combined_cds_length + self.combined_utr_length, (self.cdna_length, self.combined_cds, self.combined_utr)                            
         
-        if self.internal_cds == []:
+        if self.internal_orfs == []:
             self.finalize()
         else:
             self.feature="mRNA"
@@ -584,6 +604,86 @@ class transcript:
         return
                         
 
+    def split_by_cds(self):
+        '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
+        into multiple transcripts. UTR information will be retained only if no ORF is downstream.'''
+        self.finalize()
+        if self.number_internal_orfs<2:
+            yield self
+        else:
+            orf_boundaries = []
+            for orf in self.internal_orfs:
+                cds = sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))
+                orf_boundaries.append((cds[0][1],cds[-1][2]))
+            
+            counter=0
+            for (orf,loaded_bed12) in zip(self.internal_orfs, self.loaded_bed12):
+                counter+=1
+                new_transcript=self.__class__()
+                for attribute in ["chrom", "source", "score","strand", "attributes" ]:
+                    setattr(new_transcript,attribute, getattr(self, attribute))
+                new_transcript.has_start_codon = loaded_bed12.has_start_codon
+                new_transcript.has_stop_codon = loaded_bed12.has_stop_codon
+                cds_segments=[(x[1],x[2]) for x in sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))]
+                assert len(cds_segments)>0
+                my_exons=[]
+                my_utr=[]
+                partials=[]
+                #Add full CDS exons to the exons to be added to the transcript
+                for seg in cds_segments:
+                    if seg in self.exons:
+                        my_exons.append((seg[0],seg[1]))
+                    else:
+                        partials.append((seg[0],seg[1]))
+                my_exons=sorted(my_exons,key=operator.itemgetter(0,1))
+                partials=sorted(partials,key=operator.itemgetter(0,1))
+                
+                my_boundaries = (cds_segments[0][0],cds_segments[-1][1])
+                other_orfs = list(filter(lambda x: x!=my_boundaries, orf_boundaries))
+                left_orfs = list(filter(lambda x: x[1]<my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
+                right_orfs = list(filter(lambda x: x[0]>my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
+                new_transcript.id = "{0}.orf{1}".format(self.id,counter)
+                if len(left_orfs)==0 and len(right_orfs)==0:
+                    raise AssertionError("I have not found any ORFs at my sides - this should not be possible!")
+                elif len(left_orfs)>0 and len(right_orfs)>0:
+                    my_exons.extend(partials)
+                    partials=[]
+                elif len(right_orfs)>0 and len(left_orfs)==0: #we have orfs on the RIGHT
+                    for exon in filter(lambda x: x[0]<my_boundaries[0], self.exons):
+                        if exon[1]<=my_boundaries[0]:
+                            my_utr.append(exon)
+                            my_exons.append(exon)
+                        else:
+                            partial=list(filter(lambda pa: pa[1]<=exon[1], partials ))
+                            assert len(partial)==1, (exon, cds_segments)
+                            partial=partial[0]
+                            partials.remove(partial)
+                            my_utr.append( (exon[0], partial[0]-1 ) )
+                            exon=(exon[0],min(exon[1], partial[1]))
+                            my_exons.append(exon)
+                elif len(left_orfs)>0 and len(right_orfs)==0: #We have ORFs on the left
+                    for exon in filter(lambda x: x[1]>my_boundaries[1], self.exons):
+                        if exon[0]>my_boundaries[1]:
+                            my_utr.append(exon)
+                            my_exons.append(exon)
+                        else:
+                            partial=list(filter(lambda pa: pa[0]>=exon[0], partials ))
+                            assert len(partial)==1, (exon, cds_segments)
+                            partial=partial[0]
+                            partials.remove(partial)
+                            my_utr.append( (partial[1]+1, exon[1] ))
+                            exon=(max(exon[0], partial[0]), exon[1])
+                            my_exons.append(exon)
+                            
+                my_exons.extend(partials)
+                my_exons=sorted(my_exons,key=operator.itemgetter(0,1))
+                new_transcript.exons=my_exons
+                new_transcript.combined_cds = cds_segments
+                new_transcript.combined_utr = my_utr
+                new_transcript.start = my_exons[0][0]
+                new_transcript.end = my_exons[-1][1]
+                new_transcript.finalize()
+                yield new_transcript
       
     @classmethod
     ####################Class methods#####################################  
@@ -676,7 +776,7 @@ class transcript:
             self.selected_internal_orf_index=0
             return tuple([])
         else:
-            return self.internal_cds[self.selected_internal_orf_index]
+            return self.internal_orfs[self.selected_internal_orf_index]
     
     @property
     def selected_internal_orf_cds(self):
@@ -686,7 +786,7 @@ class transcript:
         if len(self.combined_cds)==0: # Non-sense to calculate the maximum CDS for transcripts without it
             return tuple([])
         else:
-            return list(filter(lambda x: x[0]=="CDS", self.internal_cds[self.selected_internal_orf_index])) 
+            return list(filter(lambda x: x[0]=="CDS", self.internal_orfs[self.selected_internal_orf_index])) 
 
     @property
     def five_utr(self):
@@ -724,7 +824,7 @@ class transcript:
             return
         if type(index) is not int:
             raise TypeError()
-        if index<0 or index>=len(self.internal_cds):
+        if index<0 or index>=len(self.internal_orfs):
             raise IndexError("No ORF corresponding to this index: {0}".format(index))
         self.__max_internal_orf_index = index
         
@@ -732,7 +832,7 @@ class transcript:
     def internal_orf_lengths(self):
         '''This property returns a list of the lengths of the internal ORFs.'''
         lengths = []
-        for internal_cds in self.internal_cds:
+        for internal_cds in self.internal_orfs:
             lengths.append( sum( x[2]-x[1]+1 for x in filter(lambda c: c[0]=="CDS", internal_cds) ) )
         lengths = sorted(lengths, reverse=True)
         return lengths
@@ -746,7 +846,7 @@ class transcript:
         if self.__non_overlapping_cds is None: 
             self.finalize()
             self.__non_overlapping_cds=set()
-            for internal_cds in self.internal_cds:
+            for internal_cds in self.internal_orfs:
                 segments = set([(x[1],x[2]) for x in filter(lambda segment: segment[0]=="CDS", internal_cds   )])
                 self.__non_overlapping_cds.update(segments)
         return self.__non_overlapping_cds
@@ -977,7 +1077,7 @@ class transcript:
     @metric
     def number_internal_orfs(self):
         '''This property returns the number of ORFs inside a transcript.'''
-        return len(self.internal_cds)
+        return len(self.internal_orfs)
 
     @metric
     def selected_cds_length(self):
@@ -1014,7 +1114,7 @@ class transcript:
         '''This property returns the maximum number of CDS segments among the ORFs; this number
         can refer to an ORF *DIFFERENT* from the maximal ORF.'''
         cds_numbers = []
-        for cds in self.internal_cds:
+        for cds in self.internal_orfs:
             cds_numbers.append(len(list(filter(lambda x: x[0]=="CDS", cds))))
         return max(cds_numbers)
     
@@ -1027,7 +1127,7 @@ class transcript:
     @metric
     def cds_not_maximal(self):
         '''This property returns the length of the CDS excluded from the selected ORF.'''
-        if len(self.internal_cds)<2:
+        if len(self.internal_orfs)<2:
             return 0
         return self.combined_cds_length-self.selected_cds_length
     

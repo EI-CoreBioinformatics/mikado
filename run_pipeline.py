@@ -19,6 +19,7 @@ from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
 from loci_objects.bed12 import BED12
 from loci_objects.abstractlocus import abstractlocus
+from logging import Logger
 
 def locus_printer( slocus, args, cds_dict=None, lock=None ):
 
@@ -30,7 +31,9 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     '''
 
     #Load the CDS information
-    slocus.load_cds(cds_dict, trust_strand = args.strand_specific, minimal_secondary_orf_length=args.minimal_secondary_orf_length )
+    slocus.load_cds(cds_dict, trust_strand = args.strand_specific,
+                    minimal_secondary_orf_length=args.minimal_secondary_orf_length,
+                    split_chimeras=args.split_chimeras )
     #Split the superlocus in the stranded components
     stranded_loci = sorted(list(slocus.split_strands()))
     
@@ -106,6 +109,9 @@ def main():
     parser.add_argument('-x',  "--remove_overlapping_fragments", action="store_true",
                         default=False, help="""Flag. If set, the program will remove monoexonic loci
                         overlapping non-monoexonic loci on the opposite strand.""")
+    parser.add_argument("-sc", "--split-chimeras", dest="split_chimeras", default=False,
+                        action="store_true", help="""Flag. If set, transcripts with multiple ORFs will be split into separate transcripts,
+                        trying to retain as much UTR as possible.""" )
     parser.add_argument("--json_conf", type=argparse.FileType("r"), required=True, help="JSON configuration file for scoring transcripts.")
     parser.add_argument("--minimal_secondary_orf_length", type=int, default=200,
                         help="Any secondary ORF shorter than this value will be ignored. Useful to avoid legitimate cases of ORFs in the UTR. Default: %(default)s.")
@@ -174,7 +180,7 @@ def main():
     cds_dict=None
     #Load the CDS information from the BED12, if one is available
     if args.cds is not None:
-        print("Starting to extract CDS data", file=sys.stderr)
+#         print("Starting to extract CDS data", file=sys.stderr)
         cds_dict = dict()
         
         for line in BED12(args.cds, fasta_index=args.transcript_fasta):
@@ -195,7 +201,7 @@ def main():
                 for index in indices_to_remove:
                     del cds_dict[line.chrom][index]
                 cds_dict[line.chrom].append(line)
-        print("Finished extracting CDS data", file=sys.stderr)
+#         print("Finished extracting CDS data", file=sys.stderr)
 
     if args.cds is not None:
         args.cds.close()    
@@ -227,14 +233,11 @@ def main():
                         if first is True:
                             locus_printer(currentLocus, args, cds_dict=cds_dict)
                         else:
-                            if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
-                                raise KeyError("Why is compiled here again?")
-
                             jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
                                                                                              "lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False,
-                                            json_dict = args.json_conf,
-                                            purge=args.purge)
+                                                json_dict = args.json_conf,
+                                                purge=args.purge)
                     
             currentChrom=row.chrom
             currentTranscript=None
@@ -253,10 +256,10 @@ def main():
                         pool.apply_async(locus_printer,
                                          args=(currentLocus, args),
                                          kwds={"cds_dict": cds_dict,"lock": lock})
-
-                    currentLocus=superlocus(currentTranscript,
-                                            stranded=False, json_dict = args.json_conf,
+                    currentLocus=superlocus(currentTranscript, stranded=False,
+                                            json_dict = args.json_conf,
                                             purge=args.purge)
+
             elif currentLocus is None:
                 if currentTranscript is not None:
                     currentLocus=superlocus(currentTranscript,
@@ -273,12 +276,8 @@ def main():
             if superlocus.in_locus(currentLocus, currentTranscript):
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
-                    raise KeyError("Why is compiled here again?")
-            
                 pool.apply_async(locus_printer, args=(currentLocus, args),
                                 kwds={"cds_dict": cds_dict, "lock": lock})
-
                 currentLocus=superlocus(currentTranscript,
                                         stranded=False, json_dict = args.json_conf,
                                         purge=args.purge)

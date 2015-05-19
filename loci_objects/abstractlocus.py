@@ -287,6 +287,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 #         if self.in_locus(self, transcript) is True:
 #             if transcript.id in self.transcripts:
 #                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
+    
         self.start = min(self.start, transcript_instance.start)
         self.end = max(self.end, transcript_instance.end)
         self.transcripts[transcript_instance.id]=copy(transcript_instance)

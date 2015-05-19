@@ -653,43 +653,68 @@ class transcript:
                     my_exons.extend(partials)
                     partials=[]
                 elif len(right_orfs)>0 and len(left_orfs)==0: #we have orfs on the RIGHT
-                    for exon in filter(lambda x: x[0]<my_boundaries[0], self.exons):
-                        if exon[1]<=my_boundaries[0]:
+                    left_exons = list(filter( lambda exon: exon[0]<my_boundaries[0], self.exons))
+                    for exon in left_exons:
+                        if exon[1]<my_boundaries[0]:
                             my_utr.append(exon)
                             my_exons.append(exon)
                         else:
-                            partial=list(filter(lambda pa: pa[1]<=exon[1], partials ))
-                            assert len(partial)==1, (exon, cds_segments)
-                            partial=partial[0]
-                            partials.remove(partial)
-                            utr=(exon[0], partial[0]-1 )
-                            if utr[0]<utr[1]:
-                                my_utr.append( utr )
-                            exon=(exon[0],min(exon[1], partial[1]))
-                            if exon[0]<exon[1]:
+                            #ORF arrives at least to the right side
+                            if exon[1]<=my_boundaries[1]:
                                 my_exons.append(exon)
+                                utr=(exon[0], my_boundaries[0]-1)
+                                if utr[0]<utr[1]:
+                                    my_utr.append(utr)
+                                partial = list(filter(lambda x: x[1]==exon[1], partials))
+                                assert len(partial)==1, (exon, partials, partial)
+                                partials.remove(partial[0])
+                            else:
+                                #Monoexonic contained ORF
+                                 new_exon=(exon[0],my_boundaries[1])
+                                 utr=(exon[0], my_boundaries[0]-1)
+                                 assert len(partials)==1
+                                 partial=partials[0]
+                                 assert partial[1]==my_boundaries[1]
+                                 my_exons.append(new_exon)
+                                 if utr[0]<utr[1]:
+                                     my_utr.append(utr)
+                                 partials=[]
+
                 elif len(left_orfs)>0 and len(right_orfs)==0: #We have ORFs on the left
-                    for exon in filter(lambda x: x[1]>my_boundaries[1], self.exons):
-                        if exon[0]>=my_boundaries[1]:
+                    right_exons=filter(lambda x: x[1]>my_boundaries[1], self.exons)
+                    for exon in right_exons:
+                        if exon[0]>my_boundaries[1]:
                             my_utr.append(exon)
                             my_exons.append(exon)
                         else:
-                            partial=list(filter(lambda pa: pa[0]>=exon[0], partials ))
-                            assert len(partial)==1, (exon, cds_segments)
-                            partial=partial[0]
-                            partials.remove(partial)
-                            utr=(partial[1]+1, exon[1] )
-                            if utr[0]<utr[1]:
-                                my_utr.append(utr)
-                            exon=(max(exon[0], partial[0]), exon[1])
-                            if exon[0]<exon[1]:
+                            if exon[0]>=my_boundaries[0]:
                                 my_exons.append(exon)
+                                utr=(my_boundaries[1]+1, exon[1])
+                                if utr[0]<utr[1]:
+                                    my_utr.append(utr)
+                                partial=[]
+                                for p in partials:
+                                    if p[0]==exon[0]:
+                                        partial.append(p)
+                                assert len(partial)==1, (exon,partial, partials)
+                                partials.remove(partial[0])
+                            else:
+                                #Monoexonic contained ORF
+                                 new_exon=(my_boundaries[0], exon[1])
+                                 utr=(my_boundaries[1]+1, exon[1])
+                                 assert len(partials)==1
+                                 partial=partials[0]
+                                 assert partials[0]==my_boundaries[0]
+                                 my_exons.append(new_exon)
+                                 if utr[0]<utr[1]:
+                                     my_utr.append(utr)
+                                 partials=[]
 
                 my_exons.extend(partials)
-                my_exons=sorted(list(filter( lambda x: x[0]<x[1],set(my_exons))),key=operator.itemgetter(0,1))
+                my_exons=sorted(set(my_exons),key=operator.itemgetter(0,1))
                 new_transcript.exons=my_exons
-                new_transcript.combined_cds = sorted(list(filter(lambda x: x[0]<x[1], cds_segments)), key=operator.itemgetter(0,1))
-                new_transcript.combined_utr = sorted(list(filter(lambda x: x[0]<x[1], my_utr)), key=operator.itemgetter(0,1))
+                new_transcript.combined_cds = sorted(cds_segments, key=operator.itemgetter(0,1))
+                new_transcript.combined_utr = sorted(my_utr, key=operator.itemgetter(0,1))
                 new_transcript.start = my_exons[0][0]
                 new_transcript.end = my_exons[-1][1]
                 new_transcript.finalize()

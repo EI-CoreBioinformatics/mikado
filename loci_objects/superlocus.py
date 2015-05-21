@@ -199,7 +199,7 @@ class superlocus(abstractlocus):
         if cds_dict is None:
             return
 #        print(self.transcripts.keys())
-
+        print("Loading CDS for {0}:{1}-{2}".format(self.chrom, self.start,self.end))
         for tid in self.transcripts:
             self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,minimal_secondary_orf_length=minimal_secondary_orf_length )
         transcript_ids=list(self.transcripts.keys())[:]

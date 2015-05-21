@@ -269,7 +269,9 @@ class superlocus(abstractlocus):
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
         cliques = self.find_cliques(candidates, inters=self.is_intersecting)
+        print("Merging cliques")
         subloci = self.merge_cliques(cliques)
+        print("Finished merging cliques")
 
         #Now we should define each sublocus and store it in a permanent structure of the class
                 

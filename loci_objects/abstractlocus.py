@@ -147,10 +147,10 @@ class abstractlocus(metaclass=abc.ABCMeta):
         It is the new interface for the BronKerbosch function, which is not called directly from outside this class any longer.
         The "inters" keyword provides the function used to determine whether two vertices are connected or not in the graph.
         '''
-        assert hasattr(inters, "__call__")
         if inters is None:
             inters = cls.is_intersecting
-        
+        assert hasattr(inters, "__call__")
+                
         graph = dict()
         for obj in objects:
             graph[obj]=set( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True )
@@ -217,7 +217,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         merged_cliques = set()
 
         cliques=sorted(cliques, key=len, reverse=True)
-        print("# of cliques:", len(cliques))
+#        print("# of cliques:", len(cliques))
         
         while len(cliques)>0:
             node=cliques[0]

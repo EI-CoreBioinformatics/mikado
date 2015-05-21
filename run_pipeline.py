@@ -36,7 +36,6 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
                     split_chimeras=args.split_chimeras )
     #Split the superlocus in the stranded components
     stranded_loci = sorted(list(slocus.split_strands()))
-    
     #Define the loci
     for stranded_locus in stranded_loci:
         stranded_locus.define_loci()
@@ -274,7 +273,6 @@ def main():
         else:
             continue
 
-  
     if currentLocus is not None:
         if currentTranscript is not None:
             if superlocus.in_locus(currentLocus, currentTranscript):
@@ -285,7 +283,6 @@ def main():
                 currentLocus=superlocus(currentTranscript,
                                         stranded=False, json_dict = args.json_conf,
                                         purge=args.purge)
-                
         pool.apply_async(locus_printer, 
                          args=(currentLocus, args),
                          kwds={"cds_dict": cds_dict, "lock": lock})

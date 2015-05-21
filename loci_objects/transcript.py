@@ -568,7 +568,8 @@ class transcript:
                 candidates.extend([tuple([a[1],a[2]]) for a in filter(lambda tup: tup[0]=="CDS", internal_cds  )])
                               
             candidates=set(candidates)
-            for mc in self.merge_cliques(*self.find_cliques(candidates)):
+            #for mc in self.merge_cliques(*self.find_cliques(candidates)):
+            for mc in self.find_communities(candidates):
                 span=tuple([min(t[0] for t in mc),
                             max(t[1] for t in mc)                        
                             ])
@@ -722,15 +723,16 @@ class transcript:
     def find_cliques(cls, candidates):
         '''Wrapper for the abstractlocus method. It will pass to the function the class's "is_intersecting" method
         (which would be otherwise be inaccessible from the abstractlocus class method)'''
-        return abstractlocus.find_cliques( candidates, inters=cls.is_intersecting)
+#         return abstractlocus.find_cliques( candidates, inters=cls.is_intersecting)
+        raise NotImplementedError()
     
     @classmethod
     def find_overlapping_cds(cls, candidates):
         '''Wrapper for the abstractlocus method, used for finding overlapping ORFs.
         It will pass to the function the class's "is_overlapping_cds" method
         (which would be otherwise be inaccessible from the abstractlocus class method)'''
-        graph, cliques = abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
-        return abstractlocus.merge_cliques(graph, cliques)
+#         graph, cliques = abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
+        return abstractlocus.find_communities(candidates, inters=cls.is_overlapping_cds)
     
     
     @classmethod
@@ -759,6 +761,12 @@ class transcript:
     def merge_cliques(cls, graph, cliques):
         '''Wrapper for the abstractlocus method.'''
         return abstractlocus.merge_cliques(graph,cliques)
+    
+    @classmethod
+    def find_communities(cls, objects):
+        '''Wrapper for the abstractlocus method.'''
+        return abstractlocus.find_communities(objects, inters=cls.is_intersecting)
+
     
     @classmethod
     def get_available_metrics(cls):

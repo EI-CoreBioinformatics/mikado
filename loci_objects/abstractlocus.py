@@ -143,6 +143,42 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
 
     @classmethod
+    def find_communities(cls, objects, inters=None):
+        '''This function is a wrapper around the networkX methods to find
+        cliques and communities inside a graph.'''
+        
+        if inters is None:
+            inters = cls.is_intersecting
+        assert hasattr(inters, "__call__")
+
+        indexer=dict()
+        
+        graph=networkx.Graph()
+        graph.add_nodes_from(list(range(len(objects))))
+        objects=list(objects)
+        for num in range(len(objects)):
+            indexer[num]=objects[num]
+
+        edges=set()
+        for num in indexer:
+            obj=indexer[num]
+            for other_num in indexer:
+                if (num!=other_num) and inters(obj, indexer[other_num]): 
+                    edge=tuple(sorted( [num, other_num] ))
+                    edges.add(edge)
+
+        for edge in edges:
+            graph.add_edge(*edge)
+
+        cliques=list(networkx.find_cliques(graph))
+        communities = list(networkx.k_clique_communities(graph, 2, cliques))+[frozenset(x) for x in cliques if len(x)==1]
+        final_communities=list()
+        for community in communities:
+            final_communities.append( [indexer[num] for num in community]  )
+        return final_communities
+
+
+    @classmethod
     def find_cliques(cls,objects, inters=None):
         '''Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
         It is the new interface for the BronKerbosch function, which is not called directly from outside this class any longer.
@@ -223,7 +259,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
     @classmethod
     def merge_cliques(cls, graph, cliques):
-        return list(networkx.k_clique_communities(graph, 2, cliques))+[frozenset(x) for x in cliques if len(x)==1]
+        pass
 
     @classmethod
     def merge_cliques_old(cls, cliques):

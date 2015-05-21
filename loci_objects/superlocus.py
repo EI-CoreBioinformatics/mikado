@@ -204,6 +204,7 @@ class superlocus(abstractlocus):
         assert len(transcript_ids)>0
 
         if split_chimeras is True:
+            
             more_than_one_orf=[]
             for tid in self.transcripts:
                 if self.transcripts[tid].number_internal_orfs>1: more_than_one_orf.append(tid)
@@ -214,6 +215,7 @@ class superlocus(abstractlocus):
                     self.add_transcript_to_locus(tr, check_in_locus=True)
                 self.remove_transcript_from_locus(tid)
                     #assert tr.id in self.transcripts
+            
 #        return
                 
 
@@ -226,7 +228,7 @@ class superlocus(abstractlocus):
             - Call the "merge_cliques" algorithm the merge the cliques.
             - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
         '''
-
+        
         self.compile_requirements()
         if self.subloci_defined is True:
             return
@@ -266,8 +268,9 @@ class superlocus(abstractlocus):
         candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
-        graph, cliques = self.find_cliques(candidates, inters=self.is_intersecting)
-        subloci = self.merge_cliques(graph, cliques)
+#         graph, cliques = self.find_cliques(candidates, inters=self.is_intersecting)
+#         subloci = self.merge_cliques(graph, cliques)
+        subloci = self.find_communities(candidates, inters=self.is_intersecting)
 
         #Now we should define each sublocus and store it in a permanent structure of the class
                 

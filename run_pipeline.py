@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-#import sys
+import sys
 import argparse,re
 import multiprocessing
 import csv
@@ -225,6 +225,7 @@ def main():
     jobs=dict()
     print("Starting to row")
     for row in rower:
+        print(row, file=sys.stderr)
         if row.header is True:
             continue
         if row.chrom!=currentChrom:

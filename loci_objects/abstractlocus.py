@@ -203,6 +203,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
                 candidates.remove(vertex)
                 non_clique.add(vertex)
                 
+        print("Final cliques #: {0}".format(len()))
         return final_cliques
 
     @classmethod

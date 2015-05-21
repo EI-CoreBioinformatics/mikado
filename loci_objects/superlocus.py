@@ -266,8 +266,8 @@ class superlocus(abstractlocus):
         candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
-        cliques = self.find_cliques(candidates, inters=self.is_intersecting)
-        subloci = self.merge_cliques(cliques)
+        graph, cliques = self.find_cliques(candidates, inters=self.is_intersecting)
+        subloci = self.merge_cliques(graph, cliques)
 
         #Now we should define each sublocus and store it in a permanent structure of the class
                 
@@ -452,7 +452,7 @@ class superlocus(abstractlocus):
         other.finalize()
         if transcript_instance.id==other.id:
             return False # We do not want intersection with oneself
-        monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript_instance, other]   )  )   )
+#         monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript_instance, other]   )  )   )
         
         if transcript_instance.monoexonic is False and other.monoexonic is False:
             intersection = set.intersection(transcript_instance.introns, other.introns)

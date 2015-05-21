@@ -568,7 +568,7 @@ class transcript:
                 candidates.extend([tuple([a[1],a[2]]) for a in filter(lambda tup: tup[0]=="CDS", internal_cds  )])
                               
             candidates=set(candidates)
-            for mc in self.merge_cliques(list(self.find_cliques(candidates))):
+            for mc in self.merge_cliques(*self.find_cliques(candidates)):
                 span=tuple([min(t[0] for t in mc),
                             max(t[1] for t in mc)                        
                             ])
@@ -728,8 +728,9 @@ class transcript:
     def find_overlapping_cds(cls, candidates):
         '''Wrapper for the abstractlocus method, used for finding overlapping ORFs.
         It will pass to the function the class's "is_overlapping_cds" method
-        (which would be otherwise be inaccessible from the abstractlocus class method)'''        
-        return abstractlocus.merge_cliques(abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds))
+        (which would be otherwise be inaccessible from the abstractlocus class method)'''
+        graph, cliques = abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
+        return abstractlocus.merge_cliques(graph, cliques)
     
     
     @classmethod
@@ -755,9 +756,9 @@ class transcript:
         return rend-lend
     
     @classmethod
-    def merge_cliques(cls, cliques):
+    def merge_cliques(cls, graph, cliques):
         '''Wrapper for the abstractlocus method.'''
-        return abstractlocus.merge_cliques(cliques)
+        return abstractlocus.merge_cliques(graph,cliques)
     
     @classmethod
     def get_available_metrics(cls):

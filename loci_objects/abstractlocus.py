@@ -4,6 +4,7 @@ import abc
 import random
 from copy import copy
 import logging
+import networkx 
 from loci_objects.exceptions import NotInLocusError
 
 class abstractlocus(metaclass=abc.ABCMeta):
@@ -150,19 +151,18 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if inters is None:
             inters = cls.is_intersecting
         assert hasattr(inters, "__call__")
-                
-        import networkx
-        graph=networkx.Graph()
-        graph.add_nodes_from(objects)
-        for obj in objects:
-            for edge in ( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True ):
-                graph.add_edge( obj,edge )
-        
-#         graph = dict()
-#         for obj in objects:
-#             graph[obj]=set( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True )
-        
 
+        graph = dict()
+        for obj in objects:
+            graph[obj]=set( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True )
+
+        ngraph=networkx.Graph()
+        ngraph.add_nodes_from(list(graph.keys()))
+        for node in graph:
+            for other_node in graph[node]:
+                ngraph.add_edge(node, other_node)
+        graph=ngraph
+        del ngraph
         
         final_cliques = list(networkx.find_cliques(graph))
         final_cliques=[set(x) for x in final_cliques]
@@ -182,7 +182,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 #             candidates.remove(vertex)
 #             non_clique.add(vertex)
 
-        return final_cliques
+        return graph, final_cliques
 
 
     @classmethod    
@@ -222,7 +222,11 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
 
     @classmethod
-    def merge_cliques(cls, cliques):
+    def merge_cliques(cls, graph, cliques):
+        return list(networkx.k_clique_communities(graph, 2, cliques))+[frozenset(x) for x in cliques if len(x)==1]
+
+    @classmethod
+    def merge_cliques_old(cls, cliques):
         '''This class method will merge together intersecting cliques found by the Bron-Kerbosch algorithm.
         It is therefore used to e.g. create the subloci.
         It is a somewhat naive implementation; it might be made better by looking for a more specific algorithm.

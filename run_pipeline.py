@@ -31,12 +31,10 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     '''
 
     #Load the CDS information
-    print("Starting printing {0}:{1}-{2}".format(slocus.chrom, slocus.start,slocus.end))
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific,
                     minimal_secondary_orf_length=args.minimal_secondary_orf_length,
                     split_chimeras=args.split_chimeras )
     #Split the superlocus in the stranded components
-    print("Loaded CDS for {0}:{1}-{2}".format(slocus.chrom, slocus.start,slocus.end))
     stranded_loci = sorted(list(slocus.split_strands()))
     
     #Define the loci
@@ -134,7 +132,6 @@ def main():
     parser.add_argument("gff", type=argparse.FileType("r"))
     
     args=parser.parse_args()
-    print("Starting")
 
     args.json_conf = to_json(args.json_conf.name)
     check_json(args.json_conf)
@@ -225,7 +222,6 @@ def main():
     pool=ctx.Pool(processes=args.procs) # @UndefinedVariable
     first = True    
     jobs=dict()
-    print("Starting to row")
     for row in rower:
         if row.header is True:
             continue
@@ -237,7 +233,6 @@ def main():
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
                     if currentLocus is not None:
-                        print(currentLocus.chrom, currentLocus.start, currentLocus.end)
                         if first is True:
                             locus_printer(currentLocus, args, cds_dict=cds_dict)
                         else:
@@ -258,7 +253,6 @@ def main():
                 elif superlocus.in_locus(currentLocus, currentTranscript):
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
-                    print(currentLocus.chrom, currentLocus.start, currentLocus.end)
                     if first is True:
                         locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
                     else:
@@ -280,7 +274,7 @@ def main():
         else:
             continue
 
-    print("Finished parsing")   
+  
     if currentLocus is not None:
         if currentTranscript is not None:
             if superlocus.in_locus(currentLocus, currentTranscript):

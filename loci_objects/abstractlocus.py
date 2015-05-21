@@ -219,16 +219,25 @@ class abstractlocus(metaclass=abc.ABCMeta):
         cliques=sorted(cliques, key=len, reverse=True)
         
         while len(cliques)>0:
-            node=random.sample(cliques,1)[0]
+            node=cliques[0]
             cliques.remove(node)
             new_node = set(node)
             intersecting=set()
+            to_remove=[]
+            for index in range(len(cliques)):
+                other_clique=cliques[index]
+                if set.intersection(other_clique,new_node) != set():
+                    new_node.update(other_clique)
+                    to_remove.append(index)
+            cliques=[ v for i,v in enumerate(cliques) if i not in to_remove] #Remove cliques we have already assigned
+            
             for merged_clique in merged_cliques:
                 mc = set(merged_clique)
                 if set.intersection(mc, new_node ) != set():
-                    new_node=set.union(new_node, mc)
+                    new_node.update(mc)
                     intersecting.add(merged_clique)
-            for s in intersecting: merged_cliques.remove(s)
+            for s in intersecting:
+                merged_cliques.remove(s)
             merged_cliques.add(tuple(new_node))
 
         return merged_cliques

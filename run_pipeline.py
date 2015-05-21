@@ -215,10 +215,10 @@ def main():
         rower=GTF(args.gff)
     else: rower=GFF3(args.gff)
 
-    ctx=multiprocessing.get_context("spawn")
+    ctx=multiprocessing.get_context("forkserver") #@UndefinedVariable
     
     manager=ctx.Manager() # @UndefinedVariable
-    lock=ctx.RLock()
+    lock=manager.RLock()
     pool=ctx.Pool(processes=args.procs) # @UndefinedVariable
     first = True    
     jobs=dict()

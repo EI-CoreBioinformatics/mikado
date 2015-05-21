@@ -36,6 +36,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
                     minimal_secondary_orf_length=args.minimal_secondary_orf_length,
                     split_chimeras=args.split_chimeras )
     #Split the superlocus in the stranded components
+    print("Loaded CDS for {0}:{1}-{2}".format(slocus.chrom, slocus.start,slocus.end))
     stranded_loci = sorted(list(slocus.split_strands()))
     
     #Define the loci

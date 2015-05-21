@@ -64,7 +64,6 @@ class superlocus(abstractlocus):
         self.available_sublocus_metrics = []
         self.set_flags()
         return
-        print(self.chrom, self.start,self.end,self.strand)
 
     def __str__(self, level=None, print_cds=True):
         
@@ -199,7 +198,6 @@ class superlocus(abstractlocus):
         if cds_dict is None:
             return
 #        print(self.transcripts.keys())
-        print("Loading CDS for {0}:{1}-{2}".format(self.chrom, self.start,self.end))
         for tid in self.transcripts:
             self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,minimal_secondary_orf_length=minimal_secondary_orf_length )
         transcript_ids=list(self.transcripts.keys())[:]
@@ -269,9 +267,7 @@ class superlocus(abstractlocus):
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
         cliques = self.find_cliques(candidates, inters=self.is_intersecting)
-        print("Merging cliques")
         subloci = self.merge_cliques(cliques)
-        print("Finished merging cliques")
 
         #Now we should define each sublocus and store it in a permanent structure of the class
                 

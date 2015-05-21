@@ -165,7 +165,6 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
         
         final_cliques = list(networkx.find_cliques(graph))
-        print(final_cliques)
         final_cliques=[set(x) for x in final_cliques]
 #         candidates = set(graph.keys())
 #         non_clique=set()

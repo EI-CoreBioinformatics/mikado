@@ -358,7 +358,7 @@ class transcript:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
-                    print(exon[A],exon[B],self.id,self.exons)
+                    print(exonA,exonB,self.id,self.exons)
                     raise ValueError("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
                 self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations

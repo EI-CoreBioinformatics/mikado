@@ -225,7 +225,6 @@ def main():
     jobs=dict()
     print("Starting to row")
     for row in rower:
-        print(row, file=sys.stderr)
         if row.header is True:
             continue
         if row.chrom!=currentChrom:
@@ -278,7 +277,8 @@ def main():
             currentTranscript.addExon(row)
         else:
             continue
-   
+
+    print("Finished parsing")   
     if currentLocus is not None:
         if currentTranscript is not None:
             if superlocus.in_locus(currentLocus, currentTranscript):

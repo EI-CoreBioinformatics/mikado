@@ -151,23 +151,37 @@ class abstractlocus(metaclass=abc.ABCMeta):
             inters = cls.is_intersecting
         assert hasattr(inters, "__call__")
                 
-        graph = dict()
+        import networkx
+        graph=networkx.Graph()
+        graph.add_nodes_from(objects)
         for obj in objects:
-            graph[obj]=set( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True )
-
-        final_cliques = []
-        candidates = set(graph.keys())
-        non_clique=set()
-        clique=set()  
+            for edge in ( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True ):
+                graph.add_edge( obj,edge )
         
-        for vertex in graph:
-            neighbours = graph[vertex]
-            vertex_clique = set.union(clique, set([vertex])) # this is identical to neighbours
-            vertex_candidates = set.intersection( candidates, neighbours )
-            vertex_non_clique = set.intersection( non_clique, neighbours)
-            final_cliques.extend(cls.BronKerbosch(graph, vertex_clique, vertex_candidates, vertex_non_clique, []))
-            candidates.remove(vertex)
-            non_clique.add(vertex)
+#         graph = dict()
+#         for obj in objects:
+#             graph[obj]=set( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True )
+        
+
+        
+        final_cliques = list(networkx.find_cliques(graph))
+        print(final_cliques)
+        final_cliques=[set(x) for x in final_cliques]
+#         candidates = set(graph.keys())
+#         non_clique=set()
+#         clique=set()  
+#         
+#         for vertex in sorted(graph.keys(), key=lambda x:len(graph[x]) ):
+#             neighbours = graph[vertex]
+#             vertex_clique = set.union(clique, set([vertex])) # this is identical to neighbours
+#             vertex_candidates = set.intersection( candidates, neighbours )
+#             vertex_non_clique = set.intersection( non_clique, neighbours)
+#             final_cliques.extend(cls.BronKerbosch(graph, vertex_clique, vertex_candidates, vertex_non_clique, []))
+#             if hasattr(vertex,"id"):
+#                 print("Done {0} with {1} neighbours".format(vertex.id, len(graph[vertex])))
+#                 print("Cliques now: {0}".format(len(final_cliques)))
+#             candidates.remove(vertex)
+#             non_clique.add(vertex)
 
         return final_cliques
 
@@ -203,8 +217,10 @@ class abstractlocus(metaclass=abc.ABCMeta):
                 candidates.remove(vertex)
                 non_clique.add(vertex)
                 
-        print("Final cliques #: {0}".format(len()))
+        #print("Final cliques #: {0}".format(len(final_cliques)))
+        #final_cliques=cls.merge_cliques(final_cliques)
         return final_cliques
+
 
     @classmethod
     def merge_cliques(cls, cliques):
@@ -215,7 +231,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
             - cliques = self.find_cliques(objects, inters=intersecting_function)
             - merged_cliques = self.merge_cliques(cliques) 
         '''
-        merged_cliques = set()
+        merged_cliques = []
 
         cliques=sorted(cliques, key=len, reverse=True)
 #        print("# of cliques:", len(cliques))
@@ -240,7 +256,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
                     intersecting.add(merged_clique)
             for s in intersecting:
                 merged_cliques.remove(s)
-            merged_cliques.add(tuple(new_node))
+            merged_cliques.append(new_node)
 
         return merged_cliques
 

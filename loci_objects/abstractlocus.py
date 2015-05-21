@@ -217,6 +217,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         merged_cliques = set()
 
         cliques=sorted(cliques, key=len, reverse=True)
+        print("# of cliques:", len(cliques))
         
         while len(cliques)>0:
             node=cliques[0]

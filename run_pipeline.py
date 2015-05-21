@@ -19,7 +19,7 @@ from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
 from loci_objects.bed12 import BED12
 from loci_objects.abstractlocus import abstractlocus
-from logging import Logger
+#from logging import Logger
 
 def locus_printer( slocus, args, cds_dict=None, lock=None ):
 
@@ -31,7 +31,6 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     '''
 
     #Load the CDS information
-    print(slocus.chrom, slocus.start,slocus.end)
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific,
                     minimal_secondary_orf_length=args.minimal_secondary_orf_length,
                     split_chimeras=args.split_chimeras )

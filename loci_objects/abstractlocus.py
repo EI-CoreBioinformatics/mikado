@@ -168,6 +168,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
             final_cliques.extend(cls.BronKerbosch(graph, vertex_clique, vertex_candidates, vertex_non_clique, []))
             candidates.remove(vertex)
             non_clique.add(vertex)
+
         return final_cliques
 
 
@@ -185,7 +186,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         '''
 
         pool=set.union(candidates,non_clique)
-        if not any((candidates, non_clique)) or len( pool )==0:
+        if (len(candidates)==0 and len(non_clique)==0) or len(pool)==0:
+        # if not any((candidates, non_clique)) or len( pool )==0:
             final_cliques.append(clique)
         else:
             pivot = random.sample( pool, 1)[0]
@@ -213,6 +215,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
             - merged_cliques = self.merge_cliques(cliques) 
         '''
         merged_cliques = set()
+
+        cliques=sorted(cliques, key=len, reverse=True)
         
         while len(cliques)>0:
             node=random.sample(cliques,1)[0]
@@ -289,15 +293,16 @@ class abstractlocus(metaclass=abc.ABCMeta):
             #         if self.in_locus(self, transcript) is True:
             #             if transcript.id in self.transcripts:
             #                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
+                
         self.start = min(self.start, transcript_instance.start)
         self.end = max(self.end, transcript_instance.end)
         self.transcripts[transcript_instance.id]=copy(transcript_instance)
         self.splices.update(transcript_instance.splices)
         self.introns.update(transcript_instance.introns)
-       
+
         self.combined_cds_introns=set.union(self.combined_cds_introns,transcript_instance.combined_cds_introns)
         self.selected_cds_introns.update(transcript_instance.selected_cds_introns)
-        
+
         self.exons.update(set(transcript_instance.exons))
         for transcript_id in self.transcripts:
             self.transcripts[transcript_id].parent=self.id

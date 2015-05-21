@@ -210,16 +210,13 @@ class superlocus(abstractlocus):
                 if self.transcripts[tid].number_internal_orfs>1: more_than_one_orf.append(tid)
             
             for tid in more_than_one_orf:
-                new_transcripts=[]
-                for x in self.transcripts[tid].split_by_cds():
-                    new_transcripts.append(x)
-                for tr in new_transcripts:
-                    try:
-                        self.add_transcript_to_locus(tr, check_in_locus=False)
-                    except:
-                        raise
-                    assert tr.id in self.transcripts
+#                new_transcripts=[]
+                for tr in self.transcripts[tid].split_by_cds():
+                    self.add_transcript_to_locus(tr, check_in_locus=True)
                 self.remove_transcript_from_locus(tid)
+                    #assert tr.id in self.transcripts
+#        return
+                
 
     ###### Sublocus-related steps ######
                     
@@ -270,7 +267,6 @@ class superlocus(abstractlocus):
         candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
-        
         cliques = self.find_cliques(candidates, inters=self.is_intersecting)
         subloci = self.merge_cliques(cliques)
 
@@ -455,18 +451,18 @@ class superlocus(abstractlocus):
         
         transcript_instance.finalize()
         other.finalize()
-        if transcript_instance.id==other.id: return False # We do not want intersection with oneself
+        if transcript_instance.id==other.id:
+            return False # We do not want intersection with oneself
         monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript_instance, other]   )  )   )
         
-        if monoexonic_check==0: #Both multiexonic
+        if transcript_instance.monoexonic is False and other.monoexonic is False:
             intersection = set.intersection(transcript_instance.introns, other.introns)
             if len(intersection)>0:
                 return True
-        
-        elif monoexonic_check==1: #One monoexonic, the other multiexonic: different subloci by definition
-            return False
-        
-        elif monoexonic_check==2:
+            else:
+                return False
+
+        elif transcript_instance.monoexonic is True and other.monoexonic is True:
             if transcript_instance.start==other.start:
                 return True
             if transcript_instance.end==other.end:
@@ -477,5 +473,8 @@ class superlocus(abstractlocus):
                            ) 
             if test_result>0: #A simple overlap analysis will suffice
                 return True
-        return False
+            else:
+                return False
+        else:
+            return False
     

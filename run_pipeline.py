@@ -40,6 +40,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     #Define the loci
     for stranded_locus in stranded_loci:
         stranded_locus.define_loci()
+
     #Remove overlapping fragments.
     #This part should be rewritten in order to make it more flexible and powerful.
     for stranded_locus in stranded_loci:
@@ -214,9 +215,11 @@ def main():
         rower=GTF(args.gff)
     else: rower=GFF3(args.gff)
 
-    manager=multiprocessing.Manager() # @UndefinedVariable
-    lock=manager.RLock()
-    pool=multiprocessing.Pool(processes=args.procs) # @UndefinedVariable
+    ctx=multiprocessing.get_context("spawn")
+    
+    manager=ctx.Manager() # @UndefinedVariable
+    lock=ctx.RLock()
+    pool=ctx.Pool(processes=args.procs) # @UndefinedVariable
     first = True    
     jobs=dict()
     for row in rower:

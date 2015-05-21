@@ -64,6 +64,7 @@ class superlocus(abstractlocus):
         self.available_sublocus_metrics = []
         self.set_flags()
         return
+        print(self.chrom, self.start,self.end,self.strand)
 
     def __str__(self, level=None, print_cds=True):
         

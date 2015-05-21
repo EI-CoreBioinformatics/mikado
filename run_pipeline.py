@@ -31,6 +31,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
     '''
 
     #Load the CDS information
+    print("Starting printing {0}:{1}-{2}".format(slocus.chrom, slocus.start,slocus.end))
     slocus.load_cds(cds_dict, trust_strand = args.strand_specific,
                     minimal_secondary_orf_length=args.minimal_secondary_orf_length,
                     split_chimeras=args.split_chimeras )

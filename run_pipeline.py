@@ -3,6 +3,7 @@
 import sys
 import argparse,re
 import multiprocessing
+import multiprocessing.sharedctypes
 import csv
 
 try:
@@ -214,13 +215,13 @@ def main():
         rower=GTF(args.gff)
     else: rower=GFF3(args.gff)
 
-    ctx=multiprocessing.get_context("forkserver") #@UndefinedVariable
+    ctx=multiprocessing.get_context("fork") #@UndefinedVariable
     
     manager=ctx.Manager() # @UndefinedVariable
+    
     lock=manager.RLock()
-    pool=ctx.Pool(processes=args.procs) # @UndefinedVariable
+    pool=ctx.Pool(processes=args.procs, maxtasksperchild=1) # @UndefinedVariable
     first = True    
-    jobs=dict()
     for row in rower:
         if row.header is True:
             continue
@@ -235,7 +236,7 @@ def main():
                         if first is True:
                             locus_printer(currentLocus, args, cds_dict=cds_dict)
                         else:
-                            jobs[currentLocus]=pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                            pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
                                                                                              "lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False,
                                                 json_dict = args.json_conf,

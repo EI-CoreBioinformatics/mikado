@@ -199,7 +199,8 @@ class superlocus(abstractlocus):
             return
 #        print(self.transcripts.keys())
         for tid in self.transcripts:
-            self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,minimal_secondary_orf_length=minimal_secondary_orf_length )
+            self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,
+                                           minimal_secondary_orf_length=minimal_secondary_orf_length )
         transcript_ids=list(self.transcripts.keys())[:]
         assert len(transcript_ids)>0
 

@@ -484,7 +484,7 @@ class transcript:
                 continue
             if self.strand is None:
                 self.strand=new_strand=orf.strand
-            primary_orf = True
+            primary_orf = False
 
             
             if self.strand is None: #Must be monoexonic

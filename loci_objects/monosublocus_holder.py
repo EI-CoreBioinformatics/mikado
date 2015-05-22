@@ -66,26 +66,36 @@ class monosublocus_holder(sublocus,abstractlocus):
             return
         
         self.loci=[]
-        remaining = self.transcripts.copy()
+#         remaining = self.transcripts.copy()
         self.excluded = excluded
         
         self.calculate_scores()
         
-        while len(remaining)>0:
-            best_tid=self.choose_best(remaining.copy())
-            best_transcript = remaining[best_tid]
-            new_remaining = remaining.copy()
-            del new_remaining[best_tid]
-            if best_transcript.score==0 and purge is True:
+        for lc in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
+            lc = dict((x.id, x) for x in lc)
+            selected_tid=self.choose_best(lc)
+            selected_transcript = self.transcripts[selected_tid]
+            if selected_transcript.score==0 and purge is True:
                 pass
             else:
-                new_locus = locus(best_transcript)
+                new_locus = locus(selected_transcript)
                 self.loci.append(new_locus)
-            for tid in remaining:
-                if tid==best_tid: continue
-                if self.is_intersecting(best_transcript, new_remaining[tid]):
-                    del new_remaining[tid]
-            remaining=new_remaining.copy()
+        
+#         while len(remaining)>0:
+#             best_tid=self.choose_best(remaining.copy())
+#             best_transcript = remaining[best_tid]
+#             new_remaining = remaining.copy()
+#             del new_remaining[best_tid]
+#             if best_transcript.score==0 and purge is True:
+#                 pass
+#             else:
+#                 new_locus = locus(best_transcript)
+#                 self.loci.append(new_locus)
+#             for tid in remaining:
+#                 if tid==best_tid: continue
+#                 if self.is_intersecting(best_transcript, new_remaining[tid]):
+#                     del new_remaining[tid]
+#             remaining=new_remaining.copy()
     
         self.splitted = True
         return

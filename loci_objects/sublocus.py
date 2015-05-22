@@ -118,25 +118,37 @@ class sublocus(abstractlocus):
 #             raise TypeError("Unmanageable type for the container of excluded transcripts! Type: {0}".format(type(excluded)))
         self.excluded = excluded
         self.calculate_scores()
-        remaining = self.transcripts.copy()
-        
-        while len(remaining)>0:
-            selected_tid=self.choose_best(remaining.copy())
-            assert self.transcripts[selected_tid].score==max([remaining[tid].score for tid in  remaining])
-            selected_transcript = remaining[selected_tid]
-            new_remaining = remaining.copy()
-            del new_remaining[selected_tid]
-            for tid in filter(lambda t: t!=selected_tid, remaining.keys()):
-                res=self.is_intersecting(selected_transcript, new_remaining[tid])
-                if res is True:
-                    del new_remaining[tid]
+
+        for msbl in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
+            msbl = dict((x.id, x) for x in msbl) #Transform into dictionary
+            selected_tid=self.choose_best(msbl)
+            selected_transcript = self.transcripts[selected_tid]
             if selected_transcript.score==0 and purge is True:
                 pass
             else:
                 new_locus = monosublocus(selected_transcript)
                 self.monosubloci.append(new_locus)
-            remaining=new_remaining.copy()
-            if len(remaining)==0: break
+             
+#         for msbl in monosubloci:
+#             selected_tid = 
+#         
+#         while len(remaining)>0:
+#             selected_tid=self.choose_best(remaining.copy())
+#             assert self.transcripts[selected_tid].score==max([remaining[tid].score for tid in  remaining])
+#             selected_transcript = remaining[selected_tid]
+#             new_remaining = remaining.copy()
+#             del new_remaining[selected_tid]
+#             for tid in filter(lambda t: t!=selected_tid, remaining.keys()):
+#                 res=self.is_intersecting(selected_transcript, new_remaining[tid])
+#                 if res is True:
+#                     del new_remaining[tid]
+#             if selected_transcript.score==0 and purge is True:
+#                 pass
+#             else:
+#                 new_locus = monosublocus(selected_transcript)
+#                 self.monosubloci.append(new_locus)
+#             remaining=new_remaining.copy()
+#             if len(remaining)==0: break
             
         self.splitted=True
         return

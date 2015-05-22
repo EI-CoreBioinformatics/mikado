@@ -448,7 +448,6 @@ class transcript:
 
         if self.id not in cds_dict:
             return        
-
         self.combined_utr = []
         self.combined_cds = []
         self.internal_orfs = []
@@ -468,14 +467,18 @@ class transcript:
         new_orfs=[]
         for clique in candidate_cliques:
             new_orfs.append(sorted(clique, reverse=True, key=operator.attrgetter("cds_len"))[0])
-        candidate_orfs=new_orfs[:]
+
+        candidate_orfs=[]
+        if len(new_orfs)>0:
+            candidate_orfs=[new_orfs[0]]
+            for orf in filter(lambda x: x.cds_len>minimal_secondary_orf_length, new_orfs[1:]):
+                candidate_orfs.append(orf)
+        
         del new_orfs
         
         self.loaded_bed12 = [] #This will keep in memory the original BED12 objects
         
         for orf in candidate_orfs:
-            if primary_orf is False and orf.cds_len < minimal_secondary_orf_length:
-                continue
             #Minimal check
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon

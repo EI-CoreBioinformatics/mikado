@@ -60,3 +60,8 @@ Chr1	foo	transcript	1551	1900	.	-	.	ID=tminus5
 Chr1	foo	exon	1551	1600	.	-	.	ID=tminus5:exon1;Parent=tminus5
 Chr1	foo	exon	1801	1900	.	-	.	ID=tminus5:exon2;Parent=tminus5
 ###
+Chr1	foo	transcript	2000	2200	.	+	.	ID=t6
+Chr1	foo	exon	2000	2200	.	+	.	ID=t6:exon1;Parent=t6;
+###
+Chr1	foo	transcript	2100	2200	.	+	.	ID=t6b
+Chr1	foo	exon	2100	2200	.	+	.	ID=t6b:exon1;Parent=t6b;

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-import sys
+#import sys
+#from logging import Logger
 import argparse,re
 import multiprocessing
-import multiprocessing.sharedctypes
 import csv
 
 try:
@@ -20,9 +20,8 @@ from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
 from loci_objects.bed12 import BED12
 from loci_objects.abstractlocus import abstractlocus
-#from logging import Logger
 
-def locus_printer( slocus, args, cds_dict=None, lock=None ):
+def locus_printer( slocus, args, queue, cds_dict=None, lock=None ):
 
     '''This function takes as input a "superlocus" instance and the pipeline configuration.
     It also accepts as optional keywords a dictionary with the CDS information (derived from a BED12)
@@ -57,7 +56,52 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
                                     raise ValueError(err)
                             finally:
                                 break
+        del stranded_locus.json_dict["requirements"]["compiled"] #Necessary to make it work using the queues - the "eval" compiled expressions are unpickable
+        queue.put(stranded_locus)
         #Retrieve the lines to print out
+#         sub_lines = stranded_locus.__str__(level="subloci", print_cds=not args.no_cds )
+#         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
+#         sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()]
+#         mono_lines = stranded_locus.__str__(level="monosubloci", print_cds=not args.no_cds)
+#         locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
+#         locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
+#         locus_lines = stranded_locus.__str__(print_cds=not args.no_cds)
+# 
+#         #Print out
+#         if lock is not None:
+#             lock.acquire()
+#         with open(args.sub_metrics,'a') as out_file:
+#             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
+#             for row in sub_metrics_rows: csv_out.writerow(row)
+#         with open(args.sub_scores,'a') as out_file:
+#             csv_out=csv.DictWriter(out_file, args.score_keys, delimiter="\t")
+#             for row in sub_scores_rows: csv_out.writerow(row)
+#             
+#         with open(args.locus_metrics,'a') as out_file:
+#             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
+#             for row in locus_metrics_rows: csv_out.writerow(row)
+#         with open(args.locus_scores,'a') as out_file:
+#             csv_out=csv.DictWriter(out_file, args.score_keys, delimiter="\t")
+#             for row in locus_scores_rows: csv_out.writerow(row)
+#  
+#         with open(args.sub_out,'a') as sub_out:
+#             print(sub_lines, file=sub_out)
+#         if mono_lines!='':
+#             with open(args.mono_out,'a') as mono_out:
+#                 print(mono_lines, file=mono_out)
+#         if locus_lines!='':
+#             with open(args.locus_out,'a') as locus_out:
+#                 print(locus_lines, file=locus_out)
+#         if lock is not None:
+#             lock.release()
+    return
+
+def printer(args,queue):
+    
+    while True:
+        stranded_locus=queue.get()
+        if stranded_locus is None:
+            break
         sub_lines = stranded_locus.__str__(level="subloci", print_cds=not args.no_cds )
         sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
         sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()]
@@ -65,10 +109,6 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
         locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
         locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
         locus_lines = stranded_locus.__str__(print_cds=not args.no_cds)
-
-        #Print out
-        if lock is not None:
-            lock.acquire()
         with open(args.sub_metrics,'a') as out_file:
             csv_out=csv.DictWriter(out_file, superlocus.available_metrics, delimiter="\t")
             for row in sub_metrics_rows: csv_out.writerow(row)
@@ -90,9 +130,7 @@ def locus_printer( slocus, args, cds_dict=None, lock=None ):
                 print(mono_lines, file=mono_out)
         if locus_lines!='':
             with open(args.locus_out,'a') as locus_out:
-                print(locus_lines, file=locus_out)
-        if lock is not None:
-            lock.release()
+                print(locus_lines, file=locus_out)    
     return
 
 def main():
@@ -178,6 +216,7 @@ def main():
         csv_out.writeheader()
         
     
+    
     cds_dict=None
     #Load the CDS information from the BED12, if one is available
     if args.cds is not None:
@@ -218,9 +257,11 @@ def main():
     ctx=multiprocessing.get_context("fork") #@UndefinedVariable
     
     manager=ctx.Manager() # @UndefinedVariable
-    
+    queue=manager.Queue()
     lock=manager.RLock()
-    pool=ctx.Pool(processes=args.procs, maxtasksperchild=1) # @UndefinedVariable
+    pool=ctx.Pool(processes=args.procs) # @UndefinedVariable
+    printer_process=multiprocessing.Process(target=printer, args=(args,queue)) # @UndefinedVariable
+    printer_process.start()
     first = True    
     for row in rower:
         if row.header is True:
@@ -234,9 +275,9 @@ def main():
                 else:
                     if currentLocus is not None:
                         if first is True:
-                            locus_printer(currentLocus, args, cds_dict=cds_dict)
+                            locus_printer(currentLocus, args, queue, cds_dict=cds_dict)
                         else:
-                            pool.apply_async(locus_printer, args=(currentLocus, args), kwds={"cds_dict": cds_dict,
+                            pool.apply_async(locus_printer, args=(currentLocus, args, queue), kwds={"cds_dict": cds_dict,
                                                                                              "lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False,
                                                 json_dict = args.json_conf,
@@ -254,10 +295,10 @@ def main():
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
                     if first is True:
-                        locus_printer(currentLocus, args, cds_dict=cds_dict, lock=lock)
+                        locus_printer(currentLocus, args, queue, cds_dict=cds_dict, lock=lock)
                     else:
                         pool.apply_async(locus_printer,
-                                         args=(currentLocus, args),
+                                         args=(currentLocus, args, queue),
                                          kwds={"cds_dict": cds_dict,"lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False,
                                             json_dict = args.json_conf,
@@ -279,17 +320,20 @@ def main():
             if superlocus.in_locus(currentLocus, currentTranscript):
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                pool.apply_async(locus_printer, args=(currentLocus, args),
+                pool.apply_async(locus_printer, args=(currentLocus, args, queue),
                                 kwds={"cds_dict": cds_dict, "lock": lock})
                 currentLocus=superlocus(currentTranscript,
                                         stranded=False, json_dict = args.json_conf,
                                         purge=args.purge)
         pool.apply_async(locus_printer, 
-                         args=(currentLocus, args),
+                         args=(currentLocus, args, queue),
                          kwds={"cds_dict": cds_dict, "lock": lock})
         
     pool.close()
     pool.join()
+    queue.put(None)
+    printer_process.join()
+    printer_process.terminate()
        
 if __name__=="__main__":
     #Check that the metrics are alright

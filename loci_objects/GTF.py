@@ -300,7 +300,6 @@ class GTF(Parser):
         line=self._handle.readline()
         if line=='': raise StopIteration
         return gtfLine(line)
-    
 
     
     

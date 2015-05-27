@@ -4,7 +4,7 @@ import abc
 import random
 from copy import copy
 import logging
-import networkx 
+import networkx
 from loci_objects.exceptions import NotInLocusError
 
 class abstractlocus(metaclass=abc.ABCMeta):
@@ -81,6 +81,24 @@ class abstractlocus(metaclass=abc.ABCMeta):
     
     def __ge__(self, other):
         return (self==other) or (self>other)         
+    
+    def __getstate__(self):
+        '''Method to allow serialization - we remove the byte-compiled eval expression.'''
+        
+        state = self.__dict__.copy()
+        if hasattr(self, "json_dict"):
+            if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
+                del state["json_dict"]["requirements"]["compiled"]
+
+        return state
+        #super.__getstate__()
+        
+    def __setstate__(self, state):
+        '''Method to recreate the object after serialization.'''
+        self.__dict__.update(state)
+        if hasattr(self, "json_dict"):
+            if "requirements" in self.json_dict and "expression" in self.json_dict["requirements"]:
+                self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
     
     ##### Static methods #######
     

@@ -228,7 +228,7 @@ class GFF3(Parser):
         
         if self.closed:
             raise StopIteration
-        
+
         line=self._handle.readline()
         if line=='': raise StopIteration
 

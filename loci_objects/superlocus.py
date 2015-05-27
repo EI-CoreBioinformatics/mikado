@@ -412,7 +412,7 @@ class superlocus(abstractlocus):
         return
     
     def calculate_mono_metrics(self):
-        '''Wrapper to calculate the metrics for the monosubloci'''
+        '''Wrapper to calculate the metrics for the monosubloci.'''
         self.monoholders = []
         
         for monosublocus_instance in sorted(self.monosubloci):

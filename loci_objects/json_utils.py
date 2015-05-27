@@ -50,6 +50,26 @@ def check_json(json_conf):
             if key_name not in available_metrics:
                 parameters_not_found.append(key_name) 
 
+    if "chimera_split" in json_conf:
+        if "blast_check" not in json_conf["chimera_split"] or type(json_conf["chimera_split"]["blast_check"]) is not bool:
+            raise InvalidJson("A boolean value must be specified for chimera_split/blast_check!")
+        if json_conf["chimera_split"]["blast_check"] is True:
+            if "blast" not in  json_conf["chimera_split"]:
+                raise InvalidJson("A blast program must be specified to execute the blast check.")
+            if "blast_prefix" not in json_conf["chimera_split"]:
+                import shutil
+                if shutil.which(json_conf["chimera_split"]["blast"]) is None: #@UndefinedVariable
+                    raise InvalidJson("I have not been able to find the requested blast program in PATH: {0}".format(json_conf["chimera_split"]["blast"]))
+            else:
+                if not os.path.exists(os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])):
+                    raise InvalidJson("I have not been able to find the requested blast program: {0}".format(
+                                                                                                             os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])
+                                                                                                            ))
+            if "evalue" not in json_conf["chimera_split"] or type(json_conf["chimera_split"]["evalue"]) is not float:
+                raise InvalidJson("I need a maximum e-value for the blast")
+            if "database" not in json_conf["chimera_split"] or not os.path.exists(json_conf["chimera_split"]["database"]):
+                raise InvalidJson("I need a valid BLAST database!")
+ 
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0 or len(invalid_filter)>0:
         err_message=''
         if len(parameters_not_found)>0:
@@ -70,7 +90,7 @@ def to_json(string):
     
     with open(string) as json_file:
         json_dict = json.load(json_file)
-        
+    check_json(json_dict)
     import importlib
     if "modules" in json_dict:
         not_found=[]

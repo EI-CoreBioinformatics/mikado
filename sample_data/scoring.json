@@ -119,5 +119,13 @@
 			"value":3
 		    }
 		}
+	},
+	"chimera_split":{
+		"blast_check": true,
+		"blast_prefix": "/usr/bin/",
+		"blast": "blastx",
+		"database": "/home/luca/software/locus_pipeline/sample_data/all.fasta",
+		"evalue": 1e-10,
+		"minimal_secondary_orf": 200
 	}
 }

@@ -1,10 +1,10 @@
-from builtins import str
 import io#,sys
 import random
 try:
     import Bio.File
 except:
     pass
+from loci_objects import Parser
 
 class bed12:
     
@@ -125,17 +125,17 @@ class bed12:
         else:
             return self.name
 
-class BED12:
+class BED12(Parser):
 
     '''Parser class for a BED12 file. It accepts optionally a fasta index which  '''
     
     def __init__(self,handle, fasta_index=None):
         
         if isinstance(handle,io.IOBase):
-            self.__handle=handle
+            self._handle=handle
         else:
             assert isinstance(handle,str)
-            try: self.__handle=open(handle)
+            try: self._handle=open(handle)
             except: raise ValueError('File not found: {0}'.format(handle))
 
 
@@ -152,7 +152,7 @@ class BED12:
     def __iter__(self): return self
 
     def __next__(self):
-        line=self.__handle.readline()
+        line=self._handle.readline()
         if line=='': raise StopIteration
         return bed12(line, fasta_index=self.fasta_index)
     

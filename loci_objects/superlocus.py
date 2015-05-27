@@ -194,10 +194,9 @@ class superlocus(abstractlocus):
         self.loci_defined = False
         self.monosubloci_metrics_calculated = False
 
-    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False):
+    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False, fasta_index=None):
         if cds_dict is None:
             return
-#        print(self.transcripts.keys())
         for tid in self.transcripts:
             self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,
                                            minimal_secondary_orf_length=minimal_secondary_orf_length )
@@ -211,14 +210,11 @@ class superlocus(abstractlocus):
                 if self.transcripts[tid].number_internal_orfs>1: more_than_one_orf.append(tid)
             
             for tid in more_than_one_orf:
-#                new_transcripts=[]
-                for tr in self.transcripts[tid].split_by_cds():
-                    self.add_transcript_to_locus(tr, check_in_locus=True)
-                self.remove_transcript_from_locus(tid)
-                    #assert tr.id in self.transcripts
-            
-#        return
-                
+                new_tr=list(self.transcripts[tid].split_by_cds(json_dict=self.json_dict, transcript_fasta=fasta_index[tid]))
+                if len(new_tr)>1:                
+                    for tr in new_tr:
+                        self.add_transcript_to_locus(tr, check_in_locus=True)
+                    self.remove_transcript_from_locus(tid)
 
     ###### Sublocus-related steps ######
                     

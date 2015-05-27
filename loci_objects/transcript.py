@@ -1,5 +1,6 @@
 import operator
 import os.path,sys
+import copy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import inspect
 import tempfile
@@ -286,8 +287,8 @@ class transcript:
         return (self==other) or (self<other)
      
     def __ge__(self, other):
-        return (self==other) or (self>other)          
-    
+        return (self==other) or (self>other) 
+        
     ######### Class instance methods ####################
 
 
@@ -615,22 +616,22 @@ class transcript:
         return
                         
 
-    def split_by_cds(self, json_dict=None, transcript=None):
+    def split_by_cds(self, json_dict=None, transcript_fasta=None):
         '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
         into multiple transcripts. UTR information will be retained only if no ORF is downstream.'''
         self.finalize()
         new_transcripts=[]
         if self.number_internal_orfs<2:
-            yield [self]
-            return
+            new_transcripts=[self]
         else:
-            orf_boundaries = []
-            for orf in self.internal_orfs:
-                cds = sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))
-                orf_boundaries.append((cds[0][1],cds[-1][2]))
-
-            
-            if json_dict["blast_check"] is True:
+            to_split=True
+            if json_dict["chimera_split"]["blast_check"] is True:
+                
+                cds_boundaries=[]
+                for orf in self.loaded_bed12:
+                    cds_boundaries.append((orf.cdsStart,orf.cdsEnd))
+                cds_boundaries=sorted(cds_boundaries, key=operator.itemgetter(0,1))
+                
                 #At the moment the BLAST check is minimal .. if I can find a hit in the database such that
                 #all the ORFs are found between the boundaries of its alignment, then I return True.
                 #Otherwise, I continue splitting.
@@ -638,7 +639,7 @@ class transcript:
                 #Splitting one of the ORFs in two. 
                 
                 fasta=tempfile.NamedTemporaryFile("w+t", suffix=".fa", delete=True)
-                print(transcript.format("fasta"), file=fasta)
+                print(transcript_fasta.format("fasta"), file=fasta)
                 fasta.flush()
                 
                 blaster = "{blast} -db {database} -outfmt 5 -query {fasta} -evalue {evalue}".format(
@@ -652,115 +653,123 @@ class transcript:
                 xmlOut.flush()
                 xml=xread(open(xmlOut.name))
                 for alignment in xml.alignments:
+                    start,end=float("Inf"),float("-Inf")
                     for hsp in alignment.hsps:
-                        if hsp.query_start<=orf_boundaries[0][0] and hsp.query_end>=[-1][1]:
-                            fasta.close()
-                            xmlOut.close()
-                            yield [self]
-                            return 
+                        start=min(start,hsp.query_start)
+                        end=max(end,hsp.query_end)
+                    if start<=cds_boundaries[0][0]+1 and end>=cds_boundaries[-1][1]+1:
+                        fasta.close()
+                        xmlOut.close()
+                        new_transcripts=[self]
+                        to_split=False
+                        break
             
                 #Clean-up temporary files
                 fasta.close()
                 xmlOut.close()
-            
-            
-            counter=0
-            zipper=list(zip(self.internal_orfs, self.loaded_bed12))
-            
-            for (orf,loaded_bed12) in zipper:
-                counter+=1
-                new_transcript=self.__class__()
-                for attribute in ["chrom", "source", "score","strand", "attributes" ]:
-                    setattr(new_transcript,attribute, getattr(self, attribute))
-                new_transcript.has_start_codon = loaded_bed12.has_start_codon
-                new_transcript.has_stop_codon = loaded_bed12.has_stop_codon
-                new_transcript.id = "{0}.orf{1}".format(self.id,counter)
-                cds_segments=[(x[1],x[2]) for x in sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))]
-                assert len(cds_segments)>0
-                my_exons=[]
-                my_utr=[]
-                partials=[]
-                #Add full CDS exons to the exons to be added to the transcript
-                for seg in cds_segments:
-                    if seg in self.exons:
-                        my_exons.append((seg[0],seg[1]))
-                    else:
-                        partials.append((seg[0],seg[1]))
-                my_exons=sorted(my_exons,key=operator.itemgetter(0,1))
-                partials=sorted(partials,key=operator.itemgetter(0,1))
-                my_boundaries = (cds_segments[0][0],cds_segments[-1][1])
-                other_orfs = list(filter(lambda x: x!=my_boundaries, orf_boundaries))
-                left_orfs = list(filter(lambda x: x[1]<=my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
-                right_orfs = list(filter(lambda x: x[0]>=my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
-                if len(left_orfs)==0 and len(right_orfs)==0:
-                    raise AssertionError("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
-                elif len(left_orfs)>0 and len(right_orfs)>0:
-                    my_exons.extend(partials)
-                    partials=[]
-                elif len(right_orfs)>0 and len(left_orfs)==0: #we have orfs on the RIGHT
-                    left_exons = list(filter( lambda exon: exon[0]<my_boundaries[0], self.exons))
-                    for exon in left_exons:
-                        if exon[1]<my_boundaries[0]:
-                            my_utr.append(exon)
-                            my_exons.append(exon)
-                        elif exon[1]==my_boundaries[0]:
-                            my_utr.append((exon[0],exon[1]-1))
-                            my_exons.append(exon)
-                            partials.remove((exon[1],exon[1]))
-                        elif exon[1]>my_boundaries[0]:
-                            if exon[1]<=my_boundaries[1]:
-                                partial = list(filter(lambda x: x[1]==exon[1], partials))
-                                assert  len(partial)==1, (exon, partials, partial)
-                                partial=partial[0]
-                                partials.remove(partial)
-                                utr=(exon[0], partial[0]-1)
-                                my_utr.append(utr)
-                                my_exons.append(exon)
-                            elif exon[1]>my_boundaries[1]:
-                                assert len(partials)==1
-                                partial=partials[0]
-                                partials=[]
-                                my_utr.append((exon[0], partial[0]-1))
-                                my_exons.append((exon[0], partial[1]))
-                elif len(left_orfs)>0 and len(right_orfs)==0: #We have ORFs on the left
-                    right_exons = list(filter( lambda exon: exon[1]>my_boundaries[1], self.exons))
-                    for exon in right_exons:
-                        if exon[0]>my_boundaries[1]:
-                            my_utr.append(exon)
-                            my_exons.append(exon)
-                        elif exon[0]==my_boundaries[1]:
-                            my_utr.append((exon[0]+1,exon[1]))
-                            my_exons.append(exon)
-                            partials.remove((exon[0],exon[0]))
-                        elif exon[0]<my_boundaries[1]:
-                            if exon[0]>=my_boundaries[0]:
-                                partial = list(filter(lambda x: x[0]==exon[0], partials))
-                                assert  len(partial)==1, (exon, partials, partial)
-                                partial=partial[0]
-                                partials.remove(partial)
-                                utr=(partial[1]+1, exon[1])
-                                my_utr.append(utr)
-                                my_exons.append(exon)
-                            elif exon[0]<my_boundaries[0]:
-                                assert len(partials)==1
-                                partial=partials[0]
-                                partials=[]
-                                my_utr.append((partial[1]+1,exon[1]))
-                                my_exons.append((partial[0], exon[1]))
 
-                my_exons.extend(partials)
-                my_exons=sorted(set(my_exons),key=operator.itemgetter(0,1))
-                new_transcript.exons=my_exons
-                new_transcript.combined_cds = sorted(cds_segments, key=operator.itemgetter(0,1))
-                new_transcript.combined_utr = sorted(my_utr, key=operator.itemgetter(0,1))
-                new_transcript.start = my_exons[0][0]
-                new_transcript.end = my_exons[-1][1]
-                new_transcript.finalize()
-                new_transcripts.append(new_transcript)
+            if to_split is True:
+                orf_boundaries = []
+                for orf in self.internal_orfs:
+                    cds = sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))
+                    orf_boundaries.append((cds[0][1],cds[-1][2]))
+                
+                counter=0
+                zipper=list(zip(self.internal_orfs, self.loaded_bed12))
+                
+                for (orf,loaded_bed12) in zipper:
+                    counter+=1
+                    new_transcript=self.__class__()
+                    for attribute in ["chrom", "source", "score","strand", "attributes" ]:
+                        setattr(new_transcript,attribute, getattr(self, attribute))
+                    new_transcript.has_start_codon = loaded_bed12.has_start_codon
+                    new_transcript.has_stop_codon = loaded_bed12.has_stop_codon
+                    new_transcript.id = "{0}.orf{1}".format(self.id,counter)
+                    cds_segments=[(x[1],x[2]) for x in sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))]
+                    assert len(cds_segments)>0
+                    my_exons=[]
+                    my_utr=[]
+                    partials=[]
+                    #Add full CDS exons to the exons to be added to the transcript
+                    for seg in cds_segments:
+                        if seg in self.exons:
+                            my_exons.append((seg[0],seg[1]))
+                        else:
+                            partials.append((seg[0],seg[1]))
+                    my_exons=sorted(my_exons,key=operator.itemgetter(0,1))
+                    partials=sorted(partials,key=operator.itemgetter(0,1))
+                    my_boundaries = (cds_segments[0][0],cds_segments[-1][1])
+                    other_orfs = list(filter(lambda x: x!=my_boundaries, orf_boundaries))
+                    left_orfs = list(filter(lambda x: x[1]<=my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
+                    right_orfs = list(filter(lambda x: x[0]>=my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
+                    if len(left_orfs)==0 and len(right_orfs)==0:
+                        raise AssertionError("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
+                    elif len(left_orfs)>0 and len(right_orfs)>0:
+                        my_exons.extend(partials)
+                        partials=[]
+                    elif len(right_orfs)>0 and len(left_orfs)==0: #we have orfs on the RIGHT
+                        left_exons = list(filter( lambda exon: exon[0]<my_boundaries[0], self.exons))
+                        for exon in left_exons:
+                            if exon[1]<my_boundaries[0]:
+                                my_utr.append(exon)
+                                my_exons.append(exon)
+                            elif exon[1]==my_boundaries[0]:
+                                my_utr.append((exon[0],exon[1]-1))
+                                my_exons.append(exon)
+                                partials.remove((exon[1],exon[1]))
+                            elif exon[1]>my_boundaries[0]:
+                                if exon[1]<=my_boundaries[1]:
+                                    partial = list(filter(lambda x: x[1]==exon[1], partials))
+                                    assert  len(partial)==1, (exon, partials, partial)
+                                    partial=partial[0]
+                                    partials.remove(partial)
+                                    utr=(exon[0], partial[0]-1)
+                                    my_utr.append(utr)
+                                    my_exons.append(exon)
+                                elif exon[1]>my_boundaries[1]:
+                                    assert len(partials)==1
+                                    partial=partials[0]
+                                    partials=[]
+                                    my_utr.append((exon[0], partial[0]-1))
+                                    my_exons.append((exon[0], partial[1]))
+                    elif len(left_orfs)>0 and len(right_orfs)==0: #We have ORFs on the left
+                        right_exons = list(filter( lambda exon: exon[1]>my_boundaries[1], self.exons))
+                        for exon in right_exons:
+                            if exon[0]>my_boundaries[1]:
+                                my_utr.append(exon)
+                                my_exons.append(exon)
+                            elif exon[0]==my_boundaries[1]:
+                                my_utr.append((exon[0]+1,exon[1]))
+                                my_exons.append(exon)
+                                partials.remove((exon[0],exon[0]))
+                            elif exon[0]<my_boundaries[1]:
+                                if exon[0]>=my_boundaries[0]:
+                                    partial = list(filter(lambda x: x[0]==exon[0], partials))
+                                    assert  len(partial)==1, (exon, partials, partial)
+                                    partial=partial[0]
+                                    partials.remove(partial)
+                                    utr=(partial[1]+1, exon[1])
+                                    my_utr.append(utr)
+                                    my_exons.append(exon)
+                                elif exon[0]<my_boundaries[0]:
+                                    assert len(partials)==1
+                                    partial=partials[0]
+                                    partials=[]
+                                    my_utr.append((partial[1]+1,exon[1]))
+                                    my_exons.append((partial[0], exon[1]))
+    
+                    my_exons.extend(partials)
+                    my_exons=sorted(set(my_exons),key=operator.itemgetter(0,1))
+                    new_transcript.exons=my_exons
+                    new_transcript.combined_cds = sorted(cds_segments, key=operator.itemgetter(0,1))
+                    new_transcript.combined_utr = sorted(my_utr, key=operator.itemgetter(0,1))
+                    new_transcript.start = my_exons[0][0]
+                    new_transcript.end = my_exons[-1][1]
+                    new_transcript.finalize()
+                    new_transcripts.append(new_transcript)
         assert len(new_transcripts)>0
         for nt in new_transcripts:
             yield nt
-                    
       
     @classmethod
     ####################Class methods#####################################  

@@ -123,8 +123,8 @@
 	"chimera_split":{
 		"blast_check": true,
 		"blast_prefix": "/usr/bin/",
-		"blast": "blastx",
-		"database": "/home/luca/software/locus_pipeline/sample_data/all.fasta",
+		"blast": "blastn",
+		"database": "ref.cdna.fasta",
 		"evalue": 1e-10,
 		"minimal_secondary_orf": 200
 	}

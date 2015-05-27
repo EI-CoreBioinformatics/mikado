@@ -1,11 +1,8 @@
 __pycache__/
 __pycache__/*
-sample_data/sample.subloci.gff3
-sample_data/trinity.loci.from_gff.gff3
-sample_data/trinity.loci.gff3
-sample_data/trinity.subloci.from_gff.gff3
-sample_data/trinity.subloci.gff3
-sample_data/trinity.diff
+sample_data/*loci*
+sample_data/*.fasta.*
+sample_data/*zip
 myRecords/__pycache__/BatchBlast.cpython-34.pyc
 myRecords/__pycache__/Blast.cpython-34.pyc
 myRecords/__pycache__/Blat.cpython-34.pyc

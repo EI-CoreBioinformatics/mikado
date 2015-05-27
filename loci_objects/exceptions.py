@@ -6,3 +6,7 @@ class NoJsonConfigError(ValueError):
 
 class InvalidLocusError(ValueError):
     pass
+
+class ModificationError(RuntimeError):
+    '''This exception is raised when something tries to modify a finalized object.'''
+    pass

@@ -11,7 +11,6 @@ try:
 except ImportError as err:
     pass
 
-from loci_objects.json_utils import check_json
 from loci_objects.json_utils import to_json
 from loci_objects.superlocus import superlocus
 from loci_objects.sublocus import sublocus
@@ -47,15 +46,14 @@ def analyse_locus( slocus, args, queue, cds_dict=None, lock=None ):
             for final_locus in stranded_locus.loci:
                 for other_superlocus in filter(lambda x: x!=stranded_locus, stranded_loci):
                     for other_final_locus in other_superlocus.loci:
-                        if other_final_locus.other_is_fragment( final_locus, percentage=0.5 ) is True:
-                            try:
-                                stranded_locus.loci.remove(final_locus)
-                            except ValueError as err:
-                                if "not in list" in err: pass
-                                else:
-                                    raise ValueError(err)
-                            finally:
-                                break
+                        if other_final_locus.other_is_fragment( final_locus ) is True:
+                            stranded_locus.loci.remove(final_locus)
+#                             except ValueError as err:
+#                                 if "not in list" in err: pass
+#                                 else:
+#                                     raise ValueError(err)
+#                             finally:
+#                                 break
         queue.put(stranded_locus)
     return
 

@@ -1,14 +1,19 @@
 import operator
 import os.path,sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+import inspect
+import tempfile
+import subprocess
+#from Bio.Blast.NCBIXML import parse as xparser
+from Bio.Blast.NCBIXML import read as xread
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 from loci_objects.GTF import gtfLine
 from loci_objects.GFF import gffLine
-import inspect
+from loci_objects.exceptions import *
 #import logging
 
 class metric(property):
-    '''Simple aliasing of property. All transcript metrics should use this alias, not property, for the decorator.'''
+    '''Simple aliasing of property. All transcript metrics should use this alias, not "property", as a decorator.'''
     pass
 
 class transcript:
@@ -290,7 +295,7 @@ class transcript:
         '''This function will append an exon/CDS feature to the object.'''
 
         if self.finalized is True:
-            raise RuntimeError("You cannot add exons to a finalized transcript!")
+            raise ModificationError("You cannot add exons to a finalized transcript!")
         
         if self.id not in gffLine.parent:
             raise AssertionError("""Mismatch between transcript and exon:\n
@@ -343,7 +348,7 @@ class transcript:
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0
         try:
-            if self.exons[0][0]<self.start or self.exons[-1][1]>self.end:
+            if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
                 raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
                                                                                                                                                             tstart=self.start,
                                                                                                                                                             tend=self.end,
@@ -610,18 +615,54 @@ class transcript:
         return
                         
 
-    def split_by_cds(self):
+    def split_by_cds(self, json_dict=None, transcript=None):
         '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
         into multiple transcripts. UTR information will be retained only if no ORF is downstream.'''
         self.finalize()
         new_transcripts=[]
         if self.number_internal_orfs<2:
-            new_transcripts=[self]
+            yield [self]
+            return
         else:
             orf_boundaries = []
             for orf in self.internal_orfs:
                 cds = sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))
                 orf_boundaries.append((cds[0][1],cds[-1][2]))
+
+            
+            if json_dict["blast_check"] is True:
+                #At the moment the BLAST check is minimal .. if I can find a hit in the database such that
+                #all the ORFs are found between the boundaries of its alignment, then I return True.
+                #Otherwise, I continue splitting.
+                #This is NON-OPTIMAL as I could have a situation where I merge two loci and TD finds three ORFs
+                #Splitting one of the ORFs in two. 
+                
+                fasta=tempfile.NamedTemporaryFile("w+t", suffix=".fa", delete=True)
+                print(transcript.format("fasta"), file=fasta)
+                fasta.flush()
+                
+                blaster = "{blast} -db {database} -outfmt 5 -query {fasta} -evalue {evalue}".format(
+                                                                                                    blast=json_dict["chimera_split"]["blast"],
+                                                                                                    evalue=json_dict["chimera_split"]["evalue"],
+                                                                                                    database=json_dict["chimera_split"]["database"],
+                                                                                                    fasta=fasta.name
+                                                                                                    )
+                xmlOut=tempfile.NamedTemporaryFile(delete=True, suffix=".xml", mode="w+t")
+                subprocess.call(blaster, shell=True, stdout=xmlOut)
+                xmlOut.flush()
+                xml=xread(open(xmlOut.name))
+                for alignment in xml.alignments:
+                    for hsp in alignment.hsps:
+                        if hsp.query_start<=orf_boundaries[0][0] and hsp.query_end>=[-1][1]:
+                            fasta.close()
+                            xmlOut.close()
+                            yield [self]
+                            return 
+            
+                #Clean-up temporary files
+                fasta.close()
+                xmlOut.close()
+            
             
             counter=0
             zipper=list(zip(self.internal_orfs, self.loaded_bed12))

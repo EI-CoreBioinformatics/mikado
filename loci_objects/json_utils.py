@@ -60,11 +60,13 @@ def check_json(json_conf):
                 import shutil
                 if shutil.which(json_conf["chimera_split"]["blast"]) is None: #@UndefinedVariable
                     raise InvalidJson("I have not been able to find the requested blast program in PATH: {0}".format(json_conf["chimera_split"]["blast"]))
+                json_conf["blast"]=shutil.which(json_conf["chimera_split"]["blast"]) #@UndefinedVariable
             else:
                 if not os.path.exists(os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])):
                     raise InvalidJson("I have not been able to find the requested blast program: {0}".format(
                                                                                                              os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])
                                                                                                             ))
+                json_conf["blast"]=os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])
             if "evalue" not in json_conf["chimera_split"] or type(json_conf["chimera_split"]["evalue"]) is not float:
                 raise InvalidJson("I need a maximum e-value for the blast")
             if "database" not in json_conf["chimera_split"] or not os.path.exists(json_conf["chimera_split"]["database"]):

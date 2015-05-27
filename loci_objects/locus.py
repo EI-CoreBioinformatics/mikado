@@ -18,32 +18,26 @@ class locus(monosublocus,abstractlocus):
         self.feature=self.__name__
         return super().__str__(print_cds=print_cds)
     
-    def other_is_fragment(self,other, percentage=1):
-        '''This function checks that another *monoexonic* locus on the opposite strand* does not verify one of the following:
-            - it is contained for more than (exon_length)*percentage inside one of the locus exons
-            - it is not partially contained inside an intron
-        This should get rid of monoexonic fragments that plague the output of RNA-Seq reconstruction programs.
+    def other_is_fragment(self,other):
+        '''This function checks whether another *monoexonic* locus on the opposite strand* is a fragment, by checking that:
+            - the fragment is completely contained inside the coordinates of the other transcript
+            - the transcript has at least some exonic overlap and overlaps at most one exon.
         '''
-        
-        if type(percentage) not in (float,int) or not 0<percentage<=1:
-            raise ValueError("Invalid percentage, it should be between 0 and 1. Received: {0}".format(percentage))
         
         if self.monoexonic is True or other.monoexonic is False or other.strand==self.strand:
             return False
         if type(self)!=type(other):
             raise TypeError("I can compare only loci.")
 
-        other_exon = list(other.exons)[0]
-        threshold = (other_exon[1]+1-other_exon[0])*percentage
+        other_transcript=other.transcripts[list(other.transcripts.keys())[0]]
+        if self.overlap( (other.start, other.end), (self.start,self.end))<other_transcript.cdna_length-1:
+            return False
+        overlapping_exons=0
         for exon in self.exons:
-            if self.overlap( other_exon, exon  )>=threshold:
-                return True
-            
-        for intron in self.introns:
-            if self.overlap(other_exon,intron)>=threshold: 
-                return True
-            
-        return False
+            if self.overlap(exon, (other.start,other.end))>0:
+                overlapping_exons+=1
+        if overlapping_exons!=1: return False
+        return True
     
     @property
     def id(self):

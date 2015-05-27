@@ -127,17 +127,11 @@ class bed12:
 
 class BED12(Parser):
 
-    '''Parser class for a BED12 file. It accepts optionally a fasta index which  '''
+    '''Parser class for a BED12 file. It accepts optionally a fasta index which is used to determine whether an ORF has start/stop codons.'''
     
     def __init__(self,handle, fasta_index=None):
         
-        if isinstance(handle,io.IOBase):
-            self._handle=handle
-        else:
-            assert isinstance(handle,str)
-            try: self._handle=open(handle)
-            except: raise ValueError('File not found: {0}'.format(handle))
-
+        super().__init__(handle)
 
         if type(fasta_index) is dict:
                 #check that this is a bona fide dictionary ...

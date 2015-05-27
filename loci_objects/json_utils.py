@@ -2,6 +2,7 @@ import sys,os.path,re
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.transcript import transcript
 import json
+import subprocess
 
 class UnrecognizedOperator(ValueError):
     pass
@@ -56,6 +57,8 @@ def check_json(json_conf):
         if json_conf["chimera_split"]["blast_check"] is True:
             if "blast" not in  json_conf["chimera_split"]:
                 raise InvalidJson("A blast program must be specified to execute the blast check.")
+            if json_conf["chimera_split"]["blast"] not in ("blastn","blastx"):
+                raise InvalidJson("Only BlastN and BlastX are supported.")
             if "blast_prefix" not in json_conf["chimera_split"]:
                 import shutil
                 if shutil.which(json_conf["chimera_split"]["blast"]) is None: #@UndefinedVariable
@@ -71,6 +74,12 @@ def check_json(json_conf):
                 raise InvalidJson("I need a maximum e-value for the blast")
             if "database" not in json_conf["chimera_split"] or not os.path.exists(json_conf["chimera_split"]["database"]):
                 raise InvalidJson("I need a valid BLAST database!")
+            if json_conf["chimera_split"]["blast"]=="blastx" and not os.path.exists("{0}.pog".format(json_conf["chimera_split"]["database"])):
+                subprocess.call("makeblastdb -in {0} -dbtype prot -parse_seqids".format(json_conf["chimera_split"]["database"]),
+                                shell=True)
+            elif json_conf["chimera_split"]["blast"]=="blastn" and not os.path.exists("{0}.nog".format(json_conf["chimera_split"]["database"])):
+                subprocess.call("makeblastdb -in {0} -dbtype nucl -parse_seqids".format(json_conf["chimera_split"]["database"]),
+                                shell=True)
  
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0 or len(invalid_filter)>0:
         err_message=''

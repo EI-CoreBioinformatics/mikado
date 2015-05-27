@@ -1,4 +1,3 @@
-import io#,sys
 import random
 try:
     import Bio.File

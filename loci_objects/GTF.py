@@ -28,11 +28,15 @@ class gtfLine(object):
     #_slots=['chrom','source','feature','start',\
     #'end','score','strand','phase','info']
 
-    def __init__(self,line):
+    def __init__(self,*args):
         self.header=False
         self.info={}
         self.attributes=self.info
         self.feature = None
+        if len(args)>0:
+            line=args[0]
+        else:
+            return
         if line=='': return
         
         if line==None or line[0]=="#":

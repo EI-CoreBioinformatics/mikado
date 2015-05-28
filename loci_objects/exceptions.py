@@ -22,3 +22,6 @@ class InvalidJson(KeyError):
 
 class InvalidTranscript(ValueError):
     pass
+
+class IncorrectStrandError(Exception):
+    pass

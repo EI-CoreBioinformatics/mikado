@@ -18,7 +18,7 @@ from loci_objects.transcript import transcript
 from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
 from loci_objects.bed12 import BED12
-from loci_objects.abstractlocus import abstractlocus
+from loci_objects.abstractlocus import abstractlocus 
 
 def analyse_locus( slocus, args, queue, cds_dict=None, lock=None ):
 

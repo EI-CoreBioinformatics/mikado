@@ -1,11 +1,7 @@
 import sys,os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.transcript import transcript
-
-
-class IncorrectStrandError(Exception):
-    pass
-
+from loci_objects.exceptions import IncorrectStrandError
 
 class transcript_checker(transcript):
     

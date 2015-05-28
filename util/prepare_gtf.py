@@ -1,6 +1,7 @@
 import sys,os,argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects import exceptions
+import copy
 from loci_objects.transcript_checker import transcript_checker
 from loci_objects import GTF
 from Bio import SeqIO
@@ -55,7 +56,7 @@ def main():
     
     for tid in exon_lines:
         lines=exon_lines[tid]
-        transcript_line = lines[0]
+        transcript_line = copy.deepcopy(lines[0])
         transcript_line.feature="transcript"
         transcript_line.start=min(r.start for r in lines)
         transcript_line.end=max(r.end for r in lines)

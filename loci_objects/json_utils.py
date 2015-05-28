@@ -1,19 +1,11 @@
 import sys,os.path,re
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.transcript import transcript
+from loci_objects.exceptions import *
 import json
 import subprocess
 
-class UnrecognizedOperator(ValueError):
-    pass
-
-class UnrecognizedRescaler(ValueError):
-    pass
-
-class InvalidJson(KeyError):
-    pass
-
-def check_json(json_conf):
+def check_json(json_conf, json_file):
     '''Quick function to check that the JSON dictionary is well formed.'''
     
     parameters_not_found=[]
@@ -73,7 +65,13 @@ def check_json(json_conf):
             if "evalue" not in json_conf["chimera_split"] or type(json_conf["chimera_split"]["evalue"]) is not float:
                 raise InvalidJson("I need a maximum e-value for the blast")
             if "database" not in json_conf["chimera_split"] or not os.path.exists(json_conf["chimera_split"]["database"]):
-                raise InvalidJson("I need a valid BLAST database!")
+                if os.path.dirname(json_conf["chimera_split"]["database"])=="": #Absolute name
+                    json_folder = os.path.dirname(json_file)
+                    if os.path.exists(os.path.join(json_folder, json_conf["chimera_split"]["database"] )):
+                        json_conf["chimera_split"]["database"]=os.path.join(json_folder, json_conf["chimera_split"]["database"] )
+                    else:
+                        raise InvalidJson("I need a valid BLAST database!")
+            json_conf["chimera_split"]["database"]=os.path.abspath(json_conf["chimera_split"]["database"])
             if json_conf["chimera_split"]["blast"]=="blastx" and not os.path.exists("{0}.pog".format(json_conf["chimera_split"]["database"])):
                 subprocess.call("makeblastdb -in {0} -dbtype prot -parse_seqids".format(json_conf["chimera_split"]["database"]),
                                 shell=True)
@@ -101,7 +99,7 @@ def to_json(string):
     
     with open(string) as json_file:
         json_dict = json.load(json_file)
-    check_json(json_dict)
+    check_json(json_dict, json_file.name)
     import importlib
     if "modules" in json_dict:
         not_found=[]

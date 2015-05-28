@@ -330,27 +330,27 @@ class transcript:
         self.introns = []
         self.splices=[]
         if len(self.exons)==0:
-            raise AttributeError("No exon defined for the transcript {0}. Aborting".format(self.tid))
+            raise InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
 
         if len(self.exons)>1 and self.strand is None:
-            raise AttributeError("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
+            raise InvalidTranscript("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
 
         if self.combined_utr!=[] and self.combined_cds==[]:
-            raise ValueError("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
+            raise InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
         if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
             print("Assertion error", "\n".join(
                        [str(x) for x in [self.id, self.cdna_length, self.combined_utr_length, self.combined_cds_length,self.combined_utr, self.combined_cds, self.exons]]
                        )
              )
-            raise AssertionError
+            raise InvalidTranscript
             
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0
         try:
             if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
-                raise ValueError("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
+                raise InvalidTranscript("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
                                                                                                                                                             tstart=self.start,
                                                                                                                                                             tend=self.end,
                                                                                                                                                             id=self.id,

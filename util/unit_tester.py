@@ -28,7 +28,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         transcript2=transcript.transcript(gff_transcript2[0])
         for exon in gff_transcript2[1:-1]: transcript2.addExon(exon)
         #Test that a transcript cannot be finalized if the exons do not define the external boundaries
-        with self.assertRaises(ValueError):
+        with self.assertRaises(exceptions.InvalidTranscript):
             transcript2.finalize()
         transcript2.addExon(gff_transcript2[-1])
         transcript2.finalize()

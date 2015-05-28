@@ -46,7 +46,7 @@ def analyse_locus( slocus, args, queue, cds_dict=None, lock=None ):
             for final_locus in stranded_locus.loci:
                 for other_superlocus in filter(lambda x: x!=stranded_locus, stranded_loci):
                     for other_final_locus in other_superlocus.loci:
-                        if other_final_locus.other_is_fragment( final_locus ) is True:
+                        if other_final_locus.other_is_fragment( final_locus ) is True and final_locus in stranded_locus.loci: 
                             stranded_locus.loci.remove(final_locus)
 #                             except ValueError as err:
 #                                 if "not in list" in err: pass

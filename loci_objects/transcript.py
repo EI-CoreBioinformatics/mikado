@@ -1,6 +1,5 @@
 import operator
 import os.path,sys
-import copy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import inspect
 import tempfile
@@ -299,10 +298,11 @@ class transcript:
             raise ModificationError("You cannot add exons to a finalized transcript!")
         
         if self.id not in gffLine.parent:
-            raise AssertionError("""Mismatch between transcript and exon:\n
+            raise InvalidTranscript("""Mismatch between transcript and exon:\n
             {0}\n
-            {1}
-            """.format(self.id, gffLine))
+            {1}\n
+            {2}
+            """.format(self.id, gffLine.parent,gffLine))
         if gffLine.feature=="CDS":
             store=self.combined_cds
         elif "combined_utr" in gffLine.feature or "UTR" in gffLine.feature:
@@ -315,7 +315,7 @@ class transcript:
         elif gffLine.feature=="stop_codon":
             self.has_stop_codon = True
         else:
-            raise AttributeError("Unknown feature: {0}".format(gffLine.feature))
+            raise InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
             
         start,end=sorted([gffLine.start, gffLine.end])
         store.append((start, end) )
@@ -358,14 +358,14 @@ class transcript:
                                                                                                                                                             estart=self.exons[0][0],
                                                                                                                                                             ))
         except IndexError as err:
-            raise IndexError(err, self.id, str(self.exons))
+            raise InvalidTranscript(err, self.id, str(self.exons))
 
         if len(self.exons)>1:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
                     print(exonA,exonB,self.id,self.exons)
-                    raise ValueError("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
+                    raise InvalidTranscript("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
                 self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
 
@@ -703,7 +703,7 @@ class transcript:
                     left_orfs = list(filter(lambda x: x[1]<=my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
                     right_orfs = list(filter(lambda x: x[0]>=my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
                     if len(left_orfs)==0 and len(right_orfs)==0:
-                        raise AssertionError("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
+                        raise InvalidTranscript("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
                     elif len(left_orfs)>0 and len(right_orfs)>0:
                         my_exons.extend(partials)
                         partials=[]

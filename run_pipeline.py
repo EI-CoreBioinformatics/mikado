@@ -245,7 +245,7 @@ def main():
             currentTranscript=None
             currentLocus=None
             
-        if row.feature=="transcript" or "RNA" in row.feature.upper():
+        if row.is_transcript is True:
             if currentLocus is not None:
                 if currentTranscript is None:
                     pass
@@ -268,7 +268,7 @@ def main():
                                             stranded=False, json_dict = args.json_conf,
                                             purge=args.purge)
             currentTranscript=transcript(row, source=args.source)
-        elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper():
+        elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper() or "codon" in row.feature:
             currentTranscript.addExon(row)
         else:
             continue

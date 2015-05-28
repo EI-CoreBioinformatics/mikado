@@ -72,11 +72,12 @@ def check_json(json_conf, json_file):
                     else:
                         raise InvalidJson("I need a valid BLAST database!")
             json_conf["chimera_split"]["database"]=os.path.abspath(json_conf["chimera_split"]["database"])
+            makeblastdb_cmd = os.path.join(os.path.dirname(json_conf["blast"]))
             if json_conf["chimera_split"]["blast"]=="blastx" and not os.path.exists("{0}.pog".format(json_conf["chimera_split"]["database"])):
-                subprocess.call("makeblastdb -in {0} -dbtype prot -parse_seqids".format(json_conf["chimera_split"]["database"]),
+                subprocess.call("{0} -in {0} -dbtype prot -parse_seqids".format(makeblastdb_cmd,json_conf["chimera_split"]["database"]),
                                 shell=True)
             elif json_conf["chimera_split"]["blast"]=="blastn" and not os.path.exists("{0}.nog".format(json_conf["chimera_split"]["database"])):
-                subprocess.call("makeblastdb -in {0} -dbtype nucl -parse_seqids".format(json_conf["chimera_split"]["database"]),
+                subprocess.call("{0} -in {0} -dbtype nucl -parse_seqids".format(makeblastdb_cmd, json_conf["chimera_split"]["database"]),
                                 shell=True)
  
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0 or len(invalid_filter)>0:

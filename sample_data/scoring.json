@@ -122,7 +122,6 @@
 	},
 	"chimera_split":{
 		"blast_check": true,
-		"blast_prefix": "/usr/bin/",
 		"blast": "blastn",
 		"database": "ref.cdna.fasta",
 		"evalue": 1e-10,

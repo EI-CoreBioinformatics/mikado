@@ -122,9 +122,9 @@
 	},
 	"chimera_split":{
 		"blast_check": true,
-		"blast": "blastn",
-		"database": "ref.cdna.fasta",
-		"evalue": 1e-10,
+		"blast": "blastx",
+		"database": "uniprot_sprot_plants.fasta",
+		"evalue": 1e-4,
 		"minimal_secondary_orf": 200
 	}
 }

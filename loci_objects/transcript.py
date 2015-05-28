@@ -489,7 +489,7 @@ class transcript:
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
             
-            if not (orf.cdsStart>=1 and orf.cdsEnd<=self.cdna_length):
+            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length):
                 continue
             if self.strand is None:
                 self.strand=new_strand=orf.strand
@@ -516,14 +516,14 @@ class transcript:
                     current_start+=1
                     current_end+=exon[1]-exon[0]+1
                     #Whole UTR
-                    if current_end<orf.cdsStart or current_start>orf.cdsEnd:
+                    if current_end<orf.thickStart or current_start>orf.thickEnd:
                         cds_exons.append( ("UTR", exon[0], exon[1])  )
                     else:
-                        c_start = exon[0] + max(0, orf.cdsStart-current_start )
+                        c_start = exon[0] + max(0, orf.thickStart-current_start )
                         if c_start > exon[0]:
                             u_end = c_start-1
                             cds_exons.append( ("UTR", exon[0], u_end) )
-                        c_end = exon[1] - max(0, current_end - orf.cdsEnd )
+                        c_end = exon[1] - max(0, current_end - orf.thickEnd )
 #                         assert c_end>=exon[0] 
                         if c_start<c_end:
                             cds_exons.append(("CDS", c_start, c_end))
@@ -536,14 +536,14 @@ class transcript:
                     cds_exons.append(("exon", exon[0], exon[1] ) )
                     current_start+=1
                     current_end+=exon[1]-exon[0]+1
-                    if current_end<orf.cdsStart or current_start>orf.cdsEnd:
+                    if current_end<orf.thickStart or current_start>orf.thickEnd:
                         cds_exons.append( ("UTR", exon[0], exon[1] ))
                     else:
-                        c_end = exon[1] - max(0,orf.cdsStart - current_start ) 
+                        c_end = exon[1] - max(0,orf.thickStart - current_start ) 
 #                         assert c_end>=exon[0]
                         if c_end < exon[1]:
                             cds_exons.append(("UTR", c_end+1, exon[1]))
-                        c_start = exon[0] + max(0, current_end - orf.cdsEnd )
+                        c_start = exon[0] + max(0, current_end - orf.thickEnd )
                         cds_exons.append( ("CDS", c_start, c_end) )
                         if c_start>exon[0]:
                             cds_exons.append( ("UTR", exon[0], c_start-1) )
@@ -629,7 +629,7 @@ class transcript:
                 
                 cds_boundaries=[]
                 for orf in self.loaded_bed12:
-                    cds_boundaries.append((orf.cdsStart,orf.cdsEnd))
+                    cds_boundaries.append((orf.thickStart,orf.thickEnd))
                 cds_boundaries=sorted(cds_boundaries, key=operator.itemgetter(0,1))
                 
                 #At the moment the BLAST check is minimal .. if I can find a hit in the database such that
@@ -791,8 +791,8 @@ class transcript:
     @classmethod
     def is_overlapping_cds(cls, first, second):
         if first==second or first.strand!=second.strand or cls.overlap(
-                                                                       (first.cdsStart,first.cdsEnd),
-                                                                       (second.cdsStart,second.cdsEnd))<0:
+                                                                       (first.thickStart,first.thickEnd),
+                                                                       (second.thickStart,second.thickEnd))<0:
             return False
         return True
         

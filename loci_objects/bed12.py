@@ -25,14 +25,14 @@ class bed12:
         self.header=False
         self.chrom, self.start, self.end, \
             self.name, self.score, self.strand, \
-            self.cdsStart, self.cdsEnd, self.rgb, \
+            self.thickStart, self.thickEnd, self.rgb, \
             self.blockCount, self.blockSizes, self.blockStarts = line
             
         self.start=int(self.start)+1
         self.end = int(self.end)
         self.score = float(self.score)
-        self.cdsStart = int(self.cdsStart)+1
-        self.cdsEnd = int(self.cdsEnd)
+        self.thickStart = int(self.thickStart)+1
+        self.thickEnd = int(self.thickEnd)
         self.blockCount = int(self.blockCount)
         self.blockSizes = [int(x) for x in self.blockSizes.split(",")]
         self.blockStarts = [int(x) for x in self.blockStarts.split(",")]
@@ -41,8 +41,8 @@ class bed12:
         
         if fasta_index is not None:
             assert self.id in fasta_index
-            start_codon = fasta_index[self.id][self.cdsStart-1:self.cdsStart+2] # I have translated into 1-offset
-            stop_codon = fasta_index[self.id][self.cdsEnd-3:self.cdsEnd]
+            start_codon = fasta_index[self.id][self.thickStart-1:self.thickStart+2] # I have translated into 1-offset
+            stop_codon = fasta_index[self.id][self.thickEnd-3:self.thickEnd]
             if self.strand=="-":
                 start_codon=start_codon.reverse_complement()
                 stop_codon=stop_codon.reverse_complement()
@@ -62,13 +62,13 @@ class bed12:
             line.append(".")
         else:
             line.append(self.strand)
-        line.extend( [self.score, self.cdsStart-1, self.cdsEnd, self.blockCount] )
+        line.extend( [self.score, self.thickStart-1, self.thickEnd, self.blockCount] )
         line.append( ",".join([str(x) for x in self.blockSizes]  ) )
         line.append( ",".join([str(x) for x in self.blockStarts]  ) )
         return "\t".join([str(x) for x in line])
         
     def __eq__(self,other):
-        for key in ["chrom","strand","start","end","cdsStart","cdsEnd","blockCount","blockSizes","blockStarts"]:
+        for key in ["chrom","strand","start","end","thickStart","thickEnd","blockCount","blockSizes","blockStarts"]:
             if getattr(self,key)!=getattr(other,key): return False
         return True
     
@@ -91,7 +91,7 @@ class bed12:
         
     @property
     def cds_len(self):
-        return self.cdsEnd-self.cdsStart+1
+        return self.thickEnd-self.thickStart+1
     
     @property
     def has_start_codon(self):

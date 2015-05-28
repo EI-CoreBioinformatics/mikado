@@ -74,12 +74,15 @@ def check_json(json_conf, json_file):
             json_conf["chimera_split"]["database"]=os.path.abspath(json_conf["chimera_split"]["database"])
             makeblastdb_cmd = os.path.join(os.path.dirname(json_conf["blast"]), "makeblastdb")
             assert os.path.exists(makeblastdb_cmd)
+            retcode=0
             if json_conf["chimera_split"]["blast"]=="blastx" and not os.path.exists("{0}.pog".format(json_conf["chimera_split"]["database"])):
-                subprocess.call("{0} -in {1} -dbtype prot -parse_seqids".format(makeblastdb_cmd,json_conf["chimera_split"]["database"]),
+                retcode=subprocess.call("{0} -in {1} -dbtype prot -parse_seqids".format(makeblastdb_cmd,json_conf["chimera_split"]["database"]),
                                 shell=True)
             elif json_conf["chimera_split"]["blast"]=="blastn" and not os.path.exists("{0}.nog".format(json_conf["chimera_split"]["database"])):
-                subprocess.call("{0} -in {1} -dbtype nucl -parse_seqids".format(makeblastdb_cmd, json_conf["chimera_split"]["database"]),
+                retcode=subprocess.call("{0} -in {1} -dbtype nucl -parse_seqids".format(makeblastdb_cmd, json_conf["chimera_split"]["database"]),
                                 shell=True)
+            if retcode!=0:
+                raise OSError("BLAST indexing failed.")
  
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0 or len(invalid_filter)>0:
         err_message=''

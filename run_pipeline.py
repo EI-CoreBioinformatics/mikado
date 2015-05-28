@@ -190,7 +190,7 @@ def main():
             indices_to_remove = []
             for index in range(len(cds_dict[line.chrom])):
                 entry=cds_dict[line.chrom][index]
-                overl=abstractlocus.overlap( (entry.cdsStart,entry.cdsEnd), (line.cdsStart,line.cdsEnd) )
+                overl=abstractlocus.overlap( (entry.thickStart,entry.thickEnd), (line.thickStart,line.thickEnd) )
                 if overl==entry.cds_len:
                     indices_to_remove.append(index)
                 elif overl==line.cds_len:

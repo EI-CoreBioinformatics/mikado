@@ -117,7 +117,7 @@ class BasicTester(unittest.TestCase):
         with bed12.BED12(open(os.path.join(os.path.dirname(__file__), "../sample_data/sample.bed"))) as bed: 
             line=next(bed)
             self.assertEqual(line.chrom, "t0")
-            self.assertEqual(line.cdsStart, 21)
+            self.assertEqual(line.thickStart, 21)
             bed.close()
         
     def test_json(self):

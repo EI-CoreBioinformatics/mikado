@@ -1,7 +1,15 @@
-all: sample.loci.scores.tsv trinity.loci.scores.tsv cufflinks.loci.scores.tsv class.loci.scores.tsv stringtie.loci.scores.tsv all.loci.scores.tsv
+all: uniprot_sprot_plants.fasta sample.loci.scores.tsv trinity.loci.scores.tsv cufflinks.loci.scores.tsv class.loci.scores.tsv stringtie.loci.scores.tsv all.loci.scores.tsv
+
+uniprot_sprot_plants.fasta: uniprot_sprot_plants.fasta.gz
+	gunzip uniprot_sprot_plants.fasta.gz;
+
+uniprot_sprot_plants.not_at.fasta: uniprot_sprot_plants.not_at.fasta.gz
+	gunzip uniprot_sprot_plants.not_at.fasta.gz;
 
 clean:
-	rm -f ./*loci* 
+	rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*;
+	gzip uniprot_sprot_plants.not_at.fasta;
+	gzip uniprot_sprot_plants.fasta;
 
 sample.loci.scores.tsv: sample.loci.gff3
 #	python3 ../util/metrics_to_score.py --json_conf scoring.json sample.subloci.metrics.tsv sample.subloci.scores.tsv

@@ -75,10 +75,10 @@ def check_json(json_conf, json_file):
             makeblastdb_cmd = os.path.join(os.path.dirname(json_conf["blast"]), "makeblastdb")
             assert os.path.exists(makeblastdb_cmd)
             if json_conf["chimera_split"]["blast"]=="blastx" and not os.path.exists("{0}.pog".format(json_conf["chimera_split"]["database"])):
-                subprocess.call("{0} -in {0} -dbtype prot -parse_seqids".format(makeblastdb_cmd,json_conf["chimera_split"]["database"]),
+                subprocess.call("{0} -in {1} -dbtype prot -parse_seqids".format(makeblastdb_cmd,json_conf["chimera_split"]["database"]),
                                 shell=True)
             elif json_conf["chimera_split"]["blast"]=="blastn" and not os.path.exists("{0}.nog".format(json_conf["chimera_split"]["database"])):
-                subprocess.call("{0} -in {0} -dbtype nucl -parse_seqids".format(makeblastdb_cmd, json_conf["chimera_split"]["database"]),
+                subprocess.call("{0} -in {1} -dbtype nucl -parse_seqids".format(makeblastdb_cmd, json_conf["chimera_split"]["database"]),
                                 shell=True)
  
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(mods_not_found)>0 or len(invalid_filter)>0:

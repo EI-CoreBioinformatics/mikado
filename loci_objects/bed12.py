@@ -4,8 +4,29 @@ try:
 except:
     pass
 from loci_objects import Parser
+from sqlalchemy import Column,Index,String,Integer,CHAR,Boolean #Basic constructs for the tables                                                                                                               
+from sqlalchemy.ext.declarative import declarative_base #Necessary to create the metadata                                                                                                                    
+ 
+ 
+Base=declarative_base()
 
 class bed12:
+    
+    __tablename__="bed12"
+     
+    id=Column(Integer, primary_key=True)
+    chrom=Column(String)
+    start=Column(Integer)
+    end=Column(Integer)
+    name=Column(String)
+    strand=Column(CHAR)
+    thickStart=Column(Integer)
+    thickEnd=Column(Integer)
+    score=Column(Integer)
+    hasStart=Column(Boolean)
+    hasStop=Column(Boolean)
+    __table_args__ = ( Index("index", "chrom", "start","end", "thickStart", "thickEnd"  ) , Index("nameindex", "name", "thickStart", "thickEnd"))
+    
     
     def __init__(self, line, fasta_index = None, transcriptomic=True):
         if type(line) is str:

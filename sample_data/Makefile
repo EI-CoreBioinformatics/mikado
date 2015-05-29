@@ -6,10 +6,15 @@ uniprot_sprot_plants.fasta: uniprot_sprot_plants.fasta.gz
 uniprot_sprot_plants.not_at.fasta: uniprot_sprot_plants.not_at.fasta.gz
 	gunzip uniprot_sprot_plants.not_at.fasta.gz;
 
-clean:
+clean: uniprot_sprot_plants.not_at.fasta.gz uniprot_sprot_plants.fasta.gz
 	rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*;
-	gzip uniprot_sprot_plants.not_at.fasta;
-	gzip uniprot_sprot_plants.fasta;
+
+uniprot_sprot_plants.not_at.fasta.gz: uniprot_sprot_plants.not_at.fasta
+	gzip uniprot_sprot_plants.not_at.fasta
+
+uniprot_sprot_plants.fasta.gz: uniprot_sprot_plants.fasta
+	gzip uniprot_sprot_plants.fasta
+
 
 sample.loci.scores.tsv: sample.loci.gff3
 #	python3 ../util/metrics_to_score.py --json_conf scoring.json sample.subloci.metrics.tsv sample.subloci.scores.tsv

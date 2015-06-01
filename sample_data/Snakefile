@@ -1,0 +1,29 @@
+swissprot = "uniprot_sprot_plants.fasta"
+swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
+
+DBs=[swissprot, swissprot_noat]
+zipDBs=["{0}.gz".format(db) for db in DBs]
+
+config = "scoring.json"
+
+rule decompress:
+     input:  zipDBs
+     output: DBs
+     shell: "gunzip {input}"
+
+rule compress:
+     input:  DBs
+     output: zipDBs
+     shell: "gzip {input}"
+
+rule clean:
+     input: DBs
+     output: zipDBs
+     shell: "rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*; gzip {input}"
+
+rule mock:
+     input: DBs, cds="mock.bed", gff="mock.gff3"
+     output: "mock.loci.gff3", "mock.loci.scores.tsv"
+     shell: "python3 ../run_pipeline.py -sc --source mock --json_conf {config} --cds {input.cds} --sub_out mock.subloci.gff3 --mono_out mock.monoloci.gff3 --locus_out {output[0]} {input.gff}"
+     
+

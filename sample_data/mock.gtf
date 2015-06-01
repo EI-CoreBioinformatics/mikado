@@ -1,0 +1,4 @@
+Chr1	foo	transcript	101	200	.	+	.	transcript_id "t0"; gene_id "t0.gene"
+Chr1	foo	exon	101	200	.	+	.	transcript_id "t0"; gene_id "t0.gene"
+Chr1	foo	transcript	101	200	.	-	.	transcript_id "tminus0"; gene_id "tminus0.gene"
+Chr1	foo	exon	101	200	.	-	.	transcript_id "tminus0"; gene_id "tminus0.gene"

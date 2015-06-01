@@ -1,4 +1,7 @@
 import sys, os
+import sqlalchemy
+import gzip
+import subprocess
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from scipy import mean
 import operator
@@ -6,6 +9,10 @@ from sqlalchemy import Column,String,Integer,Float,ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
+from Bio.Blast.NCBIXML import parse as xparser
+import io
+from sqlalchemy import create_engine
+from sqlalchemy.orm.session import sessionmaker
 # from sqlalchemy.engine import create_engine
 # from sqlalchemy.orm.session import sessionmaker
 
@@ -218,3 +225,116 @@ class Hsp(Base):
 	def target_hsp_cov(self):
 		'''This property returns the percentage of the target which is covered by the HSP.'''
 		return (self.target_hsp_end-self.target_hsp_start+1)/(self.hit_object.target_len)
+
+class xmlSerializer:
+	
+	'''This class has the role of taking in input a blast XML file and (partially) serialise it into
+	a database. We are using SQLalchemy, so the database type could be any of SQLite, MySQL, PSQL, etc.'''
+	
+	def __init__(self, db, xml, max_target_seqs=float("Inf"), keep_definition=False):
+		'''Initializing method. Arguments:
+		-db
+		-xml (it can be a handle or a valid file address)
+		
+		Optional arguments:
+		- max_target_seqs 	Maximum number of targets to serialize
+		- keep_definition	Keep the definition instead of the ID for queries
+		
+		'''
+		
+		engine=create_engine("sqlite:///{0}".format(db))
+		session=sessionmaker()
+		session.configure(bind=engine)
+		Base.metadata.create_all(engine)
+		self.session=session()
+		if type(xml) is not xparser:
+			if type(xml) is str:
+				if not os.path.exists(xml):
+					raise OSError("Invalid file address.")
+				if xml.endswith("xml"):
+					xml=open(xml)
+				elif xml.endswith(".xml.gz"):
+					xml=gzip.open(xml, mode="rt") #The mode must be textual, otherwise xparser dies 
+				elif xml.endswith(".asn.gz"):
+					zcat=subprocess.Popen(["zcat", xml], shell=False, stdout=subprocess.PIPE) #I cannot seem to make it work with gzip.open
+					blast_formatter=subprocess.Popen( ['blast_formatter', '-outfmt', '5',
+								   		'-archive', '-'], shell=False,
+								  			stdin=zcat.stdout,
+								  			stdout=subprocess.PIPE)
+					xml=io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+			assert type(xml) in (gzip.GzipFile,io.TextIOWrapper), type(xml)
+			self.xml=xml
+			self.xml_parser=xparser(xml)
+		else:
+			self.xml_parser=xml # This is the BLAST object we will serialize
+		#Runtime arguments
+		self.keep_definition=keep_definition
+		self.max_target_seqs=max_target_seqs
+		
+	def serialize(self):
+		
+		'''Method to serialize the BLAST XML file into a database provided with the __init__ method '''
+		
+		q_mult=1 #Query multiplier: 3 for BLASTX (nucleotide vs. protein), 1 otherwise
+		h_mult=1 #Target multiplier: 3 for TBLASTN (protein vs. nucleotide), 1 otherwise
+
+		for record in self.xml_parser:
+			if record.application=="BLASTN":
+				q_mult=1
+				h_mult=1
+			elif record.application=="BLASTX":
+				q_mult=3
+				h_mult=1
+			elif record.application=="TBLASTN":
+				q_mult=1
+				h_mult=3
+			if len(record.descriptions)==0:
+				continue
+			
+			if self.keep_definition is True:
+				name=record.query.split()[0]
+			else:
+				name=record.query_id
+			
+			current_query=Query(name, record.query_length)
+			self.session.add(current_query)
+			try:
+				self.session.commit()
+			except sqlalchemy.exc.IntegrityError:
+				self.session.rollback()
+		
+			for ccc,alignment in filter(lambda x: x[0]<=self.max_target_seqs, enumerate(record.alignments)):
+
+				evalue=record.descriptions[ccc].e
+				bits = record.descriptions[ccc].bits
+				alignment = record.alignments[ccc]
+				hit_num=ccc+1
+				current_target=self.session.query(Target).filter(Target.name==record.alignments[ccc].accession).all()
+				if len(current_target)==0:
+					current_target=Target(record.alignments[ccc].accession, record.alignments[ccc].length)
+					self.session.add(current_target)
+				else:
+					current_target=current_target[0]	
+
+					current_hit = Hit(current_query.id, current_target.id, alignment, evalue, bits,
+									hit_number=hit_num,
+									query_multiplier=q_mult,
+									target_multiplier=h_mult)
+					self.session.add(current_hit)
+					try:
+						self.session.commit()
+					except sqlalchemy.exc.IntegrityError:
+						self.session.rollback()
+						continue
+						
+					for counter,hsp in enumerate(alignment.hsps):
+						current_hsp = Hsp(hsp, counter, current_hit.id)
+						self.session.add(current_hsp)
+					try:	
+						self.session.commit()
+					except sqlalchemy.exc.IntegrityError:
+						self.session.rollback()
+
+
+			self.session.commit() 
+	

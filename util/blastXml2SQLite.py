@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
 
-import sys, os, subprocess, gzip,argparse
+import sys, os, argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects.blast_utils import Base,Query,Hit,Hsp,Target,xmlSerializer
-from Bio.Blast.NCBIXML import parse as xparser
-import io
-from sqlalchemy import create_engine
-from sqlalchemy.orm.session import sessionmaker
+from loci_objects.blast_utils import xmlSerializer
+
 
 def main():
 

@@ -17,13 +17,13 @@ from loci_objects.sublocus import sublocus
 from loci_objects.transcript import transcript
 from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
-from loci_objects.bed12 import BED12
+from loci_objects.bed12 import bed12Parser
 from loci_objects.abstractlocus import abstractlocus 
 
 def analyse_locus( slocus, args, queue, cds_dict=None, lock=None ):
 
     '''This function takes as input a "superlocus" instance and the pipeline configuration.
-    It also accepts as optional keywords a dictionary with the CDS information (derived from a BED12)
+    It also accepts as optional keywords a dictionary with the CDS information (derived from a bed12Parser)
     and a "lock" used for avoiding writing collisions during multithreading.
     The function splits the superlocus into its strand components and calls the relevant methods
     to define the loci. It also prints out the results to the requested output files.
@@ -178,11 +178,11 @@ def main():
         csv_out.writeheader()
         
     cds_dict=None
-    #Load the CDS information from the BED12, if one is available
+    #Load the CDS information from the bed12Parser, if one is available
     if args.cds is not None:
         cds_dict = dict()
         
-        for line in BED12(args.cds, fasta_index=args.transcript_fasta):
+        for line in bed12Parser(args.cds, fasta_index=args.transcript_fasta):
             if line.header is True: continue
             if line.chrom not in cds_dict:
                 cds_dict[line.chrom]=[]

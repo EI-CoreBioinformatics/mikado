@@ -4,29 +4,10 @@ try:
 except:
     pass
 from loci_objects import Parser
-from sqlalchemy import Column,Index,String,Integer,CHAR,Boolean #Basic constructs for the tables                                                                                                               
-from sqlalchemy.ext.declarative import declarative_base #Necessary to create the metadata                                                                                                                    
- 
- 
-Base=declarative_base()
 
-class bed12:
-    
-    __tablename__="bed12"
-     
-    id=Column(Integer, primary_key=True)
-    chrom=Column(String)
-    start=Column(Integer)
-    end=Column(Integer)
-    name=Column(String)
-    strand=Column(CHAR)
-    thickStart=Column(Integer)
-    thickEnd=Column(Integer)
-    score=Column(Integer)
-    hasStart=Column(Boolean)
-    hasStop=Column(Boolean)
-    __table_args__ = ( Index("index", "chrom", "start","end", "thickStart", "thickEnd"  ) , Index("nameindex", "name", "thickStart", "thickEnd"))
-    
+'''Generic module for parsing bed12Parser files.'''
+ 
+class BED12:
     
     def __init__(self, line, fasta_index = None, transcriptomic=True):
         if type(line) is str:
@@ -57,8 +38,8 @@ class bed12:
         self.blockCount = int(self.blockCount)
         self.blockSizes = [int(x) for x in self.blockSizes.split(",")]
         self.blockStarts = [int(x) for x in self.blockStarts.split(",")]
-        self.has_start_codon = False
-        self.has_stop_codon = False
+        self.has_start_codon = None
+        self.has_stop_codon = None
         
         if fasta_index is not None:
             assert self.id in fasta_index
@@ -70,8 +51,12 @@ class bed12:
                 start_codon,stop_codon=stop_codon,start_codon
             if str(start_codon.seq)=="ATG":
                 self.has_start_codon=True
+            else:
+                self.has_start_codon=False
             if str(stop_codon.seq) in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon=True
+            else:
+                self.has_stop_codon=False
         
         assert self.blockCount==len(self.blockStarts)==len(self.blockSizes)
         
@@ -145,9 +130,9 @@ class bed12:
         else:
             return self.name
 
-class BED12(Parser):
+class bed12Parser(Parser):
 
-    '''Parser class for a BED12 file. It accepts optionally a fasta index which is used to determine whether an ORF has start/stop codons.'''
+    '''Parser class for a bed12Parser file. It accepts optionally a fasta index which is used to determine whether an ORF has start/stop codons.'''
     
     def __init__(self,handle, fasta_index=None):
         
@@ -168,5 +153,5 @@ class BED12(Parser):
     def __next__(self):
         line=self._handle.readline()
         if line=='': raise StopIteration
-        return bed12(line, fasta_index=self.fasta_index)
+        return BED12(line, fasta_index=self.fasta_index)
     

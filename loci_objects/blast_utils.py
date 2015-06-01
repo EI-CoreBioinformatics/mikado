@@ -6,21 +6,24 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from scipy import mean
 import operator
 from sqlalchemy import Column,String,Integer,Float,ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from Bio.Blast.NCBIXML import parse as xparser
 import io
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
-# from sqlalchemy.engine import create_engine
-# from sqlalchemy.orm.session import sessionmaker
+from loci_objects.dbutils import dbBase
 
+'''This module is used to serialise BLAST objects into a database.'''
 
-#print("#", *sys.argv)
-Base=declarative_base()
 
 def merge(intervals):
+	
+	'''This function is used to merge together intervals, which have to be supplied as a list
+	of duplexes - (start,stop). The function will then merge together overlapping tuples and
+	return a list of non-overlapping tuples.
+	If the list is composed by only one element, the function returns immediately. 
+	'''
 	
 	#Assume tuple of the form (start,end)
 	#And return 0- and 1-length intervals
@@ -45,18 +48,18 @@ def merge(intervals):
 	return final_list
 
 
-class Query(Base):
+class Query(dbBase):
 	
 	__tablename__="query"
 	id=Column(Integer, primary_key=True)
 	name=Column(String(200), unique=True, index=True)
-	length=Column(Integer)
+	length=Column(Integer, nullable=True) #This so we can load data also from the orf class
 	
 	def __init__(self, name, length):
 		self.name=name
 		self.length=length
 
-class Target(Base):
+class Target(dbBase):
 	__tablename__="target"
 
 	id=Column(Integer, primary_key=True)
@@ -68,7 +71,17 @@ class Target(Base):
 		self.length=length
 
 	
-class Hit(Base):
+class Hit(dbBase):
+	
+	'''This class is used to serialise and store in a DB a BLAST hit.
+	Stored attributes:
+	
+	- id				Indexing key
+	- query_id			Foreign ID key for the query table
+	- target_id			Foreign ID key for the target table
+	- qt_constrating	
+	
+	'''
 	
 	__tablename__ ="hit"
 	id=Column(Integer, primary_key=True, autoincrement=True)
@@ -88,8 +101,8 @@ class Hit(Base):
 	query_aligned_length = Column(Integer)
 	target_aligned_length = Column(Integer)
 	
-	query_object = relationship(Query, uselist=False, lazy="joined" )
-	target_object = relationship(Target, uselist=False, lazy="joined" )
+	query_object = relationship(Query, uselist=False, lazy="joined", backref=backref("hits" ))
+	target_object = relationship(Target, uselist=False, lazy="joined", backref=backref("hits" ) )
 	
 	__table_args__ = (qt_constraint,)
 	
@@ -158,7 +171,30 @@ class Hit(Base):
 		return self.target_len*self.target_multiplier/(self.query_len*self.query_multiplier)
 	
 
-class Hsp(Base):
+class Hsp(dbBase):
+
+	'''This class serializes and stores into the DB the various HSPs.
+	It is directly connected to the Hit table, through the "hit_id" 
+	reference key.
+	The Hit reference can be accessed through the hit_object attribute;
+	back-reference (Hit to Hsps) is given by the "hsps" attribute.
+	
+	Keys:
+	- hit_id 				Reference for the Hit table
+	- counter				Indicates the number of the HSP for the hit
+	- query_hsp_start		Start position on the query
+	- query_hsp_end			End position on the query
+	- target_hsp_start		Start position on the target
+	- target_hsp_end		End position on the target
+	- hsp_evalue			Evalue of the HSP
+	- hsp_bits				Bit-score of the HSP
+	- hsp_identity			Identity (in %) of the alignment
+	- hsp_length			Length of the HSP
+	
+	An HSP row has the following constraints:
+	- Counter,hit_id must be unique (and are primary keys)
+	- The combination ("Hit_id","query_hsp_start","query_hsp_end", "target_hsp_start", "target_hsp_end") must be unique
+	'''
 
 	__tablename__ = "hsp"
 	counter = Column(Integer) #Indicates the number of the HSP inside the hit
@@ -209,10 +245,12 @@ class Hsp(Base):
 
 	@property
 	def query(self):
+		'''Returns the name of the query sequence, through a nested SQL query.'''
 		return self.hit_object.query
 
 	@property
 	def target(self):
+		'''Returns the name of the target sequence, through a nested SQL query.'''
 		return self.hit_object.target
 
 	
@@ -245,7 +283,7 @@ class xmlSerializer:
 		engine=create_engine("sqlite:///{0}".format(db))
 		session=sessionmaker()
 		session.configure(bind=engine)
-		Base.metadata.create_all(engine)
+		dbBase.metadata.create_all(engine) #@UndefinedVariable
 		self.session=session()
 		if type(xml) is not xparser:
 			if type(xml) is str:
@@ -296,12 +334,16 @@ class xmlSerializer:
 			else:
 				name=record.query_id
 			
-			current_query=Query(name, record.query_length)
-			self.session.add(current_query)
-			try:
+			current_query = self.session.query(Query).filter(Query.name==name).all()
+			if len(current_query)==0:
+				current_query=Query(name, record.query_length)
+				self.session.add(current_query)
 				self.session.commit()
-			except sqlalchemy.exc.IntegrityError:
-				self.session.rollback()
+			else:
+				current_query=current_query[0]
+				if current_query.length is None:
+					self.session.query(Query).filter(Query.name==name).update({"length": record.query_length})
+					self.session.commit()
 		
 			for ccc,alignment in filter(lambda x: x[0]<=self.max_target_seqs, enumerate(record.alignments)):
 
@@ -313,28 +355,24 @@ class xmlSerializer:
 				if len(current_target)==0:
 					current_target=Target(record.alignments[ccc].accession, record.alignments[ccc].length)
 					self.session.add(current_target)
-				else:
-					current_target=current_target[0]	
-
-					current_hit = Hit(current_query.id, current_target.id, alignment, evalue, bits,
-									hit_number=hit_num,
-									query_multiplier=q_mult,
-									target_multiplier=h_mult)
-					self.session.add(current_hit)
 					try:
 						self.session.commit()
 					except sqlalchemy.exc.IntegrityError:
 						self.session.rollback()
-						continue
-						
-					for counter,hsp in enumerate(alignment.hsps):
-						current_hsp = Hsp(hsp, counter, current_hit.id)
-						self.session.add(current_hsp)
-					try:	
-						self.session.commit()
-					except sqlalchemy.exc.IntegrityError:
-						self.session.rollback()
+						continue 
+				else:
+					current_target=current_target[0]
 
+				current_hit = Hit(current_query.id, current_target.id, alignment, evalue, bits,
+									hit_number=hit_num,
+									query_multiplier=q_mult,
+									target_multiplier=h_mult)
+				self.session.add(current_hit)
+				self.session.commit()
+						
+				for counter,hsp in enumerate(alignment.hsps):
+					current_hsp = Hsp(hsp, counter, current_hit.id)
+					self.session.add(current_hsp)
 
 			self.session.commit() 
 	

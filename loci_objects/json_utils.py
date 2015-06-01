@@ -1,7 +1,8 @@
 import sys,os.path,re
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.transcript import transcript
-from loci_objects.exceptions import *
+# from loci_objects.exceptions import *
+import loci_objects.exceptions
 import json
 import subprocess
 
@@ -37,7 +38,7 @@ def check_json(json_conf, json_file):
 
     if "requirements" in json_conf:
         if "parameters" not in json_conf["requirements"]:
-            raise InvalidJson("The requirements field must have a \"parameters\" subfield!")
+            raise loci_objects.exceptions.InvalidJson("The requirements field must have a \"parameters\" subfield!")
         for key in json_conf["requirements"]["parameters"]:
             key_name=key.split(".")[0]
             if key_name not in available_metrics:
@@ -45,32 +46,32 @@ def check_json(json_conf, json_file):
 
     if "chimera_split" in json_conf:
         if "blast_check" not in json_conf["chimera_split"] or type(json_conf["chimera_split"]["blast_check"]) is not bool:
-            raise InvalidJson("A boolean value must be specified for chimera_split/blast_check!")
+            raise loci_objects.exceptions.InvalidJson("A boolean value must be specified for chimera_split/blast_check!")
         if json_conf["chimera_split"]["blast_check"] is True:
             if "blast" not in  json_conf["chimera_split"]:
-                raise InvalidJson("A blast program must be specified to execute the blast check.")
+                raise loci_objects.exceptions.InvalidJson("A blast program must be specified to execute the blast check.")
             if json_conf["chimera_split"]["blast"] not in ("blastn","blastx"):
-                raise InvalidJson("Only BlastN and BlastX are supported.")
+                raise loci_objects.exceptions.InvalidJson("Only BlastN and BlastX are supported.")
             if "blast_prefix" not in json_conf["chimera_split"]:
                 import shutil
                 if shutil.which(json_conf["chimera_split"]["blast"]) is None: #@UndefinedVariable
-                    raise InvalidJson("I have not been able to find the requested blast program in PATH: {0}".format(json_conf["chimera_split"]["blast"]))
+                    raise loci_objects.exceptions.InvalidJson("I have not been able to find the requested blast program in PATH: {0}".format(json_conf["chimera_split"]["blast"]))
                 json_conf["blast"]=shutil.which(json_conf["chimera_split"]["blast"]) #@UndefinedVariable
             else:
                 if not os.path.exists(os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])):
-                    raise InvalidJson("I have not been able to find the requested blast program: {0}".format(
+                    raise loci_objects.exceptions.InvalidJson("I have not been able to find the requested blast program: {0}".format(
                                                                                                              os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])
                                                                                                             ))
                 json_conf["blast"]=os.path.join(json_conf["chimera_split"]["blast_prefix"],json_conf["chimera_split"]["blast"])
             if "evalue" not in json_conf["chimera_split"] or type(json_conf["chimera_split"]["evalue"]) is not float:
-                raise InvalidJson("I need a maximum e-value for the blast")
+                raise loci_objects.exceptions.InvalidJson("I need a maximum e-value for the blast")
             if "database" not in json_conf["chimera_split"] or not os.path.exists(json_conf["chimera_split"]["database"]):
                 if os.path.dirname(json_conf["chimera_split"]["database"])=="": #Absolute name
                     json_folder = os.path.dirname(json_file)
                     if os.path.exists(os.path.join(json_folder, json_conf["chimera_split"]["database"] )):
                         json_conf["chimera_split"]["database"]=os.path.join(json_folder, json_conf["chimera_split"]["database"] )
                     else:
-                        raise InvalidJson("I need a valid BLAST database!")
+                        raise loci_objects.exceptions.InvalidJson("I need a valid BLAST database!")
             json_conf["chimera_split"]["database"]=os.path.abspath(json_conf["chimera_split"]["database"])
             makeblastdb_cmd = os.path.join(os.path.dirname(json_conf["blast"]), "makeblastdb")
             assert os.path.exists(makeblastdb_cmd)
@@ -100,7 +101,7 @@ def check_json(json_conf, json_file):
        
 def to_json(string):
     
-    '''Function to serialize the JSON for configuration and check its consistency.'''
+    '''Function to serialise the JSON for configuration and check its consistency.'''
     
     with open(string) as json_file:
         json_dict = json.load(json_file)
@@ -122,12 +123,12 @@ def to_json(string):
     for param in json_dict["parameters"]:
         
         if "rescaling" not in json_dict["parameters"][param]:
-            raise UnrecognizedRescaler("No rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(param))
+            raise loci_objects.exceptions.UnrecognizedRescaler("No rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(param))
         elif json_dict["parameters"][param]["rescaling"] not in ("max","min", "target"):
-            raise UnrecognizedRescaler("Invalid rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(param))
+            raise loci_objects.exceptions.UnrecognizedRescaler("Invalid rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(param))
         elif json_dict["parameters"][param]["rescaling"]=="target":
             if "value" not in json_dict["parameters"][param]:
-                raise UnrecognizedRescaler("Target rescaling requested for {0}, but no target value specified. Please specify it with the \"value\" keyword.".format(param))
+                raise loci_objects.exceptions.UnrecognizedRescaler("Target rescaling requested for {0}, but no target value specified. Please specify it with the \"value\" keyword.".format(param))
             json_dict["parameters"][param]["value"]=float(json_dict["parameters"][param]["value"])
         
         if "multiplier" not in json_dict["parameters"][param]:
@@ -139,16 +140,16 @@ def to_json(string):
             
     if "requirements" in json_dict:
         if "parameters" not in json_dict["requirements"]:
-            raise InvalidJson("The requirements field must have a \"parameters\" subfield!")
+            raise loci_objects.exceptions.InvalidJson("The requirements field must have a \"parameters\" subfield!")
         for key in json_dict["requirements"]["parameters"]:
             key_name=key.split(".")[0]
 
             if "operator" not in json_dict["requirements"]["parameters"][key]:
-                raise InvalidJson("No operator provided for requirement {0}".format(key))
+                raise loci_objects.exceptions.InvalidJson("No operator provided for requirement {0}".format(key))
             elif "value" not in json_dict["requirements"]["parameters"][key]:
-                raise InvalidJson("No value provided for requirement {0}".format(key))
+                raise loci_objects.exceptions.InvalidJson("No value provided for requirement {0}".format(key))
             elif json_dict["requirements"]["parameters"][key]["operator"] not in ("gt","ge","eq","lt","le", "ne","in", "not in"):
-                raise UnrecognizedOperator("Unrecognized operator: {0}".format(json_dict["parameters"][param]["operator"]))
+                raise loci_objects.exceptions.UnrecognizedOperator("Unrecognized operator: {0}".format(json_dict["parameters"][param]["operator"]))
             json_dict["requirements"]["parameters"][key]["name"]=key_name
             
         if "expression" not in json_dict["requirements"]:
@@ -162,7 +163,7 @@ def to_json(string):
             keys = list(filter(lambda x: x not in ("and","or", "not", "xor"), re.findall("([^ ()]+)", json_dict["requirements"]["expression"])))
             diff_params=set.difference(set(keys), set(json_dict["requirements"]["parameters"].keys()))
             if len(diff_params)>0:
-                raise InvalidJson("Expression and required parameters mismatch:\n\t{0}".format("\n\t".join(list(diff_params))))
+                raise loci_objects.exceptions.InvalidJson("Expression and required parameters mismatch:\n\t{0}".format("\n\t".join(list(diff_params))))
 
         for key in keys:
             newexpr=re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)

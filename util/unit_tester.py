@@ -1,9 +1,11 @@
 import os,sys
 import unittest
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects import *
 from loci_objects import json_utils
 from loci_objects import exceptions
+from loci_objects import GFF,GTF,transcript
+from loci_objects import superlocus,abstractlocus
+from loci_objects import bed12
 
 class LocusTester(unittest.TestCase):
     
@@ -39,7 +41,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
             for exon in gff_transcript2[1:]: transcript2.addExon(exon)
         #Test that creating a superlocus without configuration fails
         with self.assertRaises(exceptions.NoJsonConfigError):
-            slocus=superlocus.superlocus(transcript1)
+            _=superlocus.superlocus(transcript1)
         my_json = os.path.join(os.path.dirname(__file__), "../sample_data/scoring.json")
         my_json=json_utils.to_json(my_json)
         slocus=superlocus.superlocus(transcript1, json_dict=my_json)

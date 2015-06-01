@@ -4,7 +4,7 @@ import abc
 import random
 from copy import copy
 import logging
-import networkx
+import networkx 
 from loci_objects.exceptions import NotInLocusError
 
 class abstractlocus(metaclass=abc.ABCMeta):

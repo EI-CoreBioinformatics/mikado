@@ -1,3 +1,5 @@
+import os
+
 swissprot = "uniprot_sprot_plants.fasta"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 
@@ -13,11 +15,15 @@ rule decompress:
 
 rule clean:
      output: zipDBs
-     shell: "rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*; gzip {DBs}"
+     run:
+        shell("rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*")
+	# for f in filter(lamdba x: os.path.exists(x), DBs):
+	#    shell("gzip -f {f};")
 
 rule mock:
-     input: DBs, cds="mock.bed", gff="mock.gff3"
+     params:	prefix="mock"
+     input: DBs, gff="mock.gff3"
      output: "mock.loci.gff3", "mock.loci.scores.tsv"
-     shell: "python3 ../run_pipeline.py -sc --source mock --json_conf {config} --cds {input.cds} --sub_out mock.subloci.gff3 --mono_out mock.monoloci.gff3 --locus_out {output[0]} {input.gff}"
+     shell: "python3 ../run_pipeline.py -sc --source {params.prefix} --json_conf {config} --cds {params.prefix}.bed --sub_out {params.prefix}.subloci.gff3 --mono_out {params.prefix}.monoloci.gff3 --locus_out {output[0]} {input.gff}"
      
 

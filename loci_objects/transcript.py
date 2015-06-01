@@ -61,6 +61,7 @@ class transcript:
         self.selected_internal_orf_index = None
         self.has_start_codon, self.has_stop_codon = False,False
         self.non_overlapping_cds = None
+        self.verified_introns=[]
         
         if len(args)==0:
             return
@@ -441,16 +442,18 @@ class transcript:
         session.configure(bind=self.engine)
         self.session=session()
         
-    def load_information_from_db(self, json_dict):
+    def load_information_from_db(self, json_dict, introns=None):
         '''This method will invoke the check for:
-        junctions
+        
         orfs
         blast hits (this necessarily after the ORF check).
+        
+        Verified introns can be provided from outside using the keyword. Otherwise, they will be extracted from the database directly.
         '''
         
         self.load_json(json_dict)
         self.connect_to_db()
-        self.load_junctions()
+        self.load_verified_introns(introns)
         self.load_orfs()
         self.load_blast()
         self.session.close() # The session must be closed
@@ -459,25 +462,29 @@ class transcript:
         self.json_dict = json_dict
     
     
-    def load_junctions(self):
+    def load_junctions(self, introns=None):
         
-        '''This method will look up the junctions in the database and determine which ones are supported form external data.
-        They will be stored inside the "verified_junctions" set.'''
+        '''This method will load verified junctions from the external (usually the superlocus class).'''
         
-        chrom_id=self.session.query(Chrom).filter(Chrom.name==self.chrom).one().id
-        self.verified_junctions=[]
-        junctions=self.session.query(junction.junctionStart,junction.junctionEnd).filter(and_(
-                                                junction.chrom_id==chrom_id,
-                                                junction.junctionStart>=self.start,
-                                                junction.junctionEnd<=self.end
-                                                 )
-                                                ).all()
-        for junction in junctions:
-            tup=(junction.junctionStart,junction.junctionEnd) 
-            if tup in self.introns:
-                self.verified_junctions.append(tup)
-                                              
-        self.verified_junctions=set(self.verified_junctions)
+       
+        if introns is None:
+            chrom_id = self.session.query(Chrom.id).filter(Chrom.name==self.chrom).one().id
+            for intron in self.introns:
+                if self.session.query(junction).filter(and_(
+                                                            junction.chrom_id==chrom_id,
+                                                            junction.junctionStart==intron[0],
+                                                            junction.junctionEnd==intron[1],
+                                                            junction.strand==self.strand
+                                                           )
+                                                      ).count()==1:
+                    self.verified_introns.append(intron)
+                    
+        else:
+            for intron in introns:
+                if intron in self.introns:
+                    self.verified_introns.append(intron)
+        
+        return       
         
         
     def load_orfs(self):
@@ -1548,4 +1555,29 @@ class transcript:
         if type(args[0]) not in (float,int) or (args[0]<0 or args[0]>1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
         self.__retained_fraction=args[0]
+    
+    @metric
+    def proportion_verified_introns(self):
+        if self.monoexonic is True:
+            return 0
+        else:
+            return len(self.verified_introns)/len(self.introns)
         
+    @metric
+    def proportion_verified_introns_inlocus(self):
+        '''This metric returns, as a fraction, how many of verified introns in the locus
+        are contained inside the transcript.'''
+        return self.__proportion_verified_introns_inlocus
+    
+    @proportion_verified_introns_inlocus.setter
+    def proportion_verified_introns_inlocus(self, value):
+        if value==0:
+            assert len(self.verified_introns)==0
+        assert 0<=value<=1
+        self.__proportion_verified_introns_inlocus=value
+        
+        
+        
+         
+    
+    

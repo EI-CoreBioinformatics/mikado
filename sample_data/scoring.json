@@ -121,6 +121,7 @@
 		}
 	},
 	"chimera_split":{
+		"execute": true,
 		"blast_check": true,
 		"blast": "blastx",
 		"database": "uniprot_sprot_plants.fasta",

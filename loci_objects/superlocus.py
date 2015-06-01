@@ -4,6 +4,10 @@ import sys,os.path
 from loci_objects.monosublocus import monosublocus
 from loci_objects.excluded_locus import excluded_locus
 from loci_objects.transcript import transcript
+from sqlalchemy.engine import create_engine
+from sqlalchemy.orm.session import sessionmaker
+from loci_objects.junction import junction, Chrom
+from sqlalchemy.sql.expression import and_
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from loci_objects.abstractlocus import abstractlocus
 from copy import deepcopy as copy
@@ -194,27 +198,79 @@ class superlocus(abstractlocus):
         self.loci_defined = False
         self.monosubloci_metrics_calculated = False
 
-    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False, fasta_index=None):
-        if cds_dict is None:
-            return
-        for tid in self.transcripts:
-            self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,
-                                           minimal_secondary_orf_length=minimal_secondary_orf_length )
-        transcript_ids=list(self.transcripts.keys())[:]
-        assert len(transcript_ids)>0
+    def connect_to_db(self):
+                
+        '''This method will connect to the database using the information contained in the JSON configuration.'''
+        
+        db = self.json_dict["db"]
+        dbtype = self.json_dict["dbtype"]
+        
+        self.engine = create_engine("{dbtype}:///{db}".format(
+                                                              db=db,
+                                                              dbtype=dbtype)
+                                    )   #create_engine("sqlite:///{0}".format(args.db))
+        
+        session = sessionmaker()
+        session.configure(bind=self.engine)
+        self.session=session()
 
-        if split_chimeras is True:
+    def load_transcript_data(self):
+        
+        '''This method will load data into the transcripts instances, and perform the split_by_cds if required
+        by the configuration.'''
+        
+        if "db" not in self.json_dict or self.json_dict["db"] is None:
+            return #No data to load
+        self.connect_to_db()
+        self.locus_verified_introns=[]
+        chrom_id = self.session.query(Chrom.id).filter(Chrom.name==self.chrom).one().id
+        for intron in self.introns:
+            if self.session.query(junction).filter(and_(
+                                                        junction.chrom_id==chrom_id,
+                                                        junction.junctionStart==intron[0],
+                                                        junction.junctionEnd==intron[1],
+                                                        junction.strand==self.strand
+                                                        
+                                                        )).count()==1:
+                self.locus_verified_introns.append(intron)
+        
+        for tid in self.transcripts:
+            self.transcripts[tid].load_transcript_data(self.json_dict, introns=self.locus_verified_introns)
+
+        assert len(self.transcripts.keys())>0 #Why was I checking this?
+        
+        if self.json_dict["chimera_split"]["execute"] is True:
             
-            more_than_one_orf=[]
-            for tid in self.transcripts:
-                if self.transcripts[tid].number_internal_orfs>1: more_than_one_orf.append(tid)
-            
-            for tid in more_than_one_orf:
-                new_tr=list(self.transcripts[tid].split_by_cds(json_dict=self.json_dict, transcript_fasta=fasta_index[tid]))
-                if len(new_tr)>1:                
+            for tid in filter(lambda t: self.transcripts[t].number_internal_orfs>1, list(self.transcripts.keys())):
+                new_tr = list(self.transcripts[tid].split_by_cds())
+                if len(new_tr)>1:
                     for tr in new_tr:
                         self.add_transcript_to_locus(tr, check_in_locus=True)
-                    self.remove_transcript_from_locus(tid)
+                    self.remove_transcript_from_locus(tid) 
+
+
+    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False, fasta_index=None):
+        raise NotImplementedError("Deprecated")
+#         if cds_dict is None:
+#             return
+#         for tid in self.transcripts:
+#             self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,
+#                                            minimal_secondary_orf_length=minimal_secondary_orf_length )
+#         transcript_ids=list(self.transcripts.keys())[:]
+#         assert len(transcript_ids)>0
+# 
+#         if split_chimeras is True:
+#             
+#             more_than_one_orf=[]
+#             for tid in self.transcripts:
+#                 if self.transcripts[tid].number_internal_orfs>1: more_than_one_orf.append(tid)
+#             
+#             for tid in more_than_one_orf:
+#                 new_tr=list(self.transcripts[tid].split_by_cds(json_dict=self.json_dict, transcript_fasta=fasta_index[tid]))
+#                 if len(new_tr)>1:                
+#                     for tr in new_tr:
+#                         self.add_transcript_to_locus(tr, check_in_locus=True)
+#                     self.remove_transcript_from_locus(tid)
 
     ###### Sublocus-related steps ######
                     

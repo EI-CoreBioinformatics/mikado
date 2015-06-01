@@ -1,15 +1,20 @@
 import operator
 import os.path,sys
+from sqlalchemy.engine import create_engine
+from sqlalchemy.orm.session import sessionmaker
+from loci_objects.junction import junction, Chrom
+from loci_objects.orf import orf
+from sqlalchemy.sql.expression import desc, asc
+from loci_objects.blast_utils import Query, Hit
+from _collections import defaultdict
+import itertools
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import inspect
-import tempfile
-import subprocess
-#from Bio.Blast.NCBIXML import parse as xparser
-from Bio.Blast.NCBIXML import read as xread
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 from loci_objects.GTF import gtfLine
 from loci_objects.GFF import gffLine
-from loci_objects.exceptions import *
+import loci_objects.exceptions
+from sqlalchemy import and_
 #import logging
 
 class metric(property):
@@ -295,10 +300,10 @@ class transcript:
         '''This function will append an exon/CDS feature to the object.'''
 
         if self.finalized is True:
-            raise ModificationError("You cannot add exons to a finalized transcript!")
+            raise loci_objects.exceptions.ModificationError("You cannot add exons to a finalized transcript!")
         
         if self.id not in gffLine.parent:
-            raise InvalidTranscript("""Mismatch between transcript and exon:\n
+            raise loci_objects.exceptions.InvalidTranscript("""Mismatch between transcript and exon:\n
             {0}\n
             {1}\n
             {2}
@@ -315,7 +320,7 @@ class transcript:
         elif gffLine.feature=="stop_codon":
             self.has_stop_codon = True
         else:
-            raise InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
+            raise loci_objects.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
             
         start,end=sorted([gffLine.start, gffLine.end])
         store.append((start, end) )
@@ -330,27 +335,27 @@ class transcript:
         self.introns = []
         self.splices=[]
         if len(self.exons)==0:
-            raise InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
+            raise loci_objects.exceptions.InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
 
         if len(self.exons)>1 and self.strand is None:
-            raise InvalidTranscript("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
+            raise loci_objects.exceptions.InvalidTranscript("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
 
         if self.combined_utr!=[] and self.combined_cds==[]:
-            raise InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
+            raise loci_objects.exceptions.InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
         if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
             print("Assertion error", "\n".join(
                        [str(x) for x in [self.id, self.cdna_length, self.combined_utr_length, self.combined_cds_length,self.combined_utr, self.combined_cds, self.exons]]
                        )
              )
-            raise InvalidTranscript
+            raise loci_objects.exceptions.InvalidTranscript
             
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0
         try:
             if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
-                raise InvalidTranscript("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
+                raise loci_objects.exceptions.InvalidTranscript("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
                                                                                                                                                             tstart=self.start,
                                                                                                                                                             tend=self.end,
                                                                                                                                                             id=self.id,
@@ -358,14 +363,14 @@ class transcript:
                                                                                                                                                             estart=self.exons[0][0],
                                                                                                                                                             ))
         except IndexError as err:
-            raise InvalidTranscript(err, self.id, str(self.exons))
+            raise loci_objects.exceptions.InvalidTranscript(err, self.id, str(self.exons))
 
         if len(self.exons)>1:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
                     print(exonA,exonB,self.id,self.exons)
-                    raise InvalidTranscript("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
+                    raise loci_objects.exceptions.InvalidTranscript("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
                 self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
 
@@ -419,17 +424,71 @@ class transcript:
             pass
         return
 
-    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0):
+
+    def connect_to_db(self):
         
-        '''Arguments:
-        - cds_dict        a dictionary (indexed on the TIDs) that holds BED12 information on the transcript
-        - trust_strand    for monoexonic transcripts, whether to trust the strand information or to overwrite it with the one provided by TD.
+        '''This method will connect to the database using the information contained in the JSON configuration.'''
         
+        db = self.json_dict["db"]
+        dbtype = self.json_dict["dbtype"]
+        
+        self.engine = create_engine("{dbtype}:///{db}".format(
+                                                              db=db,
+                                                              dbtype=dbtype)
+                                    )   #create_engine("sqlite:///{0}".format(args.db))
+        
+        session = sessionmaker()
+        session.configure(bind=self.engine)
+        self.session=session()
+        
+    def load_information_from_db(self, json_dict):
+        '''This method will invoke the check for:
+        junctions
+        orfs
+        blast hits (this necessarily after the ORF check).
+        '''
+        
+        self.load_json(json_dict)
+        self.connect_to_db()
+        self.load_junctions()
+        self.load_orfs()
+        self.load_blast()
+        self.session.close() # The session must be closed
+        
+    def load_json(self, json_dict):
+        self.json_dict = json_dict
+    
+    
+    def load_junctions(self):
+        
+        '''This method will look up the junctions in the database and determine which ones are supported form external data.
+        They will be stored inside the "verified_junctions" set.'''
+        
+        chrom_id=self.session.query(Chrom).filter(Chrom.name==self.chrom).one().id
+        self.verified_junctions=[]
+        junctions=self.session.query(junction.junctionStart,junction.junctionEnd).filter(and_(
+                                                junction.chrom_id==chrom_id,
+                                                junction.junctionStart>=self.start,
+                                                junction.junctionEnd<=self.end
+                                                 )
+                                                ).all()
+        for junction in junctions:
+            tup=(junction.junctionStart,junction.junctionEnd) 
+            if tup in self.introns:
+                self.verified_junctions.append(tup)
+                                              
+        self.verified_junctions=set(self.verified_junctions)
+        
+        
+    def load_orfs(self):
+        
+        '''This method will look up the ORFs loaded inside the database.
         Optional arguments:
         - minimal_secondary_orf_length:    Integer. When a transcript has multiple ORFs, ignore those which are shorter than this value.
                                            By default, it is set at 0.
+        - trust_strand:            Boolean. Used to determine whether we trust the strand in the GFF or not.
         
-        This function is used to load the various CDSs from an external dictionary, loaded from a BED file.
+        This function is used to load the various CDSs from an external database.
         It replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
         TransDecoder suite.
         The method expects as argument a dictionary containing BED entries, and indexed by the transcript name.
@@ -449,22 +508,24 @@ class transcript:
                 - if the transcript is monoexonic: invert its genomic strand
                 - if the transcript is multiexonic: skip
             - Start looking at the exons
+       
         '''
         self.finalize()
-
-        if self.id not in cds_dict:
-            return        
+        minimal_secondary_orf_length=self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
+        trust_strand = self.json_dict["orf_loading"]["trust_strand"]
+        query_id=self.session.query(Query).filter(Query.name==self.id) #recover the id
+        if query_id.count()==0: # if we do not have the information in the DB, just return
+            return
+        orf_query = self.session.query(orf).filter(orf.query_id==query_id)
+        if orf_query.count()==0: # Again, no information, return
+            return
         self.combined_utr = []
         self.combined_cds = []
         self.internal_orfs = []
         
         self.finalized = False
-        
-        #Ordering the CDSs by: presence of start/stop codons, combined_cds length
-        new_strand = None
-        
         primary_orf=True # Token to be set to False after the first CDS is exhausted
-        candidate_orfs=sorted(cds_dict[self.id], reverse=True, key=operator.attrgetter("cds_len") )
+        candidate_orfs = orf_query.order_by(desc(orf.cds_len)).all()
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
             #Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts
             candidate_orfs=list(filter(lambda orf: orf.strand!="-", candidate_orfs  ))
@@ -549,11 +610,6 @@ class transcript:
                             cds_exons.append( ("UTR", exon[0], c_start-1) )
                     current_start=current_end
         
-            #Self.internal_orfs therefore will appear like thus:
-            #[ 
-            # [ ("UTR",a,b),("CDS",c,d),...],
-            #  [ ("UTR",a',b'),("CDS",c',d'),...],
-            # ]
             self.internal_orfs.append( sorted(cds_exons, key=operator.itemgetter(1,2)   ) )
 
         if len(self.internal_orfs)==1:
@@ -614,18 +670,52 @@ class transcript:
             self.feature="mRNA"
             self.finalized=True
         return
+        
+
+    def load_blast(self, maximum_number_hits = float("Inf"), maximum_evalue=10, max_hits=float("Inf")):
+        
+        '''This function will look into the DB for hits corresponding to the desired requirements.
+        Hits will be loaded into the "blast_hits" list.
+        '''
+        
+        
+        self.blast_hits = []
+        query_id = self.session.query(Query).filter(Query.name==self.id)
+        if query_id.count()==0:
+            return
+        
+        #Retrieve all hits for the query, order by evalue         
+        blast_hits_query = self.session.query(Hit).filter(and_(Hit.query_id == query_id,
+                                                               Hit.evalue<=maximum_evalue)
+                                                          ).order_by(
+                                                                     asc(Hit.evalue)
+                                                                     )
+        if blast_hits_query.count()==0:
+            return
+        if max_hits<float("Inf"):
+            self.blast_hits = blast_hits_query.limit(max_hits).all()
+        else:
+            self.blast_hits = blast_hits_query.all()
+
+    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0):
+        '''Deprecated'''
+        raise NotImplementedError()
                         
 
-    def split_by_cds(self, json_dict=None, transcript_fasta=None):
+    def split_by_cds(self):
         '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
-        into multiple transcripts. UTR information will be retained only if no ORF is downstream.'''
+        into multiple transcripts. UTR information will be retained only if no ORF is down/upstream.
+        The minimal overlap is defined inside the JSON at the key ["chimera_split"]["minimal_hsp_overlap"]
+        - basically, we consider a HSP a hit only if the overlap is over a certain threshold and the HSP evalue under a certain threshold. 
+        '''
         self.finalize()
+        minimal_overlap=self.json_dict["chimera_split"]["minimal_hsp_overlap"]
         new_transcripts=[]
         if self.number_internal_orfs<2:
             new_transcripts=[self]
         else:
             to_split=True
-            if json_dict["chimera_split"]["blast_check"] is True:
+            if self.json_dict["chimera_split"]["blast_check"] is True:
                 
                 cds_boundaries=[]
                 for orf in self.loaded_bed12:
@@ -638,36 +728,23 @@ class transcript:
                 #This is NON-OPTIMAL as I could have a situation where I merge two loci and TD finds three ORFs
                 #Splitting one of the ORFs in two. 
                 
-                fasta=tempfile.NamedTemporaryFile("w+t", suffix=".fa", delete=True)
-                print(transcript_fasta.format("fasta"), file=fasta)
-                fasta.flush()
-                
-                blaster = "{blast} -db {database} -outfmt 5 -query {fasta} -evalue {evalue}".format(
-                                                                                                    blast=json_dict["chimera_split"]["blast"],
-                                                                                                    evalue=json_dict["chimera_split"]["evalue"],
-                                                                                                    database=json_dict["chimera_split"]["database"],
-                                                                                                    fasta=fasta.name
-                                                                                                    )
-                xmlOut=tempfile.NamedTemporaryFile(delete=True, suffix=".xml", mode="w+t")
-                subprocess.call(blaster, shell=True, stdout=xmlOut)
-                xmlOut.flush()
-                xml=xread(open(xmlOut.name))
-                for alignment in xml.alignments:
-                    start,end=float("Inf"),float("-Inf")
-                    for hsp in alignment.hsps:
-                        start=min(start,hsp.query_start)
-                        end=max(end,hsp.query_end)
-                    if start<=cds_boundaries[0][0]+1 and end>=cds_boundaries[-1][1]+1:
-                        fasta.close()
-                        xmlOut.close()
-                        new_transcripts=[self]
+                cds_hit_dict=defaultdict(set).fromkeys(cds_boundaries)
+
+                for hit in self.blast_hits:
+                    if hit.query_start<=cds_boundaries[0][0] and hit.query_end>=cds_boundaries[-1][1]:
                         to_split=False
                         break
-            
-                #Clean-up temporary files
-                fasta.close()
-                xmlOut.close()
-
+                    for hsp in filter(lambda hsp: hsp.hsp_evalue<=self.json_dict["chimera_split"]["maximal_hsp_evalue"],  hit.hsps):
+                        for cds_run in cds_boundaries:
+                            if abstractlocus.overlap(cds_run, (hsp.query_hsp_start,hsp.query_hsp_end))>=minimal_overlap*(cds_run[1]+1-cds_run[0]):
+                                cds_hit_dict[cds_run].add(hit.target)
+                if to_split is True:
+                    # Check whether there exists at least one couple of ORFs for which we have at least one target in common.
+                    # If this eventuality verifies, the transcript should not be broken up.
+                    to_split = not any(list(itertools.starmap(
+                                                          lambda x,y: set.intersection(x,y)!=set(),
+                                                          itertools.combinations(cds_hit_dict.values(), 2)
+                                                          )))
             if to_split is True:
                 orf_boundaries = []
                 for orf in self.internal_orfs:
@@ -703,7 +780,7 @@ class transcript:
                     left_orfs = list(filter(lambda x: x[1]<=my_boundaries[0], other_orfs)) # ORFs on the left of my chosen ORF 
                     right_orfs = list(filter(lambda x: x[0]>=my_boundaries[1], other_orfs)) # ORFs on the right of my chosen ORF
                     if len(left_orfs)==0 and len(right_orfs)==0:
-                        raise InvalidTranscript("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
+                        raise loci_objects.exceptions.InvalidTranscript("I have not found any ORFs at my sides - this should not be possible!\n{0}\n{1}\n{2}".format(self.id, orf_boundaries, my_boundaries))
                     elif len(left_orfs)>0 and len(right_orfs)>0:
                         my_exons.extend(partials)
                         partials=[]

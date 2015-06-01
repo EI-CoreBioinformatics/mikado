@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 #coding: utf_8
 
-import io
+import io,os
 
-__all__=["abstractlocus", "bed12", "GFF", "GTF", "locus", "monosublocus", "monosublocus_holder", "sublocus", "superlocus", "transcript", ]
+__all__=list(filter(lambda x: x.endswith(".py"), os.listdir(path='.')))
 
-class HeaderError(Exception): pass
+class HeaderError(Exception):
+    pass
 
 class Parser(object):
     '''Generic parser iterator. Base parser class.'''

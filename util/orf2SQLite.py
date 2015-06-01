@@ -4,7 +4,7 @@ from loci_objects import orf
 from Bio import SeqIO
 
 def main():
-    parser=argparse.ArgumentParser()
+    parser=argparse.ArgumentParser("Simple script to serialise ORF BED files into the SQLite DB.")
     parser.add_argument("--fasta", default=None)
     parser.add_argument("bed12")
     parser.add_argument("db")

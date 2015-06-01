@@ -11,15 +11,9 @@ rule decompress:
      output: DBs
      shell: "gunzip {input}"
 
-rule compress:
-     input:  DBs
-     output: zipDBs
-     shell: "gzip {input}"
-
 rule clean:
-     input: DBs
      output: zipDBs
-     shell: "rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*; gzip {input}"
+     shell: "rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*; gzip {DBs}"
 
 rule mock:
      input: DBs, cds="mock.bed", gff="mock.gff3"

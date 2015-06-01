@@ -22,6 +22,7 @@ class orf(dbBase):
     score=Column(Float)
     has_start_codon=Column(Boolean, nullable=True)
     has_stop_codon=Column(Boolean, nullable=True)
+    cds_len = Column(Integer)
     
     __table_args__ = ( Index("index", "query_id", "thickStart", "thickEnd"  ), )
     
@@ -40,6 +41,7 @@ class orf(dbBase):
         self.score = bed12_object.score
         self.has_start_codon= bed12_object.has_start_codon
         self.has_stop_codon= bed12_object.has_stop_codon
+        self.cds_len = bed12_object.cds_len
                 
     def __str__(self):
         return "{chrom}\t{start}\t{end}".format(
@@ -57,7 +59,7 @@ class orfSerializer:
         
     def __init__(self, handle, db, fasta_index=None, dbtype="sqlite"):
         
-        self.BED12 = bed12.bed12Parser(handle, fasta_index=fasta_index)
+        self.BED12 = bed12.bed12Parser(handle, fasta_index=fasta_index, transcriptomic=True)
         self.engine=create_engine("{dbtype}:///{db}".format(dbtype=dbtype,
                                                        db=db))
         session=sessionmaker()
@@ -69,9 +71,9 @@ class orfSerializer:
         for row in self.BED12:
             if row.header is True:
                 continue
-            current_query = self.session.query(Query).filter(Query.name==row.chrom).all()
+            current_query = self.session.query(Query).filter(Query.name==row.id).all()
             if len(current_query) == 0:
-                current_query=Query(row.chrom, None)
+                current_query=Query(row.id, None)
                 self.session.add(current_query)
                 self.session.commit()
             else:

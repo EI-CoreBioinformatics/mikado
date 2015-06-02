@@ -18,7 +18,10 @@ def main():
     print()
 
     for metric in ["tid", "parent", "score"]+sorted(filter(lambda x: x not in ("tid", "parent", "score", metrics), metrics)):
-            print( "- *{0}*:".format(metric), re.sub(" +", " ", re.sub("\n", " ", getattr(transcript,metric).__doc__ )), sep="\t")
+        docstring=getattr(transcript,metric).__doc__ 
+        if docstring is None:
+            docstring=''
+        print( "- *{0}*:".format(metric), re.sub(" +", " ", re.sub("\n", " ", docstring)), sep="\t")
        
     print() 
 

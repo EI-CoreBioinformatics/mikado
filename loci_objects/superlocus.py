@@ -210,9 +210,9 @@ class superlocus(abstractlocus):
                                                               dbtype=dbtype)
                                     )   #create_engine("sqlite:///{0}".format(args.db))
         
-        session = sessionmaker()
-        session.configure(bind=self.engine)
-        self.session=session()
+        self.sessionmaker = sessionmaker()
+        self.sessionmaker.configure(bind=self.engine)
+        self.session=self.sessionmaker()
 
     def load_transcript_data(self):
         
@@ -235,7 +235,7 @@ class superlocus(abstractlocus):
                 self.locus_verified_introns.append(intron)
         
         for tid in self.transcripts:
-            self.transcripts[tid].load_transcript_data(self.json_dict, introns=self.locus_verified_introns)
+            self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns)
 
         assert len(self.transcripts.keys())>0 #Why was I checking this?
         
@@ -247,6 +247,8 @@ class superlocus(abstractlocus):
                     for tr in new_tr:
                         self.add_transcript_to_locus(tr, check_in_locus=True)
                     self.remove_transcript_from_locus(tid) 
+
+        self.session.close()
 
 
     def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False, fasta_index=None):
@@ -321,8 +323,6 @@ class superlocus(abstractlocus):
         candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
-#         graph, cliques = self.find_cliques(candidates, inters=self.is_intersecting)
-#         subloci = self.merge_cliques(graph, cliques)
         subloci = self.find_communities(candidates, inters=self.is_intersecting)
 
         #Now we should define each sublocus and store it in a permanent structure of the class

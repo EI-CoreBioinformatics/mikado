@@ -6,7 +6,7 @@ from loci_objects import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from loci_objects.dbutils import dbBase
+from loci_objects.dbutils import dbBase,Inspector
 
 class Chrom(dbBase):
     
@@ -34,7 +34,7 @@ class junction(dbBase):
     junctionStart=Column(Integer, nullable=False)
     junctionEnd=Column(Integer, nullable=False)
     score=Column(Float)
-    __table_args__ = ( Index("index", "chrom_id", "junctionStart", "junctionEnd"  ), )
+    __table_args__ = ( Index("junction_index", "chrom_id", "junctionStart", "junctionEnd"  ), )
     
     chrom_object= relationship(Chrom, uselist=False, backref=backref("junctions"), lazy="joined")
     
@@ -71,7 +71,10 @@ class junctionSerializer:
                                                        db=db))
         session=sessionmaker()
         session.configure(bind=self.engine)
-        dbBase.metadata.create_all(self.engine) #@UndefinedVariable
+        inspector=Inspector.from_engine(self.engine)
+        if not junction.__tablename__ in inspector.get_table_names():
+            dbBase.metadata.create_all(self.engine) #@UndefinedVariable
+        
         self.session=session()
         if fai is not None:
             if type(fai) is str:

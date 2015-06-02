@@ -46,6 +46,7 @@ class sublocus(abstractlocus):
         if json_dict is None or type(json_dict) is not dict:
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
         self.json_dict = json_dict
+        self.locus_verified_introns=set()
         
         #This part is necessary to import modules
         if "modules" in self.json_dict:
@@ -81,7 +82,7 @@ class sublocus(abstractlocus):
         
         return "\n".join(lines)
 
-    
+
     ########### Class instance methods #####################
     
     def add_transcript_to_locus(self, transcript_instance):
@@ -103,19 +104,20 @@ class sublocus(abstractlocus):
                                                                                                            transcript))
 
         super().add_transcript_to_locus(transcript_instance)
+        #add the verified introns from the outside
         
+        self.locus_verified_introns = set.union(self.locus_verified_introns, transcript_instance.verified_introns)
+
         #Update the id
 
     def define_monosubloci(self, purge=False, excluded=None):
         '''This function retrieves the best non-overlapping transcripts inside the sublocus, according to the score
         calculated by calculate_scores (explicitly called inside the method).
         The "excluded" keyword must contain either None or a monosublocus_holder object. It is used to contain
-        transcripts that must be excluded from the locus due to unmet requirements. 
+        transcripts that must self.blast_hits = []be excluded from the locus due to unmet requirements. 
         '''
         
         self.monosubloci=[]
-#         if type(excluded) is not excluded_locus or excluded is not None:
-#             raise TypeError("Unmanageable type for the container of excluded transcripts! Type: {0}".format(type(excluded)))
         self.excluded = excluded
         self.calculate_scores()
 
@@ -128,28 +130,7 @@ class sublocus(abstractlocus):
             else:
                 new_locus = monosublocus(selected_transcript)
                 self.monosubloci.append(new_locus)
-             
-#         for msbl in monosubloci:
-#             selected_tid = 
-#         
-#         while len(remaining)>0:
-#             selected_tid=self.choose_best(remaining.copy())
-#             assert self.transcripts[selected_tid].score==max([remaining[tid].score for tid in  remaining])
-#             selected_transcript = remaining[selected_tid]
-#             new_remaining = remaining.copy()
-#             del new_remaining[selected_tid]
-#             for tid in filter(lambda t: t!=selected_tid, remaining.keys()):
-#                 res=self.is_intersecting(selected_transcript, new_remaining[tid])
-#                 if res is True:
-#                     del new_remaining[tid]
-#             if selected_transcript.score==0 and purge is True:
-#                 pass
-#             else:
-#                 new_locus = monosublocus(selected_transcript)
-#                 self.monosubloci.append(new_locus)
-#             remaining=new_remaining.copy()
-#             if len(remaining)==0: break
-            
+
         self.splitted=True
         return
     
@@ -181,6 +162,10 @@ class sublocus(abstractlocus):
             
         self.find_retained_introns(transcript_instance)
         transcript_instance.retained_fraction=sum(e[1]-e[0]+1 for e in transcript_instance.retained_introns)/transcript_instance.cdna_length
+        if len(self.locus_verified_introns)>0:
+            transcript_instance.proportion_verified_introns_inlocus =  len(set.intersection(transcript_instance.verified_introns, self.locus_verified_introns))/len(self.locus_verified_introns)
+        else:
+            transcript_instance.proportion_verified_introns_inlocus = 0
         self.transcripts[tid]=transcript_instance
         
     def find_retained_introns(self, transcript_instance):
@@ -274,11 +259,11 @@ class sublocus(abstractlocus):
         self.scores=dict()
         for tid in self.transcripts:
             self.scores[tid]=dict()
-        for param in self.json_dict["parameters"]:
-            rescaling = self.json_dict["parameters"][param]["rescaling"]
+        for param in self.json_dict["scoring"]:
+            rescaling = self.json_dict["scoring"][param]["rescaling"]
             metrics = [getattr( self.transcripts[tid], param  ) for tid in self.transcripts]
             if rescaling=="target":
-                target = self.json_dict["parameters"][param]["value"]
+                target = self.json_dict["scoring"][param]["value"]
                 denominator = max( abs( x-target ) for x in metrics)
             else:
                 denominator=(max(metrics)-min(metrics))
@@ -287,19 +272,18 @@ class sublocus(abstractlocus):
             for tid in self.transcripts:
                 tid_metric = getattr( self.transcripts[tid], param  )
                 check=True
-                if "filter" in self.json_dict["parameters"][param]:
-                    check=self.evaluate( tid_metric, self.json_dict["parameters"][param]["filter"])
+                if "filter" in self.json_dict["scoring"][param]:
+                    check=self.evaluate( tid_metric, self.json_dict["scoring"][param]["filter"])
                 if check is False:
                     score=0
                 else:
                     if rescaling == "max":
-                    ##scoreAM = (rAM - min(rM))/(max(rM)-min(rM)) 
                         score = abs( ( tid_metric - min(metrics) ) / denominator )
                     elif rescaling=="min":
                         score = abs( 1- ( tid_metric - min(metrics) ) / denominator )
                     elif rescaling == "target":
                         score = 1 - abs( tid_metric  - target )/denominator
-                score*=self.json_dict["parameters"][param]["multiplier"]
+                score*=self.json_dict["scoring"][param]["multiplier"]
                 self.scores[tid][param]=score
                 
         for tid in self.transcripts:
@@ -340,7 +324,7 @@ class sublocus(abstractlocus):
     def print_scores(self):
         '''This method yields dictionary rows that are given to a csv.DictWriter class.'''
         self.calculate_scores()
-        score_keys=sorted(list(self.json_dict["parameters"].keys()))
+        score_keys=sorted(list(self.json_dict["scoring"].keys()))
         keys = ["tid","parent","score"]+score_keys
         
         for tid in self.scores:

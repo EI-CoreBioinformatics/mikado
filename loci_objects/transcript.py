@@ -3,11 +3,12 @@ import os.path,sys
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from loci_objects.junction import junction, Chrom
-from loci_objects.orf import orf
+import loci_objects.orf
 from sqlalchemy.sql.expression import desc, asc
 from loci_objects.blast_utils import Query, Hit
-from _collections import defaultdict
+#from _collections import defaultdict
 import itertools
+import pickle
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import inspect
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
@@ -61,7 +62,7 @@ class transcript:
         self.selected_internal_orf_index = None
         self.has_start_codon, self.has_stop_codon = False,False
         self.non_overlapping_cds = None
-        self.verified_introns=[]
+        self.verified_introns=set()
         
         if len(args)==0:
             return
@@ -294,6 +295,25 @@ class transcript:
     def __ge__(self, other):
         return (self==other) or (self>other) 
         
+    def __getstate__(self):
+        state=self.__dict__.copy()
+        if hasattr(self, "json_dict"):
+            if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
+                del state["json_dict"]["requirements"]["compiled"]
+
+        if hasattr(self, "session"):
+            state["session"].close()
+            del state["session"]
+            del state["sessionmaker"]
+            del state["engine"]
+        if hasattr(self,"blast_hits"):
+            state["blast_hits"]=[]
+
+        return state
+
+    def __setstate__(self,state):
+        self.__dict__.update(state)
+        
     ######### Class instance methods ####################
 
 
@@ -438,9 +458,9 @@ class transcript:
                                                               dbtype=dbtype)
                                     )   #create_engine("sqlite:///{0}".format(args.db))
         
-        session = sessionmaker()
-        session.configure(bind=self.engine)
-        self.session=session()
+        self.sessionmaker = sessionmaker()
+        self.sessionmaker.configure(bind=self.engine)
+        self.session=self.sessionmaker()
         
     def load_information_from_db(self, json_dict, introns=None):
         '''This method will invoke the check for:
@@ -456,13 +476,12 @@ class transcript:
         self.load_verified_introns(introns)
         self.load_orfs()
         self.load_blast()
-        self.session.close() # The session must be closed
         
     def load_json(self, json_dict):
         self.json_dict = json_dict
     
     
-    def load_junctions(self, introns=None):
+    def load_verified_introns(self, introns=None):
         
         '''This method will load verified junctions from the external (usually the superlocus class).'''
         
@@ -477,12 +496,12 @@ class transcript:
                                                             junction.strand==self.strand
                                                            )
                                                       ).count()==1:
-                    self.verified_introns.append(intron)
+                    self.verified_introns.add(intron)
                     
         else:
             for intron in introns:
                 if intron in self.introns:
-                    self.verified_introns.append(intron)
+                    self.verified_introns.add(intron)
         
         return       
         
@@ -519,11 +538,12 @@ class transcript:
         '''
         self.finalize()
         minimal_secondary_orf_length=self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
-        trust_strand = self.json_dict["orf_loading"]["trust_strand"]
+        trust_strand = self.json_dict["orf_loading"]["strand_specific"]
         query_id=self.session.query(Query).filter(Query.name==self.id) #recover the id
         if query_id.count()==0: # if we do not have the information in the DB, just return
             return
-        orf_query = self.session.query(orf).filter(orf.query_id==query_id)
+        query_id=query_id.one().id
+        orf_query = self.session.query(loci_objects.orf.orf).filter(loci_objects.orf.orf.query_id==query_id)
         if orf_query.count()==0: # Again, no information, return
             return
         self.combined_utr = []
@@ -532,7 +552,7 @@ class transcript:
         
         self.finalized = False
         primary_orf=True # Token to be set to False after the first CDS is exhausted
-        candidate_orfs = orf_query.order_by(desc(orf.cds_len)).all()
+        candidate_orfs = orf_query.order_by(desc(loci_objects.orf.orf.cds_len)).all()
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
             #Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts
             candidate_orfs=list(filter(lambda orf: orf.strand!="-", candidate_orfs  ))
@@ -679,18 +699,23 @@ class transcript:
         return
         
 
-    def load_blast(self, maximum_number_hits = float("Inf"), maximum_evalue=10, max_hits=float("Inf")):
+    def load_blast(self):
         
         '''This function will look into the DB for hits corresponding to the desired requirements.
         Hits will be loaded into the "blast_hits" list.
         '''
         
-        
         self.blast_hits = []
-        query_id = self.session.query(Query).filter(Query.name==self.id)
-        if query_id.count()==0:
+        if self.json_dict["chimera_split"]["blast_check"] is False:
             return
         
+        max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"]
+        maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
+        
+        query_id = self.session.query(Query.id).filter(Query.name==self.id)
+        if query_id.count()==0:
+            return
+        query_id = query_id.one().id
         #Retrieve all hits for the query, order by evalue         
         blast_hits_query = self.session.query(Hit).filter(and_(Hit.query_id == query_id,
                                                                Hit.evalue<=maximum_evalue)
@@ -699,8 +724,8 @@ class transcript:
                                                                      )
         if blast_hits_query.count()==0:
             return
-        if max_hits<float("Inf"):
-            self.blast_hits = blast_hits_query.limit(max_hits).all()
+        if max_target_seqs!=None:
+            self.blast_hits = blast_hits_query.limit(max_target_seqs).all()
         else:
             self.blast_hits = blast_hits_query.all()
 
@@ -712,11 +737,11 @@ class transcript:
     def split_by_cds(self):
         '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
         into multiple transcripts. UTR information will be retained only if no ORF is down/upstream.
-        The minimal overlap is defined inside the JSON at the key ["chimera_split"]["minimal_hsp_overlap"]
+        The minimal overlap is defined inside the JSON at the key ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
         - basically, we consider a HSP a hit only if the overlap is over a certain threshold and the HSP evalue under a certain threshold. 
         '''
         self.finalize()
-        minimal_overlap=self.json_dict["chimera_split"]["minimal_hsp_overlap"]
+        minimal_overlap=self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
         new_transcripts=[]
         if self.number_internal_orfs<2:
             new_transcripts=[self]
@@ -735,13 +760,15 @@ class transcript:
                 #This is NON-OPTIMAL as I could have a situation where I merge two loci and TD finds three ORFs
                 #Splitting one of the ORFs in two. 
                 
-                cds_hit_dict=defaultdict(set).fromkeys(cds_boundaries)
+                cds_hit_dict=dict().fromkeys(cds_boundaries)
+                for key in cds_hit_dict:
+                    cds_hit_dict[key]=set()
 
                 for hit in self.blast_hits:
                     if hit.query_start<=cds_boundaries[0][0] and hit.query_end>=cds_boundaries[-1][1]:
                         to_split=False
                         break
-                    for hsp in filter(lambda hsp: hsp.hsp_evalue<=self.json_dict["chimera_split"]["maximal_hsp_evalue"],  hit.hsps):
+                    for hsp in filter(lambda hsp: hsp.hsp_evalue<=self.json_dict["chimera_split"]["blast_params"]["hsp_evalue"],  hit.hsps):
                         for cds_run in cds_boundaries:
                             if abstractlocus.overlap(cds_run, (hsp.query_hsp_start,hsp.query_hsp_end))>=minimal_overlap*(cds_run[1]+1-cds_run[0]):
                                 cds_hit_dict[cds_run].add(hit.target)
@@ -750,14 +777,15 @@ class transcript:
                     # If this eventuality verifies, the transcript should not be broken up.
                     to_split = not any(list(itertools.starmap(
                                                           lambda x,y: set.intersection(x,y)!=set(),
-                                                          itertools.combinations(cds_hit_dict.values(), 2)
+                                                          itertools.combinations(filter(lambda z: z is not None, cds_hit_dict.values()), 2)
                                                           )))
-            if to_split is True:
+            if to_split is False:
+                new_transcripts=[self]
+            else:
                 orf_boundaries = []
                 for orf in self.internal_orfs:
                     cds = sorted(list(filter(lambda x: x[0]=="CDS", orf)), key=operator.itemgetter(1,2))
                     orf_boundaries.append((cds[0][1],cds[-1][2]))
-                
                 counter=0
                 zipper=list(zip(self.internal_orfs, self.loaded_bed12))
                 
@@ -851,7 +879,8 @@ class transcript:
                     new_transcript.end = my_exons[-1][1]
                     new_transcript.finalize()
                     new_transcripts.append(new_transcript)
-        assert len(new_transcripts)>0
+
+        assert len(new_transcripts)>0, str(self)
         for nt in new_transcripts:
             yield nt
       
@@ -1558,6 +1587,8 @@ class transcript:
     
     @metric
     def proportion_verified_introns(self):
+        '''This metric returns, as a fraction, how many of the transcript introns
+        are validated by external data.'''
         if self.monoexonic is True:
             return 0
         else:
@@ -1565,7 +1596,7 @@ class transcript:
         
     @metric
     def proportion_verified_introns_inlocus(self):
-        '''This metric returns, as a fraction, how many of verified introns in the locus
+        '''This metric returns, as a fraction, how many of the verified introns inside the locus
         are contained inside the transcript.'''
         return self.__proportion_verified_introns_inlocus
     

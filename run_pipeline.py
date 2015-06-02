@@ -5,6 +5,7 @@
 import argparse,re
 import multiprocessing
 import csv
+import pickle
 
 try:
     from Bio import SeqIO
@@ -17,10 +18,10 @@ from loci_objects.sublocus import sublocus
 from loci_objects.transcript import transcript
 from loci_objects.GFF import GFF3
 from loci_objects.GTF import GTF
-from loci_objects.bed12 import bed12Parser
-from loci_objects.abstractlocus import abstractlocus 
+# from loci_objects.bed12 import bed12Parser
+# from loci_objects.abstractlocus import abstractlocus 
 
-def analyse_locus( slocus, args, queue, cds_dict=None, lock=None ):
+def analyse_locus( slocus, args, queue, lock=None ):
 
     '''This function takes as input a "superlocus" instance and the pipeline configuration.
     It also accepts as optional keywords a dictionary with the CDS information (derived from a bed12Parser)
@@ -30,9 +31,7 @@ def analyse_locus( slocus, args, queue, cds_dict=None, lock=None ):
     '''
 
     #Load the CDS information
-    slocus.load_cds(cds_dict, trust_strand = args.strand_specific,
-                    minimal_secondary_orf_length=args.minimal_secondary_orf_length,
-                    split_chimeras=args.split_chimeras, fasta_index = args.transcript_fasta )
+    slocus.load_transcript_data()
     #Split the superlocus in the stranded components
     stranded_loci = sorted(list(slocus.split_strands()))
     #Define the loci
@@ -106,13 +105,7 @@ def main():
     parser.add_argument('-x',  "--remove_overlapping_fragments", action="store_true",
                         default=False, help="""Flag. If set, the program will remove monoexonic loci
                         overlapping non-monoexonic loci on the opposite strand.""")
-    parser.add_argument("-sc", "--split-chimeras", dest="split_chimeras", default=False,
-                        action="store_true", help="""Flag. If set, transcripts with multiple ORFs will be split into separate transcripts,
-                        trying to retain as much UTR as possible.""" )
     parser.add_argument("--json_conf", type=argparse.FileType("r"), required=True, help="JSON configuration file for scoring transcripts.")
-    parser.add_argument("--minimal_secondary_orf_length", type=int, default=200,
-                        help="Any secondary ORF shorter than this value will be ignored. Useful to avoid legitimate cases of ORFs in the UTR. Default: %(default)s.")
-    parser.add_argument("--strand_specific", action="store_true", default=False)
     parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--mono_out", type=argparse.FileType("w"), required=True)
     parser.add_argument("--locus_out", type=argparse.FileType("w"), required=True)
@@ -123,22 +116,12 @@ def main():
     parser.add_argument('--purge', action='store_true', default=False,
                         help='Flag. If set, the pipeline will suppress any loci whose transcripts do not pass the requirements set in the JSON file.'
                         )
-    parser.add_argument("--cds", type=argparse.FileType("r"), default=None)
-    parser.add_argument("--transcript_fasta", type=to_index, default=None)
     parser.add_argument("gff", type=argparse.FileType("r"))
     
     args=parser.parse_args()
 
     args.json_conf = to_json(args.json_conf.name)
-    if args.json_conf["chimera_split"]["blast_check"] is True and args.transcript_fasta is None:
-        print("No FASTA, blast check disabled")
-        args.json_conf["chimera_split"]["blast_check"]=False
     
-#     check_json(args.json_conf)
-    if ("requirements" in args.json_conf and "compiled" in args.json_conf["requirements"]) or ("compiled" in args.json_conf):
-        raise KeyError("Why is compiled here again?")
-    
-            
     currentLocus=None
     currentTranscript=None
     currentChrom=None
@@ -161,7 +144,7 @@ def main():
     args.locus_metrics = re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", args.locus_out  ))
     args.locus_scores = re.sub("$",".scores.tsv",  re.sub(".gff3$", "", args.locus_out  ))
     
-    args.score_keys = ["tid","parent","score"] + sorted(list(args.json_conf["parameters"].keys()))
+    args.score_keys = ["tid","parent","score"] + sorted(list(args.json_conf["scoring"].keys()))
     
     #Prepare output files
     with open(args.sub_metrics, "w") as out_file:
@@ -177,33 +160,6 @@ def main():
         csv_out=csv.DictWriter( out_file, args.score_keys, delimiter="\t" )
         csv_out.writeheader()
         
-    cds_dict=None
-    #Load the CDS information from the bed12Parser, if one is available
-    if args.cds is not None:
-        cds_dict = dict()
-        
-        for line in bed12Parser(args.cds, fasta_index=args.transcript_fasta):
-            if line.header is True: continue
-            if line.chrom not in cds_dict:
-                cds_dict[line.chrom]=[]
-            to_append = True
-            indices_to_remove = []
-            for index in range(len(cds_dict[line.chrom])):
-                entry=cds_dict[line.chrom][index]
-                overl=abstractlocus.overlap( (entry.thickStart,entry.thickEnd), (line.thickStart,line.thickEnd) )
-                if overl==entry.cds_len:
-                    indices_to_remove.append(index)
-                elif overl==line.cds_len:
-                    to_append=False
-                    break
-            if to_append is True:
-                for index in indices_to_remove:
-                    del cds_dict[line.chrom][index]
-                cds_dict[line.chrom].append(line)
-
-    if args.cds is not None:
-        args.cds.close()    
-        args.cds=args.cds.name
     args.gff.close()
     args.gff=args.gff.name
 #     args.transcript_fasta = None
@@ -233,10 +189,9 @@ def main():
                 else:
                     if currentLocus is not None:
                         if first is True:
-                            analyse_locus(currentLocus, args, queue, cds_dict=cds_dict)
+                            analyse_locus(currentLocus, args, queue)
                         else:
-                            pool.apply_async(analyse_locus, args=(currentLocus, args, queue), kwds={"cds_dict": cds_dict,
-                                                                                             "lock": lock})
+                            pool.apply_async(analyse_locus, args=(currentLocus, args, queue), kwds={"lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False,
                                                 json_dict = args.json_conf,
                                                 purge=args.purge)
@@ -253,11 +208,11 @@ def main():
                     currentLocus.add_transcript_to_locus(currentTranscript)
                 else:
                     if first is True:
-                        analyse_locus(currentLocus, args, queue, cds_dict=cds_dict, lock=lock)
+                        analyse_locus(currentLocus, args, queue, lock=lock)
                     else:
                         pool.apply_async(analyse_locus,
                                          args=(currentLocus, args, queue),
-                                         kwds={"cds_dict": cds_dict,"lock": lock})
+                                         kwds={"lock": lock})
                     currentLocus=superlocus(currentTranscript, stranded=False,
                                             json_dict = args.json_conf,
                                             purge=args.purge)
@@ -279,13 +234,13 @@ def main():
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
                 pool.apply_async(analyse_locus, args=(currentLocus, args, queue),
-                                kwds={"cds_dict": cds_dict, "lock": lock})
+                                kwds={"lock": lock})
                 currentLocus=superlocus(currentTranscript,
                                         stranded=False, json_dict = args.json_conf,
                                         purge=args.purge)
         pool.apply_async(analyse_locus, 
                          args=(currentLocus, args, queue),
-                         kwds={"cds_dict": cds_dict, "lock": lock})
+                         kwds={"lock": lock})
         
     pool.close()
     pool.join()

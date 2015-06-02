@@ -28,7 +28,9 @@ class monosublocus_holder(sublocus,abstractlocus):
         self.purge = purge
         self.scores_calculated=False
         #Add the transcript to the locus
+        self.locus_verified_introns=set()
         self.add_monosublocus(monosublocus_instance)
+        
 
     def add_transcript_to_locus(self, transcript_instance, check_in_locus = True):
         '''Override of the sublocus method, and reversal to the original method in the abstractlocus class.
@@ -40,6 +42,7 @@ class monosublocus_holder(sublocus,abstractlocus):
 #                 raise NotInLocusError()
 #         
         abstractlocus.add_transcript_to_locus(self, transcript_instance, check_in_locus=True)
+        self.locus_verified_introns = set.union(self.locus_verified_introns, transcript_instance.verified_introns)
             
     def add_monosublocus(self, monosublocus_instance):
         '''Wrapper to extract the transcript from the monosubloci and pass it to the constructor.'''

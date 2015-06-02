@@ -9,7 +9,7 @@ from loci_objects import Parser
  
 class BED12:
     
-    def __init__(self, line, fasta_index = None, transcriptomic=True):
+    def __init__(self, line, fasta_index = None, transcriptomic=False):
         if type(line) is str:
             if line[0]=="#":
                 self.header=True
@@ -134,9 +134,10 @@ class bed12Parser(Parser):
 
     '''Parser class for a bed12Parser file. It accepts optionally a fasta index which is used to determine whether an ORF has start/stop codons.'''
     
-    def __init__(self,handle, fasta_index=None):
+    def __init__(self,handle, fasta_index=None, transcriptomic=False):
         
         super().__init__(handle)
+        self.transcriptomic=transcriptomic
 
         if type(fasta_index) is dict:
                 #check that this is a bona fide dictionary ...
@@ -153,5 +154,5 @@ class bed12Parser(Parser):
     def __next__(self):
         line=self._handle.readline()
         if line=='': raise StopIteration
-        return BED12(line, fasta_index=self.fasta_index)
+        return BED12(line, fasta_index=self.fasta_index, transcriptomic=self.transcriptomic)
     

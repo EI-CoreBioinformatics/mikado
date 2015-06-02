@@ -5,7 +5,7 @@ from loci_objects import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from loci_objects.dbutils import dbBase
+from loci_objects.dbutils import dbBase,Inspector
 from loci_objects.blast_utils import Query
 
 class orf(dbBase):
@@ -24,7 +24,7 @@ class orf(dbBase):
     has_stop_codon=Column(Boolean, nullable=True)
     cds_len = Column(Integer)
     
-    __table_args__ = ( Index("index", "query_id", "thickStart", "thickEnd"  ), )
+    __table_args__ = ( Index("orf_index", "query_id", "thickStart", "thickEnd"  ), )
     
     query_object= relationship(Query, uselist=False, backref=backref("orfs"), lazy="joined")
     
@@ -64,7 +64,10 @@ class orfSerializer:
                                                        db=db))
         session=sessionmaker()
         session.configure(bind=self.engine)
-        dbBase.metadata.create_all(self.engine) #@UndefinedVariable
+        
+        inspector=Inspector.from_engine(self.engine)
+        if not orf.__tablename__ in inspector.get_table_names():
+            dbBase.metadata.create_all(self.engine) #@UndefinedVariable
         self.session=session()
         
     def serialize(self):

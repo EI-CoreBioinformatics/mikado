@@ -39,12 +39,13 @@ class abstractlocus(metaclass=abc.ABCMeta):
         pass
     
     def __repr__(self):
+        
         return "\t".join([self.__name__,
                           self.chrom,
-                          self.start,
-                          self.end,
+                          str(self.start),
+                          str(self.end),
                           self.strand,
-                          ",".join([t.id for t in self.transcripts]) if len(self.transcripts)>0 else "NA" ])
+                          ",".join(list( self.transcripts.keys())) if len(self.transcripts)>0 else "NA" ])
     
     def __eq__(self, other):
         if type(self)!=type(other):
@@ -83,18 +84,25 @@ class abstractlocus(metaclass=abc.ABCMeta):
         return (self==other) or (self>other)         
     
     def __getstate__(self):
-        '''Method to allow serialization - we remove the byte-compiled eval expression.'''
+        '''Method to allow serialisation - we remove the byte-compiled eval expression.'''
         
         state = self.__dict__.copy()
         if hasattr(self, "json_dict"):
             if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
                 del state["json_dict"]["requirements"]["compiled"]
 
+        if hasattr(self, "session"):
+            del state["sessionmaker"]
+            del state["session"]
+
+        if hasattr(self, "engine"):
+            del state["engine"]
+
         return state
         #super.__getstate__()
         
     def __setstate__(self, state):
-        '''Method to recreate the object after serialization.'''
+        '''Method to recreate the object after serialisation.'''
         self.__dict__.update(state)
         if hasattr(self, "json_dict"):
             if "requirements" in self.json_dict and "expression" in self.json_dict["requirements"]:

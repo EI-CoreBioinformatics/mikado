@@ -144,7 +144,7 @@
 		"minimal_secondary_orf_length": 200
 	},
 	"blast":{
-		"execute":false,
+		"execute":true,
 		"program":"blastx",
 		"database":"uniprot_sprot_plants.fasta",
 		"evalue":1,

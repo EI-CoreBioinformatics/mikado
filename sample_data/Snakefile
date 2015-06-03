@@ -1,5 +1,5 @@
 import os,sys
-sys.path.append("/usr/users/ga002/venturil/workspace/locus_pipeline")
+sys.path.append(os.path.join(os.environ["HOME"],"software/locus_pipeline"))
 import loci_objects.json_utils
 
 swissprot = "uniprot_sprot_plants.fasta"

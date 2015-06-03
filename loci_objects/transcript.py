@@ -9,6 +9,7 @@ from loci_objects.blast_utils import Query, Hit
 #from _collections import defaultdict
 from collections import OrderedDict
 from loci_objects.orf import orf
+from loci_objects import bed12
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import inspect
 from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
@@ -516,7 +517,7 @@ class transcript:
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
         query_id=self.session.query(Query).filter(Query.name==self.id) #recover the id
         if query_id.count()==0: # if we do not have the information in the DB, just return
-            return
+            return []
         query_id=query_id.one().id
         orf_query = self.session.query(loci_objects.orf.orf).filter(loci_objects.orf.orf.query_id==query_id)
         if orf_query.count()==0: # Again, no information, return
@@ -565,6 +566,8 @@ class transcript:
         '''
         
         self.finalize()
+        if len(candidate_orfs)==0:
+            return
         self.combined_utr = []
         self.combined_cds = []
         self.internal_orfs = []
@@ -781,7 +784,7 @@ class transcript:
                         if cds_hits == set() and old_hits==set():
                             new_boundaries.append([cds_boundary])
                         elif cds_hits == set() or old_hits==set():
-                            if self.json_dict["chimera_split"]["lenient"] is False:
+                            if self.json_dict["chimera_split"]["blast_params"]["lenient"] is False:
                                 new_boundaries.append([cds_boundary])
                             else:
                                 new_boundaries[-1].append(cds_boundary)
@@ -794,12 +797,14 @@ class transcript:
                 final_boundaries=OrderedDict()
                 for boundary in new_boundaries:
                     if len(boundary)==1:
-                        final_boundaries[boundary]=[cds_boundaries[boundary]]
+                        assert len(boundary[0])==2
+                        boundary=boundary[0]
+                        final_boundaries[boundary]=cds_boundaries[boundary]
                     else:
                         nb = (boundary[0][0],boundary[-1][1])
                         final_boundaries[nb] = []
                         for boun in boundary:
-                            final_boundaries[nb].append(cds_boundaries[boun])
+                            final_boundaries[nb].extend(cds_boundaries[boun])
                             
                 cds_boundaries=final_boundaries.copy()
                     
@@ -809,56 +814,65 @@ class transcript:
                 for counter,(boundary, bed12_objects) in enumerate(cds_boundaries.items()):
                     #I *know* that I am moving left to right 
                     new_transcript=self.__class__()
+                    new_transcript.feature="mRNA"
                     for attribute in ["chrom", "source", "score","strand", "attributes" ]:
                         setattr(new_transcript,attribute, getattr(self, attribute))
                     #Determine which ORFs I have on my right and left
-                    if counter==1: #leftmost
+                    if counter==0: #leftmost
                         left = None
-                        right = list(cds_boundaries.keys())[counter]
-                    elif counter==len(cds_boundaries)+1:
-                        left = cds_boundaries[counter-2]
+                        right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
+                    elif 1+counter==len(cds_boundaries):
+                        left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
                         right = None
                     else:
-                        left = cds_boundaries[counter-2]
-                        right = list(cds_boundaries.keys())[counter]
+                        left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
+                        right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
                     counter+=1 #Otherwise they start from 0    
                     new_transcript.id = "{0}.split{1}".format(self.id, counter)
                     
                     my_exons = []
                     
                     tlength = 0
-                    tstart = 0
-                    tend = bed12_objects[0].end
+                    tstart = float("Inf")
+                    tend = float("-Inf")
                     
+                    discarded_exons=[]
                     for exon in self.exons:
                         #Translate into transcript coordinates
                         elength = exon[1]-exon[0]+1
                         texon = [tlength+1, tlength+elength]
-                        if texon[1]<boundary[0]: # Exon on my left
-                            if left is None: #If I have nothing on my left, retain
-                                my_exons.add(exon)
-                            else: # Some other ORF .. discard
-                                continue
-                        elif texon[0]>boundary[1]: # Exon on my right
-                            if right is None: #Nothing on my right, retain
-                                my_exons.add(exon)
-                            else: #Some other ORF .. discard
-                                continue
-                        elif texon[0]>=boundary[0] and texon[1]<=boundary[1]: #Internal exon: keep!
-                            my_exons.append(exon)
+                        tlength += elength
+                        if texon[1]<boundary[0] and left is not None: #If I have nothing on my left, retain
+                            discarded_exons.append((exon,texon))
+                            continue
+                        elif texon[0]>boundary[1] and right is not None: #
+                            discarded_exons.append((exon,texon))
+                            continue
                         else:
-                            curr_exon = exon[:]
+                            exon=list(exon)
                             if texon[0]<boundary[0] and left is not None: #Shift start of the exon to the right
-                                curr_exon[0]=curr_exon[0]+boundary[0]+1-texon[0]
+                                exon[0]=exon[0]+boundary[0]+1-texon[0]
                             if texon[1]>boundary[1] and right is not None: #Shift end of the exon to the left
-                                curr_exon[1]=curr_exon[1]-(texon[1]+1-boundary[1])
-                            my_exons.append(exon)
-                        tlength += elength                            
+                                exon[1]=exon[1]-(texon[1]+1-boundary[1])
+                            exon=tuple(exon)
+                        my_exons.append(exon)
+                        tstart=min(tstart, texon[0])
+                        tend=max(tend,texon[1])
                     
+                    assert len(my_exons)>0, (discarded_exons, boundary)
+                    new_transcript.exons=my_exons
+                    
+                    new_transcript.start=min( exon[0] for exon in new_transcript.exons )
+                    new_transcript.end=max( exon[1] for exon in new_transcript.exons )
                     #Now we have to modify the BED12s to reflect the fact that we are starting/ending earlier
-                    new_bed12s = [] 
-                    if left is not None and right is not None:
-                        pass
+                    new_bed12s = []
+                    for obj in bed12_objects:
+                        assert type(obj) is bed12.BED12, (obj, bed12_objects)
+                        obj.start=min(obj.start, tend)-tstart+1
+                        obj.end=min(obj.end, tend)-tstart+1
+                        obj.thickStart=min(obj.thickStart,tend)-tstart+1
+                        obj.thickEnd=min(obj.thickEnd,tend)-tstart+1
+                        new_bed12s.append(obj)
                     
                     new_transcript.load_orfs(new_bed12s)
                     new_transcript.finalize()

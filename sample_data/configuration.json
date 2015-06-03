@@ -90,6 +90,12 @@
 		"combined_cds_intron_fraction":{
 			"rescaling":"max"
 		},
+		"proportion_verified_introns":{
+			"rescaling":"max"
+		},
+		"proportion_verified_introns_inlocus":{
+			"rescaling":"max"
+		},
 		"selected_cds_intron_fraction":{
 			"rescaling":"max"
 		},
@@ -138,11 +144,11 @@
 		"minimal_secondary_orf_length": 200
 	},
 	"blast":{
-		"execute":true,
+		"execute":false,
 		"program":"blastx",
 		"database":"uniprot_sprot_plants.fasta",
 		"evalue":1,
-		"max_target_seqs":5,
+		"max_target_seqs":20,
 		"num_threads": 4
 		}
 }

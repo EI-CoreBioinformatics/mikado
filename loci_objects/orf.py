@@ -50,6 +50,21 @@ class orf(dbBase):
                                                 end=self.end
                                                 )
 
+
+    def as_bed12(self):
+        '''Method to transform the mapper into a BED12 object.'''
+        
+        b=bed12.BED12()
+        b.query = self.query
+        b.header=False
+        for key in ["start", "end", "thickStart", "thickEnd", "score", "has_start_codon", "has_stop_codon", "strand", "name", "cds_len"]:
+            setattr(b, key, getattr(self, key))
+        b.rgb=0
+        b.blockCount=1
+        b.blockSizes=self.end
+        b.blockStarts=0
+        return b
+
     @property
     def query(self):
         return self.query_object.name

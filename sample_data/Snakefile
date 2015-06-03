@@ -11,48 +11,49 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 configfile: "configuration.json"
 configname = "configuration.json"
 
-rule decompress:
-     input:  zipDBs
-     output: DBs
-     shell: "gunzip -k {input}"
-
-rule clean:
-     run:
-        shell("rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*")
-	# for f in filter(lamdba x: os.path.exists(x), DBs):
-	#    shell("gzip -f {f};")
+# rule clean:
+#      run:
+#         shell("rm -f ./data.db ./all.blast.xml ./*loci* ./*.fasta.n* ./*.fasta.p* {0} {1}".format(expand(DBs), "{0}.check".format(configname) ))
+# 	# for f in filter(lamdba x: os.path.exists(x), DBs):
+# 	#    shell("gzip -f {f};")
 
 rule mock:
-     params:	prefix="mock"
-     input: DBs, gff="mock.gff3"
-     output: "mock.loci.gff3", "mock.loci.scores.tsv"
-     shell: "python3 ../run_pipeline.py --source {params.prefix} --json_conf {configname} --sub_out {params.prefix}.subloci.gff3 --mono_out {params.prefix}.monoloci.gff3 --locus_out {output[0]} {input.gff}"
+    params:	prefix="mock"
+    input: DBs, gff="mock.gff3"
+    output: "mock.loci.gff3", "mock.loci.scores.tsv"
+    shell: "python3 ../run_pipeline.py --source {params.prefix} --json_conf {configname} --sub_out {params.prefix}.subloci.gff3 --mono_out {params.prefix}.monoloci.gff3 --locus_out {output[0]} {input.gff}"
+
+rule decompress:
+    input:  zipDBs
+    output: DBs
+    shell: "gunzip -fk {input}"
 
 rule test_json:
-	input: DBs, configname
-	output: "{0}.check".format(configname)
-	params:  _= loci_objects.json_utils.to_json(configname)
-	shell: "touch {output}"
+    input: DBs, configname
+    output: "{0}.check".format(configname)
+    run:
+        __= loci_objects.json_utils.to_json(configname)
+        shell("touch {output}")
 
 rule blast_complete:
-	params:	prefix="all"
-	input: query="all.fasta", db=config["blast"]["database"], check="{0}.check".format(configname) 
-	output: protected("all.blast.xml")
-	shell: "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output}"
-	
+    params:	prefix="all"
+    input: query="all.fasta", db=config["blast"]["database"], check="{0}.check".format(configname) 
+    output: protected("all.blast.xml")
+    shell: "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output}"
+
 rule to_db:
-	params: prefix="all"
-	input: blast="all.blast.xml", junctions="junctions.bed", orf="all.bed", fai="genome.fai", fasta="all.fasta"
-	output: config["db"]
-	shell: "python3 ../util/junction2SQLite.py --fai {input[fai]} {input[junctions]} {output}; python3 ../util/orf2SQLite.py --fasta {input[fasta]} {input[orf]} {output}; python3 ../util/blastXml2SQLite.py --definition --max_target_seqs {config[blast][max_target_seqs]} {input[blast]} {output}"
-	
+    params: prefix="all"
+    input: blast="all.blast.xml", junctions="junctions.bed", orf="all.bed", fai="genome.fai", fasta="all.fasta"
+    output: config["db"]
+    #shell: "python3 ../util/junction2SQLite.py --fai {input[fai]} {input[junctions]} {output}; python3 ../util/orf2SQLite.py --fasta {input[fasta]} {input[orf]} {output}; python3 ../util/blastXml2SQLite.py --definition --max_target_seqs {config[blast][max_target_seqs]} {input[blast]} {output}"
+    run:
+        loci_objects.junction.junctionSerializer(input["junctions"], output, fai=input["fai"]).serialize()
+        loci_objects.orf.orfSerializer(input["orf"], output, fasta_index=input["fasta"]).serialize()
+        loci_objects.blast_utils.xmlSerializer(output, input["blast"], keep_definition=True, max_target_seqs=config["blast"]["max_target_seqs"] ).serialize()
+
 rule complete:
-	params: prefix="all"
-	input: db=config["db"], configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed"
-	output: "all.loci.gff3", "all.loci.scores.tsv"
-	shell: """python3 ../run_pipeline.py -x --source {params[prefix]} --json_conf {input[configuration]} \
-	--sub_out all.subloci.gff3 --mono_out all.monoloci.gff3 --locus_out all.loci.gff3 {input[gtf]}"""  
-	
-	
-	
-	
+    params: prefix="all"
+    input: db=config["db"], configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed"
+    output: "all.loci.gff3", "all.loci.scores.tsv"
+    shell: """python3 ../run_pipeline.py -x --source {params[prefix]} --json_conf {input[configuration]} \
+	    --sub_out all.subloci.gff3 --mono_out all.monoloci.gff3 --locus_out all.loci.gff3 {input[gtf]}"""  

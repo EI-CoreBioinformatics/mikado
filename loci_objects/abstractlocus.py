@@ -92,6 +92,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
                 del state["json_dict"]["requirements"]["compiled"]
 
         if hasattr(self, "session"):
+            self.session.expunge_all()
+            state["session"].expunge_all()
             del state["sessionmaker"]
             del state["session"]
 

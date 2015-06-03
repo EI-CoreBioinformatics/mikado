@@ -33,6 +33,12 @@ def check_chimera_split(json_conf):
                     0<=json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]<=1
             else:
                 json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]=0
+            if "lenient" not in json_conf["chimera_split"]["blast_params"]:
+                json_conf["chimera_split"]["blast_params"]["lenient"]=False
+            else:
+                assert type(json_conf["chimera_split"]["blast_params"]["lenient"]) is bool
+
+    return json_conf
 
 def check_scoring(json_conf):
     '''Function to check and format the "scoring" section.'''
@@ -229,6 +235,7 @@ def check_json(json_conf, json_file):
     json_conf = check_requirements(json_conf)
     json_conf = check_scoring(json_conf)
     json_conf = check_orf_loading(json_conf)
+    json_conf = check_chimera_split(json_conf)
     return json_conf
        
 def to_json(string):

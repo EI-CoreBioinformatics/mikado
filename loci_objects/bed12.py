@@ -1,4 +1,6 @@
 import random
+import os
+from Bio import SeqIO
 try:
     import Bio.File
 except:
@@ -9,13 +11,21 @@ from loci_objects import Parser
  
 class BED12:
     
-    def __init__(self, line, fasta_index = None, transcriptomic=False):
-        if type(line) is str:
-            if line[0]=="#":
+    def __init__(self, *args, fasta_index = None, transcriptomic=False):
+        if len(args)==0:
+            self.header=True
+            return 
+        
+        line=args[0]
+        if type(line) in (str,None):
+            if line is None or line[0]=="#":
                 self.header=True
                 return
             
             line=line.rstrip().split("\t")
+        elif line is None:
+            self.header=True
+            return
         elif type(line) not in (list, tuple):
             raise TypeError("I need an ordered array, not {0}".format(type(line)))
         if len(line)!=12:
@@ -143,7 +153,11 @@ class bed12Parser(Parser):
                 #check that this is a bona fide dictionary ...
             assert type( fasta_index[random.sample(fasta_index.keys(),1)] ) is Bio.SeqRecord.SeqRecord
         elif fasta_index is not None:
-            assert type(fasta_index) in (Bio.File._IndexedSeqFileDict, Bio.File._SQLiteManySeqFilesDict), (type(fasta_index))
+            if type(fasta_index) is str:
+                assert os.path.exists(fasta_index)
+                fasta_index = SeqIO.index(fasta_index, "fasta")
+            else:
+                assert type(fasta_index) in (Bio.File._IndexedSeqFileDict, Bio.File._SQLiteManySeqFilesDict), (type(fasta_index))
 
         self.fasta_index = fasta_index
 

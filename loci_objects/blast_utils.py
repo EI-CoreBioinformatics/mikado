@@ -2,6 +2,7 @@ import sys, os
 import sqlalchemy
 import gzip
 import subprocess
+import collections
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from scipy import mean
 import operator
@@ -13,6 +14,7 @@ import io
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from loci_objects.dbutils import dbBase
+
 
 '''This module is used to serialise BLAST objects into a database.'''
 
@@ -147,7 +149,48 @@ class Hit(dbBase):
 		line.append(self.target_len)
 		
 		return "\t".join(str(x) for x in line)
-	
+
+
+	def as_dict(self):
+		'''Method to return a dict representation of the object.
+		Necessary for storing.'''
+		
+		keys = [
+			"evalue",
+			"bits",
+			"global_identity",
+			"query_start",
+			"query_end",
+			"target_start",
+			"target_end",
+			"hit_number",
+			"query_multiplier",
+			"target_multiplier",
+			"query_aligned_length",
+			"target_aligned_length",
+			]
+
+		special_keys = ["query", "target", "hsps","query_len",
+			"target_len", "query_hit_ratio", "hit_query_ratio" ] #Keys we want to set directly
+
+		state = dict().fromkeys(keys+special_keys)
+
+		for key in keys:
+			state[key]=getattr(self, key)
+		
+		state["query"]=self.query
+		state["target"]=self.target
+		state["query_len"]=self.query_len
+		state["target_len"]=self.target_len
+		state["query_hit_ratio"]=self.query_hit_ratio
+		state["hit_query_ratio"]=self.hit_query_ratio
+		
+		state["hsps"]=[]
+		for hsp in self.hsps:
+			state["hsps"].append(hsp.as_dict())
+			
+		return state
+
 	@property
 	def query_len(self):
 		return self.query_object.length
@@ -239,9 +282,31 @@ class Hsp(dbBase):
 		line.append(self.hsp_evalue)
 		return "\t".join([str(x) for x in line])
 		
-			
-	def csv_row(self):
-		'''This function will return a CSV-dict ready for printing.'''
+		
+	def as_dict(self):
+		
+		'''Method to return a dict representation of the object. Necessary for storing.'''
+		
+		keys=[
+			"query_hsp_start",
+			"query_hsp_end",
+			"target_hsp_start",
+			"target_hsp_end",
+			"hsp_evalue",
+			]
+		
+		special_keys=["query","target","query_hsp_cov","target_hsp_cov"] #Keys which we want to assign directly rather than inside a loop
+		
+		state=dict().fromkeys(keys+special_keys)
+		state["query"]=self.query
+		state["target"]=self.target
+		state["query_hsp_cov"]=self.query_hsp_cov
+		state["target_hsp_cov"]=self.target_hsp_cov
+		
+		for key in keys:
+			state[key]=getattr(self, key)
+		
+		return state
 
 	@property
 	def query(self):

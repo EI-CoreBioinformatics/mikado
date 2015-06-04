@@ -130,7 +130,7 @@
 	"dbtype":"sqlite",	
 	"chimera_split":{
 		"execute":true,
-		"blast_check":true,
+		"blast_check":false,
 		"blast_params":{
 			"evalue": 1e-4,
 			"minimal_secondary_orf": 200,

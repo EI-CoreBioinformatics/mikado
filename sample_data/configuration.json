@@ -136,7 +136,8 @@
 			"minimal_secondary_orf": 200,
 			"hsp_evalue": 1e-4,
 			"max_target_seqs": 10,
-			"minimal_hsp_overlap": 0.9			
+			"minimal_hsp_overlap": 0.9,
+		    "leniency": STRINGENT
 		}
 	},
 	"orf_loading":{

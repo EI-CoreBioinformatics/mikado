@@ -540,6 +540,7 @@ class transcript:
                 candidate_orfs.append(orf.as_bed12())
         
         del new_orfs
+                
         return candidate_orfs
         
     def load_orfs(self, candidate_orfs):
@@ -568,6 +569,7 @@ class transcript:
         self.finalize()
         if len(candidate_orfs)==0:
             return
+
         self.combined_utr = []
         self.combined_cds = []
         self.internal_orfs = []
@@ -580,6 +582,9 @@ class transcript:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
             
             if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length):
+                print(orf)
+                print(orf.thickStart, orf.thickStart>=1)
+                print(orf.thickEnd, self.cdna_length, orf.thickEnd<=self.cdna_length)
                 continue
             if self.strand is None:
                 self.strand=new_strand=orf.strand
@@ -868,10 +873,11 @@ class transcript:
                     new_bed12s = []
                     for obj in bed12_objects:
                         assert type(obj) is bed12.BED12, (obj, bed12_objects)
-                        obj.start=min(obj.start, tend)-tstart+1
-                        obj.end=min(obj.end, tend)-tstart+1
-                        obj.thickStart=min(obj.thickStart,tend)-tstart+1
-                        obj.thickEnd=min(obj.thickEnd,tend)-tstart+1
+                        obj.start=1
+                        obj.end=min(obj.end, tend)-tstart
+                        obj.thickStart=min(obj.thickStart,tend)-tstart+1 
+                        obj.thickEnd=min(obj.thickEnd,tend)-tstart
+                        obj.blockSizes=[obj.end]
                         new_bed12s.append(obj)
                     
                     new_transcript.load_orfs(new_bed12s)

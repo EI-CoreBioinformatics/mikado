@@ -17,11 +17,11 @@ def check_chimera_split(json_conf):
         if json_conf["chimera_split"]["blast_check"] is True:
             assert "blast_params" in json_conf["chimera_split"] 
             if "evalue" in json_conf["chimera_split"]["blast_params"]:
-                assert type(json_conf["chimera_split"]["blast_params"]["evalue"]) is float or json_conf["chimera_split"]["blast_params"]["evalue"] is None
+                assert type(json_conf["chimera_split"]["blast_params"]["evalue"]) in (float,int) or json_conf["chimera_split"]["blast_params"]["evalue"] is None
             else:
                 json_conf["chimera_split"]["blast_params"]["evalue"]=None
             if "hsp_evalue" in json_conf["chimera_split"]["blast_params"]:
-                assert type(json_conf["chimera_split"]["blast_params"]["hsp_evalue"]) is float or json_conf["chimera_split"]["blast_params"]["hsp_evalue"] is None
+                assert type(json_conf["chimera_split"]["blast_params"]["hsp_evalue"]) in (float,int) or json_conf["chimera_split"]["blast_params"]["hsp_evalue"] is None
             else:
                 json_conf["chimera_split"]["blast_params"]["hsp_evalue"]=None
             if "max_target_seqs" in json_conf["chimera_split"]["blast_params"]:

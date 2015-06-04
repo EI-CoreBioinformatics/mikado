@@ -5,13 +5,7 @@
 import argparse,re
 import multiprocessing
 import csv
-import pickle
-
-try:
-    from Bio import SeqIO
-except ImportError as err:
-    pass
-
+from Bio import SeqIO
 from loci_objects.json_utils import to_json
 from loci_objects.superlocus import superlocus
 from loci_objects.sublocus import sublocus
@@ -95,7 +89,7 @@ def main():
    
     def to_index(string):
         if "SeqIO" not in globals():
-            print("Error importing the Bio module, no indexing performed:\n{0}",format(err) )
+            print("Error importing the Bio module, no indexing performed" )
             return None
 
         return SeqIO.index(string, format="fasta") 
@@ -217,25 +211,26 @@ def main():
                                             json_dict = args.json_conf,
                                             purge=args.purge)
 
-            elif currentLocus is None:
-                if currentTranscript is not None:
-                    currentLocus=superlocus(currentTranscript,
-                                            stranded=False, json_dict = args.json_conf,
-                                            purge=args.purge)
             currentTranscript=transcript(row, source=args.source)
         elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper() or "codon" in row.feature:
             currentTranscript.addExon(row)
         else:
             continue
 
-    if currentLocus is not None:
-        if currentTranscript is not None:
+    print("Finished iterating")
+
+    if currentTranscript is not None:
+        if currentLocus is not None:
             if superlocus.in_locus(currentLocus, currentTranscript):
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
                 pool.apply_async(analyse_locus, args=(currentLocus, args, queue),
                                 kwds={"lock": lock})
                 currentLocus=superlocus(currentTranscript,
+                                        stranded=False, json_dict = args.json_conf,
+                                        purge=args.purge)
+        else:
+            currentLocus=superlocus(currentTranscript,
                                         stranded=False, json_dict = args.json_conf,
                                         purge=args.purge)
         pool.apply_async(analyse_locus, 

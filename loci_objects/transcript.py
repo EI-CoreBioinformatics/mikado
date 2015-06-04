@@ -787,9 +787,12 @@ class transcript:
                         cds_hits = cds_hit_dict[cds_boundary]
                         old_hits = cds_hit_dict[old_boundary]
                         if cds_hits == set() and old_hits==set():
-                            new_boundaries.append([cds_boundary])
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="CLEMENT":
+                                new_boundaries[-1].append(cds_boundary)
+                            else:
+                                new_boundaries.append([cds_boundary])
                         elif cds_hits == set() or old_hits==set():
-                            if self.json_dict["chimera_split"]["blast_params"]["lenient"] is False:
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="STRINGENT":
                                 new_boundaries.append([cds_boundary])
                             else:
                                 new_boundaries[-1].append(cds_boundary)

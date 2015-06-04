@@ -33,10 +33,10 @@ def check_chimera_split(json_conf):
                     0<=json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]<=1
             else:
                 json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]=0
-            if "lenient" not in json_conf["chimera_split"]["blast_params"]:
-                json_conf["chimera_split"]["blast_params"]["lenient"]=False
+            if "leniency" not in json_conf["chimera_split"]["blast_params"]:
+                json_conf["chimera_split"]["blast_params"]["leniency"]="STRINGENT"
             else:
-                assert type(json_conf["chimera_split"]["blast_params"]["lenient"]) is bool
+                assert json_conf["chimera_split"]["blast_params"]["lenient"] in ("STRINGENT", "PERMISSIVE", "LENIENT")
 
     return json_conf
 

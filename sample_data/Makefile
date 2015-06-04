@@ -6,7 +6,7 @@ uniprot_sprot_plants.fasta: uniprot_sprot_plants.fasta.gz
 uniprot_sprot_plants.not_at.fasta: uniprot_sprot_plants.not_at.fasta.gz
 	gunzip uniprot_sprot_plants.not_at.fasta.gz;
 
-clean: uniprot_sprot_plants.not_at.fasta.gz uniprot_sprot_plants.fasta.gz
+clean:
 	rm -f ./*loci* ./*.fasta.n* ./*.fasta.p*;
 
 uniprot_sprot_plants.not_at.fasta.gz: uniprot_sprot_plants.not_at.fasta

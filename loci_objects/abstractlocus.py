@@ -163,6 +163,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         - flank - optional keyword'''
         transcript.finalize()
         #We want to check for the strand only if we are considering the strand
+        if locus_instance is None:
+            return False
         if locus_instance.chrom == transcript.chrom and \
             (locus_instance.stranded is False or locus_instance.strand == transcript.strand) and \
             cls.overlap( (locus_instance.start,locus_instance.end), (transcript.start,transcript.end), flank=flank  ) > 0:

@@ -290,8 +290,11 @@ class gtfLine(object):
             return True
         return False
     
+    @property
     def is_exon(self):
-        if not self.is_parent:
+        if self.feature is None:
+            return False
+        if self.feature in ("exon", "CDS") or "UTR" in self.feature.upper():
             return True
         return False
 

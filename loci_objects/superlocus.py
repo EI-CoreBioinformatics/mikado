@@ -26,7 +26,7 @@ class superlocus(abstractlocus):
     
     ####### Special methods ############
     
-    def __init__(self, transcript_instance, stranded=True, json_dict = None, purge=False ):
+    def __init__(self, transcript_instance, stranded=True, json_dict = None):
         
         '''The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
         
@@ -49,6 +49,7 @@ class superlocus(abstractlocus):
         if json_dict is None or type(json_dict) is not dict:
             raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.json_dict = copy(json_dict)
+        self.purge = self.json_dict["run_options"]["purge"]
         
         #Dynamically load required modules
         if "modules" in self.json_dict:
@@ -60,7 +61,6 @@ class superlocus(abstractlocus):
         self.splices = set(self.splices)
         self.introns = set(self.introns)
         self.transcripts = dict()
-        self.purge = purge
         super().add_transcript_to_locus(transcript_instance)
         if self.stranded is True:
             self.strand = transcript_instance.strand
@@ -179,13 +179,13 @@ class superlocus(abstractlocus):
             for strand in plus, minus, nones:
                 if len(strand)>0:
                     strand = sorted(strand)
-                    new_locus = superlocus(strand[0], stranded=True, json_dict=self.json_dict, purge=self.purge)
+                    new_locus = superlocus(strand[0], stranded=True, json_dict=self.json_dict)
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
                             new_locus.add_transcript_to_locus(cdna)
                         else:
                             new_loci.append(new_locus)
-                            new_locus = superlocus(cdna, stranded=True, json_dict=self.json_dict, purge=self.purge)
+                            new_locus = superlocus(cdna, stranded=True, json_dict=self.json_dict)
                             
                     new_loci.append(new_locus)
             for new_locus in iter(sorted(new_loci)):
@@ -223,17 +223,19 @@ class superlocus(abstractlocus):
             return #No data to load
         self.connect_to_db()
         self.locus_verified_introns=[]
-        chrom_id = self.session.query(Chrom.id).filter(Chrom.name==self.chrom).one().id
-        for intron in self.introns:
-            if self.session.query(junction).filter(and_(
-                                                        junction.chrom_id==chrom_id,
-                                                        junction.junctionStart==intron[0],
-                                                        junction.junctionEnd==intron[1],
-                                                        junction.strand==self.strand
-                                                        
-                                                        )).count()==1:
-                self.locus_verified_introns.append(intron)
-        
+        dbquery=self.session.query(Chrom.id).filter(Chrom.name==self.chrom)
+        if dbquery.count()>0:
+            chrom_id = self.session.query(Chrom.id).filter(Chrom.name==self.chrom).one().id
+            for intron in self.introns:
+                if self.session.query(junction).filter(and_(
+                                                            junction.chrom_id==chrom_id,
+                                                            junction.junctionStart==intron[0],
+                                                            junction.junctionEnd==intron[1],
+                                                            junction.strand==self.strand
+                                                    
+                                                                        )).count()==1:
+                    self.locus_verified_introns.append(intron)
+
         for tid in self.transcripts:
             self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns)
 

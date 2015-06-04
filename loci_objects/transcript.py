@@ -581,13 +581,12 @@ class transcript:
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
             
-            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length):
-                print(orf)
-                print(orf.thickStart, orf.thickStart>=1)
-                print(orf.thickEnd, self.cdna_length, orf.thickEnd<=self.cdna_length)
+            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length): #Leave leeway for TD
                 continue
             if self.strand is None:
                 self.strand=new_strand=orf.strand
+            else:
+                new_strand=self.strand
             primary_orf = False
 
             

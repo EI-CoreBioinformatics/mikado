@@ -21,7 +21,7 @@ rule mock:
     params:	prefix="mock"
     input: DBs, gff="mock.gff3"
     output: "mock.loci.gff3", "mock.loci.scores.tsv"
-    shell: "python3 ../run_pipeline.py --source {params.prefix} --json_conf {configname} --sub_out {params.prefix}.subloci.gff3 --mono_out {params.prefix}.monoloci.gff3 --locus_out {output[0]} {input.gff}"
+    shell: "python3 ../run_pipeline.py --source {params.prefix} --json_conf configuration_mock.json --subloci_out {params.prefix}.subloci.gff3 --monoloci_out {params.prefix}.monoloci.gff3 --loci_out {output[0]} {input.gff}"
 
 rule decompress:
     input:  zipDBs
@@ -55,5 +55,5 @@ rule complete:
     params: prefix="all"
     input: db=config["db"], configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed"
     output: "all.loci.gff3", "all.loci.scores.tsv"
-    shell: """python3 ../run_pipeline.py -x --source {params[prefix]} --json_conf {input[configuration]} \
-	    --sub_out all.subloci.gff3 --mono_out all.monoloci.gff3 --locus_out all.loci.gff3 {input[gtf]}"""  
+    shell: """python3 ../run_pipeline.py --source {params[prefix]} --json_conf {input[configuration]} \
+	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""  

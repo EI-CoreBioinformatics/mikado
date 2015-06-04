@@ -126,7 +126,7 @@
 		    }
 		}
 	},
-	"db":"data.db",
+	"db":"mock.db",
 	"dbtype":"sqlite",	
 	"chimera_split":{
 		"execute":true,
@@ -142,12 +142,6 @@
 	"orf_loading":{
 		"strand_specific":true,
 		"minimal_secondary_orf_length": 200
-	},
-	"run_options":{
-		"exclude_cds":false,
-		"purge":false,
-		"remove_overlapping_fragments":true,
-		"threads": 5
 	},
 	"blast":{
 		"execute":true,

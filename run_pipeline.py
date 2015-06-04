@@ -2,257 +2,54 @@
 
 #import sys
 #from logging import Logger
-import argparse,re
-import multiprocessing
-import csv
-from Bio import SeqIO
-from loci_objects.json_utils import to_json
-from loci_objects.superlocus import superlocus
-from loci_objects.sublocus import sublocus
-from loci_objects.transcript import transcript
-from loci_objects.GFF import GFF3
-from loci_objects.GTF import GTF
-# from loci_objects.bed12 import bed12Parser
-# from loci_objects.abstractlocus import abstractlocus 
-
-def analyse_locus( slocus, args, queue, lock=None ):
-
-    '''This function takes as input a "superlocus" instance and the pipeline configuration.
-    It also accepts as optional keywords a dictionary with the CDS information (derived from a bed12Parser)
-    and a "lock" used for avoiding writing collisions during multithreading.
-    The function splits the superlocus into its strand components and calls the relevant methods
-    to define the loci. It also prints out the results to the requested output files.
-    '''
-
-    #Load the CDS information
-    slocus.load_transcript_data()
-    #Split the superlocus in the stranded components
-    stranded_loci = sorted(list(slocus.split_strands()))
-    #Define the loci
-    for stranded_locus in stranded_loci:
-        stranded_locus.define_loci()
-
-    #Remove overlapping fragments.
-    #This part should be rewritten in order to make it more flexible and powerful.
-    for stranded_locus in stranded_loci:
-        if args.remove_overlapping_fragments is True and len(stranded_loci)>1:
-            for final_locus in stranded_locus.loci:
-                for other_superlocus in filter(lambda x: x!=stranded_locus, stranded_loci):
-                    for other_final_locus in other_superlocus.loci:
-                        if other_final_locus.other_is_fragment( final_locus ) is True and final_locus in stranded_locus.loci: 
-                            stranded_locus.loci.remove(final_locus)
-#                             except ValueError as err:
-#                                 if "not in list" in err: pass
-#                                 else:
-#                                     raise ValueError(err)
-#                             finally:
-#                                 break
-        queue.put(stranded_locus)
-    return
-
-def printer(args,queue):
-
-    '''Listener process that will print out the loci recovered by the analyse_locus function.'''
-    
-    sub_metrics=csv.DictWriter(open(args.sub_metrics,'a'), superlocus.available_metrics, delimiter="\t")
-    sub_scores=csv.DictWriter(open(args.sub_scores,'a'), args.score_keys, delimiter="\t")
-    locus_metrics=csv.DictWriter(open(args.locus_metrics,'a'), superlocus.available_metrics, delimiter="\t")
-    locus_scores=csv.DictWriter(open(args.locus_scores,'a'), args.score_keys, delimiter="\t")
-    sub_out=open(args.sub_out,'a')
-    mono_out=open(args.mono_out,'a')
-    locus_out=open(args.locus_out,'a') 
-    
-    while True:
-        stranded_locus=queue.get()
-        if stranded_locus is None:
-            break
-        sub_lines = stranded_locus.__str__(level="subloci", print_cds=not args.no_cds )
-        sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
-        sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()]
-        mono_lines = stranded_locus.__str__(level="monosubloci", print_cds=not args.no_cds)
-        locus_metrics_rows=[x for x in stranded_locus.print_monoholder_metrics()]
-        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
-        locus_lines = stranded_locus.__str__(print_cds=not args.no_cds)
-        for row in sub_metrics_rows: sub_metrics.writerow(row)
-        for row in sub_scores_rows: sub_scores.writerow(row)
-        for row in locus_metrics_rows: locus_metrics.writerow(row)
-        for row in locus_scores_rows: locus_scores.writerow(row)
-        print(sub_lines, file=sub_out)
-        if mono_lines!='':
-            print(mono_lines, file=mono_out)
-        if locus_lines!='':
-            print(locus_lines, file=locus_out)    
-    return
+import argparse
+import loci_objects
 
 def main():
-    
-   
-    def to_index(string):
-        if "SeqIO" not in globals():
-            print("Error importing the Bio module, no indexing performed" )
-            return None
-
-        return SeqIO.index(string, format="fasta") 
-    
-    parser=argparse.ArgumentParser("Quick test utility for the superlocus classes.")
-    parser.add_argument("-p", "--procs", type=int, default=1, help="Number of processors to use.")
-    parser.add_argument('-x',  "--remove_overlapping_fragments", action="store_true",
-                        default=False, help="""Flag. If set, the program will remove monoexonic loci
-                        overlapping non-monoexonic loci on the opposite strand.""")
+        
+    parser=argparse.ArgumentParser("Launcher of the Shanghai pipeline.")
+    parser.add_argument("-p", "--procs", type=int, default=None, help="Number of processors to use. Default: look in the configuration file (1 if undefined)")
     parser.add_argument("--json_conf", type=argparse.FileType("r"), required=True, help="JSON configuration file for scoring transcripts.")
-    parser.add_argument("--sub_out", type=argparse.FileType("w"), required=True)
-    parser.add_argument("--mono_out", type=argparse.FileType("w"), required=True)
-    parser.add_argument("--locus_out", type=argparse.FileType("w"), required=True)
-    parser.add_argument("--no_cds", action="store_true", default=False,
+    parser.add_argument("--subloci_out", type=str, default=None)
+    parser.add_argument("--monoloci_out", type=str, default=None)
+    parser.add_argument("--loci_out", type=str, default=None,
+                        help="This output file is mandatory. If it is not specified in the configuration file, it must be provided here.")
+    parser.add_argument("--no_cds", action="store_true", default=None,
                         help="Flag. If set, not CDS information will be printed out in the GFF output files.")
     parser.add_argument('--source', type=str, default=None,
                         help='Source field to use for the output files.')
-    parser.add_argument('--purge', action='store_true', default=False,
+    parser.add_argument('--purge', action='store_true', default=None,
                         help='Flag. If set, the pipeline will suppress any loci whose transcripts do not pass the requirements set in the JSON file.'
                         )
-    parser.add_argument("gff", type=argparse.FileType("r"))
+    parser.add_argument("gff", type=argparse.FileType("r"), nargs="?", default=None)
     
     args=parser.parse_args()
 
-    args.json_conf = to_json(args.json_conf.name)
+    args.json_conf.close()
+    args.json_conf = loci_objects.json_utils.to_json(args.json_conf.name)
     
-    currentLocus=None
-    currentTranscript=None
-    currentChrom=None
-
-    print('##gff-version 3', file=args.sub_out)
-    print('##gff-version 3', file=args.mono_out)
-    print('##gff-version 3', file=args.locus_out)
-
-    args.sub_out.close()
-    args.sub_out=args.sub_out.name
-    
-    args.mono_out.close()
-    args.mono_out=args.mono_out.name
-
-    args.locus_out.close()
-    args.locus_out=args.locus_out.name
-
-    args.sub_metrics=re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", args.sub_out  ))
-    args.sub_scores=re.sub("$",".scores.tsv",  re.sub(".gff3$", "", args.sub_out  ))
-    args.locus_metrics = re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", args.locus_out  ))
-    args.locus_scores = re.sub("$",".scores.tsv",  re.sub(".gff3$", "", args.locus_out  ))
-    
-    args.score_keys = ["tid","parent","score"] + sorted(list(args.json_conf["scoring"].keys()))
-    
-    #Prepare output files
-    with open(args.sub_metrics, "w") as out_file:
-        csv_out=csv.DictWriter( out_file, superlocus.available_metrics, delimiter="\t" )
-        csv_out.writeheader()
-    with open(args.sub_scores,'w') as out_file:
-        csv_out=csv.DictWriter( out_file, args.score_keys, delimiter="\t" )
-        csv_out.writeheader()
-    with open(args.locus_metrics, "w") as out_file:
-        csv_out=csv.DictWriter( out_file, superlocus.available_metrics, delimiter="\t" )
-        csv_out.writeheader()
-    with open(args.locus_scores,'w') as out_file:
-        csv_out=csv.DictWriter( out_file, args.score_keys, delimiter="\t" )
-        csv_out.writeheader()
+    if args.procs is not None:
+        args.json_conf["run_options"]["threads"] = args.procs
         
-    args.gff.close()
-    args.gff=args.gff.name
-#     args.transcript_fasta = None
-    #Determine the type of input file (GTF/GFF3)
-    if args.gff[-3:]=="gtf":
-        rower=GTF(args.gff)
-    else: rower=GFF3(args.gff)
-
-    ctx=multiprocessing.get_context("fork") #@UndefinedVariable
-    
-    manager=ctx.Manager() # @UndefinedVariable
-    queue=manager.Queue()
-    lock=manager.RLock()
-    pool=ctx.Pool(processes=args.procs) # @UndefinedVariable
-    printer_process=multiprocessing.Process(target=printer, args=(args,queue)) # @UndefinedVariable
-    printer_process.start()
-    first = True    
-    for row in rower:
-        if row.header is True:
-            continue
-        if row.chrom!=currentChrom:
-            if currentChrom is not None:
-                if currentTranscript is None:
-                    pass
-                elif currentLocus is not None and superlocus.in_locus(currentLocus, currentTranscript):
-                    currentLocus.add_transcript_to_locus(currentTranscript)
-                else:
-                    if currentLocus is not None:
-                        if first is True:
-                            analyse_locus(currentLocus, args, queue)
-                        else:
-                            pool.apply_async(analyse_locus, args=(currentLocus, args, queue), kwds={"lock": lock})
-                    currentLocus=superlocus(currentTranscript, stranded=False,
-                                                json_dict = args.json_conf,
-                                                purge=args.purge)
-                    
-            currentChrom=row.chrom
-            currentTranscript=None
-            currentLocus=None
-            
-        if row.is_transcript is True:
-            if currentLocus is not None:
-                if currentTranscript is None:
-                    pass
-                elif superlocus.in_locus(currentLocus, currentTranscript):
-                    currentLocus.add_transcript_to_locus(currentTranscript)
-                else:
-                    if first is True:
-                        analyse_locus(currentLocus, args, queue, lock=lock)
-                    else:
-                        pool.apply_async(analyse_locus,
-                                         args=(currentLocus, args, queue),
-                                         kwds={"lock": lock})
-                    currentLocus=superlocus(currentTranscript, stranded=False,
-                                            json_dict = args.json_conf,
-                                            purge=args.purge)
-
-            currentTranscript=transcript(row, source=args.source)
-        elif row.feature in ("exon", "CDS") or "UTR" in row.feature.upper() or "codon" in row.feature:
-            currentTranscript.addExon(row)
-        else:
-            continue
-
-    print("Finished iterating")
-
-    if currentTranscript is not None:
-        if currentLocus is not None:
-            if superlocus.in_locus(currentLocus, currentTranscript):
-                currentLocus.add_transcript_to_locus(currentTranscript)
-            else:
-                pool.apply_async(analyse_locus, args=(currentLocus, args, queue),
-                                kwds={"lock": lock})
-                currentLocus=superlocus(currentTranscript,
-                                        stranded=False, json_dict = args.json_conf,
-                                        purge=args.purge)
-        else:
-            currentLocus=superlocus(currentTranscript,
-                                        stranded=False, json_dict = args.json_conf,
-                                        purge=args.purge)
-        pool.apply_async(analyse_locus, 
-                         args=(currentLocus, args, queue),
-                         kwds={"lock": lock})
+    if args.monoloci_out is not None:
+        args.json_conf["monoloci_out"] = args.monoloci_out
+    if args.subloci_out is not None:
+        args.json_conf["subloci_out"] = args.subloci_out
+    if args.loci_out is not None:
+        args.json_conf["loci_out"] = args.loci_out
+    if args.no_cds is not None:
+        args.json_conf["run_options"]["exclude_cds"]=True
+    if args.source is not None:
+        args.json_conf["source"]=args.source
+    if args.purge is not None:
+        args.json_conf["run_options"]["purge"]=True
         
-    pool.close()
-    pool.join()
-    queue.put(None)
-    printer_process.join()
-    printer_process.terminate()
+    if args.gff is not None:
+        args.gff.close()
+        args.gff=args.gff.name
+        args.json_conf["input"]=args.gff
+    
+    creator = loci_objects.Creator.Creator(args.json_conf)
+    creator() #Run
        
-if __name__=="__main__":
-    #Check that the metrics are alright
-    metrics_not_found = []
-    for metric in filter(lambda m: m not in ("score","parent","tid"), sublocus.available_metrics ):
-        if not hasattr(transcript, metric):
-            metrics_not_found.append(metric)
-
-    if len(metrics_not_found)>0:
-        raise RuntimeError("The following metrics are requested but are not defined in the transcript class:\n\t{0}".format(
-                                                                                                                        "\n\t".join(metrics_not_found)
-                                                                                                                        ))
-
-    main()
+if __name__=="__main__": main()

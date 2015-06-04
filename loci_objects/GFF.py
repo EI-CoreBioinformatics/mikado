@@ -202,12 +202,16 @@ class gffLine(object):
         
     @property
     def is_exon(self):
+        if self.feature is None:
+            return False
         if self.feature in ("CDS","exon") or "utr" in self.feature.lower() :
             return True
         return False
         
     @property
     def is_transcript(self):
+        if self.feature is None:
+            return False
         if "transcript"==self.feature or "RNA" in self.feature.upper():
             return True
         return False

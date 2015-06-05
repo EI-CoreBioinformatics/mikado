@@ -366,6 +366,28 @@ class transcript:
             raise loci_objects.exceptions.InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
         if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
+            if self.combined_utr == [] and self.combined_cds!=[]:
+                self.exons=sorted(self.exons)
+                self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))
+                for exon in self.exons:
+                    if exon in self.combined_cds:
+                        continue
+                    elif exon[1]<self.combined_cds[0][0] or exon[0]>self.combined_cds[-1][1]:
+                        self.combined_utr.append(exon)
+                    elif exon[0]<self.combined_cds[0][0] and exon[1]==self.combined_cds[0][0]:
+                        self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
+                    elif exon[1]>self.combined_cds[-1][1] and exon[0]==self.combined_cds[-1][1]:
+                        self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
+                    else:
+                        print(exon, self.exons)
+                        raise loci_objects.exceptions.InvalidTranscript 
+                if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
+                    print(self.id, self.exons, self.combined_cds, self.combined_utr)
+                    raise loci_objects.exceptions.InvalidTranscript
+            else:
+                print(self.id, self.exons, self.combined_cds, self.combined_utr)
+                raise loci_objects.exceptions.InvalidTranscript
+            
             print("Assertion error", "\n".join(
                        [str(x) for x in [self.id, self.cdna_length, self.combined_utr_length, self.combined_cds_length,self.combined_utr, self.combined_cds, self.exons]]
                        )
@@ -378,11 +400,6 @@ class transcript:
         try:
             if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
                 raise loci_objects.exceptions.InvalidTranscript("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
-                                                                                                                                                            tstart=self.start,
-                                                                                                                                                            tend=self.end,
-                                                                                                                                                            id=self.id,
-                                                                                                                                                            eend=self.exons[-1][1],
-                                                                                                                                                            estart=self.exons[0][0],
                                                                                                                                                             ))
         except IndexError as err:
             raise loci_objects.exceptions.InvalidTranscript(err, self.id, str(self.exons))

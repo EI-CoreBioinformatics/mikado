@@ -367,7 +367,7 @@ class transcript:
 
         if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
             if self.combined_utr == [] and self.combined_cds!=[]:
-                self.exons=sorted(self.exons)
+                self.exons=sorted(self.exons, key=operator.itemgetter(0,1))
                 self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))
                 for exon in self.exons:
                     if exon in self.combined_cds:
@@ -387,13 +387,6 @@ class transcript:
             else:
                 print(self.id, self.exons, self.combined_cds, self.combined_utr)
                 raise loci_objects.exceptions.InvalidTranscript
-            
-            print("Assertion error", "\n".join(
-                       [str(x) for x in [self.id, self.cdna_length, self.combined_utr_length, self.combined_cds_length,self.combined_utr, self.combined_cds, self.exons]]
-                       )
-             )
-            raise loci_objects.exceptions.InvalidTranscript
-            
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0

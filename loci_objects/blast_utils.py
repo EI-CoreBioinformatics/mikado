@@ -2,6 +2,8 @@ import sys, os
 import sqlalchemy
 import gzip
 import subprocess
+from Bio import SeqIO
+import Bio.File
 # import collections
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from scipy import mean
@@ -86,10 +88,9 @@ class Hit(dbBase):
 	'''
 	
 	__tablename__ ="hit"
-	id=Column(Integer, primary_key=True, autoincrement=True)
 	query_id=Column(Integer, ForeignKey(Query.id), unique=False)
 	target_id=Column(Integer, ForeignKey(Target.id), unique=False)
-	qt_constraint = UniqueConstraint("query_id", "target_id", name="hit")
+	qt_constraint = PrimaryKeyConstraint("query_id", "target_id", name="hit_id")
 	evalue = Column(Float)
 	bits = Column(Float)
 	global_identity = Column(Float)
@@ -241,26 +242,30 @@ class Hsp(dbBase):
 
 	__tablename__ = "hsp"
 	counter = Column(Integer) #Indicates the number of the HSP inside the hit
-	hit_id = Column(Integer, ForeignKey(Hit.id)) #Foreign key to recover the hit
-	pk_constraint = PrimaryKeyConstraint("counter", "hit_id", name="hsp_constraint")
+	query_id=Column(Integer, ForeignKey(Query.id), unique=False)
+	target_id=Column(Integer, ForeignKey(Target.id), unique=False)
+	pk_constraint = PrimaryKeyConstraint("counter", "query_id", "target_id", name="hsp_constraint")
 	query_hsp_start = Column(Integer)
 	query_hsp_end = Column(Integer)
 	target_hsp_start = Column(Integer)
 	target_hsp_end = Column(Integer)
-	uni_constraint = UniqueConstraint("hit_id", "query_hsp_start", "query_hsp_end", "target_hsp_start", "target_hsp_end")
+	uni_constraint = UniqueConstraint("query_id", "target_id", "query_hsp_start", "query_hsp_end", "target_hsp_start", "target_hsp_end")
 	hsp_evalue = Column(Float)
 	hsp_bits = Column(Float)
 	hsp_identity = Column(Float)
 	hsp_length = Column(Integer)
 
-	hit_object=relationship(Hit, uselist=False, lazy="joined", backref=backref("hsps"))
+	query_object=relationship(Query, uselist=False, lazy="joined")
+	target_object=relationship(Target, uselist=False, lazy="joined")
+
+	hit_object=relationship(Hit, uselist=False, lazy="joined", backref=backref("hsps"),
+						foreign_keys=[query_id, target_id],
+						primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
 	
 	__table_args__ = (pk_constraint,)
 	
-	def __init__(self, hsp, counter, hit_id):
+	def __init__(self, hsp, counter, query_id, target_id):
 		self.counter = counter
-		self.hit_id = hit_id
-		assert self.hit_id is not None
 		self.query_hsp_start = hsp.query_start
 		self.query_hsp_end = hsp.query_end
 		self.target_hsp_start = hsp.sbjct_start
@@ -269,6 +274,8 @@ class Hsp(dbBase):
 		self.hsp_length = hsp.align_length
 		self.hsp_bits = hsp.bits
 		self.hsp_evalue = hsp.expect
+		self.query_id = query_id
+		self.target_id = target_id
 	
 	def __str__(self):
 		'''Simple printing function.'''
@@ -311,30 +318,33 @@ class Hsp(dbBase):
 	@property
 	def query(self):
 		'''Returns the name of the query sequence, through a nested SQL query.'''
-		return self.hit_object.query
+		return self.query_object.name
 
 	@property
 	def target(self):
 		'''Returns the name of the target sequence, through a nested SQL query.'''
-		return self.hit_object.target
+		return self.target_object.name
 
 	
 	@property
 	def query_hsp_cov(self):
 		'''This property returns the percentage of the query which is covered by the HSP.'''
-		return (self.query_hsp_end-self.query_hsp_start+1)/(self.hit_object.query_len)
+		return (self.query_hsp_end-self.query_hsp_start+1)/(self.query_object.length)
 	
 	@property
 	def target_hsp_cov(self):
 		'''This property returns the percentage of the target which is covered by the HSP.'''
-		return (self.target_hsp_end-self.target_hsp_start+1)/(self.hit_object.target_len)
+		return (self.target_hsp_end-self.target_hsp_start+1)/(self.target_object.length)
 
 class xmlSerializer:
 	
 	'''This class has the role of taking in input a blast XML file and (partially) serialise it into
 	a database. We are using SQLalchemy, so the database type could be any of SQLite, MySQL, PSQL, etc.'''
 	
-	def __init__(self, db, xml, max_target_seqs=float("Inf"), keep_definition=False):
+	def __init__(self, db, xml, max_target_seqs=float("Inf"),
+				target_seqs=None,
+				query_seqs=None,
+				keep_definition=False, maxobjects=10000  ):
 		'''Initializing method. Arguments:
 		-db
 		-xml (it can be a handle or a valid file address)
@@ -372,7 +382,28 @@ class xmlSerializer:
 			self.xml_parser=xml # This is the BLAST object we will serialize
 		#Runtime arguments
 		self.keep_definition=keep_definition
+		
+		if type(query_seqs) is str:
+			assert os.path.exists(query_seqs)
+			self.query_seqs=SeqIO.index(query_seqs,"fasta")
+		elif query_seqs is None:
+			self.query_seqs=None
+		else:
+			assert type(query_seqs) is Bio.File._IndexedSeqFileDict
+			self.query_seqs=query_seqs
+		
+		if type(target_seqs) is str:
+			assert os.path.exists(target_seqs)
+			self.target_seqs=SeqIO.index(target_seqs,"fasta")
+		elif target_seqs is None:
+			self.target_seqs = None
+		else:
+			assert type(target_seqs) is Bio.File._IndexedSeqFileDict
+			self.target_seqs=target_seqs
+		
 		self.max_target_seqs=max_target_seqs
+		self.maxobjects = maxobjects 
+		
 		
 	def serialize(self):
 		
@@ -381,6 +412,30 @@ class xmlSerializer:
 		q_mult=1 #Query multiplier: 3 for BLASTX (nucleotide vs. protein), 1 otherwise
 		h_mult=1 #Target multiplier: 3 for TBLASTN (protein vs. nucleotide), 1 otherwise
 
+		objects=[]
+		if self.target_seqs is not None:
+			for record in self.target_seqs:
+				if self.session.query(Target).filter(Target.name==record).count()==0:
+					objects.append(Target(record, len(self.target_seqs[record])  ))
+					if len(objects)>=self.maxobjects:
+						self.session.bulk_save_objects(objects)
+						objects=[]
+			self.session.bulk_save_objects(objects)
+			objects=[]
+			print("Loaded targets")
+
+		
+		if self.query_seqs is not None:
+			for record in self.query_seqs:
+				if self.session.query(Query).filter(Query.name==record).count()==0:
+					objects.append(Query(record, len(self.query_seqs[record])  ))
+					if len(objects)>=self.maxobjects:
+						self.session.bulk_save_objects(objects)
+						objects=[]
+			self.session.bulk_save_objects(objects)
+			objects=[]
+			print("Loaded Queries")
+			
 		for record in self.xml_parser:
 			if record.application=="BLASTN":
 				q_mult=1
@@ -432,20 +487,19 @@ class xmlSerializer:
 									hit_number=hit_num,
 									query_multiplier=q_mult,
 									target_multiplier=h_mult)
-				try:
-					self.session.add(current_hit)
-					self.session.commit()
-				except sqlalchemy.exc.IntegrityError:
-					self.session.rollback()
-					to_delete=self.session.query( Hit ).filter(sqlalchemy.and_( Hit.query_id==current_query.id, Hit.target_id == current_target.id )).one()
-					self.session.delete(to_delete)
-					self.session.commit()
-					self.session.add(current_hit)
-					self.session.commit()
+				objects.append(current_hit)
 						
 				for counter,hsp in enumerate(alignment.hsps):
-					current_hsp = Hsp(hsp, counter, current_hit.id)
-					self.session.add(current_hsp)
+					current_hsp = Hsp(hsp, counter, current_query.id, current_target.id)
+					objects.append(current_hsp)
+			
+			if len(objects)>=self.maxobjects:
+				self.session.bulk_save_objects(objects)
+				objects=[]
+			
 
-			self.session.commit() 
-	
+		self.session.bulk_save_objects(objects)
+		self.session.commit() 
+
+	def __call__(self):
+		self.serialize()

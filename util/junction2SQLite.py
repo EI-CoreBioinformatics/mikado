@@ -10,6 +10,6 @@ def main():
     args=parser.parse_args()
     
     serializer=junction.junctionSerializer(args.bed12, args.db, fai=args.fai)
-    serializer.serialize()
+    serializer()
     
 if __name__=="__main__": main()

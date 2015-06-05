@@ -1,4 +1,6 @@
 import sys,os
+from Bio import SeqIO
+import Bio.File
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy import Column,String,Integer,ForeignKey,CHAR,Index,Float,Boolean
 from loci_objects import bed12
@@ -82,11 +84,30 @@ class orf(dbBase):
         
 class orfSerializer:
         
-    def __init__(self, handle, db, fasta_index=None, dbtype="sqlite"):
+    def __init__(self, handle, db, fasta_index=None, dbtype="sqlite", maxobjects=1000000):
+        
+        '''Constructor function. Arguments:
+        - handle         the BED12 file
+        - db             Output DB
+        - fasta_index    A SeqIO-like index of sequence records.
+        - maxobjects    Integer. Indicates how big should the cache be for objects to be loaded inside the DB
+        
+        It is HIGHLY RECOMMENDED to provide the fasta index, as it will make the population of the Query
+        table much faster.
+        '''
+
+        if type(fasta_index) is str:
+            assert os.path.exists(fasta_index)
+            self.fasta_index=SeqIO.index(fasta_index,"fasta")
+        else:
+            assert type(fasta_index) is Bio.File._IndexedSeqFileDict
+            self.fasta_index=fasta_index
+
         
         self.BED12 = bed12.bed12Parser(handle, fasta_index=fasta_index, transcriptomic=True)
         self.engine=create_engine("{dbtype}:///{db}".format(dbtype=dbtype,
                                                        db=db))
+
         session=sessionmaker()
         session.configure(bind=self.engine)
         
@@ -94,8 +115,21 @@ class orfSerializer:
         if not orf.__tablename__ in inspector.get_table_names():
             dbBase.metadata.create_all(self.engine) #@UndefinedVariable
         self.session=session()
+        self.maxobjects=maxobjects
         
     def serialize(self):
+        objects = []
+        if self.fasta_index is not None:
+            for record in self.fasta_index:
+                objects.append(Query(record, len(self.fasta_index[record])))
+                if len(objects)>=self.maxobjects:
+                    self.session.bulk_save_objects(objects)
+                    objects=[]
+            
+            self.session.bulk_save_objects(objects)
+            self.session.commit()
+            objects=[]
+            
         for row in self.BED12:
             if row.header is True:
                 continue
@@ -107,7 +141,13 @@ class orfSerializer:
             else:
                 current_query=current_query[0]
             current_junction = orf( row, current_query.id)
-            self.session.add(current_junction)
-            self.session.commit()
+            objects.append(current_junction)
+            if len(objects)>=self.maxobjects:
+                self.session.bulk_save_objects(objects)
+                objects=[]
+
+        self.session.bulk_save_objects(objects)
         self.session.commit()
-            
+    
+    def __call__(self):
+        self.serialize()

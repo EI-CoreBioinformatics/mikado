@@ -64,7 +64,7 @@ class junction(dbBase):
         
 class junctionSerializer:
         
-    def __init__(self, handle, db, fai=None, dbtype="sqlite"):
+    def __init__(self, handle, db, fai=None, dbtype="sqlite", maxobjects=10000):
         
         self.BED12 = bed12.bed12Parser(handle)
         self.engine=create_engine("{dbtype}:///{db}".format(dbtype=dbtype,
@@ -76,6 +76,7 @@ class junctionSerializer:
             dbBase.metadata.create_all(self.engine) #@UndefinedVariable
         
         self.session=session()
+        self.maxobjects=maxobjects
         if fai is not None:
             if type(fai) is str:
                 assert os.path.exists(fai)
@@ -87,8 +88,11 @@ class junctionSerializer:
                 current_chrom = Chrom(name, length=int(length))
                 self.session.add(current_chrom)
             self.session.commit()
+        
  
     def serialize(self):
+        objects = []
+        
         for row in self.BED12:
             if row.header is True:
                 continue
@@ -100,8 +104,13 @@ class junctionSerializer:
             else:
                 current_chrom=current_chrom[0]
             current_junction = junction( row, current_chrom.id)
-            self.session.add(current_junction)
-            self.session.commit()
+            objects.append(current_junction)
+            if len(objects)>=self.maxobjects:
+                self.session.bulk_save_objects(objects)
+                objects=[]
+        self.session.bulk_save_objects(objects)
         self.session.commit()
             
+    def __call__(self):
+        self.serialize()
 

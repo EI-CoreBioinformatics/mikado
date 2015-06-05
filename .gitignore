@@ -2,6 +2,9 @@ __pycache__/
 __pycache__/*
 sample_data/*loci*
 sample_data/*zip
+sample_data/*fasta.n*
+sample_data/*fasta.p*
+sample_data/uniprot*fasta*
 myRecords/__pycache__/BatchBlast.cpython-34.pyc
 myRecords/__pycache__/Blast.cpython-34.pyc
 myRecords/__pycache__/Blat.cpython-34.pyc
@@ -15,3 +18,11 @@ myRecords/__pycache__/gtfRecord.cpython-34.pyc
 myRecords/__pycache__/__init__.cpython-32.pyc
 myRecords/__pycache__/__init__.cpython-34.pyc
 myRecords/__pycache__/Sam.cpython-34.pyc
+Chr*
+*/*~
+sample_data/.snakemake
+sample_data/*db
+sample_data/*xml
+test_blast
+sample_data/*check
+portcullis

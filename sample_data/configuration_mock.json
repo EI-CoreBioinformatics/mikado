@@ -1,15 +1,5 @@
 {
-	"db":"data.db",
-	"dbtype":"sqlite",
-	"blast":{
-		"execute":true,
-		"program":"blastx",
-		"database":"uniprot_sprot_plants.fasta",
-		"evalue":1,
-		"max_target_seqs":20,
-		"num_threads": 4
-		},	
-    "requirements":{
+	"requirements":{
 		"parameters":{
 			"cdna_length.multi":{
 				"operator":"ge",
@@ -136,27 +126,29 @@
 		    }
 		}
 	},
+	"db":"mock.db",
+	"dbtype":"sqlite",	
 	"chimera_split":{
 		"execute":true,
-		"blast_check":true,
+		"blast_check":false,
 		"blast_params":{
 			"evalue": 1e-4,
 			"minimal_secondary_orf": 200,
 			"hsp_evalue": 1e-4,
 			"max_target_seqs": 10,
-			"minimal_hsp_overlap": 0.9,
-		    "leniency": "STRINGENT"
+			"minimal_hsp_overlap": 0.9			
 		}
 	},
 	"orf_loading":{
 		"strand_specific":true,
 		"minimal_secondary_orf_length": 200
 	},
-	"run_options":{
-		"exclude_cds":false,
-		"purge":false,
-		"remove_overlapping_fragments":true,
-		"threads": 5,
-	    "subloci_from_cds_only":true
-	}
+	"blast":{
+		"execute":true,
+		"program":"blastx",
+		"database":"uniprot_sprot_plants.fasta",
+		"evalue":1,
+		"max_target_seqs":20,
+		"num_threads": 4
+		}
 }

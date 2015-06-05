@@ -9,7 +9,8 @@ def main():
     parser.add_argument("bed12")
     parser.add_argument("db")
     args=parser.parse_args()
-    args.fasta=SeqIO.index(args.fasta, "fasta")
+    if args.fasta is not None:
+        args.fasta=SeqIO.index(args.fasta, "fasta")
     
     serializer=orf.orfSerializer(args.bed12, args.db, fasta_index=args.fasta)
     serializer.serialize()

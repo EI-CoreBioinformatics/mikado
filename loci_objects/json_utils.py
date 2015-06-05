@@ -17,11 +17,11 @@ def check_chimera_split(json_conf):
         if json_conf["chimera_split"]["blast_check"] is True:
             assert "blast_params" in json_conf["chimera_split"] 
             if "evalue" in json_conf["chimera_split"]["blast_params"]:
-                assert type(json_conf["chimera_split"]["blast_params"]["evalue"]) is float or json_conf["chimera_split"]["blast_params"]["evalue"] is None
+                assert type(json_conf["chimera_split"]["blast_params"]["evalue"]) in (float,int) or json_conf["chimera_split"]["blast_params"]["evalue"] is None
             else:
                 json_conf["chimera_split"]["blast_params"]["evalue"]=None
             if "hsp_evalue" in json_conf["chimera_split"]["blast_params"]:
-                assert type(json_conf["chimera_split"]["blast_params"]["hsp_evalue"]) is float or json_conf["chimera_split"]["blast_params"]["hsp_evalue"] is None
+                assert type(json_conf["chimera_split"]["blast_params"]["hsp_evalue"]) in (float,int) or json_conf["chimera_split"]["blast_params"]["hsp_evalue"] is None
             else:
                 json_conf["chimera_split"]["blast_params"]["hsp_evalue"]=None
             if "max_target_seqs" in json_conf["chimera_split"]["blast_params"]:
@@ -33,10 +33,10 @@ def check_chimera_split(json_conf):
                     0<=json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]<=1
             else:
                 json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]=0
-            if "lenient" not in json_conf["chimera_split"]["blast_params"]:
-                json_conf["chimera_split"]["blast_params"]["lenient"]=False
+            if "leniency" not in json_conf["chimera_split"]["blast_params"]:
+                json_conf["chimera_split"]["blast_params"]["leniency"]="STRINGENT"
             else:
-                assert type(json_conf["chimera_split"]["blast_params"]["lenient"]) is bool
+                assert json_conf["chimera_split"]["blast_params"]["leniency"] in ("STRINGENT", "PERMISSIVE", "LENIENT")
 
     return json_conf
 
@@ -147,7 +147,7 @@ def check_blast(json_conf, json_file):
         raise loci_objects.exceptions.InvalidJson("""Invalid BLAST program specified: {0}.
         Supported options: blastn, blastx, tblastx.""")
     if os.path.dirname(json_conf["blast"]["program"])=="":
-        program=shutil.which(json_conf["blast"]["program"])
+        program=shutil.which(json_conf["blast"]["program"]) #@UndefinedVariable
     else:
         try:
             program=os.path.abspath(json_conf["blast"]["program"])
@@ -215,6 +215,35 @@ def check_orf_loading(json_conf):
 
     return json_conf
 
+def check_run_options(json_conf):
+
+    if "run_options" not in json_conf:
+        json_conf["run_options"]=dict()
+    if "purge" not in json_conf["run_options"]: 
+        json_conf["run_options"]["purge"]=False
+    else:
+        assert type(json_conf["run_options"]["purge"]) is bool
+    if "exclude_cds" not in json_conf["run_options"]: 
+        json_conf["run_options"]["exclude_cds"]=False
+    else:
+        assert type(json_conf["run_options"]["exclude_cds"]) is bool
+    if "remove_overlapping_fragments" not in json_conf["run_options"]:
+        json_conf["run_options"]["remove_overlapping_fragments"]=False
+    else:
+        assert type(json_conf["run_options"]["remove_overlapping_fragments"]) is bool
+    if "threads" not in json_conf["run_options"]:
+        json_conf["run_options"]["threads"]=1
+    else:
+        assert type(json_conf["run_options"]["threads"]) is int
+    
+    if "subloci_from_cds_only" not in json_conf["run_options"]:
+        json_conf["run_options"]["subloci_from_cds_only"]=False
+    else:
+        assert type(json_conf["run_options"]["subloci_from_cds_only"]) is bool
+    
+    return json_conf
+
+
 def check_json(json_conf, json_file):
     '''Quick function to check that the JSON dictionary is well formed.'''
     
@@ -225,17 +254,25 @@ def check_json(json_conf, json_file):
     if json_conf["dbtype"] not in ("sqlite", "mysql", "psql"):
         raise loci_objects.exceptions.InvalidJson("Invalid DB type: {0}. At the moment we support sqlite, mysql, psql".format(json_conf["dbtype"]))
         
-    if "strand_spefific" not in json_conf:
-        json_conf["strand_specific"]=False
+    if "input" not in json_conf:
+        json_conf["input"]=None
     else:
-        if not type(json_conf["strand_specific"]) is bool:
-            raise loci_objects.exceptions.InvalidJson("Invalid boolean value for \"strand_specific\": {0}".format(json_conf["strand_specific"]))
+        assert os.path.exists(json_conf["input"]) and os.path.isfile(json_conf["input"])
+
+    if "source" not in json_conf:
+        json_conf["source"]="Shanghai"
+        
+    for prefix in ["","mono","sub"]:
+        key="{0}loci_out".format(prefix)
+        if key not in json_conf:
+            json_conf[key]=None
         
     json_conf = check_blast(json_conf, json_file)
     json_conf = check_requirements(json_conf)
     json_conf = check_scoring(json_conf)
     json_conf = check_orf_loading(json_conf)
     json_conf = check_chimera_split(json_conf)
+    json_conf = check_run_options(json_conf)
     return json_conf
        
 def to_json(string):

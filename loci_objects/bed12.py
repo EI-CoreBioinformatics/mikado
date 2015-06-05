@@ -78,7 +78,7 @@ class BED12:
             line.append(".")
         else:
             line.append(self.strand)
-        line.extend( [self.score, self.thickStart-1, self.thickEnd, self.blockCount] )
+        line.extend( [self.thickStart-1, self.thickEnd, self.rgb, self.blockCount] )
         line.append( ",".join([str(x) for x in self.blockSizes]  ) )
         line.append( ",".join([str(x) for x in self.blockStarts]  ) )
         return "\t".join([str(x) for x in line])

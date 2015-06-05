@@ -540,6 +540,7 @@ class transcript:
                 candidate_orfs.append(orf.as_bed12())
         
         del new_orfs
+                
         return candidate_orfs
         
     def load_orfs(self, candidate_orfs):
@@ -568,6 +569,7 @@ class transcript:
         self.finalize()
         if len(candidate_orfs)==0:
             return
+
         self.combined_utr = []
         self.combined_cds = []
         self.internal_orfs = []
@@ -579,10 +581,12 @@ class transcript:
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
             
-            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length):
+            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length): #Leave leeway for TD
                 continue
             if self.strand is None:
                 self.strand=new_strand=orf.strand
+            else:
+                new_strand=self.strand
             primary_orf = False
 
             
@@ -782,9 +786,12 @@ class transcript:
                         cds_hits = cds_hit_dict[cds_boundary]
                         old_hits = cds_hit_dict[old_boundary]
                         if cds_hits == set() and old_hits==set():
-                            new_boundaries.append([cds_boundary])
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="CLEMENT":
+                                new_boundaries[-1].append(cds_boundary)
+                            else:
+                                new_boundaries.append([cds_boundary])
                         elif cds_hits == set() or old_hits==set():
-                            if self.json_dict["chimera_split"]["blast_params"]["lenient"] is False:
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="STRINGENT":
                                 new_boundaries.append([cds_boundary])
                             else:
                                 new_boundaries[-1].append(cds_boundary)
@@ -868,10 +875,11 @@ class transcript:
                     new_bed12s = []
                     for obj in bed12_objects:
                         assert type(obj) is bed12.BED12, (obj, bed12_objects)
-                        obj.start=min(obj.start, tend)-tstart+1
-                        obj.end=min(obj.end, tend)-tstart+1
-                        obj.thickStart=min(obj.thickStart,tend)-tstart+1
-                        obj.thickEnd=min(obj.thickEnd,tend)-tstart+1
+                        obj.start=1
+                        obj.end=min(obj.end, tend)-tstart
+                        obj.thickStart=min(obj.thickStart,tend)-tstart+1 
+                        obj.thickEnd=min(obj.thickEnd,tend)-tstart
+                        obj.blockSizes=[obj.end]
                         new_bed12s.append(obj)
                     
                     new_transcript.load_orfs(new_bed12s)
@@ -1076,7 +1084,7 @@ class transcript:
     def combined_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the combined CDS.'''
         if len(self.combined_cds)<2:
-            return []
+            return set()
         cintrons=[]
         all_cintrons=[]
         for position in range(len(self.combined_cds)-1):
@@ -1088,7 +1096,6 @@ class transcript:
         if len(self.selected_cds_introns)>0:
             assert len(cintrons)>0,(self.id, self.selected_cds_introns,all_cintrons,self.introns) 
         cintrons=set(cintrons)
-        assert type(cintrons) is set
         return cintrons
 
     @property

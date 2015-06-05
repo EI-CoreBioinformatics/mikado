@@ -2,7 +2,7 @@ import sys, os
 import sqlalchemy
 import gzip
 import subprocess
-import collections
+# import collections
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from scipy import mean
 import operator
@@ -432,8 +432,16 @@ class xmlSerializer:
 									hit_number=hit_num,
 									query_multiplier=q_mult,
 									target_multiplier=h_mult)
-				self.session.add(current_hit)
-				self.session.commit()
+				try:
+					self.session.add(current_hit)
+					self.session.commit()
+				except sqlalchemy.exc.IntegrityError:
+					self.session.rollback()
+					to_delete=self.session.query( Hit ).filter(sqlalchemy.and_( Hit.query_id==current_query.id, Hit.target_id == current_target.id )).one()
+					self.session.delete(to_delete)
+					self.session.commit()
+					self.session.add(current_hit)
+					self.session.commit()
 						
 				for counter,hsp in enumerate(alignment.hsps):
 					current_hsp = Hsp(hsp, counter, current_hit.id)

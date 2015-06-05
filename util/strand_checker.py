@@ -1,5 +1,6 @@
 import sys,os
-from copy import copy
+from copy import copy, deepcopy
+from loci_objects.exceptions import IncorrectStrandError
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import loci_objects
 from Bio import SeqIO
@@ -45,7 +46,7 @@ If set, the output will be GFF3, regardless of the input format.""")
                         help="Output file. Default: STDOUT.")
     args=parser.parse_args()
     
-    currentTranscripts = []
+    currentTranscripts = dict()
     currentParent = None
     
     if args.gff.name[-3:]=="gtf":
@@ -58,100 +59,91 @@ If set, the output will be GFF3, regardless of the input format.""")
     currentSeq = None
     
     for record in args.gff:
-        if record.header is True:
-            print(record, file=args.out)
-            continue
-        assert record.chrom in args.fasta
-        sequence = args.fasta[record.chrom]
-        if currentSeq is None or list(currentSeq.keys())[0]!=record.chrom:
-#                print("Loading sequence {0}".format(record.chrom))
-                currentSeq=dict()
-                currentSeq[record.chrom] = sequence.seq
-#                print("Loaded sequence {0}".format(record.chrom))
-        if record.is_parent is True:
-            if is_gff is True:
-                if len(currentTranscripts)==0:
-                    print(record.is_parent, file=args.out)
-                else:
-                    for tran in currentTranscripts:
+        
+        if currentSeq is None or record.chrom != currentSeq.id:
+            currentSeq=dict((record.chrom,  args.fasta[record.chrom]))
+        if record.header is True: continue
+        if record.is_parent is True and is_gff is True:
+            if record.is_parent is True:
+                for tid,tr in currentTranscripts:
                         try:
-                            tran.check_strand()
-                        except loci_objects.exceptions.IncorrectStrandError:
-                            currentTranscripts.remove(tran)
-                    if currentParent is not None and len(currentTranscripts)>0:
-                        strands = set([t.strand for t in currentTranscripts])
-                        if len(strands)==1:
-                            strand = strands.pop()
-                            currentParent.strand = strand
+                            tr.check_strand()
+                        except IncorrectStrandError:
+                            del currentTranscripts[tid]
+                if len(currentTranscripts)>0:
+                    strands = dict()
+                    for tid, tr in currentTranscripts:
+                        if tr.strand not in strands:
+                            strands[tr.strand]=[]
+                        strands[tr.strand].append(tr)
+                    for strand in strands:
+                        if strand == currentParent.strand:
                             print(currentParent, file=args.out)
-                            for tran in currentTranscripts:
-                                print(tran, file=args.out)
+                            parent_id=currentParent.id
                         else:
-                            original_strand = currentParent.strand
-                            print(currentParent, file=args.out)
-                            for tran in filter(lambda t: t==original_strand, currentTranscripts):
-                                print(tran, file=args.out)
-                            for strand in filter(lambda s: s!=original_strand, strands):
-                                newPar = copy(currentParent)
-                                new_id = "{0}:{1}".format(currentParent.id, strand)
-                                newPar.id = new_id
-                                newPar.strand = strand
-                                print(newPar, file=args.out)
-                                for tran in filter(lambda t: t==original_strand, currentTranscripts):
-                                    tran.parent = new_id
-                                    print(tran, file=args.out)
+                            newParent = deepcopy(currentParent)
+                            newParent.strand = strand
+                            newParent.id = "{0}.strand{1}".format(currentParent.id, strand)
+                            print(newParent, file=args.out)
+                            parent_id = newParent.id
+                        for tr in strands[strand]:
+                            tr.parent = parent_id
+                            print(tr, file=args.out)
                 currentParent=record
-                currentTranscripts=[]
-            elif is_gff is False:
-                for tran in currentTranscripts:
-                    try:
-                        tran.check_strand()
-                        print(tran.__str__(to_gtf=True), file=args.out)
-                    except loci_objects.exceptions.IncorrectStrandError:
-                        continue
-                currentParent = record.gene
-                currentTranscripts=[loci_objects.transcript_checker.transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)]
-        elif record.is_transcript and is_gff is True:
-            new_tran = loci_objects.transcript_checker.transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
-            currentTranscripts.append(new_tran)
-        elif record.is_exon:
-            for tran in currentTranscripts:
-                if tran.id in record.parent:
-                    tran.addExon(record)
-
-
-    if is_gff is False and len(currentTranscripts)>0:
-        for tran in currentTranscripts:
-            tran.check_strand()
-            print(tran.__str__(to_gtf=True), file=args.out)
-    elif is_gff is True:
-        if currentParent is not None:
-            if len(currentTranscripts)==0:
-                print(currentParent, file=args.out)
-            else:
-                for tran in currentTranscripts:
-                    tran.check_strand()
-                strands = set([t.strand for t in currentTranscripts])
-                if len(strands)==1:
-                    currentParent.strand = strands.pop()
-                    print(currentParent, file=args.out)
-                    for tran in currentTranscripts:
-                        print(tran, file=args.out)
+                currentTranscripts=dict()
+            elif record.is_transcript is True:
+                if is_gff is True:
+                    assert currentParent.id in record.parent
                 else:
-                    original_strand = currentParent.strand
+                    tr = currentTranscripts[currentTranscripts.keys()[0]]
+                    try:
+                        tr.check_strand()
+                        print(tr, file=args.out)
+                    except loci_objects.exceptions.IncorrectStrandError:
+                        pass
+                    currentTranscripts=dict()
+                currentTranscript = loci_objects.transcript_checker.transcript_checker(
+                                                                                       record,
+                                                                                       currentSeq,
+                                                                                       strand_specific=args.strand_specific,
+                                                                                       lenient=args.lenient
+                                                                                       )
+
+                currentTranscripts[currentTranscript.id]=currentTranscript
+            elif record.is_exon is True:
+                for parent in record.parent:
+                    currentTranscripts[parent].addExon(record)
+            else:
+                pass
+                
+         
+    for tid,tr in currentTranscripts:
+        try:
+            tr.check_strand()
+        except IncorrectStrandError:
+            del currentTranscripts[tid]
+    if len(currentTranscripts)>0:
+        strands = dict()
+        for tid, tr in currentTranscripts:
+            if tr.strand not in strands:
+                strands[tr.strand]=[]
+            strands[tr.strand].append(tr)
+        for strand in strands:
+            parent_id = None
+            if is_gff is True:
+                if strand == currentParent.strand:
                     print(currentParent, file=args.out)
-                    for tran in filter(lambda t: t==original_strand, currentTranscripts):
-                        print(tran, file=args.out)
-                    for strand in filter(lambda s: s!=original_strand, strands):
-                        newPar = copy(currentParent)
-                        new_id = "{0}:{1}".format(currentParent.id, strand)
-                        newPar.id = new_id
-                        print(newPar, file=args.out)
-                        for tran in filter(lambda t: t==original_strand, currentTranscripts):
-                            tran.parent = new_id
-                            print(tran, file=args.out)
-            
-            
+                    parent_id=currentParent.id
+                else:   
+                    newParent = deepcopy(currentParent)
+                    newParent.strand = strand
+                    newParent.id = "{0}.strand{1}".format(currentParent.id, strand)
+                    print(newParent, file=args.out)
+                    parent_id = newParent.id
+            for tr in strands[strand]:
+                if parent_id is not None: tr.parent = parent_id
+                print(tr, file=args.out)
+
     
 if __name__=='__main__': main()
 

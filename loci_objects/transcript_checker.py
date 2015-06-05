@@ -28,6 +28,7 @@ class transcript_checker(transcript):
         self.checked = False
         self.lenient=lenient
         self.mixed_splices = False
+        self.reversed=False
                 
     @property
     def strand_specific(self):
@@ -68,30 +69,27 @@ class transcript_checker(transcript):
             for strand in ("+","-",None):
                 canonical_counter[strand]=0
             
-            assert len(self.introns)>0
-            
-            
             for intron in self.introns:
                 splice_donor = self.fasta_index[self.chrom][intron[0]-1:intron[0]+1]
                 splice_acceptor = self.fasta_index[self.chrom][intron[1]-2:intron[1]]
-                if (str(splice_donor),str(splice_acceptor)) in canonical_splices:
-                    if self.strand == "+":
-                        canonical_counter["+"]+=1
-                    elif self.strand == "-":
-                        canonical_counter["-"]+=1
+                if self.strand=="-":
+                    rsa, rsd = splice_acceptor.reverse_complement(), splice_donor.reverse_complement()
+                    splice_donor, splice_acceptor = rsa, rsd
+                if (splice_donor.seq,splice_acceptor.seq) in canonical_splices:
+                    canonical_counter["+"]+=1
                 else:
-                    rsa = splice_donor.reverse_complement()
-                    rsd = splice_acceptor.reverse_complement()
-                    splice_acceptor, splice_donor = rsa, rsd
-                    if (str(splice_donor),str(splice_acceptor)) in canonical_splices:
-                        if self.strand=="-":
-                            canonical_counter["+"]+=1
-                        else:
-                            canonical_counter["-"]+=1
+                    rsa, rsd = splice_acceptor.reverse_complement(), splice_donor.reverse_complement()
+                    splice_donor, splice_acceptor = rsa, rsd
+                    if (splice_donor.seq,splice_acceptor.seq) in canonical_splices:
+                        canonical_counter["-"]+=1
                     else:
                         canonical_counter[None]+=1
 
-            if canonical_counter["+"]>0 and canonical_counter["-"]>0:
+            if canonical_counter[None]==len(self.introns):
+                if self.lenient is False:
+                    raise IncorrectStrandError("No correct strand found for {0}".format(self.id))
+
+            elif canonical_counter["+"]>0 and canonical_counter["-"]>0:
                 if self.lenient is False:
                     raise IncorrectStrandError("Transcript {0} has {1} positive and {2} negative splice junctions. Aborting.".format(
                                                                                                                                  self.id,
@@ -107,9 +105,9 @@ class transcript_checker(transcript):
                 else:
                     self.reverse_strand()
                     self.mixed_attribute="{0}concordant,{1}discordant".format(canonical_counter["-"],canonical_counter["+"])
-                return
             
-            if canonical_counter["-"]>0:
+            elif canonical_counter["-"]>0:
                 self.reverse_strand()
-
+                self.reversed=True
+                        
         self.checked = True

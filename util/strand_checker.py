@@ -57,22 +57,31 @@ If set, the output will be GFF3, regardless of the input format.""")
     
     currentSeq = None
     
+    reversed_transcripts=0
+    
     for record in args.gff:
         
-        if currentSeq is None or record.chrom not in currentSeq.id:
+        if currentSeq is None or record.chrom not in currentSeq:
             currentSeq=dict()
             currentSeq[record.chrom]=args.fasta[record.chrom]
-        if record.header is True: continue
-        if record.is_parent is True and is_gff is True:
-            if record.is_parent is True:
-                for tid,tr in currentTranscripts:
+        if record.header is True:
+            continue
+        if record.is_parent is True:
+            if is_gff is True and record.is_transcript is False:
+                to_delete=[]
+                for tid,tr in currentTranscripts.items():
                         try:
                             tr.check_strand()
+                            if tr.reversed is True:
+                                reversed_transcripts+=1
                         except loci_objects.exceptions.IncorrectStrandError:
-                            del currentTranscripts[tid]
+                            to_delete.append(tid)
+                for tid in to_delete:
+                    del currentTranscripts[tid]
                 if len(currentTranscripts)>0:
                     strands = dict()
-                    for tid, tr in currentTranscripts:
+                    for tid, tr in currentTranscripts.items():
+                        if tr.reversed is True: reversed_transcripts+=1
                         if tr.strand not in strands:
                             strands[tr.strand]=[]
                         strands[tr.strand].append(tr)
@@ -91,17 +100,15 @@ If set, the output will be GFF3, regardless of the input format.""")
                             print(tr, file=args.out)
                 currentParent=record
                 currentTranscripts=dict()
-            elif record.is_transcript is True:
-                if is_gff is True:
-                    assert currentParent.id in record.parent
-                else:
-                    tr = currentTranscripts[currentTranscripts.keys()[0]]
-                    try:
-                        tr.check_strand()
-                        print(tr, file=args.out)
-                    except loci_objects.exceptions.IncorrectStrandError:
-                        pass
-                    currentTranscripts=dict()
+
+            else:
+                tr = currentTranscripts[currentTranscripts.keys()[0]]
+                try:
+                    tr.check_strand()
+                    print(tr, file=args.out)
+                except loci_objects.exceptions.IncorrectStrandError:
+                    pass
+                currentTranscripts=dict()
                 currentTranscript = loci_objects.transcript_checker.transcript_checker(
                                                                                        record,
                                                                                        currentSeq,
@@ -110,21 +117,42 @@ If set, the output will be GFF3, regardless of the input format.""")
                                                                                        )
 
                 currentTranscripts[currentTranscript.id]=currentTranscript
-            elif record.is_exon is True:
-                for parent in record.parent:
+
+        elif record.is_transcript is True and is_gff is True:
+            try:
+                assert currentParent.id in record.parent, record
+            except TypeError:
+                raise TypeError(str(currentParent), str(record))
+            currentTranscript = loci_objects.transcript_checker.transcript_checker(
+                                                                               record,
+                                                                               currentSeq,
+                                                                               strand_specific=args.strand_specific,
+                                                                               lenient=args.lenient
+                                                                            )            
+            currentTranscripts[currentTranscript.id]=currentTranscript
+
+        elif record.is_exon is True:
+            assert len(currentTranscripts)>0, (str(currentParent),currentTranscripts)
+            for parent in record.parent:
+                try:
                     currentTranscripts[parent].addExon(record)
-            else:
-                pass
-                
-         
-    for tid,tr in currentTranscripts:
+                except KeyError:
+                    print(currentTranscripts)
+                    raise
+
+    to_delete = []         
+    for tid,tr in currentTranscripts.items():
         try:
             tr.check_strand()
+            if tr.reversed is True:
+                reversed_transcripts+=1
         except loci_objects.exceptions.IncorrectStrandError:
-            del currentTranscripts[tid]
+            to_delete.append(tid)
+    for tid in to_delete:
+        del currentTranscripts[tid]
     if len(currentTranscripts)>0:
         strands = dict()
-        for tid, tr in currentTranscripts:
+        for tid, tr in currentTranscripts.items():
             if tr.strand not in strands:
                 strands[tr.strand]=[]
             strands[tr.strand].append(tr)
@@ -144,7 +172,6 @@ If set, the output will be GFF3, regardless of the input format.""")
                 if parent_id is not None: tr.parent = parent_id
                 print(tr, file=args.out)
 
-    
 if __name__=='__main__': main()
 
 

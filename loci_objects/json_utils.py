@@ -36,7 +36,7 @@ def check_chimera_split(json_conf):
             if "leniency" not in json_conf["chimera_split"]["blast_params"]:
                 json_conf["chimera_split"]["blast_params"]["leniency"]="STRINGENT"
             else:
-                assert json_conf["chimera_split"]["blast_params"]["lenient"] in ("STRINGENT", "PERMISSIVE", "LENIENT")
+                assert json_conf["chimera_split"]["blast_params"]["leniency"] in ("STRINGENT", "PERMISSIVE", "LENIENT")
 
     return json_conf
 

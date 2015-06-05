@@ -1,5 +1,15 @@
 {
-	"requirements":{
+	"db":"data.db",
+	"dbtype":"sqlite",
+	"blast":{
+		"execute":true,
+		"program":"blastx",
+		"database":"uniprot_sprot_plants.fasta",
+		"evalue":1,
+		"max_target_seqs":20,
+		"num_threads": 4
+		},	
+    "requirements":{
 		"parameters":{
 			"cdna_length.multi":{
 				"operator":"ge",
@@ -126,8 +136,6 @@
 		    }
 		}
 	},
-	"db":"data.db",
-	"dbtype":"sqlite",	
 	"chimera_split":{
 		"execute":true,
 		"blast_check":true,
@@ -137,7 +145,7 @@
 			"hsp_evalue": 1e-4,
 			"max_target_seqs": 10,
 			"minimal_hsp_overlap": 0.9,
-		    "leniency": STRINGENT
+		    "leniency": "STRINGENT"
 		}
 	},
 	"orf_loading":{
@@ -149,13 +157,5 @@
 		"purge":false,
 		"remove_overlapping_fragments":true,
 		"threads": 5
-	},
-	"blast":{
-		"execute":true,
-		"program":"blastx",
-		"database":"uniprot_sprot_plants.fasta",
-		"evalue":1,
-		"max_target_seqs":20,
-		"num_threads": 4
-		}
+	}
 }

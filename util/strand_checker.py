@@ -60,7 +60,8 @@ If set, the output will be GFF3, regardless of the input format.""")
     for record in args.gff:
         
         if currentSeq is None or record.chrom != currentSeq.id:
-            currentSeq=dict((record.chrom,  args.fasta[record.chrom]))
+            currentSeq=dict()
+            currentSeq[record.chrom]=args.fasta[record.chrom]
         if record.header is True: continue
         if record.is_parent is True and is_gff is True:
             if record.is_parent is True:

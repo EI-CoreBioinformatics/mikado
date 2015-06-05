@@ -374,15 +374,19 @@ class transcript:
                         continue
                     elif exon[1]<self.combined_cds[0][0] or exon[0]>self.combined_cds[-1][1]:
                         self.combined_utr.append(exon)
-                    elif exon[0]<self.combined_cds[0][0] and exon[1]==self.combined_cds[0][0]:
+                    elif exon[0]<self.combined_cds[0][0] and exon[1]==self.combined_cds[0][1]:
                         self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
-                    elif exon[1]>self.combined_cds[-1][1] and exon[0]==self.combined_cds[-1][1]:
+                    elif exon[1]>self.combined_cds[-1][1] and exon[0]==self.combined_cds[-1][0]:
                         self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                     else:
-                        print(exon, self.exons)
-                        raise loci_objects.exceptions.InvalidTranscript 
+                        if len(self.combined_cds)==1:
+                            self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
+                            self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
+                        else:
+                            print(self.id, exon, self.exons, self.combined_cds)
+                            raise loci_objects.exceptions.InvalidTranscript 
                 if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-                    print(self.id, self.exons, self.combined_cds, self.combined_utr)
+                    print("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
                     raise loci_objects.exceptions.InvalidTranscript
             else:
                 print(self.id, self.exons, self.combined_cds, self.combined_utr)

@@ -330,9 +330,11 @@ class transcript:
             {1}\n
             {2}
             """.format(self.id, gffLine.parent,gffLine))
+        assert gffLine.is_exon is True, str(gffLine)
+            
         if gffLine.feature=="CDS":
             store=self.combined_cds
-        elif "combined_utr" in gffLine.feature or "UTR" in gffLine.feature:
+        elif "combined_utr" in gffLine.feature or "UTR" in gffLine.feature.upper():
             store=self.combined_utr
         elif gffLine.feature=="exon":
             store=self.exons

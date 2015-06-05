@@ -26,6 +26,7 @@ def main():
                 bed12=loci_objects.bed12.BED12()
                 bed12.chrom=currentTranscript.chrom
                 bed12.strand=currentTranscript.strand
+                bed12.score=currentTranscript.score
                 bed12.start=currentTranscript.start
                 bed12.end=currentTranscript.end
                 bed12.thickStart=introns[0][0]
@@ -48,6 +49,7 @@ def main():
         bed12.chrom=currentTranscript.chrom
         bed12.strand=currentTranscript.strand
         bed12.start=currentTranscript.start
+        bed12.score=currentTranscript.score
         bed12.end=currentTranscript.end
         bed12.thickStart=introns[0][0]
         bed12.thickEnd=introns[0][1]

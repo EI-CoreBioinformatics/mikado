@@ -59,7 +59,7 @@ If set, the output will be GFF3, regardless of the input format.""")
     
     for record in args.gff:
         
-        if currentSeq is None or record.chrom != currentSeq.id:
+        if currentSeq is None or record.chrom not in currentSeq.id:
             currentSeq=dict()
             currentSeq[record.chrom]=args.fasta[record.chrom]
         if record.header is True: continue

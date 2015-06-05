@@ -396,8 +396,14 @@ class transcript:
 #         assert len(self.exons)>0
         try:
             if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
-                raise loci_objects.exceptions.InvalidTranscript("The transcript {id} has coordinates {tstart}:{tend}, but its first and last exons define it up until {estart}:{eend}!".format(
-                                                                                                                                                            ))
+                raise loci_objects.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
+                but its first and last exons define it up until {estart}:{eend}!""".format(
+                                                                                           id=self.id,
+                                                                                           tstart=self.start,
+                                                                                           tend=self.end,
+                                                                                           estart=self.exons[0][0],
+                                                                                           eend=self.exons[-1][1]
+                                                                                           ))
         except IndexError as err:
             raise loci_objects.exceptions.InvalidTranscript(err, self.id, str(self.exons))
 

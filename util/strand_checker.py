@@ -66,6 +66,7 @@ If set, the output will be GFF3, regardless of the input format.""")
             currentSeq[record.chrom]=args.fasta[record.chrom]
         if record.header is True:
             continue
+        assert hasattr(record, "chrom"), record
         if record.is_parent is True:
             if is_gff is True and record.is_transcript is False:
                 to_delete=[]

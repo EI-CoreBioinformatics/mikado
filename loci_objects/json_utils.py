@@ -236,6 +236,11 @@ def check_run_options(json_conf):
     else:
         assert type(json_conf["run_options"]["threads"]) is int
     
+    if "subloci_from_cds_only" not in json_conf["run_options"]:
+        json_conf["run_options"]["subloci_from_cds_only"]=False
+    else:
+        assert type(json_conf["run_options"]["subloci_from_cds_only"]) is bool
+    
     return json_conf
 
 

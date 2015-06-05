@@ -7,7 +7,6 @@ import multiprocessing
 import loci_objects
 import csv
 import os
-import copy
 
 class Creator:
     
@@ -156,6 +155,7 @@ class Creator:
         currentLocus = None
         currentTranscript = None
         
+        jobs=[]
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)
@@ -166,7 +166,7 @@ class Creator:
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
                         if currentLocus is not None:
-                            pool.apply_async(self.analyse_locus, args=(currentLocus,))
+                            jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                         currentLocus=loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
@@ -177,12 +177,13 @@ class Creator:
             if loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                pool.apply_async(self.analyse_locus, args=(currentLocus,))
+                jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                 currentLocus=loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
-            pool.apply_async(self.analyse_locus, args=(currentLocus,))
+            jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
             
+        map(lambda job: job.get(), jobs) #Finish up all jobs
         pool.close()
         pool.join()
         

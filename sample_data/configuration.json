@@ -156,6 +156,7 @@
 		"exclude_cds":false,
 		"purge":false,
 		"remove_overlapping_fragments":true,
-		"threads": 5
+		"threads": 5,
+	    "subloci_from_cds_only":true
 	}
 }

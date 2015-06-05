@@ -173,27 +173,36 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
 
     @classmethod
-    def find_communities(cls, objects, inters=None):
+    def find_communities(cls, objects, inters=None, **kwargs):
         '''This function is a wrapper around the networkX methods to find
-        cliques and communities inside a graph.'''
+        cliques and communities inside a graph.
+        The method takes as mandatory inputs the following:
+            - "objects" a list of objects that form the graph
+            - "inters" a function/method that determines whether two objects are connected or not.
+            
+        The objects are indexed inside a dictionary to prevent memory leaks (the graph otherwise would replicate each object for each clique).
+        
+        The method accepts also kwargs that can be passed to the inters function.
+        WARNING: the kwargs option is really stupid and does not check for correctness of the arguments!        
+        '''
         
         if inters is None:
             inters = cls.is_intersecting
         assert hasattr(inters, "__call__")
 
-        indexer=dict()
+        indexer=dict() #Dictionary to keep track of what obkect is what index
         
         graph=networkx.Graph()
-        graph.add_nodes_from(list(range(len(objects))))
+        graph.add_nodes_from(list(range(len(objects)))) #Add the nodes as numbers
         objects=list(objects)
-        for num in range(len(objects)):
+        for num in range(len(objects)): #Assign each object to an index
             indexer[num]=objects[num]
 
-        edges=set()
+        edges=set() #Calculate connections
         for num in indexer:
             obj=indexer[num]
             for other_num in indexer:
-                if (num!=other_num) and inters(obj, indexer[other_num]): 
+                if (num!=other_num) and inters(obj, indexer[other_num], **kwargs): 
                     edge=tuple(sorted( [num, other_num] ))
                     edges.add(edge)
 

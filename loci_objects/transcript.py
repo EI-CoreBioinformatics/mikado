@@ -1084,7 +1084,7 @@ class transcript:
     def combined_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the combined CDS.'''
         if len(self.combined_cds)<2:
-            return []
+            return set()
         cintrons=[]
         all_cintrons=[]
         for position in range(len(self.combined_cds)-1):
@@ -1096,7 +1096,6 @@ class transcript:
         if len(self.selected_cds_introns)>0:
             assert len(cintrons)>0,(self.id, self.selected_cds_introns,all_cintrons,self.introns) 
         cintrons=set(cintrons)
-        assert type(cintrons) is set
         return cintrons
 
     @property

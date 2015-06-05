@@ -38,7 +38,7 @@ rule test_json:
 rule blast_complete:
     params:	prefix="all"
     input: query="all.fasta", db=config["blast"]["database"], check="{0}.check".format(configname) 
-    output: protected("all.blast.xml")
+    output: "all.blast.xml"
     shell: "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output}"
 
 rule to_db:

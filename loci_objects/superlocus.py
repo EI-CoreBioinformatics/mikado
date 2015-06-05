@@ -325,7 +325,8 @@ class superlocus(abstractlocus):
         candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
-        subloci = self.find_communities(candidates, inters=self.is_intersecting)
+        subloci = self.find_communities(candidates, inters=self.is_intersecting,
+                                        cds_only=self.json_dict["run_options"]["subloci_from_cds_only"])
 
         #Now we should define each sublocus and store it in a permanent structure of the class
                 
@@ -499,7 +500,7 @@ class superlocus(abstractlocus):
     ############# Class methods ###########
     
     @classmethod
-    def is_intersecting(cls,transcript_instance, other):
+    def is_intersecting(cls,transcript_instance, other, cds_only=False):
         '''When comparing two transcripts, for the definition of subloci inside superloci we follow these rules:
         If both are multiexonic, the function verifies whether there is at least one intron in common.
         If both are monoexonic, the function verifies whether there is some overlap between them.
@@ -513,7 +514,11 @@ class superlocus(abstractlocus):
 #         monoexonic_check = len( list(filter(lambda x: x.monoexonic is True, [transcript_instance, other]   )  )   )
         
         if transcript_instance.monoexonic is False and other.monoexonic is False:
-            intersection = set.intersection(transcript_instance.introns, other.introns)
+            if cds_only is False:
+                intersection = set.intersection(transcript_instance.introns, other.introns)
+            else:
+                intersection = set.intersection(transcript_instance.combined_cds_introns,
+                                                other.combined_cds_introns)
             if len(intersection)>0:
                 return True
             else:

@@ -1,6 +1,5 @@
 import sys,os
-from copy import copy, deepcopy
-from loci_objects.exceptions import IncorrectStrandError
+from copy import deepcopy
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import loci_objects
 from Bio import SeqIO

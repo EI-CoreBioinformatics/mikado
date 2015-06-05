@@ -110,6 +110,8 @@ If set, the output will be GFF3, regardless of the input format.""")
                     print(tr, file=args.out)
                 except loci_objects.exceptions.IncorrectStrandError:
                     pass
+                except loci_objects.exceptions.InvalidTranscript:
+                    pass
                 currentTranscripts=dict()
                 currentTranscript = loci_objects.transcript_checker.transcript_checker(
                                                                                        record,
@@ -149,6 +151,8 @@ If set, the output will be GFF3, regardless of the input format.""")
             if tr.reversed is True:
                 reversed_transcripts+=1
         except loci_objects.exceptions.IncorrectStrandError:
+            to_delete.append(tid)
+        except loci_objects.exceptions.InvalidTranscript:
             to_delete.append(tid)
     for tid in to_delete:
         del currentTranscripts[tid]

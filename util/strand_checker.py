@@ -64,10 +64,10 @@ If set, the output will be GFF3, regardless of the input format.""")
         assert record.chrom in args.fasta
         sequence = args.fasta[record.chrom]
         if currentSeq is None or list(currentSeq.keys())[0]!=record.chrom:
-                print("Loading sequence {0}".format(record.chrom))
+#                print("Loading sequence {0}".format(record.chrom))
                 currentSeq=dict()
                 currentSeq[record.chrom] = sequence.seq
-                print("Loaded sequence {0}".format(record.chrom))
+#                print("Loaded sequence {0}".format(record.chrom))
         if record.is_parent is True:
             if is_gff is True:
                 if len(currentTranscripts)==0:
@@ -76,9 +76,9 @@ If set, the output will be GFF3, regardless of the input format.""")
                     for tran in currentTranscripts:
                         try:
                             tran.check_strand()
-                        except IncorrectStrandError:
+                        except loci_objects.exceptions.IncorrectStrandError:
                             currentTranscripts.remove(tran)
-                    if is_gff is True and currentParent is not None and len(currentTranscripts)>0:
+                    if currentParent is not None and len(currentTranscripts)>0:
                         strands = set([t.strand for t in currentTranscripts])
                         if len(strands)==1:
                             strand = strands.pop()
@@ -107,7 +107,7 @@ If set, the output will be GFF3, regardless of the input format.""")
                     try:
                         tran.check_strand()
                         print(tran.__str__(to_gtf=True), file=args.out)
-                    except IncorrectStrandError:
+                    except loci_objects.exceptions.IncorrectStrandError:
                         continue
                 currentParent = record.gene
                 currentTranscripts=[loci_objects.transcript_checker.transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)]

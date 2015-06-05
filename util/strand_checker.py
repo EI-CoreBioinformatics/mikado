@@ -13,7 +13,7 @@ def main():
         if  string[-4:]==".gtf":
             gff_function=loci_objects.GTF.GTF
         else:
-            gff_function=loci_objects.GTF.GFF3 
+            gff_function=loci_objects.GFF.GFF3 
         
         gff=gff_function(string)
         record=next(gff)

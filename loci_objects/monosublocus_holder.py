@@ -74,7 +74,8 @@ class monosublocus_holder(sublocus,abstractlocus):
         
         self.calculate_scores()
         
-        for lc in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
+        for lc in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting, 
+                                        cds_only=self.json_dict["run_options"]["subloci_from_cds_only"]):
             lc = dict((x.id, x) for x in lc)
             selected_tid=self.choose_best(lc)
             selected_transcript = self.transcripts[selected_tid]

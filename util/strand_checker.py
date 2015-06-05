@@ -74,7 +74,7 @@ If set, the output will be GFF3, regardless of the input format.""")
                             tr.check_strand()
                             if tr.reversed is True:
                                 reversed_transcripts+=1
-                        except loci_objects.exceptions.IncorrectStrandError:
+                        except loci_objects.exceptions.IncorrectStrandError,loci_objects.exceptions.InvalidTranscript:
                             to_delete.append(tid)
                 for tid in to_delete:
                     del currentTranscripts[tid]

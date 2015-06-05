@@ -60,13 +60,11 @@ If set, the output will be GFF3, regardless of the input format.""")
     reversed_transcripts=0
     
     for record in args.gff:
-        
+        if record.header is True:
+            continue
         if currentSeq is None or record.chrom not in currentSeq:
             currentSeq=dict()
             currentSeq[record.chrom]=args.fasta[record.chrom]
-        if record.header is True:
-            continue
-        assert hasattr(record, "chrom"), record
         if record.is_parent is True:
             if is_gff is True and record.is_transcript is False:
                 to_delete=[]

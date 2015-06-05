@@ -1,9 +1,7 @@
 import sys,os
 from copy import copy
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects.GFF import GFF3
-from loci_objects.GTF import GTF
-from loci_objects.transcript_checker import transcript_checker,IncorrectStrandError
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import loci_objects
 from Bio import SeqIO
 import argparse
 
@@ -13,9 +11,9 @@ def main():
         if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size>0:
             raise ValueError("Invalid input file.")
         if  string[-4:]==".gtf":
-            gff_function=GTF
+            gff_function=loci_objects.GTF.GTF
         else:
-            gff_function=GFF3 
+            gff_function=loci_objects.GTF.GFF3 
         
         gff=gff_function(string)
         record=next(gff)
@@ -55,7 +53,7 @@ If set, the output will be GFF3, regardless of the input format.""")
     else:
         is_gff=True
 
-    print(is_gff, file=sys.stderr)
+#   print(is_gff, file=sys.stderr)
     
     currentSeq = None
     
@@ -112,9 +110,9 @@ If set, the output will be GFF3, regardless of the input format.""")
                     except IncorrectStrandError:
                         continue
                 currentParent = record.gene
-                currentTranscripts=[transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)]
+                currentTranscripts=[loci_objects.transcript_checker.transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)]
         elif record.is_transcript and is_gff is True:
-            new_tran = transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
+            new_tran = loci_objects.transcript_checker.transcript_checker(record, currentSeq, lenient=args.lenient, strand_specific=args.strand_specific)
             currentTranscripts.append(new_tran)
         elif record.is_exon:
             for tran in currentTranscripts:

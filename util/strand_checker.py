@@ -67,7 +67,7 @@ If set, the output will be GFF3, regardless of the input format.""")
                 for tid,tr in currentTranscripts:
                         try:
                             tr.check_strand()
-                        except IncorrectStrandError:
+                        except loci_objects.exceptions.IncorrectStrandError:
                             del currentTranscripts[tid]
                 if len(currentTranscripts)>0:
                     strands = dict()
@@ -119,7 +119,7 @@ If set, the output will be GFF3, regardless of the input format.""")
     for tid,tr in currentTranscripts:
         try:
             tr.check_strand()
-        except IncorrectStrandError:
+        except loci_objects.exceptions.IncorrectStrandError:
             del currentTranscripts[tid]
     if len(currentTranscripts)>0:
         strands = dict()

@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 #coding: utf_8
 
+"""
+    This module defines the iterators that will parse BED12, GTF, GFF files.
+"""
+
 import io,os
 import importlib
-
-'''
-    This module defines the iterators that will parse BED12, GTF, GFF files.
-'''
-
 
 class HeaderError(Exception):
     pass

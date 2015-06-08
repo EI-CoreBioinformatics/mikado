@@ -1,7 +1,8 @@
 import sys,os
 from copy import deepcopy
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import loci_objects
+import shanghai_lib.parsers
+import shanghai_lib.loci_objects
 from Bio import SeqIO
 import argparse
 
@@ -11,9 +12,9 @@ def main():
         if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size>0:
             raise ValueError("Invalid input file.")
         if  string[-4:]==".gtf":
-            gff_function=loci_objects.GTF.GTF
+            gff_function=shanghai_lib.parsers.GTF.GTF
         else:
-            gff_function=loci_objects.GFF.GFF3 
+            gff_function=shanghai_lib.parsers.GFF.GFF3 
         
         gff=gff_function(string)
         record=next(gff)
@@ -73,9 +74,9 @@ If set, the output will be GFF3, regardless of the input format.""")
                             tr.check_strand()
                             if tr.reversed is True:
                                 reversed_transcripts+=1
-                        except loci_objects.exceptions.IncorrectStrandError:
+                        except shanghai_lib.exceptions.IncorrectStrandError:
                             to_delete.append(tid)
-                        except loci_objects.exceptions.InvalidTranscript:
+                        except shanghai_lib.exceptions.InvalidTranscript:
                             to_delete.append(tid)
                 for tid in to_delete:
                     del currentTranscripts[tid]
@@ -107,12 +108,12 @@ If set, the output will be GFF3, regardless of the input format.""")
                 try:
                     tr.check_strand()
                     print(tr, file=args.out)
-                except loci_objects.exceptions.IncorrectStrandError:
+                except shanghai_lib.exceptions.IncorrectStrandError:
                     pass
-                except loci_objects.exceptions.InvalidTranscript:
+                except shanghai_lib.exceptions.InvalidTranscript:
                     pass
                 currentTranscripts=dict()
-                currentTranscript = loci_objects.transcript_checker.transcript_checker(
+                currentTranscript = shanghai_lib.loci_objects.transcript_checker.transcript_checker(
                                                                                        record,
                                                                                        currentSeq,
                                                                                        strand_specific=args.strand_specific,
@@ -126,7 +127,7 @@ If set, the output will be GFF3, regardless of the input format.""")
                 assert currentParent.id in record.parent, record
             except TypeError:
                 raise TypeError(str(currentParent), str(record))
-            currentTranscript = loci_objects.transcript_checker.transcript_checker(
+            currentTranscript = shanghai_lib.loci_objects.transcript_checker.transcript_checker(
                                                                                record,
                                                                                currentSeq,
                                                                                strand_specific=args.strand_specific,
@@ -149,9 +150,9 @@ If set, the output will be GFF3, regardless of the input format.""")
             tr.check_strand()
             if tr.reversed is True:
                 reversed_transcripts+=1
-        except loci_objects.exceptions.IncorrectStrandError:
+        except shanghai_lib.exceptions.IncorrectStrandError:
             to_delete.append(tid)
-        except loci_objects.exceptions.InvalidTranscript:
+        except shanghai_lib.exceptions.InvalidTranscript:
             to_delete.append(tid)
     for tid in to_delete:
         del currentTranscripts[tid]

@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 
 import sys,os.path
-from loci_objects.monosublocus import monosublocus
-from loci_objects.excluded_locus import excluded_locus
-from loci_objects.transcript import transcript
+from shanghai_lib.loci_objects.monosublocus import monosublocus
+from shanghai_lib.loci_objects.excluded_locus import excluded_locus
+from shanghai_lib.loci_objects.transcript import transcript
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from loci_objects.junction import junction, Chrom
+from shanghai_lib.serializers.junction import junction, Chrom
 from sqlalchemy.sql.expression import and_
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects.abstractlocus import abstractlocus
+from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from copy import deepcopy as copy
-from loci_objects.sublocus import sublocus
-from loci_objects.monosublocus_holder import monosublocus_holder
-from loci_objects.GFF import gffLine
-from loci_objects.exceptions import InvalidLocusError,NoJsonConfigError
+from shanghai_lib.loci_objects.sublocus import sublocus
+from shanghai_lib.loci_objects.monosublocus_holder import monosublocus_holder
+from shanghai_lib.parsers.GFF import gffLine
+from shanghai_lib.exceptions import InvalidLocusError,NoJsonConfigError
 
 class superlocus(abstractlocus):
     

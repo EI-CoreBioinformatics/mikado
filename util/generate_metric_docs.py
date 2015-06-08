@@ -7,7 +7,7 @@ path=os.path.dirname( os.path.dirname(os.path.abspath(__file__) ))
 sys.path.insert(0,path)
 
 #from loci_objects.sublocus import sublocus
-from loci_objects.transcript import transcript
+from shanghai_lib.loci_objects.transcript import transcript
 import re
 
 '''Quick script to automate the generation of metrics definition from the files.'''

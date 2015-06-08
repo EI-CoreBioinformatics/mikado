@@ -1,10 +1,10 @@
 import sys,os.path
-#from loci_objects.exceptions import NotInLocusError
+#from shanghai_lib.exceptions import NotInLocusError
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-#from loci_objects.excluded_locus import excluded_locus
-from loci_objects.abstractlocus import abstractlocus
-from loci_objects.sublocus import sublocus
-from loci_objects.locus import locus
+#from shanghai_lib.shanghai_lib.excluded_locus import excluded_locus
+from shanghai_lib.loci_objects.abstractlocus import abstractlocus
+from shanghai_lib.loci_objects.sublocus import sublocus
+from shanghai_lib.loci_objects.locus import locus
 
 #Resolution order is important here!
 class monosublocus_holder(sublocus,abstractlocus):
@@ -85,28 +85,12 @@ class monosublocus_holder(sublocus,abstractlocus):
                 new_locus = locus(selected_transcript)
                 self.loci.append(new_locus)
         
-#         while len(remaining)>0:
-#             best_tid=self.choose_best(remaining.copy())
-#             best_transcript = remaining[best_tid]
-#             new_remaining = remaining.copy()
-#             del new_remaining[best_tid]
-#             if best_transcript.score==0 and purge is True:
-#                 pass
-#             else:
-#                 new_locus = locus(best_transcript)
-#                 self.loci.append(new_locus)
-#             for tid in remaining:
-#                 if tid==best_tid: continue
-#                 if self.is_intersecting(best_transcript, new_remaining[tid]):
-#                     del new_remaining[tid]
-#             remaining=new_remaining.copy()
-    
         self.splitted = True
         return
 
 
     @classmethod
-    def is_intersecting(cls, transcript_instance, other):
+    def is_intersecting(cls, transcript_instance, other, cds_only=False):
         '''
         Implementation of the is_intersecting method. Now that we are comparing transcripts that
         by definition span multiple subloci, we have to be less strict in our definition of what
@@ -120,8 +104,20 @@ class monosublocus_holder(sublocus,abstractlocus):
             return False # We do not want intersection with oneself
 
         if cls.overlap((transcript_instance.start,transcript_instance.end), (other.start,other.end) )<=0: return False
-        if len(set.intersection( set(transcript_instance.splices), set(other.splices)))>0:
-            return True
+        if cds_only is False:
+            if len(set.intersection( set(transcript_instance.splices), set(other.splices)))>0:
+                return True
+        else:
+            transcript_splices = set()
+            other_splices = set()
+            for intron in transcript_instance.combined_cds_introns:
+                transcript_splices.add(intron[0])
+                transcript_splices.add(intron[1])
+            for intron in other.combined_cds_introns:
+                other_splices.add(intron[0])
+                other_splices.add(intron[1])
+            if len(set.intersection( transcript_splices, other_splices))>0:
+                return True
         
         if other.monoexonic is True or transcript_instance.monoexonic is True or \
             min(other.combined_cds_length,transcript_instance.combined_cds_length)==0:

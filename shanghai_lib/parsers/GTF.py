@@ -2,7 +2,7 @@
 
 import sys,os.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects import Parser
+from shanghai_lib.parsers import Parser
 import re
 
 class gtfLine(object):

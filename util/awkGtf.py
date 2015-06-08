@@ -7,8 +7,8 @@ sys.path.append(
         )
     )
 import argparse
-from loci_objects.GTF import GTF
-from loci_objects.transcript import transcript
+from shanghai_lib.parsers.GTF import GTF
+from shanghai_lib.loci_objects.transcript import transcript
 
 def main():
 

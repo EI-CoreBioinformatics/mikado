@@ -3,7 +3,9 @@
 #import sys
 #from logging import Logger
 import argparse
-import loci_objects
+import sys,os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import shanghai_lib.loci_objects
 
 def main():
         
@@ -26,7 +28,7 @@ def main():
     args=parser.parse_args()
 
     args.json_conf.close()
-    args.json_conf = loci_objects.json_utils.to_json(args.json_conf.name)
+    args.json_conf = shanghai_lib.json_utils.to_json(args.json_conf.name)
     
     if args.procs is not None:
         args.json_conf["run_options"]["threads"] = args.procs
@@ -49,7 +51,7 @@ def main():
         args.gff=args.gff.name
         args.json_conf["input"]=args.gff
     
-    creator = loci_objects.Creator.Creator(args.json_conf)
+    creator = shanghai_lib.loci_objects.Creator.Creator(args.json_conf)
     creator() #Run
        
 if __name__=="__main__": main()

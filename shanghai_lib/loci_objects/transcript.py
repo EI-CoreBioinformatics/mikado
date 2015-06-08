@@ -2,20 +2,20 @@ import operator
 import os.path,sys
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from loci_objects.junction import junction, Chrom
-import loci_objects.orf
+from shanghai_lib.serializers.junction import junction, Chrom
+import shanghai_lib.serializers.orf
 from sqlalchemy.sql.expression import desc, asc
-from loci_objects.blast_utils import Query, Hit
+from shanghai_lib.serializers.blast_utils import Query, Hit
 #from _collections import defaultdict
 from collections import OrderedDict
-from loci_objects.orf import orf
-from loci_objects import bed12
+from shanghai_lib.serializers.orf import orf
+from shanghai_lib.parsers import bed12
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import inspect
-from loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
-from loci_objects.GTF import gtfLine
-from loci_objects.GFF import gffLine
-import loci_objects.exceptions
+from shanghai_lib.loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
+from shanghai_lib.parsers.GTF import gtfLine
+from shanghai_lib.parsers.GFF import gffLine
+import shanghai_lib.exceptions
 from sqlalchemy import and_
 #import logging
 
@@ -322,10 +322,10 @@ class transcript:
         '''This function will append an exon/CDS feature to the object.'''
 
         if self.finalized is True:
-            raise loci_objects.exceptions.ModificationError("You cannot add exons to a finalized transcript!")
+            raise shanghai_lib.exceptions.ModificationError("You cannot add exons to a finalized transcript!")
         
         if self.id not in gffLine.parent:
-            raise loci_objects.exceptions.InvalidTranscript("""Mismatch between transcript and exon:\n
+            raise shanghai_lib.exceptions.InvalidTranscript("""Mismatch between transcript and exon:\n
             {0}\n
             {1}\n
             {2}
@@ -344,7 +344,7 @@ class transcript:
         elif gffLine.feature=="stop_codon":
             self.has_stop_codon = True
         else:
-            raise loci_objects.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
+            raise shanghai_lib.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
             
         start,end=sorted([gffLine.start, gffLine.end])
         store.append((start, end) )
@@ -359,13 +359,13 @@ class transcript:
         self.introns = []
         self.splices=[]
         if len(self.exons)==0:
-            raise loci_objects.exceptions.InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
+            raise shanghai_lib.exceptions.InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
 
         if len(self.exons)>1 and self.strand is None:
-            raise loci_objects.exceptions.InvalidTranscript("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
+            raise shanghai_lib.exceptions.InvalidTranscript("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
 
         if self.combined_utr!=[] and self.combined_cds==[]:
-            raise loci_objects.exceptions.InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
+            raise shanghai_lib.exceptions.InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
         if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
             if self.combined_utr == [] and self.combined_cds!=[]:
@@ -386,19 +386,19 @@ class transcript:
                             self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                         else:
                             print(self.id, exon, self.exons, self.combined_cds)
-                            raise loci_objects.exceptions.InvalidTranscript 
+                            raise shanghai_lib.exceptions.InvalidTranscript 
                 if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
                     print("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
-                    raise loci_objects.exceptions.InvalidTranscript
+                    raise shanghai_lib.exceptions.InvalidTranscript
             else:
                 print(self.id, self.exons, self.combined_cds, self.combined_utr)
-                raise loci_objects.exceptions.InvalidTranscript
+                raise shanghai_lib.exceptions.InvalidTranscript
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0
         try:
             if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
-                raise loci_objects.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
+                raise shanghai_lib.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
                 but its first and last exons define it up until {estart}:{eend}!""".format(
                                                                                            id=self.id,
                                                                                            tstart=self.start,
@@ -407,14 +407,14 @@ class transcript:
                                                                                            eend=self.exons[-1][1]
                                                                                            ))
         except IndexError as err:
-            raise loci_objects.exceptions.InvalidTranscript(err, self.id, str(self.exons))
+            raise shanghai_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
 
         if len(self.exons)>1:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
                     print(exonA,exonB,self.id,self.exons)
-                    raise loci_objects.exceptions.InvalidTranscript("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
+                    raise shanghai_lib.exceptions.InvalidTranscript("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
                 self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
 
@@ -541,11 +541,11 @@ class transcript:
         if query_id.count()==0: # if we do not have the information in the DB, just return
             return []
         query_id=query_id.one().id
-        orf_query = self.session.query(loci_objects.orf.orf).filter(loci_objects.orf.orf.query_id==query_id)
+        orf_query = self.session.query(shanghai_lib.serializers.orf.orf).filter(shanghai_lib.serializers.orf.orf.query_id==query_id)
         if orf_query.count()==0: # Again, no information, return
             return []
         
-        candidate_orfs = orf_query.order_by(desc(loci_objects.orf.orf.cds_len)).all()
+        candidate_orfs = orf_query.order_by(desc(shanghai_lib.serializers.orf.orf.cds_len)).all()
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
             #Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts
             candidate_orfs=list(filter(lambda orf: orf.strand!="-", candidate_orfs  ))

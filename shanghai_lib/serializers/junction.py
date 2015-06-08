@@ -2,11 +2,11 @@ import sys,os
 import io
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy import Column,String,Integer,ForeignKey,CHAR,Index,Float
-from loci_objects import bed12
+from shanghai_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from loci_objects.dbutils import dbBase,Inspector
+from shanghai_lib.serializers.dbutils import dbBase,Inspector
 
 class Chrom(dbBase):
     

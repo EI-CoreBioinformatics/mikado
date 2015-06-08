@@ -1,12 +1,12 @@
 import sys,os.path
-from loci_objects.excluded_locus import excluded_locus
-#from loci_objects.monosublocus_holder import monosublocus_holder
+from shanghai_lib.loci_objects.excluded_locus import excluded_locus
+#from shanghai_lib.loci_objects.monosublocus_holder import monosublocus_holder
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects.abstractlocus import abstractlocus
+from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 #import random
-from loci_objects.monosublocus import monosublocus
-from loci_objects.transcript import transcript
-from loci_objects.GFF import gffLine
+from shanghai_lib.loci_objects.monosublocus import monosublocus
+from shanghai_lib.loci_objects.transcript import transcript
+from shanghai_lib.parsers.GFF import gffLine
 
 class sublocus(abstractlocus):
     

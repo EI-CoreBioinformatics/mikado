@@ -4,7 +4,7 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from loci_objects.GTF import GTF
+from shanghai_lib.parsers.GTF import GTF
 from copy import deepcopy
 import operator
 import argparse

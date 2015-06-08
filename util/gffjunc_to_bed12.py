@@ -2,7 +2,8 @@
 
 import sys,os,argparse
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import loci_objects
+import shanghai_lib.parsers
+import shanghai_lib.loci_objects
 
 def main():
     
@@ -13,7 +14,7 @@ def main():
     
     currentTranscript=None
     
-    for row in loci_objects.GFF.GFF3(args.gff):
+    for row in shanghai_lib.parsers.GFF.GFF3(args.gff):
         if row.is_parent and not row.is_transcript:
             continue
         if row.is_exon:
@@ -23,7 +24,7 @@ def main():
                 currentTranscript.finalize()
                 assert len(currentTranscript.introns)==1
                 introns=sorted(currentTranscript.introns)
-                bed12=loci_objects.bed12.BED12()
+                bed12=shanghai_lib.parsers.bed12.BED12()
                 bed12.chrom=currentTranscript.chrom
                 bed12.strand=currentTranscript.strand
                 bed12.score=currentTranscript.score
@@ -39,13 +40,13 @@ def main():
                 bed12.blockStarts=[0, bed12.blockSizes[0]+introns[0][1]-introns[0][0] ] 
                 print(bed12, file=args.out)
                                            
-            currentTranscript=loci_objects.transcript.transcript(row)
+            currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row)
             
     if currentTranscript is not None:
         currentTranscript.finalize()
         assert len(currentTranscript.introns)==1
         introns=sorted(currentTranscript.introns)
-        bed12=loci_objects.bed12.BED12()
+        bed12=shanghai_lib.parsers.bed12.BED12()
         bed12.chrom=currentTranscript.chrom
         bed12.strand=currentTranscript.strand
         bed12.start=currentTranscript.start

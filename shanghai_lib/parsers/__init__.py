@@ -4,8 +4,17 @@
 import io,os
 import importlib
 
+'''
+    This module defines the iterators that will parse BED12, GTF, GFF files.
+'''
+
+
 class HeaderError(Exception):
     pass
+
+class SizeError(Exception):
+    def __init__(self,value=None): self.value=value
+    def __str__(self): return str(self.value)
 
 class Parser(object):
     '''Generic parser iterator. Base parser class.'''
@@ -56,26 +65,6 @@ class tabParser(object):
 
     def __str__(self): return self.line
 
-class SizeError(Exception):
-    def __init__(self,value=None): self.value=value
-    def __str__(self): return str(self.value)
-
-import loci_objects.abstractlocus
-import loci_objects.bed12
-import loci_objects.blast_utils
-import loci_objects.Creator
-import loci_objects.dbutils
-import loci_objects.exceptions
-import loci_objects.excluded_locus
-import loci_objects.GFF
-import loci_objects.GTF
-import loci_objects.json_utils
-import loci_objects.junction
-import loci_objects.locus
-import loci_objects.monosublocus_holder
-import loci_objects.monosublocus
-import loci_objects.orf
-import loci_objects.sublocus
-import loci_objects.superlocus
-import loci_objects.transcript_checker
-import loci_objects.transcript
+# import shanghai_lib.parsers.bed12
+# import shanghai_lib.parsers.GFF
+# import shanghai_lib.parsers.GTF

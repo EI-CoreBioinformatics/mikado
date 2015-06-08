@@ -1,7 +1,7 @@
 import sys,os.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects.monosublocus import monosublocus
-from loci_objects.abstractlocus import abstractlocus
+from shanghai_lib.loci_objects.monosublocus import monosublocus
+from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 
 class locus(monosublocus,abstractlocus):
     

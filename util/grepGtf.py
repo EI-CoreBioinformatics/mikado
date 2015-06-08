@@ -5,7 +5,7 @@ import sys,argparse,os
 sys.path.append(
                 os.path.dirname(os.path.dirname(__file__))
                 )
-from loci_objects import GTF
+from shanghai_lib.parsers import GTF
 
 
 # genes=set()

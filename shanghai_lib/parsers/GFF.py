@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #coding: utf_8
 
-from loci_objects import Parser
+from shanghai_lib.parsers import Parser
 from copy import deepcopy
 
 class gffLine(object):

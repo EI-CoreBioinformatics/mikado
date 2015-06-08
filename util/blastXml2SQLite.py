@@ -2,7 +2,7 @@
 
 import sys, os, argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects.blast_utils import xmlSerializer
+from shanghai_lib.blast_utils import xmlSerializer
 from Bio import SeqIO
 
 def to_seqio(string):

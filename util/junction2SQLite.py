@@ -1,6 +1,6 @@
 import sys,os,argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects import junction
+from shanghai_lib import junction
 
 def main():
     parser=argparse.ArgumentParser()

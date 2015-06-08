@@ -5,7 +5,7 @@ try:
     import Bio.File
 except:
     pass
-from loci_objects import Parser
+from shanghai_lib.parsers import Parser
 
 '''Generic module for parsing bed12Parser files.'''
  

@@ -1,11 +1,10 @@
 import os,sys
 import unittest
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from loci_objects import json_utils
-from loci_objects import exceptions
-from loci_objects import GFF,GTF,transcript
-from loci_objects import superlocus,abstractlocus
-from loci_objects import bed12
+from shanghai_lib import json_utils
+from shanghai_lib import exceptions
+from shanghai_lib.parsers import GFF,GTF, bed12
+from shanghai_lib.loci_objects import transcript, superlocus,abstractlocus
 
 class LocusTester(unittest.TestCase):
     

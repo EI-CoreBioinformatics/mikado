@@ -4,7 +4,8 @@
 #from logging import Logger
 import re
 import multiprocessing
-import loci_objects
+import shanghai_lib.loci_objects
+import shanghai_lib.parsers
 import csv
 import os
 
@@ -14,7 +15,7 @@ class Creator:
         
         if type(json_conf) is str:
             assert os.path.exists(json_conf)
-            json_conf = loci_objects.json_utils.to_json(json_conf) 
+            json_conf = shanghai_lib.json_utils.to_json(json_conf) 
         else:
             assert type(json_conf) is dict
         
@@ -26,15 +27,15 @@ class Creator:
         self.monolocus_out = self.json_conf["monoloci_out"]
         self.locus_out = self.json_conf["loci_out"]
         if self.locus_out is None:
-            raise loci_objects.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
+            raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
         
     def define_input(self):
         '''Function to check that the input file exists and is valid. It returns the parser.'''
         
         if self.input_file.endswith(".gtf"):
-            parser=loci_objects.GTF.GTF
+            parser=shanghai_lib.parsers.GTF.GTF
         else:
-            parser=loci_objects.GFF.GFF3
+            parser=shanghai_lib.parsers.GFF.GFF3
             
         verified=False
         for row in parser(self.input_file):
@@ -42,7 +43,7 @@ class Creator:
                 verified=True
                 break
         if verified is False:
-            raise loci_objects.exceptions.InvalidJson("Invalid input file: {0}".format(self.input_file))
+            raise shanghai_lib.exceptions.InvalidJson("Invalid input file: {0}".format(self.input_file))
 
         return parser(self.input_file)
 
@@ -56,7 +57,7 @@ class Creator:
         #Define mandatory output files        
         self.locus_metrics_file = re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", self.locus_out  ))
         self.locus_scores_file = re.sub("$",".scores.tsv",  re.sub(".gff3$", "", self.locus_out  ))
-        locus_metrics=csv.DictWriter(open(self.locus_metrics_file,'w'), loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
+        locus_metrics=csv.DictWriter(open(self.locus_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
         locus_metrics.writeheader()
         locus_scores=csv.DictWriter(open(self.locus_scores_file,'a'), score_keys, delimiter="\t")
         locus_scores.writeheader()
@@ -66,7 +67,7 @@ class Creator:
         if self.sub_out is not None:
             self.sub_metrics_file=re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", self.sub_out  ))
             self.sub_scores_file=re.sub("$",".scores.tsv",  re.sub(".gff3$", "", self.sub_out  ))
-            sub_metrics=csv.DictWriter(open(self.sub_metrics_file,'w'), loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
+            sub_metrics=csv.DictWriter(open(self.sub_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
             sub_metrics.writeheader()
             sub_scores=csv.DictWriter(open(self.sub_scores_file,'w'), score_keys, delimiter="\t")
             sub_scores.writeheader()
@@ -161,24 +162,24 @@ class Creator:
                 currentTranscript.addExon(row)
             elif row.is_transcript is True:
                 if currentTranscript is not None:
-                    if loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
+                    if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                         currentLocus.add_transcript_to_locus(currentTranscript, check_in_locus=False)
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
                         if currentLocus is not None:
                             jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
-                        currentLocus=loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
-                currentTranscript=loci_objects.transcript.transcript(row, source=self.json_conf["source"])
+                        currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
+                currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
                 continue
             
         
         if currentTranscript is not None:
-            if loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
+            if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
                 jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
-                currentLocus=loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
+                currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
             jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))

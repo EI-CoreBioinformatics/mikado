@@ -3,8 +3,8 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from loci_objects.GTF import GTF
-from loci_objects.transcript import transcript
+from shanghai_lib.parsers.GTF import GTF
+from shanghai_lib.loci_objects.transcript import transcript
 import argparse
 
 def main():

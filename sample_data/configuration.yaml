@@ -1,13 +1,25 @@
-blast: {database: uniprot_sprot_plants.fasta, evalue: 1, execute: true, max_target_seqs: 20,
-  num_threads: 4, program: blastx}
+blast:
+  database: uniprot_sprot_plants.fasta
+  evalue: 1
+  execute: true
+  max_target_seqs: 20
+  num_threads: 4
+  program: blastx
 chimera_split:
   blast_check: true
-  blast_params: {evalue: 0.0001, hsp_evalue: 0.0001, leniency: STRINGENT, max_target_seqs: 10,
-    minimal_hsp_overlap: 0.9, minimal_secondary_orf: 200}
   execute: true
+  blast_params:
+    evalue: 0.0001
+    hsp_evalue: 0.0001
+    leniency: STRINGENT
+    max_target_seqs: 10
+    minimal_hsp_overlap: 0.9
+    minimal_secondary_orf: 200
 db: data.db
 dbtype: sqlite
-orf_loading: {minimal_secondary_orf_length: 200, strand_specific: true}
+orf_loading:
+  minimal_secondary_orf_length: 200
+  strand_specific: true
 requirements:
   expression: [((exon_num.multi and cdna_length.multi and max_intron_length), or,
     (exon_num.mono and combined_cds_length.mono and cdna_length.mono))]
@@ -18,8 +30,12 @@ requirements:
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
     max_intron_length: {operator: le, value: 100000}
-run_options: {exclude_cds: false, purge: false, remove_overlapping_fragments: true,
-  subloci_from_cds_only: true, threads: 5}
+run_options:
+  exclude_cds: false
+  purge: false
+  remove_overlapping_fragments: true
+  subloci_from_cds_only: true
+  threads: 5
 scoring:
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
@@ -54,4 +70,3 @@ scoring:
     filter: {operator: lt, value: 3}
     rescaling: target
     value: 2
-

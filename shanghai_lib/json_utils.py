@@ -1,5 +1,6 @@
 import sys,os.path,re
 import shutil
+import yaml
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from shanghai_lib.loci_objects.transcript import transcript
 # from shanghai_lib import *
@@ -169,12 +170,10 @@ def check_blast(json_conf, json_file):
         raise shanghai_lib.exceptions.InvalidJson("No BLAST database provided!")
     json_conf["blast"]["database"]=os.path.abspath(json_conf["blast"]["database"])
     if not os.path.exists(json_conf["blast"]["database"]):
-        db=json_conf["blast"]["database"]
-        if os.path.dirname(json_conf["blast"]["database"])=="":
-            db=os.path.join(
-                                                        os.path.dirname(json_file),
-                                                        json_conf["blast"]["database"]
-                                                        )
+        db=os.path.join(
+                os.path.dirname(json_file),
+                os.path.basename(json_conf["blast"]["database"])
+                )
         if not os.path.exists(db):
             raise shanghai_lib.exceptions.InvalidJson("I need a valid BLAST database! This file does not exist:\n{0}".format(json_conf["blast"]["database"]))
         else:
@@ -279,7 +278,11 @@ def to_json(string):
     
     '''Function to serialise the JSON for configuration and check its consistency.'''
     
+    string=os.path.abspath(string)
     with open(string) as json_file:
-        json_dict = json.load(json_file)
+        if string.endswith(".yaml"):
+            json_dict = yaml.load(json_file)
+        else:
+            json_dict = json.load(json_file)
     json_dict=check_json(json_dict, json_file.name)
     return json_dict

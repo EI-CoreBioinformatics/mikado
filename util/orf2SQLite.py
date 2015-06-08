@@ -1,6 +1,6 @@
 import sys,os,argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib import orf
+from shanghai_lib.serializers import orf
 from Bio import SeqIO
 
 def main():

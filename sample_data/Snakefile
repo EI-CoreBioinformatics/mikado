@@ -8,8 +8,8 @@ swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 DBs=[swissprot]
 zipDBs=["{0}.gz".format(db) for db in DBs]
 
-configfile: "configuration.json"
-configname = "configuration.json"
+configfile: "configuration.yaml"
+configname = "configuration.yaml"
 
 # rule clean:
 #      run:
@@ -32,7 +32,7 @@ rule test_json:
     input: DBs, configname
     output: "{0}.check".format(configname)
     run:
-        __= loci_objects.json_utils.to_json(configname)
+        __= shanghai_lib.json_utils.to_json(configname)
         shell("touch {output}")
 
 rule blast_complete:
@@ -47,9 +47,9 @@ rule to_db:
     output: config["db"]
     #shell: "python3 ../util/junction2SQLite.py --fai {input[fai]} {input[junctions]} {output}; python3 ../util/orf2SQLite.py --fasta {input[fasta]} {input[orf]} {output}; python3 ../util/blastXml2SQLite.py --definition --max_target_seqs {config[blast][max_target_seqs]} {input[blast]} {output}"
     run:
-        shanghai_lib.junction.junctionSerializer(input["junctions"], output, fai=input["fai"]).serialize()
-        shanghai_lib.orf.orfSerializer(input["orf"], output, fasta_index=input["fasta"]).serialize()
-        shanghai_lib.blast_utils.xmlSerializer(output, input["blast"], keep_definition=True,
+        shanghai_lib.serializers.junction.junctionSerializer(input["junctions"], output, fai=input["fai"]).serialize()
+        shanghai_lib.serializers.orf.orfSerializer(input["orf"], output, fasta_index=input["fasta"]).serialize()
+        shanghai_lib.serializers.blast_utils.xmlSerializer(output, input["blast"], keep_definition=True,
 						       target_seqs=config["blast"]["database"],
 						       max_target_seqs=config["blast"]["max_target_seqs"] ).serialize()
 

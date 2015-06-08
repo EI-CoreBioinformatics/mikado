@@ -1,16 +1,16 @@
 import os,sys
 import unittest
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shanghai_lib import json_utils
 from shanghai_lib import exceptions
 from shanghai_lib.parsers import GFF,GTF, bed12
 from shanghai_lib.loci_objects import transcript, superlocus,abstractlocus
 
 class LocusTester(unittest.TestCase):
-    
+     
     def test_locus(self):
         '''Basic testing of the locus functionality.'''
-
+ 
         gff_transcript1="""Chr1\tfoo\ttranscript\t101\t200\t.\t+\t.\tID=t0
 Chr1\tfoo\texon\t101\t200\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
         gff_transcript1=[GFF.gffLine(x) for x in gff_transcript1]
@@ -20,7 +20,7 @@ Chr1\tfoo\texon\t101\t200\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
         transcript1.finalize()
         self.assertTrue(transcript1.monoexonic)
         self.assertEqual(transcript1.chrom, gff_transcript1[0].chrom)
-        
+         
         gff_transcript2="""Chr1\tfoo\ttranscript\t101\t600\t.\t+\t.\tID=t1
 Chr1\tfoo\texon\t101\t200\t.\t+\t.\tID=t1:exon1;Parent=t1
 Chr1\tfoo\texon\t301\t400\t.\t+\t.\tID=t1:exon2;Parent=t1
@@ -41,7 +41,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         #Test that creating a superlocus without configuration fails
         with self.assertRaises(exceptions.NoJsonConfigError):
             _=superlocus.superlocus(transcript1)
-        my_json = os.path.join(os.path.dirname(__file__), "../sample_data/scoring.json")
+        my_json = "../sample_data/configuration.json"
         my_json=json_utils.to_json(my_json)
         slocus=superlocus.superlocus(transcript1, json_dict=my_json)
         slocus.add_transcript_to_locus(transcript2)
@@ -78,11 +78,11 @@ class BasicTester(unittest.TestCase):
                                                              ), 50)
 
     def test_transcript(self):
-        gff=GFF.GFF3(open(os.path.join(os.path.dirname(__file__), "../sample_data/sample.gff3")))
+        gff=GFF.GFF3(open("../sample_data/mock.gff3"))
         line=None
         tr=transcript.transcript()
         self.assertIs(tr.chrom, None)
-
+ 
         while line is None or line.header is True:
             line=next(gff)
         self.assertTrue(line.is_transcript)
@@ -95,16 +95,16 @@ class BasicTester(unittest.TestCase):
         tr.finalize()
         self.assertTrue(tr.monoexonic)
         gff.close()
-
+ 
     def test_gtf(self):
-        with GTF.GTF(open(os.path.join(os.path.dirname(__file__), "../sample_data/sample.gtf"))) as gtf: 
+        with GTF.GTF(open("../sample_data/mock.gtf")) as gtf: 
             line=next(gtf)
             self.assertTrue(line.is_transcript)
             self.assertTrue(line.is_parent)
             self.assertEqual(line.chrom, "Chr1")
-
+ 
     def test_gff3(self):
-        with GFF.GFF3(open(os.path.join(os.path.dirname(__file__), "../sample_data/sample.gff3"))) as gff: 
+        with GFF.GFF3(open("../sample_data/mock.gff3")) as gff: 
             line=next(gff)
             self.assertEqual(line._line, "##gff-version 3\n")
             self.assertTrue(line.header)
@@ -113,17 +113,23 @@ class BasicTester(unittest.TestCase):
             self.assertEqual(line.chrom, "Chr1")
             self.assertEqual(line.start, 101)
             self.assertEqual(line.id, "t0")
-        
+#         
     def test_bed(self):
-        with bed12.BED12(open(os.path.join(os.path.dirname(__file__), "../sample_data/sample.bed"))) as bed: 
+        with bed12.bed12Parser(open("../sample_data/mock.bed")) as bed: 
             line=next(bed)
             self.assertEqual(line.chrom, "t0")
             self.assertEqual(line.thickStart, 21)
             bed.close()
         
+        with bed12.bed12Parser("../sample_data/mock.bed") as bed: 
+            line=next(bed)
+            self.assertEqual(line.chrom, "t0")
+            self.assertEqual(line.thickStart, 21)
+        
     def test_json(self):
-        my_json = os.path.join(os.path.dirname(__file__), "../sample_data/scoring.json")
+        my_json = "../sample_data/configuration.json"
         json_utils.to_json(my_json)
         
+
 
 unittest.main()

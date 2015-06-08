@@ -2,7 +2,7 @@
 
 import sys, os,argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.blast_utils import Hit
+from shanghai_lib.serializers.blast_utils import Hit
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
 

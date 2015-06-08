@@ -216,8 +216,6 @@ class sublocus(abstractlocus):
         '''
         
         self.get_metrics()
-        if self.scores_calculated is True:
-            return
         not_passing=set()
         if "requirements" in self.json_dict:
             self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
@@ -290,8 +288,6 @@ class sublocus(abstractlocus):
             if tid in not_passing: self.transcripts[tid].score=0 
             else: self.transcripts[tid].score = sum( self.scores[tid].values() )
             
-        self.scores_calculated=False
-    
     def print_metrics(self):
         
         '''This method yields dictionary "rows" that will be given to a csv.DictWriter class.'''

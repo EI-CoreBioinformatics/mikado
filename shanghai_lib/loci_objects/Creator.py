@@ -8,6 +8,7 @@ import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import csv
 import os
+import logging
 
 class Creator:
     

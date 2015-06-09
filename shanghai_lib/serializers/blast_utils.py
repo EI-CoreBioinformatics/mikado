@@ -503,7 +503,7 @@ class xmlSerializer:
 				objects.append(current_hit)
 						
 				for counter,hsp in enumerate(alignment.hsps):
-					current_hsp = Hsp(hsp, counter, current_query.id, current_target.id)
+					current_hsp = Hsp(hsp, counter, current_query, current_target)
 					objects.append(current_hsp)
 			
 			if len(objects)>=self.maxobjects:

@@ -135,11 +135,7 @@ class orfSerializer:
             
         for record in self.session.query(Query):
             cache[record.name]=record.id
-        counter=0
         for row in self.BED12:
-            if counter%100==0:
-                print(counter)
-            counter+=1
             if row.header is True:
                 continue
             if row.id in cache:

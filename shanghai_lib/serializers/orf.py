@@ -99,6 +99,8 @@ class orfSerializer:
         if type(fasta_index) is str:
             assert os.path.exists(fasta_index)
             self.fasta_index=SeqIO.index(fasta_index,"fasta")
+        elif fasta_index is None:
+            self.fasta_index = None
         else:
             assert type(fasta_index) is Bio.File._IndexedSeqFileDict
             self.fasta_index=fasta_index

@@ -413,6 +413,7 @@ class xmlSerializer:
 		h_mult=1 #Target multiplier: 3 for TBLASTN (protein vs. nucleotide), 1 otherwise
 
 		objects=[]
+		
 		if self.target_seqs is not None:
 			for record in self.target_seqs:
 				if self.session.query(Target).filter(Target.name==record).count()==0:
@@ -435,6 +436,15 @@ class xmlSerializer:
 			self.session.bulk_save_objects(objects)
 			objects=[]
 			print("Loaded Queries")
+
+		#Memorize the mapping ... it is just faster
+		targets = dict()
+		queries = dict()
+		for query in self.session.query(Query):
+			queries[query.name] = query.id
+		for query in self.session.query(Target):
+			targets[query.name] = query.id
+
 			
 		for record in self.xml_parser:
 			if record.application=="BLASTN":
@@ -453,17 +463,18 @@ class xmlSerializer:
 				name=record.query.split()[0]
 			else:
 				name=record.query_id
-			
-			current_query = self.session.query(Query).filter(Query.name==name).all()
-			if len(current_query)==0:
+
+			if name in queries:
+				current_query = queries[name]
+				if self.session.query(Query).filter(Query.id==current_query).one().length is None:
+					self.session.query(Query).filter(Query.name==name).update({"length": record.query_length})
+					self.session.commit()
+			else:
 				current_query=Query(name, record.query_length)
 				self.session.add(current_query)
 				self.session.commit()
-			else:
-				current_query=current_query[0]
-				if current_query.length is None:
-					self.session.query(Query).filter(Query.name==name).update({"length": record.query_length})
-					self.session.commit()
+				current_query = current_query.id
+					
 		
 			for ccc,alignment in filter(lambda x: x[0]<=self.max_target_seqs, enumerate(record.alignments)):
 
@@ -471,19 +482,21 @@ class xmlSerializer:
 				bits = record.descriptions[ccc].bits
 				alignment = record.alignments[ccc]
 				hit_num=ccc+1
-				current_target=self.session.query(Target).filter(Target.name==record.alignments[ccc].accession).all()
-				if len(current_target)==0:
+				if record.alignments[ccc].accession in targets:
+					current_target = targets[record.alignments[ccc].accession]
+				else:
 					current_target=Target(record.alignments[ccc].accession, record.alignments[ccc].length)
 					self.session.add(current_target)
 					try:
 						self.session.commit()
+						assert type(current_target.id) is int 
+						targets[record.alignments[ccc].accession] = current_target.id
+						current_target = current_target.id
 					except sqlalchemy.exc.IntegrityError:
 						self.session.rollback()
-						continue 
-				else:
-					current_target=current_target[0]
+						continue
 
-				current_hit = Hit(current_query.id, current_target.id, alignment, evalue, bits,
+				current_hit = Hit(current_query, current_target, alignment, evalue, bits,
 									hit_number=hit_num,
 									query_multiplier=q_mult,
 									target_multiplier=h_mult)

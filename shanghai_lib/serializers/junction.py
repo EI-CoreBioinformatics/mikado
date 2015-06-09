@@ -71,39 +71,49 @@ class junctionSerializer:
                                                        db=db))
         session=sessionmaker()
         session.configure(bind=self.engine)
+
         inspector=Inspector.from_engine(self.engine)
         if not junction.__tablename__ in inspector.get_table_names():
             dbBase.metadata.create_all(self.engine) #@UndefinedVariable
-        
+
         self.session=session()
         self.maxobjects=maxobjects
-        if fai is not None:
-            if type(fai) is str:
-                assert os.path.exists(fai)
-                fai=open(fai)
+        self.fai = fai
+        
+ 
+    def serialize(self):
+        
+        sequences = dict()
+        if self.fai is not None:
+            if type(self.fai) is str:
+                assert os.path.exists(self.fai)
+                fai=open(self.fai)
             else:
                 assert type(fai) is io.TextIOWrapper
             for line in fai:
                 name, length = line.rstrip().split()[:2]
                 current_chrom = Chrom(name, length=int(length))
                 self.session.add(current_chrom)
+                sequences[current_chrom.name] = current_chrom.id
             self.session.commit()
+            for query in self.session.query(Chrom):
+                sequences[query.name] = query.id
         
- 
-    def serialize(self):
         objects = []
         
         for row in self.BED12:
             if row.header is True:
                 continue
-            current_chrom = self.session.query(Chrom).filter(Chrom.name==row.chrom).all()
-            if len(current_chrom) == 0:
+            if row.chrom in sequences:
+                current_chrom = sequences[row.chrom]
+            else:
                 current_chrom=Chrom(row.chrom)
                 self.session.add(current_chrom)
                 self.session.commit()
-            else:
-                current_chrom=current_chrom[0]
-            current_junction = junction( row, current_chrom.id)
+                sequences[current_chrom.name] = current_chrom.id
+                current_chrom = current_chrom.id
+                
+            current_junction = junction( row, current_chrom)
             objects.append(current_junction)
             if len(objects)>=self.maxobjects:
                 self.session.bulk_save_objects(objects)

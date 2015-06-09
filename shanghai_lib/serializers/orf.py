@@ -119,6 +119,7 @@ class orfSerializer:
         
     def serialize(self):
         objects = []
+        cache=dict()
         if self.fasta_index is not None:
             for record in self.fasta_index:
                 objects.append(Query(record, len(self.fasta_index[record])))
@@ -130,17 +131,22 @@ class orfSerializer:
             self.session.commit()
             objects=[]
             
+            for record in self.session.query(Query):
+                cache[record.name]=record.id
+            
         for row in self.BED12:
             if row.header is True:
                 continue
-            current_query = self.session.query(Query).filter(Query.name==row.id).all()
-            if len(current_query) == 0:
+            if row.id in cache:
+                current_query = cache[row.id]
+            else:
                 current_query=Query(row.id, None)
                 self.session.add(current_query)
                 self.session.commit()
-            else:
-                current_query=current_query[0]
-            current_junction = orf( row, current_query.id)
+                cache[current_query.name] = current_query.id
+                current_query = current_query.id
+                
+            current_junction = orf( row, current_query)
             objects.append(current_junction)
             if len(objects)>=self.maxobjects:
                 self.session.bulk_save_objects(objects)

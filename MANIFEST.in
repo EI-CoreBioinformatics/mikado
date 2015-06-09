@@ -1,0 +1,5 @@
+include DESCRIPTION.rst
+include *py
+recursive-inlcude shanghai_lib *py
+recursive-include util *py
+recursive-include test *py

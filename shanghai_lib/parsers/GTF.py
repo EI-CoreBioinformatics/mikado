@@ -40,11 +40,8 @@ class gtfLine(object):
         if line=='': return
         
         if line==None or line[0]=="#":
-            for i in self._slots:
-                self.__dict__[i]=None
             self.fields=[]
-            self.info={'gene_id': None, 'transcript_id': None}
-            self.attributes = self.info
+            self.attributes = self.info = dict()
             self.transcript=None
             self.gene=None
             self.header=True

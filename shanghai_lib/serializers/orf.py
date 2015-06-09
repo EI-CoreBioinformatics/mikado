@@ -133,8 +133,8 @@ class orfSerializer:
             self.session.commit()
             objects=[]
             
-            for record in self.session.query(Query):
-                cache[record.name]=record.id
+        for record in self.session.query(Query):
+            cache[record.name]=record.id
         counter=0
         for row in self.BED12:
             if counter%100==0:

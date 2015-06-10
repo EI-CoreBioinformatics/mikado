@@ -16,9 +16,17 @@ import io
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from shanghai_lib.serializers.dbutils import dbBase
-
+import logging
 
 '''This module is used to serialise BLAST objects into a database.'''
+
+
+#For profiling
+if '__builtin__' not in dir() or not hasattr(__builtin__, "profile") or "profile" not in dir(): #@UndefinedVariable
+	def profile(function):
+		def inner(*args, **kwargs):
+			return function(*args, **kwargs)
+		return inner
 
 
 def merge(intervals):
@@ -59,6 +67,7 @@ class Query(dbBase):
 	name=Column(String(200), unique=True, index=True)
 	length=Column(Integer, nullable=True) #This so we can load data also from the orf class
 	
+	@profile
 	def __init__(self, name, length):
 		self.name=name
 		self.length=length
@@ -70,6 +79,7 @@ class Target(dbBase):
 	name=Column(String(200), unique=True, index=True)
 	length=Column(Integer)
 	
+	@profile
 	def __init__(self, name, length):
 		self.name=name
 		self.length=length
@@ -355,11 +365,19 @@ class xmlSerializer:
 		
 		'''
 		
+		self.logger = logging.getLogger("main")
+		self.logger.setLevel(logging.INFO)
+		self.handler = logging.StreamHandler()
+		self.formatter = logging.Formatter("{asctime} - {name} - {message}", style='{')
+		self.handler.setFormatter(self.formatter)
+		self.logger.addHandler(self.handler)
+		
 		engine=create_engine("sqlite:///{0}".format(db))
 		session=sessionmaker()
 		session.configure(bind=engine)
 		dbBase.metadata.create_all(engine) #@UndefinedVariable
 		self.session=session()
+		self.logger.info("Created the session")
 		if type(xml) is not xparser:
 			if type(xml) is str:
 				if not os.path.exists(xml):
@@ -404,7 +422,6 @@ class xmlSerializer:
 		self.max_target_seqs=max_target_seqs
 		self.maxobjects = maxobjects 
 		
-		
 	def serialize(self):
 		
 		'''Method to serialize the BLAST XML file into a database provided with the __init__ method '''
@@ -414,38 +431,60 @@ class xmlSerializer:
 
 		objects=[]
 		
-		if self.target_seqs is not None:
-			for record in self.target_seqs:
-				if self.session.query(Target).filter(Target.name==record).count()==0:
-					objects.append(Target(record, len(self.target_seqs[record])  ))
-					if len(objects)>=self.maxobjects:
-						self.session.bulk_save_objects(objects)
-						objects=[]
-			self.session.bulk_save_objects(objects)
-			objects=[]
-			print("Loaded targets")
-
-		
-		if self.query_seqs is not None:
-			for record in self.query_seqs:
-				if self.session.query(Query).filter(Query.name==record).count()==0:
-					objects.append(Query(record, len(self.query_seqs[record])  ))
-					if len(objects)>=self.maxobjects:
-						self.session.bulk_save_objects(objects)
-						objects=[]
-			self.session.bulk_save_objects(objects)
-			objects=[]
-			print("Loaded Queries")
-
-		#Memorize the mapping ... it is just faster
 		targets = dict()
 		queries = dict()
+		self.logger.info("Loading previous IDs")
 		for query in self.session.query(Query):
 			queries[query.name] = query.id
 		for query in self.session.query(Target):
 			targets[query.name] = query.id
+		self.logger.info("Loaded previous IDs")
+		
+		self.logger.info("Started the serialization")
+		if self.target_seqs is not None:
+			self.logger.info("Started to serialize the targets")
+			for record in self.target_seqs:
+				if record in targets:
+					continue
+				objects.append(Target(record, len(self.target_seqs[record])  ))
+				if len(objects)>=self.maxobjects:
+						self.logger.info("Loading {0} objects into the \"target\" table".format(self.maxobjects))
+						self.session.bulk_save_objects(objects, return_defaults=False)
+						self.logger.info("Loaded {0} objects into the \"target\" table".format(self.maxobjects))
+						objects=[]
+			self.logger.info("Loading {0} objects into the \"target\" table".format(self.maxobjects))
+			self.session.bulk_save_objects(objects)
+			self.logger.info("Loaded {0} objects into the \"target\" table".format(self.maxobjects))
+			objects=[]
+			self.logger.info("Loaded targets")
 
-			
+		
+		if self.query_seqs is not None:
+			self.logger.info("Started to serialize the queries")
+			for record in self.query_seqs:
+				if record in queries:
+					continue
+				objects.append(Query(record, len(self.query_seqs[record])  ))
+				if len(objects)>=self.maxobjects:
+					self.logger.info("Loading {0} objects into the \"query\" table".format(self.maxobjects))
+					self.session.bulk_save_objects(objects, return_defaults=False)
+					self.logger.info("Loaded {0} objects into the \"query\" table".format(self.maxobjects))
+					objects=[]
+			self.logger.info("Loading {0} objects into the \"query\" table".format(self.maxobjects))
+			self.session.bulk_save_objects(objects)
+			self.logger.info("Loaded {0} objects into the \"query\" table".format(self.maxobjects))
+			objects=[]
+			self.logger.info("Queries serialized")
+
+		self.logger.info("Loading all IDs")
+		for query in self.session.query(Query):
+			queries[query.name] = query.id
+		for query in self.session.query(Target):
+			targets[query.name] = query.id
+		self.logger.info("Loaded all IDs")
+
+		#Memorize the mapping ... it is just faster
+
 		for record in self.xml_parser:
 			if record.application=="BLASTN":
 				q_mult=1
@@ -463,6 +502,7 @@ class xmlSerializer:
 				name=record.query.split()[0]
 			else:
 				name=record.query_id
+			self.logger.info("Started with {0}".format(name))
 
 			if name in queries:
 				current_query = queries[name]
@@ -470,14 +510,17 @@ class xmlSerializer:
 					self.session.query(Query).filter(Query.name==name).update({"length": record.query_length})
 					self.session.commit()
 			else:
+				self.logger.info("Adding {0} to the db".format(name))
 				current_query=Query(name, record.query_length)
 				self.session.add(current_query)
 				self.session.commit()
 				current_query = current_query.id
+				queries[name] = current_query.id
 					
 		
 			for ccc,alignment in filter(lambda x: x[0]<=self.max_target_seqs, enumerate(record.alignments)):
 
+				self.logger.info("Started the hit {0}-{1}".format(name,record.alignments[ccc].accession ))
 				evalue=record.descriptions[ccc].e
 				bits = record.descriptions[ccc].bits
 				alignment = record.alignments[ccc]
@@ -507,11 +550,11 @@ class xmlSerializer:
 					objects.append(current_hsp)
 			
 			if len(objects)>=self.maxobjects:
-				self.session.bulk_save_objects(objects)
+				self.session.bulk_save_objects(objects, return_defaults=False)
 				objects=[]
 			
 
-		self.session.bulk_save_objects(objects)
+		self.session.bulk_save_objects(objects, return_defaults=False)
 		self.session.commit() 
 
 	def __call__(self):

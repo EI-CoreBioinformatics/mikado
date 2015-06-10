@@ -453,7 +453,6 @@ class xmlSerializer:
 											[{"name": obj.name, "length": obj.length  } for obj in objects ]
 											)
 # 						self.session.bulk_save_objects(objects, return_defaults=False)
-						self.session.commit()
 						self.logger.info("Loaded {0} objects into the \"target\" table".format(len(objects)))
 						objects=[]
 			self.logger.info("Loading {0} objects into the \"target\" table".format(len(objects)))
@@ -478,7 +477,6 @@ class xmlSerializer:
 										[{"name": obj.name, "length": obj.length  } for obj in objects ]
 										)
 # 					self.session.bulk_save_objects(objects, return_defaults=False)
-					self.session.commit()
 					self.logger.info("Loaded {0} objects into the \"query\" table".format(len(objects)))
 					objects=[]
 			self.logger.info("Loading {0} objects into the \"query\" table".format(len(objects)))

@@ -478,9 +478,9 @@ class xmlSerializer:
 
 		self.logger.info("Loading all IDs")
 		for query in self.session.query(Query):
-			queries[query.name] = query.id
+			queries[query.name] = (query.id, query.length is not None)
 		for query in self.session.query(Target):
-			targets[query.name] = query.id
+			targets[query.name] = (query.id, query.length is not None)
 		self.logger.info("Loaded all IDs")
 
 		#Memorize the mapping ... it is just faster
@@ -506,7 +506,7 @@ class xmlSerializer:
 
 			if name in queries:
 				current_query = queries[name]
-				if self.session.query(Query).filter(Query.id==current_query).one().length is None:
+				if queries[name][1] is False:
 					self.session.query(Query).filter(Query.name==name).update({"length": record.query_length})
 					self.session.commit()
 			else:
@@ -515,7 +515,7 @@ class xmlSerializer:
 				self.session.add(current_query)
 				self.session.commit()
 				current_query = current_query.id
-				queries[name] = current_query.id
+				queries[name] = (current_query.id, True)
 					
 		
 			for ccc,alignment in filter(lambda x: x[0]<=self.max_target_seqs, enumerate(record.alignments)):
@@ -526,7 +526,12 @@ class xmlSerializer:
 				alignment = record.alignments[ccc]
 				hit_num=ccc+1
 				if record.alignments[ccc].accession in targets:
-					current_target = targets[record.alignments[ccc].accession]
+					current_target = targets[record.alignments[ccc].accession][0]
+					if targets[record.alignments[ccc].accession][1] is False:
+						self.session.query(Target).filter(Target.name==record.alignments[ccc].accession).update(
+																											{"length": record.query_length}
+																											)
+					
 				else:
 					current_target=Target(record.alignments[ccc].accession, record.alignments[ccc].length)
 					self.session.add(current_target)
@@ -534,7 +539,7 @@ class xmlSerializer:
 						self.session.commit()
 						assert type(current_target.id) is int 
 						targets[record.alignments[ccc].accession] = current_target.id
-						current_target = current_target.id
+						current_target = (current_target.id, True)
 					except sqlalchemy.exc.IntegrityError:
 						self.session.rollback()
 						continue

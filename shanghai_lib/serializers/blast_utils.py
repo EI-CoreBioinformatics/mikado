@@ -450,14 +450,15 @@ class xmlSerializer:
 				if len(objects)>=self.maxobjects:
 						self.logger.info("Loading {0} objects into the \"target\" table".format(self.maxobjects))
 						self.session.bulk_save_objects(objects, return_defaults=False)
+						self.session.commit()
 						self.logger.info("Loaded {0} objects into the \"target\" table".format(self.maxobjects))
 						objects=[]
-			self.logger.info("Loading {0} objects into the \"target\" table".format(self.maxobjects))
+			self.logger.info("Loading {0} objects into the \"target\" table".format(len(objects)))
 			self.session.bulk_save_objects(objects)
-			self.logger.info("Loaded {0} objects into the \"target\" table".format(self.maxobjects))
+			self.logger.info("Loaded {0} objects into the \"target\" table".format(len(objects)))
 			objects=[]
 			self.logger.info("Loaded targets")
-
+			self.session.commit()
 		
 		if self.query_seqs is not None:
 			self.logger.info("Started to serialize the queries")
@@ -468,11 +469,13 @@ class xmlSerializer:
 				if len(objects)>=self.maxobjects:
 					self.logger.info("Loading {0} objects into the \"query\" table".format(self.maxobjects))
 					self.session.bulk_save_objects(objects, return_defaults=False)
+					self.session.commit()
 					self.logger.info("Loaded {0} objects into the \"query\" table".format(self.maxobjects))
 					objects=[]
-			self.logger.info("Loading {0} objects into the \"query\" table".format(self.maxobjects))
+			self.logger.info("Loading {0} objects into the \"query\" table".format(len(objects)))
 			self.session.bulk_save_objects(objects)
-			self.logger.info("Loaded {0} objects into the \"query\" table".format(self.maxobjects))
+			self.session.commit()
+			self.logger.info("Loaded {0} objects into the \"query\" table".format(len(objects)))
 			objects=[]
 			self.logger.info("Queries serialized")
 
@@ -557,11 +560,13 @@ class xmlSerializer:
 			if len(objects)>=self.maxobjects:
 				self.logger.info("Loading {0} objects into the hit, hsp tables".format(len(objects)))
 				self.session.bulk_save_objects(objects, return_defaults=False)
+				self.session.commit()
 				self.logger.info("Loaded {0} objects into the hit, hsp tables".format(len(objects)))
 				objects=[]
 			
 		self.logger.info("Loading {0} objects into the hit, hsp tables".format(len(objects)))
 		self.session.bulk_save_objects(objects, return_defaults=False)
+		self.session.commit()
 		self.logger.info("Loaded {0} objects into the hit, hsp tables".format(len(objects)))
 		self.session.commit() 
 		self.logger.info("Finished loading blast hits")

@@ -372,10 +372,10 @@ class xmlSerializer:
 		self.handler.setFormatter(self.formatter)
 		self.logger.addHandler(self.handler)
 		
-		engine=create_engine("sqlite:///{0}".format(db))
+		self.engine=create_engine("sqlite:///{0}".format(db))
 		session=sessionmaker()
-		session.configure(bind=engine)
-		dbBase.metadata.create_all(engine) #@UndefinedVariable
+		session.configure(bind=self.engine)
+		dbBase.metadata.create_all(self.engine) #@UndefinedVariable
 		self.session=session()
 		self.logger.info("Created the session")
 		if type(xml) is not xparser:
@@ -440,18 +440,22 @@ class xmlSerializer:
 			targets[query.name] = query.id
 		self.logger.info("Loaded previous IDs")
 		
-		self.logger.info("Started the serialization")
+		self.logger.info("Started the serialisation")
 		if self.target_seqs is not None:
-			self.logger.info("Started to serialize the targets")
+			self.logger.info("Started to serialise the targets")
 			for record in self.target_seqs:
 				if record in targets:
 					continue
 				objects.append(Target(record, len(self.target_seqs[record])  ))
 				if len(objects)>=self.maxobjects:
-						self.logger.info("Loading {0} objects into the \"target\" table".format(self.maxobjects))
-						self.session.bulk_save_objects(objects, return_defaults=False)
+						self.logger.info("Loading {0} objects into the \"target\" table".format(len(objects)))
+						self.engine.execute(Target.__table__.insert(),
+											[{"name": obj.name, "length": obj.length  } for obj in objects ]
+											)
+						
+# 						self.session.bulk_save_objects(objects, return_defaults=False)
 						self.session.commit()
-						self.logger.info("Loaded {0} objects into the \"target\" table".format(self.maxobjects))
+						self.logger.info("Loaded {0} objects into the \"target\" table".format(len(objects)))
 						objects=[]
 			self.logger.info("Loading {0} objects into the \"target\" table".format(len(objects)))
 			self.session.bulk_save_objects(objects)
@@ -461,23 +465,26 @@ class xmlSerializer:
 			self.session.commit()
 		
 		if self.query_seqs is not None:
-			self.logger.info("Started to serialize the queries")
+			self.logger.info("Started to serialise the queries")
 			for record in self.query_seqs:
 				if record in queries:
 					continue
 				objects.append(Query(record, len(self.query_seqs[record])  ))
 				if len(objects)>=self.maxobjects:
-					self.logger.info("Loading {0} objects into the \"query\" table".format(self.maxobjects))
+					self.logger.info("Loading {0} objects into the \"query\" table".format(len(objects)))
+					self.engine.execute(Query.__table__.insert(),
+										[{"name": obj.name, "length": obj.length  } for obj in objects ]
+										)
 					self.session.bulk_save_objects(objects, return_defaults=False)
 					self.session.commit()
-					self.logger.info("Loaded {0} objects into the \"query\" table".format(self.maxobjects))
+					self.logger.info("Loaded {0} objects into the \"query\" table".format(len(objects)))
 					objects=[]
 			self.logger.info("Loading {0} objects into the \"query\" table".format(len(objects)))
 			self.session.bulk_save_objects(objects)
 			self.session.commit()
 			self.logger.info("Loaded {0} objects into the \"query\" table".format(len(objects)))
 			objects=[]
-			self.logger.info("Queries serialized")
+			self.logger.info("Queries serialised")
 
 		self.logger.info("Loading all IDs")
 		for query in self.session.query(Query):

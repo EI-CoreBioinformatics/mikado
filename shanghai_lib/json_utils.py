@@ -8,6 +8,23 @@ import shanghai_lib.exceptions
 import json
 import subprocess
 
+def check_log(json_conf):
+    if "log_settings" not in json_conf:
+        json_conf["log_settings"]=dict()
+    if "log" not in json_conf["log_settings"]:
+        json_conf["log_settings"]["log"] = None
+    if "log_level" not in json_conf["log_settings"]:
+        json_conf["log_settings"]["log_level"]="WARN"
+    else:
+        valid_levels=["INFO", "WARN", "ERROR", "CRITICAL", "DEBUG" ]
+        if json_conf["log_settings"]["log_level"] not in valid_levels:
+            raise shanghai_lib.exceptions.InvalidJson( "Invalid log level: {0}\mValid levels: {1}".format(
+                                                                                                          json_conf["log_level"],
+                                                                                                          "\n\t".join(valid_levels)
+                                                                                                          )  )
+    return json_conf
+
+
 def check_chimera_split(json_conf):
 
     '''Function to check the "chimera_split" section of the json'''
@@ -272,6 +289,7 @@ def check_json(json_conf, json_file):
     json_conf = check_orf_loading(json_conf)
     json_conf = check_chimera_split(json_conf)
     json_conf = check_run_options(json_conf)
+    json_conf = check_log(json_conf)
     return json_conf
        
 def to_json(string):

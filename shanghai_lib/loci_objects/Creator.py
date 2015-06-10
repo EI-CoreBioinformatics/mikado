@@ -9,6 +9,7 @@ import shanghai_lib.parsers
 import csv
 import os
 import logging
+import logging.handlers
 
 class Creator:
     
@@ -47,6 +48,30 @@ class Creator:
             raise shanghai_lib.exceptions.InvalidJson("Invalid input file: {0}".format(self.input_file))
 
         return parser(self.input_file)
+
+    def logging_utility(self):
+        self.formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {name} - {message}",
+                                           style="{"
+                                           )
+        self.logger=logging.getLogger("main_logger")
+        if self.json_conf["log_settings"]["log"] is None  or self.json_conf["log_settings"]["log"]=="stream":
+            self.log_handler = logging.StreamHandler()
+        else:
+            self.log_handler=logging.FileHandler(self.json_conf["log_settings"]["log"], 'w')
+        self.log_level = self.json_conf["log_settings"]["log_level"] 
+                
+        self.log_handler.setFormatter(self.formatter)
+        self.logger.setLevel(self.log_level)
+        self.logger.addHandler(self.log_handler)
+        self.logger.info("Begun analysis of {0}".format(self.input_file)  )
+        while True:
+            record = self.logging_queue.get()
+            if record is None:
+                break
+            self.logger.handle(record)
+            
+        self.logger.info("Finished analysis of {0}".format(self.input_file)  )
+        return
 
         
     def printer(self):
@@ -116,15 +141,25 @@ class Creator:
         to define the loci. It also prints out the results to the requested output files.
         '''
     
+        #Define the logger
+        handler = logging.handlers.QueueHandler(self.logging_queue)
+        logger = logging.getLogger( "{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end) )
+        logger.addHandler(handler)
+        logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
+    
         #Load the CDS information
+        logger.info("Logging transcript data")
         slocus.load_transcript_data()
         #Split the superlocus in the stranded components
+        logger.info("Splitting by strand")
         stranded_loci = sorted(list(slocus.split_strands()))
         #Define the loci        
+        logger.debug("Divided into {0} loci".format(len(stranded_loci)))
         
+        logger.info("Defining loci")
         for stranded_locus in stranded_loci:
             stranded_locus.define_loci()
-    
+        logger.info("Defined loci")
         #Remove overlapping fragments.
         #This part should be rewritten in order to make it more flexible and powerful.
         for stranded_locus in stranded_loci:
@@ -134,9 +169,32 @@ class Creator:
                         for other_final_locus in other_superlocus.loci:
                             if other_final_locus.other_is_fragment( final_locus ) is True and final_locus in stranded_locus.loci: 
                                 stranded_locus.loci.remove(final_locus)
-
+                                
             self.printer_queue.put(stranded_locus)
+        logger.info("Finished")
+        #close up shop
+        logger.removeHandler(handler)
+        handler.close()
+            
         return
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        if "pool" in state:
+            del state['pool']
+        if 'manager' in state:
+            del state['manager']
+        if 'log_process' in state:
+            del state['log_process']
+            
+        if 'printer_process' in state:
+            del state['printer_process']
+            
+        if 'log_process' in state:
+            del state['log_process']
+            
+        return state
+        
 
     def __call__(self):
         
@@ -147,15 +205,25 @@ class Creator:
         #Otherwise it will raise all sorts of mistakes
         
         self.ctx = multiprocessing.get_context() # @UndefinedVariable 
-        manager=self.ctx.Manager()
-        self.printer_queue=manager.Queue()
-        self.lock=manager.RLock()
-        pool=self.ctx.Pool(processes=self.threads) # @UndefinedVariable
-        printer_process=multiprocessing.Process(target=self.printer) # @UndefinedVariable
-        printer_process.start()
+        self.manager=self.ctx.Manager()
+        self.printer_queue=self.manager.Queue()
+        self.logging_queue = self.manager.Queue() #queue for logging
+        
+        self.lock=self.manager.RLock()
+        self.pool=self.ctx.Pool(processes=self.threads) # @UndefinedVariable
+        self.log_process = self.ctx.Process(target = self.logging_utility)
+        self.log_process.start()
+        
+        self.printer_process=self.ctx.Process(target=self.printer) # @UndefinedVariable
+        self.printer_process.start()
         
         currentLocus = None
         currentTranscript = None
+        
+        self.logger_queue_handler = logging.handlers.QueueHandler(self.logging_queue)
+        self.queue_logger = logging.getLogger( "parser")
+        self.queue_logger.addHandler(self.logger_queue_handler)
+        self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         
         jobs=[]
         for row in self.define_input():
@@ -168,27 +236,28 @@ class Creator:
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
                         if currentLocus is not None:
-                            jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                            jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
                 continue
-            
         
         if currentTranscript is not None:
             if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
-            jobs.append(pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+            jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
             
-        map(lambda job: job.get(), jobs) #Finish up all jobs
-        pool.close()
-        pool.join()
+        list(map(lambda job: job.get(), jobs)) #Finish up all jobs
+        self.pool.close()
+        self.pool.join()
         
         self.printer_queue.put("EXIT")
-        printer_process.join()
+        self.printer_process.join()
+        self.logging_queue.put(None)
+        self.log_process.join()
         return 0

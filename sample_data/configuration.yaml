@@ -15,6 +15,9 @@ chimera_split:
     max_target_seqs: 10
     minimal_hsp_overlap: 0.9
     minimal_secondary_orf: 200
+log_settings:
+  log: null
+  log_level: INFO  
 db: data.db
 dbtype: sqlite
 orf_loading:

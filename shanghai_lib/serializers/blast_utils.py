@@ -498,6 +498,7 @@ class xmlSerializer:
 
 		#Memorize the mapping ... it is just faster
 
+		query_counter = 0
 		for record in self.xml_parser:
 			if record.application=="BLASTN":
 				q_mult=1
@@ -510,7 +511,7 @@ class xmlSerializer:
 				h_mult=3
 			if len(record.descriptions)==0:
 				continue
-			
+			query_counter+=1
 			if self.keep_definition is True:
 				name=record.query.split()[0]
 			else:
@@ -523,12 +524,14 @@ class xmlSerializer:
 					self.session.query(Query).filter(Query.name==name).update({"length": record.query_length})
 					self.session.commit()
 			else:
-				self.logger.info("Adding {0} to the db".format(name))
+				self.logger.warn("Adding {0} to the db".format(name))
 				current_query=Query(name, record.query_length)
 				self.session.add(current_query)
 				self.session.commit()
-				current_query = current_query.id
 				queries[name] = (current_query.id, True)
+				current_query = current_query.id
+				
+				
 					
 		
 			for ccc,alignment in filter(lambda x: x[0]<=self.max_target_seqs, enumerate(record.alignments)):
@@ -568,10 +571,10 @@ class xmlSerializer:
 					objects.append(current_hsp)
 			
 			if len(objects)>=self.maxobjects:
-				self.logger.info("Loading {0} objects into the hit, hsp tables".format(len(objects)))
+				self.logger.info("Loading {0} objects into the hit, hsp tables; done {1} queries".format(len(objects), query_counter))
 				self.session.bulk_save_objects(objects, return_defaults=False)
 				self.session.commit()
-				self.logger.info("Loaded {0} objects into the hit, hsp tables".format(len(objects)))
+				self.logger.info("Loaded {0} objects into the hit, hsp tables; done {1} queries".format(len(objects), query_counter))
 				objects=[]
 			
 		self.logger.info("Loading {0} objects into the hit, hsp tables".format(len(objects)))

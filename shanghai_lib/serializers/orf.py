@@ -122,8 +122,13 @@ class orfSerializer:
     def serialize(self):
         objects = []
         cache=dict()
+        
+        for record in self.session.query(Query):
+            cache[record.name]=record.id
+        
         if self.fasta_index is not None:
             for record in self.fasta_index:
+                if record in cache: continue
                 objects.append(Query(record, len(self.fasta_index[record])))
                 if len(objects)>=self.maxobjects:
                     self.session.bulk_save_objects(objects)

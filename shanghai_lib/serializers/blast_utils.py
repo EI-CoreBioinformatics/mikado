@@ -502,10 +502,10 @@ class xmlSerializer:
 				name=record.query.split()[0]
 			else:
 				name=record.query_id
-			self.logger.info("Started with {0}".format(name))
+			self.logger.debug("Started with {0}".format(name))
 
 			if name in queries:
-				current_query = queries[name]
+				current_query = queries[name][0]
 				if queries[name][1] is False:
 					self.session.query(Query).filter(Query.name==name).update({"length": record.query_length})
 					self.session.commit()
@@ -520,7 +520,7 @@ class xmlSerializer:
 		
 			for ccc,alignment in filter(lambda x: x[0]<=self.max_target_seqs, enumerate(record.alignments)):
 
-				self.logger.info("Started the hit {0}-{1}".format(name,record.alignments[ccc].accession ))
+				self.logger.debug("Started the hit {0}-{1}".format(name,record.alignments[ccc].accession ))
 				evalue=record.descriptions[ccc].e
 				bits = record.descriptions[ccc].bits
 				alignment = record.alignments[ccc]
@@ -538,8 +538,8 @@ class xmlSerializer:
 					try:
 						self.session.commit()
 						assert type(current_target.id) is int 
-						targets[record.alignments[ccc].accession] = current_target.id
-						current_target = (current_target.id, True)
+						targets[record.alignments[ccc].accession] = (current_target.id, True)
+						current_target = current_target.id
 					except sqlalchemy.exc.IntegrityError:
 						self.session.rollback()
 						continue
@@ -555,12 +555,16 @@ class xmlSerializer:
 					objects.append(current_hsp)
 			
 			if len(objects)>=self.maxobjects:
+				self.logger.info("Loading {0} objects into the hit, hsp tables".format(len(objects)))
 				self.session.bulk_save_objects(objects, return_defaults=False)
+				self.logger.info("Loaded {0} objects into the hit, hsp tables".format(len(objects)))
 				objects=[]
 			
-
+		self.logger.info("Loading {0} objects into the hit, hsp tables".format(len(objects)))
 		self.session.bulk_save_objects(objects, return_defaults=False)
+		self.logger.info("Loaded {0} objects into the hit, hsp tables".format(len(objects)))
 		self.session.commit() 
+		self.logger.info("Finished loading blast hits")
 
 	def __call__(self):
 		self.serialize()

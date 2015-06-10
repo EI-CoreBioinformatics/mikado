@@ -158,7 +158,20 @@ class Creator:
         
         logger.info("Defining loci")
         for stranded_locus in stranded_loci:
-            stranded_locus.define_loci()
+            try:
+                stranded_locus.define_loci()
+                logger.info("Defined loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                                                                               stranded_locus.start,
+                                                                               stranded_locus.err,
+                                                                               stranded_locus.strand))
+            except Exception as err:
+                logger.exception("Error in defining loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                                                                               stranded_locus.start,
+                                                                               stranded_locus.err,
+                                                                               stranded_locus.strand))
+                logger.exception("Exception: {0}".format(err))
+                stranded_loci.remove(stranded_locus)
+                
         logger.info("Defined loci")
         #Remove overlapping fragments.
         #This part should be rewritten in order to make it more flexible and powerful.
@@ -169,9 +182,15 @@ class Creator:
                         for other_final_locus in other_superlocus.loci:
                             if other_final_locus.other_is_fragment( final_locus ) is True and final_locus in stranded_locus.loci: 
                                 stranded_locus.loci.remove(final_locus)
-                                
-            self.printer_queue.put(stranded_locus)
-        logger.info("Finished")
+            if len(stranded_locus.transcripts)==0:
+                continue
+            else:
+                try:
+                    self.printer_queue.put(stranded_locus)
+                    logger.info("Finished")
+                except Exception as err:
+                    logger.exception(err)
+        
         #close up shop
         logger.removeHandler(handler)
         handler.close()

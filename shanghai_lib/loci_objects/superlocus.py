@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 
+#Core imports
 import sys,os.path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from copy import deepcopy as copy
+
+#SQLAlchemy imports
+from sqlalchemy.engine import create_engine
+from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.sql.expression import and_
+
+#Shanghai imports
+from shanghai_lib.serializers.junction import junction, Chrom
+from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from shanghai_lib.loci_objects.monosublocus import monosublocus
 from shanghai_lib.loci_objects.excluded_locus import excluded_locus
 from shanghai_lib.loci_objects.transcript import transcript
-from sqlalchemy.engine import create_engine
-from sqlalchemy.orm.session import sessionmaker
-from shanghai_lib.serializers.junction import junction, Chrom
-from sqlalchemy.sql.expression import and_
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus
-from copy import deepcopy as copy
 from shanghai_lib.loci_objects.sublocus import sublocus
 from shanghai_lib.loci_objects.monosublocus_holder import monosublocus_holder
 from shanghai_lib.parsers.GFF import gffLine

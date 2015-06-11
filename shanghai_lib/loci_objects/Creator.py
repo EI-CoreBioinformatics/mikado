@@ -4,14 +4,19 @@
 #from logging import Logger
 import re
 import multiprocessing
-import shanghai_lib.loci_objects
-import shanghai_lib.parsers
 import csv
 import os
-import logging
-import logging.handlers
+import logging, logging.handlers
 import time
-from docutils.utils.math.math2html import MultiRowFormula
+
+#SQLAlchemy imports
+from sqlalchemy.engine import create_engine
+from sqlalchemy.orm.session import sessionmaker
+
+#Shanghai imports
+import shanghai_lib.loci_objects
+import shanghai_lib.parsers
+import shanghai_lib.serializers.blast_utils
 
 
 class Creator:
@@ -73,6 +78,31 @@ class Creator:
         self.main_logger.addHandler(self.log_handler)
         
         self.main_logger.info("Begun analysis of {0}".format(self.input_file)  )
+        
+        if self.json_conf["chimera_split"]["blast_check"] is True:
+            engine = create_engine("{dbtype}:///{db}".format(
+                                                              db=self.json_conf["db"],
+                                                              dbtype=self.json_conf["dbtype"])
+                                    )   #create_engine("sqlite:///{0}".format(args.db))
+        
+            Session = sessionmaker()
+            Session.configure(bind=engine)
+            session=Session()
+            
+            evalue=self.json_conf["chimera_split"]["blast_params"]["evalue"]
+            queries_with_hits = session.query(shanghai_lib.serializers.blast_utils.Hit.query_id ).filter(
+                                                                                                 shanghai_lib.serializers.blast_utils.Hit.evalue<=evalue,
+                                                                                            ).distinct().count()
+            total_queries = session.query(shanghai_lib.serializers.blast_utils.Query).count()
+            self.main_logger.info("Queries with at least one hit at evalue<={0}: {1} out of {2} ({3}%)".format(
+                                                                                                               evalue,
+                                                                                                               queries_with_hits,
+                                                                                                               total_queries,
+                                                                                                               round(100*queries_with_hits/total_queries,2)
+                                                                                                               ))
+        
+            session.close()
+        
         while True:
             record = self.logging_queue.get()
             if record is None:

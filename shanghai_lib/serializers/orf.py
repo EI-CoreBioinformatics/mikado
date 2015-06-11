@@ -140,13 +140,14 @@ class orfSerializer:
             
         for record in self.session.query(Query):
             cache[record.name]=record.id
+            
         for row in self.BED12:
             if row.header is True:
                 continue
             if row.id in cache:
                 current_query = cache[row.id]
             else:
-                current_query=Query(row.id, None)
+                current_query=Query(row.id, row.end)
                 self.session.add(current_query)
                 self.session.commit()
                 cache[current_query.name] = current_query.id

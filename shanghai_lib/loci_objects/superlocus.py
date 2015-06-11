@@ -26,7 +26,7 @@ class superlocus(abstractlocus):
     
     ####### Special methods ############
     
-    def __init__(self, transcript_instance, stranded=True, json_dict = None):
+    def __init__(self, transcript_instance, stranded=True, json_dict = None, logger=None):
         
         '''The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
         
@@ -61,12 +61,14 @@ class superlocus(abstractlocus):
         self.splices = set(self.splices)
         self.introns = set(self.introns)
         self.transcripts = dict()
+        self.loci=[]
         super().add_transcript_to_locus(transcript_instance)
         if self.stranded is True:
             self.strand = transcript_instance.strand
         self.available_monolocus_metrics = []
         self.available_sublocus_metrics = []
         self.set_flags()
+        self.set_logger(logger)
         return
 
     def __str__(self, level=None, print_cds=True):
@@ -161,7 +163,9 @@ class superlocus(abstractlocus):
         two different superloci.
         '''
         
+        self.logger.debug("Splitting by strand for {0}".format(self.id))
         if self.stranded is True:
+            self.logger.warn("Trying to split by strand a stranded locus, {0}!".format(self.id))
             yield self
         
         else:
@@ -179,15 +183,17 @@ class superlocus(abstractlocus):
             for strand in plus, minus, nones:
                 if len(strand)>0:
                     strand = sorted(strand)
-                    new_locus = superlocus(strand[0], stranded=True, json_dict=self.json_dict)
+                    new_locus = superlocus(strand[0], stranded=True, json_dict=self.json_dict, logger=self.logger)
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
                             new_locus.add_transcript_to_locus(cdna)
                         else:
                             new_loci.append(new_locus)
-                            new_locus = superlocus(cdna, stranded=True, json_dict=self.json_dict)
+                            new_locus = superlocus(cdna, stranded=True, json_dict=self.json_dict, logger=self.logger)
                             
                     new_loci.append(new_locus)
+                    
+            self.logger.debug("Defined {0} loci by splitting by strand at {1}.".format(len(new_loci), self.id))
             for new_locus in iter(sorted(new_loci)):
                 yield new_locus
 
@@ -255,26 +261,6 @@ class superlocus(abstractlocus):
 
     def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False, fasta_index=None):
         raise NotImplementedError("Deprecated")
-#         if cds_dict is None:
-#             return
-#         for tid in self.transcripts:
-#             self.transcripts[tid].load_cds(cds_dict, trust_strand = trust_strand,
-#                                            minimal_secondary_orf_length=minimal_secondary_orf_length )
-#         transcript_ids=list(self.transcripts.keys())[:]
-#         assert len(transcript_ids)>0
-# 
-#         if split_chimeras is True:
-#             
-#             more_than_one_orf=[]
-#             for tid in self.transcripts:
-#                 if self.transcripts[tid].number_internal_orfs>1: more_than_one_orf.append(tid)
-#             
-#             for tid in more_than_one_orf:
-#                 new_tr=list(self.transcripts[tid].split_by_cds(json_dict=self.json_dict, transcript_fasta=fasta_index[tid]))
-#                 if len(new_tr)>1:                
-#                     for tr in new_tr:
-#                         self.add_transcript_to_locus(tr, check_in_locus=True)
-#                     self.remove_transcript_from_locus(tid)
 
     ###### Sublocus-related steps ######
                     
@@ -308,8 +294,8 @@ class superlocus(abstractlocus):
         if len(not_passing)>0 and self.purge is True:
             tid=not_passing.pop()
             self.transcripts[tid].score=0
-            monosub=monosublocus(self.transcripts[tid])
-            self.excluded_transcripts=excluded_locus(monosub, json_dict=self.json_dict)
+            monosub=monosublocus(self.transcripts[tid], logger=self.logger)
+            self.excluded_transcripts=excluded_locus(monosub, json_dict=self.json_dict, logger=self.logger)
             self.excluded_transcripts.__name__ = "excluded_locus"
             self.remove_transcript_from_locus(tid)
             for tid in not_passing:
@@ -334,7 +320,7 @@ class superlocus(abstractlocus):
             if len(subl)==0:
                 continue
             subl=sorted(subl)
-            new_sublocus = sublocus(subl[0], json_dict=self.json_dict)
+            new_sublocus = sublocus(subl[0], json_dict=self.json_dict, logger=self.logger)
             for ttt in subl[1:]:
                 new_sublocus.add_transcript_to_locus(ttt)
             new_sublocus.parent = self.id
@@ -472,7 +458,7 @@ class superlocus(abstractlocus):
         
         for monosublocus_instance in sorted(self.monosubloci):
             if self.monoholders == []:
-                holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, purge=self.purge)
+                holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, logger=self.logger)
                 self.monoholders.append(holder)
             else:
                 found_holder=False
@@ -482,7 +468,7 @@ class superlocus(abstractlocus):
                         found_holder=True
                         break
                 if found_holder is False:
-                    holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, purge=self.purge)
+                    holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, logger=self.logger)
                     self.monoholders.append(holder)
                 
     def compile_requirements(self):

@@ -3,9 +3,9 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import abc
 import random
 from copy import copy
-import logging
 import networkx 
 from shanghai_lib.exceptions import NotInLocusError
+import logging
 
 class abstractlocus(metaclass=abc.ABCMeta):
     
@@ -19,7 +19,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
     ###### Special methods #########
     
     @abc.abstractmethod
-    def __init__(self, logger=None):
+    def __init__(self):
         self.transcripts = dict()
         self.introns, self.exons, self.splices = set(), set(), set()
         #Consider only the CDS part
@@ -27,12 +27,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
         self.stranded=True
         self.initialized = False
-        #raise NotImplementedError("This is an abstract class and should not be called directly!")
-        if logger is None:
-            self.logger = logging.Logger("{0}_logger".format(self.__name__))
-        else:
-            self.logger=logger
         
+        #raise NotImplementedError("This is an abstract class and should not be called directly!")
     
     @abc.abstractmethod
     def __str__(self):
@@ -100,6 +96,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "engine"):
             del state["engine"]
 
+        if hasattr(self, "logger"):
+            del state["logger"]
         return state
         #super.__getstate__()
         
@@ -109,7 +107,13 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "json_dict"):
             if "requirements" in self.json_dict and "expression" in self.json_dict["requirements"]:
                 self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
-    
+
+    def set_logger(self, logger):
+        '''Set a logger for the instance.'''
+        if logger is None:
+            logger = self.create_default_logger()
+        self.logger = logger
+
     ##### Static methods #######
     
     @staticmethod
@@ -150,7 +154,22 @@ class abstractlocus(metaclass=abc.ABCMeta):
             return param not in conf["value"]
     
     
+   
     ##### Class methods ########
+
+    @classmethod
+    def create_default_logger(cls):
+        '''Static method to create a default logging instance for the loci.'''
+        formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
+                                           style="{"
+                                            )
+
+        logger = logging.getLogger("{0}_logger".format(cls.__name__))
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.setLevel(logging.WARN)
+        logger.addHandler(handler)
+        return logger
 
     @classmethod
     def in_locus(cls, locus_instance, transcript, flank=0):
@@ -517,6 +536,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
                                             self.strand,
                                             self.start,
                                             self.end)
+
         
     @property
     def name(self):

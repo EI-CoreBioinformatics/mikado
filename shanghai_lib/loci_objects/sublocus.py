@@ -22,22 +22,19 @@ class sublocus(abstractlocus):
 
     ################ Class special methods ##############
     
-    def __init__(self, span, source=None, json_dict = None, purge = False ):
+    def __init__(self, span, json_dict = None, logger=None ):
         
         '''This class takes as input a "span" feature - e.g. a gffLine or a transcript_instance. 
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes. '''
         self.counter=0 # simple tag for avoiding collisions in the GFF output
         super().__init__()
+        self.set_logger(logger)
+        self.json_dict = json_dict
         self.fixedSize=True if span.feature=="sublocus" else False
         if span.__name__=="transcript":
             span.finalize()
-        self.purge = purge
-
-        if source is not None:
-            self.source = source
-        else:
-            self.source = "locus_pipeline"
-            
+        self.purge = self.json_dict["run_options"]["purge"]
+        self.source = self.json_dict["source"]            
         self.excluded=None
         self.splitted=False
         self.metrics_calculated=False #Flag to indicate that we have not calculated the metrics for the transcripts
@@ -45,7 +42,6 @@ class sublocus(abstractlocus):
         setattr( self, "monoexonic", getattr(span, "monoexonic", None)  )
         if json_dict is None or type(json_dict) is not dict:
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
-        self.json_dict = json_dict
         self.locus_verified_introns=set()
         
         #This part is necessary to import modules
@@ -59,6 +55,8 @@ class sublocus(abstractlocus):
         else:
             for key in ["parent", "start", "end", "chrom", "strand", "attributes"]:
                 setattr(self, key, getattr(span, key))
+        self.logger.debug("Initialized {0}".format(self.id))
+
         
     def __str__(self, print_cds=True):
         
@@ -92,6 +90,16 @@ class sublocus(abstractlocus):
         - change the id of the transcripts to  
         '''
         
+        if len(self.transcripts)>0:
+        
+            self.logger.debug("Adding {0} to {1}".format(transcript_instance.id, self.id))
+        else:
+            self.logger.debug("Initializing sublocus with {0} at {1}{2}:{3}-{4}".format(transcript_instance.id,
+                                                                                        transcript_instance.chrom,
+                                                                                        transcript_instance.strand,
+                                                                                        transcript_instance.start,
+                                                                                        transcript_instance.end)  )
+            
         if transcript_instance is None: return
         if self.initialized is False:
             self.monoexonic = transcript_instance.monoexonic
@@ -105,9 +113,8 @@ class sublocus(abstractlocus):
 
         super().add_transcript_to_locus(transcript_instance)
         #add the verified introns from the outside
-        
         self.locus_verified_introns = set.union(self.locus_verified_introns, transcript_instance.verified_introns)
-
+        self.logger.debug("Added {0} to {1}".format(transcript_instance.id, self.id))
         #Update the id
 
     def define_monosubloci(self, purge=False, excluded=None):
@@ -119,8 +126,10 @@ class sublocus(abstractlocus):
         
         self.monosubloci=[]
         self.excluded = excluded
+        self.logger.debug("Launching calculate scores for {0}".format(self.id))
         self.calculate_scores()
 
+        self.logger.debug("Defining monosubloci for {0}".format(self.id))
         for msbl in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
             msbl = dict((x.id, x) for x in msbl) #Transform into dictionary
             selected_tid=self.choose_best(msbl)
@@ -128,10 +137,11 @@ class sublocus(abstractlocus):
             if selected_transcript.score==0 and purge is True:
                 pass
             else:
-                new_locus = monosublocus(selected_transcript)
+                new_locus = monosublocus(selected_transcript, logger=self.logger)
                 self.monosubloci.append(new_locus)
-
+        
         self.splitted=True
+        self.logger.debug("Defined monosubloci for {0}".format(self.id))
         return
     
    
@@ -141,6 +151,7 @@ class sublocus(abstractlocus):
         of introns or exons in the sublocus, or the number/fraction of retained introns.  
         '''
     
+        self.logger.debug("Calculating metrics for {0}".format(tid))
         transcript_instance = self.transcripts[tid]
         self.transcripts[tid].finalize() # The transcript must be finalized before we can calculate the score.
         
@@ -167,6 +178,7 @@ class sublocus(abstractlocus):
         else:
             transcript_instance.proportion_verified_introns_inlocus = 0
         self.transcripts[tid]=transcript_instance
+        self.logger.debug("Calculated metrics for {0}".format(tid))
         
     def find_retained_introns(self, transcript_instance):
          
@@ -215,8 +227,15 @@ class sublocus(abstractlocus):
         Scores are rounded to the nearest integer.
         '''
         
+        if self.scores_calculated is True:
+            return
+        
         self.get_metrics()
         not_passing=set()
+        if not hasattr(self, "logger"):
+            self.set_logger(None)
+            self.logger.setLevel("DEBUG")
+        self.logger.debug("Calculating scores for {0}".format(self.id))
         if "requirements" in self.json_dict:
             self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
             previous_not_passing = set()
@@ -237,7 +256,7 @@ class sublocus(abstractlocus):
                     if self.purge is True:
                         self.metrics_calculated=False
                         if self.excluded is None:
-                            excluded = monosublocus(self.transcripts[tid])
+                            excluded = monosublocus(self.transcripts[tid], logger=self.logger)
                             self.excluded = excluded_locus(excluded)
                         else:
                             self.excluded.add_transcript_to_locus(self.transcripts[tid])
@@ -253,6 +272,7 @@ class sublocus(abstractlocus):
             del previous_not_passing
         
         if len(self.transcripts)==0:
+            self.logger.warn("No transcripts pass the muster for {0}".format(self.id))
             return
         self.scores=dict()
         for tid in self.transcripts:
@@ -287,6 +307,8 @@ class sublocus(abstractlocus):
         for tid in self.transcripts:
             if tid in not_passing: self.transcripts[tid].score=0 
             else: self.transcripts[tid].score = sum( self.scores[tid].values() )
+            
+        self.scores_calculated = True
             
     def print_metrics(self):
         

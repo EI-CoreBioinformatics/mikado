@@ -16,7 +16,7 @@ class monosublocus(abstractlocus):
     
     ########### Special methods ############
     
-    def __init__(self, transcript_instance):
+    def __init__(self, transcript_instance, logger=None):
         
         self.counter = 0 # simple tag to avoid collisions
         super().__init__()
@@ -29,6 +29,7 @@ class monosublocus(abstractlocus):
         self.score = transcript_instance.score
 #         self.source = "locus_pipeline"
         self.tid = transcript_instance.id
+        self.set_logger(logger)
         
     def __str__(self, print_cds=True):
         

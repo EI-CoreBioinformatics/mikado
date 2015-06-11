@@ -10,6 +10,9 @@ import csv
 import os
 import logging
 import logging.handlers
+import time
+from docutils.utils.math.math2html import MultiRowFormula
+
 
 class Creator:
     
@@ -28,6 +31,7 @@ class Creator:
         self.sub_out = self.json_conf["subloci_out"]
         self.monolocus_out = self.json_conf["monoloci_out"]
         self.locus_out = self.json_conf["loci_out"]
+        self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool"]
         if self.locus_out is None:
             raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
         
@@ -53,24 +57,29 @@ class Creator:
         self.formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {name} - {message}",
                                            style="{"
                                            )
-        self.logger=logging.getLogger("main_logger")
+        self.main_logger=logging.getLogger("main_logger")
+        self.logger=logging.getLogger("listener")
         if self.json_conf["log_settings"]["log"] is None  or self.json_conf["log_settings"]["log"]=="stream":
             self.log_handler = logging.StreamHandler()
         else:
             self.log_handler=logging.FileHandler(self.json_conf["log_settings"]["log"], 'w')
-        self.log_level = self.json_conf["log_settings"]["log_level"] 
+        self.log_level = self.json_conf["log_settings"]["log_level"] # For the main logger I want to keep it at the "INFO" level
                 
         self.log_handler.setFormatter(self.formatter)
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
-        self.logger.info("Begun analysis of {0}".format(self.input_file)  )
+        
+        self.main_logger.setLevel(logging.INFO)
+        self.main_logger.addHandler(self.log_handler)
+        
+        self.main_logger.info("Begun analysis of {0}".format(self.input_file)  )
         while True:
             record = self.logging_queue.get()
             if record is None:
                 break
             self.logger.handle(record)
             
-        self.logger.info("Finished analysis of {0}".format(self.input_file)  )
+        self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
         return
 
         
@@ -78,6 +87,11 @@ class Creator:
 
         '''Listener process that will print out the loci recovered by the analyse_locus function.'''
         
+
+        handler = logging.handlers.QueueHandler(self.logging_queue)
+        logger = logging.getLogger( "queue_listener")
+        logger.addHandler(handler)
+        logger.setLevel(self.json_conf["log_settings"]["log_level"])
 
         score_keys = ["tid","parent","score"] + sorted(list(self.json_conf["scoring"].keys()))
         #Define mandatory output files        
@@ -107,7 +121,12 @@ class Creator:
             print('##gff-version 3', file=mono_out)
         
         while True:
-            stranded_locus=self.printer_queue.get()
+            try:
+                stranded_locus=self.printer_queue.get()
+            except multiprocessing.managers.RemoteError as err:
+                logger.exception(err)
+                continue
+                
             if stranded_locus=="EXIT":
                 break #Poison pill - once we receive a "EXIT" signal, we exit
             if self.sub_out is not None: #Skip this section if no sub_out is defined
@@ -148,7 +167,8 @@ class Creator:
         logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
     
         #Load the CDS information
-        logger.info("Logging transcript data")
+        logger.info("Loading transcript data")
+        slocus.set_logger(logger)
         slocus.load_transcript_data()
         #Split the superlocus in the stranded components
         logger.info("Splitting by strand")
@@ -182,39 +202,36 @@ class Creator:
                         for other_final_locus in other_superlocus.loci:
                             if other_final_locus.other_is_fragment( final_locus ) is True and final_locus in stranded_locus.loci: 
                                 stranded_locus.loci.remove(final_locus)
-            try:
-                self.printer_queue.put(stranded_locus)
-                logger.debug("Finished for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                                
+            putter_counter = 0
+            while True:
+                try:
+                    self.printer_queue.put(stranded_locus)
+                    logger.debug("Finished for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
                                                                                stranded_locus.start,
                                                                                stranded_locus.end,
                                                                                stranded_locus.strand))
-            except Exception as err:
-                logger.exception("Error in reporting for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
-                                                                               stranded_locus.start,
-                                                                               stranded_locus.end,
-                                                                               stranded_locus.strand))
-                logger.exception(err)
+                    break
+                except Exception as err:
+                    if putter_counter<10:
+                        putter_counter+=1
+                        time.sleep(0.005)
+                    else:
+                        logger.exception("Error in reporting for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                                                                                                  stranded_locus.start,
+                                                                                                  stranded_locus.end,
+                                                                                                  stranded_locus.strand))
+                        logger.exception(err)
         
         #close up shop
         logger.removeHandler(handler)
         handler.close()
-            
         return
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        if "pool" in state:
-            del state['pool']
-        if 'manager' in state:
-            del state['manager']
-        if 'log_process' in state:
-            del state['log_process']
-            
-        if 'printer_process' in state:
-            del state['printer_process']
-            
-        if 'log_process' in state:
-            del state['log_process']
+        for not_pickable in self.not_pickable:
+            del state[not_pickable]
             
         return state
         
@@ -259,7 +276,10 @@ class Creator:
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
                         if currentLocus is not None:
-                            jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+                            proc.start()
+                            proc.join()
+                            #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
@@ -269,13 +289,20 @@ class Creator:
             if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+#                 jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+                proc.start()
+                proc.join()
+
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
             jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
-            
-        list(map(lambda job: job.get(), jobs)) #Finish up all jobs
+        
+        try:
+            list(map(lambda job: job.get(), jobs)) #Finish up all jobs
+        except:
+            raise
         self.pool.close()
         self.pool.join()
         

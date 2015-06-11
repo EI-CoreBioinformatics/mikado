@@ -9,9 +9,9 @@ class locus(monosublocus,abstractlocus):
     
     __name__ = "locus"
     
-    def __init__(self,transcript_instance):
+    def __init__(self,transcript_instance, logger = None):
         self.counter=0
-        super().__init__(transcript_instance)
+        super().__init__(transcript_instance, logger=logger)
     
     def __str__(self, print_cds=True):
           

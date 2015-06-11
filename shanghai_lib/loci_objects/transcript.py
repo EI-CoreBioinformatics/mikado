@@ -769,6 +769,9 @@ class transcript:
         '''Deprecated'''
         raise NotImplementedError()
                         
+    def set_logger(self, logger):
+        '''Set a logger for the instance.'''
+        self.logger = logger
 
     def split_by_cds(self):
         '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information

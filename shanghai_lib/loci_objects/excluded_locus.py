@@ -18,7 +18,7 @@ class excluded_locus(abstractlocus):
     if available_metrics == []:
         available_metrics = transcript.get_available_metrics()
 
-    def __init__(self, monosublocus_instance, json_dict=None, metrics=None):
+    def __init__(self, monosublocus_instance, json_dict=None, logger=None):
         
         abstractlocus.__init__(self)
         self.splitted=False
@@ -26,6 +26,7 @@ class excluded_locus(abstractlocus):
         self.json_dict = json_dict
         #Add the transcript to the locus
         self.add_monosublocus(monosublocus_instance)
+        self.set_logger(logger)
 
     def add_transcript_to_locus(self, transcript_instance):
         '''Override of the sublocus method, and reversal to the original method in the abstractlocus class.'''

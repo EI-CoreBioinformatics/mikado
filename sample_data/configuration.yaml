@@ -16,8 +16,8 @@ chimera_split:
     minimal_hsp_overlap: 0.9
     minimal_secondary_orf: 200
 log_settings:
-  log: null
-  log_level: INFO  
+  log: shangai.log
+  log_level: WARN
 db: data.db
 dbtype: sqlite
 orf_loading:

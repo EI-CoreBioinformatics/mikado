@@ -18,18 +18,20 @@ class monosublocus_holder(sublocus,abstractlocus):
 
     __name__ = "monosubloci_holder"
 
-    def __init__(self, monosublocus_instance, json_dict=None, purge=False):
+    def __init__(self, monosublocus_instance, json_dict=None, logger=None):
         
         abstractlocus.__init__(self)
+        self.set_logger(logger)
         self.splitted=False
         self.metrics_calculated = False
         self.json_dict = json_dict
         self.excluded=None
-        self.purge = purge
+        self.purge = self.json_dict["run_options"]["purge"]
         self.scores_calculated=False
         #Add the transcript to the locus
         self.locus_verified_introns=set()
         self.add_monosublocus(monosublocus_instance)
+        
         
 
     def add_transcript_to_locus(self, transcript_instance, check_in_locus = True):
@@ -82,7 +84,7 @@ class monosublocus_holder(sublocus,abstractlocus):
             if selected_transcript.score==0 and purge is True:
                 pass
             else:
-                new_locus = locus(selected_transcript)
+                new_locus = locus(selected_transcript, logger=self.logger)
                 self.loci.append(new_locus)
         
         self.splitted = True

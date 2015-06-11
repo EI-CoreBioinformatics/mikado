@@ -40,8 +40,15 @@ def check_chimera_split(json_conf):
                 json_conf["chimera_split"]["blast_params"]["evalue"]=None
             if "hsp_evalue" in json_conf["chimera_split"]["blast_params"]:
                 assert type(json_conf["chimera_split"]["blast_params"]["hsp_evalue"]) in (float,int) or json_conf["chimera_split"]["blast_params"]["hsp_evalue"] is None
+                if json_conf["chimera_split"]["blast_params"]["evalue"] is None:
+                    json_conf["chimera_split"]["blast_params"]["evalue"]=json_conf["chimera_split"]["blast_params"]["hsp_evalue"]
+                elif json_conf["chimera_split"]["blast_params"]["evalue"] > json_conf["chimera_split"]["blast_params"]["hsp_evalue"]:
+                    raise shanghai_lib.exceptions.InvalidJson( "Maximum HSP evalues cannot be higher than global e-values."  )
             else:
-                json_conf["chimera_split"]["blast_params"]["hsp_evalue"]=None
+                if json_conf["chimera_split"]["blast_params"]["evalue"] is None:
+                    json_conf["chimera_split"]["blast_params"]["hsp_evalue"]=None
+                else:
+                    json_conf["chimera_split"]["blast_params"]["hsp_evalue"]=json_conf["chimera_split"]["blast_params"]["evalue"]
             if "max_target_seqs" in json_conf["chimera_split"]["blast_params"]:
                 assert type(json_conf["chimera_split"]["blast_params"]["max_target_seqs"]) is int or json_conf["chimera_split"]["blast_params"]["max_target_seqs"] is None
             else:

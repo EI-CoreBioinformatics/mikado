@@ -18,9 +18,11 @@ import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 
+#For profiling
+
 
 class Creator:
-    
+ 
     def __init__(self, json_conf):
         
         if type(json_conf) is str:
@@ -112,7 +114,6 @@ class Creator:
         self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
         return
 
-        
     def printer(self):
 
         '''Listener process that will print out the loci recovered by the analyse_locus function.'''
@@ -180,7 +181,7 @@ class Creator:
                 print(locus_lines, file=locus_out)
                     
         return
-        
+    
     def analyse_locus(self, slocus ):
 
         '''This function takes as input a "superlocus" instance and the pipeline configuration.
@@ -265,7 +266,6 @@ class Creator:
             
         return state
         
-
     def __call__(self):
         
         '''This method will activate the class and start the analysis of the input file.'''
@@ -306,10 +306,7 @@ class Creator:
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
                         if currentLocus is not None:
-                            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
-                            proc.start()
-                            proc.join()
-                            #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                            jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
@@ -319,10 +316,7 @@ class Creator:
             if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-#                 jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
-                proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
-                proc.start()
-                proc.join()
+                jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
 
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
@@ -331,8 +325,8 @@ class Creator:
         
         try:
             list(map(lambda job: job.get(), jobs)) #Finish up all jobs
-        except:
-            raise
+        except Exception as exc:
+            self.queue_logger.exception(exc)
         self.pool.close()
         self.pool.join()
         

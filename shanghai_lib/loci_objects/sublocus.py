@@ -129,20 +129,25 @@ class sublocus(abstractlocus):
         self.calculate_scores()
 
         self.logger.debug("Defining monosubloci for {0}".format(self.id))
+        
         for msbl in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
             msbl = dict((x.id, x) for x in msbl) #Transform into dictionary
-            selected_tid=self.choose_best(msbl)
-            selected_transcript = self.transcripts[selected_tid]
-            if selected_transcript.score==0 and purge is True:
-                pass
-            else:
-                new_locus = monosublocus(selected_transcript, logger=self.logger)
-                self.monosubloci.append(new_locus)
+            while len(msbl)>0:
+                selected_tid=self.choose_best(msbl)
+                selected_transcript = self.transcripts[selected_tid]
+                if selected_transcript.score==0 and purge is True:
+                    break
+                else:
+                    new_locus = monosublocus(selected_transcript, logger=self.logger)
+                    self.monosubloci.append(new_locus)
+                    #This is a waste of time - I already calculate the network inside find_communities ...
+                    not_intersecting_selected = [tid for tid in msbl if
+                                             (tid!=selected_tid and self.is_intersecting(selected_transcript, self.transcripts[tid]) is False) ]
+                    msbl = dict( (tid,self.transcripts[tid]) for tid in not_intersecting_selected )
         
         self.splitted=True
         self.logger.debug("Defined monosubloci for {0}".format(self.id))
         return
-    
    
     def calculate_metrics(self, tid):
         '''This function will calculate the metrics for a transcript which are relative in nature

@@ -347,7 +347,7 @@ class Creator:
                 
                 proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
                 proc.run()
-                jobs.apppend(proc)
+                jobs.append(proc)
 
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 

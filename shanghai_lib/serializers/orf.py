@@ -26,7 +26,7 @@ class orf(dbBase):
     has_stop_codon=Column(Boolean, nullable=True)
     cds_len = Column(Integer)
     
-    __table_args__ = ( Index("orf_index", "query_id", "thickStart", "thickEnd"  ), )
+    __table_args__ = ( Index("orf_index", "query_id", "thickStart", "thickEnd"  ), Index("query_index", "query_id") )
     
     query_object= relationship(Query, uselist=False, backref=backref("orfs"), lazy="joined")
     

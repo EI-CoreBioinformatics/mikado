@@ -17,12 +17,17 @@ from sqlalchemy.orm.session import sessionmaker
 import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
+import sqlalchemy
 
 #For profiling
-
+if "line_profiler" not in dir(): #@UndefinedVariable
+    def profile(function):
+        def inner(*args, **kwargs):
+            return function(*args, **kwargs)
+        return inner
 
 class Creator:
- 
+
     def __init__(self, json_conf):
         
         if type(json_conf) is str:
@@ -41,7 +46,7 @@ class Creator:
         self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool"]
         if self.locus_out is None:
             raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
-        
+
     def define_input(self):
         '''Function to check that the input file exists and is valid. It returns the parser.'''
         
@@ -66,6 +71,7 @@ class Creator:
                                            )
         self.main_logger=logging.getLogger("main_logger")
         self.logger=logging.getLogger("listener")
+        self.logger.propagate=False
         if self.json_conf["log_settings"]["log"] is None  or self.json_conf["log_settings"]["log"]=="stream":
             self.log_handler = logging.StreamHandler()
         else:
@@ -84,7 +90,9 @@ class Creator:
         if self.json_conf["chimera_split"]["blast_check"] is True:
             engine = create_engine("{dbtype}:///{db}".format(
                                                               db=self.json_conf["db"],
-                                                              dbtype=self.json_conf["dbtype"])
+                                                              dbtype=self.json_conf["dbtype"]),
+                                    connect_args={"check_same_thread": False},
+                                    poolclass = sqlalchemy.pool.StaticPool
                                     )   #create_engine("sqlite:///{0}".format(args.db))
         
             Session = sessionmaker()
@@ -121,6 +129,7 @@ class Creator:
 
         handler = logging.handlers.QueueHandler(self.logging_queue)
         logger = logging.getLogger( "queue_listener")
+        logger.propagate=False
         logger.addHandler(handler)
         logger.setLevel(self.json_conf["log_settings"]["log_level"])
 
@@ -182,6 +191,7 @@ class Creator:
                     
         return
     
+    #@profile
     def analyse_locus(self, slocus ):
 
         '''This function takes as input a "superlocus" instance and the pipeline configuration.
@@ -253,11 +263,13 @@ class Creator:
                                                                                                   stranded_locus.end,
                                                                                                   stranded_locus.strand))
                         logger.exception(err)
+                        break
         
         #close up shop
         logger.removeHandler(handler)
         handler.close()
         return
+
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -265,7 +277,7 @@ class Creator:
             del state[not_pickable]
             
         return state
-        
+  
     def __call__(self):
         
         '''This method will activate the class and start the analysis of the input file.'''
@@ -280,7 +292,7 @@ class Creator:
         self.logging_queue = self.manager.Queue() #queue for logging
         
         self.lock=self.manager.RLock()
-        self.pool=self.ctx.Pool(processes=self.threads) # @UndefinedVariable
+#         self.pool=self.ctx.Pool(processes=self.threads) # @UndefinedVariable
         self.log_process = self.ctx.Process(target = self.logging_utility)
         self.log_process.start()
         
@@ -306,7 +318,16 @@ class Creator:
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
                         if currentLocus is not None:
-                            jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                            #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                            while len(jobs)>=self.threads:
+                                time.sleep(0.0001)
+                                for job in jobs:
+                                    if job.is_alive() is False:
+                                        jobs.remove(job)
+
+                            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+                            proc.start()
+                            jobs.append(proc)
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
@@ -316,19 +337,44 @@ class Creator:
             if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+                while len(jobs)>=self.threads:
+                    time.sleep(0.0001)
+                    for job in jobs:
+                        if job.is_alive() is False:
+                            jobs.remove(job)
+
+                
+                proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+                proc.run()
+                jobs.apppend(proc)
 
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
-            jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
+            while len(jobs)>=self.threads:
+                time.sleep(0.0001)
+                for job in jobs:
+                    if job.is_alive() is False:
+                        jobs.remove(job)
+                        break
+
+            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+            proc.run()
+            jobs.append(proc)
+            #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
         
-        try:
-            list(map(lambda job: job.get(), jobs)) #Finish up all jobs
-        except Exception as exc:
-            self.queue_logger.exception(exc)
-        self.pool.close()
-        self.pool.join()
+#         try:
+#             list(map(lambda job: job.get(), jobs)) #Finish up all jobs
+#         except Exception as exc:
+#             self.queue_logger.exception(exc)
+
+        for job in jobs:
+            if job.is_alive() is True:
+                job.join()
+
+#         self.pool.close()
+#         self.pool.join()
         
         self.printer_queue.put("EXIT")
         self.printer_process.join()

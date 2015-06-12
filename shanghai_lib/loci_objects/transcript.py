@@ -19,6 +19,12 @@ import shanghai_lib.exceptions
 from sqlalchemy import and_
 #import logging
 
+if "line_profiler" not in dir(): #@UndefinedVariable
+    def profile(function):
+        def inner(*args, **kwargs):
+            return function(*args, **kwargs)
+        return inner
+
 class metric(property):
     '''Simple aliasing of property. All transcript metrics should use this alias, not "property", as a decorator.'''
     pass
@@ -317,7 +323,6 @@ class transcript:
         
     ######### Class instance methods ####################
 
-
     def addExon(self, gffLine):
         '''This function will append an exon/CDS feature to the object.'''
 
@@ -349,6 +354,7 @@ class transcript:
         start,end=sorted([gffLine.start, gffLine.end])
         store.append((start, end) )
 
+    #@profile
     def finalize(self):
         '''Function to calculate the internal introns from the exons.
         In the first step, it will sort the exons by their internal coordinates.'''
@@ -484,7 +490,8 @@ class transcript:
         self.sessionmaker = sessionmaker()
         self.sessionmaker.configure(bind=self.engine)
         self.session=self.sessionmaker()
-        
+    
+    @profile
     def load_information_from_db(self, json_dict, introns=None):
         '''This method will invoke the check for:
         
@@ -499,11 +506,12 @@ class transcript:
         self.load_verified_introns(introns)
         self.load_orfs(self.retrieve_orfs())
         self.load_blast()
-        
+    
+    @profile
     def load_json(self, json_dict):
         self.json_dict = json_dict
     
-    
+    @profile
     def load_verified_introns(self, introns=None):
         
         '''This method will load verified junctions from the external (usually the superlocus class).'''
@@ -528,7 +536,7 @@ class transcript:
         
         return       
         
-        
+    @profile
     def retrieve_orfs(self):
         
         '''This method will look up the ORFs loaded inside the database.
@@ -537,10 +545,13 @@ class transcript:
         
         minimal_secondary_orf_length=self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
-        query_id=self.session.query(Query).filter(Query.name==self.id) #recover the id
-        if query_id.count()==0: # if we do not have the information in the DB, just return
+        query_id=self.session.query(Query).filter(Query.name==self.id).all() #recover the id
+        if len(query_id)==0:
             return []
-        query_id=query_id.one().id
+        assert len(query_id)==1
+#         if query_id.count()==0: # if we do not have the information in the DB, just return
+#             return []
+        query_id=query_id[0].id
         orf_query = self.session.query(shanghai_lib.serializers.orf.orf).filter(shanghai_lib.serializers.orf.orf.query_id==query_id)
         if orf_query.count()==0: # Again, no information, return
             return []
@@ -564,7 +575,8 @@ class transcript:
         del new_orfs
                 
         return candidate_orfs
-        
+    
+    @profile
     def load_orfs(self, candidate_orfs):
 
         '''This method replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
@@ -727,6 +739,7 @@ class transcript:
         return
         
 
+    @profile
     def load_blast(self):
         
         '''This method looks into the DB for hits corresponding to the desired requirements.
@@ -744,10 +757,11 @@ class transcript:
         max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"]
         maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
         
-        query_id = self.session.query(Query.id).filter(Query.name==self.id)
-        if query_id.count()==0:
+        query_id = self.session.query(Query.id).filter(Query.name==self.id).all()
+        if len(query_id)==0:
             return
-        query_id = query_id.one().id
+        assert len(query_id)==1
+        query_id = query_id[0].id
         #Retrieve all hits for the query, order by evalue         
         blast_hits_query = self.session.query(Hit).filter(and_(Hit.query_id == query_id,
                                                                Hit.evalue<=maximum_evalue)

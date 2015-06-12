@@ -2,10 +2,8 @@ import os,sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import abc
 import random
-from copy import copy
 import networkx 
 from shanghai_lib.exceptions import NotInLocusError
-import logging
 
 class abstractlocus(metaclass=abc.ABCMeta):
     
@@ -157,18 +155,20 @@ class abstractlocus(metaclass=abc.ABCMeta):
    
     ##### Class methods ########
 
+    
     @classmethod
     def create_default_logger(cls):
         '''Static method to create a default logging instance for the loci.'''
-        formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
-                                           style="{"
-                                            )
-
-        logger = logging.getLogger("{0}_logger".format(cls.__name__))
-        handler = logging.StreamHandler()
-        handler.setFormatter(formatter)
-        logger.setLevel(logging.WARN)
-        logger.addHandler(handler)
+#         formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
+#                                            style="{"
+#                                             )
+# 
+#         logger = logging.getLogger("{0}_logger".format(cls.__name__))
+#         handler = logging.StreamHandler()
+#         handler.setFormatter(formatter)
+#         logger.setLevel(logging.WARN)
+#         logger.addHandler(handler)
+        logger=None
         return logger
 
     @classmethod
@@ -387,7 +387,6 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
     ####### Class instance methods  #######
 
-
     def add_transcript_to_locus(self, transcript_instance, check_in_locus = True):
         '''This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method) and
         upon a successful check extends the superlocus with the new transcript.
@@ -420,7 +419,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
                 
         self.start = min(self.start, transcript_instance.start)
         self.end = max(self.end, transcript_instance.end)
-        self.transcripts[transcript_instance.id]=copy(transcript_instance)
+        self.transcripts[transcript_instance.id]=transcript_instance
         self.splices.update(transcript_instance.splices)
         self.introns.update(transcript_instance.introns)
 
@@ -428,13 +427,13 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.selected_cds_introns.update(transcript_instance.selected_cds_introns)
 
         self.exons.update(set(transcript_instance.exons))
-        for transcript_id in self.transcripts:
-            self.transcripts[transcript_id].parent=self.id
+#         for transcript_id in self.transcripts:
+#             self.transcripts[transcript_id].parent=self.id
 
         if self.initialized is False:
             self.initialized = True
         self.source=transcript_instance.source
-        assert transcript_instance.id in self.transcripts
+        #assert transcript_instance.id in self.transcripts
         return
 
     def remove_transcript_from_locus(self, tid):

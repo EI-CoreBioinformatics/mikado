@@ -2,8 +2,8 @@
 
 #Core imports
 import sys,os.path
+import sqlalchemy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from copy import deepcopy as copy
 
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -53,7 +53,7 @@ class superlocus(abstractlocus):
         self.feature=self.__name__
         if json_dict is None or type(json_dict) is not dict:
             raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
-        self.json_dict = copy(json_dict)
+        self.json_dict = json_dict
         self.purge = self.json_dict["run_options"]["purge"]
         
         #Dynamically load required modules
@@ -74,7 +74,6 @@ class superlocus(abstractlocus):
         self.available_sublocus_metrics = []
         self.set_flags()
         self.set_logger(logger)
-        return
 
     def __str__(self, level=None, print_cds=True):
         
@@ -209,6 +208,7 @@ class superlocus(abstractlocus):
         self.loci_defined = False
         self.monosubloci_metrics_calculated = False
 
+    #@profile
     def connect_to_db(self):
                 
         '''This method will connect to the database using the information contained in the JSON configuration.'''
@@ -218,13 +218,16 @@ class superlocus(abstractlocus):
         
         self.engine = create_engine("{dbtype}:///{db}".format(
                                                               db=db,
-                                                              dbtype=dbtype)
+                                                              dbtype=dbtype),
+                                    connect_args={"check_same_thread": False},
+                                    poolclass = sqlalchemy.pool.StaticPool
                                     )   #create_engine("sqlite:///{0}".format(args.db))
         
         self.sessionmaker = sessionmaker()
         self.sessionmaker.configure(bind=self.engine)
         self.session=self.sessionmaker()
 
+    #@profile
     def load_transcript_data(self):
         
         '''This method will load data into the transcripts instances, and perform the split_by_cds if required
@@ -234,9 +237,9 @@ class superlocus(abstractlocus):
             return #No data to load
         self.connect_to_db()
         self.locus_verified_introns=[]
-        dbquery=self.session.query(Chrom.id).filter(Chrom.name==self.chrom)
-        if dbquery.count()>0:
-            chrom_id = self.session.query(Chrom.id).filter(Chrom.name==self.chrom).one().id
+        dbquery=self.session.query(Chrom.id).filter(Chrom.name==self.chrom).all()
+        if len(dbquery)>0:
+            chrom_id = dbquery[0].id
             for intron in self.introns:
                 if self.session.query(junction).filter(and_(
                                                             junction.chrom_id==chrom_id,
@@ -268,7 +271,7 @@ class superlocus(abstractlocus):
         raise NotImplementedError("Deprecated")
 
     ###### Sublocus-related steps ######
-                    
+               
     def define_subloci(self):
         '''This method will define all subloci inside the superlocus.
         Steps:

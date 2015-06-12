@@ -8,7 +8,7 @@ import Bio.File
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from scipy import mean
 import operator
-from sqlalchemy import Column,String,Integer,Float,ForeignKey
+from sqlalchemy import Column,String,Integer,Float,ForeignKey,Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from Bio.Blast.NCBIXML import parse as xparser
@@ -101,6 +101,8 @@ class Hit(dbBase):
 	query_id=Column(Integer, ForeignKey(Query.id), unique=False)
 	target_id=Column(Integer, ForeignKey(Target.id), unique=False)
 	qt_constraint = PrimaryKeyConstraint("query_id", "target_id", name="hit_id")
+	query_index = Index("hit_query_idx", "query_id", unique=False)
+	target_index = Index("hit_target_idx", "query_id", unique=False)
 	evalue = Column(Float)
 	bits = Column(Float)
 	global_identity = Column(Float)
@@ -255,6 +257,8 @@ class Hsp(dbBase):
 	query_id=Column(Integer, ForeignKey(Query.id), unique=False)
 	target_id=Column(Integer, ForeignKey(Target.id), unique=False)
 	pk_constraint = PrimaryKeyConstraint("counter", "query_id", "target_id", name="hsp_constraint")
+	query_index = Index( "hsp_query_idx", "query_id", unique=False )
+	target_index = Index( "hsp_target_idx", "target_id", unique=False )
 	query_hsp_start = Column(Integer)
 	query_hsp_end = Column(Integer)
 	target_hsp_start = Column(Integer)

@@ -18,16 +18,18 @@ import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 import sqlalchemy
+#from memory_profiler import profile
 
 #For profiling
-if "line_profiler" not in dir(): #@UndefinedVariable
-    def profile(function):
-        def inner(*args, **kwargs):
-            return function(*args, **kwargs)
-        return inner
+# if "line_profiler" not in dir(): #@UndefinedVariable
+#     def profile(function):
+#         def inner(*args, **kwargs):
+#             return function(*args, **kwargs)
+#         return inner
 
 class Creator:
 
+    #@profile
     def __init__(self, json_conf):
         
         if type(json_conf) is str:
@@ -44,6 +46,7 @@ class Creator:
         self.monolocus_out = self.json_conf["monoloci_out"]
         self.locus_out = self.json_conf["loci_out"]
         self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool"]
+        self.commandline = None
         if self.locus_out is None:
             raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
 
@@ -86,6 +89,7 @@ class Creator:
         self.main_logger.addHandler(self.log_handler)
         
         self.main_logger.info("Begun analysis of {0}".format(self.input_file)  )
+        self.main_logger.info("Command line: {0}".format(self.commandline))
         
         if self.json_conf["chimera_split"]["blast_check"] is True:
             engine = create_engine("{dbtype}:///{db}".format(
@@ -121,6 +125,10 @@ class Creator:
             
         self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
         return
+
+    def set_commandline(self, string):
+        self.commandline=string
+
 
     def printer(self):
 

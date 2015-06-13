@@ -114,6 +114,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
     ##### Static methods #######
     
+    
     @staticmethod
     def overlap(a, b, flank=0):
         '''This static method returns the overlap between two intervals. Values<=0 indicate no overlap.

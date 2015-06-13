@@ -52,6 +52,7 @@ def main():
         args.json_conf["input"]=args.gff
     
     creator = shanghai_lib.loci_objects.Creator.Creator(args.json_conf)
+    creator.set_commandline(" ".join(sys.argv))
     creator() #Run
        
 if __name__=="__main__": main()

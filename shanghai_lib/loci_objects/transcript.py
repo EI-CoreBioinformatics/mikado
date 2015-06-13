@@ -17,13 +17,14 @@ from shanghai_lib.parsers.GTF import gtfLine
 from shanghai_lib.parsers.GFF import gffLine
 import shanghai_lib.exceptions
 from sqlalchemy import and_
+#from memory_profiler import profile
 #import logging
 
-if "line_profiler" not in dir(): #@UndefinedVariable
-    def profile(function):
-        def inner(*args, **kwargs):
-            return function(*args, **kwargs)
-        return inner
+# if "line_profiler" not in dir(): #@UndefinedVariable
+#     def profile(function):
+#         def inner(*args, **kwargs):
+#             return function(*args, **kwargs)
+#         return inner
 
 class metric(property):
     '''Simple aliasing of property. All transcript metrics should use this alias, not "property", as a decorator.'''
@@ -313,6 +314,7 @@ class transcript:
             state["session"].expunge_all()
             state["session"].close()
             del state["session"]
+        if hasattr(self, "sessionmaker"):            
             del state["sessionmaker"]
             del state["engine"]
 
@@ -355,6 +357,152 @@ class transcript:
         store.append((start, end) )
 
     #@profile
+    def split_by_cds(self):
+        '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
+        into multiple transcripts. UTR information will be retained only if no ORF is down/upstream.
+        The minimal overlap is defined inside the JSON at the key ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        - basically, we consider a HSP a hit only if the overlap is over a certain threshold and the HSP evalue under a certain threshold. 
+        '''
+        self.finalize()
+        
+        minimal_overlap=self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        new_transcripts=[]
+        if self.number_internal_orfs<2:
+            new_transcripts=[self]
+        else:
+            
+            cds_boundaries=OrderedDict()
+            for orf in sorted(self.loaded_bed12, key=operator.attrgetter("thickStart", "thickEnd")):
+                cds_boundaries[(orf.thickStart,orf.thickEnd)]=[orf]
+            
+            if self.json_dict["chimera_split"]["blast_check"] is True:
+                                
+                cds_hit_dict=OrderedDict().fromkeys(cds_boundaries.keys())
+                for key in cds_hit_dict:
+                    cds_hit_dict[key]=set()
+
+                for hit in self.blast_hits:
+                    for hsp in filter(lambda hsp: hsp["hsp_evalue"]<=self.json_dict["chimera_split"]["blast_params"]["hsp_evalue"],  hit["hsps"]):
+                        for cds_run in cds_boundaries:
+                            if abstractlocus.overlap(cds_run, (hsp["query_hsp_start"],hsp["query_hsp_end"]))>=minimal_overlap*(cds_run[1]+1-cds_run[0]):
+                                cds_hit_dict[cds_run].add(hit["target"])
+                
+                new_boundaries = []
+                for cds_boundary in cds_boundaries:
+                    if new_boundaries==[]:
+                        new_boundaries.append([cds_boundary])
+                    else:
+                        old_boundary=new_boundaries[-1][-1]
+                        cds_hits = cds_hit_dict[cds_boundary]
+                        old_hits = cds_hit_dict[old_boundary]
+                        if cds_hits == set() and old_hits==set():
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="CLEMENT":
+                                new_boundaries[-1].append(cds_boundary)
+                            else:
+                                new_boundaries.append([cds_boundary])
+                        elif cds_hits == set() or old_hits==set():
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="STRINGENT":
+                                new_boundaries.append([cds_boundary])
+                            else:
+                                new_boundaries[-1].append(cds_boundary)
+                        else:
+                            if set.intersection(cds_hits,old_hits)==set():
+                                new_boundaries.append([cds_boundary])
+                            else:
+                                new_boundaries[-1].append(cds_boundary)
+                
+                final_boundaries=OrderedDict()
+                for boundary in new_boundaries:
+                    if len(boundary)==1:
+                        assert len(boundary[0])==2
+                        boundary=boundary[0]
+                        final_boundaries[boundary]=cds_boundaries[boundary]
+                    else:
+                        nb = (boundary[0][0],boundary[-1][1])
+                        final_boundaries[nb] = []
+                        for boun in boundary:
+                            final_boundaries[nb].extend(cds_boundaries[boun])
+                            
+                cds_boundaries=final_boundaries.copy()
+                    
+            if len(cds_boundaries)==1:
+                new_transcripts=[self]
+            else:
+                for counter,(boundary, bed12_objects) in enumerate(cds_boundaries.items()):
+                    #I *know* that I am moving left to right 
+                    new_transcript=self.__class__()
+                    new_transcript.feature="mRNA"
+                    for attribute in ["chrom", "source", "score","strand", "attributes" ]:
+                        setattr(new_transcript,attribute, getattr(self, attribute))
+                    #Determine which ORFs I have on my right and left
+                    if counter==0: #leftmost
+                        left = None
+                        right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
+                    elif 1+counter==len(cds_boundaries):
+                        left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
+                        right = None
+                    else:
+                        left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
+                        right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
+                    counter+=1 #Otherwise they start from 0    
+                    new_transcript.id = "{0}.split{1}".format(self.id, counter)
+                    
+                    my_exons = []
+                    
+                    tlength = 0
+                    tstart = float("Inf")
+                    tend = float("-Inf")
+                    
+                    discarded_exons=[]
+                    for exon in self.exons:
+                        #Translate into transcript coordinates
+                        elength = exon[1]-exon[0]+1
+                        texon = [tlength+1, tlength+elength]
+                        tlength += elength
+                        if texon[1]<boundary[0] and left is not None: #If I have nothing on my left, retain
+                            discarded_exons.append((exon,texon))
+                            continue
+                        elif texon[0]>boundary[1] and right is not None: #
+                            discarded_exons.append((exon,texon))
+                            continue
+                        else:
+                            exon=list(exon)
+                            if texon[0]<boundary[0] and left is not None: #Shift start of the exon to the right
+                                exon[0]=exon[0]+boundary[0]+1-texon[0]
+                            if texon[1]>boundary[1] and right is not None: #Shift end of the exon to the left
+                                exon[1]=exon[1]-(texon[1]+1-boundary[1])
+                            exon=tuple(exon)
+                        my_exons.append(exon)
+                        tstart=min(tstart, texon[0])
+                        tend=max(tend,texon[1])
+                    
+                    assert len(my_exons)>0, (discarded_exons, boundary)
+                    new_transcript.exons=my_exons
+                    
+                    new_transcript.start=min( exon[0] for exon in new_transcript.exons )
+                    new_transcript.end=max( exon[1] for exon in new_transcript.exons )
+                    #Now we have to modify the BED12s to reflect the fact that we are starting/ending earlier
+                    new_bed12s = []
+                    for obj in bed12_objects:
+                        assert type(obj) is bed12.BED12, (obj, bed12_objects)
+                        obj.start=1
+                        obj.end=min(obj.end, tend)-tstart
+                        obj.thickStart=min(obj.thickStart,tend)-tstart+1 
+                        obj.thickEnd=min(obj.thickEnd,tend)-tstart
+                        obj.blockSizes=[obj.end]
+                        new_bed12s.append(obj)
+                    
+                    new_transcript.load_orfs(new_bed12s)
+                    new_transcript.finalize()
+                    new_transcripts.append(new_transcript)
+            
+
+        assert len(new_transcripts)>0, str(self)
+        for nt in new_transcripts:
+            yield nt
+        
+        return
+
     def finalize(self):
         '''Function to calculate the internal introns from the exons.
         In the first step, it will sort the exons by their internal coordinates.'''
@@ -391,14 +539,11 @@ class transcript:
                             self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
                             self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                         else:
-                            print(self.id, exon, self.exons, self.combined_cds)
-                            raise shanghai_lib.exceptions.InvalidTranscript 
+                            raise shanghai_lib.exceptions.InvalidTranscript(self.id, exon, self.exons, self.combined_cds) 
                 if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-                    print("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
-                    raise shanghai_lib.exceptions.InvalidTranscript
+                    raise shanghai_lib.exceptions.InvalidTranscript("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
             else:
-                print(self.id, self.exons, self.combined_cds, self.combined_utr)
-                raise shanghai_lib.exceptions.InvalidTranscript
+                raise shanghai_lib.exceptions.InvalidTranscript(self.id, self.exons, self.combined_cds, self.combined_utr)
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
 #         assert len(self.exons)>0
@@ -419,8 +564,7 @@ class transcript:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
-                    print(exonA,exonB,self.id,self.exons)
-                    raise shanghai_lib.exceptions.InvalidTranscript("Overlapping exons found!\n{0}\n{1}".format(self.id, self.exons))
+                    raise shanghai_lib.exceptions.InvalidTranscript("Overlapping exons found!\n{0} {1}/{2}\n{3}".format(self.id, exonA, exonB, self.exons))
                 self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
 
@@ -474,7 +618,7 @@ class transcript:
             pass
         return
 
-
+    #@profile
     def connect_to_db(self):
         
         '''This method will connect to the database using the information contained in the JSON configuration.'''
@@ -491,8 +635,8 @@ class transcript:
         self.sessionmaker.configure(bind=self.engine)
         self.session=self.sessionmaker()
     
-    @profile
-    def load_information_from_db(self, json_dict, introns=None):
+    #@profile
+    def load_information_from_db(self, json_dict, introns=None, session=None):
         '''This method will invoke the check for:
         
         orfs
@@ -502,16 +646,19 @@ class transcript:
         '''
         
         self.load_json(json_dict)
-        self.connect_to_db()
+        if session is None:
+            self.connect_to_db()
+        else:
+            self.session=session
         self.load_verified_introns(introns)
         self.load_orfs(self.retrieve_orfs())
         self.load_blast()
     
-    @profile
+    #@profile
     def load_json(self, json_dict):
         self.json_dict = json_dict
     
-    @profile
+    #@profile
     def load_verified_introns(self, introns=None):
         
         '''This method will load verified junctions from the external (usually the superlocus class).'''
@@ -536,7 +683,7 @@ class transcript:
         
         return       
         
-    @profile
+    #@profile
     def retrieve_orfs(self):
         
         '''This method will look up the ORFs loaded inside the database.
@@ -552,14 +699,14 @@ class transcript:
 #         if query_id.count()==0: # if we do not have the information in the DB, just return
 #             return []
         query_id=query_id[0].id
-        orf_query = self.session.query(shanghai_lib.serializers.orf.orf).filter(shanghai_lib.serializers.orf.orf.query_id==query_id)
-        if orf_query.count()==0: # Again, no information, return
-            return []
-        
-        candidate_orfs = orf_query.order_by(desc(shanghai_lib.serializers.orf.orf.cds_len)).all()
+        orf_query = self.session.query(shanghai_lib.serializers.orf.orf).filter(shanghai_lib.serializers.orf.orf.query_id==query_id).order_by(desc(shanghai_lib.serializers.orf.orf.cds_len))
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
             #Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts
-            candidate_orfs=list(filter(lambda orf: orf.strand!="-", candidate_orfs  ))
+            candidate_orfs=list(filter(lambda orf: orf.strand!="-", orf_query  ))
+        else:
+            candidate_orfs=orf_query.all()
+            
+        if len(candidate_orfs)==0: return []
         
         candidate_cliques=self.find_overlapping_cds(candidate_orfs)
         new_orfs=[]
@@ -576,7 +723,7 @@ class transcript:
                 
         return candidate_orfs
     
-    @profile
+    #@profile
     def load_orfs(self, candidate_orfs):
 
         '''This method replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
@@ -599,10 +746,11 @@ class transcript:
                 - if the transcript is multiexonic: skip
             - Start looking at the exons
         '''
+
+        if candidate_orfs is None or len(candidate_orfs)==0:
+            return
         
         self.finalize()
-        if len(candidate_orfs)==0:
-            return
 
         self.combined_utr = []
         self.combined_cds = []
@@ -739,7 +887,7 @@ class transcript:
         return
         
 
-    @profile
+    #@profile
     def load_blast(self):
         
         '''This method looks into the DB for hits corresponding to the desired requirements.
@@ -754,7 +902,7 @@ class transcript:
         if self.json_dict["chimera_split"]["blast_check"] is False:
             return
         
-        max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"]
+        max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
         maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
         
         query_id = self.session.query(Query.id).filter(Query.name==self.id).all()
@@ -767,18 +915,11 @@ class transcript:
                                                                Hit.evalue<=maximum_evalue)
                                                           ).order_by(
                                                                      asc(Hit.evalue)
-                                                                     )
-        if blast_hits_query.count()==0:
-            return
-        if max_target_seqs!=None:
-            blast_hits = blast_hits_query.limit(max_target_seqs).all()
-        else:
-            blast_hits = blast_hits_query.all()
-        
-        for hit in blast_hits:
+                                                                     ).limit(max_target_seqs)
+                                                                             
+        for hit in blast_hits_query:
             self.blast_hits.append(hit.as_dict())
-            
-
+        
     def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0):
         '''Deprecated'''
         raise NotImplementedError()
@@ -787,147 +928,6 @@ class transcript:
         '''Set a logger for the instance.'''
         self.logger = logger
 
-    def split_by_cds(self):
-        '''This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
-        into multiple transcripts. UTR information will be retained only if no ORF is down/upstream.
-        The minimal overlap is defined inside the JSON at the key ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-        - basically, we consider a HSP a hit only if the overlap is over a certain threshold and the HSP evalue under a certain threshold. 
-        '''
-        self.finalize()
-        minimal_overlap=self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-        new_transcripts=[]
-        if self.number_internal_orfs<2:
-            new_transcripts=[self]
-        else:
-            cds_boundaries=OrderedDict()
-            for orf in sorted(self.loaded_bed12, key=operator.attrgetter("thickStart", "thickEnd")):
-                cds_boundaries[(orf.thickStart,orf.thickEnd)]=[orf]
-            
-            if self.json_dict["chimera_split"]["blast_check"] is True:
-                                
-                cds_hit_dict=OrderedDict().fromkeys(cds_boundaries.keys())
-                for key in cds_hit_dict:
-                    cds_hit_dict[key]=set()
-
-                for hit in self.blast_hits:
-                    for hsp in filter(lambda hsp: hsp["hsp_evalue"]<=self.json_dict["chimera_split"]["blast_params"]["hsp_evalue"],  hit["hsps"]):
-                        for cds_run in cds_boundaries:
-                            if abstractlocus.overlap(cds_run, (hsp["query_hsp_start"],hsp["query_hsp_end"]))>=minimal_overlap*(cds_run[1]+1-cds_run[0]):
-                                cds_hit_dict[cds_run].add(hit["target"])
-                
-                
-                new_boundaries = []
-                for cds_boundary in cds_boundaries:
-                    if new_boundaries==[]:
-                        new_boundaries.append([cds_boundary])
-                    else:
-                        old_boundary=new_boundaries[-1][-1]
-                        cds_hits = cds_hit_dict[cds_boundary]
-                        old_hits = cds_hit_dict[old_boundary]
-                        if cds_hits == set() and old_hits==set():
-                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="CLEMENT":
-                                new_boundaries[-1].append(cds_boundary)
-                            else:
-                                new_boundaries.append([cds_boundary])
-                        elif cds_hits == set() or old_hits==set():
-                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="STRINGENT":
-                                new_boundaries.append([cds_boundary])
-                            else:
-                                new_boundaries[-1].append(cds_boundary)
-                        else:
-                            if set.intersection(cds_hits,old_hits)==set():
-                                new_boundaries.append([cds_boundary])
-                            else:
-                                new_boundaries[-1].append(cds_boundary)
-                
-                final_boundaries=OrderedDict()
-                for boundary in new_boundaries:
-                    if len(boundary)==1:
-                        assert len(boundary[0])==2
-                        boundary=boundary[0]
-                        final_boundaries[boundary]=cds_boundaries[boundary]
-                    else:
-                        nb = (boundary[0][0],boundary[-1][1])
-                        final_boundaries[nb] = []
-                        for boun in boundary:
-                            final_boundaries[nb].extend(cds_boundaries[boun])
-                            
-                cds_boundaries=final_boundaries.copy()
-                    
-            if len(cds_boundaries)==1:
-                new_transcripts=[self]
-            else:
-                for counter,(boundary, bed12_objects) in enumerate(cds_boundaries.items()):
-                    #I *know* that I am moving left to right 
-                    new_transcript=self.__class__()
-                    new_transcript.feature="mRNA"
-                    for attribute in ["chrom", "source", "score","strand", "attributes" ]:
-                        setattr(new_transcript,attribute, getattr(self, attribute))
-                    #Determine which ORFs I have on my right and left
-                    if counter==0: #leftmost
-                        left = None
-                        right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
-                    elif 1+counter==len(cds_boundaries):
-                        left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
-                        right = None
-                    else:
-                        left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
-                        right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
-                    counter+=1 #Otherwise they start from 0    
-                    new_transcript.id = "{0}.split{1}".format(self.id, counter)
-                    
-                    my_exons = []
-                    
-                    tlength = 0
-                    tstart = float("Inf")
-                    tend = float("-Inf")
-                    
-                    discarded_exons=[]
-                    for exon in self.exons:
-                        #Translate into transcript coordinates
-                        elength = exon[1]-exon[0]+1
-                        texon = [tlength+1, tlength+elength]
-                        tlength += elength
-                        if texon[1]<boundary[0] and left is not None: #If I have nothing on my left, retain
-                            discarded_exons.append((exon,texon))
-                            continue
-                        elif texon[0]>boundary[1] and right is not None: #
-                            discarded_exons.append((exon,texon))
-                            continue
-                        else:
-                            exon=list(exon)
-                            if texon[0]<boundary[0] and left is not None: #Shift start of the exon to the right
-                                exon[0]=exon[0]+boundary[0]+1-texon[0]
-                            if texon[1]>boundary[1] and right is not None: #Shift end of the exon to the left
-                                exon[1]=exon[1]-(texon[1]+1-boundary[1])
-                            exon=tuple(exon)
-                        my_exons.append(exon)
-                        tstart=min(tstart, texon[0])
-                        tend=max(tend,texon[1])
-                    
-                    assert len(my_exons)>0, (discarded_exons, boundary)
-                    new_transcript.exons=my_exons
-                    
-                    new_transcript.start=min( exon[0] for exon in new_transcript.exons )
-                    new_transcript.end=max( exon[1] for exon in new_transcript.exons )
-                    #Now we have to modify the BED12s to reflect the fact that we are starting/ending earlier
-                    new_bed12s = []
-                    for obj in bed12_objects:
-                        assert type(obj) is bed12.BED12, (obj, bed12_objects)
-                        obj.start=1
-                        obj.end=min(obj.end, tend)-tstart
-                        obj.thickStart=min(obj.thickStart,tend)-tstart+1 
-                        obj.thickEnd=min(obj.thickEnd,tend)-tstart
-                        obj.blockSizes=[obj.end]
-                        new_bed12s.append(obj)
-                    
-                    new_transcript.load_orfs(new_bed12s)
-                    new_transcript.finalize()
-                    new_transcripts.append(new_transcript)
-
-        assert len(new_transcripts)>0, str(self)
-        for nt in new_transcripts:
-            yield nt
       
     @classmethod
     ####################Class methods#####################################  
@@ -1183,6 +1183,7 @@ class transcript:
         The list comprises the segments as duples (start,end).'''
         return self.__combined_cds
 
+
     @combined_cds.setter
     def combined_cds(self, *args):
         if type(args[0]) is not list or (len(args[0])>0 and len(list(filter(
@@ -1233,6 +1234,17 @@ class transcript:
             return self.selected_internal_orf_cds[0][1]
         else:
             return self.selected_internal_orf_cds[-1][2]
+
+    @property
+    def selected_cds(self):
+        '''This property return the CDS exons of the ORF selected as best inside the cDNA, in the form of duplices (start, end)'''
+        if len(self.combined_cds)==0:
+            self.__selected_cds=[]
+        else:
+            self.__selected_cds=list((x[1],x[2]) for x in filter(lambda x: x[0]=="CDS", self.selected_internal_orf))
+        return self.__selected_cds
+
+
 
     @property
     def monoexonic(self):

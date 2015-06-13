@@ -87,8 +87,13 @@ class gffLine(object):
             if len(parent_key)>0:
                 parent_key = parent_key[0]
                 self.parent = self.attributes[parent_key]
+#             parent_key = list(filter(lambda x: x=="Derives_from", self.attributes.keys()))
+#             if len(parent_key)>0:
+#                 parent_key = parent_key[0]
+#                 self.parent = self.attributes[parent_key]
 
-        assert self.parent is not None or self.id is not None, self._line
+
+        assert self.parent is not None or self.id is not None or "Name" in self.attributes, self._line
         _ = self.name # Set the name
             
         if "PARENT" in self.attributes and "Parent" not in self.attributes:

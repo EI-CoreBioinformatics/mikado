@@ -18,6 +18,7 @@ import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 import sqlalchemy
+import asyncio # @UndefinedVariable
 #from memory_profiler import profile
 
 #For profiling
@@ -135,7 +136,7 @@ class Creator:
         '''Listener process that will print out the loci recovered by the analyse_locus function.'''
         
 
-        handler = logging.handlers.QueueHandler(self.logging_queue)
+        handler = logging.handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
         logger = logging.getLogger( "queue_listener")
         logger.propagate=False
         logger.addHandler(handler)
@@ -210,7 +211,7 @@ class Creator:
         '''
     
         #Define the logger
-        handler = logging.handlers.QueueHandler(self.logging_queue)
+        handler = logging.handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
         logger = logging.getLogger( "{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end) )
         logger.addHandler(handler)
         logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
@@ -218,7 +219,10 @@ class Creator:
         #Load the CDS information
         logger.info("Loading transcript data")
         slocus.set_logger(logger)
-        slocus.load_transcript_data()
+        future=asyncio.Future()
+        self.loop.run_until_complete(self.load_data(future, slocus, logger))
+        slocus = future.result()
+#         slocus.load_transcript_data()
         #Split the superlocus in the stranded components
         logger.info("Splitting by strand")
         stranded_loci = sorted(list(slocus.split_strands()))
@@ -286,6 +290,18 @@ class Creator:
             
         return state
   
+    @asyncio.coroutine
+    def load_data(self, future, slocus, logger):
+        '''Asynchronous routine to fetch data from the database.
+        Using asyncio, it should be possile to coordinate data retrieval better across processes.'''
+        #Load the CDS information
+        logger.info("Loading transcript data")
+        
+        slocus.load_transcript_data()
+        future.set_result(slocus)
+        logger.info("Loaded transcript data") 
+  
+  
     def __call__(self):
         
         '''This method will activate the class and start the analysis of the input file.'''
@@ -300,7 +316,6 @@ class Creator:
         self.logging_queue = self.manager.Queue() #queue for logging
         
         self.lock=self.manager.RLock()
-#         self.pool=self.ctx.Pool(processes=self.threads) # @UndefinedVariable
         self.log_process = self.ctx.Process(target = self.logging_utility)
         self.log_process.start()
         
@@ -310,12 +325,13 @@ class Creator:
         currentLocus = None
         currentTranscript = None
         
-        self.logger_queue_handler = logging.handlers.QueueHandler(self.logging_queue)
+        self.logger_queue_handler = logging.handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
         self.queue_logger = logging.getLogger( "parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         
         jobs=[]
+        self.loop = asyncio.get_event_loop()
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)
@@ -326,14 +342,13 @@ class Creator:
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
                         if currentLocus is not None:
-                            #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                             while len(jobs)>=self.threads:
                                 time.sleep(0.0001)
                                 for job in jobs:
                                     if job.is_alive() is False:
                                         jobs.remove(job)
-
-                            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+ 
+                            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
                             proc.start()
                             jobs.append(proc)
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
@@ -345,18 +360,17 @@ class Creator:
             if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
                 while len(jobs)>=self.threads:
                     time.sleep(0.0001)
                     for job in jobs:
                         if job.is_alive() is False:
                             jobs.remove(job)
-
-                
-                proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+ 
+                 
+                proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
                 proc.run()
                 jobs.append(proc)
-
+# 
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
@@ -366,23 +380,17 @@ class Creator:
                     if job.is_alive() is False:
                         jobs.remove(job)
                         break
-
-            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,))
+ 
+            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
             proc.run()
             jobs.append(proc)
-            #jobs.append(self.pool.apply_async(self.analyse_locus, args=(currentLocus,)))
-        
-#         try:
-#             list(map(lambda job: job.get(), jobs)) #Finish up all jobs
-#         except Exception as exc:
-#             self.queue_logger.exception(exc)
+
+            
+
 
         for job in jobs:
             if job.is_alive() is True:
                 job.join()
-
-#         self.pool.close()
-#         self.pool.join()
         
         self.printer_queue.put("EXIT")
         self.printer_process.join()

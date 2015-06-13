@@ -18,7 +18,6 @@ import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 import sqlalchemy
-import asyncio # @UndefinedVariable
 #from memory_profiler import profile
 
 #For profiling
@@ -219,10 +218,7 @@ class Creator:
         #Load the CDS information
         logger.info("Loading transcript data")
         slocus.set_logger(logger)
-        future=asyncio.Future()
-        self.loop.run_until_complete(self.load_data(future, slocus, logger))
-        slocus = future.result()
-#         slocus.load_transcript_data()
+        slocus.load_all_transcript_data()
         #Split the superlocus in the stranded components
         logger.info("Splitting by strand")
         stranded_loci = sorted(list(slocus.split_strands()))
@@ -290,16 +286,16 @@ class Creator:
             
         return state
   
-    @asyncio.coroutine
-    def load_data(self, future, slocus, logger):
-        '''Asynchronous routine to fetch data from the database.
-        Using asyncio, it should be possile to coordinate data retrieval better across processes.'''
-        #Load the CDS information
-        logger.info("Loading transcript data")
-        
-        slocus.load_transcript_data()
-        future.set_result(slocus)
-        logger.info("Loaded transcript data") 
+#     @asyncio.coroutine
+#     def load_data(self, future, slocus, logger):
+#         '''Asynchronous routine to fetch data from the database.
+#         Using asyncio, it should be possile to coordinate data retrieval better across processes.'''
+#         #Load the CDS information
+#         logger.info("Loading transcript data")
+#         
+#         slocus.load_all_transcript_data()
+#         future.set_result(slocus)
+#         logger.info("Loaded transcript data") 
   
   
     def __call__(self):
@@ -331,7 +327,6 @@ class Creator:
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         
         jobs=[]
-        self.loop = asyncio.get_event_loop()
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)

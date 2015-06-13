@@ -4,6 +4,7 @@
 import sys,os.path
 import sqlalchemy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+import asyncio
 
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -228,7 +229,23 @@ class superlocus(abstractlocus):
         self.session=self.sessionmaker()
 
     #@profile
-    def load_transcript_data(self):
+    
+    @asyncio.coroutine
+    def load_transcript_data(self, tid ):
+        '''This asynchronous routine is used to load data for a single transcript.'''
+        
+#         print("Loading data for {0}".format(tid))
+        self.logger.debug("Loading data for {0}".format(tid))
+        self.transcripts[tid].load_information_from_db( self.json_dict, introns = self.locus_verified_introns, session = self.session  )
+        if self.json_dict["chimera_split"]["execute"] is True and self.transcripts[tid].number_internal_orfs>1:
+            new_tr = list(self.transcripts[tid].split_by_cds())
+            if len(new_tr)>1:
+                for tr in new_tr:
+                    self.add_transcript_to_locus(tr, check_in_locus=False)
+                self.remove_transcript_from_locus(tid)
+        return 
+
+    def load_all_transcript_data(self):
         
         '''This method will load data into the transcripts instances, and perform the split_by_cds if required
         by the configuration.'''
@@ -250,18 +267,21 @@ class superlocus(abstractlocus):
                                                                         )).count()==1:
                     self.locus_verified_introns.append(intron)
 
+        loading_tasks = []
+        loop=asyncio.get_event_loop()
         for tid in self.transcripts:
+            loading_tasks.append(asyncio.async(self.load_transcript_data(tid)))
+        loop.run_until_complete(asyncio.wait(loading_tasks))
             
-            self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns, session=self.session)
         
-        if self.json_dict["chimera_split"]["execute"] is True:
-            
-            for tid in filter(lambda t: self.transcripts[t].number_internal_orfs>1, list(self.transcripts.keys())):
-                new_tr = list(self.transcripts[tid].split_by_cds())
-                if len(new_tr)>1:
-                    for tr in new_tr:
-                        self.add_transcript_to_locus(tr, check_in_locus=False)
-                    self.remove_transcript_from_locus(tid) 
+#         if self.json_dict["chimera_split"]["execute"] is True:
+#             
+#             for tid in filter(lambda t: self.transcripts[t].number_internal_orfs>1, list(self.transcripts.keys())):
+#                 new_tr = list(self.transcripts[tid].split_by_cds())
+#                 if len(new_tr)>1:
+#                     for tr in new_tr:
+#                         self.add_transcript_to_locus(tr, check_in_locus=False)
+#                     self.remove_transcript_from_locus(tid) 
 
         self.session.close()
 

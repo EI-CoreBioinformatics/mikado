@@ -284,9 +284,8 @@ class superlocus(abstractlocus):
         tasks = []
 
         for tid in tids:
-            tasks.append(asyncio.async(self.load_transcript_data(tid, loop=loop)))
-        asyncio.wait(tasks)
-        loop.close()
+            tasks.append(asyncio.async(self.load_transcript_data(tid, loop=None)))
+        loop.run_until_complete(asyncio.wait(tasks))
         self.session.close()
 
     ###### Sublocus-related steps ######

@@ -29,8 +29,6 @@ setup(
         "Development Status :: 3 - Alpha",
         "Topic :: Gene Annotation ",
         "License :: OSI Approved :: GPL3",
-        'Programming Language :: Python :: 3.2',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
     ],
 

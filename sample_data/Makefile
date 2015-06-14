@@ -7,7 +7,7 @@ uniprot_sprot_plants.not_at.fasta: uniprot_sprot_plants.not_at.fasta.gz
 	gunzip uniprot_sprot_plants.not_at.fasta.gz;
 
 clean:
-	rm -f ./*loci* ./*.fasta.n* ./*.fasta.p* data.db all.*xml;
+	rm -f ./*loci* ./*.fasta.n* ./*.fasta.p* data.db all.*xml all.*xml.gz configuration*check;
 
 uniprot_sprot_plants.not_at.fasta.gz: uniprot_sprot_plants.not_at.fasta
 	gzip uniprot_sprot_plants.not_at.fasta

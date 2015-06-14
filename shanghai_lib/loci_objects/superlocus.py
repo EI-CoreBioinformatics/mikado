@@ -4,7 +4,6 @@
 import sys,os.path
 import sqlalchemy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import asyncio
 
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -244,9 +243,8 @@ class superlocus(abstractlocus):
 
     #@profile
     
-    @asyncio.coroutine
     def load_transcript_data(self, tid ):
-        '''This asynchronous routine is used to load data for a single transcript.'''
+        '''This routine is used to load data for a single transcript.'''
         
 #         print("Loading data for {0}".format(tid))
         self.logger.debug("Loading data for {0}".format(tid))
@@ -280,13 +278,10 @@ class superlocus(abstractlocus):
                                                             ).all()) == 1:
                     self.locus_verified_introns.append(intron)
 
-        loading_tasks = []
-        loop=asyncio.get_event_loop()
         tids = list(self.transcripts.keys())
         for tid in tids:
-#             self.load_transcript_data(tid)
-            loading_tasks.append(asyncio.async(self.load_transcript_data(tid)))
-        loop.run_until_complete(asyncio.wait(loading_tasks))
+            self.load_transcript_data(tid)
+
         
 #         if self.json_dict["chimera_split"]["execute"] is True:
 #             

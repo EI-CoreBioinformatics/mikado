@@ -8,7 +8,6 @@ import csv
 import os
 import logging, logging.handlers
 import time
-# import asyncio
 
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -288,17 +287,6 @@ class Creator:
             
         return state
   
-#     @asyncio.coroutine
-#     def load_data(self, future, slocus, logger):
-#         '''Asynchronous routine to fetch data from the database.
-#         Using asyncio, it should be possile to coordinate data retrieval better across processes.'''
-#         #Load the CDS information
-#         logger.info("Loading transcript data")
-#         
-#         slocus.load_all_transcript_data()
-#         future.set_result(slocus)
-#         logger.info("Loaded transcript data") 
-  
   
     def __call__(self):
         
@@ -329,7 +317,6 @@ class Creator:
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         
         jobs=[]
-#         self.loop = asyncio.get_event_loop()
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)

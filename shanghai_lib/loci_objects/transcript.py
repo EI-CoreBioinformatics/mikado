@@ -684,11 +684,11 @@ class transcript:
         self.load_verified_introns(introns)
         self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
         if len(self.query_id)==0:
-            raise shanghai_lib.exceptions.InvalidTranscript(self.id)
+            return
         else:
             self.query_id = self.query_id[0].id
-        yield from self.load_orfs_coroutine()
-        yield from self.load_blast()
+            yield from self.load_orfs_coroutine()
+            yield from self.load_blast()
     
     #@profile
     def load_json(self, json_dict):

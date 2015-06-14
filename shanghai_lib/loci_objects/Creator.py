@@ -298,12 +298,12 @@ class Creator:
         #NOTE: Pool, Process and Manager must NOT become instance attributes!
         #Otherwise it will raise all sorts of mistakes
         
-        self.manager = multiprocessing.Manager()
+        self.manager = multiprocessing.Manager() #@UndefinedVariable
         self.printer_queue=self.manager.Queue()
         self.logging_queue = self.manager.Queue() #queue for logging
         
         self.lock=self.manager.RLock()
-        self.log_process = multiprocessing.Process(target = self.logging_utility)
+        self.log_process = multiprocessing.Process(target = self.logging_utility) #@UndefinedVariable 
         self.log_process.start()
         
         self.printer_process=multiprocessing.Process(target=self.printer) # @UndefinedVariable

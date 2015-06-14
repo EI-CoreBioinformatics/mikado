@@ -143,18 +143,18 @@ class Creator:
 
         score_keys = ["tid","parent","score"] + sorted(list(self.json_conf["scoring"].keys()))
         #Define mandatory output files        
-        self.locus_metrics_file = re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", self.locus_out  ))
-        self.locus_scores_file = re.sub("$",".scores.tsv",  re.sub(".gff3$", "", self.locus_out  ))
+        self.locus_metrics_file = re.sub("$",".metrics.tsv",  re.sub(".gff?$", "", self.locus_out  ))
+        self.locus_scores_file = re.sub("$",".scores.tsv",  re.sub(".gff?$", "", self.locus_out  ))
         locus_metrics=csv.DictWriter(open(self.locus_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
         locus_metrics.writeheader()
-        locus_scores=csv.DictWriter(open(self.locus_scores_file,'a'), score_keys, delimiter="\t")
+        locus_scores=csv.DictWriter(open(self.locus_scores_file,'w'), score_keys, delimiter="\t")
         locus_scores.writeheader()
         locus_out=open(self.locus_out,'w')
         print('##gff-version 3', file=locus_out)
 
         if self.sub_out is not None:
-            self.sub_metrics_file=re.sub("$",".metrics.tsv",  re.sub(".gff3$", "", self.sub_out  ))
-            self.sub_scores_file=re.sub("$",".scores.tsv",  re.sub(".gff3$", "", self.sub_out  ))
+            self.sub_metrics_file=re.sub("$",".metrics.tsv",  re.sub(".gff?$", "", self.sub_out  ))
+            self.sub_scores_file=re.sub("$",".scores.tsv",  re.sub(".gff?$", "", self.sub_out  ))
             sub_metrics=csv.DictWriter(open(self.sub_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
             sub_metrics.writeheader()
             sub_scores=csv.DictWriter(open(self.sub_scores_file,'w'), score_keys, delimiter="\t")

@@ -33,12 +33,11 @@ class gene_object:
         to_remove = set()
         for tid in self.transcripts:
             try:
-                self.transcripts[tid]=self.transcripts[tid].finalize()
+                self.transcripts[tid]=self.transcripts[tid].as_tuple()
+                if self.only_coding is True and self.transcripts[tid].selected_cds_length == 0:
+                    to_remove.add(tid)            
             except shanghai_lib.exceptions.InvalidTranscript:
                 to_remove.add(tid)
-            if self.only_coding is True and self.transcripts[tid].selected_cds_length == 0:
-                to_remove.add(tid)
-            self.transcripts[tid]=self.transcripts[tid].as_tuple()
         if len(to_remove)==len(self.transcripts):
             self.transcripts=dict()
         else:

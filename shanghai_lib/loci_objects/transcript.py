@@ -117,7 +117,7 @@ class transcript:
 
         self.parent = transcript_row.parent
         self.attributes = transcript_row.attributes
-        self.blast_hits = None        
+        self.blast_hits = []        
         
     def __str__(self, to_gtf=False, print_cds=True):
         '''Each transcript will be printed out in the GFF style.
@@ -676,12 +676,12 @@ class transcript:
             self.connect_to_db()
         else:
             self.session=session
+        self.load_verified_introns(introns)
         self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
         if len(self.query_id)==0:
             raise shanghai_lib.exceptions.InvalidTranscript(self.id)
         else:
             self.query_id = self.query_id[0].id
-        self.load_verified_introns(introns)
         self.load_orfs(self.retrieve_orfs())
         self.load_blast()
     
@@ -924,13 +924,9 @@ class transcript:
         but rather its representation as a dictionary (using the Hit.as_dict() method).       
         '''
 #         
-#         if self.blast_hits is not None:
-#             return
-#         
         if self.query_id is None:
             return
         
-        self.blast_hits = []
         
         if self.json_dict["chimera_split"]["blast_check"] is False:
             return

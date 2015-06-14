@@ -214,6 +214,7 @@ class Creator:
         logger = logging.getLogger( "{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end) )
         logger.addHandler(handler)
         logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
+        logger.propagate = False
     
         #Load the CDS information
         logger.info("Loading transcript data")
@@ -265,7 +266,7 @@ class Creator:
                 except Exception as err:
                     if putter_counter<10:
                         putter_counter+=1
-                        time.sleep(0.005)
+                        time.sleep(0.0001)
                     else:
                         logger.exception("Error in reporting for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
                                                                                                   stranded_locus.start,
@@ -287,7 +288,7 @@ class Creator:
             
         return state
   
-  
+    #@profile
     def __call__(self):
         
         '''This method will activate the class and start the analysis of the input file.'''
@@ -315,6 +316,7 @@ class Creator:
         self.queue_logger = logging.getLogger( "parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
+        self.queue_logger.propagate = False
         
         jobs=[]
         for row in self.define_input():
@@ -328,14 +330,15 @@ class Creator:
                     else:
                         if currentLocus is not None:
                             while len(jobs)>=self.threads:
-                                time.sleep(0.0001)
+                                time.sleep(0.01)
                                 for job in jobs:
                                     if job.is_alive() is False:
                                         jobs.remove(job)
- 
+  
                             proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
                             proc.start()
                             jobs.append(proc)
+
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
@@ -346,33 +349,30 @@ class Creator:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
                 while len(jobs)>=self.threads:
-                    time.sleep(0.0001)
+                    time.sleep(0.01)
                     for job in jobs:
                         if job.is_alive() is False:
                             jobs.remove(job)
- 
-                 
+  
+                  
                 proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
-                proc.run()
+                proc.start()
                 jobs.append(proc)
-# 
+
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
             while len(jobs)>=self.threads:
-                time.sleep(0.0001)
+                time.sleep(0.01)
                 for job in jobs:
                     if job.is_alive() is False:
                         jobs.remove(job)
                         break
- 
+  
             proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
-            proc.run()
+            proc.start()
             jobs.append(proc)
-
             
-
-
         for job in jobs:
             if job.is_alive() is True:
                 job.join()

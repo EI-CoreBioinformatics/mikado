@@ -241,8 +241,7 @@ class superlocus(abstractlocus):
         self.sessionmaker.configure(bind=self.engine)
         self.session=self.sessionmaker()
 
-    #@profile
-    
+    #@profile    
     def load_transcript_data(self, tid ):
         '''This routine is used to load data for a single transcript.'''
         
@@ -256,7 +255,7 @@ class superlocus(abstractlocus):
                     self.add_transcript_to_locus(tr, check_in_locus=False)
                 self.remove_transcript_from_locus(tid)
         return 
-
+    #@profile
     def load_all_transcript_data(self):
         
         '''This method will load data into the transcripts instances, and perform the split_by_cds if required
@@ -281,21 +280,8 @@ class superlocus(abstractlocus):
         tids = list(self.transcripts.keys())
         for tid in tids:
             self.load_transcript_data(tid)
-
         
-#         if self.json_dict["chimera_split"]["execute"] is True:
-#             
-#             for tid in filter(lambda t: self.transcripts[t].number_internal_orfs>1, list(self.transcripts.keys())):
-#                 new_tr = list(self.transcripts[tid].split_by_cds())
-#                 if len(new_tr)>1:
-#                     for tr in new_tr:
-#                         self.add_transcript_to_locus(tr, check_in_locus=False)
-#                     self.remove_transcript_from_locus(tid) 
-
         self.session.close()
-
-    def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False, fasta_index=None):
-        raise NotImplementedError("Deprecated")
 
     ###### Sublocus-related steps ######
                

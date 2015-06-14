@@ -1,8 +1,8 @@
-#Locus brewer: a pipeline to determine and select the best RNA-Seq prediction
+#Shanghai - pick your transcript: a pipeline to determine and select the best RNA-Seq prediction
 
 ##Overview
 
-The locus brewer is a lightweight Python3 pipeline whose purpose is to facilitate the identification
+Shanghai is a lightweight Python3 pipeline whose purpose is to facilitate the identification
 of expressed loci from RNA-Seq data * and to select the best model in each locus.
 
 The logic of the pipeline is as follows:
@@ -181,5 +181,17 @@ Moreover, for each parameter it is possible to configure a "filter", i.e. bounda
 
 The comparisons are always made against the reference value.
 
-  
+##Requirements
+This tool has been written for Python 3.4, and at the moment is not compatible with earlier Python versions. This is due to changes in the interface of the asyncio module,
+which break compatibility with earlier versions of Python 3.
 
+Moreover, the software requires the following packages:
+
+  * SQLAlchemy: necessary for the DB interface. Version >=1.0, as we are using very recent functionality in the package (e.g. the "bakery")
+  * NetworkX: this package provides the functionality to describe the transcripts in a locus as an undirected acyclic graph, and find its communities;
+  * BioPython: necessary for parsing FASTA and BlastXML files
+  * PyYAML: necessary for parsing and writing the YAML configuration files
+  
+These requirements should be installed automatically by PyPI if you install using PIP.
+This software is *not* compatible with PyPy, as that compiler does not have support for the asyncio module yet. 
+ 

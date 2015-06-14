@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 
-import sys, argparse
+import sys, argparse, os.path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shanghai_lib.parsers import GFF,GTF
 from shanghai_lib.loci_objects import transcript
 from scipy.stats.mstats import mquantiles

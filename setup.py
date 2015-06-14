@@ -12,7 +12,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 setup(
 
     name = "shanghai",
-    version = "0.2",
+    version = "0.3",
     
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
@@ -29,6 +29,8 @@ setup(
         "Development Status :: 3 - Alpha",
         "Topic :: Gene Annotation ",
         "License :: OSI Approved :: GPL3",
+        'Programming Language :: Python :: 3.2',
+        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
     ],
 
@@ -36,7 +38,10 @@ setup(
 
     packages = find_packages(),
 
-    install_requires=["pyyaml", "networkx", "sqlalchemy", "biopython" ],
+    install_requires=["pyyaml",
+                      "networkx",
+                      "sqlalchemy>=1",
+                      "biopython" ],
 
     data_files = [ ("sample_data", ["sample_data/*"])],
 

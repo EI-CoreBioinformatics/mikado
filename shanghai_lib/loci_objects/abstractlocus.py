@@ -2,6 +2,7 @@ import os,sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import abc
 import random
+import logging
 import networkx 
 from shanghai_lib.exceptions import NotInLocusError
 
@@ -160,16 +161,16 @@ class abstractlocus(metaclass=abc.ABCMeta):
     @classmethod
     def create_default_logger(cls):
         '''Static method to create a default logging instance for the loci.'''
-#         formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
-#                                            style="{"
-#                                             )
-# 
-#         logger = logging.getLogger("{0}_logger".format(cls.__name__))
-#         handler = logging.StreamHandler()
-#         handler.setFormatter(formatter)
-#         logger.setLevel(logging.WARN)
-#         logger.addHandler(handler)
-        logger=None
+        formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
+                                           style="{"
+                                            )
+ 
+        logger = logging.getLogger("{0}_logger".format(cls.__name__))
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.setLevel(logging.WARN)
+        logger.addHandler(handler)
+#         logger=None
         return logger
 
     @classmethod
@@ -208,7 +209,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         
         if inters is None:
             inters = cls.is_intersecting
-        assert hasattr(inters, "__call__")
+#         assert hasattr(inters, "__call__")
 
         indexer=dict() #Dictionary to keep track of what obkect is what index
         
@@ -261,102 +262,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         
         final_cliques = list(networkx.find_cliques(graph))
         final_cliques=[set(x) for x in final_cliques]
-#         candidates = set(graph.keys())
-#         non_clique=set()
-#         clique=set()  
-#         
-#         for vertex in sorted(graph.keys(), key=lambda x:len(graph[x]) ):
-#             neighbours = graph[vertex]
-#             vertex_clique = set.union(clique, set([vertex])) # this is identical to neighbours
-#             vertex_candidates = set.intersection( candidates, neighbours )
-#             vertex_non_clique = set.intersection( non_clique, neighbours)
-#             final_cliques.extend(cls.BronKerbosch(graph, vertex_clique, vertex_candidates, vertex_non_clique, []))
-#             if hasattr(vertex,"id"):
-#                 print("Done {0} with {1} neighbours".format(vertex.id, len(graph[vertex])))
-#                 print("Cliques now: {0}".format(len(final_cliques)))
-#             candidates.remove(vertex)
-#             non_clique.add(vertex)
 
         return graph, final_cliques
-
-
-    @classmethod    
-    def BronKerbosch(cls, graph, clique, candidates, non_clique, final_cliques):
-        '''Implementation of the Bron-Kerbosch algorithm with pivot to define the subloci.
-        We are using the class method "is_intersecting" to define the neighbours.
-        Wiki: http://en.wikipedia.org/wiki/Bron%E2%80%93Kerbosch_algorithm
-        The function takes five arguments:
-            - graph            The original graph. It must be a *dictionary* of the form dict[vertex]=set(intersecting vertices) - i.e. the neighbours 
-            - clique            the current clique. Initialize to an empty set. 
-            - candidates        the elements to be analysed. This should be a set.
-            - non_clique        Elements which have already been analysed and determined not to be in the clique
-            - final_clique    The list of the final cliques. It should be initialised to an empty list.
-        '''
-
-        pool=set.union(candidates,non_clique)
-        if (len(candidates)==0 and len(non_clique)==0) or len(pool)==0:
-        # if not any((candidates, non_clique)) or len( pool )==0:
-            final_cliques.append(clique)
-        else:
-            pivot = random.sample( pool, 1)[0]
-            excluded = set.difference( candidates, graph[pivot])
-
-            for vertex in excluded:
-                vertex_neighbours = graph[vertex]
-                cls.BronKerbosch(graph, clique.union(set([vertex])),
-                                 candidates.intersection(vertex_neighbours),
-                                 non_clique.intersection(vertex_neighbours),
-                                 final_cliques)
-                
-                candidates.remove(vertex)
-                non_clique.add(vertex)
-                
-        #print("Final cliques #: {0}".format(len(final_cliques)))
-        #final_cliques=cls.merge_cliques(final_cliques)
-        return final_cliques
-
-
-    @classmethod
-    def merge_cliques(cls, graph, cliques):
-        pass
-
-    @classmethod
-    def merge_cliques_old(cls, cliques):
-        '''This class method will merge together intersecting cliques found by the Bron-Kerbosch algorithm.
-        It is therefore used to e.g. create the subloci.
-        It is a somewhat naive implementation; it might be made better by looking for a more specific algorithm.
-        Usually the method should be called as follows:
-            - cliques = self.find_cliques(objects, inters=intersecting_function)
-            - merged_cliques = self.merge_cliques(cliques) 
-        '''
-        merged_cliques = []
-
-        cliques=sorted(cliques, key=len, reverse=True)
-#        print("# of cliques:", len(cliques))
-        
-        while len(cliques)>0:
-            node=cliques[0]
-            cliques.remove(node)
-            new_node = set(node)
-            intersecting=set()
-            to_remove=[]
-            for index in range(len(cliques)):
-                other_clique=cliques[index]
-                if set.intersection(other_clique,new_node) != set():
-                    new_node.update(other_clique)
-                    to_remove.append(index)
-            cliques=[ v for i,v in enumerate(cliques) if i not in to_remove] #Remove cliques we have already assigned
-            
-            for merged_clique in merged_cliques:
-                mc = set(merged_clique)
-                if set.intersection(mc, new_node ) != set():
-                    new_node.update(mc)
-                    intersecting.add(merged_clique)
-            for s in intersecting:
-                merged_cliques.remove(s)
-            merged_cliques.append(new_node)
-
-        return merged_cliques
 
     @classmethod
     def choose_best(cls, transcripts):
@@ -414,9 +321,6 @@ class abstractlocus(metaclass=abc.ABCMeta):
         else:
             self.strand = transcript_instance.strand
             self.chrom = transcript_instance.chrom
-            #         if self.in_locus(self, transcript) is True:
-            #             if transcript.id in self.transcripts:
-            #                 raise KeyError("Trying to add transcript {0} to the monosublocus, but a different transcript with the same name is already present!".format(transcript.id))
                 
         self.start = min(self.start, transcript_instance.start)
         self.end = max(self.end, transcript_instance.end)
@@ -428,13 +332,10 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.selected_cds_introns.update(transcript_instance.selected_cds_introns)
 
         self.exons.update(set(transcript_instance.exons))
-#         for transcript_id in self.transcripts:
-#             self.transcripts[transcript_id].parent=self.id
 
         if self.initialized is False:
             self.initialized = True
         self.source=transcript_instance.source
-        #assert transcript_instance.id in self.transcripts
         return
 
     def remove_transcript_from_locus(self, tid):

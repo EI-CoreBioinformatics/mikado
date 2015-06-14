@@ -58,8 +58,12 @@ class transcript:
     After all exons have been loaded into the instance (see "addExon"), the class must be finalized with the appropriate method.
 
     CDS locations can be uploaded from the external, using a dictionary of indexed BED12 entries. 
+    
+    The database queries are baked at the *class* level in order to minimize overhead.
+    
     '''
     
+    #Query baking to minimize overhead
     bakery = baked.bakery()   
     query_baked=bakery( lambda session: session.query(Query) )
     query_baked += lambda q: q.filter(Query.name == bindparam("query_name"))
@@ -934,16 +938,6 @@ class transcript:
         max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
         maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
         
-        #Retrieve all hits for the query, order by evalue         
-#         blast_query = bakery(lambda session: )
-     
-        
-        
-#         blast_hits_query = self.session.query(Hit).filter( and_(Hit.query == self.id,
-#                                                                Hit.evalue<=maximum_evalue),
-#                                                           ).order_by(
-#                                                                      asc(Hit.evalue)
-#                                                                      ).limit(max_target_seqs)
         blast_hits_query = self.blast_baked(self.session).params(query_id = self.query_id, evalue = maximum_evalue, max_target_seqs=max_target_seqs )                 
         for hit in blast_hits_query:
             self.blast_hits.append(hit.as_dict())
@@ -952,10 +946,11 @@ class transcript:
         '''Deprecated'''
         raise NotImplementedError()
                         
-    def set_logger(self, logger):
+    def set_logger(self, logger=None):
         '''Set a logger for the instance.'''
+        if logger is None:
+            logger = abstractlocus.create_default_logger()
         self.logger = logger
-
       
     @classmethod
     ####################Class methods#####################################  
@@ -995,12 +990,7 @@ class transcript:
         lend = max(first[0], second[0])
         rend = min(first[1], second[1])
         return rend-lend
-    
-    @classmethod
-    def merge_cliques(cls, graph, cliques):
-        '''Wrapper for the abstractlocus method.'''
-        return abstractlocus.merge_cliques(graph,cliques)
-    
+        
     @classmethod
     def find_communities(cls, objects):
         '''Wrapper for the abstractlocus method.'''

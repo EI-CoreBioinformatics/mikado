@@ -1,5 +1,5 @@
 import sys,os.path,re
-import shutil
+from distutils import spawn
 import yaml
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from shanghai_lib.loci_objects.transcript import transcript
@@ -172,7 +172,7 @@ def check_blast(json_conf, json_file):
         raise shanghai_lib.exceptions.InvalidJson("""Invalid BLAST program specified: {0}.
         Supported options: blastn, blastx, tblastx.""")
     if os.path.dirname(json_conf["blast"]["program"])=="":
-        program=shutil.which(json_conf["blast"]["program"]) #@UndefinedVariable
+        program=spawn.find_executable(json_conf["blast"]["program"]) #@UndefinedVariable
     else:
         try:
             program=os.path.abspath(json_conf["blast"]["program"])

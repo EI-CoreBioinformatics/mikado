@@ -15,9 +15,7 @@ class sublocus(abstractlocus):
     '''
 
     __name__ = "sublocus"
-    available_metrics = []
-    if available_metrics == []:
-        available_metrics = transcript.get_available_metrics()
+    available_metrics = transcript.get_available_metrics()
 
     ################ Class special methods ##############
     

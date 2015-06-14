@@ -297,16 +297,15 @@ class Creator:
         #NOTE: Pool, Process and Manager must NOT become instance attributes!
         #Otherwise it will raise all sorts of mistakes
         
-        self.ctx = multiprocessing.get_context() # @UndefinedVariable 
-        self.manager=self.ctx.Manager()
+        self.manager = multiprocessing.Manager()
         self.printer_queue=self.manager.Queue()
         self.logging_queue = self.manager.Queue() #queue for logging
         
         self.lock=self.manager.RLock()
-        self.log_process = self.ctx.Process(target = self.logging_utility)
+        self.log_process = multiprocessing.Process(target = self.logging_utility)
         self.log_process.start()
         
-        self.printer_process=self.ctx.Process(target=self.printer) # @UndefinedVariable
+        self.printer_process=multiprocessing.Process(target=self.printer) # @UndefinedVariable
         self.printer_process.start()
         
         currentLocus = None
@@ -335,7 +334,7 @@ class Creator:
                                     if job.is_alive() is False:
                                         jobs.remove(job)
   
-                            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
+                            proc=multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
                             proc.start()
                             jobs.append(proc)
 
@@ -355,7 +354,7 @@ class Creator:
                             jobs.remove(job)
   
                   
-                proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
+                proc=multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
                 proc.start()
                 jobs.append(proc)
 
@@ -369,7 +368,7 @@ class Creator:
                         jobs.remove(job)
                         break
   
-            proc=multiprocessing.context.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
+            proc=multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
             proc.start()
             jobs.append(proc)
             

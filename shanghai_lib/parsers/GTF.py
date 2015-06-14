@@ -71,7 +71,7 @@ class gtfLine(object):
             self.info=dict()
             for info in self._info:
                 info=info.lstrip().split(' ') #Divido l'annotazione, e rimuovo le virgolette
-                try: self.info[info[0]]=re.sub(r'"','',info[1])
+                try: self.info[info[0]]=info[1].replace('"','')
                 except IndexError: raise IndexError(self._info, info)
 
             if 'exon_number' in self.info: self.info['exon_number']=int(self.info['exon_number'])

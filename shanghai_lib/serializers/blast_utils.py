@@ -22,13 +22,6 @@ import logging
 '''This module is used to serialise BLAST objects into a database.'''
 
 
-#For profiling
-if '__builtin__' not in dir() or not hasattr(__builtin__, "profile") or "profile" not in dir(): #@UndefinedVariable
-	def profile(function):
-		def inner(*args, **kwargs):
-			return function(*args, **kwargs)
-		return inner
-
 def mean(list):
 	if len(list)==0:
 		raise ZeroDivisionError
@@ -73,7 +66,6 @@ class Query(dbBase):
 	name=Column(String(200), unique=True, index=True)
 	length=Column(Integer, nullable=True) #This so we can load data also from the orf class
 	
-	@profile
 	def __init__(self, name, length):
 		self.name=name
 		self.length=length
@@ -85,7 +77,6 @@ class Target(dbBase):
 	name=Column(String(200), unique=True, index=True)
 	length=Column(Integer)
 	
-	@profile
 	def __init__(self, name, length):
 		self.name=name
 		self.length=length

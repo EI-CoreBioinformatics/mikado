@@ -1,22 +1,28 @@
 import operator
 import os.path,sys
+from collections import OrderedDict
+import inspect
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
+#SQLAlchemy imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.sql.expression import desc, asc
+from sqlalchemy import and_
+from sqlalchemy.ext import baked
+from sqlalchemy import bindparam
+
+#Shanghai imports
 from shanghai_lib.serializers.junction import junction, Chrom
 import shanghai_lib.serializers.orf
-from sqlalchemy.sql.expression import desc, asc
 from shanghai_lib.serializers.blast_utils import Query, Hit
-#from _collections import defaultdict
-from collections import OrderedDict
 from shanghai_lib.serializers.orf import orf
 from shanghai_lib.parsers import bed12
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import inspect
 from shanghai_lib.loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
 from shanghai_lib.parsers.GTF import gtfLine
 from shanghai_lib.parsers.GFF import gffLine
 import shanghai_lib.exceptions
-from sqlalchemy import and_
+
 #from memory_profiler import profile
 #import logging
 
@@ -53,6 +59,22 @@ class transcript:
 
     CDS locations can be uploaded from the external, using a dictionary of indexed BED12 entries. 
     '''
+    
+    bakery = baked.bakery()   
+    query_baked=bakery( lambda session: session.query(Query) )
+    query_baked += lambda q: q.filter(Query.name == bindparam("query_name"))
+
+    blast_baked = bakery( lambda session: session.query(Hit) )
+    blast_baked += lambda q: q.filter(and_(Hit.query_id == bindparam("query_id"),
+                                                               Hit.evalue<=bindparam("evalue")),
+                                                          )
+        
+    blast_baked += lambda q: q.order_by(asc(Hit.evalue))
+    blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
+
+    orf_baked = bakery(lambda session: session.query(shanghai_lib.serializers.orf.orf))
+    orf_baked += lambda q: q.filter(shanghai_lib.serializers.orf.orf.query_id==bindparam("query_id"))
+    orf_baked += lambda q: q.order_by(desc(shanghai_lib.serializers.orf.orf.cds_len))
     
     ######### Class special methods ####################
     
@@ -95,7 +117,7 @@ class transcript:
 
         self.parent = transcript_row.parent
         self.attributes = transcript_row.attributes
-        self.blast_hits = None
+        self.blast_hits = None        
         
     def __str__(self, to_gtf=False, print_cds=True):
         '''Each transcript will be printed out in the GFF style.
@@ -317,6 +339,10 @@ class transcript:
         if hasattr(self, "sessionmaker"):            
             del state["sessionmaker"]
             del state["engine"]
+
+        if "blast_baked" in state:
+            del state["blast_baked"]
+            del state["query_baked"]
 
         return state
 
@@ -650,6 +676,11 @@ class transcript:
             self.connect_to_db()
         else:
             self.session=session
+        self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
+        if len(self.query_id)==0:
+            raise shanghai_lib.exceptions.InvalidTranscript(self.id)
+        else:
+            self.query_id = self.query_id[0].id
         self.load_verified_introns(introns)
         self.load_orfs(self.retrieve_orfs())
         self.load_blast()
@@ -690,21 +721,19 @@ class transcript:
         This function is used to load the various CDSs from an external database.
         '''
         
+        if self.query_id is None:
+            return []
+        
         minimal_secondary_orf_length=self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
-        query_id=self.session.query(Query).filter(Query.name==self.id).all() #recover the id
-        if len(query_id)==0:
-            return []
-        assert len(query_id)==1
-#         if query_id.count()==0: # if we do not have the information in the DB, just return
-#             return []
-        query_id=query_id[0].id
-        orf_query = self.session.query(shanghai_lib.serializers.orf.orf).filter(shanghai_lib.serializers.orf.orf.query_id==query_id).order_by(desc(shanghai_lib.serializers.orf.orf.cds_len))
+
+        orf_results = self.orf_baked(self.session).params(query_id = self.query_id)
+        
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
             #Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts
-            candidate_orfs=list(filter(lambda orf: orf.strand!="-", orf_query  ))
+            candidate_orfs=list(filter(lambda orf: orf.strand!="-", orf_results ))
         else:
-            candidate_orfs=orf_query.all()
+            candidate_orfs=orf_results.all()
             
         if len(candidate_orfs)==0: return []
         
@@ -894,29 +923,32 @@ class transcript:
         Hits will be loaded into the "blast_hits" list; we will not store the SQLAlchemy query object,
         but rather its representation as a dictionary (using the Hit.as_dict() method).       
         '''
-        
-        if self.blast_hits is not None:
+#         
+#         if self.blast_hits is not None:
+#             return
+#         
+        if self.query_id is None:
             return
         
         self.blast_hits = []
+        
         if self.json_dict["chimera_split"]["blast_check"] is False:
             return
         
         max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
         maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
         
-        query_id = self.session.query(Query.id).filter(Query.name==self.id).all()
-        if len(query_id)==0:
-            return
-        assert len(query_id)==1
-        query_id = query_id[0].id
         #Retrieve all hits for the query, order by evalue         
-        blast_hits_query = self.session.query(Hit).filter(and_(Hit.query_id == query_id,
-                                                               Hit.evalue<=maximum_evalue)
-                                                          ).order_by(
-                                                                     asc(Hit.evalue)
-                                                                     ).limit(max_target_seqs)
-                                                                             
+#         blast_query = bakery(lambda session: )
+     
+        
+        
+#         blast_hits_query = self.session.query(Hit).filter( and_(Hit.query == self.id,
+#                                                                Hit.evalue<=maximum_evalue),
+#                                                           ).order_by(
+#                                                                      asc(Hit.evalue)
+#                                                                      ).limit(max_target_seqs)
+        blast_hits_query = self.blast_baked(self.session).params(query_id = self.query_id, evalue = maximum_evalue, max_target_seqs=max_target_seqs )                 
         for hit in blast_hits_query:
             self.blast_hits.append(hit.as_dict())
         

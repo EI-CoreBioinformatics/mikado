@@ -16,7 +16,7 @@ chimera_split:
     minimal_hsp_overlap: 0.9
 log_settings:
   log: null
-  log_level: DEBUG
+  log_level: WARN
 db: data.db
 dbtype: sqlite
 orf_loading:

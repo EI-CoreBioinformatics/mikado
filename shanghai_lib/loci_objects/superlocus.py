@@ -221,7 +221,7 @@ class superlocus(abstractlocus):
                                                               db=db,
                                                               dbtype=dbtype),
                                     connect_args={"check_same_thread": False},
-                                    poolclass = sqlalchemy.pool.StaticPool
+                                    poolclass = sqlalchemy.pool.StaticPool,
                                     )   #create_engine("sqlite:///{0}".format(args.db))
         
         self.sessionmaker = sessionmaker()
@@ -269,10 +269,11 @@ class superlocus(abstractlocus):
 
         loading_tasks = []
         loop=asyncio.get_event_loop()
-        for tid in self.transcripts:
+        tids = list(self.transcripts.keys())
+        for tid in tids:
+#             self.load_transcript_data(tid)
             loading_tasks.append(asyncio.async(self.load_transcript_data(tid)))
         loop.run_until_complete(asyncio.wait(loading_tasks))
-            
         
 #         if self.json_dict["chimera_split"]["execute"] is True:
 #             
@@ -284,7 +285,6 @@ class superlocus(abstractlocus):
 #                     self.remove_transcript_from_locus(tid) 
 
         self.session.close()
-
 
     def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0, split_chimeras=False, fasta_index=None):
         raise NotImplementedError("Deprecated")
@@ -432,7 +432,7 @@ class superlocus(abstractlocus):
 
         #self.available_monolocus_metrics = set(self.monoholder.available_metrics)
         if len(self.monoholders)==0:
-            return ''
+            yield ''
         for monoholder in self.monoholders:
             for row in monoholder.print_metrics():
                 yield row
@@ -447,7 +447,7 @@ class superlocus(abstractlocus):
 
         #self.available_monolocus_metrics = set(self.monoholder.available_metrics)
         if len(self.monoholders)==0:
-            return ''
+            yield ''
         for monoholder in self.monoholders:
             for row in monoholder.print_scores():
                 yield row

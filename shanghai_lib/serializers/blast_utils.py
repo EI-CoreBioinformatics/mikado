@@ -6,7 +6,7 @@ from Bio import SeqIO
 import Bio.File
 # import collections
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from scipy import mean
+#from scipy import mean
 import operator
 from sqlalchemy import Column,String,Integer,Float,ForeignKey,Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
@@ -27,6 +27,11 @@ if '__builtin__' not in dir() or not hasattr(__builtin__, "profile") or "profile
 		def inner(*args, **kwargs):
 			return function(*args, **kwargs)
 		return inner
+
+def mean(list):
+	if len(list)==0:
+		raise ZeroDivisionError
+	return sum(list)/len(list)
 
 
 def merge(intervals):

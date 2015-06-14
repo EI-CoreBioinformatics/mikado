@@ -8,6 +8,7 @@ import csv
 import os
 import logging, logging.handlers
 import time
+# import asyncio
 
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -225,6 +226,7 @@ class Creator:
         #Define the loci        
         logger.debug("Divided into {0} loci".format(len(stranded_loci)))
         
+        
         logger.info("Defining loci")
         for stranded_locus in stranded_loci:
             try:
@@ -327,6 +329,7 @@ class Creator:
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         
         jobs=[]
+#         self.loop = asyncio.get_event_loop()
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)

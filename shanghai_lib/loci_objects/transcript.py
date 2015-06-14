@@ -676,12 +676,6 @@ class transcript:
         Verified introns can be provided from outside using the keyword. Otherwise, they will be extracted from the database directly.
         '''
         
-        to_close = False
-        if loop is None:
-            loop = asyncio.get_event_loop()
-            to_close = True
-        
-        
         self.load_json(json_dict)
         if session is None:
             self.connect_to_db()
@@ -693,12 +687,8 @@ class transcript:
             raise shanghai_lib.exceptions.InvalidTranscript(self.id)
         else:
             self.query_id = self.query_id[0].id
-        tasks = []
-        tasks.append( asyncio.async(self.load_orfs_coroutine() ))
-        tasks.append( asyncio.async(self.load_blast()))
-        loop.run_until_complete(asyncio.wait(tasks))
-        if to_close is True:
-            loop.close()
+        yield from self.load_orfs_coroutine()
+        yield from self.load_blast()
     
     #@profile
     def load_json(self, json_dict):

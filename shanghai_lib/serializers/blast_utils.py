@@ -11,6 +11,7 @@ import operator
 from sqlalchemy import Column,String,Integer,Float,ForeignKey,Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
+from sqlalchemy.ext import baked
 from Bio.Blast.NCBIXML import parse as xparser
 import io
 from sqlalchemy import create_engine
@@ -121,8 +122,8 @@ class Hit(dbBase):
 	query_aligned_length = Column(Integer)
 	target_aligned_length = Column(Integer)
 	
-	query_object = relationship(Query, uselist=False, lazy="joined", backref=backref("hits" ))
-	target_object = relationship(Target, uselist=False, lazy="joined", backref=backref("hits" ) )
+	query_object = relationship(Query, uselist=False, lazy="immediate", backref=backref("hits" ))
+	target_object = relationship(Target, uselist=False, lazy="immediate", backref=backref("hits" ) )
 	
 	__table_args__ = (qt_constraint,)
 	
@@ -274,10 +275,10 @@ class Hsp(dbBase):
 	hsp_identity = Column(Float)
 	hsp_length = Column(Integer)
 
-	query_object=relationship(Query, uselist=False, lazy="joined")
-	target_object=relationship(Target, uselist=False, lazy="joined")
+	query_object=relationship(Query, uselist=False, lazy="immediate")
+	target_object=relationship(Target, uselist=False, lazy="immediate")
 
-	hit_object=relationship(Hit, uselist=False, lazy="joined", backref=backref("hsps"),
+	hit_object=relationship(Hit, uselist=False, lazy="immediate", backref=backref("hsps"),
 						foreign_keys=[query_id, target_id],
 						primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
 	

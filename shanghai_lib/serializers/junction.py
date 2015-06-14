@@ -36,7 +36,7 @@ class junction(dbBase):
     score=Column(Float)
     __table_args__ = ( Index("junction_index", "chrom_id", "junctionStart", "junctionEnd"  ), )
     
-    chrom_object= relationship(Chrom, uselist=False, backref=backref("junctions"), lazy="joined")
+    chrom_object= relationship(Chrom, uselist=False, backref=backref("junctions"), lazy="immediate")
     
     def __init__(self, bed12_object, chrom_id):
         if type(bed12_object) is not bed12.BED12:

@@ -28,7 +28,7 @@ class orf(dbBase):
     
     __table_args__ = ( Index("orf_index", "query_id", "thickStart", "thickEnd"  ), Index("query_index", "query_id") )
     
-    query_object= relationship(Query, uselist=False, backref=backref("orfs"), lazy="joined")
+    query_object= relationship(Query, uselist=False, backref=backref("orfs"), lazy="immediate")
     
     def __init__(self, bed12_object, query_id):
         if type(bed12_object) is not bed12.BED12:

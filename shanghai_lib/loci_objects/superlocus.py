@@ -10,6 +10,8 @@ import asyncio
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
+from sqlalchemy import bindparam
+from sqlalchemy.ext import baked
 
 #Shanghai imports
 from shanghai_lib.serializers.junction import junction, Chrom
@@ -29,6 +31,18 @@ class superlocus(abstractlocus):
     
     __name__ = "superlocus"
     available_metrics = transcript.get_available_metrics()
+    
+    bakery = baked.bakery()
+    db_baked = bakery(lambda session: session.query(Chrom))
+    db_baked += lambda q: q.filter(Chrom.name==bindparam("chrom_name"))
+    
+    junction_baked = bakery(lambda session: session.query(junction))
+    junction_baked += lambda q: q.filter(and_(
+                                                            junction.chrom_id==bindparam("chrom_id"),
+                                                            junction.junctionStart==bindparam("junctionStart"),
+                                                            junction.junctionEnd==bindparam("junctionEnd"),
+                                                            junction.strand==bindparam("strand"))
+                                         )    
     
     ####### Special methods ############
     
@@ -254,17 +268,16 @@ class superlocus(abstractlocus):
             return #No data to load
         self.connect_to_db()
         self.locus_verified_introns=[]
-        dbquery=self.session.query(Chrom.id).filter(Chrom.name==self.chrom).all()
+        dbquery = self.db_baked(self.session).params(chrom_name = self.chrom).all()
         if len(dbquery)>0:
             chrom_id = dbquery[0].id
             for intron in self.introns:
-                if self.session.query(junction).filter(and_(
-                                                            junction.chrom_id==chrom_id,
-                                                            junction.junctionStart==intron[0],
-                                                            junction.junctionEnd==intron[1],
-                                                            junction.strand==self.strand
-                                                    
-                                                                        )).count()==1:
+                if len(self.junction_baked(self.session).params(
+                                                            chrom_id = chrom_id,
+                                                            junctionStart = intron[0],
+                                                            junctionEnd = intron[1],
+                                                            strand = self.strand
+                                                            ).all()) == 1:
                     self.locus_verified_introns.append(intron)
 
         loading_tasks = []

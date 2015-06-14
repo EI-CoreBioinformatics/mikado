@@ -12,12 +12,13 @@ import time
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
+import sqlalchemy
 
 #Shanghai imports
 import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
-import sqlalchemy
+
 #from memory_profiler import profile
 
 #For profiling

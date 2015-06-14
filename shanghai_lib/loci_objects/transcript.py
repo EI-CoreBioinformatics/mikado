@@ -2,6 +2,7 @@ import operator
 import os.path,sys
 from collections import OrderedDict
 import inspect
+import asyncio
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 #SQLAlchemy imports
@@ -666,7 +667,7 @@ class transcript:
         self.session=self.sessionmaker()
     
     #@profile
-    def load_information_from_db(self, json_dict, introns=None, session=None):
+    def load_information_from_db(self, json_dict, introns=None, session=None, loop=None):
         '''This method will invoke the check for:
         
         orfs
@@ -674,6 +675,12 @@ class transcript:
         
         Verified introns can be provided from outside using the keyword. Otherwise, they will be extracted from the database directly.
         '''
+        
+        to_close = False
+        if loop is None:
+            loop = asyncio.get_event_loop()
+            to_close = True
+        
         
         self.load_json(json_dict)
         if session is None:
@@ -686,8 +693,12 @@ class transcript:
             raise shanghai_lib.exceptions.InvalidTranscript(self.id)
         else:
             self.query_id = self.query_id[0].id
-        self.load_orfs(self.retrieve_orfs())
-        self.load_blast()
+        tasks = []
+        tasks.append( asyncio.async(self.load_orfs_coroutine() ))
+        tasks.append( asyncio.async(self.load_blast()))
+        loop.run_until_complete(asyncio.wait(tasks))
+        if to_close is True:
+            loop.close()
     
     #@profile
     def load_json(self, json_dict):
@@ -719,6 +730,7 @@ class transcript:
         return       
         
     #@profile
+    @asyncio.coroutine
     def retrieve_orfs(self):
         
         '''This method will look up the ORFs loaded inside the database.
@@ -757,6 +769,13 @@ class transcript:
         return candidate_orfs
     
     #@profile
+    @asyncio.coroutine
+    def load_orfs_coroutine(self):
+        '''Asynchronous coroutine for loading orfs from the database'''
+        candidate_orfs = yield from self.retrieve_orfs()
+        self.load_orfs(candidate_orfs)
+    
+    
     def load_orfs(self, candidate_orfs):
 
         '''This method replicates what is done internally by the "cdna_alignment_orf_to_genome_orf.pl" utility in the
@@ -921,6 +940,7 @@ class transcript:
         
 
     #@profile
+    @asyncio.coroutine
     def load_blast(self):
         
         '''This method looks into the DB for hits corresponding to the desired requirements.

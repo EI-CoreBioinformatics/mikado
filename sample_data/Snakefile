@@ -1,5 +1,5 @@
 import os,sys
-sys.path.append(os.path.join(os.environ["HOME"],"workspace/locus_pipeline"))
+sys.path.append(os.path.join(os.environ["HOME"],"workspace/Shanghai"))
 import shanghai_lib.json_utils
 
 swissprot = "uniprot_sprot_plants.fasta"

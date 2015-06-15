@@ -3,6 +3,7 @@ import os.path,sys
 from collections import OrderedDict
 import inspect
 import asyncio
+import logging
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 #SQLAlchemy imports
@@ -348,11 +349,36 @@ class transcript:
         if "blast_baked" in state:
             del state["blast_baked"]
             del state["query_baked"]
-
+        if hasattr(self, "logger"):
+            del state['logger']
+#             if state['logger'].hasHandlers() is True:
+#                 state['logging_handlers']=[]
+#                 for handler in state['logger'].handlers:
+#                     if type(handler) is logging.StreamHandler:
+#                         state['logging_handlers'].append(None)
+#                     elif type(handler) is logging.handlers.QueueHandler:
+#                         state['logging_handlers'].append("queue")
+#                     else:
+#                         state['logging_handlers'].append(handler.baseFilename)
+#                         handler.close()
+#                     state['logger'].removeHandler(handler)
         return state
 
     def __setstate__(self,state):
+#         if 'logger' in state:
+#             for handler in state['logging_handlers']:
+#                 if handler is None:
+#                     handler = logging.StreamHandler()
+#                 elif handler == 'queue':
+#                     del state['logger']
+#                     break
+#                 else:
+#                     handler = logging.FileHandler(handler,'a')
+#                 state['logger'].addHandler(handler)
+#             del state['logging_handlers']
         self.__dict__.update(state)
+
+        
         
     ######### Class instance methods ####################
 
@@ -667,6 +693,7 @@ class transcript:
         self.session=self.sessionmaker()
     
     #@profile
+    @asyncio.coroutine
     def load_information_from_db(self, json_dict, introns=None, session=None, loop=None):
         '''This method will invoke the check for:
         
@@ -676,6 +703,7 @@ class transcript:
         Verified introns can be provided from outside using the keyword. Otherwise, they will be extracted from the database directly.
         '''
         
+        self.logger.debug("Loading {0}".format(self.id))
         self.load_json(json_dict)
         if session is None:
             self.connect_to_db()
@@ -684,11 +712,12 @@ class transcript:
         self.load_verified_introns(introns)
         self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
         if len(self.query_id)==0:
-            return
+            raise shanghai_lib.exceptions.InvalidTranscript(self.id)
         else:
             self.query_id = self.query_id[0].id
             yield from self.load_orfs_coroutine()
             yield from self.load_blast()
+        self.logger.debug("Loaded {0}".format(self.id))
     
     #@profile
     def load_json(self, json_dict):

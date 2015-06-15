@@ -11,7 +11,6 @@ import operator
 from sqlalchemy import Column,String,Integer,Float,ForeignKey,Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy.ext import baked
 from Bio.Blast.NCBIXML import parse as xparser
 import io
 from sqlalchemy import create_engine
@@ -22,10 +21,10 @@ import logging
 '''This module is used to serialise BLAST objects into a database.'''
 
 
-def mean(list):
-	if len(list)==0:
+def mean(l):
+	if len(l)==0:
 		raise ZeroDivisionError
-	return sum(list)/len(list)
+	return sum(l)/len(l)
 
 
 def merge(intervals):
@@ -369,7 +368,7 @@ class xmlSerializer:
 		self.logger = logging.getLogger("main")
 		self.logger.setLevel(logging.INFO)
 		self.handler = logging.StreamHandler()
-		self.formatter = logging.Formatter("{asctime} - {name} - {message}", style='{')
+		self.formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
 		self.handler.setFormatter(self.formatter)
 		self.logger.addHandler(self.handler)
 		
@@ -573,17 +572,30 @@ class xmlSerializer:
 			
 			if len(objects)>=self.maxobjects:
 				self.logger.info("Loading {0} objects into the hit, hsp tables; done {1} queries".format(len(objects), query_counter))
-				self.session.bulk_save_objects(objects, return_defaults=False)
-				self.session.commit()
+				self.load_into_db(objects)
 				self.logger.info("Loaded {0} objects into the hit, hsp tables; done {1} queries".format(len(objects), query_counter))
 				objects=[]
 			
 		self.logger.info("Loading {0} objects into the hit, hsp tables".format(len(objects)))
-		self.session.bulk_save_objects(objects, return_defaults=False)
-		self.session.commit()
+		self.load_into_db(objects)
+			
 		self.logger.info("Loaded {0} objects into the hit, hsp tables".format(len(objects)))
 		self.session.commit() 
 		self.logger.info("Finished loading blast hits")
 
 	def __call__(self):
 		self.serialize()
+
+	def load_into_db(self, objects):
+		try:
+			self.session.bulk_save_objects(objects, return_defaults=False)
+			self.session.commit()
+		except Exception as err:
+			self.logger.error('Database corrupted'.format(err))
+			self.logger.error(err)
+			self.logger.error('Dropping and reloading')
+			self.session.rollback()
+			self.session.query(Hsp).delete()
+			self.session.query(Hit).delete()
+			self.session.bulk_save_objects(objects, return_defaults=False)
+			self.session.commit()

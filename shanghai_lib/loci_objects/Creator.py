@@ -144,8 +144,8 @@ class Creator:
 
         score_keys = ["tid","parent","score"] + sorted(list(self.json_conf["scoring"].keys()))
         #Define mandatory output files        
-        self.locus_metrics_file = re.sub("$",".metrics.tsv",  re.sub(".gff?$", "", self.locus_out  ))
-        self.locus_scores_file = re.sub("$",".scores.tsv",  re.sub(".gff?$", "", self.locus_out  ))
+        self.locus_metrics_file = re.sub("$",".metrics.tsv",  re.sub(".gff.?$", "", self.locus_out  ))
+        self.locus_scores_file = re.sub("$",".scores.tsv",  re.sub(".gff.?$", "", self.locus_out  ))
         locus_metrics=csv.DictWriter(open(self.locus_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
         locus_metrics.writeheader()
         locus_scores=csv.DictWriter(open(self.locus_scores_file,'w'), score_keys, delimiter="\t")

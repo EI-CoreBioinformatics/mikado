@@ -247,9 +247,8 @@ class superlocus(abstractlocus):
     def load_transcript_data(self, tid ):
         '''This routine is used to load data for a single transcript.'''
         
-#         print("Loading data for {0}".format(tid))
-        self.logger.debug("Loading data for {0}".format(tid))
-        self.transcripts[tid].load_information_from_db( self.json_dict, introns = self.locus_verified_introns, session = self.session)
+        self.transcripts[tid].set_logger(self.logger)
+        yield from self.transcripts[tid].load_information_from_db( self.json_dict, introns = self.locus_verified_introns, session = self.session)
         if self.json_dict["chimera_split"]["execute"] is True and self.transcripts[tid].number_internal_orfs>1:
             new_tr = list(self.transcripts[tid].split_by_cds())
             if len(new_tr)>1:
@@ -284,7 +283,7 @@ class superlocus(abstractlocus):
         tasks = []
 
         for tid in tids:
-            tasks.append(asyncio.async(self.load_transcript_data(tid)))
+            tasks.append(asyncio.async(self.load_transcript_data(tid))) 
         loop.run_until_complete(asyncio.wait(tasks))
         self.session.close()
 

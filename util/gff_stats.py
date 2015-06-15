@@ -30,6 +30,8 @@ class gene_object:
         self.transcripts[tcomputer.id]=tcomputer
 
     def finalize(self):
+        if len(self.transcripts)==0: return
+        
         to_remove = set()
         for tid in self.transcripts:
             try:
@@ -148,8 +150,8 @@ class Calculator:
         for record in self.gff:
             if record.header is True:
                 continue
-            if record.feature == "superlocus":
-                continue
+#             if record.feature == "superlocus":
+#                 continue
             if record.feature == "locus" or record.is_parent is True:
                 if currentGene is not None:
                     self.genes[currentGene].finalize()

@@ -1,6 +1,7 @@
 #coding: utf_8
 
 import sys,os.path
+import copy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from shanghai_lib.parsers import Parser
 import re
@@ -123,6 +124,9 @@ class gtfLine(object):
 
         assert self.fields[0]!="", self.fields
         return '\t'.join(self.fields)
+
+    def copy(self):
+        return copy.copy(self)
 
     def toGFF3(self, feature_type="gene", source=None):
         '''Converts the GTF line into a GFF3 one.'''
@@ -291,7 +295,8 @@ class gtfLine(object):
     def is_exon(self):
         if self.feature is None:
             return False
-        if self.feature in ("exon", "CDS") or "UTR" in self.feature.upper():
+        f=self.feature.upper()
+        if f in ("EXON", "CDS") or "UTR" in f or "CODON" in f:
             return True
         return False
 

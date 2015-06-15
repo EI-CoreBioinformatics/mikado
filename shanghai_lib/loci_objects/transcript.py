@@ -4,6 +4,8 @@ from collections import OrderedDict
 import inspect
 import asyncio
 import logging
+import pickle
+import copy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 #SQLAlchemy imports
@@ -108,7 +110,7 @@ class transcript:
                 raise TypeError("Invalid data type: {0}".format(type(transcript_row))) 
                     
         self.chrom = transcript_row.chrom
-        assert "transcript"==transcript_row.feature or "RNA" in transcript_row.feature.upper()
+        assert "transcript"==transcript_row.feature or "RNA" in transcript_row.feature.upper(), transcript_row.feature
         self.feature="transcript"
         self.id = transcript_row.id
         self.name = transcript_row.name
@@ -351,35 +353,12 @@ class transcript:
             del state["query_baked"]
         if hasattr(self, "logger"):
             del state['logger']
-#             if state['logger'].hasHandlers() is True:
-#                 state['logging_handlers']=[]
-#                 for handler in state['logger'].handlers:
-#                     if type(handler) is logging.StreamHandler:
-#                         state['logging_handlers'].append(None)
-#                     elif type(handler) is logging.handlers.QueueHandler:
-#                         state['logging_handlers'].append("queue")
-#                     else:
-#                         state['logging_handlers'].append(handler.baseFilename)
-#                         handler.close()
-#                     state['logger'].removeHandler(handler)
+            
         return state
 
     def __setstate__(self,state):
-#         if 'logger' in state:
-#             for handler in state['logging_handlers']:
-#                 if handler is None:
-#                     handler = logging.StreamHandler()
-#                 elif handler == 'queue':
-#                     del state['logger']
-#                     break
-#                 else:
-#                     handler = logging.FileHandler(handler,'a')
-#                 state['logger'].addHandler(handler)
-#             del state['logging_handlers']
         self.__dict__.update(state)
 
-        
-        
     ######### Class instance methods ####################
 
     def addExon(self, gffLine):
@@ -407,6 +386,7 @@ class transcript:
             return
         elif gffLine.feature=="stop_codon":
             self.has_stop_codon = True
+            return
         else:
             raise shanghai_lib.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
             
@@ -712,7 +692,7 @@ class transcript:
         self.load_verified_introns(introns)
         self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
         if len(self.query_id)==0:
-            raise shanghai_lib.exceptions.InvalidTranscript(self.id)
+            self.logger.warn("Transcript not in database: {0}".format(self.id))
         else:
             self.query_id = self.query_id[0].id
             yield from self.load_orfs_coroutine()

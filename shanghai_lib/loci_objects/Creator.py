@@ -70,7 +70,7 @@ class Creator:
         return parser(self.input_file)
 
     def logging_utility(self):
-        self.formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {name} - {message}",
+        self.formatter = logging.Formatter("{asctime} - {levelname} - {module}:{lineno} - {funcName} - {name} - {message}",
                                            style="{"
                                            )
         self.main_logger=logging.getLogger("main_logger")

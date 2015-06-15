@@ -5,10 +5,19 @@ sys.path.append(
                                 ))
 import csv
 from shanghai_lib.loci_objects.transcript import transcript
-from loci_objects.exceptions import *
+import shanghai_lib.exceptions
 from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from shanghai_lib.parsers.GTF import GTF
 from shanghai_lib.parsers.GFF import GFF3
+import bisect # Needed for efficient research
+
+'''This is still an embryo. Ideally, this program would perform the following functions:
+
+1- Define precision/recall for the annotation
+2- Use a "flexible" mode to determine accuracy
+3- Detect gene *fusions* as well as gene *splits*  
+
+'''
 
 
 def define_class_code(transcript_instance, reference_instance):
@@ -150,12 +159,3 @@ def main():
     
 if __name__=="__main__": main()
             
-            
-            
-            
-            
-            
-    
-    
-    
-    

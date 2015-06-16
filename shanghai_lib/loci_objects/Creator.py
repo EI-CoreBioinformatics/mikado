@@ -18,6 +18,7 @@ import sqlalchemy
 import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
+from shanghai_lib.loci_objects.superlocus import superlocus
 
 #from memory_profiler import profile
 
@@ -31,7 +32,7 @@ import shanghai_lib.serializers.blast_utils
 class Creator:
 
     #@profile
-    def __init__(self, json_conf):
+    def __init__(self, json_conf: dict):
         
         if type(json_conf) is str:
             assert os.path.exists(json_conf)
@@ -127,7 +128,7 @@ class Creator:
         self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
         return
 
-    def set_commandline(self, string):
+    def set_commandline(self, string: str):
         self.commandline=string
 
 
@@ -201,7 +202,7 @@ class Creator:
         return
     
     #@profile
-    def analyse_locus(self, slocus ):
+    def analyse_locus(self, slocus: superlocus ) -> [superlocus]:
 
         '''This function takes as input a "superlocus" instance and the pipeline configuration.
         It also accepts as optional keywords a dictionary with the CDS information (derived from a bed12Parser)
@@ -254,7 +255,6 @@ class Creator:
                         for other_final_locus in other_superlocus.loci:
                             if other_final_locus.other_is_fragment( final_locus ) is True and final_locus in stranded_locus.loci: 
                                 stranded_locus.loci.remove(final_locus)
-                                
             putter_counter = 0
             while True:
                 try:

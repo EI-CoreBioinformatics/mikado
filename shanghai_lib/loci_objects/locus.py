@@ -1,4 +1,5 @@
 import sys,os.path
+from shanghai_lib.loci_objects.transcript import transcript
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from shanghai_lib.loci_objects.monosublocus import monosublocus
 from shanghai_lib.loci_objects.abstractlocus import abstractlocus
@@ -9,11 +10,11 @@ class locus(monosublocus,abstractlocus):
     
     __name__ = "locus"
     
-    def __init__(self,transcript_instance, logger = None):
+    def __init__(self,transcript_instance: transcript, logger = None):
         self.counter=0
         super().__init__(transcript_instance, logger=logger)
     
-    def __str__(self, print_cds=True):
+    def __str__(self, print_cds=True) -> str:
           
         self.feature=self.__name__
         return super().__str__(print_cds=print_cds)

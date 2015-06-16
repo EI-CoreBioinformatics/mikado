@@ -118,7 +118,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
     
     
     @staticmethod
-    def overlap(a, b, flank=0):
+    def overlap(a: tuple([int,int]), b: tuple([int,int]), flank=0) -> int:
         '''This static method returns the overlap between two intervals. Values<=0 indicate no overlap.
         The optional "flank" argument (default 0) allows to expand a superlocus upstream and downstream.
         As a static method, it can be used also outside of any instance - "superlocus.overlap()" will function.
@@ -133,7 +133,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         return right_boundary - left_boundary 
     
     @staticmethod
-    def evaluate(param, conf):
+    def evaluate(param: str, conf: dict) -> bool:
     
         '''This static method evaluates a single parameter using the requested operation from the JSON dict file.'''
         
@@ -175,7 +175,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         return logger
 
     @classmethod
-    def in_locus(cls, locus_instance, transcript, flank=0):
+    def in_locus(cls, locus_instance, transcript, flank=0) -> bool:
         '''Function to determine whether a transcript should be added or not to the locus_instance.
         This is a class method, i.e. it can be used also unbound from any specific instance of the class.
         It will be possible therefore to use it to compare any locus_instance to any transcript.
@@ -195,7 +195,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
 
     @classmethod
-    def find_communities(cls, objects, inters=None, **kwargs):
+    def find_communities(cls, objects: list, inters=None, **kwargs) -> list:
         '''This function is a wrapper around the networkX methods to find
         cliques and communities inside a graph.
         The method takes as mandatory inputs the following:
@@ -236,7 +236,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
 
     @classmethod
-    def find_cliques(cls,objects, inters=None):
+    def find_cliques(cls,objects: list, inters=None) -> (networkx.Graph, list):
         '''Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
         It is the new interface for the BronKerbosch function, which is not called directly from outside this class any longer.
         The "inters" keyword provides the function used to determine whether two vertices are connected or not in the graph.
@@ -263,7 +263,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         return graph, final_cliques
 
     @classmethod
-    def choose_best(cls, transcripts):
+    def choose_best(cls, transcripts: dict) -> str:
         '''Given a transcript dictionary, this function will choose the one with the highest score.
         If multiple transcripts have exactly the same score, one will be chosen randomly. 
         
@@ -319,7 +319,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.source=transcript_instance.source
         return
 
-    def remove_transcript_from_locus(self, tid):
+    def remove_transcript_from_locus(self, tid: str):
         if tid not in self.transcripts:
             raise KeyError("Transcript {0} is not present in the locus.".format(tid))
         
@@ -411,7 +411,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.__stranded=stranded
         
     @property
-    def id(self):
+    def id(self) -> str:
         return "{0}:{1}{2}:{3}-{4}".format(
                                             self.__name__,
                                             self.chrom,
@@ -421,5 +421,5 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
         
     @property
-    def name(self):
+    def name(self) -> str:
         return self.id

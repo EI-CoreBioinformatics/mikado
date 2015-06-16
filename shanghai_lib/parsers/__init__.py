@@ -55,7 +55,7 @@ class Parser(object):
 
 class tabParser(object):
     '''Base class for iterating over tabular file formats.'''
-    def __init__(self,line):
+    def __init__(self,line: str):
         if not isinstance(line,str): raise TypeError
         if line=='': raise StopIteration
 

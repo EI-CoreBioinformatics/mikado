@@ -1,10 +1,12 @@
 import sys,os.path
+from shanghai_lib.loci_objects.transcript import transcript
 #from shanghai_lib.exceptions import NotInLocusError
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 #from shanghai_lib.shanghai_lib.excluded_locus import excluded_locus
 from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from shanghai_lib.loci_objects.sublocus import sublocus
 from shanghai_lib.loci_objects.locus import locus
+from shanghai_lib.loci_objects.monosublocus import monosublocus
 
 #Resolution order is important here!
 class monosublocus_holder(sublocus,abstractlocus):
@@ -18,7 +20,7 @@ class monosublocus_holder(sublocus,abstractlocus):
 
     __name__ = "monosubloci_holder"
 
-    def __init__(self, monosublocus_instance, json_dict=None, logger=None):
+    def __init__(self, monosublocus_instance: monosublocus, json_dict=None, logger=None):
         
         abstractlocus.__init__(self)
         self.set_logger(logger)
@@ -46,7 +48,7 @@ class monosublocus_holder(sublocus,abstractlocus):
         abstractlocus.add_transcript_to_locus(self, transcript_instance, check_in_locus=True)
         self.locus_verified_introns = set.union(self.locus_verified_introns, transcript_instance.verified_introns)
             
-    def add_monosublocus(self, monosublocus_instance):
+    def add_monosublocus(self, monosublocus_instance: monosublocus):
         '''Wrapper to extract the transcript from the monosubloci and pass it to the constructor.'''
         assert len(monosublocus_instance.transcripts)==1
         if len(self.transcripts)==0:
@@ -136,7 +138,7 @@ class monosublocus_holder(sublocus,abstractlocus):
         return False
 
     @classmethod
-    def in_locus(cls, locus_instance, transcript_instance, flank=0):
+    def in_locus(cls, locus_instance: abstractlocus, transcript_instance: transcript, flank=0) -> bool:
         '''This method checks whether a transcript / monosbulocus falls inside the locus coordinates.'''
         if hasattr(transcript_instance, "transcripts"):
             assert len(transcript_instance.transcripts)==1

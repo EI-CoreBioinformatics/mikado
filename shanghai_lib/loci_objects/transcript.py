@@ -283,7 +283,7 @@ class transcript:
         
         return "\n".join(lines)
     
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         '''Two transcripts are considered identical if they have the same
         start, end, chromosome, strand and internal exons.
         IDs are not important for this comparison; two transcripts coming from different
@@ -306,12 +306,12 @@ class transcript:
 
         return super().__hash__()
     
-    def __len__(self):
+    def __len__(self) -> int:
         '''Returns the length occupied by the unspliced transcript on the genome.'''
         return self.end-self.start+1
 
      
-    def __lt__(self, other):
+    def __lt__(self, other) -> bool:
         '''A transcript is lesser than another if it is on a lexicographic inferior chromosome,
         or if it begins before the other, or (in the case where they begin at the same location)
         it ends earlier than the other.'''
@@ -325,13 +325,13 @@ class transcript:
             return True
         return False
      
-    def __gt__(self, other):
+    def __gt__(self, other) -> bool:
         return not self<other
      
-    def __le__(self, other):
+    def __le__(self, other) -> bool:
         return (self==other) or (self<other)
      
-    def __ge__(self, other):
+    def __ge__(self, other) -> bool:
         return (self==other) or (self>other) 
         
     def __getstate__(self):
@@ -980,7 +980,7 @@ class transcript:
         raise NotImplementedError()
     
     @classmethod
-    def find_overlapping_cds(cls, candidates):
+    def find_overlapping_cds(cls, candidates: list) -> list:
         '''Wrapper for the abstractlocus method, used for finding overlapping ORFs.
         It will pass to the function the class's "is_overlapping_cds" method
         (which would be otherwise be inaccessible from the abstractlocus class method)'''
@@ -1011,13 +1011,13 @@ class transcript:
         return rend-lend
         
     @classmethod
-    def find_communities(cls, objects):
+    def find_communities(cls, objects: list) -> list:
         '''Wrapper for the abstractlocus method.'''
         return abstractlocus.find_communities(objects, inters=cls.is_intersecting)
 
     
     @classmethod
-    def get_available_metrics(cls):
+    def get_available_metrics(cls) -> list:
         '''This function retrieves all metrics available for the class.'''
         metrics = list(x[0] for x in filter(lambda y: "__" not in y[0] and type(cls.__dict__[y[0]]) is metric, inspect.getmembers(cls)))
         assert "tid" in metrics and "parent" in metrics and "score" in metrics
@@ -1039,7 +1039,8 @@ class transcript:
         self.__id = Id
 
     @property
-    def available_metrics(self):
+    def available_metrics(self) -> list:
+        '''Return the list of available metrics, using the "get_metrics" function.'''
         return self.get_metrics()
 
     @property

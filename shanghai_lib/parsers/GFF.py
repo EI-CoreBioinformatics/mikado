@@ -3,10 +3,11 @@
 
 from shanghai_lib.parsers import Parser
 from copy import deepcopy
+import io
 
 class gffLine(object):
 
-    def __init__(self,line, my_line='', header=False):
+    def __init__(self,line: str, my_line='', header=False):
         '''Object which serializes a GFF line.
 		Parameters:
 				- _line: the original line
@@ -229,7 +230,7 @@ class gffLine(object):
         
 
 class GFF3(Parser):
-    def __init__(self,handle):
+    def __init__(self,handle: io.TextIOWrapper):
         super().__init__(handle)
         self.header=False
         

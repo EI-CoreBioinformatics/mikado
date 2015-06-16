@@ -17,6 +17,56 @@ numpy.seterr(all="ignore") #Suppress warnings
 numpy.warnings.filterwarnings("ignore")
 scipy.seterr(all="ignore") #Suppress warnings
 
+
+class transcriptComputer(transcript.transcript):
+    
+    data_fields = ["parent", 'chrom',
+                   'start', 'end',
+                   'introns', 'exons',
+                   'exon_lengths', 'intron_lengths',
+                   'cdna_length', 'selected_cds_length',
+                   'cds_intron_lengths', 'cds_exon_lengths'   ]
+    data_tuple = namedtuple("transcript_data", data_fields, verbose=False)
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.exon_lengths = []
+        self.cds_exon_lengthts = []
+        self.utr_exon_lengths = []
+        
+        self.intron_lengths = []
+        self.cds_intron_lengths = []
+        self.utr_intron_lengths = []
+    
+    def finalize(self):
+        super().finalize()
+        self.exon_lengths = [e[1]-e[0]+1 for e in self.exons]
+        self.cds_exon_lengths = [c[1]-c[0]+1 for c in self.selected_cds]
+        self.utr_exon_lengths = [u[2]-u[1]+1 for u in self.three_utr+self.five_utr]
+
+        self.intron_lengths = [i[1]-i[0]+1 for i in self.introns]
+        self.cds_intron_lengths = [i[1]-i[0] for i in self.selected_cds_introns]
+        self.utr_intron_lengths = [i[1]-i[0] for i in filter(lambda j: j not in self.selected_cds_introns, self.introns)]
+
+    def as_tuple(self):
+        '''Method to build a namedtuple containing only the basic information for stat building.
+        
+        We want to analyze the following:
+        - cDNA length
+        - CDS length
+        - Exons (number and length)
+        - CDS Exons (number and length)
+        - Introns (number and length)
+        - CDS Introns (number and length)
+        '''
+        
+        self.finalize()
+        constructor = dict()
+        for field in self.data_fields:
+            constructor[field]=getattr(self, field)
+                    
+        return self.data_tuple(**constructor)
+
 class gene_object:
     
     def __init__(self, record, only_coding = False):
@@ -27,7 +77,7 @@ class gene_object:
             setattr(self, field, getattr(record, field))
         self.only_coding = only_coding
         
-    def add_transcript(self, tcomputer):
+    def add_transcript(self, tcomputer: transcriptComputer):
         self.transcripts[tcomputer.id]=tcomputer
         self.start=min(self.start, tcomputer.start)
         self.end=max(self.end, tcomputer.end)
@@ -79,60 +129,11 @@ class gene_object:
     @property
     def num_transcripts(self):
         return len(self.transcripts)
-
-class transcriptComputer(transcript.transcript):
-    
-    data_fields = ["parent", 'chrom',
-                   'start', 'end',
-                   'introns', 'exons',
-                   'exon_lengths', 'intron_lengths',
-                   'cdna_length', 'selected_cds_length',
-                   'cds_intron_lengths', 'cds_exon_lengths'   ]
-    data_tuple = namedtuple("transcript_data", data_fields, verbose=False)
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.exon_lengths = []
-        self.cds_exon_lengthts = []
-        self.utr_exon_lengths = []
-        
-        self.intron_lengths = []
-        self.cds_intron_lengths = []
-        self.utr_intron_lengths = []
-    
-    def finalize(self):
-        super().finalize()
-        self.exon_lengths = [e[1]-e[0]+1 for e in self.exons]
-        self.cds_exon_lengths = [c[1]-c[0]+1 for c in self.selected_cds]
-        self.utr_exon_lengths = [u[2]-u[1]+1 for u in self.three_utr+self.five_utr]
-
-        self.intron_lengths = [i[1]-i[0]+1 for i in self.introns]
-        self.cds_intron_lengths = [i[1]-i[0] for i in self.selected_cds_introns]
-        self.utr_intron_lengths = [i[1]-i[0] for i in filter(lambda j: j not in self.selected_cds_introns, self.introns)]
-
-    def as_tuple(self):
-        '''Method to build a namedtuple containing only the basic information for stat building.
-        
-        We want to analyze the following:
-        - cDNA length
-        - CDS length
-        - Exons (number and length)
-        - CDS Exons (number and length)
-        - Introns (number and length)
-        - CDS Introns (number and length)
-        '''
-        
-        self.finalize()
-        constructor = dict()
-        for field in self.data_fields:
-            constructor[field]=getattr(self, field)
-                    
-        return self.data_tuple(**constructor)
         
 
 class Calculator:
     
-    def __init__(self, parsed_args):
+    def __init__(self, parsed_args: argparse.Namespace):
         
         '''Constructor function'''
         
@@ -205,7 +206,7 @@ class Calculator:
         self.writer()
 
 
-    def get_stats(self, row, array):
+    def get_stats(self, row: dict, array: numpy.array) -> dict:
         
         row["Average"] = "{0:,.2f}".format( round(numpy.mean(array),2)) #Decimal to second digit precision
         

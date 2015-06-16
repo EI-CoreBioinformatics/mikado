@@ -1,4 +1,5 @@
 import os,sys
+import operator
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import abc
 import random
@@ -267,31 +268,22 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
     @classmethod
     def choose_best(cls, transcripts):
-        '''Given a dictionary of metrics, this function will select the best according to the "score" item inside the dictionary itself.
-        Form of the dictionary:
-        
-        dict( (<transcript_id>, dict( (key,val),.. (<"score">, val), ...)))
-        
-        It returns two items:
-            transcript_id, score
+        '''Given a transcript dictionary, this function will choose the one with the highest score.
+        If multiple transcripts have exactly the same score, one will be chosen randomly. 
         
         '''
         if len(transcripts)==0:
             raise ValueError("No transcripts provided!")
         
-        scores=dict((tid,transcripts[tid].score) for tid in transcripts  )
+        scores=sorted( [(transcripts[tid].score, tid) for tid in transcripts], reverse=True, key=operator.itemgetter(0)  )
+        max_val = scores[0][0] #Choose the transcript with the highest score
+        selected_index=0
+        selected_tids = [scores[0][1]]
+        while selected_index+1<len(scores)-1 and scores[selected_index+1][0]==max_val: #While the next transcript has the same score as the maximum, add it
+            selected_tids.append(scores[selected_index+1][1])
+            selected_index+=1
         
-        selected_tid = list(filter( lambda tid: scores[tid]==max(scores.values()), scores ))
-        if len(selected_tid)!=1:
-            if len(selected_tid)==0:
-                raise ValueError("Odd. I have not been to select the best transcript among these:\n{0}".format(
-                                                                                                               "\n".join(["{0}\t{1}".format(key, scores[key]) for key in scores ]  )  
-                                                                                                               ))
-            else:
-                selected_tid = random.sample(selected_tid,1)
-        selected_tid=selected_tid[0]
-        return selected_tid
-
+        return random.choice(selected_tids) #Choose the best transcript randomly among the possibilities
 
     ####### Class instance methods  #######
 

@@ -220,16 +220,12 @@ class abstractlocus(metaclass=abc.ABCMeta):
         for num in range(len(objects)): #Assign each object to an index
             indexer[num]=objects[num]
 
-        edges=set() #Calculate connections
+        #edges=set() #Calculate connections
         for num in indexer:
             obj=indexer[num]
             for other_num in indexer:
-                if (num!=other_num) and inters(obj, indexer[other_num], **kwargs): 
-                    edge=tuple(sorted( [num, other_num] ))
-                    edges.add(edge)
-
-        for edge in edges:
-            graph.add_edge(*edge)
+                if (num!=other_num) and inters(obj, indexer[other_num], **kwargs):
+                    graph.add_edge(*tuple(sorted( [num, other_num] ))) 
 
         cliques=list(networkx.find_cliques(graph))
         communities = list(networkx.k_clique_communities(graph, 2, cliques))+[frozenset(x) for x in cliques if len(x)==1]
@@ -251,7 +247,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
         graph = dict()
         for obj in objects:
-            graph[obj]=set( other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True )
+            graph[obj]=[ other_obj for other_obj in objects if (obj!=other_obj) and inters(obj,other_obj) is True ]
 
         ngraph=networkx.Graph()
         ngraph.add_nodes_from(list(graph.keys()))
@@ -272,18 +268,11 @@ class abstractlocus(metaclass=abc.ABCMeta):
         If multiple transcripts have exactly the same score, one will be chosen randomly. 
         
         '''
-        if len(transcripts)==0:
-            raise ValueError("No transcripts provided!")
+
+        #Choose one transcript randomly between those that have the maximum score 
+        return random.choice(list(filter(lambda t: t.score == max( transcripts.values(), key=operator.attrgetter("score") ).score, 
+                                         transcripts.values())   )).id
         
-        scores=sorted( [(transcripts[tid].score, tid) for tid in transcripts], reverse=True, key=operator.itemgetter(0)  )
-        max_val = scores[0][0] #Choose the transcript with the highest score
-        selected_index=0
-        selected_tids = [scores[0][1]]
-        while selected_index+1<len(scores)-1 and scores[selected_index+1][0]==max_val: #While the next transcript has the same score as the maximum, add it
-            selected_tids.append(scores[selected_index+1][1])
-            selected_index+=1
-        
-        return random.choice(selected_tids) #Choose the best transcript randomly among the possibilities
 
     ####### Class instance methods  #######
 

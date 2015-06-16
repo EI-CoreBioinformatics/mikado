@@ -207,17 +207,17 @@ class Calculator:
 
     def get_stats(self, row, array):
         
-        row["Average"] = round(numpy.mean(array),2)
+        row["Average"] = "{0:,.2f}".format( round(numpy.mean(array),2)) #Decimal to second digit precision
+        
         counter_object = Counter(array)
-        moder = [x for x in counter_object if counter_object[x]==max(counter_object.values())]
+        moder = [x for x in counter_object if counter_object[x]==counter_object.most_common(1)[0][1]]
         row["Mode"] = ";".join( str(x) for x in moder )
         quantiles = mquantiles(array, prob=[0,0.05, 0.10, 0.25, 0.5, 0.75,0.9, 0.95, 1]  )
         for key,val in zip(['Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max'   ], quantiles):
             try:
-                row[key] = "{0:,g}".format(int(round(val)))
+                row[key] = "{0:,.0f}".format(val) #No decimal
             except:
                 row[key] = val
-            
         return row
 
     def writer(self):

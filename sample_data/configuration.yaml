@@ -12,7 +12,7 @@ chimera_split:
     evalue: 0.0001
     hsp_evalue: 0.0001
     leniency: STRINGENT
-    max_target_seqs: 10
+    max_target_seqs: 3
     minimal_hsp_overlap: 0.9
 log_settings:
   log: null

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-#import sys
-#from logging import Logger
 import re
 import multiprocessing
 import csv
@@ -21,7 +19,6 @@ import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import concurrent.futures
 import threading
-
 
 #from memory_profiler import profile
 

@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import asyncio
 if sys.version_info.minor>4 or (sys.version_info.minor == 4 and sys.version_info.micro>=4):
     #Necessary for future compatibility
-    from asyncio import ensure_future #@UndefinedVariable
+    from asyncio import ensure_future  # @NoMove
 else:
     from asyncio import async as ensure_future
 

@@ -11,7 +11,7 @@ from shanghai_lib.parsers import Parser
  
 class BED12:
     
-    def __init__(self, *args, fasta_index = None, transcriptomic=False):
+    def __init__(self, *args:str, fasta_index = None, transcriptomic=False):
         if len(args)==0:
             self.header=True
             return 
@@ -97,7 +97,7 @@ class BED12:
         return self.__strand
     
     @strand.setter
-    def strand(self,strand):
+    def strand(self,strand:str):
         if strand in (".","?"):
             self.__strand = None
         elif strand in ("+", "-"):
@@ -114,7 +114,7 @@ class BED12:
         return self.__has_start
     
     @has_start_codon.setter
-    def has_start_codon(self,value):
+    def has_start_codon(self,value:bool):
         if value not in (None,True,False):
             raise ValueError()
         self.__has_start = value 
@@ -124,7 +124,7 @@ class BED12:
         return self.__has_stop
     
     @has_stop_codon.setter
-    def has_stop_codon(self,value):
+    def has_stop_codon(self,value:bool):
         if value not in (None,True,False):
             raise ValueError()
         self.__has_stop = value 

@@ -21,13 +21,13 @@ import logging
 '''This module is used to serialise BLAST objects into a database.'''
 
 
-def mean(l):
+def mean(l: list):
 	if len(l)==0:
 		raise ZeroDivisionError
 	return sum(l)/len(l)
 
 
-def merge(intervals):
+def merge(intervals: [(int,int)]):
 	
 	'''This function is used to merge together intervals, which have to be supplied as a list
 	of duplexes - (start,stop). The function will then merge together overlapping tuples and

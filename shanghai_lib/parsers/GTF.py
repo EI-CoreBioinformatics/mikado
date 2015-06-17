@@ -4,7 +4,7 @@ import sys,os.path
 import copy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from shanghai_lib.parsers import Parser
-import re
+# import re
 
 class gtfLine(object):
     '''This class defines a typical GTF line, with some added functionality to make it useful in e.g. parsing cufflinks GTF files or creating GTF lines from scratch.
@@ -38,14 +38,19 @@ class gtfLine(object):
             line=args[0]
         else:
             return
-        if line=='': return
+        if line=='':
+            raise StopIteration
         
-        if line==None or line[0]=="#":
+        if line==None or line[0]=="#" or line.rstrip()=='':
             self.fields=[]
             self.attributes = self.info = dict()
             self.transcript=None
             self.gene=None
-            self.header=True
+            if line is None:
+                self.header=False
+            else:
+                self.header = True
+            return 
         else:
             assert isinstance(line,str)
             self.fields=line.rstrip().split('\t')
@@ -118,7 +123,7 @@ class gtfLine(object):
                 except KeyError: pass
 
             for info in [x for x in list(self.info.keys()) if x not in order]: #Aggiungo eventuali altri campi
-                self._info.append(info+' "'+self.info[info]+'"')
+                self._info.append(info+' "'+self.attributes[info]+'"')
             self.fields.append('; '.join(self._info))
             self.fields[-1]+=';' #Fields finito, si può stampare.
 

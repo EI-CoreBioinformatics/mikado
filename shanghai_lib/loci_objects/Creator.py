@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import re
-from sys import version_info
 import multiprocessing
 import csv
 import os
-import logging, logging.handlers
+import logging
+from logging import handlers as logging_handlers
 import time
 
 #SQLAlchemy imports
@@ -19,7 +19,6 @@ import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import concurrent.futures
-import asyncio
 import threading
 
 
@@ -127,7 +126,7 @@ class Creator:
         
             session.close()
         
-        self.log_writer = logging.handlers.QueueListener(self.logging_queue, self.logger)
+        self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
         
         return
@@ -140,7 +139,7 @@ class Creator:
         '''Listener process that will print out the loci recovered by the analyse_locus function.'''
         
 
-        handler = logging.handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
+        handler = logging_handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
         logger = logging.getLogger( "queue_listener")
         logger.propagate=False
         logger.addHandler(handler)
@@ -216,7 +215,7 @@ class Creator:
     
         #Define the logger
         if slocus is None: return
-        handler = logging.handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
+        handler = logging_handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
         logger = logging.getLogger( "{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end) )
         logger.addHandler(handler)
         logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
@@ -316,7 +315,7 @@ class Creator:
         currentLocus = None
         currentTranscript = None
         
-        self.logger_queue_handler = logging.handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
+        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
         self.queue_logger = logging.getLogger( "parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration

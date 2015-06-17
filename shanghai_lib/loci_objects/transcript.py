@@ -142,9 +142,9 @@ class transcript:
             strand=self.strand
         
         if to_gtf is True:
-            parent_line = gtfLine('')
+            parent_line = gtfLine(None)
         else:
-            parent_line=gffLine('')
+            parent_line=gffLine(None)
 
         if print_cds is True:
             
@@ -214,9 +214,9 @@ class transcript:
                             index=exon_count
                         feature=segment[0]
                     if to_gtf is True:
-                        exon_line=gtfLine('')
+                        exon_line=gtfLine(None)
                     else:
-                        exon_line=gffLine('')
+                        exon_line=gffLine(None)
                         
                     exon_line.chrom=self.chrom
                     exon_line.source=self.source
@@ -239,9 +239,9 @@ class transcript:
                 lines.extend(exon_lines) 
         else:
             if to_gtf is True:
-                parent_line = gtfLine('')
+                parent_line = gtfLine(None)
             else:
-                parent_line=gffLine('')
+                parent_line=gffLine(None)
                     
             parent_line.chrom=self.chrom
             parent_line.source=self.source
@@ -263,9 +263,9 @@ class transcript:
             for exon in self.exons:
                 exon_count+=1
                 if to_gtf is True:
-                    exon_line = gtfLine('')
+                    exon_line = gtfLine(None)
                 else:
-                    exon_line = gffLine('')
+                    exon_line = gffLine(None)
                 exon_line.chrom=self.chrom
                 exon_line.source=self.source
                 exon_line.feature="exon"

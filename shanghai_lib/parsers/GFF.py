@@ -28,6 +28,8 @@ class gffLine(object):
         self.id=None
         self.parent=None
         self.attributeOrder=[]
+        if line is None: #Empty constructor
+            return
         if line=='' and my_line=='': return
 
         if line=='' and my_line!="":

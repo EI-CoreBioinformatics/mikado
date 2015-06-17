@@ -5,6 +5,11 @@ import sys,os.path
 import sqlalchemy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import asyncio
+if sys.version_info.minor>4 or (sys.version_info.minor == 4 and sys.version_info.micro>=4):
+    #Necessary for future compatibility
+    from asyncio import ensure_future #@UndefinedVariable
+else:
+    from asyncio import async as ensure_future
 
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -241,11 +246,11 @@ class superlocus(abstractlocus):
         self.sessionmaker = sessionmaker()
         self.sessionmaker.configure(bind=self.engine)
         self.session=self.sessionmaker()
-
-    #@profile   
+   
     @asyncio.coroutine 
     def load_transcript_data(self, tid ):
         '''This routine is used to load data for a single transcript.'''
+        
         
         self.transcripts[tid].set_logger(self.logger)
         yield from self.transcripts[tid].load_information_from_db( self.json_dict, introns = self.locus_verified_introns, session = self.session)
@@ -278,12 +283,9 @@ class superlocus(abstractlocus):
                                                             ).all()) == 1:
                     self.locus_verified_introns.append(intron)
 
-        tids = list(self.transcripts.keys())
         loop = asyncio.get_event_loop()
-        tasks = []
-
-        for tid in tids:
-            tasks.append(asyncio.async(self.load_transcript_data(tid))) 
+        tasks = [ensure_future(self.load_transcript_data(tid)) for tid in self.transcripts]
+#         
         loop.run_until_complete(asyncio.wait(tasks))
         self.session.close()
 

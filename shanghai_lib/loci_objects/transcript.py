@@ -672,7 +672,6 @@ class transcript:
         self.sessionmaker.configure(bind=self.engine)
         self.session=self.sessionmaker()
     
-    #@profile
     @asyncio.coroutine
     def load_information_from_db(self, json_dict, introns=None, session=None, loop=None):
         '''This method will invoke the check for:
@@ -762,8 +761,6 @@ class transcript:
             candidate_orfs=[new_orfs[0].as_bed12()]
             for orf in filter(lambda x: x.cds_len>minimal_secondary_orf_length, new_orfs[1:]):
                 candidate_orfs.append(orf.as_bed12())
-        
-        del new_orfs
                 
         return candidate_orfs
     
@@ -938,8 +935,8 @@ class transcript:
         return
         
 
-    #@profile
     @asyncio.coroutine
+    #@profile
     def load_blast(self):
         
         '''This method looks into the DB for hits corresponding to the desired requirements.

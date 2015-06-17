@@ -332,33 +332,38 @@ class abstractlocus(metaclass=abc.ABCMeta):
             self.initialized = False
         
         else:
-            
+            keys = list(filter(lambda x: x!=tid, self.transcripts.keys()))
             self.end=max(self.transcripts[t].end for t in self.transcripts if t!=tid)
             self.start=min(self.transcripts[t].start for t in self.transcripts if t!=tid)
             
             #Remove excess exons
-            other_exons = [set(self.transcripts[otid].exons) for otid in self.transcripts if otid!=tid]
+            other_exons = [set(self.transcripts[otid].exons if otid in self.transcripts else [] ) for otid in keys ]
             other_exons = set.union( *other_exons )
             exons_to_remove = set.difference(set(self.transcripts[tid].exons), other_exons)
             self.exons.difference_update(exons_to_remove) 
             
             #Remove excess introns
-            other_introns = set.union(*[ set(self.transcripts[otid].introns) for otid in self.transcripts if otid!=tid  ])
+            other_introns = set.union(*[ set(self.transcripts[otid].introns if otid in self.transcripts else []) for otid in keys ])
             introns_to_remove = set.difference(set(self.transcripts[tid].introns), other_introns)
             self.introns.difference_update(introns_to_remove) 
 
             #Remove excess cds introns
-            other_cds_introns = set.union(*[ set(self.transcripts[otid].combined_cds_introns) for otid in self.transcripts if otid!=tid  ])
+            other_cds_introns = set.union(*[ set(self.transcripts[otid].combined_cds_introns if otid in self.transcripts else []  ) for otid in keys ])
+            for otid in keys:
+                if otid in self.transcripts:
+                    other_cds_introns.update(set(self.transcripts[otid].combined_cds_introns))
+                
+#             other_cds_introns = set.union(*[ set(self.transcripts[otid].combined_cds_introns) for otid in self.transcripts if otid!=tid  ])
             cds_introns_to_remove = set.difference(set(self.transcripts[tid].combined_cds_introns), other_cds_introns)
             self.combined_cds_introns.difference_update(cds_introns_to_remove) 
 
             #Remove excess selected_cds_introns
-            other_selected_cds_introns = set.union(*[ set(self.transcripts[otid].selected_cds_introns) for otid in self.transcripts if otid!=tid  ])
+            other_selected_cds_introns = set.union(*[ set(self.transcripts[otid].selected_cds_introns if otid in self.transcripts else []) for otid in keys  ])
             selected_cds_introns_to_remove = set.difference(set(self.transcripts[tid].selected_cds_introns), other_selected_cds_introns)
             self.selected_cds_introns.difference_update(selected_cds_introns_to_remove) 
 
             #Remove excess splices
-            other_splices = set.union(*[ self.transcripts[otid].splices for otid in self.transcripts if otid!=tid  ])
+            other_splices = set.union(*[ self.transcripts[otid].splices if  otid in self.transcripts else set() for otid in keys  ])
             splices_to_remove = set.difference(self.transcripts[tid].splices, other_splices)
             self.splices.difference_update(splices_to_remove) 
                 

@@ -19,6 +19,9 @@ import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
+import concurrent.futures
+import threading
+
 
 #from memory_profiler import profile
 
@@ -47,7 +50,7 @@ class Creator:
         self.sub_out = self.json_conf["subloci_out"]
         self.monolocus_out = self.json_conf["monoloci_out"]
         self.locus_out = self.json_conf["loci_out"]
-        self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool"]
+        
         self.commandline = None
         if self.locus_out is None:
             raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
@@ -70,7 +73,12 @@ class Creator:
 
         return parser(self.input_file)
 
-    def logging_utility(self):
+    def setup_logger(self):
+        
+        '''This function sets up the logger for the class. It creates the instance attribute "log_writer", which
+        is itself a logging.handlers.QueueListener instance listening on the logging_queue instance attribute
+        (which is a normal mp.Manager.Queue instance).'''
+        
         self.formatter = logging.Formatter("{asctime} - {levelname} - {module}:{lineno} - {funcName} - {name} - {message}",
                                            style="{"
                                            )
@@ -119,13 +127,9 @@ class Creator:
         
             session.close()
         
-        while True:
-            record = self.logging_queue.get()
-            if record is None:
-                break
-            self.logger.handle(record)
-            
-        self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
+        self.log_writer = logging.handlers.QueueListener(self.logging_queue, self.logger)
+        self.log_writer.start()
+        
         return
 
     def set_commandline(self, string: str):
@@ -178,7 +182,7 @@ class Creator:
                 continue
                 
             if stranded_locus=="EXIT":
-                break #Poison pill - once we receive a "EXIT" signal, we exit
+                return #Poison pill - once we receive a "EXIT" signal, we exit
             if self.sub_out is not None: #Skip this section if no sub_out is defined
                 sub_lines = stranded_locus.__str__(level="subloci", print_cds=not self.json_conf["run_options"]["exclude_cds"] )
                 sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
@@ -212,6 +216,7 @@ class Creator:
         '''
     
         #Define the logger
+        if slocus is None: return
         handler = logging.handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
         logger = logging.getLogger( "{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end) )
         logger.addHandler(handler)
@@ -283,9 +288,11 @@ class Creator:
 
 
     def __getstate__(self):
+        self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool", "main_logger", "log_handler", "log_writer", "logger"]
         state = self.__dict__.copy()
         for not_pickable in self.not_pickable:
-            del state[not_pickable]
+            if not_pickable in state:
+                del state[not_pickable]            
             
         return state
   
@@ -301,13 +308,13 @@ class Creator:
         self.manager = multiprocessing.Manager() #@UndefinedVariable
         self.printer_queue=self.manager.Queue()
         self.logging_queue = self.manager.Queue() #queue for logging
-        
-        self.lock=self.manager.RLock()
-        self.log_process = multiprocessing.Process(target = self.logging_utility) #@UndefinedVariable 
-        self.log_process.start()
-        
-        self.printer_process=multiprocessing.Process(target=self.printer) # @UndefinedVariable
+        pool = concurrent.futures.ProcessPoolExecutor(self.threads)
+        self.setup_logger()
+#         pool.submit(self.printer)
+
+        self.printer_process=threading.Thread(target=self.printer) # @UndefinedVariable
         self.printer_process.start()
+        
         
         currentLocus = None
         currentTranscript = None
@@ -318,7 +325,6 @@ class Creator:
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         self.queue_logger.propagate = False
         
-        jobs=[]
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)
@@ -328,16 +334,9 @@ class Creator:
                         currentLocus.add_transcript_to_locus(currentTranscript, check_in_locus=False)
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
-                        if currentLocus is not None:
-                            while len(jobs)>=self.threads:
-                                time.sleep(0.01)
-                                for job in jobs:
-                                    if job.is_alive() is False:
-                                        jobs.remove(job)
-  
-                            proc=multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
-                            proc.start()
-                            jobs.append(proc)
+                        self.analyse_locus(currentLocus)
+#                         pool.submit(self.analyse_locus, currentLocus)
+                            
 
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
@@ -348,37 +347,18 @@ class Creator:
             if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                while len(jobs)>=self.threads:
-                    time.sleep(0.01)
-                    for job in jobs:
-                        if job.is_alive() is False:
-                            jobs.remove(job)
-  
-                  
-                proc=multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
-                proc.start()
-                jobs.append(proc)
+                self.analyse_locus(currentLocus)
+#                 pool.submit(self.analyse_locus, currentLocus)
 
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
-            while len(jobs)>=self.threads:
-                time.sleep(0.01)
-                for job in jobs:
-                    if job.is_alive() is False:
-                        jobs.remove(job)
-                        break
-  
-            proc=multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,)) # @UndefinedVariable
-            proc.start()
-            jobs.append(proc)
-            
-        for job in jobs:
-            if job.is_alive() is True:
-                job.join()
+            self.analyse_locus(currentLocus)
+#             pool.submit(self.analyse_locus, currentLocus)
         
+        pool.shutdown(wait=True)     
         self.printer_queue.put("EXIT")
         self.printer_process.join()
-        self.logging_queue.put(None)
-        self.log_process.join()
+        self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
+        self.log_writer.stop()
         return 0

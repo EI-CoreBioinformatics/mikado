@@ -160,6 +160,7 @@ class Hit(dbBase):
 		return "\t".join(str(x) for x in line)
 
 
+	#@profile
 	def as_dict(self):
 		'''Method to return a dict representation of the object.
 		Necessary for storing.'''
@@ -299,7 +300,7 @@ class Hsp(dbBase):
 		line.append(self.hsp_evalue)
 		return "\t".join([str(x) for x in line])
 		
-		
+	#@profile
 	def as_dict(self):
 		
 		'''Method to return a dict representation of the object. Necessary for storing.'''
@@ -312,7 +313,7 @@ class Hsp(dbBase):
 			"hsp_evalue",
 			]
 		
-		special_keys=["query","target","query_hsp_cov","target_hsp_cov"] #Keys which we want to assign directly rather than inside a loop
+		special_keys=["query_hsp_cov","target_hsp_cov"] #Keys which we want to assign directly rather than inside a loop
 		
 		state=dict().fromkeys(keys+special_keys)
 		state["query"]=self.query

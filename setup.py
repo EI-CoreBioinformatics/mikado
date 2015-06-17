@@ -3,6 +3,7 @@
 from setuptools import setup, find_packages
 from codecs import open
 from os import path
+import glob
 
 here = path.abspath(path.dirname("__file__"))
 
@@ -36,11 +37,13 @@ setup(
 
     packages = find_packages(),
 
+    scripts = glob.glob("util/*.py"),
+
     install_requires=["pyyaml",
                       "networkx",
                       "sqlalchemy>=1",
-                      "biopython" ],
+                      "biopython>=1.6" ],
 
-    data_files = [ ("sample_data", ["sample_data/*"])],
+    data_files = [ ("sample_data", glob.glob("sample_data/*"))],
 
 )

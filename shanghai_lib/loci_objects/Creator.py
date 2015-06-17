@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import re
+from sys import version_info
 import multiprocessing
 import csv
 import os
@@ -19,6 +20,11 @@ import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import concurrent.futures
 import asyncio
+if version_info.minor>4 or (version_info.minor==4 and version_info.micro>=4):
+    from asyncio import ensure_future
+else:
+    from asyncio import async as ensure_future
+
 
 #from memory_profiler import profile
 
@@ -356,7 +362,7 @@ class Creator:
         pool.shutdown(wait=True)     
         self.printer_queue.put("EXIT")
         #The printing process must be started AFTER we have put the stopping signal  into the queue
-        loop.run_until_complete(asyncio.async(self.printer()))
+        loop.run_until_complete(ensure_future(self.printer()))
 #         self.printer_process.join()
         loop.close()
         self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )

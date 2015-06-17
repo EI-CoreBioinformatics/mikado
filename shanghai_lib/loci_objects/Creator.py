@@ -172,7 +172,6 @@ class Creator:
             print('##gff-version 3', file=mono_out)
         
         while True:
-            yield from asyncio.sleep(0.001)
             try:
                 stranded_locus=self.printer_queue.get()
             except multiprocessing.managers.RemoteError as err:

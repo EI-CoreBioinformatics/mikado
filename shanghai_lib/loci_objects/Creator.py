@@ -18,7 +18,7 @@ import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import concurrent.futures
-import threading
+import asyncio
 
 #from memory_profiler import profile
 
@@ -132,7 +132,7 @@ class Creator:
     def set_commandline(self, string: str):
         self.commandline=string
 
-
+    @asyncio.coroutine
     def printer(self):
 
         '''Listener process that will print out the loci recovered by the analyse_locus function.'''
@@ -172,6 +172,7 @@ class Creator:
             print('##gff-version 3', file=mono_out)
         
         while True:
+            yield from asyncio.sleep(0.001)
             try:
                 stranded_locus=self.printer_queue.get()
             except multiprocessing.managers.RemoteError as err:
@@ -309,9 +310,9 @@ class Creator:
         self.setup_logger()
 #         pool.submit(self.printer)
 
-        self.printer_process=threading.Thread(target=self.printer) # @UndefinedVariable
-        self.printer_process.start()
-        
+        loop = asyncio.get_event_loop()
+#         self.printer_process=threading.Thread(target=self.printer) # @UndefinedVariable
+#         self.printer_process.start()
         
         currentLocus = None
         currentTranscript = None
@@ -352,10 +353,13 @@ class Creator:
         if currentLocus is not None:
             self.analyse_locus(currentLocus)
 #             pool.submit(self.analyse_locus, currentLocus)
-        
+                
         pool.shutdown(wait=True)     
         self.printer_queue.put("EXIT")
-        self.printer_process.join()
+        #The printing process must be started AFTER we have put the stopping signal  into the queue
+        loop.run_until_complete(asyncio.async(self.printer()))
+#         self.printer_process.join()
+        loop.close()
         self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
         self.log_writer.stop()
         return 0

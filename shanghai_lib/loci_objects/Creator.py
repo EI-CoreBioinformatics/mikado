@@ -20,10 +20,7 @@ import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import concurrent.futures
 import asyncio
-if version_info.minor>4 or (version_info.minor==4 and version_info.micro>=4):
-    from asyncio import ensure_future
-else:
-    from asyncio import async as ensure_future
+import threading
 
 
 #from memory_profiler import profile
@@ -138,7 +135,6 @@ class Creator:
     def set_commandline(self, string: str):
         self.commandline=string
 
-    @asyncio.coroutine
     def printer(self):
 
         '''Listener process that will print out the loci recovered by the analyse_locus function.'''
@@ -313,11 +309,9 @@ class Creator:
         self.logging_queue = self.manager.Queue() #queue for logging
         pool = concurrent.futures.ProcessPoolExecutor(self.threads)
         self.setup_logger()
-#         pool.submit(self.printer)
-
-        loop = asyncio.get_event_loop()
-#         self.printer_process=threading.Thread(target=self.printer) # @UndefinedVariable
-#         self.printer_process.start()
+        
+        self.printer_process=threading.Thread(target=self.printer) # @UndefinedVariable
+        self.printer_process.start()
         
         currentLocus = None
         currentTranscript = None
@@ -362,9 +356,7 @@ class Creator:
         pool.shutdown(wait=True)     
         self.printer_queue.put("EXIT")
         #The printing process must be started AFTER we have put the stopping signal  into the queue
-        loop.run_until_complete(ensure_future(self.printer()))
-#         self.printer_process.join()
-        loop.close()
+        self.printer_process.join()
         self.main_logger.info("Finished analysis of {0}".format(self.input_file)  )
         self.log_writer.stop()
         return 0

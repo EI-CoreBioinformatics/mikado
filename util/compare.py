@@ -15,6 +15,7 @@ from shanghai_lib.loci_objects.transcript import transcript
 from shanghai_lib.parsers.GTF import GTF
 from shanghai_lib.parsers.GFF import GFF3
 import logging
+import logging.handlers
 import bisect # Needed for efficient research
 
 '''This is still an embryo. Ideally, this program would perform the following functions:
@@ -27,12 +28,23 @@ import bisect # Needed for efficient research
 
 def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespace):
     
+    queue_handler = logging.handlers.QueueHandler(args.log_queue)
+    logger = logging.getLogger("selector")
+    logger.addHandler(queue_handler)
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+    
+    logger.debug("Started with {0}".format(tr.id))
+    
     keys = indexer[tr.chrom]
     if len(keys)==0:
         ccode = "u"
         match = None
         result = args.formatter( tr.id, ",".join(tr.parent), "NA", "NA", ccode, *[0]*6  )
         args.queue.put(result)
+        logger.debug("Finished with {0}".format(tr.id))
         return
         
     indexed = bisect.bisect(keys, (tr.start,tr.end) )
@@ -70,14 +82,14 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     #Polymerase run-on
     if len(found)==0:
         ccode = "u"
-        args.queue.put( args.formatter( tr.id, ",".join(tr.parent), "NA", "NA", ccode, *[0]*6   ) )
-        return
+        args.queue.put( args.formatter( "NA", "NA", ccode, tr.id, ",".join(tr.parent), *[0]*6   ) )
 
-    if distances[0][1]>0:
+
+    elif distances[0][1]>0:
         match = random.choice( positions[tr.chrom][key]  )
         ccode = "p"
         args.queue.put(args.formatter( tr.id, ",".join(tr.parent), match.id, random.choice(list(match.transcripts.keys())), ccode, *[0]*6))
-        return 
+
 #         else:
 #             match=None
 #             ccode="u"
@@ -105,7 +117,6 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             
             result = args.formatter(*fields)
             args.queue.put(result)
-            return 
             
         else:
             match =  positions[tr.chrom][matches[0][0]][0]
@@ -113,7 +124,10 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             best = res[0]
             args.queue.put(best)
 
-            return 
+    logger.debug("Finished with {0}".format(tr.id))
+    logger.removeHandler(queue_handler)
+    queue_handler.close()
+    return
     
     
 def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtuple) ->  collections.namedtuple:
@@ -142,6 +156,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     - h    the transcript is multiexonic and extends a monoexonic reference transcript
     - O    Reverse generic overlap - the reference is monoexonic and overlaps the prediction
     - K    Reverse intron retention - the annotated gene model retains an intron compared to the prediction
+    - P    Possible polymerase run-on fragment (within 2Kbases of a reference transcript), on the opposite strand
 
     ''' 
     
@@ -193,12 +208,11 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
         if other.strand == tr.strand:
             ccode = "p"
         else:
-            ccode = "u" 
+            ccode = "P" 
  
     elif nucl_precision==1:
         if tr.exon_num==1 or (tr.exon_num>1 and junction_precision==1):
             ccode="c"
-        
  
     if ccode is None:
         if min(tr.exon_num, other.exon_num)>1:
@@ -306,16 +320,37 @@ def printer( args ):
    
     rower=csv.DictWriter(args.out, args.formatter._fields, delimiter="\t"  )
     rower.writeheader()
-    print("Starting to listening")
-    while True:
-        try:
-            res = args.queue.get(block=False)
-            if res=="EXIT": return
-            rower.writerow(res._asdict())
-        except queue.Empty:
-            time.sleep(0.1)
-            continue
+    
+    logger = logging.getLogger("printer")
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+        
+    queue_handler = logging.handlers.QueueHandler(args.log_queue)
+    logger.addHandler(queue_handler)
+    logger.propagate=False
+    logger.debug("Started the printer process")
 
+    done=0
+    while True:
+        res = args.queue.get()
+        if res=="EXIT":
+            logger.debug("Receveid EXIT signal")
+            logger.info("Finished {0} transcripts".format(done))
+            logger.removeHandler(queue_handler)
+            queue_handler.close()
+            break
+        done+=1
+        logger.info("Finished {0} transcripts".format(done))
+        if done % 20000 == 0:
+            logger.info("Done 20000 transcripts")
+        elif done % 1000 == 0:
+            logger.debug("Done 1000 transcripts")
+        rower.writerow(res._asdict())
+        args.queue.task_done = True
+
+    return
 
 def main():
     
@@ -338,6 +373,8 @@ def main():
                         help='Maximum distance for a transcript to be considered a polymerase run-on. Default: %(default)s')
     parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("-o","--out", default=sys.stdout, type = argparse.FileType("w") )
+    parser.add_argument("-l","--log", default=None, type = str)
+    parser.add_argument("-v", "--verbose", action="store_true", default=False)
 
     
     args=parser.parse_args()
@@ -348,6 +385,55 @@ def main():
         ref_gtf = True
     else:
         ref_gtf = False
+
+    formatter=collections.namedtuple("compare",
+                             [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1",
+                              "j_prec", "j_recall", "j_f1",
+                              ]
+                             , verbose=False)
+    args.formatter = formatter
+
+    args.queue = queue.Queue(-1)
+#     loop = asyncio.get_event_loop()
+
+    logger = logging.getLogger("main")
+    formatter = logging.Formatter("{asctime} - {levelname} - {message}", style="{")
+    if args.log is None:
+        if sys.version_info.minor<4 or (sys.version_info.minor==4 and sys.version_info.micro<1):
+            print( """Due to a Python bug (<3.4.1), I cannot use stderr for logging - it will sporadically cause deadlocks.
+            Documented at: http://bugs.python.org/issue21149
+            Please update your Python version.
+            Printing to default_log.txt.
+            """, file=sys.stderr  )
+            handler = logging.FileHandler( "default_log.txt", "w")
+        else: 
+        
+            handler = logging.StreamHandler()
+    else:
+        handler = logging.FileHandler(args.log, 'w')
+    handler.setFormatter(formatter)
+    
+    if args.verbose is False:
+        logger.setLevel(logging.INFO)
+    else:
+        logger.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
+    logger.info("Start")
+    logger.propagate=False
+
+    
+    args.log_queue = queue.Queue(-1)
+#     args.queue_handler = logging.handlers.QueueHandler(args.log_queue)
+    queue_listener = logging.handlers.QueueListener(args.log_queue, logger)
+    
+    queue_listener.propagate=False
+    queue_listener.start()
+    
+    pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
+    pp.start()
+
+    
+    logger.info("Starting parsing the reference")
     
     for row in args.reference:
         #Assume we are going to use GTF for the moment
@@ -361,7 +447,7 @@ def main():
             continue
         else:
             transcripts[row.gene][row.transcript].addExon(row)
-        
+    logger.info("Finished parsing the reference")
     for tr in transcripts:
         transcripts[tr].finalize()
         key = (transcripts[tr].start,transcripts[tr].end)
@@ -372,23 +458,12 @@ def main():
     indexer = collections.defaultdict(list).fromkeys(positions)
     for chrom in positions:
         indexer[chrom]=sorted(positions[chrom].keys())
-    print("Finished parsing reference")
+    logger.info("Finished preparation")
 
-    formatter=collections.namedtuple("compare",
-                             [ "TID", "GID", "RefId", "RefGene", "ccode", "n_prec", "n_recall", "n_f1",
-                              "j_prec", "j_recall", "j_f1",
-                              ]
-                             , verbose=False)
-    args.formatter = formatter
 
-    args.queue = queue.Queue()
-#     loop = asyncio.get_event_loop()
-    pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
-    pp.start()
-    
-    print("Initialising printer")
-    print("Initialised printer")
+    logger.debug("Initialised printer")    
     pool = concurrent.futures.ProcessPoolExecutor(args.threads)
+    logger.debug("Initialised worker pool")
     
     currentTranscript = None
     for row in args.prediction:
@@ -411,13 +486,28 @@ def main():
         pool.submit(get_best(positions, indexer, currentTranscript, args))
     except shanghai_lib.exceptions.InvalidTranscript:
         pass
-    print("Finished parsing")
-    pool.shutdown(wait=True)
+    logger.info("Finished parsing")
+    pool.shutdown(wait=False)
+    logger.info("Pool shut down")
 
     args.queue.put("EXIT")
-    
-    
-#     loop.run_until_complete(asyncio.async(printer(args)))
+    args.queue.all_tasks_done = True
+
+    logger.info("Sent EXIT signal")
     pp.join()
+    logger.info("Printer process alive: {0}".format(pp.is_alive()))
+#     loop.run_until_complete(asyncio.async(printer(args)))
+    logger.info("Finished")
+    queue_listener.enqueue_sentinel()
+    handler.close()
+#     print("Finished logging")
+    queue_listener.stop()
+    return
+#     args.queue_handler.close()
+#     
+#     
+
+    
+    
 
 if __name__=='__main__': main()

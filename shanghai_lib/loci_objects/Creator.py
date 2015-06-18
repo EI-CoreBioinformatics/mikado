@@ -283,6 +283,16 @@ class Creator:
         handler.close()
         return
 
+
+#     def __getstate__(self):
+#         self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool", "main_logger", "log_handler", "log_writer", "logger"]
+#         state = self.__dict__.copy()
+#         for not_pickable in self.not_pickable:
+#             if not_pickable in state:
+#                 del state[not_pickable]            
+#             
+#         return state
+  
     #@profile
     def __call__(self):
         

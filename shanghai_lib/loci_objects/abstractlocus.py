@@ -96,8 +96,6 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "engine"):
             del state["engine"]
 
-        if hasattr(self, "logger"):
-            del state["logger"]
         return state
         #super.__getstate__()
         

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import re
-import multiprocessing
 import csv
 import os
 import logging
@@ -20,6 +19,7 @@ import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import concurrent.futures
 import threading
+import queue
 
 
 #from memory_profiler import profile
@@ -173,11 +173,10 @@ class Creator:
             print('##gff-version 3', file=mono_out)
         
         while True:
-            try:
-                stranded_locus=self.printer_queue.get()
-            except multiprocessing.managers.RemoteError as err:
-                logger.exception(err)
-                continue
+            stranded_locus=self.printer_queue.get()
+#             except multiprocessing.managers.RemoteError as err:
+#                 logger.exception(err)
+#                 continue
                 
             if stranded_locus=="EXIT":
                 return #Poison pill - once we receive a "EXIT" signal, we exit
@@ -284,16 +283,6 @@ class Creator:
         handler.close()
         return
 
-
-    def __getstate__(self):
-        self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool", "main_logger", "log_handler", "log_writer", "logger"]
-        state = self.__dict__.copy()
-        for not_pickable in self.not_pickable:
-            if not_pickable in state:
-                del state[not_pickable]            
-            
-        return state
-  
     #@profile
     def __call__(self):
         
@@ -303,9 +292,9 @@ class Creator:
         #NOTE: Pool, Process and Manager must NOT become instance attributes!
         #Otherwise it will raise all sorts of mistakes
         
-        self.manager = multiprocessing.Manager() #@UndefinedVariable
-        self.printer_queue=self.manager.Queue()
-        self.logging_queue = self.manager.Queue() #queue for logging
+#         self.manager = multiprocessing.Manager() #@UndefinedVariable
+        self.printer_queue=queue.Queue()
+        self.logging_queue = queue.Queue() #queue for logging
         pool = concurrent.futures.ProcessPoolExecutor(self.threads)
         self.setup_logger()
         

@@ -2,6 +2,8 @@ import sys,argparse,os
 import collections
 import operator
 import random
+import threading
+import queue
 sys.path.append(
                 os.path.dirname(
                                 os.path.dirname(__file__)
@@ -286,6 +288,13 @@ class gene:
     def __iter__(self) -> transcript:
         '''Iterate over the transcripts attached to the gene.'''
         return iter(self.transcripts.values())
+   
+def printer( args ):
+   
+    rower=csv.DictWriter(args.out, args.formatter._fields, delimiter="\t"  )
+    rower.writeheader()
+   
+   
     
 
 def main():
@@ -349,8 +358,9 @@ def main():
                              , verbose=False)
     args.formatter = formatter
 
-    rower=csv.DictWriter(args.out, formatter._fields, delimiter="\t"  )
-    rower.writeheader()
+    printer_
+    queue
+    threading
 
     currentTranscript = None
     for row in args.prediction:

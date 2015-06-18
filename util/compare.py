@@ -402,8 +402,11 @@ def main():
         else:
             currentTranscript.addExon(row)
 
-    currentTranscript.finalize()
-    pool.submit(get_best(positions, indexer, currentTranscript, args))
+    try:
+        currentTranscript.finalize()
+        pool.submit(get_best(positions, indexer, currentTranscript, args))
+    except shanghai_lib.exceptions.InvalidTranscript:
+        pass
     print("Finished parsing")
     pool.shutdown(wait=True)
 

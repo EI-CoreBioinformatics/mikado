@@ -33,7 +33,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     if len(keys)==0:
         ccode = "u"
         match = None
-        result = args.formatter( tr.id, "NA", ccode, [0]*6  )
+        result = args.formatter( tr.id, "NA", ccode, *[0]*6  )
         args.queue.put(result)
         return
         
@@ -72,13 +72,13 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     #Polymerase run-on
     if len(found)==0:
         ccode = "u"
-        args.queue.put( args.formatter( tr.id, "NA", ccode, [0]*6   ) )
+        args.queue.put( args.formatter( tr.id, "NA", ccode, *[0]*6   ) )
         return
 
     if distances[0][1]>0:
         match = random.choice( positions[tr.chrom][key]  ).id
         ccode = "p"
-        args.queue.put(args.formatter( tr.id, match, ccode, [0]*6))
+        args.queue.put(args.formatter( tr.id, match, ccode, *[0]*6))
         return 
 #         else:
 #             match=None

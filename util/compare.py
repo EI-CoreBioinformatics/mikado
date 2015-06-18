@@ -30,7 +30,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     if len(keys)==0:
         ccode = "u"
         match = None
-        result = args.formatter( tr.id, "NA", ccode, *[0]*6  )
+        result = args.formatter( tr.id, tr.parent, "NA", "NA", ccode, *[0]*6  )
         args.queue.put(result)
         return
         
@@ -69,13 +69,13 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     #Polymerase run-on
     if len(found)==0:
         ccode = "u"
-        args.queue.put( args.formatter( tr.id, "NA", ccode, *[0]*6   ) )
+        args.queue.put( args.formatter( tr.id, tr.parent, "NA", "NA", ccode, *[0]*6   ) )
         return
 
     if distances[0][1]>0:
         match = random.choice( positions[tr.chrom][key]  ).id
         ccode = "p"
-        args.queue.put(args.formatter( tr.id, match, ccode, *[0]*6))
+        args.queue.put(args.formatter( tr.id, tr.parent, match, match.gene, ccode, *[0]*6))
         return 
 #         else:
 #             match=None
@@ -94,11 +94,12 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
                 m_res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
                 res.append(m_res[0])
                 
-            fields = [tr.id]
-            fields.append( ",".join( x[1] for x in res  )  )
+            fields = [tr.id, tr.parent]
+            fields.append( ",".join( x[2] for x in res  )  )
+            fields.append( ",".join( x[3] for x in res  )  )
             ccode = ",".join(["f"] + [x.ccode for x in res]) 
             fields.append(ccode)
-            for field in args.formatter._fields[3:]:
+            for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
                 fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
             
             result = args.formatter(*fields)
@@ -251,7 +252,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     if ccode in ("e","o","c") and tr.strand is not None and other.strand is not None and tr.strand!=other.strand:
         ccode="x"
 
-    result = formatter(tr.id, other.id, ccode,
+    result = formatter(tr.id, tr.parent, other.id, other.gene, ccode,
                      round(nucl_precision*100,2), round(100*nucl_recall,2),round(100*nucl_f1,2),
                      round(junction_precision*100,2), round(100*junction_recall,2), round(100*junction_f1,2),
                      ) 
@@ -370,7 +371,7 @@ def main():
     print("Finished parsing reference")
 
     formatter=collections.namedtuple("compare",
-                             [ "TID", "RefId", "ccode", "n_prec", "n_recall", "n_f1",
+                             [ "TID", "GID", "RefId", "RefGene", "ccode", "n_prec", "n_recall", "n_f1",
                               "j_prec", "j_recall", "j_f1",
                               ]
                              , verbose=False)

@@ -1287,6 +1287,7 @@ class transcript:
             return True
         return False
 
+
     #################### Class metrics ##################################
 
     @metric

@@ -7,6 +7,7 @@ import queue
 import threading
 import concurrent.futures
 import time
+import shanghai_lib
 sys.path.append(
                 os.path.dirname(
                                 os.path.dirname(__file__)
@@ -382,6 +383,7 @@ def main():
     args.queue = queue.Queue()
 #     loop = asyncio.get_event_loop()
     pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
+    pp.start()
     
     print("Initialising printer")
     print("Initialised printer")
@@ -393,8 +395,12 @@ def main():
             continue
         if row.is_transcript is True:
             if currentTranscript is not None:
-                currentTranscript.finalize()
-                pool.submit(get_best(positions, indexer, currentTranscript, args))
+                try:
+                    currentTranscript.finalize()
+                    pool.submit(get_best(positions, indexer, currentTranscript, args))
+                except shanghai_lib.exceptions.InvalidTranscript:
+                    pass
+                
             currentTranscript=transcript(row)
         else:
             currentTranscript.addExon(row)
@@ -406,7 +412,7 @@ def main():
 
     args.queue.put("EXIT")
     
-    pp.start()
+    
 #     loop.run_until_complete(asyncio.async(printer(args)))
     pp.join()
 

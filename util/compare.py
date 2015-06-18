@@ -347,9 +347,9 @@ def printer( args ):
             break
         done+=1
         if done % 10000 == 0:
-            logger.info("Done 5000 transcripts")
+            logger.info("Done {0} transcripts".format(done))
         elif done % 1000 == 0:
-            logger.debug("Done 1000 transcripts")
+            logger.debug("Done {0} transcripts".format(done))
         rower.writerow(res._asdict())
         args.queue.task_done = True
 
@@ -480,9 +480,11 @@ def main():
                 try:
                     currentTranscript.finalize()
                     while len(jobs)>=args.threads:
+                        time.sleep(0.01)
                         for job in jobs:
                             if job.is_alive() is True:
                                 jobs.remove(job)
+
                     job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
                     job.start()
                     jobs.append(job)
@@ -498,6 +500,7 @@ def main():
     try:
         currentTranscript.finalize()
         while len(jobs)>=args.threads:
+            time.sleep(0.01)
             for job in jobs:
                 if job.is_alive() is True:
                     jobs.remove(job)

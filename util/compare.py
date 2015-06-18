@@ -61,18 +61,17 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
 #         print(key)
         distances.append( (key, max( 0, max(tr.start,key[0] ) - min(tr.end, key[1])   )   ) )
 
-    distances = sorted(distances, key = operator.itemgetter(1))  
+    distances = sorted(distances, key = operator.itemgetter(1))
 #     print(distances)
     #Polymerase run-on
     if len(found)==0:
         ccode = "u"
-        match = None
-        return tr.id, ccode, match, indexed
-    
+        return args.formatter( tr.id, "NA", ccode, [0]*6   )
+
     if distances[0][1]>0:
         match = random.choice( positions[tr.chrom][key]  ).id
         ccode = "p"
-        return tr.id, ccode, match, indexed, distances[0][1]
+        return args.formatter( tr.id, match, ccode, [0]*6)
 #         else:
 #             match=None
 #             ccode="u"
@@ -84,30 +83,75 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             else: break
             
         if len(matches)>1:
-            match=",".join(str(positions[tr.chrom][key[0]][0].id) for key in matches )
-            ccode = "f"
-        else:
-            match = random.choice( positions[tr.chrom][key]  )
-            ccode = "m"
-            print(tr.id, match.id, ccode)
-            
-            for tra in match:
-                print( tr.id, tra.id, calc_compare(tr, tra)  )
+            matches = [positions[tr.chrom][x[0]][0] for x in matches]
+            res = []
+            for match in matches:
+                m_res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                print(m_res[0]) 
+                res.append(m_res[0])
                 
-            match=match.id
+            fields = [tr.id]
+            fields.append( ",".join( x[1] for x in res  )  )
+            ccode = ",".join(["f"] + [x.ccode for x in res]) 
+            fields.append(ccode)
+            for field in args.formatter._fields[3:]:
+                fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
             
-        return tr.id, ccode, match, indexed, distances[0][1]
+            result = args.formatter(*fields)
+            return result
+            
+        else:
+            match =  positions[tr.chrom][matches[0][0]][0]
+            res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+            print(res)
+            
+            best = res[0]
+            return best
     
+    
+def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtuple) ->  collections.namedtuple:
 
-def calc_compare(tr:transcript, other:transcript) ->  [float, float, float, float, float, float, str]:
-    '''Function to compare two transcripts and determine a ccode.''' 
+    '''Function to compare two transcripts and determine a ccode.
+    Available ccodes (from Cufflinks documentation):
+    
+    - =    Complete match
+    - c    Contained
+    - j    Potentially novel isoform (fragment): at least one splice junction is shared with a reference transcript
+    - e    Single exon transfrag overlapping a reference exon and at least 10 bp of a reference intron, indicating a possible pre-mRNA fragment.
+    - i    A *monoexonic* transfrag falling entirely within a reference intron
+    - o    Generic exonic overlap with a reference transcript
+    - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
+    - u    Unknown, intergenic transcript
+    - x    Exonic overlap with reference on the opposite strand
+    - s    An intron of the transfrag overlaps a reference intron on the opposite strand (likely due to read mapping errors)
+
+    Please note that the description for i is changed from Cufflinks.
+
+    We also provide the following additional classifications:
+    
+    - f    gene fusion
+    - n    Potentially novel isoform, where all the known junctions have been confirmed and we have added others as well
+    - I    *multiexonic* transcript falling completely inside a known transcript
+    - h    the transcript is multiexonic and extends a monoexonic reference transcript
+    - O    Reverse generic overlap - the reference is monoexonic and overlaps the prediction
+    - K    Reverse intron retention - the annotated gene model retains an intron compared to the prediction
+
+    ''' 
+    
+    tr_nucls = list()
+    for x in tr.exons:
+        tr_nucls.extend(range(x[0], x[1]+1))
+    other_nucls = list()
+    for x in other.exons:
+        other_nucls.extend(range(x[0], x[1]+1))
+    
     
     nucl_overlap = len(set.intersection(
-                                        set( itertools.chain( range(x[0], x[1]+1) for x in tr.exons  ) ),
-                                        set( itertools.chain( range(x[0], x[1]+1) for x in other.exons  ) ),
-                                    
+                                        set(other_nucls), set(tr_nucls)
                                     )
                        )
+                       
+    assert nucl_overlap<=min(other.cdna_length,tr.cdna_length), (tr.id, tr.cdna_length, other.id, other.cdna_length, nucl_overlap)
     
     nucl_recall = nucl_overlap/other.cdna_length   # Sensitivity
     nucl_precision = nucl_overlap/tr.cdna_length 
@@ -118,6 +162,7 @@ def calc_compare(tr:transcript, other:transcript) ->  [float, float, float, floa
 
     if min(tr.exon_num, other.exon_num)>1:
         assert min(len(tr.splices), len(other.splices))>0, (tr.introns, tr.splices)
+        one_junction_confirmed = any(intron in other.introns for intron in tr.introns)
         junction_overlap = len( set.intersection(set(tr.splices), set(other.splices))   )
         junction_recall = junction_overlap / len(other.splices)
         junction_precision = junction_overlap / len(tr.splices)
@@ -129,42 +174,83 @@ def calc_compare(tr:transcript, other:transcript) ->  [float, float, float, floa
     else:
         junction_overlap=junction_f1=junction_precision=junction_recall=0
     
-    if junction_f1 == 1:
+    ccode = None
+    
+    if junction_f1 == 1  or (tr.exon_num==other.exon_num==1 and tr.start==other.start and tr.end==other.end):
         ccode = "=" #We have recovered all the junctions
+        
     elif tr.start>other.end or tr.end<other.start: # Outside the transcript - polymerase run-on
         ccode = "p" 
  
-    elif min(tr.exon_num, other.exon_num)>1:
-        if junction_precision == 1 and junction_recall < 1:
-            ccode = "c" # all the junctions are correct, but we are missing some .. contained
-        elif junction_recall == 1 and junction_precision<1:
-            ccode = "n" # we have recovered all the junctions AND added some other junctions of our own
-        elif junction_recall>0 and junction_precision>0:
-            ccode = "j"
-        elif (junction_recall==0 and junction_precision==0):
-            if nucl_f1>0:
-                ccode = "o" 
-            else:
-                if nucl_overlap == 0:
-                    if other.start<tr.start<other.end: #The only explanation for no nucleotide overlap and no nucl overlap is that it is inside an intron
-                        ccode = "I"
-                    elif tr.start<other.start<tr.end:
-                        ccode="K" #reverse intron retention
-    else:
-        if tr.exon_num==1 and other.exon_num>1:
-            if nucl_overlap>0:
-                ccode = "e"
-            elif  other.start < tr.start < other.end:
-                ccode = "i" #Monoexonic fragment inside an intron
-        elif tr.exon_num>1 and other.exon_num==1:
-            if nucl_overlap>0:
-                ccode = "h" #Extension
-            else:
-                ccode = "k" #Reverse intron retention - it's the annotated model which is inside the intron!
+    elif nucl_precision==1:
+        if tr.exon_num==1 or (tr.exon_num>1 and junction_precision==1):
+            ccode="c"
+        
+ 
+    if ccode is None:
+        if min(tr.exon_num, other.exon_num)>1:
+            if junction_recall == 1 and junction_precision<1:
+                ccode = "n" # we have recovered all the junctions AND added some other junctions of our own
+            elif junction_recall>0 and 0<junction_precision<1:
+                if one_junction_confirmed is True:
+                    ccode = "j"
+                else:
+                    ccode = "o"
+            elif junction_precision==1:
+                if nucl_precision==1:
+                    ccode = "c"
+                else:
+                    for intron in other.introns:
+                        if intron in tr.introns: continue
+                        if intron[1]<tr.start: continue
+                        elif intron[0]>tr.end: continue
+                        if intron[0]<tr.start<intron[1]:
+                            ccode="c"
+                            break
+                        elif tr.start<intron[0] and intron[1]<tr.end:
+                            ccode="j"
+                            break
+                    
+                    
+            elif (junction_recall==0 and junction_precision==0):
+                if nucl_f1>0:
+                    ccode = "o" 
+                else:
+                    if nucl_overlap == 0:
+                        if other.start<tr.start<other.end: #The only explanation for no nucleotide overlap and no nucl overlap is that it is inside an intron
+                            ccode = "I"
+                        elif tr.start<other.start<tr.end:
+                            ccode="K" #reverse intron retention
         else:
-            ccode="o" #just a generic exon overlap
+            if tr.exon_num==1 and other.exon_num>1:
+                if nucl_precision<1 and nucl_overlap>0:
+                    outside = max( other.start-tr.start,0  )+max(tr.end-other.end,0) #Fraction outside
+                    if tr.cdna_length-nucl_overlap-outside>10:
+                        ccode = "e"
+                    else:
+                        ccode = "o"
+                elif nucl_overlap>0:
+                    ccode = "o"
+                elif nucl_recall==0 and  other.start < tr.start < other.end:
+                    ccode = "i" #Monoexonic fragment inside an intron
+            elif tr.exon_num>1 and other.exon_num==1:
+                if nucl_recall==1:
+                    ccode = "h" #Extension
+                else:
+                    ccode = "O" #Reverse generic overlap
+            else:
+                if nucl_precision==1:
+                    ccode="c" #just a generic exon overlap
+                else:
+                    ccode="o"
+    
+    if ccode in ("e","o","c") and tr.strand is not None and other.strand is not None and tr.strand!=other.strand:
+        ccode="x"
 
-    return nucl_precision, nucl_recall, nucl_f1, junction_precision, junction_recall, junction_f1, ccode
+    return formatter(tr.id, other.id, ccode,
+                     round(nucl_precision*100,2), round(100*nucl_recall,2),round(100*nucl_f1,2),
+                     round(junction_precision*100,2), round(100*junction_recall,2), round(100*junction_f1,2),
+                     )
 
 
 class gene:
@@ -221,6 +307,8 @@ def main():
     input_files.add_argument('-p', '--prediction', type=to_gtf, help='Prediction annotation file.', required=True)
     parser.add_argument('--distance', type=int, default=2000, 
                         help='Maximum distance for a transcript to be considered a polymerase run-on. Default: %(default)s')
+    parser.add_argument("--out", default=sys.stdout, type = argparse.FileType("w") )
+
     
     args=parser.parse_args()
 
@@ -254,6 +342,16 @@ def main():
     for chrom in positions:
         indexer[chrom]=sorted(positions[chrom].keys())
 
+    formatter=collections.namedtuple("compare",
+                             [ "TID", "RefId", "ccode", "n_prec", "n_recall", "n_f1",
+                              "j_prec", "j_recall", "j_f1",
+                              ]
+                             , verbose=False)
+    args.formatter = formatter
+
+    rower=csv.DictWriter(args.out, formatter._fields, delimiter="\t"  )
+    rower.writeheader()
+
     currentTranscript = None
     for row in args.prediction:
         if row.header is True:
@@ -261,12 +359,12 @@ def main():
         if row.is_transcript is True:
             if currentTranscript is not None:
                 currentTranscript.finalize()
-                print(*get_best(positions, indexer, currentTranscript, args))
+                rower.writerow(get_best(positions, indexer, currentTranscript, args)._asdict())
             currentTranscript=transcript(row)
         else:
             currentTranscript.addExon(row)
 
     currentTranscript.finalize()
-    print(*get_best(positions, indexer, currentTranscript, args))
+    rower.writerow(get_best(positions, indexer, currentTranscript, args)._asdict())
 
 if __name__=='__main__': main()

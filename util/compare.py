@@ -351,8 +351,9 @@ def main():
                 transcripts[row.gene] = gene(tr, gid=row.gene)
             transcripts[row.gene].add(tr)
             assert tr.id in transcripts[row.gene].transcripts
+        elif row.header is True:
+            continue
         else:
-            
             transcripts[row.gene][row.transcript].addExon(row)
         
     for tr in transcripts:

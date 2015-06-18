@@ -54,6 +54,8 @@ class gtfLine(object):
         else:
             assert isinstance(line,str)
             self.fields=line.rstrip().split('\t')
+            if len(self.fields)!=9:
+                raise ValueError(line)
             self.chrom,self.source,self.feature=self.fields[0:3]
             self.start,self.end=tuple(int(i) for i in self.fields[3:5])
             self.end=self.end
@@ -119,11 +121,11 @@ class gtfLine(object):
             order=['gene_id','transcript_id','exon_number','gene_name','transcript_name'] #Questo è l'ordine originale dei campi nel gtf di umano
 
             for tag in order:
-                try: self._info.append(tag+' "'+str(self.info[tag])+'"')
-                except KeyError: pass
+                if tag in self.info:
+                    self._info.append(tag+' "'+str(self.info[tag])+'"')
 
-            for info in [x for x in list(self.info.keys()) if x not in order]: #Aggiungo eventuali altri campi
-                self._info.append(info+' "'+self.attributes[info]+'"')
+            for info in filter(lambda x: x not in order, self.info.keys()): 
+                self._info.append(info+' "'+self.info[info]+'"')
             self.fields.append('; '.join(self._info))
             self.fields[-1]+=';' #Fields finito, si può stampare.
 

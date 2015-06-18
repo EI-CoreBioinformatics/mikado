@@ -75,7 +75,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     if distances[0][1]>0:
         match = random.choice( positions[tr.chrom][key]  )
         ccode = "p"
-        args.queue.put(args.formatter( tr.id, tr.parent, match.id, match.parent, ccode, *[0]*6))
+        args.queue.put(args.formatter( tr.id, tr.parent, match.id, random.choice(list(match.transcripts.keys())), ccode, *[0]*6))
         return 
 #         else:
 #             match=None

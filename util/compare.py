@@ -14,6 +14,7 @@ from shanghai_lib.loci_objects.transcript import transcript
 # from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from shanghai_lib.parsers.GTF import GTF
 from shanghai_lib.parsers.GFF import GFF3
+import logging
 import bisect # Needed for efficient research
 
 '''This is still an embryo. Ideally, this program would perform the following functions:
@@ -189,7 +190,10 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
             ccode = "c"
         
     elif tr.start>other.end or tr.end<other.start: # Outside the transcript - polymerase run-on
-        ccode = "p" 
+        if other.strand == tr.strand:
+            ccode = "p"
+        else:
+            ccode = "u" 
  
     elif nucl_precision==1:
         if tr.exon_num==1 or (tr.exon_num>1 and junction_precision==1):

@@ -2,17 +2,19 @@ import sys,argparse,os
 import collections
 import operator
 import random
-import threading
+import asyncio
 import queue
+import threading
+import concurrent.futures
+import time
 sys.path.append(
                 os.path.dirname(
                                 os.path.dirname(__file__)
                                 ))
-import itertools
 import csv
 from shanghai_lib.loci_objects.transcript import transcript
-import shanghai_lib.exceptions
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus
+# import shanghai_lib.exceptions
+# from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from shanghai_lib.parsers.GTF import GTF
 from shanghai_lib.parsers.GFF import GFF3
 import bisect # Needed for efficient research
@@ -31,7 +33,9 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     if len(keys)==0:
         ccode = "u"
         match = None
-        return tr.id, ccode, match, 0
+        result = args.formatter( tr.id, "NA", ccode, [0]*6  )
+        args.queue.put(result)
+        return
         
     indexed = bisect.bisect(keys, (tr.start,tr.end) )
     
@@ -68,12 +72,14 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     #Polymerase run-on
     if len(found)==0:
         ccode = "u"
-        return args.formatter( tr.id, "NA", ccode, [0]*6   )
+        args.queue.put( args.formatter( tr.id, "NA", ccode, [0]*6   ) )
+        return
 
     if distances[0][1]>0:
         match = random.choice( positions[tr.chrom][key]  ).id
         ccode = "p"
-        return args.formatter( tr.id, match, ccode, [0]*6)
+        args.queue.put(args.formatter( tr.id, match, ccode, [0]*6))
+        return 
 #         else:
 #             match=None
 #             ccode="u"
@@ -89,7 +95,6 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             res = []
             for match in matches:
                 m_res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
-                print(m_res[0]) 
                 res.append(m_res[0])
                 
             fields = [tr.id]
@@ -100,15 +105,16 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
                 fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
             
             result = args.formatter(*fields)
-            return result
+            args.queue.put(result)
+            return 
             
         else:
             match =  positions[tr.chrom][matches[0][0]][0]
             res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
-            print(res)
-            
             best = res[0]
-            return best
+            args.queue.put(best)
+
+            return 
     
     
 def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtuple) ->  collections.namedtuple:
@@ -288,14 +294,22 @@ class gene:
     def __iter__(self) -> transcript:
         '''Iterate over the transcripts attached to the gene.'''
         return iter(self.transcripts.values())
-   
+
+#@asyncio.coroutine
 def printer( args ):
    
     rower=csv.DictWriter(args.out, args.formatter._fields, delimiter="\t"  )
     rower.writeheader()
-   
-   
-    
+    print("Starting to listening")
+    while True:
+        try:
+            res = args.queue.get(block=False)
+            if res=="EXIT": return
+            rower.writerow(res._asdict())
+        except queue.Empty:
+            time.sleep(0.1)
+            continue
+
 
 def main():
     
@@ -316,7 +330,8 @@ def main():
     input_files.add_argument('-p', '--prediction', type=to_gtf, help='Prediction annotation file.', required=True)
     parser.add_argument('--distance', type=int, default=2000, 
                         help='Maximum distance for a transcript to be considered a polymerase run-on. Default: %(default)s')
-    parser.add_argument("--out", default=sys.stdout, type = argparse.FileType("w") )
+    parser.add_argument("-t", "--threads", default=1, type=int)
+    parser.add_argument("-o","--out", default=sys.stdout, type = argparse.FileType("w") )
 
     
     args=parser.parse_args()
@@ -350,6 +365,7 @@ def main():
     indexer = collections.defaultdict(list).fromkeys(positions)
     for chrom in positions:
         indexer[chrom]=sorted(positions[chrom].keys())
+    print("Finished parsing reference")
 
     formatter=collections.namedtuple("compare",
                              [ "TID", "RefId", "ccode", "n_prec", "n_recall", "n_f1",
@@ -358,10 +374,14 @@ def main():
                              , verbose=False)
     args.formatter = formatter
 
-    printer_
-    queue
-    threading
-
+    args.queue = queue.Queue()
+#     loop = asyncio.get_event_loop()
+    pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
+    
+    print("Initialising printer")
+    print("Initialised printer")
+    pool = concurrent.futures.ProcessPoolExecutor(args.threads)
+    
     currentTranscript = None
     for row in args.prediction:
         if row.header is True:
@@ -369,12 +389,20 @@ def main():
         if row.is_transcript is True:
             if currentTranscript is not None:
                 currentTranscript.finalize()
-                rower.writerow(get_best(positions, indexer, currentTranscript, args)._asdict())
+                pool.submit(get_best(positions, indexer, currentTranscript, args))
             currentTranscript=transcript(row)
         else:
             currentTranscript.addExon(row)
 
     currentTranscript.finalize()
-    rower.writerow(get_best(positions, indexer, currentTranscript, args)._asdict())
+    pool.submit(get_best(positions, indexer, currentTranscript, args))
+    print("Finished parsing")
+    pool.shutdown(wait=True)
+
+    args.queue.put("EXIT")
+    
+    pp.start()
+#     loop.run_until_complete(asyncio.async(printer(args)))
+    pp.join()
 
 if __name__=='__main__': main()

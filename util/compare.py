@@ -342,9 +342,8 @@ def printer( args ):
             queue_handler.close()
             break
         done+=1
-        logger.info("Finished {0} transcripts".format(done))
-        if done % 20000 == 0:
-            logger.info("Done 20000 transcripts")
+        if done % 10000 == 0:
+            logger.info("Done 5000 transcripts")
         elif done % 1000 == 0:
             logger.debug("Done 1000 transcripts")
         rower.writerow(res._asdict())
@@ -493,9 +492,9 @@ def main():
     args.queue.put("EXIT")
     args.queue.all_tasks_done = True
 
-    logger.info("Sent EXIT signal")
+    logger.debug("Sent EXIT signal")
     pp.join()
-    logger.info("Printer process alive: {0}".format(pp.is_alive()))
+    logger.debug("Printer process alive: {0}".format(pp.is_alive()))
 #     loop.run_until_complete(asyncio.async(printer(args)))
     logger.info("Finished")
     queue_listener.enqueue_sentinel()
@@ -506,8 +505,5 @@ def main():
 #     args.queue_handler.close()
 #     
 #     
-
-    
-    
 
 if __name__=='__main__': main()

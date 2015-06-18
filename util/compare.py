@@ -1,17 +1,13 @@
 import sys,argparse,os
+sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
 import random
-import asyncio
 import queue
 import threading
 import concurrent.futures
 import time
-import shanghai_lib
-sys.path.append(
-                os.path.dirname(
-                                os.path.dirname(__file__)
-                                ))
+import shanghai_lib.exceptions
 import csv
 from shanghai_lib.loci_objects.transcript import transcript
 # import shanghai_lib.exceptions

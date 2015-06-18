@@ -185,7 +185,10 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     ccode = None
     
     if junction_f1 == 1  or (tr.exon_num==other.exon_num==1 and tr.start==other.start and tr.end==other.end):
-        ccode = "=" #We have recovered all the junctions
+        if tr.strand==other.strand or tr.strand is None:
+            ccode = "=" #We have recovered all the junctions
+        else:
+            ccode = "c"
         
     elif tr.start>other.end or tr.end<other.start: # Outside the transcript - polymerase run-on
         ccode = "p" 

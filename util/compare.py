@@ -208,17 +208,13 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
                 else:
                     ccode = "o"
             elif junction_precision==1:
-                if nucl_precision==1:
-                    ccode = "c"
-                else:
+                ccode = "c"
+                if nucl_precision<1:
                     for intron in other.introns:
                         if intron in tr.introns: continue
                         if intron[1]<tr.start: continue
                         elif intron[0]>tr.end: continue
-                        if intron[0]<tr.start<intron[1]:
-                            ccode="c"
-                            break
-                        elif tr.start<intron[0] and intron[1]<tr.end:
+                        if tr.start<intron[0] and intron[1]<tr.end:
                             ccode="j"
                             break
                     

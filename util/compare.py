@@ -252,7 +252,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     if ccode in ("e","o","c") and tr.strand is not None and other.strand is not None and tr.strand!=other.strand:
         ccode="x"
 
-    result = formatter(tr.id, tr.parent, other.id, other.parent, ccode,
+    result = formatter(tr.id, tr.parent, other.id, ",".join(other.parent), ccode,
                      round(nucl_precision*100,2), round(100*nucl_recall,2),round(100*nucl_f1,2),
                      round(junction_precision*100,2), round(100*junction_recall,2), round(100*junction_f1,2),
                      ) 

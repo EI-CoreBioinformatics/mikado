@@ -1,11 +1,13 @@
 import sys,argparse,os
+import copy
+from collections import namedtuple
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
 import random
 import queue
 import threading
-import concurrent.futures
+import multiprocessing
 import time
 import shanghai_lib.exceptions
 import csv
@@ -35,7 +37,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    
+    logger.propagate=False
     logger.debug("Started with {0}".format(tr.id))
     
     keys = indexer[tr.chrom]
@@ -44,7 +46,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
         match = None
         result = args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6  )
         args.queue.put(result)
-        logger.debug("Finished with {0}".format(tr.id))
+#         logger.debug("Finished with {0}".format(tr.id))
         return
         
     indexed = bisect.bisect(keys, (tr.start,tr.end) )
@@ -328,7 +330,7 @@ def printer( args ):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-        
+         
     queue_handler = logging.handlers.QueueHandler(args.log_queue)
     logger.addHandler(queue_handler)
     logger.propagate=False
@@ -387,14 +389,16 @@ def main():
     else:
         ref_gtf = False
 
-    formatter=collections.namedtuple("compare",
-                             [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1",
+    fields = [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1",
                               "j_prec", "j_recall", "j_f1",
                               ]
-                             , verbose=False)
-    args.formatter = formatter
 
-    args.queue = queue.Queue(-1)
+    args.formatter = namedtuple( "compare", fields )
+    globals()[args.formatter.__name__]=args.formatter #Hopefully this allows pickling
+
+    context = multiprocessing.get_context() #@UndefinedVariable
+    manager = context.Manager()
+    args.queue = manager.Queue(-1)
 #     loop = asyncio.get_event_loop()
 
     logger = logging.getLogger("main")
@@ -408,12 +412,12 @@ def main():
             """, file=sys.stderr  )
             handler = logging.FileHandler( "default_log.txt", "w")
         else: 
-        
+         
             handler = logging.StreamHandler()
     else:
         handler = logging.FileHandler(args.log, 'w')
     handler.setFormatter(formatter)
-    
+     
     if args.verbose is False:
         logger.setLevel(logging.INFO)
     else:
@@ -423,11 +427,10 @@ def main():
     logger.propagate=False
 
     
-    args.log_queue = queue.Queue(-1)
-#     args.queue_handler = logging.handlers.QueueHandler(args.log_queue)
+    args.log_queue = manager.Queue(-1)
+    args.queue_handler = logging.handlers.QueueHandler(args.log_queue)
     queue_listener = logging.handlers.QueueListener(args.log_queue, logger)
-    
-    queue_listener.propagate=False
+#     queue_listener.propagate=False
     queue_listener.start()
     
     pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
@@ -448,7 +451,7 @@ def main():
             continue
         else:
             transcripts[row.gene][row.transcript].addExon(row)
-    logger.info("Finished parsing the reference")
+#     logger.info("Finished parsing the reference")
     for tr in transcripts:
         transcripts[tr].finalize()
         key = (transcripts[tr].start,transcripts[tr].end)
@@ -460,11 +463,13 @@ def main():
     for chrom in positions:
         indexer[chrom]=sorted(positions[chrom].keys())
     logger.info("Finished preparation")
-
-
+# 
+# 
     logger.debug("Initialised printer")    
-    pool = concurrent.futures.ProcessPoolExecutor(args.threads)
     logger.debug("Initialised worker pool")
+    
+    jobs = []
+
     
     currentTranscript = None
     for row in args.prediction:
@@ -474,7 +479,15 @@ def main():
             if currentTranscript is not None:
                 try:
                     currentTranscript.finalize()
-                    pool.submit(get_best(positions, indexer, currentTranscript, args))
+                    while len(jobs)>=args.threads:
+                        for job in jobs:
+                            if job.is_alive() is True:
+                                jobs.remove(job)
+                    job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
+                    job.start()
+                    jobs.append(job)
+                        
+                        
                 except shanghai_lib.exceptions.InvalidTranscript:
                     pass
                 
@@ -484,12 +497,23 @@ def main():
 
     try:
         currentTranscript.finalize()
-        pool.submit(get_best(positions, indexer, currentTranscript, args))
+        while len(jobs)>=args.threads:
+            for job in jobs:
+                if job.is_alive() is True:
+                    jobs.remove(job)
+        job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
+        job.start()
+        jobs.append(job)
+
     except shanghai_lib.exceptions.InvalidTranscript:
         pass
     logger.info("Finished parsing")
-    pool.shutdown(wait=False)
-    logger.info("Pool shut down")
+#     pool.shutdown(wait=False)
+#     logger.info("Pool shut down")
+    for job in jobs:
+        if job.is_alive() is True:
+            job.join()
+
 
     args.queue.put("EXIT")
     args.queue.all_tasks_done = True
@@ -497,14 +521,14 @@ def main():
     logger.debug("Sent EXIT signal")
     pp.join()
     logger.debug("Printer process alive: {0}".format(pp.is_alive()))
-#     loop.run_until_complete(asyncio.async(printer(args)))
     logger.info("Finished")
     queue_listener.enqueue_sentinel()
     handler.close()
 #     print("Finished logging")
     queue_listener.stop()
+    args.queue_handler.close()
     return
-#     args.queue_handler.close()
+
 #     
 #     
 

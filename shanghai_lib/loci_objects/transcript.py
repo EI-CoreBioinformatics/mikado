@@ -351,8 +351,8 @@ class transcript:
         if "blast_baked" in state:
             del state["blast_baked"]
             del state["query_baked"]
-#         if hasattr(self, "logger"):
-#             del state['logger']
+        if hasattr(self, "logger"):
+            del state['logger']
             
         return state
 

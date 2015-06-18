@@ -17,7 +17,7 @@ import shanghai_lib.loci_objects
 import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
-import concurrent.futures
+import multiprocessing
 import threading
 import queue
 
@@ -177,9 +177,10 @@ class Creator:
 #             except multiprocessing.managers.RemoteError as err:
 #                 logger.exception(err)
 #                 continue
-                
+            
             if stranded_locus=="EXIT":
                 return #Poison pill - once we receive a "EXIT" signal, we exit
+            logger.info("Received {0}".format(stranded_locus.id))
             if self.sub_out is not None: #Skip this section if no sub_out is defined
                 sub_lines = stranded_locus.__str__(level="subloci", print_cds=not self.json_conf["run_options"]["exclude_cds"] )
                 sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
@@ -251,6 +252,7 @@ class Creator:
         #Remove overlapping fragments.
         #This part should be rewritten in order to make it more flexible and powerful.
         for stranded_locus in stranded_loci:
+            
             if self.json_conf["run_options"]["remove_overlapping_fragments"] is True and len(stranded_loci)>1:
                 for final_locus in stranded_locus.loci:
                     for other_superlocus in filter(lambda x: x!=stranded_locus, stranded_loci):
@@ -284,14 +286,14 @@ class Creator:
         return
 
 
-#     def __getstate__(self):
-#         self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool", "main_logger", "log_handler", "log_writer", "logger"]
-#         state = self.__dict__.copy()
-#         for not_pickable in self.not_pickable:
-#             if not_pickable in state:
-#                 del state[not_pickable]            
-#             
-#         return state
+    def __getstate__(self):
+        self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool", "main_logger", "log_handler", "log_writer", "logger"]
+        state = self.__dict__.copy()
+        for not_pickable in self.not_pickable:
+            if not_pickable in state:
+                del state[not_pickable]            
+             
+        return state
   
     #@profile
     def __call__(self):
@@ -302,10 +304,11 @@ class Creator:
         #NOTE: Pool, Process and Manager must NOT become instance attributes!
         #Otherwise it will raise all sorts of mistakes
         
-#         self.manager = multiprocessing.Manager() #@UndefinedVariable
-        self.printer_queue=queue.Queue()
-        self.logging_queue = queue.Queue() #queue for logging
-        pool = concurrent.futures.ProcessPoolExecutor(self.threads)
+        self.context = multiprocessing.get_context() #@UndefinedVariable
+        self.manager = self.context.Manager() #@UndefinedVariable
+        self.printer_queue = self.manager.Queue(-1)
+        self.logging_queue = self.manager.Queue(-1) #queue for logging
+        
         self.setup_logger()
         
         self.printer_process=threading.Thread(target=self.printer) # @UndefinedVariable
@@ -320,6 +323,8 @@ class Creator:
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         self.queue_logger.propagate = False
         
+        jobs = []
+        
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)
@@ -329,9 +334,16 @@ class Creator:
                         currentLocus.add_transcript_to_locus(currentTranscript, check_in_locus=False)
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
-                        self.analyse_locus(currentLocus)
-#                         pool.submit(self.analyse_locus, currentLocus)
-                            
+#                         self.analyse_locus(currentLocus)
+                        while len(jobs)>=self.threads+1:
+                            for job in jobs:
+                                if job.is_alive() is False:
+                                    jobs.remove(job)
+                            time.sleep(0.1)
+
+                        job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+                        job.start()
+                        jobs.append(job)
 
                         currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
@@ -342,16 +354,41 @@ class Creator:
             if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
-                self.analyse_locus(currentLocus)
-#                 pool.submit(self.analyse_locus, currentLocus)
+#                 self.analyse_locus(currentLocus)
+                while len(jobs)>=self.threads+1:
+                    for job in jobs:
+                        if job.is_alive() is False:
+                            jobs.remove(job)
+                    time.sleep(0.1)
+
+                job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+                job.start()
+                jobs.append(job)
+
+                
 
                 currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
-            self.analyse_locus(currentLocus)
-#             pool.submit(self.analyse_locus, currentLocus)
+#             self.analyse_locus(currentLocus)
+            while len(jobs)>=self.threads+1:
+                for job in jobs:
+                    if job.is_alive() is False:
+                        jobs.remove(job)
+                time.sleep(0.1)
+
+                job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+                job.start()
+                jobs.append(job)
                 
-        pool.shutdown(wait=True)     
+            job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+            job.start()
+            jobs.append(job)
+            
+        for job in jobs:
+            if job.is_alive() is True:
+                job.join()
+
         self.printer_queue.put("EXIT")
         #The printing process must be started AFTER we have put the stopping signal  into the queue
         self.printer_process.join()

@@ -116,7 +116,10 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             fields=[]
             fields.append( ",".join( getattr(x,"RefId") for x in res  )  )
             fields.append( ",".join( getattr(x, "RefGene") for x in res  )  )
-            ccode = ",".join(["f"] + [x.ccode for x in res])
+            if len(matches)>1:
+                ccode = ",".join(["f"] + [x.ccode for x in res])
+            else:
+                ccode = res[0].ccode
             fields.append(ccode)
             fields.extend([tr.id, ",".join(tr.parent)]) 
             

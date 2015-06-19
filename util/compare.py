@@ -402,7 +402,7 @@ def main():
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
     args.queue = manager.Queue(-1)
-    pool = context.Pool(args.threads)
+    pool = multiprocessing.Pool(args.threads)
 #     pool = concurrent.futures.ProcessPoolExecutor(args.threads)
 #     loop = asyncio.get_event_loop()
 

@@ -437,7 +437,7 @@ def main():
     else:
         logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
-    logger.info("Command line: {0}".join(sys.argv))
+    logger.info("Command line: {0}".format(" ".join(sys.argv)))
     logger.info("Start")
     logger.propagate=False
 

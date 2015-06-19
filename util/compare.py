@@ -402,8 +402,8 @@ def main():
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
     args.queue = manager.Queue(-1)
-#     pool = context.Pool(args.threads)
-    pool = concurrent.futures.ProcessPoolExecutor(args.threads)
+    pool = context.Pool(args.threads)
+#     pool = concurrent.futures.ProcessPoolExecutor(args.threads)
 #     loop = asyncio.get_event_loop()
 
     logger = logging.getLogger("main")
@@ -506,7 +506,7 @@ def main():
                     
                     #get_best( positions, indexer, currentTranscript, args)
                     
-                    pool.submit(get_best, *( positions, indexer, currentTranscript, cargs))
+                    pool.apply_async(get_best, args=( positions, indexer, currentTranscript, cargs))
                         
                         
                 except shanghai_lib.exceptions.InvalidTranscript:
@@ -526,7 +526,7 @@ def main():
 #         job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
 #         job.start()
 #         jobs.append(job)
-        pool.submit(get_best, *(positions, indexer, currentTranscript, cargs))
+        pool.apply_async(get_best, args=(positions, indexer, currentTranscript, cargs))
 
     except shanghai_lib.exceptions.InvalidTranscript:
         pass
@@ -536,9 +536,10 @@ def main():
 #     for job in jobs:
 #         if job.is_alive() is True:
 #             job.join()
-#     pool.close()
-#     pool.join()
-    pool.shutdown(wait=True)
+    pool.close()
+    pool.join()
+
+#     pool.shutdown(wait=True)
 
 
     args.queue.put("EXIT")

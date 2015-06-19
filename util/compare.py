@@ -315,6 +315,15 @@ class gene:
                 
         for k in to_remove: del self.transcripts[k]
     
+    def remove(self, tid:str):
+        del self.transcripts[tid]
+        if len(self.transcripts)==0:
+            self.end=None
+            self.start=None
+            self.chrom=None
+        self.start = min(self.transcripts[tid].start for tid in self.transcripts)
+        self.end = max(self.transcripts[tid].end for tid in self.transcripts)
+    
     def __str__(self):
         return " ".join(self.transcripts.keys())
     
@@ -377,6 +386,8 @@ def main():
     input_files.add_argument('-p', '--prediction', type=to_gtf, help='Prediction annotation file.', required=True)
     parser.add_argument('--distance', type=int, default=2000, 
                         help='Maximum distance for a transcript to be considered a polymerase run-on. Default: %(default)s')
+    parser.add_argument('-pc', '--protein-coding', dest="protein_coding", action="store_true", default=False,
+                        help="Flag. If set, only transcripts with a CDS (both in reference and prediction) will be considered.")
 #     parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("-o","--out", default=sys.stdout, type = argparse.FileType("w") )
     parser.add_argument("-l","--log", default=None, type = str)
@@ -385,8 +396,6 @@ def main():
     
     args=parser.parse_args()
 
-    transcripts = dict()
-    positions = collections.defaultdict(dict)
     if type(args.reference) is GTF:
         ref_gtf = True
     else:
@@ -444,26 +453,37 @@ def main():
 
     
     logger.info("Starting parsing the reference")
+
+    genes = dict()
+    positions = collections.defaultdict(dict)
+
     
     for row in args.reference:
         #Assume we are going to use GTF for the moment
         if row.is_transcript is True:
             tr = transcript(row)
-            if row.gene not in transcripts:
-                transcripts[row.gene] = gene(tr, gid=row.gene)
-            transcripts[row.gene].add(tr)
-            assert tr.id in transcripts[row.gene].transcripts
+            if row.gene not in genes:
+                genes[row.gene] = gene(tr, gid=row.gene)
+            genes[row.gene].add(tr)
+            assert tr.id in genes[row.gene].transcripts
         elif row.header is True:
             continue
         else:
-            transcripts[row.gene][row.transcript].addExon(row)
+            genes[row.gene][row.transcript].addExon(row)
 #     logger.info("Finished parsing the reference")
-    for tr in transcripts:
-        transcripts[tr].finalize()
-        key = (transcripts[tr].start,transcripts[tr].end)
-        if key not in positions[transcripts[tr].chrom]: 
-            positions[transcripts[tr].chrom][key]=[]
-        positions[transcripts[tr].chrom][key].append(transcripts[tr])
+    for gid in genes:
+        genes[gid].finalize()
+        if args.protein_coding is True:
+            to_remove=[]
+            for tid in genes[gid].transcripts:
+                if genes[gid].transcripts[tid].combined_cds_length==0:
+                    to_remove.append(tid)
+            if len(to_remove)==len(genes[gid].transcripts):
+                continue
+        key = (genes[gid].start,genes[gid].end)
+        if key not in positions[genes[gid].chrom]: 
+            positions[genes[gid].chrom][key]=[]
+        positions[genes[gid].chrom][key].append(genes[gid])
     
     indexer = collections.defaultdict(list).fromkeys(positions)
     for chrom in positions:
@@ -495,20 +515,8 @@ def main():
             if currentTranscript is not None:
                 try:
                     currentTranscript.finalize()
-#                     while len(jobs)>=args.threads:
-#                         time.sleep(0.01)
-#                         for job in jobs:
-#                             if job.is_alive() is True:
-#                                 jobs.remove(job)
-# 
-#                     job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
-#                     job.start()
-#                     jobs.append(job)
-                    
-                    #get_best( positions, indexer, currentTranscript, args)
-                    get_best(positions, indexer, currentTranscript, cargs)
-#                     pool.apply_async(get_best, args=( positions, indexer, currentTranscript, cargs))
-                        
+                    if args.protein_coding is False or currentTranscript.combined_cds_length > 0:
+                        get_best(positions, indexer, currentTranscript, cargs)
                         
                 except shanghai_lib.exceptions.InvalidTranscript:
                     pass
@@ -519,30 +527,13 @@ def main():
 
     try:
         currentTranscript.finalize()
-#         while len(jobs)>=args.threads:
-#             time.sleep(0.01)
-#             for job in jobs:
-#                 if job.is_alive() is True:
-#                     jobs.remove(job)
-#         job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
-#         job.start()
-#         jobs.append(job)
-#         pool.apply_async(get_best, args=(positions, indexer, currentTranscript, cargs))
-        get_best(positions, indexer, currentTranscript, cargs)
+        if args.protein_coding is False or currentTranscript.combined_cds_length==0:
+            get_best(positions, indexer, currentTranscript, cargs)  
+
 
     except shanghai_lib.exceptions.InvalidTranscript:
         pass
     logger.info("Finished parsing")
-#     pool.shutdown(wait=False)
-#     logger.info("Pool shut down")
-#     for job in jobs:
-#         if job.is_alive() is True:
-#             job.join()
-    pool.close()
-    pool.join()
-
-#     pool.shutdown(wait=True)
-
 
     args.queue.put("EXIT")
     args.queue.all_tasks_done = True
@@ -553,12 +544,9 @@ def main():
     logger.info("Finished")
     queue_listener.enqueue_sentinel()
     handler.close()
-#     print("Finished logging")
     queue_listener.stop()
     args.queue_handler.close()
     return
 
-#     
-#     
 
 if __name__=='__main__': main()

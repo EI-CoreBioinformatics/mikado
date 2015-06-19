@@ -12,9 +12,9 @@ from shanghai_lib.loci_objects.transcript import transcript
 # import shanghai_lib.exceptions
 # from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from shanghai_lib.parsers.GTF import GTF
-from shanghai_lib.parsers.GFF import GFF3
+# from shanghai_lib.parsers.GFF import GFF3
 import logging
-import logging.handlers
+from logging import handlers as log_handlers
 import bisect # Needed for efficient research
 
 '''This is still an embryo. Ideally, this program would perform the following functions:
@@ -28,7 +28,7 @@ import bisect # Needed for efficient research
 def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespace):
     
     
-    queue_handler = logging.handlers.QueueHandler(args.log_queue)
+    queue_handler = log_handlers.QueueHandler(args.log_queue)
     logger = logging.getLogger("selector")
     logger.addHandler(queue_handler)
     if args.verbose:
@@ -163,7 +163,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
 
     We also provide the following additional classifications:
     
-    - f    gene fusion
+    - f    gene fusion - in this case, this ccode will be followed by the ccodes of the matches for each gene, separated by comma
     - n    Potentially novel isoform, where all the known junctions have been confirmed and we have added others as well
     - I    *multiexonic* transcript falling completely inside a known transcript
     - h    the transcript is multiexonic and extends a monoexonic reference transcript
@@ -271,7 +271,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
                     ccode = "i" #Monoexonic fragment inside an intron
             elif tr.exon_num>1 and other.exon_num==1:
                 if nucl_recall==1:
-                    ccode = "h" #Extension
+                    ccode = "n" #Extension
                 else:
                     ccode = "O" #Reverse generic overlap
             else:
@@ -350,7 +350,7 @@ def printer( args ):
     else:
         logger.setLevel(logging.INFO)
          
-    queue_handler = logging.handlers.QueueHandler(args.log_queue)
+    queue_handler = log_handlers.QueueHandler(args.log_queue)
     logger.addHandler(queue_handler)
     logger.propagate=False
     logger.debug("Started the printer process")
@@ -403,10 +403,10 @@ def main():
     
     args=parser.parse_args()
 
-    if type(args.reference) is GTF:
-        ref_gtf = True
-    else:
-        ref_gtf = False
+#     if type(args.reference) is GTF:
+#         ref_gtf = True
+#     else:
+#         ref_gtf = False
 
     fields = [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1",
                               "j_prec", "j_recall", "j_f1",
@@ -450,8 +450,8 @@ def main():
 
     
     args.log_queue = manager.Queue(-1)
-    args.queue_handler = logging.handlers.QueueHandler(args.log_queue)
-    queue_listener = logging.handlers.QueueListener(args.log_queue, logger)
+    args.queue_handler = log_handlers.QueueHandler(args.log_queue)
+    queue_listener = log_handlers.QueueListener(args.log_queue, logger)
 #     queue_listener.propagate=False
     queue_listener.start()
     
@@ -501,8 +501,6 @@ def main():
     logger.debug("Initialised printer")    
     logger.debug("Initialised worker pool")
     
-    jobs = []
-
     def reduce_args(args):
         new_args = args.__dict__.copy()
         name = argparse.Namespace()

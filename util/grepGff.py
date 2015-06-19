@@ -25,7 +25,6 @@ def main():
 
 
     first=True
-    current_counter=dict()
     for record in GFF.GFF3(args.gff):
         #Add header if absent
         if first:
@@ -59,7 +58,6 @@ def main():
             elif record.attributes['ID'] not in gene_ids and args.reverse:
                 print(record, file=args.out)
         elif record.feature in ("mRNA", "transcript") or "transcript" in record.feature:
-            current_counter=dict()
             if args.genes is True and record.parent in gene_ids:
                 mrna_ids.add(record.id)
 

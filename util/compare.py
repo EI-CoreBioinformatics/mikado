@@ -107,6 +107,8 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             strands = set(x.strand for x in matches)
             if len(strands)>1:
                 matches = list(filter(lambda match: match.strand == tr.strand, matches))
+            if len(matches)==0:
+                raise ValueError("I filtered out all matches. This is wrong!")
             
             res = []
             for match in matches:
@@ -116,7 +118,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             fields=[]
             fields.append( ",".join( getattr(x,"RefId") for x in res  )  )
             fields.append( ",".join( getattr(x, "RefGene") for x in res  )  )
-            if len(matches)>1:
+            if len(res)>1:
                 ccode = ",".join(["f"] + [x.ccode for x in res])
             else:
                 ccode = res[0].ccode
@@ -525,6 +527,9 @@ def main():
                         
                 except shanghai_lib.exceptions.InvalidTranscript:
                     pass
+                except Exception as err:
+                    logger.exception(err)
+                    return
                 
             currentTranscript=transcript(row)
         else:
@@ -532,12 +537,15 @@ def main():
 
     try:
         currentTranscript.finalize()
-        if args.protein_coding is False or currentTranscript.combined_cds_length==0:
+        if args.protein_coding is False or currentTranscript.combined_cds_length > 0:
             get_best(positions, indexer, currentTranscript, cargs)  
-
 
     except shanghai_lib.exceptions.InvalidTranscript:
         pass
+    except Exception as err:
+        logger.exception(err)
+        return
+        
     logger.info("Finished parsing")
 
     args.queue.put("EXIT")

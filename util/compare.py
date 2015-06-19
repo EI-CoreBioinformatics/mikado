@@ -505,8 +505,8 @@ def main():
 #                     jobs.append(job)
                     
                     #get_best( positions, indexer, currentTranscript, args)
-                    
-                    pool.apply_async(get_best, args=( positions, indexer, currentTranscript, cargs))
+                    get_best(positions, indexer, currentTranscript, cargs)
+#                     pool.apply_async(get_best, args=( positions, indexer, currentTranscript, cargs))
                         
                         
                 except shanghai_lib.exceptions.InvalidTranscript:
@@ -526,7 +526,8 @@ def main():
 #         job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
 #         job.start()
 #         jobs.append(job)
-        pool.apply_async(get_best, args=(positions, indexer, currentTranscript, cargs))
+#         pool.apply_async(get_best, args=(positions, indexer, currentTranscript, cargs))
+        get_best(positions, indexer, currentTranscript, cargs)
 
     except shanghai_lib.exceptions.InvalidTranscript:
         pass

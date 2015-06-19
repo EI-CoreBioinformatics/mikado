@@ -1,6 +1,7 @@
 import sys,argparse,os
 import copy
 from collections import namedtuple
+import concurrent.futures
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
@@ -29,6 +30,7 @@ import bisect # Needed for efficient research
 '''
 
 def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespace):
+    
     
     queue_handler = logging.handlers.QueueHandler(args.log_queue)
     logger = logging.getLogger("selector")
@@ -400,6 +402,8 @@ def main():
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
     args.queue = manager.Queue(-1)
+#     pool = context.Pool(args.threads)
+    pool = concurrent.futures.ProcessPoolExecutor(args.threads)
 #     loop = asyncio.get_event_loop()
 
     logger = logging.getLogger("main")
@@ -471,6 +475,16 @@ def main():
     
     jobs = []
 
+    def reduce_args(args):
+        new_args = args.__dict__.copy()
+        name = argparse.Namespace()
+        del new_args["out"]
+        del new_args["prediction"]
+        del new_args["reference"]
+        name.__dict__.update(new_args)
+        return name
+    
+    cargs = reduce_args(args)
     
     currentTranscript = None
     for row in args.prediction:
@@ -480,15 +494,19 @@ def main():
             if currentTranscript is not None:
                 try:
                     currentTranscript.finalize()
-                    while len(jobs)>=args.threads:
-                        time.sleep(0.01)
-                        for job in jobs:
-                            if job.is_alive() is True:
-                                jobs.remove(job)
-
-                    job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
-                    job.start()
-                    jobs.append(job)
+#                     while len(jobs)>=args.threads:
+#                         time.sleep(0.01)
+#                         for job in jobs:
+#                             if job.is_alive() is True:
+#                                 jobs.remove(job)
+# 
+#                     job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
+#                     job.start()
+#                     jobs.append(job)
+                    
+                    #get_best( positions, indexer, currentTranscript, args)
+                    
+                    pool.submit(get_best, *( positions, indexer, currentTranscript, cargs))
                         
                         
                 except shanghai_lib.exceptions.InvalidTranscript:
@@ -500,23 +518,27 @@ def main():
 
     try:
         currentTranscript.finalize()
-        while len(jobs)>=args.threads:
-            time.sleep(0.01)
-            for job in jobs:
-                if job.is_alive() is True:
-                    jobs.remove(job)
-        job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
-        job.start()
-        jobs.append(job)
+#         while len(jobs)>=args.threads:
+#             time.sleep(0.01)
+#             for job in jobs:
+#                 if job.is_alive() is True:
+#                     jobs.remove(job)
+#         job = multiprocessing.Process(target=get_best, args=(positions, indexer, currentTranscript, args))
+#         job.start()
+#         jobs.append(job)
+        pool.submit(get_best, *(positions, indexer, currentTranscript, cargs))
 
     except shanghai_lib.exceptions.InvalidTranscript:
         pass
     logger.info("Finished parsing")
 #     pool.shutdown(wait=False)
 #     logger.info("Pool shut down")
-    for job in jobs:
-        if job.is_alive() is True:
-            job.join()
+#     for job in jobs:
+#         if job.is_alive() is True:
+#             job.join()
+#     pool.close()
+#     pool.join()
+    pool.shutdown(wait=True)
 
 
     args.queue.put("EXIT")

@@ -105,7 +105,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             matches = [positions[tr.chrom][x[0]][0] for x in matches]
             
             strands = set(x.strand for x in matches)
-            if len(strands)>1:
+            if len(strands)>1 and tr.strand in strands:
                 matches = list(filter(lambda match: match.strand == tr.strand, matches))
             if len(matches)==0:
                 raise ValueError("I filtered out all matches. This is wrong!")
@@ -529,6 +529,10 @@ def main():
                     pass
                 except Exception as err:
                     logger.exception(err)
+                    queue_listener.enqueue_sentinel()
+                    handler.close()
+                    queue_listener.stop()
+                    args.queue_handler.close()
                     return
                 
             currentTranscript=transcript(row)
@@ -544,6 +548,10 @@ def main():
         pass
     except Exception as err:
         logger.exception(err)
+        queue_listener.enqueue_sentinel()
+        handler.close()
+        queue_listener.stop()
+        args.queue_handler.close()
         return
         
     logger.info("Finished parsing")

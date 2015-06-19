@@ -377,7 +377,7 @@ def main():
     input_files.add_argument('-p', '--prediction', type=to_gtf, help='Prediction annotation file.', required=True)
     parser.add_argument('--distance', type=int, default=2000, 
                         help='Maximum distance for a transcript to be considered a polymerase run-on. Default: %(default)s')
-    parser.add_argument("-t", "--threads", default=1, type=int)
+#     parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("-o","--out", default=sys.stdout, type = argparse.FileType("w") )
     parser.add_argument("-l","--log", default=None, type = str)
     parser.add_argument("-v", "--verbose", action="store_true", default=False)
@@ -402,7 +402,7 @@ def main():
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
     args.queue = manager.Queue(-1)
-    pool = multiprocessing.Pool(args.threads)
+#     pool = multiprocessing.Pool(args.threads)
 #     pool = concurrent.futures.ProcessPoolExecutor(args.threads)
 #     loop = asyncio.get_event_loop()
 
@@ -428,6 +428,7 @@ def main():
     else:
         logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
+    logger.info("Command line: {0}".join(sys.argv))
     logger.info("Start")
     logger.propagate=False
 

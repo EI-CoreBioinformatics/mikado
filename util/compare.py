@@ -1,15 +1,11 @@
 import sys,argparse,os
-import copy
 from collections import namedtuple
-import concurrent.futures
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
 import random
-import queue
 import threading
 import multiprocessing
-import time
 import shanghai_lib.exceptions
 import csv
 from shanghai_lib.loci_objects.transcript import transcript
@@ -107,6 +103,11 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             
         if len(matches)>1:
             matches = [positions[tr.chrom][x[0]][0] for x in matches]
+            
+            strands = set(x.strand for x in matches)
+            if len(strands)>1:
+                matches = list(filter(lambda match: match.strand == tr.strand, matches))
+            
             res = []
             for match in matches:
                 m_res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
@@ -301,6 +302,7 @@ class gene:
         self.start=min(self.start, tr.start)
         self.end = max(self.end, tr.end)
         self.transcripts[tr.id]=tr
+        assert self.strand == tr.strand
         
     def __getitem__(self, tid:str) -> transcript:
         return self.transcripts[tid]

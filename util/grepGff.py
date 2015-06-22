@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 
-import sys,argparse
+import sys,argparse,os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shanghai_lib.parsers import GFF
 
 def main():
@@ -37,20 +38,20 @@ def main():
         elif not first and "##gff-version" in record._line:
             continue #Skip header lines after the first one
 
-        if record._line[0]=="#":
-            
-
-            print(record._line.rstrip(), file=args.out)
-#            if args.reverse: print(record._line.rstrip())
-            continue
-        if 'Parent' in record.attributes: parent=record.attributes['Parent']
-        else: parent=None
+#         if record._line[0]=="#":
+#             
+# 
+#             print(record._line.rstrip(), file=args.out)
+# #            if args.reverse: print(record._line.rstrip())
+#             continue
+#         if 'Parent' in record.attributes: parent=record.attributes['Parent']
+#         else: parent=None
         if 'Target' in record.attributes: target=record.attributes['Target'].split()[0]
         else: target=None
         if 'Name' in record.attributes: name=record.attributes['Name']
         else: name=None
-
-
+        if record.header is True:
+            continue
 
         if record.feature=="gene":
             if record.attributes['ID'] in gene_ids and not args.reverse:
@@ -66,9 +67,12 @@ def main():
                 else:
                     print(record, file=args.out)
             elif (not args.reverse) and (record.id in mrna_ids) or (target in mrna_ids) or (name in mrna_ids): print(record, file=args.out)
-        else:
-            try: parents = set(parent.split(","))
-            except: continue
+        elif record.is_exon is True:
+#             try: parents = set(parent.split(","))
+#             except: continue
+            if record.parent is None: continue
+            parents = set(record.parent)
+            print(record.parent)
             parent_intersection=set.intersection(parents, mrna_ids)
             # if record.id is None:
             #     if record.feature not in current_counter: current_counter[record.feature]=0
@@ -88,16 +92,16 @@ def main():
                         print(record, file=args.out)
                     elif parent_intersection!=parents: #Intersection non-empty
                         good_parents=",".join(set.difference(parents, mrna_ids))
-                        record.attributes['Parent']=good_parents
+                        record.parent=good_parents
                         print(record, file=args.out)
             else:
-                if record.id in mrna_ids or parent_intersection!=set() or target in mrna_ids or name in mrna_ids:
+                if record.id in mrna_ids or parent_intersection!=set(): #or record.target in mrna_ids or record.name in mrna_ids:
                         if parent_intersection==parents:
                             print(record, file=args.out)
                         else:
                             good_parents=",".join(parent_intersection)
                             #print(good_parents, file=sys.stderr)
-                            record.attributes['Parent']=good_parents
+                            record.parent=good_parents
                             print(record, file=args.out)
                 
 

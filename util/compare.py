@@ -450,11 +450,6 @@ def main():
     
     args=parser.parse_args()
 
-#     if type(args.reference) is GTF:
-#         ref_gtf = True
-#     else:
-#         ref_gtf = False
-
     fields = [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1",
                               "j_prec", "j_recall", "j_f1",
                               ]
@@ -516,19 +511,30 @@ def main():
     genes = dict()
     positions = collections.defaultdict(dict)
 
-    
+    transcript2gene = dict()
     for row in args.reference:
         #Assume we are going to use GTF for the moment
+        if row.header is True:
+            continue
+        logger.debug(str(row))
         if row.is_transcript is True:
+            logger.debug("Transcript\n{0}".format(str(row)))
             tr = transcript(row)
+            transcript2gene[row.id]=row.gene
             if row.gene not in genes:
                 genes[row.gene] = gene(tr, gid=row.gene)
             genes[row.gene].add(tr)
             assert tr.id in genes[row.gene].transcripts
-        elif row.header is True:
-            continue
+        elif row.is_exon is True:
+            logger.debug(str(row))
+#             assert type(row.transcript) is list
+            logger.debug("Exon found: {0}, {1}".format(row.transcript, row.parent))
+            for tr in row.transcript:
+                logger.debug(tr)
+                gid = transcript2gene[tr]
+                genes[gid][tr].addExon(row)
         else:
-            genes[row.gene][row.transcript].addExon(row)
+            continue
 #     logger.info("Finished parsing the reference")
     for gid in genes:
         genes[gid].finalize()

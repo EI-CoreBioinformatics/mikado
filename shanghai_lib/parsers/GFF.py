@@ -71,6 +71,7 @@ class gffLine(object):
             try:
                 if itemized[0].lower()=="parent":
                     self.parent=itemized[1]
+                    
                 elif itemized[1].upper()=="ID":
                     self.id=itemized[1]
                 else:
@@ -80,16 +81,16 @@ class gffLine(object):
                 pass
 #                raise IndexError(item, itemized, self._Attr)
             
-        if self.id is None:
-            id_key = list(filter(lambda x: x.upper()=="ID", self.attributes.keys()))
-            if len(id_key)>0:
-                id_key=id_key[0]
-                self.id = self.attributes[id_key]
-        if self.parent is None:
-            parent_key = list(filter(lambda x: x.upper()=="PARENT", self.attributes.keys()))
-            if len(parent_key)>0:
-                parent_key = parent_key[0]
-                self.parent = self.attributes[parent_key]
+#         if self.id is None:
+#             id_key = list(filter(lambda x: x.upper()=="ID", self.attributes.keys()))
+#             if len(id_key)>0:
+#                 id_key=id_key[0]
+#                 self.id = self.attributes[id_key]
+#         if self.parent is None:
+#             parent_key = list(filter(lambda x: x.upper()=="PARENT", self.attributes.keys()))
+#             if len(parent_key)>0:
+#                 parent_key = parent_key[0]
+#                 self.parent = self.attributes[parent_key]
 #             parent_key = list(filter(lambda x: x=="Derives_from", self.attributes.keys()))
 #             if len(parent_key)>0:
 #                 parent_key = parent_key[0]
@@ -99,9 +100,9 @@ class gffLine(object):
         assert self.parent is not None or self.id is not None or "Name" in self.attributes, self._line
         _ = self.name # Set the name
             
-        if "PARENT" in self.attributes and "Parent" not in self.attributes:
-            self.attributes['Parent']=self.attributes['PARENT'][:]
-            del self.attributes['PARENT']
+#         if "PARENT" in self.attributes and "Parent" not in self.attributes:
+#             self.attributes['Parent']=self.attributes['PARENT'][:]
+#             del self.attributes['PARENT']
 
     def __str__(self): 
         if not self.feature: return self._line.rstrip()
@@ -120,6 +121,7 @@ class gffLine(object):
         if self.id is not None:
             attrs.append("ID={0}".format(self.id))
         if self.parent is not None:
+            assert type(self.parent) is list, "{0}\n{1}\n{2}".format(self.parent, self.attributes, self._line)
             attrs.append("Parent={0}".format(",".join(self.parent)))
         if self.attributeOrder==[]:
             self.attributeOrder=sorted(list(filter(lambda x: x not in ["ID","Parent"], self.attributes.keys())))
@@ -161,15 +163,13 @@ class gffLine(object):
         if parent is None:
             self.attributes["Parent"]=None
         elif type(parent) is str:
-            if "," in parent:
-                parent=parent.split(",")
-            else:
-                parent=[parent]        
-            self.attributes["Parent"]=parent
+            new_parent=parent.split(",")
+            self.attributes["Parent"]=new_parent
         elif type(parent) is list:
             self.attributes["Parent"]=parent
         else:
             raise TypeError(parent, type(parent))
+        assert type(self.parent) is list or self.parent is None
     
     @property
     def name(self):
@@ -212,7 +212,8 @@ class gffLine(object):
     def is_exon(self):
         if self.feature is None:
             return False
-        if self.feature in ("CDS","exon") or "utr" in self.feature.lower() :
+        f=self.feature.lower()
+        if f in ("cds","exon") or "utr" in f or "codon" in f:
             return True
         return False
         
@@ -263,15 +264,15 @@ class GFF3(Parser):
             return gffLine(line, header=True)
 
         line=gffLine(line)
-        if line.parent is not None and "," in line.parent:
-            print(line.parent.split(","))
-            newLines=[]
-            for parent in line.parent.split(","):
-                newLine=deepcopy(line)
-                newLine.parent = parent
-                newLines.append(newLine)
-            return newLines
-        else:
-            return line
+#         if line.parent is not None and "," in line.parent:
+# #             print(line.parent.split(","))
+#             newLines=[]
+#             for parent in line.parent.split(","):
+#                 newLine=deepcopy(line)
+#                 newLine.parent = parent
+#                 newLines.append(newLine)
+#             return newLines
+#         else:
+        return line
             
         

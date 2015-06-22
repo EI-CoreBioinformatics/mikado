@@ -290,7 +290,9 @@ class gtfLine(object):
         if self.is_transcript is True:
             self.attributes["ID"]=transcript
         else:
-            self.attributes["Parent"]=transcript
+            self.attributes["Parent"]=[transcript]
+
+
 
     @property
     def is_parent(self):

@@ -539,6 +539,8 @@ def main():
     positions = collections.defaultdict(dict)
 
     transcript2gene = dict()
+    
+    
     for row in args.reference:
         #Assume we are going to use GTF for the moment
         if row.header is True:
@@ -556,10 +558,21 @@ def main():
             logger.debug(str(row))
 #             assert type(row.transcript) is list
             logger.debug("Exon found: {0}, {1}".format(row.transcript, row.parent))
-            for tr in row.transcript:
-                logger.debug(tr)
-                gid = transcript2gene[tr]
-                genes[gid][tr].addExon(row)
+            logger.error(row.transcript)
+            if type(row.transcript) is list:
+                for tr in row.transcript:
+                    logger.debug(tr)
+                    gid = transcript2gene[tr]
+                    genes[gid][tr].addExon(row)
+            else:
+                logger.debug(row.transcript)
+                try:
+                    genes[row.gene][row.transcript].addExon(row)
+                except KeyError as exc:
+                    assert row.gene in genes
+                    logger.exception(exc)
+                    logger.exception( "Keys for {0}: {1}".format(row.gene,  genes[row.gene].transcripts.keys() ))
+                    raise
         else:
             continue
 #     logger.info("Finished parsing the reference")

@@ -109,49 +109,49 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             ccode = "p"
             result = calc_compare(tr, mmatch, args.formatter)
             results = [ result ]
-        
-        matches=list(filter(lambda x: x[1]==0, distances))
-            
-        if len(matches)>1:
-            matches = [positions[tr.chrom][x[0]][0] for x in matches]
-            
-            strands = set(x.strand for x in matches)
-            if len(strands)>1 and tr.strand in strands:
-                matches = list(filter(lambda match: match.strand == tr.strand, matches))
-            if len(matches)==0:
-                raise ValueError("I filtered out all matches. This is wrong!")
-            
-            res = []
-            for match in matches:
-                m_res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
-                res.append(m_res[0])
-                
-            fields=[]
-            fields.append( ",".join( getattr(x,"RefId") for x in res  )  )
-            fields.append( ",".join( getattr(x, "RefGene") for x in res  )  )
-            if len(res)>1:
-                ccode = ",".join(["f"] + [x.ccode for x in res])
-            else:
-                ccode = res[0].ccode
-            fields.append(ccode)
-            fields.extend([tr.id, ",".join(tr.parent)]) 
-            
-            if len(res)>1:
-            
-                for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
-                    fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
-                fields.append(0)
-            else:
-                for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
-                    fields.extend( [getattr(x,field) for x in res] )
-                fields.append(0)
-            
-            results = [args.formatter(*fields)]
-            
         else:
-            match =  positions[tr.chrom][matches[0][0]][0]
-            res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
-            results = [res[0]]
+            matches=list(filter(lambda x: x[1]==0, distances))
+            
+            if len(matches)>1:
+                matches = [positions[tr.chrom][x[0]][0] for x in matches]
+                
+                strands = set(x.strand for x in matches)
+                if len(strands)>1 and tr.strand in strands:
+                    matches = list(filter(lambda match: match.strand == tr.strand, matches))
+                if len(matches)==0:
+                    raise ValueError("I filtered out all matches. This is wrong!")
+                
+                res = []
+                for match in matches:
+                    m_res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                    res.append(m_res[0])
+                    
+                fields=[]
+                fields.append( ",".join( getattr(x,"RefId") for x in res  )  )
+                fields.append( ",".join( getattr(x, "RefGene") for x in res  )  )
+                if len(res)>1:
+                    ccode = ",".join(["f"] + [x.ccode for x in res])
+                else:
+                    ccode = res[0].ccode
+                fields.append(ccode)
+                fields.extend([tr.id, ",".join(tr.parent)]) 
+                
+                if len(res)>1:
+                
+                    for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
+                        fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
+                    fields.append(0)
+                else:
+                    for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
+                        fields.extend( [getattr(x,field) for x in res] )
+                    fields.append(0)
+                
+                results = [args.formatter(*fields)]
+                
+            else:
+                match =  positions[tr.chrom][matches[0][0]][0]
+                res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                results = [res[0]]
             
 
     for result in results:

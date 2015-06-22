@@ -487,6 +487,12 @@ def main():
     args.formatter = namedtuple( "compare", fields )
     globals()[args.formatter.__name__]=args.formatter #Hopefully this allows pickling
 
+    #Flags for the parsing
+    if type(args.reference) is GFF3:
+        ref_gff = True
+    else:
+        ref_gff = False
+        
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
     args.queue = manager.Queue(-1)
@@ -559,7 +565,7 @@ def main():
 #             assert type(row.transcript) is list
             logger.debug("Exon found: {0}, {1}".format(row.transcript, row.parent))
             logger.error(row.transcript)
-            if type(row.transcript) is list:
+            if ref_gff is True:
                 for tr in row.transcript:
                     logger.debug(tr)
                     gid = transcript2gene[tr]

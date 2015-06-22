@@ -361,23 +361,24 @@ class gene:
 
 #@asyncio.coroutine
 def printer( args ):
+
+    logger = logging.getLogger("printer")
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+         
+    queue_handler = log_handlers.QueueHandler(args.log_queue)
+    logger.addHandler(queue_handler)
+    logger.propagate=False
+    logger.info("Started the printer process")
+
    
     with open("{0}.tmap".format(args.out),'wt' ) as out:
    
         rower=csv.DictWriter(out, args.formatter._fields, delimiter="\t"  )
         rower.writeheader()
-        
-        logger = logging.getLogger("printer")
-        if args.verbose:
-            logger.setLevel(logging.DEBUG)
-        else:
-            logger.setLevel(logging.INFO)
-             
-        queue_handler = log_handlers.QueueHandler(args.log_queue)
-        logger.addHandler(queue_handler)
-        logger.propagate=False
-        logger.debug("Started the printer process")
-    
+
         done=0
         while True:
             res = args.queue.get()
@@ -414,7 +415,7 @@ def refmap_printer(args, genes):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    logger.propagate=False
+    logger.propagate=True
     logger.debug("Started with refmapping")
 
     while True:
@@ -501,7 +502,13 @@ def main():
 #     loop = asyncio.get_event_loop()
 
     logger = logging.getLogger("main")
-    formatter = logging.Formatter("{asctime} - {levelname} - {message}", style="{")
+    formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}", style="{")
+    args.log_queue = manager.Queue()
+    args.queue_handler = log_handlers.QueueHandler(args.log_queue)
+    log_queue_listener = log_handlers.QueueListener(args.log_queue, logger)
+    log_queue_listener.propagate=True
+    log_queue_listener.start()
+
     if args.log is None:
 #         if sys.version_info.minor<4 or (sys.version_info.minor==4 and sys.version_info.micro<1):
 #             print( """Due to a Python bug (<3.4.1), I cannot use stderr for logging - it will sporadically cause deadlocks.
@@ -514,7 +521,10 @@ def main():
          
         handler = logging.StreamHandler()
     else:
-        handler = logging.FileHandler(args.log, 'w')
+        if os.path.exists(args.log):
+            os.remove(args.log)
+        
+        handler = logging.FileHandler(args.log, mode='a')
     handler.setFormatter(formatter)
      
     if args.verbose is False:
@@ -522,16 +532,16 @@ def main():
     else:
         logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
-    logger.info("Command line: {0}".format(" ".join(sys.argv)))
-    logger.info("Start")
-    logger.propagate=False
-
     
-    args.log_queue = manager.Queue(-1)
-    args.queue_handler = log_handlers.QueueHandler(args.log_queue)
-    log_queue_listener = log_handlers.QueueListener(args.log_queue, logger)
-#     queue_listener.propagate=False
-    log_queue_listener.start()
+    
+    queue_logger = logging.getLogger("main_queue")
+    queue_logger.setLevel(logging.INFO)
+    main_queue_handler = log_handlers.QueueHandler(args.log_queue)
+    queue_logger.addHandler(main_queue_handler)
+    
+    queue_logger.propagate=False
+    queue_logger.info("Start")
+    queue_logger.info("Command line: {0}".format(" ".join(sys.argv)))
     
     refmap_queue = manager.Queue(-1)
     
@@ -539,21 +549,21 @@ def main():
     pp.start()
     args.refmap_queue = refmap_queue
 
-    logger.info("Starting parsing the reference")
+    queue_logger.info("Starting parsing the reference")
 
     genes = dict()
     positions = collections.defaultdict(dict)
 
     transcript2gene = dict()
-    
+    logger.handlers[0].flush()
     
     for row in args.reference:
         #Assume we are going to use GTF for the moment
         if row.header is True:
             continue
-        logger.debug(str(row))
+#         logger.debug(str(row))
         if row.is_transcript is True:
-            logger.debug("Transcript\n{0}".format(str(row)))
+            queue_logger.debug("Transcript\n{0}".format(str(row)))
             tr = transcript(row)
             transcript2gene[row.id]=row.gene
             if row.gene not in genes:
@@ -561,22 +571,22 @@ def main():
             genes[row.gene].add(tr)
             assert tr.id in genes[row.gene].transcripts
         elif row.is_exon is True:
-            logger.debug(str(row))
+#             logger.debug(str(row))
 #             assert type(row.transcript) is list
-            logger.debug("Exon found: {0}, {1}".format(row.transcript, row.parent))
+#             logger.debug("Exon found: {0}, {1}".format(row.transcript, row.parent))
             if ref_gff is True:
                 for tr in row.transcript:
-                    logger.debug(tr)
+#                     logger.debug(tr)
                     gid = transcript2gene[tr]
                     genes[gid][tr].addExon(row)
             else:
-                logger.debug(row.transcript)
+#                 logger.debug(row.transcript)
                 try:
                     genes[row.gene][row.transcript].addExon(row)
                 except KeyError as exc:
                     assert row.gene in genes
-                    logger.exception(exc)
-                    logger.exception( "Keys for {0}: {1}".format(row.gene,  genes[row.gene].transcripts.keys() ))
+                    queue_logger.exception(exc)
+                    queue_logger.exception( "Keys for {0}: {1}".format(row.gene,  genes[row.gene].transcripts.keys() ))
                     raise
         else:
             continue
@@ -598,16 +608,13 @@ def main():
     indexer = collections.defaultdict(list).fromkeys(positions)
     for chrom in positions:
         indexer[chrom]=sorted(positions[chrom].keys())
-    logger.info("Finished preparation")
+    queue_logger.info("Finished preparation")
 # 
-# 
-    logger.debug("Initialised printer")    
+    queue_logger.debug("Initialised printer")    
 #     logger.debug("Initialised worker pool")
 
     refmap_proc = threading.Thread(target=refmap_printer, args=(args, genes ), name="refmap_printer")
     refmap_proc.start()
-
-
     
     def reduce_args(args):
         new_args = args.__dict__.copy()
@@ -624,14 +631,14 @@ def main():
     for row in args.prediction:
         if row.header is True:
             continue
-        logger.debug("Row:\n{0:>20}".format(str(row)))
+#         queue_logger.debug("Row:\n{0:>20}".format(str(row)))
         if row.is_transcript is True:
-            logger.debug("Transcript row:\n{0}".format(str(row)))
+            queue_logger.debug("Transcript row:\n{0}".format(str(row)))
             if currentTranscript is not None:
                 try:
                     get_best(positions, indexer, currentTranscript, cargs)
                 except Exception as err:
-                    logger.exception(err)
+                    queue_logger.exception(err)
                     log_queue_listener.enqueue_sentinel()
                     handler.close()
                     log_queue_listener.stop()
@@ -643,7 +650,7 @@ def main():
             try:
                 currentTranscript.addExon(row)
             except Exception as err:
-                logger.exception(err)
+                queue_logger.exception(err)
                 #In case of error, signal the threads to exit
                 args.queue.put("EXIT")
                 args.queue.all_tasks_done = True
@@ -657,25 +664,25 @@ def main():
         try:
             get_best(positions, indexer, currentTranscript, cargs)
         except Exception as err:
-            logger.exception(err)
+            queue_logger.exception(err)
 #             log_queue_listener.enqueue_sentinel()
 #             handler.close()
 #             log_queue_listener.stop()
 #             args.queue_handler.close()
 #             return
  
-    logger.info("Finished parsing")
+    queue_logger.info("Finished parsing")
 
     args.queue.put("EXIT")
     args.queue.all_tasks_done = True
 
-    logger.debug("Sent EXIT signal")
+    queue_logger.debug("Sent EXIT signal")
     pp.join()
     args.refmap_queue.put("EXIT")
     refmap_proc.join()
-    logger.debug("Printer process alive: {0}".format(pp.is_alive()))
-    logger.debug("Refmap process alive: {0}".format(refmap_proc.is_alive()))
-    logger.info("Finished")
+    queue_logger.debug("Printer process alive: {0}".format(pp.is_alive()))
+    queue_logger.debug("Refmap process alive: {0}".format(refmap_proc.is_alive()))
+    queue_logger.info("Finished")
     log_queue_listener.enqueue_sentinel()
     handler.close()
     log_queue_listener.stop()

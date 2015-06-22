@@ -94,7 +94,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     #Polymerase run-on
     if len(found)==0 or distances[0][1]>args.distance:
         ccode = "u"
-        args.queue.put( args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6   ), "-" )
+        args.queue.put( args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"] ))
 
 
     elif distances[0][1]>0:

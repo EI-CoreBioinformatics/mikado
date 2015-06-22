@@ -12,7 +12,7 @@ from shanghai_lib.loci_objects.transcript import transcript
 # import shanghai_lib.exceptions
 # from shanghai_lib.loci_objects.abstractlocus import abstractlocus
 from shanghai_lib.parsers.GTF import GTF
-# from shanghai_lib.parsers.GFF import GFF3
+from shanghai_lib.parsers.GFF import GFF3
 import logging
 from logging import handlers as log_handlers
 import bisect # Needed for efficient research
@@ -144,6 +144,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
             best = res[0]
             args.queue.put(best)
+            args.refmap_queue.put(best)
 
     logger.debug("Finished with {0}".format(tr.id))
     logger.removeHandler(queue_handler)
@@ -219,11 +220,18 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     
     ccode = None
     
-    if junction_f1 == 1  or (tr.exon_num==other.exon_num==1 and tr.start==other.start and tr.end==other.end):
+    if junction_f1 == 1:
         if tr.strand==other.strand or tr.strand is None:
             ccode = "=" #We have recovered all the junctions
         else:
-            ccode = "c"
+            ccode = "c" #We will set this to x at the end of the function
+        
+    elif (tr.exon_num==other.exon_num==1 and tr.start==other.start and tr.end==other.end):
+        junction_f1 = junction_precision = junction_precision = 1 #Set to one
+        if tr.strand==other.strand or tr.strand is None:
+            ccode = "=" #We have recovered all the junctions
+        else:
+            ccode = "c" #We will set this to x at the end of the function
         
     elif tr.start>other.end or tr.end<other.start: # Outside the transcript - polymerase run-on
         if other.strand == tr.strand:
@@ -282,7 +290,8 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
                     ccode = "n" #Extension
                 else:
                     ccode = "O" #Reverse generic overlap
-            else:
+            elif tr.exon_num == other.exon_num ==1:
+                junction_f1 = junction_precision = junction_precision = 1 #Set to one
                 if nucl_precision==1:
                     ccode="c" #just a generic exon overlap
                 else:
@@ -349,43 +358,44 @@ class gene:
 #@asyncio.coroutine
 def printer( args ):
    
-    rower=csv.DictWriter(args.out, args.formatter._fields, delimiter="\t"  )
-    rower.writeheader()
+    with open("{0}.tmap".format(args.out),'wt' ) as out:
+   
+        rower=csv.DictWriter(out, args.formatter._fields, delimiter="\t"  )
+        rower.writeheader()
+        
+        logger = logging.getLogger("printer")
+        if args.verbose:
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
+             
+        queue_handler = log_handlers.QueueHandler(args.log_queue)
+        logger.addHandler(queue_handler)
+        logger.propagate=False
+        logger.debug("Started the printer process")
     
-    logger = logging.getLogger("printer")
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-         
-    queue_handler = log_handlers.QueueHandler(args.log_queue)
-    logger.addHandler(queue_handler)
-    logger.propagate=False
-    logger.debug("Started the printer process")
-
-    done=0
-    while True:
-        res = args.queue.get()
-        if res=="EXIT":
-            logger.debug("Receveid EXIT signal")
-            logger.info("Finished {0} transcripts".format(done))
-            logger.removeHandler(queue_handler)
-            queue_handler.close()
-            break
-        done+=1
-        if done % 10000 == 0:
-            logger.info("Done {0} transcripts".format(done))
-        elif done % 1000 == 0:
-            logger.debug("Done {0} transcripts".format(done))
-        rower.writerow(res._asdict())
-        args.queue.task_done = True
-
+        done=0
+        while True:
+            res = args.queue.get()
+            if res=="EXIT":
+                logger.debug("Receveid EXIT signal")
+                logger.info("Finished {0} transcripts".format(done))
+                logger.removeHandler(queue_handler)
+                queue_handler.close()
+                break
+            done+=1
+            if done % 10000 == 0:
+                logger.info("Done {0} transcripts".format(done))
+            elif done % 1000 == 0:
+                logger.debug("Done {0} transcripts".format(done))
+            rower.writerow(res._asdict())
+            args.queue.task_done = True
+    
     return
 
-def refmap_printer(refmap_queue, logger_queue, args):
+def refmap_printer(args):
 
     '''Function to print out the best match for each gene.'''
-    
     
     gene_matches = dict()
     
@@ -397,11 +407,11 @@ def refmap_printer(refmap_queue, logger_queue, args):
     else:
         logger.setLevel(logging.INFO)
     logger.propagate=False
-    logger.debug("Started with {0}".format(tr.id))
+    logger.debug("Started with refmapping")
 
     while True:
         try:
-            curr_gene = refmap_queue.get()
+            curr_gene = args.refmap_queue.get()
         except Exception as err:
             logger.exception(err)
             break
@@ -417,8 +427,8 @@ def main():
         
         if string.endswith(".gtf"):
             return GTF(string)
-#         elif string.endswith('.gff') or string.endswith('.gff3'):
-#             return GFF3(string)
+        elif string.endswith('.gff') or string.endswith('.gff3'):
+            return GFF3(string)
         else:
             raise ValueError('Unrecognized file format.')
         
@@ -432,7 +442,8 @@ def main():
     parser.add_argument('-pc', '--protein-coding', dest="protein_coding", action="store_true", default=False,
                         help="Flag. If set, only transcripts with a CDS (both in reference and prediction) will be considered.")
 #     parser.add_argument("-t", "--threads", default=1, type=int)
-    parser.add_argument("-o","--out", default=sys.stdout, type = argparse.FileType("w") )
+    parser.add_argument("-o","--out", default="shangai_compare", type = str,
+                        help = "Prefix for the output files. Default: %(default)s" )
     parser.add_argument("-l","--log", default=None, type = str)
     parser.add_argument("-v", "--verbose", action="store_true", default=False)
 
@@ -495,9 +506,10 @@ def main():
     
     pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
     pp.start()
+    args.refmap_queue = refmap_queue
 
-    refmap_proc = refmap_printer(refmap_queue)
-
+    refmap_proc = threading.Thread(target=refmap_printer, args=(args, ), name="refmap_printer")
+    refmap_proc.start()
     
     logger.info("Starting parsing the reference")
 
@@ -556,7 +568,9 @@ def main():
     for row in args.prediction:
         if row.header is True:
             continue
+        logger.debug("Row:\n{0:>20}".format(str(row)))
         if row.is_transcript is True:
+            logger.debug("Transcript row:\n{0}".format(str(row)))
             if currentTranscript is not None:
                 try:
                     get_best(positions, indexer, currentTranscript, cargs)
@@ -569,18 +583,30 @@ def main():
                     return
                 
             currentTranscript=transcript(row)
+        elif row.is_exon is True:
+            try:
+                currentTranscript.addExon(row)
+            except Exception as err:
+                logger.exception(err)
+                #In case of error, signal the threads to exit
+                args.queue.put("EXIT")
+                args.queue.all_tasks_done = True
+                args.refmap_queue.put("EXIT")
+                break
         else:
-            currentTranscript.addExon(row)
+            continue
 
-    try:
-        get_best(positions, indexer, currentTranscript, cargs)
-    except Exception as err:
-        logger.exception(err)
-        log_queue_listener.enqueue_sentinel()
-        handler.close()
-        log_queue_listener.stop()
-        args.queue_handler.close()
-        return
+    if currentTranscript is not None:
+
+        try:
+            get_best(positions, indexer, currentTranscript, cargs)
+        except Exception as err:
+            logger.exception(err)
+#             log_queue_listener.enqueue_sentinel()
+#             handler.close()
+#             log_queue_listener.stop()
+#             args.queue_handler.close()
+#             return
  
     logger.info("Finished parsing")
 
@@ -589,7 +615,10 @@ def main():
 
     logger.debug("Sent EXIT signal")
     pp.join()
+    args.refmap_queue.put("EXIT")
+    refmap_proc.join()
     logger.debug("Printer process alive: {0}".format(pp.is_alive()))
+    logger.debug("Refmap process alive: {0}".format(refmap_proc.is_alive()))
     logger.info("Finished")
     log_queue_listener.enqueue_sentinel()
     handler.close()

@@ -230,6 +230,21 @@ class gffLine(object):
             return True
         return False
         
+    @property
+    def gene(self):
+        if self.is_transcript is True:
+            return self.parent[0]
+        else:
+            return None
+    
+    @property
+    def transcript(self):
+        if self.is_exon is True:
+            return self.parent
+        elif self.is_transcript is True:
+            return self.id
+        else:
+            return None
 
 class GFF3(Parser):
     def __init__(self,handle: io.TextIOWrapper):

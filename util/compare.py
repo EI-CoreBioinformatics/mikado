@@ -92,7 +92,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     distances = sorted(distances, key = operator.itemgetter(1))
 #     print(distances)
     #Polymerase run-on
-    if len(found)==0:
+    if len(found)==0 or distances[0][1]>args.distance:
         ccode = "u"
         args.queue.put( args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6   ), "-" )
 
@@ -239,6 +239,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
             ccode = "c" #We will set this to x at the end of the function
         
     elif tr.start>other.end or tr.end<other.start: # Outside the transcript - polymerase run-on
+        distance = max(tr.start-other.end, other.start-tr.end)
         if other.strand == tr.strand:
             ccode = "p"
         else:

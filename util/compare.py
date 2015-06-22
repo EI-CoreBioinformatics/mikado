@@ -91,13 +91,14 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     #Polymerase run-on
     if len(found)==0:
         ccode = "u"
-        args.queue.put( args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6   ) )
+        args.queue.put( args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6   ), "-" )
 
 
     elif distances[0][1]>0:
         match = random.choice( positions[tr.chrom][key]  )
         ccode = "p"
-        args.queue.put(args.formatter(  match.id, random.choice(list(match.transcripts.keys())), ccode, tr.id, ",".join(tr.parent), *[0]*6))
+        args.queue.put(args.formatter(  random.choice(list(match.transcripts.keys())), match.id, ccode, tr.id,
+                                        ",".join(tr.parent), *[0]*6+[distances[0][1]]))
 
 #         else:
 #             match=None
@@ -135,6 +136,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             
             for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
                 fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
+            fields.append(0)
             
             result = args.formatter(*fields)
             args.queue.put(result)
@@ -219,7 +221,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
         junction_overlap=junction_f1=junction_precision=junction_recall=0
     
     ccode = None
-    
+    distance = 0
     if junction_f1 == 1:
         if tr.strand==other.strand or tr.strand is None:
             ccode = "=" #We have recovered all the junctions
@@ -238,6 +240,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
             ccode = "p"
         else:
             ccode = "P" 
+        distance = max(tr.start-other.end, other.start-tr.end) 
  
     elif nucl_precision==1:
         if tr.exon_num==1 or (tr.exon_num>1 and junction_precision==1):
@@ -303,6 +306,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     result = formatter(other.id, ",".join(other.parent), ccode, tr.id, ",".join(tr.parent), 
                      round(nucl_precision*100,2), round(100*nucl_recall,2),round(100*nucl_f1,2),
                      round(junction_precision*100,2), round(100*junction_recall,2), round(100*junction_f1,2),
+                     distance
                      ) 
 
     if ccode is None:
@@ -393,11 +397,15 @@ def printer( args ):
     
     return
 
-def refmap_printer(args):
+def refmap_printer(args, genes):
 
     '''Function to print out the best match for each gene.'''
     
     gene_matches = dict()
+    for gid in genes:
+        gene_matches[gid]=dict()
+        for tid in genes[gid]:
+            gene_matches[gid][tid.id]=[]
     
     queue_handler = log_handlers.QueueHandler(args.log_queue)
     logger = logging.getLogger("selector")
@@ -411,11 +419,33 @@ def refmap_printer(args):
 
     while True:
         try:
-            curr_gene = args.refmap_queue.get()
+            curr_match = args.refmap_queue.get()
         except Exception as err:
             logger.exception(err)
+            return
+        if curr_match == "EXIT":
             break
-        if curr_gene == "EXIT": break
+        else:
+            if curr_match.ccode == "u": continue
+            gene_matches[ curr_match.RefGene ][ curr_match.RefId].append(curr_match)
+        
+    with open( "{0}.refmap".format(args.out), 'wt' ) as out:
+        fields = ["RefId", "RefGene", "ccode", "TID", "GID" ]
+        out_tuple = namedtuple("refmap", fields)
+        
+        rower=csv.DictWriter(out, fields, delimiter="\t"  )
+        rower.writeheader()
+        
+        for gid in sorted(gene_matches.keys()):
+            for tid in sorted(gene_matches[gid].keys()):
+                if len(gene_matches[gid][tid])==0:
+                    row=out_tuple(tid, gid, "NA", "NA", "NA")
+                else:
+                    best = sorted(gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+                    row=out_tuple(tid, gid, best.ccode, best.TID, best.GID)
+                rower.writerow(row._asdict())
+        
+        pass
 
     return
 
@@ -451,7 +481,7 @@ def main():
     args=parser.parse_args()
 
     fields = [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1",
-                              "j_prec", "j_recall", "j_f1",
+                              "j_prec", "j_recall", "j_f1", "distance"
                               ]
 
     args.formatter = namedtuple( "compare", fields )
@@ -467,16 +497,16 @@ def main():
     logger = logging.getLogger("main")
     formatter = logging.Formatter("{asctime} - {levelname} - {message}", style="{")
     if args.log is None:
-        if sys.version_info.minor<4 or (sys.version_info.minor==4 and sys.version_info.micro<1):
-            print( """Due to a Python bug (<3.4.1), I cannot use stderr for logging - it will sporadically cause deadlocks.
-            Documented at: http://bugs.python.org/issue21149
-            Please update your Python version.
-            Printing to default_log.txt.
-            """, file=sys.stderr  )
-            handler = logging.FileHandler( "default_log.txt", "w")
-        else: 
+#         if sys.version_info.minor<4 or (sys.version_info.minor==4 and sys.version_info.micro<1):
+#             print( """Due to a Python bug (<3.4.1), I cannot use stderr for logging - it will sporadically cause deadlocks.
+#             Documented at: http://bugs.python.org/issue21149
+#             Please update your Python version.
+#             Printing to default_log.txt.
+#             """, file=sys.stderr  )
+#             handler = logging.FileHandler( "default_log.txt", "w")
+#         else: 
          
-            handler = logging.StreamHandler()
+        handler = logging.StreamHandler()
     else:
         handler = logging.FileHandler(args.log, 'w')
     handler.setFormatter(formatter)
@@ -503,9 +533,6 @@ def main():
     pp.start()
     args.refmap_queue = refmap_queue
 
-    refmap_proc = threading.Thread(target=refmap_printer, args=(args, ), name="refmap_printer")
-    refmap_proc.start()
-    
     logger.info("Starting parsing the reference")
 
     genes = dict()
@@ -557,7 +584,12 @@ def main():
 # 
 # 
     logger.debug("Initialised printer")    
-    logger.debug("Initialised worker pool")
+#     logger.debug("Initialised worker pool")
+
+    refmap_proc = threading.Thread(target=refmap_printer, args=(args, genes ), name="refmap_printer")
+    refmap_proc.start()
+
+
     
     def reduce_args(args):
         new_args = args.__dict__.copy()

@@ -106,7 +106,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             mmatch = sorted( m_distances, key=operator.itemgetter(1)  )
             
             ccode = "p"
-            result = calc_compare(tr, mmatch)
+            result = calc_compare(tr, mmatch, args.formatter)
             results = [ result ]
         
         matches=list(filter(lambda x: x[1]==0, distances))

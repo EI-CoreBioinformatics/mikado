@@ -50,7 +50,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     if tr.chrom not in indexer:
         ccode = "u"
         match = None
-        result = args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]  )
+        result = args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]+["-"]  )
         args.queue.put(result)
 #         logger.debug("Finished with {0}".format(tr.id))
         return
@@ -86,32 +86,30 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
 
     distances = []
     for key in found:
-#         print(key)
         distances.append( (key, max( 0, max(tr.start,key[0] ) - min(tr.end, key[1])   )   ) )
 
     distances = sorted(distances, key = operator.itemgetter(1))
-#     print(distances)
-    #Polymerase run-on
+
+    #Unknown transcript
     if len(found)==0 or distances[0][1]>args.distance:
         ccode = "u"
-        args.queue.put( args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"] ))
+        results = [args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"] )]
 
-
-    elif distances[0][1]>0:
-        match = random.choice( positions[tr.chrom][key]  )
-        ccode = "p"
-        args.queue.put(args.formatter(  random.choice(list(match.transcripts.keys())), match.id, ccode, tr.id,
-                                        ",".join(tr.parent), *[0]*6+[distances[0][1]]))
-
-#         else:
-#             match=None
-#             ccode="u"
-#             return tr.id, ccode, match, indexed, distances[0][1]
+    #Polymerase run-on
     else:
-        matches = []
-        for d in distances:
-            if d[1]==0: matches.append(d)
-            else: break
+        if distances[0][1]>0:
+            match = positions[tr.chrom][distances[0][0]][0]
+            m_distances = []
+            for other in match:
+                dist = max(tr.start-other.end, other.start-tr.end) 
+                m_distances.append((other.id, dist))
+            mmatch = sorted( m_distances, key=operator.itemgetter(1)  )
+            
+            ccode = "p"
+            result = calc_compare(tr, mmatch)
+            results = [ result ]
+        
+        matches=list(filter(lambda x: x[1]==0, distances))
             
         if len(matches)>1:
             matches = [positions[tr.chrom][x[0]][0] for x in matches]
@@ -137,19 +135,27 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             fields.append(ccode)
             fields.extend([tr.id, ",".join(tr.parent)]) 
             
-            for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
-                fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
-            fields.append(0)
+            if len(res)>1:
             
-            result = args.formatter(*fields)
-            args.queue.put(result)
+                for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
+                    fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
+                fields.append(0)
+            else:
+                for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
+                    fields.extend( [getattr(x,field) for x in res] )
+                fields.append(0)
+            
+            results = [args.formatter(*fields)]
             
         else:
             match =  positions[tr.chrom][matches[0][0]][0]
             res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
-            best = res[0]
-            args.queue.put(best)
-            args.refmap_queue.put(best)
+            results = [res[0]]
+            
+
+    for result in results:
+        args.queue.put(result)
+        args.refmap_queue.put(result)
 
     logger.debug("Finished with {0}".format(tr.id))
     logger.removeHandler(queue_handler)
@@ -162,7 +168,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     '''Function to compare two transcripts and determine a ccode.
     Available ccodes (from Cufflinks documentation):
     
-    - =    Complete match
+    - =    Complete intron chain match
     - c    Contained
     - j    Potentially novel isoform (fragment): at least one splice junction is shared with a reference transcript
     - e    Single exon transfrag overlapping a reference exon and at least 10 bp of a reference intron, indicating a possible pre-mRNA fragment.
@@ -178,6 +184,7 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     We also provide the following additional classifications:
     
     - f    gene fusion - in this case, this ccode will be followed by the ccodes of the matches for each gene, separated by comma
+    - _    Complete match, for monoexonic transcripts
     - n    Potentially novel isoform, where all the known junctions have been confirmed and we have added others as well
     - I    *multiexonic* transcript falling completely inside a known transcript
     - h    the transcript is multiexonic and extends a monoexonic reference transcript
@@ -234,9 +241,9 @@ def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtup
     elif (tr.exon_num==other.exon_num==1 and tr.start==other.start and tr.end==other.end):
         junction_f1 = junction_precision = junction_precision = 1 #Set to one
         if tr.strand==other.strand or tr.strand is None:
-            ccode = "=" #We have recovered all the junctions
+            ccode = "_" #We have recovered all the junctions
         else:
-            ccode = "c" #We will set this to x at the end of the function
+            ccode = "x"
         
     elif tr.start>other.end or tr.end<other.start: # Outside the transcript - polymerase run-on
         distance = max(tr.start-other.end, other.start-tr.end)
@@ -434,8 +441,34 @@ def refmap_printer(args, genes):
             if curr_match.ccode == "u":
                 continue
             #This is necessary for fusion genes
-            for gid,tid in zip( curr_match.RefGene.split(","), curr_match.RefId.split(",") ):
-                gene_matches[ gid ][ tid ].append(curr_match)
+            elif curr_match.ccode[0]!='f':
+                for attr in ["n_prec", "n_recall", "j_f1", "j_prec", "j_recall", "j_f1"]:
+                    assert type(getattr(curr_match, attr)), curr_match
+                
+                gene_matches[ curr_match.RefGene ][ curr_match.RefId ].append(curr_match)
+            else: #Fusion gene
+                gids = curr_match.RefGene.split(",")
+                tids = curr_match.RefId.split(",")
+                ccodes = curr_match.ccode.split(",")
+                ccodes = [ "f,{0}".format(ccodes[x]) for x in range(1,len(ccodes)) ]
+                
+                nucl_prec = [float(x) for x in curr_match.n_prec.split(",")]
+                nucl_recall = [float(x) for x in curr_match.n_recall.split(",")]
+                nucl_f1 = [float(x) for x in curr_match.n_f1.split(",")]
+                junc_prec = [float(x) for x in curr_match.j_prec.split(",")]
+                junc_recall = [float(x) for x in curr_match.j_recall.split(",")]
+                junc_f1 = [float(x) for x in curr_match.j_f1.split(",")]
+
+                for num in range(len(gids)):
+                    gid = gids[num]
+                    tid = tids[num]
+                    
+                    f = args.formatter( tids[num], gids[num], ccodes[num], curr_match.TID, curr_match.GID,
+                                        nucl_prec[num], nucl_recall[num], nucl_f1[num],
+                                        junc_prec[num], junc_recall[num], junc_f1[num],
+                                        0 )
+                    gene_matches[gid][tid].append(f)
+                
         
     with open( "{0}.refmap".format(args.out), 'wt' ) as out:
         fields = ["RefId", "RefGene", "ccode", "TID", "GID" ]
@@ -449,7 +482,12 @@ def refmap_printer(args, genes):
                 if len(gene_matches[gid][tid])==0:
                     row=out_tuple(tid, gid, "NA", "NA", "NA")
                 else:
-                    best = sorted(gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+                    try:
+                        best = sorted(gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+                    except TypeError as err:
+                        logger.exception(gene_matches[gid][tid])
+                        logger.exception(err)
+                        raise
                     row=out_tuple(tid, gid, best.ccode, best.TID, best.GID)
                 rower.writerow(row._asdict())
         pass

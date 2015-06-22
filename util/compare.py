@@ -70,16 +70,19 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     right_index=min(len(keys)-1, left_index+1)
     if right_index==left_index: search_right=False
     
-    while search_left is True and keys[left_index][1]+args.distance>=tr.start:
+    while search_left is True:
+        if  keys[left_index][1]+args.distance<tr.start:
+            break
         found.append( keys[left_index] )
         left_index-=1
         if left_index<0: break
     
-    while search_right is True and keys[right_index][0]-args.distance<=tr.end:
+    while search_right is True:
+        if keys[right_index][0]-args.distance>tr.end:
+            break
         found.append(keys[right_index])
         right_index+=1
         if right_index>=len(keys): break
-        
 
     distances = []
     for key in found:
@@ -427,8 +430,11 @@ def refmap_printer(args, genes):
         if curr_match == "EXIT":
             break
         else:
-            if curr_match.ccode == "u": continue
-            gene_matches[ curr_match.RefGene ][ curr_match.RefId].append(curr_match)
+            if curr_match.ccode == "u":
+                continue
+            #This is necessary for fusion genes
+            for gid,tid in zip( curr_match.RefGene.split(","), curr_match.RefId.split(",") ):
+                gene_matches[ gid ][ tid ].append(curr_match)
         
     with open( "{0}.refmap".format(args.out), 'wt' ) as out:
         fields = ["RefId", "RefGene", "ccode", "TID", "GID" ]
@@ -445,9 +451,7 @@ def refmap_printer(args, genes):
                     best = sorted(gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
                     row=out_tuple(tid, gid, best.ccode, best.TID, best.GID)
                 rower.writerow(row._asdict())
-        
         pass
-
     return
 
 
@@ -497,9 +501,6 @@ def main():
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
     args.queue = manager.Queue(-1)
-#     pool = multiprocessing.Pool(args.threads)
-#     pool = concurrent.futures.ProcessPoolExecutor(args.threads)
-#     loop = asyncio.get_event_loop()
 
     logger = logging.getLogger("main")
     formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}", style="{")
@@ -510,15 +511,6 @@ def main():
     log_queue_listener.start()
 
     if args.log is None:
-#         if sys.version_info.minor<4 or (sys.version_info.minor==4 and sys.version_info.micro<1):
-#             print( """Due to a Python bug (<3.4.1), I cannot use stderr for logging - it will sporadically cause deadlocks.
-#             Documented at: http://bugs.python.org/issue21149
-#             Please update your Python version.
-#             Printing to default_log.txt.
-#             """, file=sys.stderr  )
-#             handler = logging.FileHandler( "default_log.txt", "w")
-#         else: 
-         
         handler = logging.StreamHandler()
     else:
         if os.path.exists(args.log):

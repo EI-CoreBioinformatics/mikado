@@ -38,6 +38,14 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     logger.propagate=False
     logger.debug("Started with {0}".format(tr.id))
     
+    tr.set_logger(logger)
+    try:
+        tr.finalize()
+    except shanghai_lib.exceptions.InvalidTranscript:
+        return
+    finally:
+        if args.protein_coding is True and tr.combined_cds_length == 0:
+            return
 
     if tr.chrom not in indexer:
         ccode = "u"
@@ -374,6 +382,34 @@ def printer( args ):
 
     return
 
+def refmap_printer(refmap_queue, logger_queue, args):
+
+    '''Function to print out the best match for each gene.'''
+    
+    
+    gene_matches = dict()
+    
+    queue_handler = log_handlers.QueueHandler(args.log_queue)
+    logger = logging.getLogger("selector")
+    logger.addHandler(queue_handler)
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
+    logger.propagate=False
+    logger.debug("Started with {0}".format(tr.id))
+
+    while True:
+        try:
+            curr_gene = refmap_queue.get()
+        except Exception as err:
+            logger.exception(err)
+            break
+        if curr_gene == "EXIT": break
+
+    return
+
+
 def main():
     
     def to_gtf(string):
@@ -451,12 +487,16 @@ def main():
     
     args.log_queue = manager.Queue(-1)
     args.queue_handler = log_handlers.QueueHandler(args.log_queue)
-    queue_listener = log_handlers.QueueListener(args.log_queue, logger)
+    log_queue_listener = log_handlers.QueueListener(args.log_queue, logger)
 #     queue_listener.propagate=False
-    queue_listener.start()
+    log_queue_listener.start()
+    
+    refmap_queue = manager.Queue(-1)
     
     pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
     pp.start()
+
+    refmap_proc = refmap_printer(refmap_queue)
 
     
     logger.info("Starting parsing the reference")
@@ -519,17 +559,12 @@ def main():
         if row.is_transcript is True:
             if currentTranscript is not None:
                 try:
-                    currentTranscript.finalize()
-                    if args.protein_coding is False or currentTranscript.combined_cds_length > 0:
-                        get_best(positions, indexer, currentTranscript, cargs)
-                        
-                except shanghai_lib.exceptions.InvalidTranscript:
-                    pass
+                    get_best(positions, indexer, currentTranscript, cargs)
                 except Exception as err:
                     logger.exception(err)
-                    queue_listener.enqueue_sentinel()
+                    log_queue_listener.enqueue_sentinel()
                     handler.close()
-                    queue_listener.stop()
+                    log_queue_listener.stop()
                     args.queue_handler.close()
                     return
                 
@@ -538,20 +573,15 @@ def main():
             currentTranscript.addExon(row)
 
     try:
-        currentTranscript.finalize()
-        if args.protein_coding is False or currentTranscript.combined_cds_length > 0:
-            get_best(positions, indexer, currentTranscript, cargs)  
-
-    except shanghai_lib.exceptions.InvalidTranscript:
-        pass
+        get_best(positions, indexer, currentTranscript, cargs)
     except Exception as err:
         logger.exception(err)
-        queue_listener.enqueue_sentinel()
+        log_queue_listener.enqueue_sentinel()
         handler.close()
-        queue_listener.stop()
+        log_queue_listener.stop()
         args.queue_handler.close()
         return
-        
+ 
     logger.info("Finished parsing")
 
     args.queue.put("EXIT")
@@ -561,9 +591,9 @@ def main():
     pp.join()
     logger.debug("Printer process alive: {0}".format(pp.is_alive()))
     logger.info("Finished")
-    queue_listener.enqueue_sentinel()
+    log_queue_listener.enqueue_sentinel()
     handler.close()
-    queue_listener.stop()
+    log_queue_listener.stop()
     args.queue_handler.close()
     return
 

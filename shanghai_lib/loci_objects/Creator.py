@@ -18,9 +18,9 @@ import shanghai_lib.parsers
 import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import multiprocessing
+from multiprocessing.context import Process
 import threading
-import queue
-
+# import queue
 
 #from memory_profiler import profile
 
@@ -341,7 +341,7 @@ class Creator:
                                     jobs.remove(job)
                             time.sleep(0.1)
 
-                        job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+                        job = Process(target=self.analyse_locus, args=(currentLocus,))
                         job.start()
                         jobs.append(job)
 
@@ -361,7 +361,7 @@ class Creator:
                             jobs.remove(job)
                     time.sleep(0.1)
 
-                job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+                job = Process(target=self.analyse_locus, args=(currentLocus,))
                 job.start()
                 jobs.append(job)
 
@@ -377,11 +377,11 @@ class Creator:
                         jobs.remove(job)
                 time.sleep(0.1)
 
-                job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+                job = Process(target=self.analyse_locus, args=(currentLocus,))
                 job.start()
                 jobs.append(job)
                 
-            job = multiprocessing.Process(target=self.analyse_locus, args=(currentLocus,))
+            job = Process(target=self.analyse_locus, args=(currentLocus,))
             job.start()
             jobs.append(job)
             

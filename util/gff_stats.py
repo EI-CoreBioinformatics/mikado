@@ -76,6 +76,8 @@ class gene_object:
         for field in ['chrom', 'strand', 'start', 'end', 'id']:
             setattr(self, field, getattr(record, field))
         self.only_coding = only_coding
+        self.coding_transcripts = set()
+        
         
     def add_transcript(self, tcomputer: transcriptComputer):
         self.transcripts[tcomputer.id]=tcomputer
@@ -90,14 +92,15 @@ class gene_object:
             try:
                 self.transcripts[tid]=self.transcripts[tid].as_tuple()
                 if self.only_coding is True and self.transcripts[tid].selected_cds_length == 0:
-                    to_remove.add(tid)            
+                    to_remove.add(tid) 
+                if self.transcripts[tid].selected_cds_length>0:
+                    self.coding_transcripts.add(tid)
             except shanghai_lib.exceptions.InvalidTranscript:
                 to_remove.add(tid)
         if len(to_remove)==len(self.transcripts):
             self.transcripts=dict()
         else:
             for x in to_remove: del self.transcripts[x]
-
 
     def __lt__(self, other):
         if self.chrom!=other.chrom:
@@ -132,7 +135,7 @@ class gene_object:
         
     @property
     def is_coding(self):
-        return any(self[tid].combined_cds_length >0 for tid in self.transcripts  )
+        return any(self.transcripts[tid].selected_cds_length >0 for tid in self.transcripts.keys()  )
         
 
 class Calculator:
@@ -160,6 +163,9 @@ class Calculator:
 #                 continue
 
             if record.feature == "locus" or (record.is_parent is True and record.is_transcript is False):
+                if record.feature == "protein":
+                    continue #Hack for the AT gff .. stupid "protein" features ...
+
                 if currentGene is not None:
                     self.genes[currentGene].finalize()
                     if self.genes[currentGene].num_transcripts == 0:
@@ -186,7 +192,8 @@ class Calculator:
                 self.genes[record.parent[0]].transcripts[record.id] = transcriptComputer(record)
             else:
                 for parent in record.parent:
-                    if parent not in self.genes[currentGene].transcripts: continue #Hack for the AT gff .. stupid "protein" features ...
+                    if parent not in self.genes[currentGene].transcripts:
+                        continue #Hack for the AT gff .. stupid "protein" features ...
                     self.genes[currentGene].transcripts[parent].addExon(record)
 
         self.genes[currentGene].finalize()
@@ -199,13 +206,23 @@ class Calculator:
 
         self.parse_input()
         ordered_genes = sorted(self.genes.values())
+        self.coding_genes = list(filter(lambda g: g.is_coding is True, ordered_genes))
         distances = []
         for index,gene in enumerate(ordered_genes[:-1]):
             next_gene = ordered_genes[index+1]
             if next_gene.chrom!=gene.chrom: continue
             distances.append(next_gene.start+1-gene.end)
             
+            
         self.distances = numpy.array(distances)
+        
+        distances = []
+        for index, gene in enumerate(self.coding_genes[:-1]):
+            next_gene = self.coding_genes[index+1]
+            if next_gene.chrom!=gene.chrom: continue
+            distances.append(next_gene.start+1-gene.end)
+            
+        self.coding_distances = numpy.array(distances)
 
         self.writer()
 
@@ -242,27 +259,28 @@ class Calculator:
         row['Total'] = len(self.genes)
         rower.writerow(row)
         
-        coding_genes = list(filter(lambda g: g.is_coding is True, self.genes))
-        
-        
         row["Stat"] = "Number of genes (coding)"
-        row["Total"] = len(coding_genes)
+        row["Total"] = len(self.coding_genes)
         rower.writerow(row)
-        
-        
         
         row["Stat"] = 'Number of transcripts'
         row['Total'] = sum(self.genes[x].num_transcripts for x in self.genes  )   
         rower.writerow(row)
         
-        row["Stat"] = "Number of coding transcripts"
-        row["Total"] =  
-        
-        
-        row["Stat"] = 'Transcript per gene'
+        row["Stat"] = 'Transcripts per gene'
         t_per_g = numpy.array(list( self.genes[x].num_transcripts for x in self.genes  ))
         row = self.get_stats(row, t_per_g)
         rower.writerow(row)
+
+        row["Stat"] = "Number of coding transcripts"
+        row["Total"] = sum( len(x.coding_transcripts) for x in self.coding_genes  )  
+        rower.writerow(row)
+
+        row["Stat"] = "Coding transcripts per gene"
+        t_per_g = numpy.array(list( len(x.coding_transcripts) for x in self.coding_genes   ))
+        row = self.get_stats(row, t_per_g)
+        rower.writerow(row)
+
 
         exons = cArray('i') #Done
         exons_coding = cArray('i')
@@ -401,8 +419,17 @@ class Calculator:
         row["Total"]="NA"
         rower.writerow(row)
 
+        row["Stat"] = "Intergenic distances"
+        ar = self.distances
+        row = self.get_stats(row, ar)
+        row["Total"] = "NA"
+        rower.writerow(row)
         
-
+        row["Stat"] = "Intergenic distances (coding)"
+        ar = self.coding_distances
+        row = self.get_stats(row, ar)
+        row["Total"] = "NA"
+        rower.writerow(row)
         
 def main():
 

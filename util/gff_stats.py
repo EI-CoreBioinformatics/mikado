@@ -130,6 +130,10 @@ class gene_object:
     def num_transcripts(self):
         return len(self.transcripts)
         
+    @property
+    def is_coding(self):
+        return any(self[tid].combined_cds_length >0 for tid in self.transcripts  )
+        
 
 class Calculator:
     
@@ -237,9 +241,23 @@ class Calculator:
         row["Stat"] = 'Number of genes'
         row['Total'] = len(self.genes)
         rower.writerow(row)
+        
+        coding_genes = list(filter(lambda g: g.is_coding is True, self.genes))
+        
+        
+        row["Stat"] = "Number of genes (coding)"
+        row["Total"] = len(coding_genes)
+        rower.writerow(row)
+        
+        
+        
         row["Stat"] = 'Number of transcripts'
         row['Total'] = sum(self.genes[x].num_transcripts for x in self.genes  )   
         rower.writerow(row)
+        
+        row["Stat"] = "Number of coding transcripts"
+        row["Total"] =  
+        
         
         row["Stat"] = 'Transcript per gene'
         t_per_g = numpy.array(list( self.genes[x].num_transcripts for x in self.genes  ))

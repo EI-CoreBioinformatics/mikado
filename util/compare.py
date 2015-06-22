@@ -50,7 +50,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     if tr.chrom not in indexer:
         ccode = "u"
         match = None
-        result = args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]+["-"]  )
+        result = args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]  )
         args.queue.put(result)
 #         logger.debug("Finished with {0}".format(tr.id))
         return

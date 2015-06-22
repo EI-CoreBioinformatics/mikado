@@ -103,7 +103,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             for other in match:
                 dist = max(tr.start-other.end, other.start-tr.end) 
                 m_distances.append((other.id, dist))
-            mmatch = sorted( m_distances, key=operator.itemgetter(1)  )
+            mmatch = sorted( m_distances, key=operator.itemgetter(1)  )[0] #Get the transcript with the least distance
             
             ccode = "p"
             result = calc_compare(tr, mmatch, args.formatter)

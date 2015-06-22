@@ -564,7 +564,6 @@ def main():
             logger.debug(str(row))
 #             assert type(row.transcript) is list
             logger.debug("Exon found: {0}, {1}".format(row.transcript, row.parent))
-            logger.error(row.transcript)
             if ref_gff is True:
                 for tr in row.transcript:
                     logger.debug(tr)

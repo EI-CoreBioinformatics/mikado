@@ -1,9 +1,10 @@
 import sys,argparse,os
 from collections import namedtuple
+import pickle
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
-import random
+#import random
 import threading
 import multiprocessing
 import shanghai_lib.exceptions
@@ -25,6 +26,63 @@ import bisect # Needed for efficient research
 
 '''
 
+class result_storer:
+    
+    __slots__ = [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1", "j_prec", "j_recall", "j_f1", "distance"]
+    
+    def __init__(self, *args):
+        
+        if len(args)!=len(self.__slots__):
+            raise ValueError("Result_storer expected {0} but only received {1}".format(len(self.__slots__), len(args)))
+        
+        for index,key in enumerate(self.__slots__):
+            if index<3:
+                if type(args[index]) is str:
+                    setattr(self, key, tuple([args[index]]) )
+                else:
+                    setattr(self, key, args[index])
+            elif index in (3,4, len(self.__slots__)):
+                setattr(self, key, args[index])
+            else:
+                if type(args[index]) in (float, int):
+                    setattr(self, key, tuple([args[index]]))
+                else:
+                    setattr(self, key, tuple(args[index]))
+    
+    def _asdict(self):
+        
+        d=dict().fromkeys(self.__slots__)
+        
+        for attr in self.__slots__[:3]:
+            try:
+                d[attr]=",".join(list(getattr(self, attr)))
+            except TypeError as exc:
+                raise TypeError("{0}; {1}".format(exc, getattr(self, attr)))
+        for attr in self.__slots__[3:5]:
+            d[attr]=getattr(self, attr)
+        for attr in self.__slots__[5:-1]:
+            d[attr]=",".join("{0:,.2f}".format(x) for x in getattr(self,attr))
+        d["distance"]=self.distance[0] #Last attribute
+        assert type(d["distance"]) is int
+        return d
+    
+    def __str__(self):
+        
+        r = self._asdict()
+        line=[]
+        for key in self.__slots__:
+            line.append(r[key])
+        return "\t".join(line)
+    
+    def __repr__(self):
+        
+        t="result( "
+        for key in self.__slots__:
+            t+= "{0}={1} ".format(key,  getattr(self, key))
+        t+=")"
+        return t
+
+
 def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespace):
     
     
@@ -43,14 +101,14 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
         tr.finalize()
     except shanghai_lib.exceptions.InvalidTranscript:
         return
-    finally:
-        if args.protein_coding is True and tr.combined_cds_length == 0:
-            return
+    
+    if args.protein_coding is True and tr.combined_cds_length == 0:
+        return
 
     if tr.chrom not in indexer:
         ccode = "u"
         match = None
-        result = args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]  )
+        result = result_storer( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]  )
         args.queue.put(result)
 #         logger.debug("Finished with {0}".format(tr.id))
         return
@@ -93,7 +151,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     #Unknown transcript
     if len(found)==0 or distances[0][1]>args.distance:
         ccode = "u"
-        results = [args.formatter( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"] )]
+        result = result_storer( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"] )
 
     #Polymerase run-on
     else:
@@ -107,8 +165,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
             mmatch = match[mmatch]
             
             ccode = "p"
-            result = calc_compare(tr, mmatch, args.formatter)
-            results = [ result ]
+            result = calc_compare(tr, mmatch, result_storer)
         else:
             matches=list(filter(lambda x: x[1]==0, distances))
             
@@ -123,40 +180,32 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
                 
                 res = []
                 for match in matches:
-                    m_res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                    m_res = sorted([calc_compare(tr, tra, result_storer) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
                     res.append(m_res[0])
                     
-                fields=[]
-                fields.append( ",".join( getattr(x,"RefId") for x in res  )  )
-                fields.append( ",".join( getattr(x, "RefGene") for x in res  )  )
-                if len(res)>1:
-                    ccode = ",".join(["f"] + [x.ccode for x in res])
-                else:
-                    ccode = res[0].ccode
-                fields.append(ccode)
-                fields.extend([tr.id, ",".join(tr.parent)]) 
-                
-                if len(res)>1:
-                
-                    for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
-                        fields.append( ",".join( str(getattr(x,field)) for x in res  ) )
-                    fields.append(0)
-                else:
-                    for field in ["n_prec", "n_recall", "n_f1","j_prec", "j_recall", "j_f1"]:
-                        fields.extend( [getattr(x,field) for x in res] )
-                    fields.append(0)
-                
-                results = [args.formatter(*fields)]
-                
+                values = []
+                for key in result_storer.__slots__:
+                    if key in ["GID", "TID", "distance"]:
+                        values.append(getattr(res[0],key))
+                    elif key=="ccode":
+                        if len(res)>1:
+                            values.append(tuple( ["f"]+[ getattr(x,key)[0]  for x in res])   ) #Add the "f" ccode for fusions
+                        else:
+                            values.append(tuple( getattr(res[0],key))   )
+                    else:
+                        val = tuple([ getattr(x,key)[0]  for x in res])   
+                        assert len(val)==len(res)
+                        assert type(val[0]) is not tuple, val
+                        values.append(val)
+                    
+                result = result_storer(*values)
             else:
                 match =  positions[tr.chrom][matches[0][0]][0]
-                res = sorted([calc_compare(tr, tra, args.formatter) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
-                results = [res[0]]
+                res = sorted([calc_compare(tr, tra, result_storer) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                result = res[0]
             
-
-    for result in results:
-        args.queue.put(result)
-        args.refmap_queue.put(result)
+    args.queue.put(result)
+    args.refmap_queue.put(result)
 
     logger.debug("Finished with {0}".format(tr.id))
     logger.removeHandler(queue_handler)
@@ -164,7 +213,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     return
     
     
-def calc_compare(tr:transcript, other:transcript, formatter:collections.namedtuple) ->  collections.namedtuple:
+def calc_compare(tr:transcript, other:transcript, formatter:result_storer) ->  result_storer:
 
     '''Function to compare two transcripts and determine a ccode.
     Available ccodes (from Cufflinks documentation):
@@ -388,7 +437,7 @@ def printer( args ):
    
     with open("{0}.tmap".format(args.out),'wt' ) as out:
    
-        rower=csv.DictWriter(out, args.formatter._fields, delimiter="\t"  )
+        rower=csv.DictWriter(out, result_storer.__slots__, delimiter="\t"  )
         rower.writeheader()
 
         done=0
@@ -442,33 +491,17 @@ def refmap_printer(args, genes):
             if curr_match.ccode == "u":
                 continue
             #This is necessary for fusion genes
-            elif curr_match.ccode[0]!='f':
-                for attr in ["n_prec", "n_recall", "j_f1", "j_prec", "j_recall", "j_f1"]:
-                    assert type(getattr(curr_match, attr)), curr_match
-                
-                gene_matches[ curr_match.RefGene ][ curr_match.RefId ].append(curr_match)
+            elif len(curr_match.RefGene)==1:
+                gene_matches[ curr_match.RefGene[0] ][ curr_match.RefId[0] ].append(curr_match)
             else: #Fusion gene
-                gids = curr_match.RefGene.split(",")
-                tids = curr_match.RefId.split(",")
-                ccodes = curr_match.ccode.split(",")
-                ccodes = [ "f,{0}".format(ccodes[x]) for x in range(1,len(ccodes)) ]
-                
-                nucl_prec = [float(x) for x in curr_match.n_prec.split(",")]
-                nucl_recall = [float(x) for x in curr_match.n_recall.split(",")]
-                nucl_f1 = [float(x) for x in curr_match.n_f1.split(",")]
-                junc_prec = [float(x) for x in curr_match.j_prec.split(",")]
-                junc_recall = [float(x) for x in curr_match.j_recall.split(",")]
-                junc_f1 = [float(x) for x in curr_match.j_f1.split(",")]
-
-                for num in range(len(gids)):
-                    gid = gids[num]
-                    tid = tids[num]
+                for index,(gid,tid) in enumerate(zip(curr_match.RefGene, curr_match.RefId)):
                     
-                    f = args.formatter( tids[num], gids[num], ccodes[num], curr_match.TID, curr_match.GID,
-                                        nucl_prec[num], nucl_recall[num], nucl_f1[num],
-                                        junc_prec[num], junc_recall[num], junc_f1[num],
-                                        0 )
-                    gene_matches[gid][tid].append(f)
+                    result = result_storer( gid, tid, ["f",curr_match.ccode[index]], curr_match.TID, curr_match.GID,
+                                            curr_match.n_prec[index], curr_match.n_recall[index], curr_match.n_f1[index],
+                                            curr_match.j_prec[index], curr_match.j_recall[index], curr_match.j_f1[index],
+                                              0
+                                              )
+                    gene_matches[gid][tid].append(result)
                 
         
     with open( "{0}.refmap".format(args.out), 'wt' ) as out:
@@ -489,7 +522,10 @@ def refmap_printer(args, genes):
                         logger.exception(gene_matches[gid][tid])
                         logger.exception(err)
                         raise
-                    row=out_tuple(tid, gid, best.ccode, best.TID, best.GID)
+                    if len(best.ccode)==1:
+                        row=out_tuple(tid, gid, best.ccode[0], best.TID, best.GID)
+                    else:
+                        row=out_tuple(tid, gid, ",".join(best.ccode), best.TID, best.GID)
                 rower.writerow(row._asdict())
         pass
     return
@@ -524,13 +560,6 @@ def main():
 
     
     args=parser.parse_args()
-
-    fields = [ "RefId", "RefGene", "ccode", "TID", "GID", "n_prec", "n_recall", "n_f1",
-                              "j_prec", "j_recall", "j_f1", "distance"
-                              ]
-
-    args.formatter = namedtuple( "compare", fields )
-    globals()[args.formatter.__name__]=args.formatter #Hopefully this allows pickling
 
     #Flags for the parsing
     if type(args.reference) is GFF3:

@@ -1,5 +1,6 @@
 __pycache__/
-__pycache__/*
+*.pyc
+
 sample_data/*loci*
 sample_data/*zip
 sample_data/*fasta.n*
@@ -25,4 +26,14 @@ sample_data/*db
 sample_data/*xml
 test_blast
 sample_data/*check
+sample_data/*tmap
+sample_data/*refmap
+sample_data/*stats
+sample_data/*log*
+sample_data/*prof
 portcullis
+*lprof
+Reference/*
+build/*
+*~
+shanghai.egg-info/

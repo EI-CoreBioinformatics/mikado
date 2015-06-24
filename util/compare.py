@@ -457,6 +457,9 @@ def printer( args ):
             rower.writerow(res._asdict())
             args.queue.task_done = True
     
+    logger.removeHandler(queue_handler)
+    queue_handler.close()
+    
     return
 
 def refmap_printer(args, genes):
@@ -476,7 +479,7 @@ def refmap_printer(args, genes):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    logger.propagate=True
+    logger.propagate=False
     logger.debug("Started with refmapping")
 
     while True:
@@ -543,6 +546,9 @@ def refmap_printer(args, genes):
                 
                 rower.writerow(row._asdict())
         pass
+    
+    logger.removeHandler(queue_handler)
+    queue_handler.close()
     return
 
 
@@ -550,43 +556,43 @@ def stat_printer(genes, args):
     '''This function will determine the global statistics'''
     
     queue_handler = log_handlers.QueueHandler(args.log_queue)
-    logger = logging.getLogger("selector")
+    logger = logging.getLogger("stat_logger")
     logger.addHandler(queue_handler)
     if args.verbose:
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
-    logger.propagate=True
+    logger.propagate=False
     logger.debug("Started with stat printing")
     
-    exons = dict()
+    ref_exons = dict()
+    ref_introns = dict()
      
     queue = args.stats_queue
     ref_transcript_num = 0
     for gene in genes:
         for tr in genes[gene]:
             ref_transcript_num+=1
-            if tr.chrom not in exons:
-                exons[tr.chrom]=dict()
-                exons[tr.chrom]["+"]=set()
-                exons[tr.chrom]["-"]=set()
+            if tr.chrom not in ref_exons:
+                ref_exons[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+                ref_introns[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
             if tr.strand is None: s="+"
             else: s=tr.strand
-            exons[tr.chrom][s].update(tr.exons)
+            ref_exons[tr.chrom][s].update(tr.exons)
+            ref_introns[tr.chrom][s].update(tr.introns)
  
- 
- 
-    found_exons = dict()
-    new_exons = dict()
+
+    pred_exons = dict()
+    pred_introns = dict()
+    pred_transcripts = set()
+    pred_genes = set()
     found_ref_transcripts = set()
     found_pred_transcripts = set()
+    matching_chains=set()
     new_transcripts = set()
     new_genes = set()
     found_ref_genes = set()
     found_pred_genes = set()
- 
-    pred_transcripts = set()
-    pred_genes = set()
  
     while True:
         delivery = queue.get()
@@ -596,47 +602,72 @@ def stat_printer(genes, args):
         
         if tr.strand is None: s="+"
         else: s=tr.strand
-
-        if tr.chrom not in found_exons:
-            found_exons[tr.chrom]=dict([("+", set()), ("-", set())])
-            new_exons[tr.chrom]=dict([("+", set()), ("-", set())])
-        
-        if tr.chrom not in exons:
-            new_exons[tr.chrom][s].update(tr.exons)
-            
-
-        found_exons[tr.chrom][s].update( set.intersection(set(tr.exons), exons[tr.chrom][s])   )
-        new_exons[tr.chrom][s].update( set.difference(set(tr.exons), exons[tr.chrom][s] )  )
-
+        if tr.chrom not in pred_exons:
+            pred_exons[tr.chrom]=dict([ ("+", set()), ("-", set()) ] )
+            pred_introns[tr.chrom]=dict([ ("+", set()), ("-", set()) ] )
+        pred_exons[tr.chrom][s].update(tr.exons)
+        if tr.exon_num>1:
+            pred_introns[tr.chrom][s].update(tr.introns)
         pred_transcripts.add(tr.id)
         pred_genes.add(tr.parent[0])
-
         if result.ccode==("_",):
             found_ref_transcripts.add(result.RefId[0])
             found_ref_genes.add(result.RefGene[0])
             found_pred_transcripts.add(tr.id)
             found_pred_genes.add(tr.parent)
         elif result.ccode==("=",):
+            matching_chains.add(result.RefId[0])
             ref_tr = genes[result.RefGene[0]][result.RefId[0]] 
             if ref_tr.start==tr.start and ref_tr.end == tr.end:
                 found_ref_transcripts.add(result.RefId[0])
                 found_ref_genes.add(result.RefGene[0])
                 found_pred_transcripts.add(tr.id)
-                found_pred_genes.add(tr.parent)
+                found_pred_genes.add(tr.parent[0])
         elif result.ccode==("u",):
             new_transcripts.add(result.TID)
             new_genes.add(result.GID)
 
-    missed_exons = dict().fromkeys(exons.keys())
-    for chrom in missed_exons:
-        missed_exons[chrom]=dict([("+", set()), ("-", set())])
-        for strand in exons[chrom]:
-            if chrom not in found_exons:
-                missed_exons[chrom][strand]=exons[chrom][strand]
-            else:
-                missed_exons[chrom][strand] = set.difference(exons[chrom][strand], found_exons[chrom][strand]) 
     
-    logger.debug("Missed exons:\n{0}".format(missed_exons))
+    found_exons = dict()
+    new_exons = dict()
+    missed_exons = dict()
+
+    found_introns = dict()
+    new_introns = dict()
+    missed_introns = dict()
+
+
+    for chrom in filter(lambda key: key not in pred_exons, ref_exons.keys()):
+        missed_exons[chrom]=ref_exons[chrom]
+        missed_introns[chrom]=ref_introns[chrom]
+
+    for chrom in filter(lambda key: key not in ref_exons, pred_exons.keys()):
+        new_exons[chrom]=pred_exons[chrom]
+        new_introns[chrom]=pred_introns[chrom]
+
+    for chrom in filter(lambda key: key in ref_exons, pred_exons.keys()):
+        found_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
+        new_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
+        missed_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
+        
+        found_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
+        new_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
+        missed_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
+        
+        for strand in ("+","-"):
+            found_exons[chrom][strand] = set.intersection(pred_exons[chrom][strand], ref_exons[chrom][strand])
+            new_exons[chrom][strand] = set.difference(pred_exons[chrom][strand], ref_exons[chrom][strand])
+            missed_exons[chrom][strand] = set.difference(ref_exons[chrom][strand], pred_exons[chrom][strand])
+            
+            found_introns[chrom][strand] = set.intersection(pred_introns[chrom][strand], ref_introns[chrom][strand])
+            logger.info( "Comparing introns for {0}{1}; prediction: {2}; reference: {3}".format(
+                                                                                                chrom,
+                                                                                                strand,
+                                                                                                len(pred_introns[chrom][strand]),
+                                                                                                len(ref_introns[chrom][strand])
+                                                                                                 ) )
+            new_introns[chrom][strand] = set.difference(pred_introns[chrom][strand], ref_introns[chrom][strand])
+            missed_introns[chrom][strand] = set.difference(ref_introns[chrom][strand], pred_introns[chrom][strand])
     
     prediction_found_num = 0
     for chrom in found_exons:
@@ -664,54 +695,70 @@ def stat_printer(genes, args):
     else:
         exon_f1 = 0
 
-    ref_bases = dict().fromkeys(exons.keys())
+    prediction_introns_found_num=0
+    prediction_introns_new_num=0
+    prediction_introns_missed_num=0
+        
+    for chrom in found_introns:
+        for strand in found_introns[chrom]:
+            logger.info("{0}{1} found introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
+            prediction_introns_found_num+=len(found_introns[chrom][strand])
+    for chrom in new_introns:
+        for strand in new_introns[chrom]:
+            logger.info("{0}{1} new introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
+            prediction_introns_new_num+=len(new_introns[chrom][strand])
+
+    for chrom in missed_introns:
+        for strand in missed_introns[chrom]:
+            logger.info("{0}{1} missed introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
+            prediction_introns_missed_num+=len(missed_introns[chrom][strand])
+
+    if prediction_found_num+prediction_new_num>0:
+        intron_prec = prediction_introns_found_num/(prediction_introns_found_num+prediction_introns_new_num)
+    else:
+        intron_prec=0
+    if prediction_introns_found_num+prediction_introns_missed_num==0:
+        intron_recall=0
+    else:
+        intron_recall = prediction_introns_found_num / (prediction_introns_found_num+prediction_introns_missed_num)
+    if max(intron_prec,intron_recall)>0:
+        intron_f1 = 2*(intron_prec*intron_recall)/(intron_prec+intron_recall)
+    else:
+        intron_f1 = 0
+
+
+    ref_bases = dict()
     pred_bases = dict()
-    for chrom in ref_bases:
-        ref_bases[chrom]=dict()
-        for strand in ("+","-"):
-            ref_bases[chrom][strand]=set()
-            rb = sorted(exons[chrom][strand], key=operator.itemgetter(0,1))
-            current=None
-            for exon in rb:
-                if current is None: current=exon
-                elif current[1]<exon[0]:
-                    ref_bases[chrom][strand].update(set(range(current[0],current[1]+1)))
-                    current=exon
-                else:
-                    current=(current[0],exon[1])
-            ref_bases[chrom][strand].update(set(range(current[0],current[1]+1)))
-    
     found_bases_num = 0
     new_bases_num = 0
     missing_bases_num = 0
     
-    for chrom in set.union(set(new_exons.keys()), set(found_exons.keys())  ):
-        pred_bases[chrom]=dict([("+", set()), ("-", set())])
-        for strand in ("+","-"):
-            strand_exons = set()
-            if chrom in new_exons and strand in new_exons[chrom]:
-                strand_exons.update( new_exons[chrom][strand]  )
-            if chrom in found_exons and strand in found_exons[chrom]:
-                strand_exons.update( found_exons[chrom][strand]  )
-            strand_exons = sorted(list(strand_exons), key=operator.itemgetter(0,1))
-            current=None
-            strand_bases = set()
-            for exon in rb:
-                if current is None: current=exon
-                elif current[1]<exon[0]:
-                    strand_bases.update(set(range(current[0],current[1]+1)))
-                    current=exon
-                else:
-                    current=(current[0],exon[1])
-            strand_bases.update(set(range(current[0],current[1]+1)))
-            found_bases_num += len( set.intersection(strand_bases, ref_bases[chrom][strand]))
-            new_bases_num += len(set.difference(strand_bases, ref_bases[chrom][strand] ))
-            missing_bases_num += len(set.difference( ref_bases[chrom][strand], strand_bases ))
-    
-    for chrom in filter(lambda x: x not in set.union(set(new_exons.keys()), set(found_exons.keys())), ref_bases ):
-        missing_bases_num+=len(ref_bases[chrom]["+"])
-        missing_bases_num+=len(ref_bases[chrom]["-"])
-    
+    for chrom in ref_exons:
+        ref_bases[chrom]=dict()
+        for strand in ref_exons[chrom]: 
+            if ref_exons[chrom][strand]!=set():
+                ref_bases[chrom][strand] = set.union( *[set(range(exon[0], exon[1]+1)) for exon in ref_exons[chrom][strand]  ] )
+            else:
+                ref_bases[chrom][strand] = set()
+        if chrom not in pred_exons:
+            missing_bases_num += len(ref_bases[chrom]["+"]) + len(ref_bases[chrom]["-"]) 
+            del ref_bases[chrom]
+
+    for chrom in pred_exons:
+        pred_bases[chrom]=dict()
+        for strand in ref_exons[chrom]:
+            pred_bases[chrom][strand] = set.union( *[set(range(exon[0], exon[1]+1)) for exon in pred_exons[chrom][strand] ]  )
+            if chrom not in ref_exons:
+                new_bases_num += len(pred_bases[chrom][strand])
+                del pred_bases[chrom][strand] 
+            else:
+                found_bases_num += len(set.intersection(pred_bases[chrom][strand],ref_bases[chrom][strand] )  )
+                new_bases_num +=  len(set.difference(pred_bases[chrom][strand],ref_bases[chrom][strand] )  )
+                missing_bases_num +=  len(set.difference(ref_bases[chrom][strand], pred_bases[chrom][strand] )  )
+                
+    logger.debug("Matching bases: {0:,}".format(found_bases_num))
+    logger.debug("New bases: {0:,}".format(new_bases_num))
+    logger.debug("Missed bases: {0:,}".format(missing_bases_num))
     
     if found_bases_num+new_bases_num>0:
         bases_prec = found_bases_num/(found_bases_num+new_bases_num)
@@ -743,6 +790,11 @@ def stat_printer(genes, args):
     else:
         gene_f1 = 0
     
+    ref_introns_num=0
+    for chrom in ref_introns:
+        for strand in ref_introns[chrom]:
+            ref_introns_num+=len(ref_introns[chrom][strand])
+    
     
     with open("{0}.stats".format(args.out),'wt') as out:
         
@@ -750,21 +802,38 @@ def stat_printer(genes, args):
         print( len(pred_transcripts) , "predicted RNAs in ", len(pred_genes), "genes", file=out  )
         
         print("-"*20, "|   Sn |   Sp |   F1 |", file=out  )
-        print("{0:>10} {1:.2f}  {2:.2f}  {3:.2f}".format("Base level:",  bases_recall*100, bases_prec*100, bases_f1*100 ) , file=out   )
-        print("{0:>10} {1:.2f}  {2:.2f}  {3:.2f}".format("Exon level:",  exon_recall*100, exon_prec*100, exon_f1*100 )  , file=out  )
-        print("{0:>10} {1:.2f}  {2:.2f}  {3:.2f}".format("Transcript level:",  transcript_recall*100, transcript_prec*100, transcript_f1*100 )  , file=out  )
-        print("{0:>10} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level:",  gene_recall*100, gene_prec*100, gene_f1*100 )  , file=out  )
+        print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Base level:",  bases_recall*100, bases_prec*100, bases_f1*100 ) , file=out   )
+        print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Exon level:",  exon_recall*100, exon_prec*100, exon_f1*100 )  , file=out  )
+        print("         {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Intron level:",  intron_recall*100, intron_prec*100, intron_f1*100 )  , file=out  )
+        print("     {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Transcript level:",  transcript_recall*100, transcript_prec*100, transcript_f1*100 )  , file=out  )
+        print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level:",  gene_recall*100, gene_prec*100, gene_f1*100 )  , file=out  )
         print(file=out)
-        print("{0:>10} {1}/{2}  ({3:.2f}%)".format("Missed exons:",
+        print(" Matching intron chains: {0}".format(len(matching_chains)), file=out)
+        print("           {0} {1}/{2}  ({3:.2f}%)".format("Missed exons:",
                                                    reference_missed_num,
                                                    prediction_found_num+reference_missed_num,
                                                    100*reference_missed_num/(prediction_found_num+reference_missed_num) ),
               file=out)
-        print("{0:>10} {1}/{2}  ({3:.2f}%)".format("Novel exons:",
+        print("            {0} {1}/{2}  ({3:.2f}%)".format("Novel exons:",
                                                    prediction_new_num,
                                                    prediction_found_num+prediction_new_num,
                                                    100*prediction_new_num/(prediction_found_num+prediction_new_num) ),
               file=out)
+        print("          {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
+                                                   prediction_introns_new_num,
+                                                   ref_introns_num,
+                                                   100*prediction_introns_new_num/ref_introns_num ),
+              file=out)
+        print("         {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
+                                                   prediction_introns_missed_num,
+                                                   prediction_introns_found_num+prediction_introns_missed_num,
+                                                   100*prediction_introns_missed_num/(prediction_introns_found_num+prediction_introns_missed_num) ),
+              file=out)
+        
+        
+    logger.removeHandler(queue_handler)
+    queue_handler.close()
+    return
 
 def main():
     
@@ -811,7 +880,7 @@ def main():
     args.log_queue = manager.Queue()
     args.queue_handler = log_handlers.QueueHandler(args.log_queue)
     log_queue_listener = log_handlers.QueueListener(args.log_queue, logger)
-    log_queue_listener.propagate=True
+    log_queue_listener.propagate=False
     log_queue_listener.start()
 
     if args.log is None:
@@ -908,7 +977,7 @@ def main():
 
     args.stats_queue = manager.Queue(-1)
 
-    stat_thread = threading.Thread(target=stat_printer, args=(genes, args))
+    stat_thread = threading.Thread(target=stat_printer, args=(genes, args), name="stat_thread")
     stat_thread.start()
 
     queue_logger.debug("Initialised printer")    

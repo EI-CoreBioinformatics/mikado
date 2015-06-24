@@ -530,7 +530,7 @@ def refmap_printer(args, genes):
                     if len(best.ccode)==1:
                         row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
                     else:
-                        row=out([tid, gid, ",".join(best.ccode), best.TID, best.GID])
+                        row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
                 rows.append(row)
                 
             if len(best_picks)>0:

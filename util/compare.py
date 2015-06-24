@@ -45,7 +45,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
         tr.finalize()
     except shanghai_lib.exceptions.InvalidTranscript:
         args.queue.put_nowait("mock")
-        logger.debug("Invalid transcript: {0}.".format(tr.id))
+        logger.warn("Invalid transcript: {0}.".format(tr.id))
         logger.removeHandler(queue_handler)
         queue_handler.close()
         return
@@ -346,10 +346,11 @@ class gene:
         for tid in self.transcripts:
             try:
                 self.transcripts[tid].finalize()
-            except:
+            except shanghai_lib.exceptions.InvalidTranscript:
                 to_remove.add(tid)
                 
-        for k in to_remove: del self.transcripts[k]
+        for k in to_remove:
+            del self.transcripts[k]
     
     def remove(self, tid:str):
         del self.transcripts[tid]
@@ -760,12 +761,12 @@ def stat_printer(genes, args):
         print("            {0} {1}/{2}  ({3:.2f}%)".format("Novel exons:",
                                                    prediction_new_num,
                                                    prediction_found_num+prediction_new_num,
-                                                   100*prediction_new_num/(prediction_found_num+prediction_new_num) ),
+                                                   100*prediction_new_num/(prediction_found_num+prediction_new_num) if prediction_found_num+prediction_new_num>0 else 0  ),
               file=out)
         print("          {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
                                                    prediction_introns_new_num,
                                                    prediction_introns_new_num+prediction_introns_found_num,
-                                                   100*prediction_introns_new_num/(prediction_introns_new_num+prediction_introns_found_num) ),
+                                                   100*prediction_introns_new_num/(prediction_introns_new_num+prediction_introns_found_num) if prediction_introns_new_num+prediction_introns_found_num>0 else 0  ),
               file=out)
         print("         {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
                                                    prediction_introns_missed_num,
@@ -907,6 +908,7 @@ def main():
         else:
             continue
 #     logger.info("Finished parsing the reference")
+    genes_to_remove = set()
     for gid in genes:
         genes[gid].finalize()
         if args.protein_coding is True:
@@ -914,12 +916,19 @@ def main():
             for tid in genes[gid].transcripts:
                 if genes[gid].transcripts[tid].combined_cds_length==0:
                     to_remove.append(tid)
+                    logger.warn("No CDS for {0}".format(tid))
             if len(to_remove)==len(genes[gid].transcripts):
+                genes_to_remove.add(gid)
+                logger.warn("Noncoding gene: {0}".format(tid))
                 continue
+            elif len(to_remove)>0:
+                for tid in to_remove: genes[gid].remove(tid) 
         key = (genes[gid].start,genes[gid].end)
         if key not in positions[genes[gid].chrom]: 
             positions[genes[gid].chrom][key]=[]
         positions[genes[gid].chrom][key].append(genes[gid])
+    
+    for gid in genes_to_remove: del genes[gid]
     
     indexer = collections.defaultdict(list).fromkeys(positions)
     for chrom in positions:

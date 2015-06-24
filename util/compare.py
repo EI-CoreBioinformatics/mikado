@@ -1,6 +1,5 @@
 import sys,argparse,os
 from collections import namedtuple
-import pickle
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
@@ -506,27 +505,42 @@ def refmap_printer(args, genes):
                 
         
     with open( "{0}.refmap".format(args.out), 'wt' ) as out:
-        fields = ["RefId", "RefGene", "ccode", "TID", "GID" ]
+        fields = ["RefId", "ccode", "TID", "GID",  "RefGene", "best_ccode", "best_TID", "best_GID"  ]
         out_tuple = namedtuple("refmap", fields)
         
         rower=csv.DictWriter(out, fields, delimiter="\t"  )
         rower.writeheader()
         
         for gid in sorted(gene_matches.keys()):
+            best_picks = []
+            rows=[]
             for tid in sorted(gene_matches[gid].keys()):
                 if len(gene_matches[gid][tid])==0:
-                    row=out_tuple(tid, gid, "NA", "NA", "NA")
+                    row=(tid, gid, "NA", "NA", "NA")
                 else:
                     try:
                         best = sorted(gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+                        best_picks.append(best)
                     except TypeError as err:
                         logger.exception(gene_matches[gid][tid])
                         logger.exception(err)
                         raise
                     if len(best.ccode)==1:
-                        row=out_tuple(tid, gid, best.ccode[0], best.TID, best.GID)
+                        row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
                     else:
-                        row=out_tuple(tid, gid, ",".join(best.ccode), best.TID, best.GID)
+                        row=out([tid, gid, ",".join(best.ccode), best.TID, best.GID])
+                rows.append(row)
+                
+            if len(best_picks)>0:
+                best_pick = sorted( best_picks,  key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+            else:
+                best_pick = None
+            for row in rows:
+                if best_pick is not None:
+                    row = out_tuple( row[0], row[2], row[3], row[4], row[1], ",".join(best_pick.ccode), best_pick.TID, best_pick.GID   )
+                else:
+                    row = out_tuple( row[0], "NA", "NA", "NA", row[1], "NA", "NA", "NA"  )
+                
                 rower.writerow(row._asdict())
         pass
     return

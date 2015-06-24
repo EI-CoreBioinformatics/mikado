@@ -62,7 +62,6 @@ class result_storer:
         for attr in self.__slots__[5:-1]:
             d[attr]=",".join("{0:,.2f}".format(x) for x in getattr(self,attr))
         d["distance"]=self.distance[0] #Last attribute
-        assert type(d["distance"]) is int
         return d
     
     def __str__(self):

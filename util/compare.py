@@ -811,7 +811,15 @@ def main():
         ref_gff = True
     else:
         ref_gff = False
+    
+    if os.path.dirname(args.out)!='' and os.path.dirname(args.out)!=os.path.dirname(os.path.abspath(".")):
+        dirname = os.path.dirname(args.out)
+        if os.path.exists(dirname):
+            assert os.path.isdir(dirname)
+        else:
+            os.makedirs(dirname)
         
+    
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
     args.queue = manager.Queue(-1)

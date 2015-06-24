@@ -44,12 +44,14 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     try:
         tr.finalize()
     except shanghai_lib.exceptions.InvalidTranscript:
+        args.queue.put_nowait("mock")
         logger.debug("Invalid transcript: {0}.".format(tr.id))
         logger.removeHandler(queue_handler)
         queue_handler.close()
         return
     
     if args.protein_coding is True and tr.combined_cds_length == 0:
+        args.queue.put_nowait("mock")
         logger.debug("No CDS for {0}. Ignoring.".format(tr.id))
         logger.removeHandler(queue_handler)
         queue_handler.close()
@@ -407,7 +409,8 @@ def printer( args ):
                 logger.info("Done {0} transcripts".format(done))
             elif done % 1000 == 0:
                 logger.debug("Done {0} transcripts".format(done))
-            rower.writerow(res._asdict())
+            if res!="mock":
+                rower.writerow(res._asdict())
             args.queue.task_done()
     
     logger.removeHandler(queue_handler)

@@ -916,10 +916,10 @@ def main():
             for tid in genes[gid].transcripts:
                 if genes[gid].transcripts[tid].combined_cds_length==0:
                     to_remove.append(tid)
-                    logger.warn("No CDS for {0}".format(tid))
+                    logger.debug("No CDS for {0}".format(tid))
             if len(to_remove)==len(genes[gid].transcripts):
                 genes_to_remove.add(gid)
-                logger.warn("Noncoding gene: {0}".format(tid))
+                logger.debug("Noncoding gene: {0}".format(tid))
                 continue
             elif len(to_remove)>0:
                 for tid in to_remove: genes[gid].remove(tid) 

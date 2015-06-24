@@ -70,24 +70,33 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     
 
     left_index=max(0,min(indexed, len(keys)-1)) #Must be a valid list index
-    if left_index==0: search_left = False
+    if len(keys)==0 or left_index==0:
+        search_left=False
     
-    right_index=min(len(keys)-1, left_index+1)
-    if right_index==left_index: search_right=False
+    if len(keys)==0:
+        search_right=False
+    else:
+        right_index=min(len(keys)-1, left_index+1)
+        if right_index==left_index:
+            search_right=False
     
     while search_left is True:
         if  keys[left_index][1]+args.distance<tr.start:
-            break
+            search_left=True
+            continue
         found.append( keys[left_index] )
         left_index-=1
-        if left_index<0: break
+        if left_index<0:
+            search_left=False
     
     while search_right is True:
         if keys[right_index][0]-args.distance>tr.end:
-            break
+            search_right=False
+            continue
         found.append(keys[right_index])
         right_index+=1
-        if right_index>=len(keys): break
+        if right_index>=len(keys):
+            search_right=False
 
     distances = []
     for key in found:

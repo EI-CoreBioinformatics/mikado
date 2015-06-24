@@ -1,5 +1,6 @@
 import sys,argparse,os
 from collections import namedtuple
+import itertools
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
@@ -28,7 +29,6 @@ import bisect # Needed for efficient research
 '''
 
 def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespace):
-    
     
     queue_handler = log_handlers.QueueHandler(args.log_queue)
     logger = logging.getLogger("selector")
@@ -157,7 +157,6 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     queue_handler.close()
     return
     
-    
 def calc_compare(tr:transcript, other:transcript, formatter:result_storer) ->  result_storer:
 
     '''Function to compare two transcripts and determine a ccode.
@@ -189,16 +188,12 @@ def calc_compare(tr:transcript, other:transcript, formatter:result_storer) ->  r
 
     ''' 
     
-    tr_nucls = list()
-    for x in tr.exons:
-        tr_nucls.extend(range(x[0], x[1]+1))
-    other_nucls = list()
-    for x in other.exons:
-        other_nucls.extend(range(x[0], x[1]+1))
+    tr_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in tr.exons]))
+    other_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in other.exons]))
     
     
     nucl_overlap = len(set.intersection(
-                                        set(other_nucls), set(tr_nucls)
+                                        other_nucls, tr_nucls
                                     )
                        )
                        
@@ -313,7 +308,10 @@ def calc_compare(tr:transcript, other:transcript, formatter:result_storer) ->  r
                      round(nucl_precision*100,2), round(100*nucl_recall,2),round(100*nucl_f1,2),
                      round(junction_precision*100,2), round(100*junction_recall,2), round(100*junction_f1,2),
                      distance
-                     ) 
+                     )
+    if ccode is None:
+        raise ValueError("Ccode is null;\n{0}".format(  repr(result)))
+ 
 
     if ccode is None:
         raise ValueError(result)
@@ -606,7 +604,7 @@ def stat_printer(genes, args):
             missed_exons[chrom][strand] = set.difference(ref_exons[chrom][strand], pred_exons[chrom][strand])
             
             found_introns[chrom][strand] = set.intersection(pred_introns[chrom][strand], ref_introns[chrom][strand])
-            logger.info( "Comparing introns for {0}{1}; prediction: {2}; reference: {3}".format(
+            logger.debug( "Comparing introns for {0}{1}; prediction: {2}; reference: {3}".format(
                                                                                                 chrom,
                                                                                                 strand,
                                                                                                 len(pred_introns[chrom][strand]),
@@ -647,16 +645,16 @@ def stat_printer(genes, args):
         
     for chrom in found_introns:
         for strand in found_introns[chrom]:
-            logger.info("{0}{1} found introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
+            logger.debug("{0}{1} found introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
             prediction_introns_found_num+=len(found_introns[chrom][strand])
     for chrom in new_introns:
         for strand in new_introns[chrom]:
-            logger.info("{0}{1} new introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
+            logger.debug("{0}{1} new introns: {2}".format(chrom, strand, len(new_introns[chrom][strand])))
             prediction_introns_new_num+=len(new_introns[chrom][strand])
 
     for chrom in missed_introns:
         for strand in missed_introns[chrom]:
-            logger.info("{0}{1} missed introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
+            logger.debug("{0}{1} missed introns: {2}".format(chrom, strand, len(missed_introns[chrom][strand])))
             prediction_introns_missed_num+=len(missed_introns[chrom][strand])
 
     if prediction_found_num+prediction_new_num>0:
@@ -767,8 +765,8 @@ def stat_printer(genes, args):
               file=out)
         print("          {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
                                                    prediction_introns_new_num,
-                                                   ref_introns_num,
-                                                   100*prediction_introns_new_num/ref_introns_num ),
+                                                   prediction_introns_new_num+prediction_introns_found_num,
+                                                   100*prediction_introns_new_num/(prediction_introns_new_num+prediction_introns_found_num) ),
               file=out)
         print("         {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
                                                    prediction_introns_missed_num,
@@ -856,7 +854,7 @@ def main():
     
     refmap_queue = manager.Queue(-1)
     
-    pp=threading.Thread(target=printer, args=(args,), name="printing_thread")
+    pp=threading.Thread(target=printer, args=(args,), name="printing_thread", daemon=True)
     pp.start()
     args.refmap_queue = refmap_queue
 
@@ -923,13 +921,13 @@ def main():
 
     args.stats_queue = manager.Queue(-1)
 
-    stat_thread = threading.Thread(target=stat_printer, args=(genes, args), name="stat_thread")
+    stat_thread = threading.Thread(target=stat_printer, args=(genes, args), name="stat_thread", daemon=True)
     stat_thread.start()
 
     queue_logger.debug("Initialised printer")    
 #     logger.debug("Initialised worker pool")
 
-    refmap_proc = threading.Thread(target=refmap_printer, args=(args, genes ), name="refmap_printer")
+    refmap_proc = threading.Thread(target=refmap_printer, args=(args, genes ), name="refmap_printer", daemon=True)
     refmap_proc.start()
     
     def reduce_args(args):
@@ -959,7 +957,7 @@ def main():
                     handler.close()
                     log_queue_listener.stop()
                     args.queue_handler.close()
-                    return
+                    raise
                 
             currentTranscript=transcript(row)
         elif row.is_exon is True:
@@ -976,19 +974,18 @@ def main():
             continue
 
     if currentTranscript is not None:
-
         try:
             get_best(positions, indexer, currentTranscript, cargs)
         except Exception as err:
             queue_logger.exception(err)
-#             log_queue_listener.enqueue_sentinel()
-#             handler.close()
-#             log_queue_listener.stop()
-#             args.queue_handler.close()
-#             return
+            log_queue_listener.enqueue_sentinel()
+            handler.close()
+            log_queue_listener.stop()
+            args.queue_handler.close()
+            raise
  
     queue_logger.info("Finished parsing")
-
+    args.queue.join()
     args.queue.put("EXIT")
     args.queue.all_tasks_done = True
 
@@ -999,6 +996,7 @@ def main():
     queue_logger.debug("Printer process alive: {0}".format(pp.is_alive()))
     queue_logger.debug("Refmap process alive: {0}".format(refmap_proc.is_alive()))
     
+    args.stats_queue.join()
     args.stats_queue.put("EXIT")
     stat_thread.join()
     

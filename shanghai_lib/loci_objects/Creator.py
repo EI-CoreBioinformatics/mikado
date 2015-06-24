@@ -200,7 +200,7 @@ class Creator:
             
             if locus_lines!='':
                 print(locus_lines, file=locus_out)
-                    
+            self.printer_queue.task_done()
         return
     
     #@profile
@@ -389,6 +389,7 @@ class Creator:
             if job.is_alive() is True:
                 job.join()
 
+        self.printer_queue.join()
         self.printer_queue.put("EXIT")
         #The printing process must be started AFTER we have put the stopping signal  into the queue
         self.printer_process.join()

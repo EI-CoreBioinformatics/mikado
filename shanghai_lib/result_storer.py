@@ -51,7 +51,7 @@ class result_storer:
         
         t="result( "
         for key in self.__slots__:
-            t+= "{0}={1} ".format(key,  getattr(self, key))
+            t+= "{0}={1}, ".format(key,  getattr(self, key))
         t+=")"
         return t
     

@@ -490,7 +490,7 @@ def refmap_printer(args, genes):
         if curr_match == "EXIT":
             break
         else:
-            if curr_match.ccode == "u":
+            if curr_match.ccode == ("u",):
                 continue
             #This is necessary for fusion genes
             elif len(curr_match.RefGene)==1:

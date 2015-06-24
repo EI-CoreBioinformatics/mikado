@@ -1,8 +1,6 @@
 import sys,argparse,os
 from collections import namedtuple
 import itertools
-import time
-import queue
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
@@ -46,16 +44,25 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     try:
         tr.finalize()
     except shanghai_lib.exceptions.InvalidTranscript:
+        logger.debug("Invalid transcript: {0}.".format(tr.id))
+        logger.removeHandler(queue_handler)
+        queue_handler.close()
         return
     
     if args.protein_coding is True and tr.combined_cds_length == 0:
+        logger.debug("No CDS for {0}. Ignoring.".format(tr.id))
+        logger.removeHandler(queue_handler)
+        queue_handler.close()
         return
 
     if tr.chrom not in indexer:
         ccode = "u"
         match = None
         result = result_storer( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]  )
-        args.queue.put(result)
+        args.queue.put_nowait(result)
+        logger.debug("Finished with {0}".format(tr.id))
+        logger.removeHandler(queue_handler)
+        queue_handler.close()
 #         logger.debug("Finished with {0}".format(tr.id))
         return
     

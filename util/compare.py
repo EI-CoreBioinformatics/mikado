@@ -613,7 +613,7 @@ def stat_printer(genes, args):
             found_ref_transcripts.add(result.RefId[0])
             found_ref_genes.add(result.RefGene[0])
             found_pred_transcripts.add(tr.id)
-            found_pred_genes.add(tr.parent)
+            found_pred_genes.add(tr.parent[0])
         elif result.ccode==("=",):
             matching_chains.add(result.RefId[0])
             ref_tr = genes[result.RefGene[0]][result.RefId[0]] 

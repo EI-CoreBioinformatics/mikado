@@ -742,6 +742,7 @@ def stat_printer(genes, args):
     
     with open("{0}.stats".format(args.out),'wt') as out:
         
+        print("Command line:\n{0:>10}".format(args.commandline), file=out)
         print(ref_transcript_num, "reference RNAs in", len(genes), "genes", file=out )
         print( len(pred_transcripts) , "predicted RNAs in ", len(pred_genes), "genes", file=out  )
         
@@ -858,7 +859,8 @@ def main():
     
     queue_logger.propagate=False
     queue_logger.info("Start")
-    queue_logger.info("Command line: {0}".format(" ".join(sys.argv)))
+    args.commandline = " ".join(sys.argv)
+    queue_logger.info("Command line: {0}".format(args.commandline))
     
     refmap_queue = manager.Queue(-1)
     

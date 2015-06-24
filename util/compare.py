@@ -82,7 +82,7 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     
     while search_left is True:
         if  keys[left_index][1]+args.distance<tr.start:
-            search_left=True
+            search_left=False
             continue
         found.append( keys[left_index] )
         left_index-=1

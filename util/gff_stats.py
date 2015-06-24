@@ -155,7 +155,9 @@ class Calculator:
         
     def parse_input(self):
                 
-        currentGene = None
+#         currentGene = None
+        transcript2gene=dict()
+
         for record in self.gff:
             if record.header is True:
                 continue
@@ -166,37 +168,40 @@ class Calculator:
                 if record.feature == "protein":
                     continue #Hack for the AT gff .. stupid "protein" features ...
 
-                if currentGene is not None:
-                    self.genes[currentGene].finalize()
-                    if self.genes[currentGene].num_transcripts == 0:
-                        del self.genes[currentGene]
+#                 if currentGene is not None:
+#                     self.genes[currentGene].finalize()
+#                     if self.genes[currentGene].num_transcripts == 0:
+#                         del self.genes[currentGene]
                 self.genes[record.id] = gene_object(record, only_coding=self.only_coding)    
-                currentGene = record.id
+#                 currentGene = record.id
             elif record.is_transcript is True:
+                transcript2gene[record.id]=record.parent[0]
                 if self.is_gff is False:
                     new_record = record.copy()
                     new_record.feature = "gene"
                     if new_record.gene not in self.genes:
-                        if currentGene is not None:
-                            self.genes[currentGene].finalize()
-                            if self.genes[currentGene].num_transcripts == 0:
-                                del self.genes[currentGene]
+#                         if currentGene is not None:
+#                             self.genes[currentGene].finalize()
+#                             if self.genes[currentGene].num_transcripts == 0:
+#                                 del self.genes[currentGene]
                         
                         self.genes[new_record.gene] = gene_object(new_record, only_coding=self.only_coding)
-                        currentGene = new_record.gene
-                    else:
-                        assert record.parent[0]==currentGene, (currentGene,record.parent)
-                else:
-                    assert record.parent[0]==currentGene, (currentGene,record.parent)
+#                         currentGene = new_record.gene
+#                     else:
+#                         assert record.parent[0]==currentGene, (currentGene,record.parent)
+#                 else:
+#                     assert record.parent[0]==currentGene, (currentGene,record.parent)
                     
                 self.genes[record.parent[0]].transcripts[record.id] = transcriptComputer(record)
             else:
                 for parent in record.parent:
-                    if parent not in self.genes[currentGene].transcripts:
-                        continue #Hack for the AT gff .. stupid "protein" features ...
-                    self.genes[currentGene].transcripts[parent].addExon(record)
+#                     if parent not in self.genes[currentGene].transcripts:
+#                         continue #Hack for the AT gff .. stupid "protein" features ...
+                    gid = transcript2gene[parent]
+                    self.genes[gid].transcripts[parent].addExon(record)
 
-        self.genes[currentGene].finalize()
+        for gid in self.genes:
+            self.genes[gid].finalize()
 
         
     def __call__(self):

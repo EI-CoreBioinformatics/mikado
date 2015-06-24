@@ -57,18 +57,10 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
         queue_handler.close()
         return
 
-    if tr.chrom not in indexer:
-        ccode = "u"
-        match = None
-        result = result_storer( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"]  )
-        args.queue.put_nowait(result)
-        logger.debug("Finished with {0}".format(tr.id))
-        logger.removeHandler(queue_handler)
-        queue_handler.close()
-#         logger.debug("Finished with {0}".format(tr.id))
-        return
-    
-    keys = indexer[tr.chrom]        
+    if tr.chrom in indexer:    
+        keys = indexer[tr.chrom]
+    else:
+        keys=[]        
     indexed = bisect.bisect(keys, (tr.start,tr.end) )
     
     found = []

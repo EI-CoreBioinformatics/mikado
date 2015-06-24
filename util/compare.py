@@ -1,6 +1,8 @@
 import sys,argparse,os
 from collections import namedtuple
 import itertools
+import time
+import queue
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
@@ -147,11 +149,12 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
                 match =  positions[tr.chrom][matches[0][0]][0]
                 res = sorted([calc_compare(tr, tra, result_storer) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
                 result = res[0]
+    
+    args.queue.put_nowait(result)
+    args.refmap_queue.put_nowait(result)
+    args.stats_queue.put_nowait((tr,result))
+        
             
-    args.queue.put(result)
-    args.refmap_queue.put(result)
-    args.stats_queue.put((tr,result))
-
     logger.debug("Finished with {0}".format(tr.id))
     logger.removeHandler(queue_handler)
     queue_handler.close()
@@ -675,6 +678,10 @@ def stat_printer(genes, args):
     new_bases_num = 0
     missing_bases_num = 0
     
+    
+    #For each chromosome, generate a set of integer values for both reference and prediction
+    #These are the bases annotated in ref and pred, and using set.intersection/difference
+    #we are able to derive the precision/recall stats
     for chrom in set.union(set(ref_exons.keys()), set(pred_exons.keys())  ):
         if chrom not in pred_exons:
             for strand in ref_exons[chrom]:

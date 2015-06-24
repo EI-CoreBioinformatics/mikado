@@ -400,7 +400,7 @@ def printer( args ):
             elif done % 1000 == 0:
                 logger.debug("Done {0} transcripts".format(done))
             rower.writerow(res._asdict())
-            args.queue.task_done = True
+            args.queue.task_done()
     
     logger.removeHandler(queue_handler)
     queue_handler.close()
@@ -450,6 +450,7 @@ def refmap_printer(args, genes):
                                               0
                                               )
                     gene_matches[gid][tid].append(result)
+        args.refmap_queue.task_done()
                 
         
     with open( "{0}.refmap".format(args.out), 'wt' ) as out:
@@ -571,7 +572,7 @@ def stat_printer(genes, args):
         elif result.ccode==("u",):
             new_transcripts.add(result.TID)
             new_genes.add(result.GID)
-
+        queue.task_done()
     
     found_exons = dict()
     new_exons = dict()

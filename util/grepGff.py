@@ -72,7 +72,6 @@ def main():
 #             except: continue
             if record.parent is None: continue
             parents = set(record.parent)
-            print(record.parent)
             parent_intersection=set.intersection(parents, mrna_ids)
             # if record.id is None:
             #     if record.feature not in current_counter: current_counter[record.feature]=0
@@ -99,9 +98,8 @@ def main():
                         if parent_intersection==parents:
                             print(record, file=args.out)
                         else:
-                            good_parents=",".join(parent_intersection)
                             #print(good_parents, file=sys.stderr)
-                            record.parent=good_parents
+                            record.parent=parent_intersection
                             print(record, file=args.out)
                 
 

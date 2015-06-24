@@ -54,3 +54,7 @@ class result_storer:
             t+= "{0}={1} ".format(key,  getattr(self, key))
         t+=")"
         return t
+    
+ 
+    
+    

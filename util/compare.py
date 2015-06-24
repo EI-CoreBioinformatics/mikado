@@ -671,34 +671,24 @@ def stat_printer(genes, args):
         intron_f1 = 0
 
 
-    ref_bases = dict()
-    pred_bases = dict()
     found_bases_num = 0
     new_bases_num = 0
     missing_bases_num = 0
     
-    for chrom in ref_exons:
-        ref_bases[chrom]=dict()
-        for strand in ref_exons[chrom]: 
-            if ref_exons[chrom][strand]!=set():
-                ref_bases[chrom][strand] = set.union( *[set(range(exon[0], exon[1]+1)) for exon in ref_exons[chrom][strand]  ] )
-            else:
-                ref_bases[chrom][strand] = set()
+    for chrom in set.union(set(ref_exons.keys()), set(pred_exons.keys())  ):
         if chrom not in pred_exons:
-            missing_bases_num += len(ref_bases[chrom]["+"]) + len(ref_bases[chrom]["-"]) 
-            del ref_bases[chrom]
-
-    for chrom in pred_exons:
-        pred_bases[chrom]=dict()
-        for strand in ref_exons[chrom]:
-            pred_bases[chrom][strand] = set.union( *[set(range(exon[0], exon[1]+1)) for exon in pred_exons[chrom][strand] ]  )
-            if chrom not in ref_exons:
-                new_bases_num += len(pred_bases[chrom][strand])
-                del pred_bases[chrom][strand] 
-            else:
-                found_bases_num += len(set.intersection(pred_bases[chrom][strand],ref_bases[chrom][strand] )  )
-                new_bases_num +=  len(set.difference(pred_bases[chrom][strand],ref_bases[chrom][strand] )  )
-                missing_bases_num +=  len(set.difference(ref_bases[chrom][strand], pred_bases[chrom][strand] )  )
+            for strand in ref_exons[chrom]:
+                missing_bases_num += len(set(itertools.chain(*[range(x[0], x[1]+1) for x in ref_exons[chrom][strand]]  )))
+        elif chrom not in ref_exons:
+            for strand in pred_exons[chrom]:
+                new_bases_num += len(set(itertools.chain(*[range(x[0], x[1]+1) for x in pred_exons[chrom][strand]]  )))
+        else:
+            for strand in pred_exons[chrom]:
+                ref_bases = set(itertools.chain(*[range(x[0], x[1]+1) for x in ref_exons[chrom][strand]]  ))
+                pred_bases = set(itertools.chain(*[range(x[0], x[1]+1) for x in pred_exons[chrom][strand]]  ))
+                found_bases_num += len(set.intersection(pred_bases,ref_bases )  )
+                new_bases_num +=  len(set.difference(pred_bases,ref_bases )  )
+                missing_bases_num +=  len(set.difference(ref_bases, pred_bases )  )
                 
     logger.debug("Matching bases: {0:,}".format(found_bases_num))
     logger.debug("New bases: {0:,}".format(new_bases_num))

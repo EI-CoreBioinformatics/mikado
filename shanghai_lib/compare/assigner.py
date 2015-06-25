@@ -198,6 +198,7 @@ class assigner:
             self.add_to_refmap( result)
         self.logger.debug("Finished with {0}".format(tr.id))
         self.print_tmap(best_result)
+        self.done+=1
         return best_result
     
     def calc_compare(self,tr:transcript, other:transcript) ->  result_storer:

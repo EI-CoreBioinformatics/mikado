@@ -230,11 +230,7 @@ def main():
             args.queue_handler.close()
             raise
  
-    queue_logger.info("Finished parsing")
-    assigner_instance.refmap_printer()
-
-    queue_logger.info("Finished printing RefMap")
-
+    assigner_instance.finish()
     stat_storer_instance.print_stats(args)
     
     

@@ -77,13 +77,14 @@ class assigner:
     #         args.queue.put_nowait("mock")
             self.logger.warn("Invalid transcript: {0}.".format(tr.id))
             self.done+=1
-            
+            self.print_tmap(None)
             return None
         
         if self.args.protein_coding is True and tr.combined_cds_length == 0:
     #         args.queue.put_nowait("mock")
             self.logger.debug("No CDS for {0}. Ignoring.".format(tr.id))
             self.done+=1
+            self.print_tmap(None)
             return None
     
         if tr.chrom in self.indexer:    
@@ -200,6 +201,12 @@ class assigner:
         self.print_tmap(best_result)
         self.done+=1
         return best_result
+    
+    def finish(self):
+        self.logger.info("Finished parsing, total: {0} transcripts.".format(self.done))
+        self.refmap_printer()
+    
+    
     
     def calc_compare(self,tr:transcript, other:transcript) ->  result_storer:
     
@@ -364,9 +371,9 @@ class assigner:
     
     
     def print_tmap(self, res:result_storer):
-        if self.done % 10000 == 0:
+        if self.done % 10000 == 0 and self.done>0:
             self.logger.info("Done {0:,} transcripts".format(self.done))
-        elif self.done % 1000 == 0:
+        elif self.done % 1000 == 0 and self.done>0:
             self.logger.debug("Done {0:,} transcripts".format(self.done))
         if res is not None:
             if type(res) is not result_storer:
@@ -380,7 +387,7 @@ class assigner:
     def refmap_printer(self) -> None:
     
         '''Function to print out the best match for each gene.'''
-
+        self.logger.info("Starting printing RefMap")
         with open( "{0}.refmap".format(self.args.out), 'wt' ) as out:
             fields = ["RefId", "ccode", "TID", "GID",  "RefGene", "best_ccode", "best_TID", "best_GID"  ]
             out_tuple = namedtuple("refmap", fields)
@@ -391,26 +398,21 @@ class assigner:
             for gid in sorted(self.gene_matches.keys()):
                 
                 rows=[]
-                
-                num_missing = len(list(filter(lambda x: len(self.gene_matches[gid][x])==0, self.gene_matches[gid].keys())))
-                if num_missing==0:
-                    best_picks = []
-                    for tid in sorted(self.gene_matches[gid].keys()):
+                best_picks = []
+                best_pick = None
+                for tid in sorted(self.gene_matches[gid].keys()):
     #                     try:
+                    if len(self.gene_matches[gid][tid])==0:
+                        row = tuple([ gid, tid, "NA", "NA", "NA" ])
+                    else:
                         best = sorted(self.gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
                         best_picks.append(best)
                         if len(best.ccode)==1:
                             row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
                         else:
                             row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
-                        rows.append(row)
-                    best_pick = sorted( best_picks,  key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
-                elif num_missing==len(self.gene_matches[gid].keys()):
-                    best_pick = None
-                    for tid in self.gene_matches[gid]:
-                        rows.append(tuple([ gid, tid, "NA", "NA", "NA" ]))
-                else:
-                    raise ValueError(self.gene_matches[gid])
+                    rows.append(row)
+                best_pick = sorted( best_picks,  key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
                     
                 for row in rows:
                     if best_pick is not None:
@@ -419,8 +421,5 @@ class assigner:
                     else:
                         row = out_tuple( row[0], "NA", "NA", "NA", row[1], "NA", "NA", "NA"  )
                     rower.writerow(row._asdict())
-            pass
-        
-    #     logger.removeHandler(queue_handler)
-    #     queue_handler.close()
+        self.logger.info("Finished printing RefMap")
         return None

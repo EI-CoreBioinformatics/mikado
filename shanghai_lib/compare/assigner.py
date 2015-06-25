@@ -147,7 +147,7 @@ class assigner:
                 for other in match:
                     results.append( self.calc_compare(tr, other))
                 
-                best_result = sorted(results, key=operator.itemgetter("distance"))[0]
+                best_result = sorted(results, key=operator.attrgetter("distance"))[0]
             else:
                 matches=list(filter(lambda x: x[1]==0, distances))
                 

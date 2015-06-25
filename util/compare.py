@@ -5,7 +5,6 @@ sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 import operator
 #import random
-import threading
 import multiprocessing
 import shanghai_lib.exceptions
 import csv
@@ -44,18 +43,19 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
     try:
         tr.finalize()
     except shanghai_lib.exceptions.InvalidTranscript:
-        args.queue.put_nowait("mock")
+        return None
+#         args.queue.put_nowait("mock")
         logger.warn("Invalid transcript: {0}.".format(tr.id))
         logger.removeHandler(queue_handler)
         queue_handler.close()
-        return
+        return None
     
     if args.protein_coding is True and tr.combined_cds_length == 0:
-        args.queue.put_nowait("mock")
+#         args.queue.put_nowait("mock")
         logger.debug("No CDS for {0}. Ignoring.".format(tr.id))
         logger.removeHandler(queue_handler)
         queue_handler.close()
-        return
+        return None
 
     if tr.chrom in indexer:    
         keys = indexer[tr.chrom]
@@ -160,15 +160,16 @@ def get_best(positions:dict, indexer:dict, tr:transcript, args:argparse.Namespac
                 res = sorted([calc_compare(tr, tra, result_storer) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
                 result = res[0]
     
-    args.queue.put_nowait(result)
-    args.refmap_queue.put_nowait(result)
-    args.stats_queue.put_nowait((tr,result))
+#     args.queue.put_nowait(result)
+#     args.refmap_queue.put_nowait(result)
+#     args.stats_queue.put_nowait((tr,result))
+#     return result
         
             
     logger.debug("Finished with {0}".format(tr.id))
     logger.removeHandler(queue_handler)
     queue_handler.close()
-    return
+    return result
     
 def calc_compare(tr:transcript, other:transcript, formatter:result_storer) ->  result_storer:
 
@@ -420,51 +421,29 @@ def printer( args ):
     
     return
 
-def refmap_printer(args, genes):
+def add_to_refmap(gene_matches:dict,result:result_storer) -> dict:
+    
+    if result is not None and result.ccode != ("u",):
+        #This is necessary for fusion genes
+        if len(result.RefGene)==1:
+            gene_matches[ result.RefGene[0] ][ result.RefId[0] ].append(result)
+        else: #Fusion gene
+            
+            for index,(gid,tid) in enumerate(zip(result.RefGene, result.RefId)):
+                new_result = result_storer( gid, tid, ["f",result.ccode[index+1]], result.TID, result.GID,
+                                        result.n_prec[index], result.n_recall[index], result.n_f1[index],
+                                        result.j_prec[index], result.j_recall[index], result.j_f1[index],
+                                          0
+                                          )
+                gene_matches[gid][tid].append(new_result)
+    return gene_matches
+
+
+
+def refmap_printer(args:argparse.Namespace, gene_matches:dict) -> None:
 
     '''Function to print out the best match for each gene.'''
     
-    gene_matches = dict()
-    for gid in genes:
-        gene_matches[gid]=dict()
-        for tid in genes[gid]:
-            gene_matches[gid][tid.id]=[]
-    
-    queue_handler = log_handlers.QueueHandler(args.log_queue)
-    logger = logging.getLogger("selector")
-    logger.addHandler(queue_handler)
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-    logger.propagate=False
-    logger.debug("Started with refmapping")
-
-    while True:
-        try:
-            curr_match = args.refmap_queue.get()
-        except Exception as err:
-            logger.exception(err)
-            return
-        if curr_match == "EXIT":
-            break
-        else:
-            if curr_match.ccode == ("u",):
-                continue
-            #This is necessary for fusion genes
-            elif len(curr_match.RefGene)==1:
-                gene_matches[ curr_match.RefGene[0] ][ curr_match.RefId[0] ].append(curr_match)
-            else: #Fusion gene
-                for index,(gid,tid) in enumerate(zip(curr_match.RefGene, curr_match.RefId)):
-                    
-                    result = result_storer( gid, tid, ["f",curr_match.ccode[index]], curr_match.TID, curr_match.GID,
-                                            curr_match.n_prec[index], curr_match.n_recall[index], curr_match.n_f1[index],
-                                            curr_match.j_prec[index], curr_match.j_recall[index], curr_match.j_f1[index],
-                                              0
-                                              )
-                    gene_matches[gid][tid].append(result)
-        args.refmap_queue.task_done()
-                
         
     with open( "{0}.refmap".format(args.out), 'wt' ) as out:
         fields = ["RefId", "ccode", "TID", "GID",  "RefGene", "best_ccode", "best_TID", "best_GID"  ]
@@ -480,13 +459,13 @@ def refmap_printer(args, genes):
                 if len(gene_matches[gid][tid])==0:
                     row=(tid, gid, "NA", "NA", "NA")
                 else:
-                    try:
-                        best = sorted(gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
-                        best_picks.append(best)
-                    except TypeError as err:
-                        logger.exception(gene_matches[gid][tid])
-                        logger.exception(err)
-                        raise
+#                     try:
+                    best = sorted(gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+                    best_picks.append(best)
+#                     except TypeError as err:
+# #                         logger.exception(gene_matches[gid][tid])
+# #                         logger.exception(err)
+#                         raise
                     if len(best.ccode)==1:
                         row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
                     else:
@@ -506,288 +485,287 @@ def refmap_printer(args, genes):
                 rower.writerow(row._asdict())
         pass
     
-    logger.removeHandler(queue_handler)
-    queue_handler.close()
-    return
+#     logger.removeHandler(queue_handler)
+#     queue_handler.close()
+    return None
 
-
-def stat_printer(genes, args):
-    '''This function will determine the global statistics'''
+class stat_storer:
     
-    queue_handler = log_handlers.QueueHandler(args.log_queue)
-    logger = logging.getLogger("stat_logger")
-    logger.addHandler(queue_handler)
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    else:
-        logger.setLevel(logging.INFO)
-    logger.propagate=False
-    logger.debug("Started with stat printing")
-    
-    ref_exons = dict()
-    ref_introns = dict()
-     
-    queue = args.stats_queue
-    ref_transcript_num = 0
-    for gene in genes:
-        for tr in genes[gene]:
-            ref_transcript_num+=1
-            if tr.chrom not in ref_exons:
-                ref_exons[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
-                ref_introns[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
-            if tr.strand is None: s="+"
-            else: s=tr.strand
-            ref_exons[tr.chrom][s].update(tr.exons)
-            ref_introns[tr.chrom][s].update(tr.introns)
- 
+    def __init__(self, genes:dict, args:argparse.Namespace):
 
-    pred_exons = dict()
-    pred_introns = dict()
-    pred_transcripts = set()
-    pred_genes = set()
-    found_ref_transcripts = set()
-    found_pred_transcripts = set()
-    matching_chains=set()
-    new_transcripts = set()
-    new_genes = set()
-    found_ref_genes = set()
-    found_pred_genes = set()
- 
-    while True:
-        delivery = queue.get()
-        if delivery =="EXIT":
-            break
-        tr, result = delivery
+        self.queue_handler = log_handlers.QueueHandler(args.log_queue)
+        self.logger = logging.getLogger("stat_logger")
+        self.logger.addHandler(self.queue_handler)
+        if args.verbose:
+            self.logger.setLevel(logging.DEBUG)
+        else:
+            self.logger.setLevel(logging.INFO)
+        self.logger.propagate=False
+        self.logger.debug("Started with stat printing")
         
+        self.ref_exons = dict()
+        self.ref_introns = dict()
+         
+        self.ref_transcript_num = 0
+        for gene in genes:
+            for tr in genes[gene]:
+                self.ref_transcript_num+=1
+                if tr.chrom not in self.ref_exons:
+                    self.ref_exons[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+                    self.ref_introns[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+                if tr.strand is None: s="+"
+                else: s=tr.strand
+                self.ref_exons[tr.chrom][s].update(tr.exons)
+                self.ref_introns[tr.chrom][s].update(tr.introns)
+     
+        self.pred_exons = dict()
+        self.pred_introns = dict()
+        self.pred_transcripts = set()
+        self.pred_genes = set()
+        self.found_ref_transcripts = set()
+        self.found_pred_transcripts = set()
+        self.matching_chains=set()
+        self.new_transcripts = set()
+        self.new_genes = set()
+        self.found_ref_genes = set()
+        self.found_pred_genes = set()
+        self.ref_gene_num = len(genes)
+
+
+    def store(self, tr:transcript, result:result_storer, genes:dict):
+
+        if result is None:
+            return
         if tr.strand is None: s="+"
         else: s=tr.strand
-        if tr.chrom not in pred_exons:
-            pred_exons[tr.chrom]=dict([ ("+", set()), ("-", set()) ] )
-            pred_introns[tr.chrom]=dict([ ("+", set()), ("-", set()) ] )
-        pred_exons[tr.chrom][s].update(tr.exons)
+        if tr.chrom not in self.pred_exons:
+            self.pred_exons[tr.chrom]=dict([ ("+", set()), ("-", set()) ] )
+            self.pred_introns[tr.chrom]=dict([ ("+", set()), ("-", set()) ] )
+        self.pred_exons[tr.chrom][s].update(tr.exons)
         if tr.exon_num>1:
-            pred_introns[tr.chrom][s].update(tr.introns)
-        pred_transcripts.add(tr.id)
-        pred_genes.add(tr.parent[0])
+            self.pred_introns[tr.chrom][s].update(tr.introns)
+        self.pred_transcripts.add(tr.id)
+        self.pred_genes.add(tr.parent[0])
         if result.ccode==("_",):
-            found_ref_transcripts.add(result.RefId[0])
-            found_ref_genes.add(result.RefGene[0])
-            found_pred_transcripts.add(tr.id)
-            found_pred_genes.add(tr.parent[0])
+            self.found_ref_transcripts.add(result.RefId[0])
+            self.found_ref_genes.add(result.RefGene[0])
+            self.found_pred_transcripts.add(tr.id)
+            self.found_pred_genes.add(tr.parent[0])
         elif result.ccode==("=",):
-            matching_chains.add(result.RefId[0])
+            self.matching_chains.add(result.RefId[0])
             ref_tr = genes[result.RefGene[0]][result.RefId[0]] 
             if ref_tr.start==tr.start and ref_tr.end == tr.end:
-                found_ref_transcripts.add(result.RefId[0])
-                found_ref_genes.add(result.RefGene[0])
-                found_pred_transcripts.add(tr.id)
-                found_pred_genes.add(tr.parent[0])
+                self.found_ref_transcripts.add(result.RefId[0])
+                self.found_ref_genes.add(result.RefGene[0])
+                self.found_pred_transcripts.add(tr.id)
+                self.found_pred_genes.add(tr.parent[0])
         elif result.ccode==("u",):
-            new_transcripts.add(result.TID)
-            new_genes.add(result.GID)
-        queue.task_done()
+            self.new_transcripts.add(result.TID)
+            self.new_genes.add(result.GID)
+
+    def print_stats(self, args:argparse.Namespace):
     
-    found_exons = dict()
-    new_exons = dict()
-    missed_exons = dict()
-
-    found_introns = dict()
-    new_introns = dict()
-    missed_introns = dict()
-
-
-    for chrom in filter(lambda key: key not in pred_exons, ref_exons.keys()):
-        missed_exons[chrom]=ref_exons[chrom]
-        missed_introns[chrom]=ref_introns[chrom]
-
-    for chrom in filter(lambda key: key not in ref_exons, pred_exons.keys()):
-        new_exons[chrom]=pred_exons[chrom]
-        new_introns[chrom]=pred_introns[chrom]
-
-    for chrom in filter(lambda key: key in ref_exons, pred_exons.keys()):
-        found_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
-        new_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
-        missed_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
-        
-        found_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
-        new_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
-        missed_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
-        
-        for strand in ("+","-"):
-            found_exons[chrom][strand] = set.intersection(pred_exons[chrom][strand], ref_exons[chrom][strand])
-            new_exons[chrom][strand] = set.difference(pred_exons[chrom][strand], ref_exons[chrom][strand])
-            missed_exons[chrom][strand] = set.difference(ref_exons[chrom][strand], pred_exons[chrom][strand])
+        found_exons = dict()
+        new_exons = dict()
+        missed_exons = dict()
+    
+        found_introns = dict()
+        new_introns = dict()
+        missed_introns = dict()
+    
+    
+        for chrom in filter(lambda key: key not in self.pred_exons, self.ref_exons.keys()):
+            missed_exons[chrom]=self.ref_exons[chrom]
+            missed_introns[chrom]=self.ref_introns[chrom]
+    
+        for chrom in filter(lambda key: key not in self.ref_exons, self.pred_exons.keys()):
+            new_exons[chrom]=self.pred_exons[chrom]
+            new_introns[chrom]=self.pred_introns[chrom]
+    
+        for chrom in filter(lambda key: key in self.ref_exons, self.pred_exons.keys()):
+            found_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
+            new_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
+            missed_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
             
-            found_introns[chrom][strand] = set.intersection(pred_introns[chrom][strand], ref_introns[chrom][strand])
-            logger.debug( "Comparing introns for {0}{1}; prediction: {2}; reference: {3}".format(
-                                                                                                chrom,
-                                                                                                strand,
-                                                                                                len(pred_introns[chrom][strand]),
-                                                                                                len(ref_introns[chrom][strand])
-                                                                                                 ) )
-            new_introns[chrom][strand] = set.difference(pred_introns[chrom][strand], ref_introns[chrom][strand])
-            missed_introns[chrom][strand] = set.difference(ref_introns[chrom][strand], pred_introns[chrom][strand])
-    
-    prediction_found_num = 0
-    for chrom in found_exons:
-        for strand in found_exons[chrom]:
-            prediction_found_num+=len(found_exons[chrom][strand])
-    
-    
-    prediction_new_num = 0
-    for chrom in new_exons:
-        for strand in new_exons[chrom]:
-            prediction_new_num+= len(new_exons[chrom][strand])
-    
-    reference_missed_num = 0
-    for chrom in missed_exons:
-        for strand in missed_exons[chrom]:
-            reference_missed_num += len(missed_exons[chrom][strand])
-    
-    if prediction_found_num+prediction_new_num>0:
-        exon_prec = prediction_found_num/(prediction_found_num+prediction_new_num)
-    else:
-        exon_prec=0
-    exon_recall = prediction_found_num / (prediction_found_num+reference_missed_num)
-    if max(exon_prec,exon_recall)>0:
-        exon_f1 = 2*(exon_prec*exon_recall)/(exon_prec+exon_recall)
-    else:
-        exon_f1 = 0
-
-    prediction_introns_found_num=0
-    prediction_introns_new_num=0
-    prediction_introns_missed_num=0
-        
-    for chrom in found_introns:
-        for strand in found_introns[chrom]:
-            logger.debug("{0}{1} found introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
-            prediction_introns_found_num+=len(found_introns[chrom][strand])
-    for chrom in new_introns:
-        for strand in new_introns[chrom]:
-            logger.debug("{0}{1} new introns: {2}".format(chrom, strand, len(new_introns[chrom][strand])))
-            prediction_introns_new_num+=len(new_introns[chrom][strand])
-
-    for chrom in missed_introns:
-        for strand in missed_introns[chrom]:
-            logger.debug("{0}{1} missed introns: {2}".format(chrom, strand, len(missed_introns[chrom][strand])))
-            prediction_introns_missed_num+=len(missed_introns[chrom][strand])
-
-    if prediction_found_num+prediction_new_num>0:
-        intron_prec = prediction_introns_found_num/(prediction_introns_found_num+prediction_introns_new_num)
-    else:
-        intron_prec=0
-    if prediction_introns_found_num+prediction_introns_missed_num==0:
-        intron_recall=0
-    else:
-        intron_recall = prediction_introns_found_num / (prediction_introns_found_num+prediction_introns_missed_num)
-    if max(intron_prec,intron_recall)>0:
-        intron_f1 = 2*(intron_prec*intron_recall)/(intron_prec+intron_recall)
-    else:
-        intron_f1 = 0
-
-
-    found_bases_num = 0
-    new_bases_num = 0
-    missing_bases_num = 0
-    
-    
-    #For each chromosome, generate a set of integer values for both reference and prediction
-    #These are the bases annotated in ref and pred, and using set.intersection/difference
-    #we are able to derive the precision/recall stats
-    for chrom in set.union(set(ref_exons.keys()), set(pred_exons.keys())  ):
-        if chrom not in pred_exons:
-            for strand in ref_exons[chrom]:
-                missing_bases_num += len(set(itertools.chain(*[range(x[0], x[1]+1) for x in ref_exons[chrom][strand]]  )))
-        elif chrom not in ref_exons:
-            for strand in pred_exons[chrom]:
-                new_bases_num += len(set(itertools.chain(*[range(x[0], x[1]+1) for x in pred_exons[chrom][strand]]  )))
-        else:
-            for strand in pred_exons[chrom]:
-                ref_bases = set(itertools.chain(*[range(x[0], x[1]+1) for x in ref_exons[chrom][strand]]  ))
-                pred_bases = set(itertools.chain(*[range(x[0], x[1]+1) for x in pred_exons[chrom][strand]]  ))
-                found_bases_num += len(set.intersection(pred_bases,ref_bases )  )
-                new_bases_num +=  len(set.difference(pred_bases,ref_bases )  )
-                missing_bases_num +=  len(set.difference(ref_bases, pred_bases )  )
+            found_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
+            new_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
+            missed_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
+            
+            for strand in ("+","-"):
+                found_exons[chrom][strand] = set.intersection(self.pred_exons[chrom][strand], self.ref_exons[chrom][strand])
+                new_exons[chrom][strand] = set.difference(self.pred_exons[chrom][strand], self.ref_exons[chrom][strand])
+                missed_exons[chrom][strand] = set.difference(self.ref_exons[chrom][strand], self.pred_exons[chrom][strand])
                 
-    logger.debug("Matching bases: {0:,}".format(found_bases_num))
-    logger.debug("New bases: {0:,}".format(new_bases_num))
-    logger.debug("Missed bases: {0:,}".format(missing_bases_num))
-    
-    if found_bases_num+new_bases_num>0:
-        bases_prec = found_bases_num/(found_bases_num+new_bases_num)
-    else:
-        bases_prec = 0
-    bases_recall = found_bases_num/(found_bases_num+missing_bases_num)
-    if max(bases_recall,bases_prec)>0:
-        bases_f1 = 2*(bases_recall*bases_prec)/(bases_recall+bases_prec)
-    else:
-        bases_f1 = 0
-    
-    transcript_recall = len(found_ref_transcripts)/ref_transcript_num
-    if len(pred_transcripts)>0:
-        transcript_prec = len(found_pred_transcripts)/len(pred_transcripts)
-    else:
-        transcript_prec = 0
-    if max(transcript_prec,transcript_recall)>0:
-        transcript_f1 = 2*(transcript_recall*transcript_prec)/(transcript_recall+transcript_prec)
-    else:
-        transcript_f1 = 0
-    
-    gene_recall = len(found_ref_genes)/len(genes)
-    if len(pred_genes)>0:
-        gene_prec = len(found_pred_genes)/len(pred_genes)
-    else:
-        gene_prec = 0
-    if max(gene_prec, gene_recall)>0:
-        gene_f1 = 2*(gene_recall*gene_prec)/(gene_recall+gene_prec)
-    else:
-        gene_f1 = 0
-    
-    ref_introns_num=0
-    for chrom in ref_introns:
-        for strand in ref_introns[chrom]:
-            ref_introns_num+=len(ref_introns[chrom][strand])
-    
-    
-    with open("{0}.stats".format(args.out),'wt') as out:
+                found_introns[chrom][strand] = set.intersection(self.pred_introns[chrom][strand], self.ref_introns[chrom][strand])
+                self.logger.debug( "Comparing introns for {0}{1}; prediction: {2}; reference: {3}".format(
+                                                                                                    chrom,
+                                                                                                    strand,
+                                                                                                    len(self.pred_introns[chrom][strand]),
+                                                                                                    len(self.ref_introns[chrom][strand])
+                                                                                                     ) )
+                new_introns[chrom][strand] = set.difference(self.pred_introns[chrom][strand], self.ref_introns[chrom][strand])
+                missed_introns[chrom][strand] = set.difference(self.ref_introns[chrom][strand], self.pred_introns[chrom][strand])
         
-        print("Command line:\n{0:>10}".format(args.commandline), file=out)
-        print(ref_transcript_num, "reference RNAs in", len(genes), "genes", file=out )
-        print( len(pred_transcripts) , "predicted RNAs in ", len(pred_genes), "genes", file=out  )
-        
-        print("-"*20, "|   Sn |   Sp |   F1 |", file=out  )
-        print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Base level:",  bases_recall*100, bases_prec*100, bases_f1*100 ) , file=out   )
-        print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Exon level:",  exon_recall*100, exon_prec*100, exon_f1*100 )  , file=out  )
-        print("         {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Intron level:",  intron_recall*100, intron_prec*100, intron_f1*100 )  , file=out  )
-        print("     {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Transcript level:",  transcript_recall*100, transcript_prec*100, transcript_f1*100 )  , file=out  )
-        print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level:",  gene_recall*100, gene_prec*100, gene_f1*100 )  , file=out  )
-        print(file=out)
-        print(" Matching intron chains: {0}".format(len(matching_chains)), file=out)
-        print("           {0} {1}/{2}  ({3:.2f}%)".format("Missed exons:",
-                                                   reference_missed_num,
-                                                   prediction_found_num+reference_missed_num,
-                                                   100*reference_missed_num/(prediction_found_num+reference_missed_num) ),
-              file=out)
-        print("            {0} {1}/{2}  ({3:.2f}%)".format("Novel exons:",
-                                                   prediction_new_num,
-                                                   prediction_found_num+prediction_new_num,
-                                                   100*prediction_new_num/(prediction_found_num+prediction_new_num) if prediction_found_num+prediction_new_num>0 else 0  ),
-              file=out)
-        print("          {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
-                                                   prediction_introns_new_num,
-                                                   prediction_introns_new_num+prediction_introns_found_num,
-                                                   100*prediction_introns_new_num/(prediction_introns_new_num+prediction_introns_found_num) if prediction_introns_new_num+prediction_introns_found_num>0 else 0  ),
-              file=out)
-        print("         {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
-                                                   prediction_introns_missed_num,
-                                                   prediction_introns_found_num+prediction_introns_missed_num,
-                                                   100*prediction_introns_missed_num/(prediction_introns_found_num+prediction_introns_missed_num) ),
-              file=out)
+        prediction_found_num = 0
+        for chrom in found_exons:
+            for strand in found_exons[chrom]:
+                prediction_found_num+=len(found_exons[chrom][strand])
         
         
-    logger.removeHandler(queue_handler)
-    queue_handler.close()
-    return
+        prediction_new_num = 0
+        for chrom in new_exons:
+            for strand in new_exons[chrom]:
+                prediction_new_num+= len(new_exons[chrom][strand])
+        
+        reference_missed_num = 0
+        for chrom in missed_exons:
+            for strand in missed_exons[chrom]:
+                reference_missed_num += len(missed_exons[chrom][strand])
+        
+        if prediction_found_num+prediction_new_num>0:
+            exon_prec = prediction_found_num/(prediction_found_num+prediction_new_num)
+        else:
+            exon_prec=0
+        exon_recall = prediction_found_num / (prediction_found_num+reference_missed_num)
+        if max(exon_prec,exon_recall)>0:
+            exon_f1 = 2*(exon_prec*exon_recall)/(exon_prec+exon_recall)
+        else:
+            exon_f1 = 0
+    
+        prediction_introns_found_num=0
+        prediction_introns_new_num=0
+        prediction_introns_missed_num=0
+            
+        for chrom in found_introns:
+            for strand in found_introns[chrom]:
+                self.logger.debug("{0}{1} found introns: {2}".format(chrom, strand, len(found_introns[chrom][strand])))
+                prediction_introns_found_num+=len(found_introns[chrom][strand])
+        for chrom in new_introns:
+            for strand in new_introns[chrom]:
+                self.logger.debug("{0}{1} new introns: {2}".format(chrom, strand, len(new_introns[chrom][strand])))
+                prediction_introns_new_num+=len(new_introns[chrom][strand])
+    
+        for chrom in missed_introns:
+            for strand in missed_introns[chrom]:
+                self.logger.debug("{0}{1} missed introns: {2}".format(chrom, strand, len(missed_introns[chrom][strand])))
+                prediction_introns_missed_num+=len(missed_introns[chrom][strand])
+    
+        if prediction_found_num+prediction_new_num>0:
+            intron_prec = prediction_introns_found_num/(prediction_introns_found_num+prediction_introns_new_num)
+        else:
+            intron_prec=0
+        if prediction_introns_found_num+prediction_introns_missed_num==0:
+            intron_recall=0
+        else:
+            intron_recall = prediction_introns_found_num / (prediction_introns_found_num+prediction_introns_missed_num)
+        if max(intron_prec,intron_recall)>0:
+            intron_f1 = 2*(intron_prec*intron_recall)/(intron_prec+intron_recall)
+        else:
+            intron_f1 = 0
+    
+    
+        found_bases_num = 0
+        new_bases_num = 0
+        missing_bases_num = 0
+        
+        
+        #For each chromosome, generate a set of integer values for both reference and prediction
+        #These are the bases annotated in ref and pred, and using set.intersection/difference
+        #we are able to derive the precision/recall stats
+        for chrom in set.union(set(self.ref_exons.keys()), set(self.pred_exons.keys())  ):
+            if chrom not in self.pred_exons:
+                for strand in self.ref_exons[chrom]:
+                    missing_bases_num += len(set(itertools.chain(*[range(x[0], x[1]+1) for x in self.ref_exons[chrom][strand]]  )))
+            elif chrom not in self.ref_exons:
+                for strand in self.pred_exons[chrom]:
+                    new_bases_num += len(set(itertools.chain(*[range(x[0], x[1]+1) for x in self.pred_exons[chrom][strand]]  )))
+            else:
+                for strand in self.pred_exons[chrom]:
+                    ref_bases = set(itertools.chain(*[range(x[0], x[1]+1) for x in self.ref_exons[chrom][strand]]  ))
+                    pred_bases = set(itertools.chain(*[range(x[0], x[1]+1) for x in self.pred_exons[chrom][strand]]  ))
+                    found_bases_num += len(set.intersection(pred_bases,ref_bases )  )
+                    new_bases_num +=  len(set.difference(pred_bases,ref_bases )  )
+                    missing_bases_num +=  len(set.difference(ref_bases, pred_bases )  )
+                    
+        self.logger.debug("Matching bases: {0:,}".format(found_bases_num))
+        self.logger.debug("New bases: {0:,}".format(new_bases_num))
+        self.logger.debug("Missed bases: {0:,}".format(missing_bases_num))
+        
+        if found_bases_num+new_bases_num>0:
+            bases_prec = found_bases_num/(found_bases_num+new_bases_num)
+        else:
+            bases_prec = 0
+        bases_recall = found_bases_num/(found_bases_num+missing_bases_num)
+        if max(bases_recall,bases_prec)>0:
+            bases_f1 = 2*(bases_recall*bases_prec)/(bases_recall+bases_prec)
+        else:
+            bases_f1 = 0
+        
+        transcript_recall = len(self.found_ref_transcripts)/self.ref_transcript_num
+        if len(self.pred_transcripts)>0:
+            transcript_prec = len(self.found_pred_transcripts)/len(self.pred_transcripts)
+        else:
+            transcript_prec = 0
+        if max(transcript_prec,transcript_recall)>0:
+            transcript_f1 = 2*(transcript_recall*transcript_prec)/(transcript_recall+transcript_prec)
+        else:
+            transcript_f1 = 0
+        
+        gene_recall = len(self.found_ref_genes)/self.ref_gene_num
+        if len(self.pred_genes)>0:
+            gene_prec = len(self.found_pred_genes)/len(self.pred_genes)
+        else:
+            gene_prec = 0
+        if max(gene_prec, gene_recall)>0:
+            gene_f1 = 2*(gene_recall*gene_prec)/(gene_recall+gene_prec)
+        else:
+            gene_f1 = 0
+        
+        ref_introns_num=0
+        for chrom in self.ref_introns:
+            for strand in self.ref_introns[chrom]:
+                ref_introns_num+=len(self.ref_introns[chrom][strand])
+        
+        
+        with open("{0}.stats".format(args.out),'wt') as out:
+            
+            print("Command line:\n{0:>10}".format(args.commandline), file=out)
+            print(self.ref_transcript_num, "reference RNAs in", self.ref_gene_num, "genes", file=out )
+            print( len(self.pred_transcripts) , "predicted RNAs in ", len(self.pred_genes), "genes", file=out  )
+            
+            print("-"*20, "|   Sn |   Sp |   F1 |", file=out  )
+            print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Base level:",  bases_recall*100, bases_prec*100, bases_f1*100 ) , file=out   )
+            print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Exon level:",  exon_recall*100, exon_prec*100, exon_f1*100 )  , file=out  )
+            print("         {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Intron level:",  intron_recall*100, intron_prec*100, intron_f1*100 )  , file=out  )
+            print("     {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Transcript level:",  transcript_recall*100, transcript_prec*100, transcript_f1*100 )  , file=out  )
+            print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level:",  gene_recall*100, gene_prec*100, gene_f1*100 )  , file=out  )
+            print(file=out)
+            print(" Matching intron chains: {0}".format(len(self.matching_chains)), file=out)
+            print("           {0} {1}/{2}  ({3:.2f}%)".format("Missed exons:",
+                                                       reference_missed_num,
+                                                       prediction_found_num+reference_missed_num,
+                                                       100*reference_missed_num/(prediction_found_num+reference_missed_num) ),
+                  file=out)
+            print("            {0} {1}/{2}  ({3:.2f}%)".format("Novel exons:",
+                                                       prediction_new_num,
+                                                       prediction_found_num+prediction_new_num,
+                                                       100*prediction_new_num/(prediction_found_num+prediction_new_num) if prediction_found_num+prediction_new_num>0 else 0  ),
+                  file=out)
+            print("          {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
+                                                       prediction_introns_new_num,
+                                                       prediction_introns_new_num+prediction_introns_found_num,
+                                                       100*prediction_introns_new_num/(prediction_introns_new_num+prediction_introns_found_num) if prediction_introns_new_num+prediction_introns_found_num>0 else 0  ),
+                  file=out)
+            print("         {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
+                                                       prediction_introns_missed_num,
+                                                       prediction_introns_found_num+prediction_introns_missed_num,
+                                                       100*prediction_introns_missed_num/(prediction_introns_found_num+prediction_introns_missed_num) ),
+                  file=out)
+            
+            
+        self.logger.removeHandler(self.queue_handler)
+        self.queue_handler.close()
+        return
 
 def main():
     
@@ -835,7 +813,6 @@ def main():
     
     context = multiprocessing.get_context() #@UndefinedVariable
     manager = context.Manager()
-    args.queue = manager.Queue(-1)
 
     logger = logging.getLogger("main")
     formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}", style="{")
@@ -871,11 +848,11 @@ def main():
     args.commandline = " ".join(sys.argv)
     queue_logger.info("Command line: {0}".format(args.commandline))
     
-    refmap_queue = manager.Queue(-1)
+#     refmap_queue = manager.Queue(-1)
     
-    pp=threading.Thread(target=printer, args=(args,), name="printing_thread", daemon=True)
-    pp.start()
-    args.refmap_queue = refmap_queue
+#     pp=threading.Thread(target=printer, args=(args,), name="printing_thread", daemon=True)
+#     pp.start()
+#     args.refmap_queue = refmap_queue
 
     queue_logger.info("Starting parsing the reference")
 
@@ -940,22 +917,35 @@ def main():
         positions[genes[gid].chrom][key].append(genes[gid])
     
     for gid in genes_to_remove: del genes[gid]
+
     
+
+    #Needed for refmap
+    gene_matches = dict()
+    for gid in genes:
+        gene_matches[gid]=dict()
+        for tid in genes[gid]:
+            gene_matches[gid][tid.id]=[]
+
+
+
     indexer = collections.defaultdict(list).fromkeys(positions)
     for chrom in positions:
         indexer[chrom]=sorted(positions[chrom].keys())
     queue_logger.info("Finished preparation")
 
-    args.stats_queue = manager.Queue(-1)
 
-    stat_thread = threading.Thread(target=stat_printer, args=(genes, args), name="stat_thread", daemon=True)
-    stat_thread.start()
+    stat_storer_instance = stat_storer(genes, args) #start the class which will manage the statistics
+#     args.stats_queue = manager.Queue(-1)
+# 
+#     stat_thread = threading.Thread(target=stat_printer, args=(genes, args), name="stat_thread", daemon=True)
+#     stat_thread.start()
 
     queue_logger.debug("Initialised printer")    
 #     logger.debug("Initialised worker pool")
 
-    refmap_proc = threading.Thread(target=refmap_printer, args=(args, genes ), name="refmap_printer", daemon=True)
-    refmap_proc.start()
+#     refmap_proc = threading.Thread(target=refmap_printer, args=(args, genes ), name="refmap_printer", daemon=True)
+#     refmap_proc.start()
     
     def reduce_args(args):
         new_args = args.__dict__.copy()
@@ -977,7 +967,9 @@ def main():
             queue_logger.debug("Transcript row:\n{0}".format(str(row)))
             if currentTranscript is not None:
                 try:
-                    get_best(positions, indexer, currentTranscript, cargs)
+                    result=get_best(positions, indexer, currentTranscript, cargs)
+                    gene_matches=add_to_refmap(gene_matches,result)
+                    stat_storer_instance.store(currentTranscript, result, genes)
                 except Exception as err:
                     queue_logger.exception(err)
                     log_queue_listener.enqueue_sentinel()
@@ -1002,7 +994,9 @@ def main():
 
     if currentTranscript is not None:
         try:
-            get_best(positions, indexer, currentTranscript, cargs)
+            result=get_best(positions, indexer, currentTranscript, cargs)
+            gene_matches=add_to_refmap(gene_matches,result)
+            stat_storer_instance.store(currentTranscript, result, genes)
         except Exception as err:
             queue_logger.exception(err)
             log_queue_listener.enqueue_sentinel()
@@ -1012,20 +1006,27 @@ def main():
             raise
  
     queue_logger.info("Finished parsing")
-    args.queue.join()
-    args.queue.put("EXIT")
-    args.queue.all_tasks_done = True
-
-    queue_logger.debug("Sent EXIT signal")
-    pp.join()
-    args.refmap_queue.put("EXIT")
-    refmap_proc.join()
-    queue_logger.debug("Printer process alive: {0}".format(pp.is_alive()))
-    queue_logger.debug("Refmap process alive: {0}".format(refmap_proc.is_alive()))
+    refmap_printer(args, gene_matches)
+    queue_logger.info("Finished printing RefMap")
     
-    args.stats_queue.join()
-    args.stats_queue.put("EXIT")
-    stat_thread.join()
+    
+    refmap_printer(args, gene_matches)
+    stat_storer_instance.print_stats(args)
+    
+#     args.queue.join()
+#     args.queue.put("EXIT")
+#     args.queue.all_tasks_done = True
+
+#     queue_logger.debug("Sent EXIT signal")
+#     pp.join()
+#     args.refmap_queue.put("EXIT")
+#     refmap_proc.join()
+#     queue_logger.debug("Printer process alive: {0}".format(pp.is_alive()))
+#     queue_logger.debug("Refmap process alive: {0}".format(refmap_proc.is_alive()))
+    
+#     args.stats_queue.join()
+#     args.stats_queue.put("EXIT")
+#     stat_thread.join()
     
     queue_logger.info("Finished")
     log_queue_listener.enqueue_sentinel()

@@ -44,7 +44,7 @@ class result_storer:
         r = self._asdict()
         line=[]
         for key in self.__slots__:
-            line.append(r[key])
+            line.append(str(r[key]))
         return "\t".join(line)
     
     def __repr__(self):

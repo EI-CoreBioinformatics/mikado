@@ -412,8 +412,7 @@ class assigner:
                         else:
                             row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
                     rows.append(row)
-                if len(best_picks)>0:
-                    best_pick = sorted( best_picks,  key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+                best_pick = sorted( best_picks,  key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
                     
                 for row in rows:
                     if best_pick is not None:

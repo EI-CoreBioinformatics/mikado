@@ -9,9 +9,19 @@ import collections
 
 class stat_storer:
     
-    def __init__(self, genes:dict, args:argparse.Namespace):
+    '''This class stores the data necessary to calculate the final statistics - base and exon Sn/Sp/F1 etc.'''
+    
+    def __init__(self, args:argparse.Namespace):
 
-        self.queue_handler = log_handlers.QueueHandler(args.log_queue)
+        '''Class constructor. It requires:
+        - The reference gene dictionary (containing the various transcript instances)
+        - A namespace (like those provided by argparse) containing the parameters for the run.        
+        '''
+
+        if hasattr(args,"log_queue"):
+            self.queue_handler = log_handlers.QueueHandler(args.log_queue)
+        else:
+            self.queue_handler = logging.NullHandler
         self.logger = logging.getLogger("stat_logger")
         self.logger.addHandler(self.queue_handler)
         if args.verbose:
@@ -21,6 +31,52 @@ class stat_storer:
         self.logger.propagate=False
         self.logger.debug("Started with stat printing")
         
+        self.args = args
+     
+        self.pred_exons = dict([("internal", dict()), ("starting", dict()), ("terminal", dict()), ("single", dict()) ])
+        self.pred_introns = dict()
+        self.pred_intron_chains = dict()
+        self.matching_intron_chains = collections.Counter()
+        self.found_genes = set()
+        self.found_transcripts = collections.Counter()
+        self.pred_transcripts = set()
+        self.pred_genes = set()
+
+    def store(self, tr:transcript, results:[result_storer]):
+
+        if tr.strand is None: s="+"
+        else: s=tr.strand
+
+        if tr.chrom not in self.pred_introns:
+            self.pred_introns[tr.chrom] = dict([("+", set()),  ("-", set()) ]  )
+            self.pred_intron_chains[tr.chrom] = dict([("+", set()),  ("-", set()) ]  )
+            for key in self.pred_exons:
+                self.pred_exons[key][tr.chrom] = dict([("+", set()),  ("-", set()) ]  )
+
+        self.pred_transcripts.add(tr.id)
+        self.pred_genes.update(set(tr.parent))
+
+        if tr.monoexonic is False:
+            self.pred_introns
+            if len(tr.exons)>2:
+                internal = set(tr.exons[1:-1])
+                self.pred_exons["internal"][tr.chrom][s].update(internal)
+            self.pred_exons["starting"][tr.chrom][s].add(tr.exons[0])
+            self.pred_exons["ending"][tr.chrom][s].add(tr.exons[-1])
+            self.pred_intron_chains[tr.chrom][s].add(tuple(tr.introns))
+            for result in results:
+                if "=" in result.ccode:
+                    self.matching_intron_chains.update([tuple(tr.introns)])
+                    if result.n_f1>=0.95:
+                        self.found_transcripts.update([result.RefID])
+        else:
+            self.pred_exons["single"][tr.chrom][s].add(tr.exons[0])
+            for result in results:
+                if "_" in result.ccode: 
+                    self.found_transcripts.update([result.RefID])
+
+    def print_stats(self, genes):
+ 
         self.ref_exons = dict([("internal", dict()), ("starting", dict()), ("terminal", dict()), ("single", dict()) ])  
         self.ref_introns = dict()
         self.ref_intron_chains = dict()
@@ -29,7 +85,7 @@ class stat_storer:
         for gene in genes:
             for tr in genes[gene]:
                 self.ref_transcript_num+=1
-                if tr.chrom not in self.ref_exons:
+                if tr.chrom not in self.ref_introns:
                     for key in self.ref_exons:
                         self.ref_exons[key][tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
                     self.ref_introns[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
@@ -54,93 +110,47 @@ class stat_storer:
                     self.ref_intron_chains[tr.chrom][s].add( tuple(sorted(tr.introns)) )
                 else:
                     self.ref_exons["single"][tr.chrom][s].add(tr.exons[0])
-     
-        self.pred_exons = dict([("internal", dict()), ("starting", dict()), ("terminal", dict()), ("single", dict()) ])
-        self.pred_introns = dict()
-        self.pred_transcripts = set()
-        self.pred_genes = set()
-        self.found_ref_transcripts = set()
-        self.found_pred_transcripts = set()
-        self.matching_chains=collections.Counter()
-        self.new_transcripts = set()
-        self.new_genes = set()
-        self.found_ref_genes = set()
-        self.found_pred_genes = set()
-        self.ref_gene_num = len(genes)
-
-        self.found_exons = dict()
-        self.found_border_exons=dict()
-        self.new_exons = dict()
-        self.missed_exons = dict()
+ 
     
-        self.found_introns = dict()
-        self.new_introns = dict()
-        self.missed_introns = dict()
-
-
-
-        self.pred_intron_chains = dict()
-
-    def store(self, tr:transcript, result:result_storer, genes:dict):
-
-        if result is None:
-            return
-        if tr.strand is None: s="+"
-        else: s=tr.strand
-
-
-        for store in (self.found_exons, self.new_exons, self.missed_exons):
-            if tr.chrom not in store:
-                store[tr.chrom]=dict( [ ("+", set()), ("-", set()) ] )
-                
-        for store in (self.found_introns, self.new_introns, self.missed_introns):
-            if tr.chrom not in store:
-                store[tr.chrom]=dict( [ ("+", set()), ("-", set()) ] )
-
-        if tr.monoexonic is False:
-            self.found_introns[tr.chrom][s].update( set.intersection( set(tr.introns), self.ref_introns[tr.chrom][s]  )  )
-            self.new_introns[tr.chrom][s].update(set.difference( set(tr.introns), self.ref_introns[tr.chrom][s]  )  )
-            
-            exons = sorted(tr.exons)
-            if len(exons)>2:
-                internal = exons[1:-1] 
-                self.found_exons[tr.chrom][s].update( set.intersection(set(internal),  self.ref_exons["internal"][tr.chrom][s]  )  )
-            
-            
-
-
-
-
-
-    def print_stats(self, args:argparse.Namespace):
-    
-        found_exons = dict()
-        new_exons = dict()
-        missed_exons = dict()
+        found_exons = dict().fromkeys(self.ref_exons.keys())
+        new_exons = dict().fromkeys(self.ref_exons.keys())
+        missed_exons = dict().fromkeys(self.ref_exons.keys())
     
         found_introns = dict()
         new_introns = dict()
         missed_introns = dict()
+        
+        missed_intron_chains = dict()
+        new_intron_chains = dict()
     
-    
-        for chrom in filter(lambda key: key not in self.pred_exons, self.ref_exons.keys()):
-            missed_exons[chrom]=self.ref_exons[chrom]
+        for chrom in filter(lambda key: key not in self.pred_introns, self.ref_introns.keys()):
+            for key in self.ref_exons:
+                missed_exons[key][chrom]=self.ref_exons[key][chrom]
             missed_introns[chrom]=self.ref_introns[chrom]
+            missed_intron_chains[chrom]=self.ref_intron_chains[chrom]
     
         for chrom in filter(lambda key: key not in self.ref_exons, self.pred_exons.keys()):
-            new_exons[chrom]=self.pred_exons[chrom]
+            for key in self.pred_exons:
+                new_exons[key][chrom]=self.pred_exons[key][chrom]
             new_introns[chrom]=self.pred_introns[chrom]
+            new_intron_chains[chrom] = self.pred_intron_chains[chrom]
     
         for chrom in filter(lambda key: key in self.ref_exons, self.pred_exons.keys()):
-            found_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
-            new_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
-            missed_exons[chrom]=dict([ ("+", set()), ("-", set())  ])
+            
+            for key in new_exons:
+                found_exons[key][chrom]=dict([ ("+", set()), ("-", set())  ])
+                new_exons[key][chrom]=dict([ ("+", set()), ("-", set())  ])
+                missed_exons[key][chrom]=dict([ ("+", set()), ("-", set())  ])
             
             found_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
             new_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
             missed_introns[chrom]=dict([ ("+", set()), ("-", set())  ])
             
             for strand in ("+","-"):
+                
+                found_exons[]
+                
+                
                 found_exons[chrom][strand] = set.intersection(self.pred_exons[chrom][strand], self.ref_exons[chrom][strand])
                 new_exons[chrom][strand] = set.difference(self.pred_exons[chrom][strand], self.ref_exons[chrom][strand])
                 missed_exons[chrom][strand] = set.difference(self.ref_exons[chrom][strand], self.pred_exons[chrom][strand])
@@ -299,9 +309,9 @@ class stat_storer:
                 ref_introns_num+=len(self.ref_introns[chrom][strand])
         
         
-        with open("{0}.stats".format(args.out),'wt') as out:
+        with open("{0}.stats".format(self.args.out),'wt') as out:
             
-            print("Command line:\n{0:>10}".format(args.commandline), file=out)
+            print("Command line:\n{0:>10}".format(self.args.commandline), file=out)
             print(self.ref_transcript_num, "reference RNAs in", self.ref_gene_num, "genes", file=out )
             print( len(self.pred_transcripts) , "predicted RNAs in ", len(self.pred_genes), "genes", file=out  )
             

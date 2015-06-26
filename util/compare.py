@@ -181,8 +181,9 @@ def main():
     queue_logger.info("Finished preparation")
 
 
-    assigner_instance = assigner(genes, positions, args)
+    
     stat_storer_instance = stat_storer(genes, args) #start the class which will manage the statistics
+    assigner_instance = assigner(genes, positions, args, stat_storer_instance)
 
 
     currentTranscript = None
@@ -231,7 +232,7 @@ def main():
             raise
  
     assigner_instance.finish()
-    stat_storer_instance.print_stats(args)
+#     stat_storer_instance.print_stats(args)
     
     
     queue_logger.info("Finished")

@@ -195,8 +195,7 @@ def main():
             queue_logger.debug("Transcript row:\n{0}".format(str(row)))
             if currentTranscript is not None:
                 try:
-                    result=assigner_instance.get_best(currentTranscript)
-                    stat_storer_instance.store(currentTranscript, result, genes)
+                    assigner_instance.get_best(currentTranscript)
                 except Exception as err:
                     queue_logger.exception(err)
                     log_queue_listener.enqueue_sentinel()
@@ -221,8 +220,7 @@ def main():
 
     if currentTranscript is not None:
         try:
-            result=assigner_instance.get_best(currentTranscript)
-            stat_storer_instance.store(currentTranscript, result, genes)
+            assigner_instance.get_best(currentTranscript)
         except Exception as err:
             queue_logger.exception(err)
             log_queue_listener.enqueue_sentinel()

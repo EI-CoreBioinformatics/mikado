@@ -139,6 +139,7 @@ class assigner:
         if len(found)==0 or distances[0][1]>self.args.distance:
             ccode = "u"
             best_result = result_storer( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"] )
+            self.stat_calculator.store(tr, best_result, None)
             results = [best_result] 
     
         #Polymerase run-on
@@ -196,7 +197,6 @@ class assigner:
     #     args.stats_queue.put_nowait((tr,result))
     #     return result
            
-        self.stat_calculator.store(tr, results)
         for result in results:
             self.add_to_refmap( result)
         self.logger.debug("Finished with {0}".format(tr.id))
@@ -232,6 +232,7 @@ class assigner:
         
         - f    gene fusion - in this case, this ccode will be followed by the ccodes of the matches for each gene, separated by comma
         - _    Complete match, for monoexonic transcripts (nucleotide F1>=95% - i.e. min(precision,recall)>=90.4%
+        - m    Exon overlap between two monoexonic transcripts
         - n    Potentially novel isoform, where all the known junctions have been confirmed and we have added others as well
         - I    *multiexonic* transcript falling completely inside a known transcript
         - h    the transcript is multiexonic and extends a monoexonic reference transcript
@@ -258,6 +259,8 @@ class assigner:
             nucl_f1 = 0
         else:
             nucl_f1 = 2*(nucl_recall*nucl_precision)/(nucl_recall + nucl_precision) 
+    
+        other_exon = None
     
         if min(tr.exon_num, other.exon_num)>1:
             assert min(len(tr.splices), len(other.splices))>0, (tr.introns, tr.splices)
@@ -350,11 +353,12 @@ class assigner:
                 elif tr.exon_num == other.exon_num ==1:
                     junction_f1 = junction_precision = junction_precision = 1 #Set to one
                     if nucl_f1>=0.95:
+                        other_exon=other.exons[0]
                         ccode="_"
                     elif nucl_precision==1:
                         ccode="c" #contained
                     else:
-                        ccode="o" #just a generic exon overlap
+                        ccode="m" #just a generic exon overlap b/w two monoexonic transcripts
         
         if ccode in ("e","o","c") and tr.strand is not None and other.strand is not None and tr.strand!=other.strand:
             ccode="x"
@@ -367,9 +371,7 @@ class assigner:
         if ccode is None:
             raise ValueError("Ccode is null;\n{0}".format(  repr(result)))
      
-    
-        if ccode is None:
-            raise ValueError(result)
+        self.stat_calculator.store(tr, result, other_exon)
     
         return result
     

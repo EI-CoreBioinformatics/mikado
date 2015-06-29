@@ -186,7 +186,6 @@ class assigner:
                         #the exonic overlap is >=10% (n_recall)_
                         
                         if m_res[0].j_f1[0]==0 and m_res[0].n_recall[0]<10:
-                            print(m_res)
                             dubious.append(m_res)
                             continue
                         results.extend(m_res)

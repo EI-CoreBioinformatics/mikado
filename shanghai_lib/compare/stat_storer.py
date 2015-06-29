@@ -189,7 +189,7 @@ class stat_storer:
         for chrom in self.starts:
             for strand in self.starts[chrom]:
                 for start in self.starts[chrom][strand]:
-                    exon_common_lenient += 0b1 & (0b10 & self.starts[chrom][strand][start])>>1 
+                    exon_common_lenient += (0b1 & self.starts[chrom][strand][start]) & ((0b10 & self.starts[chrom][strand][start])>>1) 
                     exon_ref_lenient +=  0b01 & self.starts[chrom][strand][start]
                     exon_pred_lenient +=  (0b10 & self.starts[chrom][strand][start])>>1
                     
@@ -201,7 +201,7 @@ class stat_storer:
         for chrom in self.ends:
             for strand in self.ends[chrom]:
                 for end in self.ends[chrom][strand]:
-                    exon_common_lenient += 0b01 & (0b10 & self.ends[chrom][strand][end])>>1
+                    exon_common_lenient += (0b01 & self.ends[chrom][strand][end]) & ((0b10 & self.ends[chrom][strand][end])>>1)
                     exon_ref_lenient +=  0b01 & self.ends[chrom][strand][end]
                     exon_pred_lenient +=  (0b10 & self.ends[chrom][strand][end])>>1
         ends_common = exon_common_lenient-starts_common
@@ -213,15 +213,15 @@ class stat_storer:
         intron_common = 0
         intron_ref = 0
         intron_pred = 0
-        num_introns = 0
+
         for chrom in self.introns:
             for strand in self.introns[chrom]:
-                num_introns+=len(self.introns[chrom][strand])
                 for intron in self.introns[chrom][strand]:
-                    intron_common += 0b01 & (0b11 & self.introns[chrom][strand][intron])>>1
+                    intron_common += (0b01 & self.introns[chrom][strand][intron]) & ((0b10 & self.introns[chrom][strand][intron])>>1) 
                     intron_ref +=  0b01 & self.introns[chrom][strand][intron]
                     intron_pred +=  (0b10 & self.introns[chrom][strand][intron])>>1
-        self.logger.info([intron_common,intron_ref,intron_pred])
+                    
+        self.logger.info([intron_ref,intron_pred,intron_common])
         if intron_ref>0:
             intron_recall = intron_common/intron_ref
         else:
@@ -242,7 +242,7 @@ class stat_storer:
         for chrom in self.intron_chains:
             for strand in self.intron_chains[chrom]:
                 for intron_chain in self.intron_chains[chrom][strand]:
-                    intron_chains_common += 0b01 & (0b10 & self.intron_chains[chrom][strand][intron_chain])>>1 
+                    intron_chains_common += (0b01 & self.intron_chains[chrom][strand][intron_chain]) & ((0b10 & self.intron_chains[chrom][strand][intron_chain])>>1) 
                     intron_chains_ref +=  0b01 & self.intron_chains[chrom][strand][intron_chain]
                     intron_chains_pred +=  (0b10 & self.intron_chains[chrom][strand][intron_chain]) >> 1
 

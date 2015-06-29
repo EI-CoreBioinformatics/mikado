@@ -164,6 +164,7 @@ class stat_storer:
             self.exons[tr.chrom][s][exon] |= 0b100
             if other_exon is not None:
                 assert type(other_exon) is tuple
+                assert other_exon in self.exons[tr.chrom][s][other_exon], (tr.id, tr.exons, other_exon)
                 assert 0b100 & self.exons[tr.chrom][s][other_exon], (tr.id, tr.exons, other_exon) #Check the other exon is marked as single 
 #                 self.exons[tr.chrom][s][exon] |= 0b100000
                 self.exons[tr.chrom][s][other_exon] |= 0b100000

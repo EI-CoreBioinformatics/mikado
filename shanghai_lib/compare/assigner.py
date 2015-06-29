@@ -176,12 +176,17 @@ class assigner:
                     results = [] #Final results
                     dubious = [] #Necessary for a double check.
                     
+                    def get_f1(result):
+                        return result.j_f1[0], result.n_f1[0]
+                    
                     for match in matches:
-                        m_res = sorted([self.calc_compare(tr, tra) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                        m_res = sorted([self.calc_compare(tr, tra) for tra in match], reverse=True, key=get_f1  )
                         #A fusion is called only if I have one of the following conditions:
                         #the transcript gets one of the junctions of the other transcript
                         #the exonic overlap is >=10% (n_recall)_
-                        if m_res[0].j_f1==0 and m_res[0].n_recall<10:
+                        print(m_res[0], m_res[0].j_f1,m_res[0].n_recall )
+                        if m_res[0].j_f1[0]==0 and m_res[0].n_recall[0]<10:
+                            print(m_res)
                             dubious.append(m_res)
                             continue
                         results.extend(m_res)

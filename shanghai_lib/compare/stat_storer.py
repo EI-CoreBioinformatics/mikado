@@ -11,7 +11,7 @@ class stat_storer:
     
     '''This class stores the data necessary to calculate the final statistics - base and exon Sn/Sp/F1 etc.'''
     
-    def __init__(self, args:argparse.Namespace):
+    def __init__(self, genes:dict, args:argparse.Namespace):
 
         '''Class constructor. It requires:
         - The reference gene dictionary (containing the various transcript instances)
@@ -33,47 +33,109 @@ class stat_storer:
         
         self.args = args
      
-        self.pred_exons = dict([("internal", dict()), ("starting", dict()), ("terminal", dict()), ("single", dict()) ])
-        self.pred_introns = dict()
-        self.pred_intron_chains = dict()
-        self.matching_intron_chains = collections.Counter()
-        self.found_genes = set()
-        self.found_transcripts = collections.Counter()
-        self.pred_transcripts = set()
-        self.pred_genes = set()
+#         
+#         self.pred_introns = dict()
+#         self.pred_intron_chains = dict()
+#         self.matching_intron_chains = collections.Counter()
+#         self.found_genes = set()
+#         self.found_transcripts = collections.Counter()
+#         self.pred_transcripts = set()
+#         self.pred_genes = set()
+        
+        self.introns = dict()
+        #This is the easy part
+        self.exons = dict()
+        self.starts = dict()
+        self.ends = dict()
+        self.singles = dict()
+        self.intron_chains = dict()
+        
+        
+        for gene in genes:
+            for tr in genes[gene]:
+                self.ref_transcript_num+=1
+                if tr.chrom not in self.ref_introns:
+                    self.exons[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+                    self.introns[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+                    self.intron_chains[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+                if tr.strand is None: s="+"
+                else: s=tr.strand
 
-    def store(self, tr:transcript, results:[result_storer]):
+
+                #Bitye array of the form: 
+                # 0b1: in reference
+                # 0b10: in prediction
+                # 0b100: internal
+                # 0b1000: border
+                # 0b10000: single
+                 
+                num_exons = len(tr.exons)-1
+
+                for index,exon in enumerate(tr.exons):
+                    if exon not in self.exons:
+                        self.exons[tr.chrom][s][exon] = 1
+                    if num_exons==0:
+                        self.exons[tr.chrom][s][exon] |= 0b10000
+                        self.singles[tr.chrom][s][exon] = 1
+                    else:
+                        if index==0:
+                            self.starts[tr.chrom][s][exon[1]] = 1
+                            self.exons[tr.chrom][s][exon] |= 0b1000
+                        elif index == num_exons:
+                            self.ends[tr.chrom][s][exon[0]] = 1
+                            self.exons[tr.chrom][s][exon] |= 0b1000
+                        else:
+                            self.exons[tr.chrom][s][exon]
+                 
+                if len(tr.exons) == 1:
+                    if tr.exons[0] not in self.exons[tr.chrom][s]: 
+                        self.exons[tr.chrom][s][tr.exons[0]] = 0
+                    else:
+                        self.exons[tr.chrom][s][tr.exons[0]][8] = True 
+                        
+                else:
+                    if tr.exons[0] not in self.exons[tr.chrom][s]: 
+                        self.exons[tr.chrom][s][tr.exons[0]] = [ True, False, False, False,
+                                                                True, False,
+                                                                False, False,
+                                                                False, False ]
+                    else:
+                        self.exons[tr.chrom][s][tr.exons[0]][4] = True
+                    if tr.exons[-1] not in self.exons[tr.chrom][s]:
+                        self.exons[tr.chrom][s][tr.exons[-1]] = [ True, False, True, False, False, False  ]
+                    else:
+                        self.exons[tr.chrom][s][tr.exons[-1]][0] = True
+                        
+                    if len(tr.exons)>2:
+                        for exon in tr.exons[1:-1]:
+                            if exon not in self.exons[tr.chrom][s]:
+                                self.exons[tr.chrom][s][exon] = [ False, False, True, False, False, False  ]
+                            else:
+                                self.exons[tr.chrom][s][2] = True
+                    # 0 in reference
+                    # 1 in prediction        
+                    for intron in tr.introns:
+                        self.introns[tr.chrom][s][intron] = [True, False]
+
+    def store(self, tr:transcript, other_exons=list, results:[result_storer]):
 
         if tr.strand is None: s="+"
         else: s=tr.strand
 
-        if tr.chrom not in self.pred_introns:
-            self.pred_introns[tr.chrom] = dict([("+", set()),  ("-", set()) ]  )
-            self.pred_intron_chains[tr.chrom] = dict([("+", set()),  ("-", set()) ]  )
-            for key in self.pred_exons:
-                self.pred_exons[key][tr.chrom] = dict([("+", set()),  ("-", set()) ]  )
+        if tr.chrom not in self.exons:
+            self.exons[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+            self.introns[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+            self.intron_chains[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
+            
+        if len(tr.exons)>1:
+            if tr.exons[0] not in self.exons[tr.chrom][s]:
+                self.exons[tr.chrom][s] = [True, False, False, False, True, False, False]
+            else:
+                self.exons[tr.chrom][s]
 
-        self.pred_transcripts.add(tr.id)
-        self.pred_genes.update(set(tr.parent))
+                
 
-        if tr.monoexonic is False:
-            self.pred_introns
-            if len(tr.exons)>2:
-                internal = set(tr.exons[1:-1])
-                self.pred_exons["internal"][tr.chrom][s].update(internal)
-            self.pred_exons["starting"][tr.chrom][s].add(tr.exons[0])
-            self.pred_exons["ending"][tr.chrom][s].add(tr.exons[-1])
-            self.pred_intron_chains[tr.chrom][s].add(tuple(tr.introns))
-            for result in results:
-                if "=" in result.ccode:
-                    self.matching_intron_chains.update([tuple(tr.introns)])
-                    if result.n_f1>=0.95:
-                        self.found_transcripts.update([result.RefID])
-        else:
-            self.pred_exons["single"][tr.chrom][s].add(tr.exons[0])
-            for result in results:
-                if "_" in result.ccode: 
-                    self.found_transcripts.update([result.RefID])
+
 
     def print_stats(self, genes):
  
@@ -82,34 +144,7 @@ class stat_storer:
         self.ref_intron_chains = dict()
          
         self.ref_transcript_num = 0
-        for gene in genes:
-            for tr in genes[gene]:
-                self.ref_transcript_num+=1
-                if tr.chrom not in self.ref_introns:
-                    for key in self.ref_exons:
-                        self.ref_exons[key][tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
-                    self.ref_introns[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
-                    self.ref_intron_chains[tr.chrom]=dict([ ("+", set()), ("-", set())  ]  )
-                if tr.strand is None: s="+"
-                else: s=tr.strand
 
-                if tr.monoexonic is False:
-                    exons=sorted(tr.exons)
-                    starting = exons[0]
-                    ending = exons[-1]
-                    if len(exons)>2:
-                        internal=set(exons[1:-1])
-                    else:
-                        internal=set()
-                    
-                    self.ref_exons["internal"][tr.chrom][s].update(internal)
-                    self.ref_exons["starting"][tr.chrom][s].add(starting)
-                    self.ref_exons["terminal"][tr.chrom][s].add(ending)
-                                                       
-                    self.ref_introns[tr.chrom][s].update(tr.introns)
-                    self.ref_intron_chains[tr.chrom][s].add( tuple(sorted(tr.introns)) )
-                else:
-                    self.ref_exons["single"][tr.chrom][s].add(tr.exons[0])
  
     
         found_exons = dict().fromkeys(self.ref_exons.keys())

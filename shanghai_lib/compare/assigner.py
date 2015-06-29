@@ -352,8 +352,8 @@ class assigner:
                         ccode = "O" #Reverse generic overlap
                 elif tr.exon_num == other.exon_num ==1:
                     junction_f1 = junction_precision = junction_precision = 1 #Set to one
+                    other_exon=other.exons[0]
                     if nucl_f1>=0.95:
-                        other_exon=other.exons[0]
                         ccode="_"
                     elif nucl_precision==1:
                         ccode="c" #contained

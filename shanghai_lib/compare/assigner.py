@@ -411,7 +411,6 @@ class assigner:
                     if len(self.gene_matches[gid][tid])==0:
                         row = tuple([ gid, tid, "NA", "NA", "NA" ])
                     else:
-                        print("Matches")
                         best = sorted(self.gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
                         best_picks.append(best)
                         if len(best.ccode)==1:

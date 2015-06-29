@@ -67,6 +67,14 @@ class assigner:
 
     def get_best(self,tr:transcript):
         
+        '''This function will get the best possible assignment for each transcript.
+        Fusion genes are called when the following conditions are verified:
+        - the prediction intersects (at least) two transcripts in (at least) two different loci
+        - the suspected fusion transcript lies on the same strand of all candidate fused genes
+        - each candidate transcript has at least one fusion or 10% of its nucleotides covered by the fusion transcript.
+        The 10% threshold is hard-coded in the function. 
+        
+        '''
 
         self.logger.debug("Started with {0}".format(tr.id))
         
@@ -155,6 +163,7 @@ class assigner:
                 matches=list(filter(lambda x: x[1]==0, distances))
                 
                 if len(matches)>1:
+                    #Possible fusion
                     matches = [self.positions[tr.chrom][x[0]][0] for x in matches]
                     
                     strands = set(x.strand for x in matches)
@@ -165,10 +174,27 @@ class assigner:
                     
                     best_fusion_results = []
                     results = [] #Final results
+                    dubious = [] #Necessary for a double check.
+                    
                     for match in matches:
                         m_res = sorted([self.calc_compare(tr, tra) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                        #A fusion is called only if I have one of the following conditions:
+                        #the transcript gets one of the junctions of the other transcript
+                        #the exonic overlap is >=10% (n_recall)_
+                        if m_res[0].j_f1==0 and m_res[0].n_recall<10:
+                            dubious.append(m_res)
+                            continue
                         results.extend(m_res)
                         best_fusion_results.append(m_res[0])
+
+                    def dubious_getter(dubious):
+                        getter=operator.attrgetter( "j_f1", "n_f1" )
+                        return getter(dubious[0])
+
+                    if len(results)==0:
+                        #I have filtered out all the results, because I only match partially the reference genes
+                        results = sorted( dubious, key=dubious_getter   )
+                        best_fusion_results = results[0]
                         
                     values = []
                     for key in result_storer.__slots__:

@@ -184,7 +184,7 @@ class assigner:
                         #A fusion is called only if I have one of the following conditions:
                         #the transcript gets one of the junctions of the other transcript
                         #the exonic overlap is >=10% (n_recall)_
-                        print(m_res[0], m_res[0].j_f1,m_res[0].n_recall )
+                        
                         if m_res[0].j_f1[0]==0 and m_res[0].n_recall[0]<10:
                             print(m_res)
                             dubious.append(m_res)
@@ -198,7 +198,8 @@ class assigner:
 
                     if len(results)==0:
                         #I have filtered out all the results, because I only match partially the reference genes
-                        results = sorted( dubious, key=dubious_getter   )
+                        dubious = sorted( dubious, key=dubious_getter   )
+                        results=dubious[0]
                         best_fusion_results = results[0]
                         
                     values = []

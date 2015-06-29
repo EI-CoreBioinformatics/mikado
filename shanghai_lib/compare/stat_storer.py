@@ -6,6 +6,7 @@ from shanghai_lib.loci_objects.transcript import transcript
 from shanghai_lib.compare.result_storer import result_storer  
 # import collections
 import operator
+import collections
 
 class stat_storer:
     
@@ -47,7 +48,7 @@ class stat_storer:
         self.exons = dict()
         self.starts = dict()
         self.ends = dict()
-        self.intron_chains = dict()
+        self.intron_chains = collections.Counter()
         self.ref_genes = dict()
         self.pred_genes = dict()
         
@@ -80,7 +81,10 @@ class stat_storer:
                 else:
                     for intron in tr.introns:
                         self.introns[tr.chrom][s][intron] = 0b01
-                    self.intron_chains[tr.chrom][s][tuple(tr.introns)] = 0b01
+                    if tuple(tr.introns) not in self.intron_chains[tr.chrom][s]: 
+                        self.intron_chains[tr.chrom][s][tuple(tr.introns)] = [set(), set()]
+                    self.intron_chains[tr.chrom][s][tuple(tr.introns)][0].add(tr.id)
+                         
                     for index,exon in enumerate(tr.exons):
                         self.exons[tr.chrom][s][exon] = 0b00000
                         self.exons[tr.chrom][s][exon] |= 0b01
@@ -112,15 +116,16 @@ class stat_storer:
         if tr.strand is None: s="+"
         else: s=tr.strand
 
-        for refid,refgene,junc_f1,nucl_f1 in zip(result.RefId, result.RefGene, result.j_f1, result.n_f1):
-            if junc_f1==100 and nucl_f1>=95:
-                for parent in tr.parent:
+        if len(result.j_f1)==1:
+            for refid,refgene,junc_f1,nucl_f1 in zip(result.RefId, result.RefGene, result.j_f1, result.n_f1):
+                if junc_f1==100 and nucl_f1>=95:
+                    for parent in tr.parent:
+                        if nucl_f1==100:
+                            self.pred_genes[parent][tr.id] |= 0b01
+                        self.pred_genes[parent][tr.id] |= 0b10
+                    self.ref_genes[refgene][refid] |= 0b10
                     if nucl_f1==100:
-                        self.pred_genes[parent][tr.id] |= 0b01
-                    self.pred_genes[parent][tr.id] |= 0b10
-                self.ref_genes[refgene][refid] |= 0b10
-                if nucl_f1==100:
-                    self.ref_genes[refgene][refid] |= 0b01
+                        self.ref_genes[refgene][refid] |= 0b01
 
         if tr.chrom not in self.exons:
             self.exons[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
@@ -132,8 +137,8 @@ class stat_storer:
         if tr.exon_num>1:
             ic_key =tuple(tr.introns) 
             if ic_key not in self.intron_chains[tr.chrom][s]:
-                self.intron_chains[tr.chrom][s][ic_key]=0b00
-            self.intron_chains[tr.chrom][s][ic_key] |= 0b10
+                self.intron_chains[tr.chrom][s][ic_key]=[set(),set()]
+            self.intron_chains[tr.chrom][s][ic_key][1].add(tr.id)
 
             for intron in tr.introns:
                 if intron not in self.introns[tr.chrom][s]:
@@ -196,7 +201,7 @@ class stat_storer:
         starts_common = exon_common_lenient
         starts_ref = exon_ref_lenient
         starts_pred = exon_pred_lenient
-        self.logger.info("Starts {0}".format([starts_common, starts_ref, starts_pred]))
+        self.logger.debug("Starts {0}".format([starts_common, starts_ref, starts_pred]))
                     
         for chrom in self.ends:
             for strand in self.ends[chrom]:
@@ -208,7 +213,7 @@ class stat_storer:
         ends_ref = exon_ref_lenient-starts_ref
         ends_pred = exon_pred_lenient-starts_pred
                     
-        self.logger.info("Ends {0}".format([ends_common, ends_ref, ends_pred]))
+        self.logger.debug("Ends {0}".format([ends_common, ends_ref, ends_pred]))
 
         intron_common = 0
         intron_ref = 0
@@ -221,7 +226,6 @@ class stat_storer:
                     intron_ref +=  0b01 & self.introns[chrom][strand][intron]
                     intron_pred +=  (0b10 & self.introns[chrom][strand][intron])>>1
                     
-        self.logger.info([intron_ref,intron_pred,intron_common])
         if intron_ref>0:
             intron_recall = intron_common/intron_ref
         else:
@@ -236,29 +240,44 @@ class stat_storer:
             intron_f1 = 0
 
 
-        intron_chains_common = 0
-        intron_chains_ref = 0
+        intron_chains_common_nonred = 0
+        intron_chains_common_ref = 0
+        intron_chains_common_pred = 0
+        intron_chains_ref_nonred = 0
+        intron_chains_pred_nonred = 0
         intron_chains_pred = 0
+        intron_chains_ref = 0
         for chrom in self.intron_chains:
             for strand in self.intron_chains[chrom]:
-                for intron_chain in self.intron_chains[chrom][strand]:
-                    intron_chains_common += (0b01 & self.intron_chains[chrom][strand][intron_chain]) & ((0b10 & self.intron_chains[chrom][strand][intron_chain])>>1) 
-                    intron_chains_ref +=  0b01 & self.intron_chains[chrom][strand][intron_chain]
-                    intron_chains_pred +=  (0b10 & self.intron_chains[chrom][strand][intron_chain]) >> 1
+                for _,intron_val in self.intron_chains[chrom][strand].items():
+                    if len(intron_val[0])>0 and len(intron_val[1])>0:
+                        intron_chains_common_nonred+=1
+                        intron_chains_common_ref += len(intron_val[0])
+                        intron_chains_common_pred += len(intron_val[1])
+                    if len(intron_val[0])>0:
+                        intron_chains_ref_nonred +=1
+                        intron_chains_ref+=len(intron_val[0])
+                    if len(intron_val[1])>0:
+                        intron_chains_pred_nonred +=1
+                        intron_chains_pred+=len(intron_val[1])
+                    
 
-        self.logger.info("Intron chains:\n\treference\t{0}\n\tprediction\t{1}\n\tcommon\t{2}".format(
+        self.logger.debug("Intron chains:\n\treference\t{0}\t{1}\n\tprediction\t{2}\t{3}\n\tcommon\t{4} {5} {6}".format(
                                                                                                      intron_chains_ref,
+                                                                                                     intron_chains_ref_nonred,
                                                                                                      intron_chains_pred,
-                                                                                                     intron_chains_common
+                                                                                                     intron_chains_pred_nonred,
+                                                                                                     intron_chains_common_nonred,
+                                                                                                     intron_chains_common_ref,
+                                                                                                     intron_chains_common_pred,
                                                                                                      ))
 
-        if intron_chains_ref>0:
-            intron_chains_recall = intron_chains_common/intron_chains_ref
+        if intron_chains_ref_nonred>0:
+            intron_chains_recall = intron_chains_common_nonred/intron_chains_ref_nonred
         else:
             intron_chains_recall = 0
-        if intron_chains_pred>0:
-            intron_chains_precision = intron_chains_common/intron_chains_pred
-            assert intron_chains_precision<=1, (intron_chains_common,intron_chains_pred)
+        if intron_chains_pred_nonred>0:
+            intron_chains_precision = intron_chains_common_nonred/intron_chains_pred_nonred
         else:
             intron_chains_precision =0
         if max(intron_chains_precision, intron_chains_recall)>0:
@@ -266,7 +285,7 @@ class stat_storer:
         else:
             intron_chains_f1 = 0
 
-        self.logger.info("Intron chain: {0}\t{1}\t{2}".format(intron_chains_recall, intron_chains_precision, intron_chains_f1 ))
+        self.logger.debug("Intron chain: {0}\t{1}\t{2}".format(intron_chains_recall, intron_chains_precision, intron_chains_f1 ))
 
         for chrom in self.exons:
             for strand in self.exons[chrom]:
@@ -323,12 +342,12 @@ class stat_storer:
                 bases_reference += len(curr_ref_bases)
                 bases_prediction += len(curr_pred_bases)
 
-        self.logger.info("Exon stringent {0}".format([exon_common_stringent,exon_ref_stringent,exon_pred_stringent]))
-        assert exon_common_stringent<=min(exon_pred_stringent, exon_ref_stringent), (exon_common_stringent, exon_ref_stringent, exon_pred_stringent)
-        self.logger.info("Exon lenient {0}".format([exon_common_lenient, exon_ref_lenient, exon_pred_lenient]))
+        self.logger.debug("Exon stringent {0}".format([exon_common_stringent,exon_ref_stringent,exon_pred_stringent]))
+#         assert exon_common_stringent<=min(exon_pred_stringent, exon_ref_stringent), (exon_common_stringent, exon_ref_stringent, exon_pred_stringent)
+        self.logger.debug("Exon lenient {0}".format([exon_common_lenient, exon_ref_lenient, exon_pred_lenient]))
         #assert exon_common_lenient<=min(exon_pred_lenient, exon_ref_lenient), (exon_common_lenient,exon_ref_lenient, exon_pred_lenient ) 
         
-        self.logger.info("Bases:\n\treference\t{0}\n\tprediction\t{1}\n\tcommon\t{2}".format(bases_reference, bases_prediction, bases_common))
+        self.logger.debug("Bases:\n\treference\t{0}\n\tprediction\t{1}\n\tcommon\t{2}".format(bases_reference, bases_prediction, bases_common))
         if bases_reference>0:
             bases_recall = bases_common / bases_reference
         else:
@@ -386,7 +405,7 @@ class stat_storer:
             found_ref_genes_stringent += gene_found & 0b1
             found_ref_genes_lenient += (gene_found & 0b10) >> 1
         
-        self.logger.info("Found ref transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(found_ref_transcripts_stringent, found_ref_transcripts_lenient, ref_transcripts)   )
+        self.logger.debug("Found ref transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(found_ref_transcripts_stringent, found_ref_transcripts_lenient, ref_transcripts)   )
         
         found_pred_transcripts_stringent = 0
         found_pred_transcripts_lenient = 0
@@ -404,7 +423,7 @@ class stat_storer:
             found_pred_genes_stringent += gene_found & 0b1
             found_pred_genes_lenient += (gene_found & 0b10)>>1
         
-        self.logger.info("Found pred transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(found_pred_transcripts_stringent, found_pred_transcripts_lenient, pred_transcripts)   )
+        self.logger.debug("Found pred transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(found_pred_transcripts_stringent, found_pred_transcripts_lenient, pred_transcripts)   )
 
         #Transcript level        
         if ref_transcripts>0:
@@ -471,7 +490,8 @@ class stat_storer:
             print("         {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level (stringent):",  gene_recall_stringent*100, gene_precision_stringent*100, gene_f1_stringent*100 )  , file=out  )
             print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level (lenient):",  gene_recall_lenient*100, gene_precision_lenient*100, gene_f1_lenient*100 )  , file=out  )
             print(file=out)
-            print(" Matching intron chains: {0}".format(intron_chains_common), file=out)
+            print("        Matching intron chains: {0}".format(intron_chains_common_pred), file=out)
+            print("         Matched intron chains: {0}".format(intron_chains_common_ref), file=out)
 #             print(" Matched intron chains: {0}".format(len(self.matching_chains)), file=out)
             
             print("            {0} {1}/{2}  ({3:.2f}%)".format("Missed exons (stringent):",

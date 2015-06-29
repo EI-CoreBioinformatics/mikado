@@ -97,6 +97,12 @@ class stat_storer:
 
     def store(self, tr:transcript, result:result_storer, other_exon:tuple):
 
+        '''Add exons introns intron chains etc. to the storage.
+        A transcript is considered a perfect match if it has junction_f1==100 and nucleotide_f1==100;
+        a lenient match if it has junction_f1==100 and nucleotide_f1>95,
+        i.e. min(nucleotide_precision, nucleotide_recall)>90.4 
+        '''
+
         for parent in tr.parent:
             if parent not in self.pred_genes:
                 self.pred_genes[parent]=dict()

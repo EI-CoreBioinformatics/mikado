@@ -101,7 +101,7 @@ class assigner:
         
     
         left_index=max(0,min(indexed, len(keys)-1)) #Must be a valid list index
-        if len(keys)==0 or left_index==0:
+        if len(keys)==0:# or left_index==0:
             search_left=False
         
         if len(keys)==0:
@@ -406,19 +406,25 @@ class assigner:
                 rows=[]
                 best_picks = []
                 best_pick = None
+                assert len(self.gene_matches[gid].keys())>0
                 for tid in sorted(self.gene_matches[gid].keys()):
-    #                     try:
                     if len(self.gene_matches[gid][tid])==0:
                         row = tuple([ gid, tid, "NA", "NA", "NA" ])
                     else:
+                        print("Matches")
                         best = sorted(self.gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
                         best_picks.append(best)
                         if len(best.ccode)==1:
                             row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
                         else:
                             row=tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])
+                        
                     rows.append(row)
-                best_pick = sorted( best_picks,  key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+
+                if len(best_picks)>0:
+                    best_pick = sorted( best_picks,  key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
+                else:
+                    best_pick = None
                     
                 for row in rows:
                     if best_pick is not None:

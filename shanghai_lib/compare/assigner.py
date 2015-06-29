@@ -200,7 +200,7 @@ class assigner:
                         #I have filtered out all the results, because I only match partially the reference genes
                         dubious = sorted( dubious, key=dubious_getter   )
                         results=dubious[0]
-                        best_fusion_results = results[0]
+                        best_fusion_results = [results[0]]
                         
                     values = []
                     for key in result_storer.__slots__:

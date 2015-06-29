@@ -136,6 +136,10 @@ class stat_storer:
             
         if tr.exon_num>1:
             ic_key =tuple(tr.introns) 
+            if result.ccode==("=",):
+                assert ic_key in self.intron_chains[tr.chrom][s]
+                assert result.RefId[0] in self.intron_chains[tr.chrom][s][ic_key][0]
+            
             if ic_key not in self.intron_chains[tr.chrom][s]:
                 self.intron_chains[tr.chrom][s][ic_key]=[set(),set()]
             self.intron_chains[tr.chrom][s][ic_key][1].add(tr.id)
@@ -241,8 +245,8 @@ class stat_storer:
 
 
         intron_chains_common_nonred = 0
-        intron_chains_common_ref = 0
-        intron_chains_common_pred = 0
+        intron_chains_common_ref = set()
+        intron_chains_common_pred = set()
         intron_chains_ref_nonred = 0
         intron_chains_pred_nonred = 0
         intron_chains_pred = 0
@@ -252,8 +256,8 @@ class stat_storer:
                 for _,intron_val in self.intron_chains[chrom][strand].items():
                     if len(intron_val[0])>0 and len(intron_val[1])>0:
                         intron_chains_common_nonred+=1
-                        intron_chains_common_ref += len(intron_val[0])
-                        intron_chains_common_pred += len(intron_val[1])
+                        intron_chains_common_ref.update(intron_val[0])
+                        intron_chains_common_pred.update(intron_val[1])
                     if len(intron_val[0])>0:
                         intron_chains_ref_nonred +=1
                         intron_chains_ref+=len(intron_val[0])
@@ -261,6 +265,8 @@ class stat_storer:
                         intron_chains_pred_nonred +=1
                         intron_chains_pred+=len(intron_val[1])
                     
+        intron_chains_common_ref = len(intron_chains_common_ref)
+        intron_chains_common_pred = len(intron_chains_common_pred)
 
         self.logger.debug("Intron chains:\n\treference\t{0}\t{1}\n\tprediction\t{2}\t{3}\n\tcommon\t{4} {5} {6}".format(
                                                                                                      intron_chains_ref,

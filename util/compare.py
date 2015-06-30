@@ -8,11 +8,11 @@ from logging import handlers as log_handlers
 
 
 from shanghai_lib.loci_objects.transcript import transcript
-from shanghai_lib.compare.assigner import assigner
-from shanghai_lib.compare.reference_gene import gene
+from shanghai_lib.scales.assigner import assigner
+from shanghai_lib.scales.reference_gene import gene
 from shanghai_lib.parsers.GTF import GTF
 from shanghai_lib.parsers.GFF import GFF3
-from shanghai_lib.compare.stat_storer import stat_storer 
+from shanghai_lib.scales.accountant import accountant 
 
 
 '''This is still an embryo. Ideally, this program would perform the following functions:
@@ -182,8 +182,8 @@ def main():
 
 
     
-    stat_storer_instance = stat_storer(genes, args) #start the class which will manage the statistics
-    assigner_instance = assigner(genes, positions, args, stat_storer_instance)
+    accountant_instance = accountant(genes, args) #start the class which will manage the statistics
+    assigner_instance = assigner(genes, positions, args, accountant_instance)
 
 
     currentTranscript = None

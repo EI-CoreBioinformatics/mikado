@@ -8,10 +8,10 @@ import operator
 import itertools
 from collections import namedtuple
 
-from shanghai_lib.compare.result_storer import result_storer
+from shanghai_lib.scales.result_storer import result_storer
 from shanghai_lib.loci_objects.transcript import transcript
 import shanghai_lib.exceptions
-from shanghai_lib.compare.accountant import accountant
+from shanghai_lib.scales.accountant import accountant
 
 
 class assigner:

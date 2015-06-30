@@ -3,7 +3,7 @@ from logging import handlers as log_handlers
 import logging
 # import itertools
 from shanghai_lib.loci_objects.transcript import transcript
-from shanghai_lib.compare.result_storer import result_storer  
+from shanghai_lib.scales.result_storer import result_storer  
 # import collections
 import operator
 import collections

@@ -30,9 +30,9 @@ def main():
 
     for record in GFF.GFF3(args.gff):
         if record.is_transcript is True: #Potential gene line
-            if args.reverse is False and (record.id in mrna_ids or ( args.genes is True and any(lambda p: p in gene_ids, record.parent))): 
+            if args.reverse is False and (record.id in mrna_ids or ( args.genes is True and any([p in gene_ids for p in record.parent]))): 
                 curr_transcripts[record.id]=[record]
-            elif args.reverse is True and ((args.genes is False and record.id not in mrna_ids) or (args.genes is True and not any(lambda p: p in gene_ids, record.parent))):
+            elif args.reverse is True and ((args.genes is False and record.id not in mrna_ids) or (args.genes is True and not any([p in gene_ids for p in record.parent]))):
                 curr_transcripts[record.id]=[record]
         elif record.is_exon is True:
             for parent in record.parent:

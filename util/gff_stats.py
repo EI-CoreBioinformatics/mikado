@@ -95,7 +95,9 @@ class gene_object:
                     to_remove.add(tid) 
                 if self.transcripts[tid].selected_cds_length>0:
                     self.coding_transcripts.add(tid)
-            except shanghai_lib.exceptions.InvalidTranscript:
+            except shanghai_lib.exceptions.InvalidTranscript as err:
+                print(err, file=sys.stderr)
+                raise
                 to_remove.add(tid)
         if len(to_remove)==len(self.transcripts):
             self.transcripts=dict()

@@ -11,12 +11,12 @@ from collections import namedtuple
 from shanghai_lib.compare.result_storer import result_storer
 from shanghai_lib.loci_objects.transcript import transcript
 import shanghai_lib.exceptions
-from shanghai_lib.compare.stat_storer import stat_storer
+from shanghai_lib.compare.accountant import accountant
 
 
 class assigner:
     
-    def __init__(self, genes:dict, positions:collections.defaultdict, args:argparse.Namespace, stat_calculator:stat_storer):
+    def __init__(self, genes:dict, positions:collections.defaultdict, args:argparse.Namespace, stat_calculator:accountant):
         
         self.args = args
         self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)

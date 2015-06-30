@@ -8,7 +8,7 @@ from shanghai_lib.compare.result_storer import result_storer
 import operator
 import collections
 
-class stat_storer:
+class accountant:
     
     '''This class stores the data necessary to calculate the final statistics - base and exon Sn/Sp/F1 etc.'''
     

@@ -79,31 +79,9 @@ class gffLine(object):
                     self.attributeOrder.append(itemized[0])
             except IndexError:
                 pass
-#                raise IndexError(item, itemized, self._Attr)
-            
-#         if self.id is None:
-#             id_key = list(filter(lambda x: x.upper()=="ID", self.attributes.keys()))
-#             if len(id_key)>0:
-#                 id_key=id_key[0]
-#                 self.id = self.attributes[id_key]
-#         if self.parent is None:
-#             parent_key = list(filter(lambda x: x.upper()=="PARENT", self.attributes.keys()))
-#             if len(parent_key)>0:
-#                 parent_key = parent_key[0]
-#                 self.parent = self.attributes[parent_key]
-#             parent_key = list(filter(lambda x: x=="Derives_from", self.attributes.keys()))
-#             if len(parent_key)>0:
-#                 parent_key = parent_key[0]
-#                 self.parent = self.attributes[parent_key]
 
-
-        assert self.parent is not None or self.id is not None or "Name" in self.attributes, self._line
         _ = self.name # Set the name
             
-#         if "PARENT" in self.attributes and "Parent" not in self.attributes:
-#             self.attributes['Parent']=self.attributes['PARENT'][:]
-#             del self.attributes['PARENT']
-
     def __str__(self): 
         if not self.feature: return self._line.rstrip()
 

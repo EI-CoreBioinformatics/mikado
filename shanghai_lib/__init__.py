@@ -6,4 +6,4 @@ import shanghai_lib.loci_objects
 import shanghai_lib.serializers
 import shanghai_lib.exceptions
 import shanghai_lib.json_utils
-import shanghai_lib.compare
+import shanghai_lib.scales

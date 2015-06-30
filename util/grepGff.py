@@ -25,82 +25,47 @@ def main():
             gene_ids.add(gene_id)
 
 
-    first=True
+    curr_gene = None
+    curr_transcripts = dict()
+
     for record in GFF.GFF3(args.gff):
-        #Add header if absent
-        if first:
-            first=False
-            if "##gff-version" in record._line:
-                print(record._line, file=args.out)
-                continue
-            else:
-                print("##gff-version 3", file=args.out)
-        elif not first and "##gff-version" in record._line:
-            continue #Skip header lines after the first one
-
-#         if record._line[0]=="#":
-#             
-# 
-#             print(record._line.rstrip(), file=args.out)
-# #            if args.reverse: print(record._line.rstrip())
-#             continue
-#         if 'Parent' in record.attributes: parent=record.attributes['Parent']
-#         else: parent=None
-        if 'Target' in record.attributes: target=record.attributes['Target'].split()[0]
-        else: target=None
-        if 'Name' in record.attributes: name=record.attributes['Name']
-        else: name=None
-        if record.header is True:
-            continue
-
-        if record.feature=="gene":
-            if record.attributes['ID'] in gene_ids and not args.reverse:
-                print(record, file=args.out)
-            elif record.attributes['ID'] not in gene_ids and args.reverse:
-                print(record, file=args.out)
-        elif record.feature in ("mRNA", "transcript") or "transcript" in record.feature:
-            if args.genes is True and record.parent in gene_ids:
-                mrna_ids.add(record.id)
-
-            if (args.reverse):
-                if record.id in mrna_ids: continue
-                else:
-                    print(record, file=args.out)
-            elif (not args.reverse) and (record.id in mrna_ids) or (target in mrna_ids) or (name in mrna_ids): print(record, file=args.out)
+        if record.is_transcript is True: #Potential gene line
+            if args.reverse is False and (record.id in mrna_ids or ( args.genes is True and any(lambda p: p in gene_ids, record.parent))): 
+                curr_transcripts[record.id]=[record]
+            elif args.reverse is True and ((args.genes is False and record.id not in mrna_ids) or (args.genes is True and not any(lambda p: p in gene_ids, record.parent))):
+                curr_transcripts[record.id]=[record]
         elif record.is_exon is True:
-#             try: parents = set(parent.split(","))
-#             except: continue
-            if record.parent is None: continue
-            parents = set(record.parent)
-            parent_intersection=set.intersection(parents, mrna_ids)
-            # if record.id is None:
-            #     if record.feature not in current_counter: current_counter[record.feature]=0
+            for parent in record.parent:
+                if parent in curr_transcripts: curr_transcripts[parent].append(record)
+        else:
+            if curr_gene is not None and len(curr_transcripts)>0:
+                print(curr_gene, file=args.out)
+                for tid in curr_transcripts:
+                    print(curr_transcripts[tid][0], file=args.out)
+                    for rec in curr_transcripts[tid][1:]:
+                        rec.parent = [tid]
+                        print(rec, file=args.out)
                 
-            #     current_counter[record.feature]+=1
-            #     if "," in record.parent:
-            #         par = re.sub(",", "_", record.parent)
-            #     else:
-            #         par = record.parent
-
-                
-            #     record.id = "{0}.{1}{2}".format(par, record.feature.lower(), current_counter[record.feature])
+            curr_gene = None
+            curr_transcripts = dict()
             
-            if args.reverse:
-                if record.id not in mrna_ids and target not in mrna_ids and name not in mrna_ids:
-                    if parent_intersection==set(): #No intersection
-                        print(record, file=args.out)
-                    elif parent_intersection!=parents: #Intersection non-empty
-                        good_parents=",".join(set.difference(parents, mrna_ids))
-                        record.parent=good_parents
-                        print(record, file=args.out)
-            else:
-                if record.id in mrna_ids or parent_intersection!=set(): #or record.target in mrna_ids or record.name in mrna_ids:
-                        if parent_intersection==parents:
-                            print(record, file=args.out)
-                        else:
-                            #print(good_parents, file=sys.stderr)
-                            record.parent=parent_intersection
-                            print(record, file=args.out)
+            if record.id is None:
+                continue
+            elif args.reverse is True and record.id not in gene_ids:
+                curr_gene = record
+            elif args.reverse is False and record.id in gene_ids:
+                curr_gene = record
+        
+    if curr_gene is not None and len(curr_transcripts)>0:
+        print(curr_gene, file=args.out)
+        for tid in curr_transcripts:
+            print(curr_transcripts[tid][0], file=args.out)
+            for rec in curr_transcripts[tid][1:]:
+                rec.parent = [tid]
+                print(rec, file=args.out)
+
+
+
                 
 
 if __name__=="__main__": main()

@@ -13,7 +13,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 setup(
 
     name = "shanghai",
-    version = "0.3",
+    version = "0.4",
     
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,

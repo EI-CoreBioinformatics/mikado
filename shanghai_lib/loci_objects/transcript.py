@@ -600,7 +600,8 @@ class transcript:
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
         
-        if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
+        if not ( sorted(self.start,self.end ) == sorted(self.selected_cds_start, self.selected_cds_end) ) or \
+            not (self.combined_cds_length==self.combined_utr_length==0 or self.cdna_length == self.combined_utr_length + self.combined_cds_length):
             last_exon = self.exons[-1]
             if last_exon[1]<self.end:
                 self.exons[-1] = (last_exon[0], self.end)

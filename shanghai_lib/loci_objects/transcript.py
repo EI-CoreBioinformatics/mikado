@@ -556,7 +556,9 @@ class transcript:
             raise InvalidTranscript("I cannot strip a transcript with multiple ORFs of its UTR!")
         self.finalized = False
         exons = []
-        cds_start,cds_end = sorted([self.selected_cds_start, self.selected_cds_end])
+        cds_start,cds_end = self.combined_cds[0][0], self.combined_cds[-1][1]
+        assert type(cds_start) is int
+        assert type(cds_end) is int
         if len(self.selected_cds)==1:
             self.exons = self.selected_cds
         else:

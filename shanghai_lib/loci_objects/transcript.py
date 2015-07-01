@@ -567,9 +567,9 @@ class transcript:
                     continue
                 elif exon in self.selected_cds:
                     exons.append(exon)
-                elif exon[0]<cds_start<exon[1]:
+                elif exon[0]<=cds_start<exon[1]:
                     exons.append((cds_start, exon[1]))
-                elif exon[0]<cds_end<exon[1]:
+                elif exon[0]<cds_end<=exon[1]:
                     exons.append( (exon[0], cds_end ))
                 else:
                     raise InvalidTranscript("Exon: {0}; cds_start: {1}; cds_end: {2}; ID: {3}".format( exon, self.selected_cds_start, self.selected_cds_end, self.id))

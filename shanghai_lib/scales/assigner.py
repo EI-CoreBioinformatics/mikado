@@ -81,8 +81,10 @@ class assigner:
         tr.set_logger(self.logger)
         try:
             tr.finalize()
+            if self.args.exclude_utr is True:
+                tr.remove_utrs()
+            
         except shanghai_lib.exceptions.InvalidTranscript:
-            return None
     #         args.queue.put_nowait("mock")
             self.logger.warn("Invalid transcript: {0}.".format(tr.id))
             self.done+=1
@@ -219,9 +221,11 @@ class assigner:
                     best_result = result_storer(*values)
                 else:
                     match =  self.positions[tr.chrom][matches[0][0]][0]
+                    
                     results = sorted([self.calc_compare(tr, tra) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
-                    self.logger.debug(results)
-                    assert len(results) == len(match.transcripts)
+                    
+                    if not(len(results) == len(match.transcripts) and len(results)>0):
+                        raise ValueError((match, str(tr)))
                     best_result = results[0]
     #     args.queue.put_nowait(result)
     #     args.refmap_queue.put_nowait(result)

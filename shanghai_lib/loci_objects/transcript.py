@@ -3,6 +3,7 @@ import os.path,sys
 from collections import OrderedDict
 import inspect
 import asyncio
+from shanghai_lib.exceptions import InvalidTranscript
 # import logging
 # import pickle
 # import copy
@@ -540,6 +541,45 @@ class transcript:
         
         return
 
+    def remove_utrs(self):
+        '''Method to strip a transcript from its UTRs.
+        It will not execute anything if the transcript lacks a CDS and
+        will raise an InvalidTranscript exception if the transcript has more than one ORF.'''
+        
+        self.finalize()
+        if self.selected_cds_length==0:
+            return
+        if self.three_utr_length + self.five_utr_length ==0:
+            return #No UTR to strip 
+        
+        if self.number_internal_orfs>1:
+            raise InvalidTranscript("I cannot strip a transcript with multiple ORFs of its UTR!")
+        self.finalized = False
+        exons = []
+        cds_start,cds_end = sorted([self.selected_cds_start, self.selected_cds_end])
+        if len(self.selected_cds)==1:
+            self.exons = self.selected_cds
+        else:
+            for exon in self.exons:
+                if exon in self.combined_utr:
+                    continue
+                elif exon in self.selected_cds:
+                    exons.append(exon)
+                elif exon[0]<cds_start<exon[1]:
+                    exons.append((cds_start, exon[1]))
+                elif exon[0]<cds_end<exon[1]:
+                    exons.append( (exon[0], cds_end ))
+                else:
+                    raise InvalidTranscript("Exon: {0}; cds_start: {1}; cds_end: {2}; ID: {3}".format( exon, self.selected_cds_start, self.selected_cds_end, self.id))
+            assert len(exons)<len(self.exons) or exons[0][0]>self.exons[0][0] or exons[-1][1]<self.exons[-1][1], (exons, self.exons)
+            self.exons = exons
+        self.start = cds_start
+        self.end = cds_end
+        self.combined_utr = []
+        self.finalize()
+        
+
+
     def finalize(self):
         '''Function to calculate the internal introns from the exons.
         In the first step, it will sort the exons by their internal coordinates.'''
@@ -584,7 +624,8 @@ class transcript:
                                 self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
                                 self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                             else:
-                                raise shanghai_lib.exceptions.InvalidTranscript("Error while inferring the UTR", exon, self.id, exon, self.exons, self.combined_cds) 
+                                raise shanghai_lib.exceptions.InvalidTranscript("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds,
+                                                                                (self.start,self.selected_cds_start), (self.end, self.selected_cds_end )) 
                     if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
                         raise shanghai_lib.exceptions.InvalidTranscript("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
                 else:

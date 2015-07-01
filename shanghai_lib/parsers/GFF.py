@@ -2,7 +2,7 @@
 #coding: utf_8
 
 from shanghai_lib.parsers import Parser
-from copy import deepcopy
+#from copy import deepcopy
 import io
 
 class gffLine(object):

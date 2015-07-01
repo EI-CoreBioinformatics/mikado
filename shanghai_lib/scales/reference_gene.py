@@ -19,14 +19,20 @@ class gene:
     def __getitem__(self, tid:str) -> transcript:
         return self.transcripts[tid]
     
-    def finalize(self):
+    def finalize(self, exclude_utr=False):
+        self.exception_message=''
         to_remove=set()
         for tid in self.transcripts:
             try:
                 self.transcripts[tid].finalize()
-            except InvalidTranscript:
+                if exclude_utr is True:
+                    self.transcripts[tid].remove_utrs()
+            except InvalidTranscript as err:
+                self.exception_message += "{0}\n".format(err)
                 to_remove.add(tid)
-                
+            except Exception as err:
+                print(err)
+                raise
         for k in to_remove:
             del self.transcripts[k]
     
@@ -45,3 +51,7 @@ class gene:
     def __iter__(self) -> transcript:
         '''Iterate over the transcripts attached to the gene.'''
         return iter(self.transcripts.values())
+    
+    def __len__(self) -> int:
+        return len(self.transcripts)
+        

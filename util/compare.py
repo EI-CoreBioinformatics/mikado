@@ -47,6 +47,9 @@ def main():
 #     parser.add_argument("-t", "--threads", default=1, type=int)
     parser.add_argument("-o","--out", default="shangai_compare", type = str,
                         help = "Prefix for the output files. Default: %(default)s" )
+    parser.add_argument("-eu", "--exclude-utr", dest="exclude_utr",  default=False, action="store_true",
+                        help="Flag. If set, reference and prediction transcripts will be stripped of their UTRs (if they are coding)."
+                        )
     parser.add_argument("-l","--log", default=None, type = str)
     parser.add_argument("-v", "--verbose", action="store_true", default=False)
 
@@ -95,7 +98,10 @@ def main():
     
     
     queue_logger = logging.getLogger("main_queue")
-    queue_logger.setLevel(logging.INFO)
+    if args.verbose is False:
+        queue_logger.setLevel(logging.INFO)
+    else:
+        queue_logger.setLevel(logging.DEBUG)
     main_queue_handler = log_handlers.QueueHandler(args.log_queue)
     queue_logger.addHandler(main_queue_handler)
     
@@ -154,7 +160,10 @@ def main():
 #     logger.info("Finished parsing the reference")
     genes_to_remove = set()
     for gid in genes:
-        genes[gid].finalize()
+        genes[gid].finalize(exclude_utr=args.exclude_utr)
+        if len(genes[gid])==0:
+            genes_to_remove.add(gid)
+            continue
         if args.protein_coding is True:
             to_remove=[]
             for tid in genes[gid].transcripts:
@@ -172,15 +181,18 @@ def main():
             positions[genes[gid].chrom][key]=[]
         positions[genes[gid].chrom][key].append(genes[gid])
     
-    for gid in genes_to_remove: del genes[gid]
+    for gid in genes_to_remove:
+        queue_logger.warn("Removed from reference: {0}; error: {1}".format(gid, genes[gid].exception_message))
+        del genes[gid]
 
+    if len(genes)==0:
+        raise KeyError("No genes remained for the reference!")
     
 
     #Needed for refmap
 
-    queue_logger.info("Finished preparation")
-
-
+    queue_logger.info("Finished preparation; found {0} reference genes".format(len(genes)))
+    queue_logger.debug("Gene names (first 20): {0}".format("\n\t".join(list(genes.keys())[:20] )))
     
     accountant_instance = accountant(genes, args) #start the class which will manage the statistics
     assigner_instance = assigner(genes, positions, args, accountant_instance)

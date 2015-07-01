@@ -84,9 +84,10 @@ class assigner:
             if self.args.exclude_utr is True:
                 tr.remove_utrs()
             
-        except shanghai_lib.exceptions.InvalidTranscript:
+        except shanghai_lib.exceptions.InvalidTranscript as err:
     #         args.queue.put_nowait("mock")
-            self.logger.warn("Invalid transcript: {0}.".format(tr.id))
+            self.logger.warn("Invalid transcript: {0}".format(tr.id))
+            self.logger.warn("Error message: {0}".format(err))
             self.done+=1
             self.print_tmap(None)
             return None

@@ -1257,11 +1257,12 @@ class transcript:
         '''This property returns the location of the start of the best CDS for the transcript.
         If no CDS is defined, it defaults to the transcript start.'''
 
-        if len(self.combined_cds)==0:
+        if len(self.combined_cds)==0 or not hasattr(self, "internal_orf_cds"):
             if self.strand=="+":
                 return self.start
             else:
                 return self.end
+            
         if self.strand=="+":
             return self.selected_internal_orf_cds[0][1]
         else:
@@ -1315,7 +1316,7 @@ class transcript:
         '''This property returns the location of the end of the best CDS for the transcript.
         If no CDS is defined, it defaults to the transcript start.'''
 
-        if len(self.combined_cds)==0:
+        if len(self.combined_cds)==0 or not hasattr(self, "selected_internal_orf_cds"):
             if self.strand=="+":
                 return self.end
             else:

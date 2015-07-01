@@ -602,35 +602,35 @@ class transcript:
         
         if not ( sorted([self.start,self.end] ) == sorted([self.selected_cds_start, self.selected_cds_end]) ) or \
             not (self.combined_cds_length==self.combined_utr_length==0 or self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-            last_exon = self.exons[-1]
-            if last_exon[1]<self.end:
-                self.exons[-1] = (last_exon[0], self.end)
-            first_exon = self.exons[0]
-            if first_exon[0]>self.start:
-                self.exons[0] = (self.start, first_exon[1])
-            if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-                if self.combined_utr == [] and self.combined_cds!=[]:
-                    self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))
-                    for exon in self.exons:
-                        if exon in self.combined_cds:
-                            continue
-                        elif exon[1]<self.combined_cds[0][0] or exon[0]>self.combined_cds[-1][1]:
-                            self.combined_utr.append(exon)
-                        elif exon[0]<self.combined_cds[0][0] and exon[1]==self.combined_cds[0][1]:
+#             last_exon = self.exons[-1]
+#             if last_exon[1]<self.end:
+#                 self.exons[-1] = (last_exon[0], self.end)
+#             first_exon = self.exons[0]
+#             if first_exon[0]>self.start:
+#                 self.exons[0] = (self.start, first_exon[1])
+#             if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
+            if self.combined_utr == [] and self.combined_cds!=[]:
+                self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))
+                for exon in self.exons:
+                    if exon in self.combined_cds:
+                        continue
+                    elif exon[1]<self.combined_cds[0][0] or exon[0]>self.combined_cds[-1][1]:
+                        self.combined_utr.append(exon)
+                    elif exon[0]<self.combined_cds[0][0] and exon[1]==self.combined_cds[0][1]:
+                        self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
+                    elif exon[1]>self.combined_cds[-1][1] and exon[0]==self.combined_cds[-1][0]:
+                        self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
+                    else:
+                        if len(self.combined_cds)==1:
                             self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
-                        elif exon[1]>self.combined_cds[-1][1] and exon[0]==self.combined_cds[-1][0]:
                             self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                         else:
-                            if len(self.combined_cds)==1:
-                                self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
-                                self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
-                            else:
-                                raise shanghai_lib.exceptions.InvalidTranscript("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds,
-                                                                                (self.start,self.selected_cds_start), (self.end, self.selected_cds_end )) 
-                    if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-                        raise shanghai_lib.exceptions.InvalidTranscript("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
-                else:
-                    raise shanghai_lib.exceptions.InvalidTranscript("Invalid input", self.id, self.exons, self.combined_cds, self.combined_utr)
+                            raise shanghai_lib.exceptions.InvalidTranscript("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds,
+                                                                            (self.start,self.selected_cds_start), (self.end, self.selected_cds_end )) 
+                if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
+                    raise shanghai_lib.exceptions.InvalidTranscript("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
+            else:
+                raise shanghai_lib.exceptions.InvalidTranscript("Invalid input", self.id, self.exons, self.combined_cds, self.combined_utr)
 
 
 #         assert len(self.exons)>0

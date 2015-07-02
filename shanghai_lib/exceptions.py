@@ -23,5 +23,9 @@ class InvalidJson(KeyError):
 class InvalidTranscript(ValueError):
     pass
 
-class IncorrectStrandError(Exception):
+class InvalidCDS(InvalidTranscript):
+    pass
+
+
+class IncorrectStrandError(InvalidTranscript):
     pass

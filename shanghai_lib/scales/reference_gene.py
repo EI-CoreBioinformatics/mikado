@@ -1,15 +1,28 @@
+import logging
 from shanghai_lib.loci_objects import transcript
-from shanghai_lib.exceptions import InvalidTranscript
+from shanghai_lib.exceptions import InvalidTranscript,InvalidCDS
 
 class gene:
     
-    def __init__(self, tr:transcript, gid=None):
+    def __init__(self, tr:transcript, gid=None, logger=None):
         
         self.chrom, self.start, self.end, self.strand = tr.chrom, tr.start, tr.end, tr.strand
         self.id = gid
         self.transcripts = dict()
         self.transcripts[tr.id]=tr
-        
+        self.set_logger(logger)
+    
+    def set_logger(self, logger):
+        if logger is None:
+            self.logger = logging.getLogger("null_logger")
+            handler = logging.NullHandler
+            self.logger.addHandler(handler)
+        else:
+            self.logger = logger
+        for tid in self.transcripts:
+            self.transcripts[tid].set_logger(logger)
+    
+    
     def add(self, tr:transcript):
         self.start=min(self.start, tr.start)
         self.end = max(self.end, tr.end)
@@ -27,6 +40,8 @@ class gene:
                 self.transcripts[tid].finalize()
                 if exclude_utr is True:
                     self.transcripts[tid].remove_utrs()
+            except InvalidCDS:
+                self.transcripts[tid].strip_cds()
             except InvalidTranscript as err:
                 self.exception_message += "{0}\n".format(err)
                 to_remove.add(tid)
@@ -54,4 +69,13 @@ class gene:
     
     def __len__(self) -> int:
         return len(self.transcripts)
+    
+    def __getstate__(self):
+        self.logger=None
+        
+    def __setstate__(self,state):
+        self.__dict__.update(state)
+        self.set_logger(None)
+        
+        
         

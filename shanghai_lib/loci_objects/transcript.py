@@ -581,6 +581,17 @@ class transcript:
         self.finalize()
         
 
+    def strip_cds(self):
+        '''Method to completely remove CDS information from a transcript. Necessary for those cases where
+        the input is malformed.'''
+        
+        self.logger.warn("Stripping CDS from {0}".format(self.id))
+        self.finalized = False
+        self.combined_cds = []
+        self.combined_utr = []
+        self.finalize()
+        
+
 
     def finalize(self):
         '''Function to calculate the internal introns from the exons.
@@ -627,12 +638,12 @@ class transcript:
                             self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
                             self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                         else:
-                            raise shanghai_lib.exceptions.InvalidTranscript("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds,
+                            raise shanghai_lib.exceptions.InvalidCDS("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds,
                                                                             (self.start,self.selected_cds_start), (self.end, self.selected_cds_end )) 
                 if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-                    raise shanghai_lib.exceptions.InvalidTranscript("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
+                    raise shanghai_lib.exceptions.InvalidCDS("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
             else:
-                raise shanghai_lib.exceptions.InvalidTranscript("Invalid input", self.id, self.exons, self.combined_cds, self.combined_utr)
+                raise shanghai_lib.exceptions.InvalidCDS("Invalid input", self.id, self.exons, self.combined_cds, self.combined_utr)
 
 
 #         assert len(self.exons)>0

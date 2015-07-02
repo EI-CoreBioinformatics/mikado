@@ -1,5 +1,5 @@
 import operator
-import os.path,sys
+import os.path,sys,re
 from collections import OrderedDict
 import inspect
 import asyncio
@@ -509,7 +509,7 @@ class transcript:
                                 exon[0]=exon[0]+boundary[0]+1-texon[0]
                             if texon[1]>boundary[1] and right is not None: #Shift end of the exon to the left
                                 exon[1]=exon[1]-(texon[1]+1-boundary[1])
-                            exon=tuple(exon)
+                            exon=tuple(sorted(exon))
                         my_exons.append(exon)
                         tstart=min(tstart, texon[0])
                         tend=max(tend,texon[1])
@@ -543,17 +543,20 @@ class transcript:
 
     def remove_utrs(self):
         '''Method to strip a transcript from its UTRs.
-        It will not execute anything if the transcript lacks a CDS and
-        will raise an InvalidTranscript exception if the transcript has more than one ORF.'''
+        It will not execute anything if the transcript lacks a CDS or
+        it has more than one ORF defined.'''
         
         self.finalize()
         if self.selected_cds_length==0:
             return
-        if self.three_utr_length + self.five_utr_length ==0:
+        elif self.three_utr_length + self.five_utr_length ==0:
             return #No UTR to strip 
         
-        if self.number_internal_orfs>1:
-            raise InvalidTranscript("I cannot strip a transcript with multiple ORFs of its UTR!")
+        elif self.number_internal_orfs>1:
+            return
+        elif re.search("\.orf[0-9]+$", self.id  ):
+            return
+        
         self.finalized = False
         exons = []
         cds_start,cds_end = self.combined_cds[0][0], self.combined_cds[-1][1]
@@ -918,7 +921,7 @@ class transcript:
                             cds_exons.append( ("UTR", exon[0], u_end) )
                         c_end = exon[1] - max(0, current_end - orf.thickEnd )
 #                         assert c_end>=exon[0] 
-                        if c_start<c_end:
+                        if c_start<=c_end:
                             cds_exons.append(("CDS", c_start, c_end))
                         if c_end < exon[1]:
                             cds_exons.append( ("UTR", c_end+1, exon[1]  ) )

@@ -86,13 +86,14 @@ class accountant:
                     self.intron_chains[tr.chrom][s][tuple(tr.introns)][0].add(tr.id)
                          
                     for index,exon in enumerate(tr.exons):
-                        self.exons[tr.chrom][s][exon] = 0b00000
+                        if exon not in self.exons[tr.chrom][s]: 
+                            self.exons[tr.chrom][s][exon] = 0b00000
                         self.exons[tr.chrom][s][exon] |= 0b01
                         if index==0:
-                            self.exons[tr.chrom][s][exon] |= 0b10000
+                            self.exons[tr.chrom][s][exon] |= 0b010000
                             self.starts[tr.chrom][s][exon[1]] = 0b01
                         elif index==tr.exon_num-1:
-                            self.exons[tr.chrom][s][exon] |= 0b10000
+                            self.exons[tr.chrom][s][exon] |= 0b010000
                             self.ends[tr.chrom][s][exon[0]] = 0b01
                         else:
                             self.exons[tr.chrom][s][exon] |= 0b01000
@@ -154,12 +155,12 @@ class accountant:
                     self.exons[tr.chrom][s][exon]=0b0
                 self.exons[tr.chrom][s][exon] |= 0b10 #set it as "in prediction" 
                 if index == 0:
-                    self.exons[tr.chrom][s][exon] |= 0b10000
+                    self.exons[tr.chrom][s][exon] |= 0b010000
                     if exon[1] not in self.starts[tr.chrom][s]:
                         self.starts[tr.chrom][s][exon[1]]=0b0
                     self.starts[tr.chrom][s][exon[1]] |= 0b10
                 elif index == tr.exon_num-1:
-                    self.exons[tr.chrom][s][exon] |= 0b10000
+                    self.exons[tr.chrom][s][exon] |= 0b010000
                     if exon[0] not in self.ends[tr.chrom][s]:
                         self.ends[tr.chrom][s][exon[0]] = 0b00
                     self.ends[tr.chrom][s][exon[0]] |= 0b10
@@ -195,6 +196,7 @@ class accountant:
         exon_ref_lenient = 0
         exon_pred_lenient = 0
         exon_common_lenient = 0
+        missed_lenient = []
  
         for chrom in self.starts:
             for strand in self.starts[chrom]:
@@ -202,6 +204,8 @@ class accountant:
                     exon_common_lenient += (0b1 & self.starts[chrom][strand][start]) & ((0b10 & self.starts[chrom][strand][start])>>1) 
                     exon_ref_lenient +=  0b01 & self.starts[chrom][strand][start]
                     exon_pred_lenient +=  (0b10 & self.starts[chrom][strand][start])>>1
+                    if not (0b10 & self.starts[chrom][strand][start])>>1:
+                        missed_lenient.append(("{0}{1}".format(chrom,strand),"start",start))
                     
         starts_common = exon_common_lenient
         starts_ref = exon_ref_lenient
@@ -214,6 +218,9 @@ class accountant:
                     exon_common_lenient += (0b01 & self.ends[chrom][strand][end]) & ((0b10 & self.ends[chrom][strand][end])>>1)
                     exon_ref_lenient +=  0b01 & self.ends[chrom][strand][end]
                     exon_pred_lenient +=  (0b10 & self.ends[chrom][strand][end])>>1
+                    if not (0b10 & self.ends[chrom][strand][end])>>1:
+                        missed_lenient.append(("{0}{1}".format(chrom,strand),"end",end))
+
         ends_common = exon_common_lenient-starts_common
         ends_ref = exon_ref_lenient-starts_ref
         ends_pred = exon_pred_lenient-starts_pred
@@ -294,6 +301,7 @@ class accountant:
 
         self.logger.debug("Intron chain: {0}\t{1}\t{2}".format(intron_chains_recall, intron_chains_precision, intron_chains_f1 ))
 
+#         missed_lenient = []
         for chrom in self.exons:
             for strand in self.exons[chrom]:
                 # 0b000001: in reference
@@ -324,7 +332,9 @@ class accountant:
                         #Internal (first condition)
                         #OR
                         #Single exon
-                        if (0b001000 & self.exons[chrom][strand][exon]) | (0b000100 & self.exons[chrom][strand][exon]):
+                        if ((0b001000 & self.exons[chrom][strand][exon]) == 0b001000):
+                            exon_ref_lenient+=1
+                        elif (0b100000 & self.exons[chrom][strand][exon]):
                             exon_ref_lenient+=1
 
                                                 
@@ -337,18 +347,23 @@ class accountant:
                         curr_pred_bases.update( set(range(exon[0],exon[1])) )
                         exon_pred_stringent+=1
                         #Either internal, or a single exon which has not a lenient single match with the reference annotation
-                        if (0b001000 & self.exons[chrom][strand][exon]) | ( 0b100 & ( self.exons[chrom][strand][exon]  ^ 0b100000)):  
+                        if ((0b001000 & self.exons[chrom][strand][exon]) == 0b001000):
+                            exon_pred_lenient+=1
+                        elif (0b100000 & self.exons[chrom][strand][exon]):
                             exon_pred_lenient+=1
                         
                     if (0b11 & self.exons[chrom][strand][exon])==0b11: #In both
                         exon_common_stringent+=1
-                        if not (0b010000 & self.exons[chrom][strand][exon]):
+                        if ((0b001000 & self.exons[chrom][strand][exon]) == 0b001000):
                             exon_common_lenient+=1
-
+                        elif (0b100000 & self.exons[chrom][strand][exon]):
+                            exon_common_lenient+=1
+                            
                 bases_common+=len(set.intersection(curr_pred_bases,curr_ref_bases))
                 bases_reference += len(curr_ref_bases)
                 bases_prediction += len(curr_pred_bases)
 
+        self.logger.debug("Missed lenient: {0}".format(missed_lenient))
         self.logger.debug("Exon stringent {0}".format([exon_common_stringent,exon_ref_stringent,exon_pred_stringent]))
 #         assert exon_common_stringent<=min(exon_pred_stringent, exon_ref_stringent), (exon_common_stringent, exon_ref_stringent, exon_pred_stringent)
         self.logger.debug("Exon lenient {0}".format([exon_common_lenient, exon_ref_lenient, exon_pred_lenient]))

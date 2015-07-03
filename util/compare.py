@@ -158,6 +158,7 @@ def main():
         else:
             continue
 #     logger.info("Finished parsing the reference")
+    non_coding_to_remove = set()
     genes_to_remove = set()
     for gid in genes:
         genes[gid].set_logger(queue_logger)
@@ -172,7 +173,7 @@ def main():
                     to_remove.append(tid)
                     logger.debug("No CDS for {0}".format(tid))
             if len(to_remove)==len(genes[gid].transcripts):
-                genes_to_remove.add(gid)
+                non_coding_to_remove.add(gid)
                 logger.debug("Noncoding gene: {0}".format(tid))
                 continue
             elif len(to_remove)>0:
@@ -184,6 +185,8 @@ def main():
     
     for gid in genes_to_remove:
         queue_logger.warn("Removed from reference: {0}; error: {1}".format(gid, genes[gid].exception_message))
+        del genes[gid]
+    for gid in non_coding_to_remove:
         del genes[gid]
 
     if len(genes)==0:

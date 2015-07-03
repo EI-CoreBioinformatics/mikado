@@ -2,6 +2,7 @@
 
 
 import sys, argparse, os.path
+from shanghai_lib.exceptions import InvalidCDS
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shanghai_lib.parsers import GFF,GTF
 from shanghai_lib.loci_objects import transcript
@@ -39,7 +40,11 @@ class transcriptComputer(transcript.transcript):
         self.utr_intron_lengths = []
     
     def finalize(self):
-        super().finalize()
+        try:
+            super().finalize()
+        except InvalidCDS:
+            super().strip_cds()
+            
         self.exon_lengths = [e[1]-e[0]+1 for e in self.exons]
         self.cds_exon_lengths = [c[1]-c[0]+1 for c in self.selected_cds]
         self.utr_exon_lengths = [u[2]-u[1]+1 for u in self.three_utr+self.five_utr]

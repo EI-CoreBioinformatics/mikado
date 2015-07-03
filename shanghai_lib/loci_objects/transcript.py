@@ -400,6 +400,12 @@ class transcript:
         into multiple transcripts. UTR information will be retained only if no ORF is down/upstream.
         The minimal overlap is defined inside the JSON at the key ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
         - basically, we consider a HSP a hit only if the overlap is over a certain threshold and the HSP evalue under a certain threshold. 
+        
+        The split by CDS can be executed in three different ways - CLEMENT, LENIENT, STRINGENT:
+        
+        - STRINGENT: split if two CDSs do not have hits in common - even when one or both do not have a hit at all.
+        - CLEMENT: split only if two CDSs have hits and none of those is in common between them.
+        - LENIENT: split if *both* lack hits, OR *both* have hits and none of those is in common.
         '''
         self.finalize()
         
@@ -419,9 +425,9 @@ class transcript:
                 for key in cds_hit_dict:
                     cds_hit_dict[key]=set()
 
-                for hit in self.blast_hits:
+                for hit in self.blast_hits: #Determine for each CDS which are the hits available 
                     for hsp in filter(lambda hsp: hsp["hsp_evalue"]<=self.json_dict["chimera_split"]["blast_params"]["hsp_evalue"],  hit["hsps"]):
-                        for cds_run in cds_boundaries:
+                        for cds_run in cds_boundaries: #If I have a valid hit b/w the CDS region and the hit, add the name to the set 
                             if abstractlocus.overlap(cds_run, (hsp["query_hsp_start"],hsp["query_hsp_end"]))>=minimal_overlap*(cds_run[1]+1-cds_run[0]):
                                 cds_hit_dict[cds_run].add(hit["target"])
                 
@@ -433,20 +439,20 @@ class transcript:
                         old_boundary=new_boundaries[-1][-1]
                         cds_hits = cds_hit_dict[cds_boundary]
                         old_hits = cds_hit_dict[old_boundary]
-                        if cds_hits == set() and old_hits==set():
-                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="CLEMENT":
+                        if cds_hits == set() and old_hits==set(): #No hit found for either CDS
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="CLEMENT": #If we are clement, we DO NOT split
                                 new_boundaries[-1].append(cds_boundary)
-                            else:
+                            else: #Otherwise, we do split
                                 new_boundaries.append([cds_boundary])
-                        elif cds_hits == set() or old_hits==set():
-                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="STRINGENT":
+                        elif cds_hits == set() or old_hits==set(): #We have hits for only one
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="STRINGENT": #If we are stringent, we split
                                 new_boundaries.append([cds_boundary])
                             else:
                                 new_boundaries[-1].append(cds_boundary)
                         else:
-                            if set.intersection(cds_hits,old_hits)==set():
+                            if set.intersection(cds_hits,old_hits)==set(): #We do not have any hit in common
                                 new_boundaries.append([cds_boundary])
-                            else:
+                            else: #We have hits in common
                                 new_boundaries[-1].append(cds_boundary)
                 
                 final_boundaries=OrderedDict()

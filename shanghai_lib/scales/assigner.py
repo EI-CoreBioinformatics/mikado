@@ -453,7 +453,7 @@ class assigner:
                 assert len(self.gene_matches[gid].keys())>0
                 for tid in sorted(self.gene_matches[gid].keys()):
                     if len(self.gene_matches[gid][tid])==0:
-                        row = tuple([ gid, tid, "NA", "NA", "NA" ])
+                        row = tuple([ tid, gid, "NA", "NA", "NA" ])
                     else:
                         best = sorted(self.gene_matches[gid][tid], key=operator.attrgetter( "j_f1", "n_f1" ), reverse=True)[0]
                         best_picks.append(best)

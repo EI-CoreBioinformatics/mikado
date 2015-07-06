@@ -482,10 +482,10 @@ class transcript:
                     if counter==0: #leftmost
                         left = None
                         right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
-                    elif 1+counter==len(cds_boundaries):
+                    elif 1+counter==len(cds_boundaries): #rightmost
                         left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
                         right = None
-                    else:
+                    else: #somewhere in the middle
                         left = cds_boundaries[list(cds_boundaries.keys())[counter-1]]
                         right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
                     counter+=1 #Otherwise they start from 0    
@@ -493,19 +493,27 @@ class transcript:
                     
                     my_exons = []
                     
+                    
+                    discarded_exons=[]
+                    if self.strand == "-":
+                        exons = sorted(self.exons, reverse=True, key=operator.itemgetter(0))
+                    else:
+                        exons = sorted(self.exons, key=operator.itemgetter(0))
+
                     tlength = 0
                     tstart = float("Inf")
                     tend = float("-Inf")
-                    
-                    discarded_exons=[]
-                    for exon in self.exons:
+                        
+                    for exon in exons:
                         #Translate into transcript coordinates
                         elength = exon[1]-exon[0]+1
                         texon = [tlength+1, tlength+elength]
                         tlength += elength
-                        if texon[1]<boundary[0] and left is not None: #If I have nothing on my left, retain
+                        #Exon on my left, its end is before the CDS start, and I have some other CDS on my left
+                        if texon[1]<boundary[0] and left is not None:
                             discarded_exons.append((exon,texon))
                             continue
+                        #Exon on the right of the CDS start, I do have another ORF on the right
                         elif texon[0]>boundary[1] and right is not None: #
                             discarded_exons.append((exon,texon))
                             continue

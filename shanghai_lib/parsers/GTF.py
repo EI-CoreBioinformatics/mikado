@@ -122,7 +122,7 @@ class gtfLine(object):
 
             for tag in order:
                 if tag in self.attributes:
-                    self._info.append( "{0} \"{1}\";".format(tag, self.attributes[tag] ) )
+                    self._info.append( "{0} \"{1}\"".format(tag, self.attributes[tag] ) )
 
             for info in filter(lambda x: x not in order, self.attributes.keys()):
                 self._info.append("{0} \"{1}\"".format(info, self.attributes[info] ) )

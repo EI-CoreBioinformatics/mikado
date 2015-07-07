@@ -31,8 +31,8 @@ class gtfLine(object):
 
     def __init__(self,*args):
         self.header=False
-        self.info={}
-        self.attributes=self.info
+        self.attributes={}
+        
         self.feature = None
         if len(args)>0:
             line=args[0]
@@ -43,7 +43,7 @@ class gtfLine(object):
         
         if line==None or line[0]=="#" or line.rstrip()=='':
             self.fields=[]
-            self.attributes = self.info = dict()
+            self.attributes = dict()
             self.transcript=None
             self.gene=None
             if line is None:
@@ -76,14 +76,13 @@ class gtfLine(object):
             self._info=self.fields[8].split(';')
             try: self._info.remove('')
             except ValueError: pass
-            self.info=dict()
             for info in self._info:
                 info=info.lstrip().split(' ') #Divido l'annotazione, e rimuovo le virgolette
-                try: self.info[info[0]]=info[1].replace('"','')
+                try: self.attributes[info[0]]=info[1].replace('"','')
                 except IndexError: raise IndexError(self._info, info)
 
-            if 'exon_number' in self.info: self.info['exon_number']=int(self.info['exon_number'])
-            assert 'gene_id','transcript_id' in self.info
+            if 'exon_number' in self.attributes: self.attributes['exon_number']=int(self.attributes['exon_number'])
+            assert 'gene_id','transcript_id' in self.attributes
 #             self.attributes["ID"]=self.id
 #             self.attributes["Parent"]=self.parent
 #             if self.feature=="transcript":
@@ -92,11 +91,11 @@ class gtfLine(object):
 #             else:
 #                 self.attributes["Parent"]=self.parent=self.transcript
             
-            if 'nearest_ref' in self.info: self.nearest_ref= self.info['nearest_ref']
-            if 'tss_id' in self.info: self.tss_id= self.info['tss_id']
+            if 'nearest_ref' in self.attributes: self.nearest_ref= self.attributes['nearest_ref']
+            if 'tss_id' in self.attributes: self.tss_id= self.attributes['tss_id']
 #             if 'class_code' in self.info: self.ccode=self.info['class_code']
-            for tag in [x for x in list(self.info.keys()) if x not in ('gene_id','transcript_id','nearest_ref','tss_id','class_code')]:
-                self.__dict__[tag.lower()]=self.info[tag]
+            for tag in [x for x in list(self.attributes.keys()) if x not in ('gene_id','transcript_id','nearest_ref','tss_id','class_code')]:
+                self.__dict__[tag.lower()]=self.attributes[tag]
                                 
           
     def __str__(self):
@@ -147,20 +146,20 @@ class gtfLine(object):
         
         if self.feature=='gene':
             if feature_type=="match": return
-            if 'gene_name' not in self.info: self.info['gene_name']=self.info['gene_id']
-            if 'description' not in self.info: self.info['description']='NA'
-            attributes=['ID='+self.info['gene_id'],'Name='+self.info['gene_name']]
+            if 'gene_name' not in self.attributes: self.attributes['gene_name']=self.attributes['gene_id']
+            if 'description' not in self.attributes: self.attributes['description']='NA'
+            attributes=['ID='+self.attributes['gene_id'],'Name='+self.attributes['gene_name']]
 
         elif self.feature=='mRNA' or self.feature=="transcript":
             if feature_type=="gene":
-                if 'transcript_name' not in self.info: self.info['transcript_name']=self.info['transcript_id']
-                attributes=['ID='+self.info['transcript_id'],
-                            'Parent='+self.info['gene_id'],
-                            'Name='+self.info['transcript_name']]
+                if 'transcript_name' not in self.attributes: self.attributes['transcript_name']=self.attributes['transcript_id']
+                attributes=['ID='+self.attributes['transcript_id'],
+                            'Parent='+self.attributes['gene_id'],
+                            'Name='+self.attributes['transcript_name']]
             elif feature_type=="match":
                 self.feature="match"
-                attributes=["ID={0}".format(self.info["transcript_id"]),
-                            "Name={0}".format(self.info["transcript_id"])]
+                attributes=["ID={0}".format(self.attributes["transcript_id"]),
+                            "Name={0}".format(self.attributes["transcript_id"])]
                 
         elif self.feature in ('exon','CDS'):
 
@@ -168,23 +167,23 @@ class gtfLine(object):
             if feature_type=="match":
                 self.feature="match_part"
 
-            if "exon_number" in self.info:
-                attributes=['ID={0}:exon-{1}'.format(self.transcript, self.info["exon_number"]),
-                            'Parent={0}'.format(self.info['transcript_id'])]
+            if "exon_number" in self.attributes:
+                attributes=['ID={0}:exon-{1}'.format(self.transcript, self.attributes["exon_number"]),
+                            'Parent={0}'.format(self.attributes['transcript_id'])]
             else:
-                attributes=['Parent={0}'.format(self.info['transcript_id'])]
+                attributes=['Parent={0}'.format(self.attributes['transcript_id'])]
             
 
         elif self.feature in ('UTR', 'five prime UTR', 'three prime UTR'):
-            if self.feature=='UTR': raise ValueError('I cannot work with "UTR" only currently! Error in: {0}'.format(self.info['transcript_id'])) #I have to think about a smart way of doing this..
+            if self.feature=='UTR': raise ValueError('I cannot work with "UTR" only currently! Error in: {0}'.format(self.attributes['transcript_id'])) #I have to think about a smart way of doing this..
             if self.feature=='five prime UTR': ut='5'
             else: ut='3'
             attributes=['ID=utr.'+ut,
-                        'Parent='+self.info['transcript_id']]
+                        'Parent='+self.attributes['transcript_id']]
 
         elif self.feature in ('start_codon','stop_codon'):
             attributes=['ID='+self.feature,
-                        'Parent='+self.info['transcript_id']]
+                        'Parent='+self.attributes['transcript_id']]
 
         if self.score==None: score='.'
         else: score=str(self.score)
@@ -274,21 +273,21 @@ class gtfLine(object):
 
     @property
     def gene(self):
-        return self.info["gene_id"]
+        return self.attributes["gene_id"]
     
     @gene.setter
     def gene(self,gene):
-        self.info["gene_id"]=self.__gene=gene
+        self.attributes["gene_id"]=self.__gene=gene
         if self.is_transcript:
             self.attributes["Parent"]=gene
 
     @property
     def transcript(self):
-        return self.info["transcript_id"]
+        return self.attributes["transcript_id"]
     
     @transcript.setter
     def transcript(self,transcript):
-        self.info["transcript_id"]=self.__transcript=transcript
+        self.attributes["transcript_id"]=self.__transcript=transcript
         if self.is_transcript is True:
             self.attributes["ID"]=transcript
         else:

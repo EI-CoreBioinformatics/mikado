@@ -308,7 +308,7 @@ class assigner:
     
         if min(tr.exon_num, other.exon_num)>1:
             assert min(len(tr.splices), len(other.splices))>0, (tr.introns, tr.splices)
-            one_junction_confirmed = any(intron in other.introns for intron in tr.introns)
+            one_intron_confirmed = any(intron in other.introns for intron in tr.introns)
             junction_overlap = len( set.intersection(set(tr.splices), set(other.splices))   )
             junction_recall = junction_overlap / len(other.splices)
             junction_precision = junction_overlap / len(tr.splices)
@@ -352,7 +352,7 @@ class assigner:
                 if junction_recall == 1 and junction_precision<1:
                     ccode = "n" # we have recovered all the junctions AND added some other junctions of our own
                 elif junction_recall>0 and 0<junction_precision<1:
-                    if one_junction_confirmed is True:
+                    if one_intron_confirmed is True:
                         ccode = "j"
                     else:
                         ccode = "o"

@@ -110,22 +110,24 @@ class gtfLine(object):
                 if self.fields[i]==None: self.fields[i]='.' #Correggere per campi vuoti
                 self.fields[i]=str(self.fields[i])
             self._info=[]
-            assert 'gene_id','transcript_id' in self.info
+            assert 'gene_id','transcript_id' in self.attributes
             if type(self.gene) is list:
                 gene=",".join(self.gene)
             else: 
                 gene=self.gene
-            self.info['gene_id']=gene
-            if self.info['transcript_id']==None: self.info['transcript_id']=self.transcript
+            self.attributes['gene_id']=gene
+            if self.attributes['transcript_id'] is None:
+                self.attributes['transcript_id']=self.transcript
 
             order=['gene_id','transcript_id','exon_number','gene_name','transcript_name'] #Questo è l'ordine originale dei campi nel gtf di umano
 
             for tag in order:
-                if tag in self.info:
-                    self._info.append(tag+' "'+str(self.info[tag])+'"')
+                if tag in self.attributes:
+                    self._info.append( "{0} \"{1}\";".format(tag, self.attributes[tag] ) )
 
-            for info in filter(lambda x: x not in order, self.info.keys()): 
-                self._info.append(info+' "'+self.info[info]+'"')
+            for info in filter(lambda x: x not in order, self.attributes.keys()):
+                self._info.append("{0} \"{1}\";".format(info, self.attributes[info] ) )
+
             self.fields.append('; '.join(self._info))
             self.fields[-1]+=';' #Fields finito, si può stampare.
 

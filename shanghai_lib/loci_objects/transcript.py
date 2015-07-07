@@ -544,12 +544,10 @@ class transcript:
                                     texon[1] = boundary[1]
                             exon=tuple(sorted(exon))
                             my_exons.append(exon)
-                            tstart=min(tstart, texon[0])
-                            tend=max(tend,texon[1])
+                        tstart=min(tstart, texon[0])
+                        tend=max(tend,texon[1])
                             
                     assert len(my_exons)>0, (discarded_exons, boundary)        
-                    tstart = min( x[0] for x in my_exons )
-                    tend = max(x[1] for x in my_exons)
                     
                     new_transcript.exons=my_exons
                     

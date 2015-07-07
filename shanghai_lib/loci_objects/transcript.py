@@ -598,8 +598,11 @@ class transcript:
                         obj.blockSizes=[obj.end]
                         new_bed12s.append(obj)
                     
-                    new_transcript.load_orfs(new_bed12s)
                     new_transcript.finalize()
+                    if new_transcript.monoexonic is True:
+                        new_transcript.strand=None
+                    new_transcript.load_orfs(new_bed12s)
+                    
                     if new_transcript.selected_cds_length<=0:
                         err_message="No CDS information retained for {0} split {1}\n".format(self.id, counter)
                         err_message+="BED: {0}".format("\n\t".join([str(x) for x in new_bed12s]))

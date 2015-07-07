@@ -528,14 +528,14 @@ class transcript:
                         #exon with partial UTR
                         else:
                             exon = list(exon)
-                            if texon[0]<boundary[0]<=texon[1]:
+                            if texon[0]<=boundary[0]<=texon[1] and texon[1]<boundary[1]:
                                 if left is not None:
                                     if self.strand=="-":
                                         exon[1] = exon[1]-(boundary[0]-texon[0]+1)
                                     else:
                                         exon[0]=exon[0]+(boundary[0]-texon[0]-1)
                                     texon[0] = boundary[0]
-                            if texon[0]<=boundary[1]<=texon[1]:
+                            if texon[0]<=boundary[1]<=texon[1] and texon[0]>boundary[0]:
                                 if right is not None:
                                     if self.strand == "-":
                                         exon[0] = exon[0]+(boundary[1]-texon[0]-1)

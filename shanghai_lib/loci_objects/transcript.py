@@ -505,7 +505,7 @@ class transcript:
                     tlength = 0
                     tstart = float("Inf")
                     tend = float("-Inf")
-                    self.logger.warn( "Transcript {0} counter {1}, left {2} right {3}".format(self.id, counter, left, right) )
+                    self.logger.debug( "Transcript {0} counter {1}, left {2} right {3}".format(self.id, counter, left, right) )
                     
                     for exon in exons:
                         #Translate into transcript coordinates
@@ -537,8 +537,8 @@ class transcript:
                                         new_exon[1] = exon[0]+(texon[1]-boundary[0])
                                     else:
                                         new_exon[0]=exon[1]-(texon[1]-boundary[0])
-                                    self.logger.warn("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
-                                    self.logger.warn("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
+                                    self.logger.debug("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
+                                    self.logger.debug("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
                                     texon[0] = boundary[0]
                             if texon[0]<=boundary[1]<=texon[1] and texon[0]>=boundary[0]:
                                 if right is not None:
@@ -546,8 +546,8 @@ class transcript:
                                         new_exon[0] = exon[1]-(boundary[1]-texon[0])
                                     else:
                                         new_exon[1] = exon[0]+(boundary[1]-texon[0])
-                                    self.logger.warn("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
-                                    self.logger.warn("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
+                                    self.logger.debug("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
+                                    self.logger.debug("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
                                     texon[1] = boundary[1]
                             elif texon[0]<=boundary[0]<=boundary[1]<=texon[1]: #Monoexonic
                                 if self.strand == "-":
@@ -559,10 +559,10 @@ class transcript:
                                 
                                 texon[0] = boundary[0]
                                 texon[1] = boundary[1]
-                                self.logger.warn("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
-                                self.logger.warn("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
-                                self.logger.warn("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
-                                self.logger.warn("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
+                                self.logger.debug("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
+                                self.logger.debug("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
+                                self.logger.debug("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
+                                self.logger.debug("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
                             
                             my_exons.append(tuple(sorted(new_exon)))
                         tstart=min(tstart, texon[0])

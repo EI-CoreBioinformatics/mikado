@@ -162,13 +162,14 @@ class abstractlocus(metaclass=abc.ABCMeta):
     
     @classmethod
     def create_default_logger(cls):
-        '''Static method to create a default logging instance for the loci.'''
+        '''Static method to create a default logging instance for the loci.
+        The default is a null handler (no log)'''
         formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
                                            style="{"
                                             )
  
         logger = logging.getLogger("{0}_logger".format(cls.__name__))
-        handler = logging.StreamHandler()
+        handler = logging.NullHandler()
         handler.setFormatter(formatter)
         logger.setLevel(logging.WARN)
         logger.addHandler(handler)

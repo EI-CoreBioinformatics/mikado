@@ -518,13 +518,13 @@ class transcript:
                         if texon[0]>=boundary[0] and texon[1]<=boundary[1]: 
                             my_exons.append(exon)
                         #Exon on the left of the CDS
-                        elif texon[1]<boundary[0]:
+                        elif texon[1]<=boundary[0]:
                             if left is None:
                                 my_exons.append(exon)
                             else:
                                 discarded_exons.append(exon)
                                 continue
-                        elif texon[0]>boundary[1]:
+                        elif texon[0]>=boundary[1]:
                             if right is None:
                                 my_exons.append(exon)
                             else:

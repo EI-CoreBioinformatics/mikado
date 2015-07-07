@@ -255,7 +255,11 @@ class superlocus(abstractlocus):
         self.transcripts[tid].set_logger(self.logger)
         yield from self.transcripts[tid].load_information_from_db( self.json_dict, introns = self.locus_verified_introns, session = self.session)
         if self.json_dict["chimera_split"]["execute"] is True and self.transcripts[tid].number_internal_orfs>1:
-            new_tr = list(self.transcripts[tid].split_by_cds())
+            try:
+                new_tr = list(self.transcripts[tid].split_by_cds())
+            except Exception as err:
+                self.logger.exception(err)
+                raise
             if len(new_tr)>1:
                 for tr in new_tr:
                     self.add_transcript_to_locus(tr, check_in_locus=False)

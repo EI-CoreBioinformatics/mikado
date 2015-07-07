@@ -472,6 +472,8 @@ class transcript:
             if len(cds_boundaries)==1:
                 new_transcripts=[self]
             else:
+                spans = [] 
+                
                 for counter,(boundary, bed12_objects) in enumerate(cds_boundaries.items()):
                     #I *know* that I am moving left to right 
                     new_transcript=self.__class__()
@@ -503,7 +505,8 @@ class transcript:
                     tlength = 0
                     tstart = float("Inf")
                     tend = float("-Inf")
-                        
+                    self.logger.warn( "Transcript {0} counter {1}, left {2} right {3}".format(self.id, counter, left, right) )
+                    
                     for exon in exons:
                         #Translate into transcript coordinates
                         elength = exon[1]-exon[0]+1
@@ -514,7 +517,7 @@ class transcript:
                             my_exons.append(exon)
                         #Exon on the left of the CDS
                         elif texon[1]<boundary[0]:
-                            if left is not None:
+                            if left is None:
                                 my_exons.append(exon)
                             else:
                                 discarded_exons.append(exon)
@@ -527,26 +530,52 @@ class transcript:
                                 continue
                         #exon with partial UTR
                         else:
-                            exon = list(exon)
-                            if texon[0]<=boundary[0]<=texon[1] and texon[1]<boundary[1]:
+                            new_exon = list(exon)
+                            if texon[0]<=boundary[0]<=texon[1] and texon[1]<=boundary[1]:
                                 if left is not None:
                                     if self.strand=="-":
-                                        exon[1] = exon[1]-(boundary[0]-texon[0]+1)
+                                        new_exon[1] = exon[0]+(texon[1]-boundary[0])
                                     else:
-                                        exon[0]=exon[0]+(boundary[0]-texon[0]-1)
+                                        new_exon[0]=exon[1]-(texon[1]-boundary[0])
+                                    self.logger.warn("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
+                                    self.logger.warn("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
                                     texon[0] = boundary[0]
-                            if texon[0]<=boundary[1]<=texon[1] and texon[0]>boundary[0]:
+                            if texon[0]<=boundary[1]<=texon[1] and texon[0]>=boundary[0]:
                                 if right is not None:
                                     if self.strand == "-":
-                                        exon[0] = exon[0]+(boundary[1]-texon[0]-1)
+                                        new_exon[0] = exon[1]-(boundary[1]-texon[0])
                                     else:
-                                        exon[1] = exon[1]-(boundary[1]-texon[0]+1)
+                                        new_exon[1] = exon[0]+(boundary[1]-texon[0])
+                                    self.logger.warn("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
+                                    self.logger.warn("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
                                     texon[1] = boundary[1]
-                            exon=tuple(sorted(exon))
-                            my_exons.append(exon)
+                            elif texon[0]<=boundary[0]<=boundary[1]<=texon[1]: #Monoexonic
+                                if self.strand == "-":
+                                    new_exon[1] = exon[0]+(texon[1]-boundary[0])
+                                    new_exon[0] = exon[1]-(boundary[1]-texon[0])
+                                else:
+                                    new_exon[0]=exon[1]-(texon[1]-boundary[0])
+                                    new_exon[1] = exon[0]+(boundary[1]-texon[0])
+                                
+                                texon[0] = boundary[0]
+                                texon[1] = boundary[1]
+                                self.logger.warn("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
+                                self.logger.warn("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
+                                self.logger.warn("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
+                                self.logger.warn("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
+                            
+                            my_exons.append(tuple(sorted(new_exon)))
                         tstart=min(tstart, texon[0])
                         tend=max(tend,texon[1])
-                            
+                           
+                    
+                    if right is not None:
+                        self.logger.debug( "TID {0} TEND {1} Boun[1] {2}".format(self.id, tend, boundary[1]) )
+                        #assert tend == boundary[1]
+                    elif left is not None:
+                        self.logger.debug( "TID {0} TSTART {1} Boun[0] {2}".format(self.id, tstart, boundary[0]) )
+                        #assert tstart == boundary[0]
+                         
                     assert len(my_exons)>0, (discarded_exons, boundary)        
                     
                     new_transcript.exons=my_exons
@@ -560,14 +589,35 @@ class transcript:
                         obj.start=1
                         obj.end=min(obj.end, tend)-tstart
                         obj.thickStart=min(obj.thickStart,tend)-tstart+1 
-                        obj.thickEnd=min(obj.thickEnd,tend)-tstart
+                        obj.thickEnd=min(obj.thickEnd,tend)-tstart+1
                         obj.blockSizes=[obj.end]
                         new_bed12s.append(obj)
                     
                     new_transcript.load_orfs(new_bed12s)
                     new_transcript.finalize()
+                    if new_transcript.selected_cds_length<=0:
+                        err_message="No CDS information retained for {0} split {1}\n".format(self.id, counter)
+                        err_message+="BED: {0}".format("\n\t".join([str(x) for x in new_bed12s]))
+                        raise InvalidTranscript(err_message)
+                        
                     new_transcripts.append(new_transcript)
-            
+                    nspan = (new_transcript.start,new_transcript.end)
+                    self.logger.debug("Transcript {0} split {1}, discarded exons: {2}".format( self.id, counter, discarded_exons ))
+                    for span in spans:
+                        overl = abstractlocus.overlap(span, nspan )  
+                        
+                        self.logger.debug("Comparing start-ends for split of {0}. SpanA: {1} SpanB: {2} Overlap: {3}".format(
+                                                                                                                            self.id, span,
+                                                                                                                            nspan, overl
+                                                                                                                            ))
+                        if overl>0:
+                            err_message = "Invalid overlap for {0}! T1: {1}. T2: {2}".format( self.id, span, (new_transcript.start,new_transcript.end) )
+                            self.logger.error(err_message)
+                            raise InvalidTranscript(err_message) 
+                    
+                    spans.append([new_transcript.start, new_transcript.end])
+                    
+                    
 
         assert len(new_transcripts)>0, str(self)
         for nt in new_transcripts:

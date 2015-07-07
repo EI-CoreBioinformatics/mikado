@@ -509,26 +509,48 @@ class transcript:
                         elength = exon[1]-exon[0]+1
                         texon = [tlength+1, tlength+elength]
                         tlength += elength
-                        #Exon on my left, its end is before the CDS start, and I have some other CDS on my left
-                        if texon[1]<boundary[0] and left is not None:
-                            discarded_exons.append((exon,texon))
-                            continue
-                        #Exon on the right of the CDS start, I do have another ORF on the right
-                        elif texon[0]>boundary[1] and right is not None: #
-                            discarded_exons.append((exon,texon))
-                            continue
+                        #Exon completely contained in the ORF
+                        if texon[0]>=boundary[0] and texon[1]<=boundary[1]: 
+                            my_exons.append(exon)
+                        #Exon on the left of the CDS
+                        elif texon[1]<boundary[0]:
+                            if left is not None:
+                                my_exons.append(exon)
+                            else:
+                                discarded_exons.append(exon)
+                                continue
+                        elif texon[0]>boundary[1]:
+                            if right is None:
+                                my_exons.append(exon)
+                            else:
+                                discarded_exons.append(exon)
+                                continue
+                        #exon with partial UTR
                         else:
-                            exon=list(exon)
-                            if texon[0]<boundary[0] and left is not None: #Shift start of the exon to the right
-                                exon[0]=exon[0]+boundary[0]+1-texon[0]
-                            if texon[1]>boundary[1] and right is not None: #Shift end of the exon to the left
-                                exon[1]=exon[1]-(texon[1]+1-boundary[1])
+                            exon = list(exon)
+                            if texon[0]<boundary[0]<=texon[1]:
+                                if left is not None:
+                                    if self.strand=="-":
+                                        exon[1] = exon[1]-(boundary[0]-texon[0]+1)
+                                    else:
+                                        exon[0]=exon[0]+(boundary[0]-texon[0]-1)
+                                    texon[0] = boundary[0]
+                            if texon[0]<=boundary[1]<=texon[1]:
+                                if right is not None:
+                                    if self.strand == "-":
+                                        exon[0] = exon[0]+(boundary[1]-texon[0]-1)
+                                    else:
+                                        exon[1] = exon[1]-(boundary[1]-texon[0]+1)
+                                    texon[1] = boundary[1]
                             exon=tuple(sorted(exon))
-                        my_exons.append(exon)
-                        tstart=min(tstart, texon[0])
-                        tend=max(tend,texon[1])
+                            my_exons.append(exon)
+                            tstart=min(tstart, texon[0])
+                            tend=max(tend,texon[1])
+                            
+                    assert len(my_exons)>0, (discarded_exons, boundary)        
+                    tstart = min( x[0] for x in my_exons )
+                    tend = max(x[1] for x in my_exons)
                     
-                    assert len(my_exons)>0, (discarded_exons, boundary)
                     new_transcript.exons=my_exons
                     
                     new_transcript.start=min( exon[0] for exon in new_transcript.exons )

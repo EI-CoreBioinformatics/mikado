@@ -87,7 +87,7 @@ class transcript:
     
     ######### Class special methods ####################
     
-    def __init__(self, *args, source=None):
+    def __init__(self, *args, source=None, logger=None):
         
         '''Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
@@ -95,6 +95,7 @@ class transcript:
         
         self.chrom = None
         self.exons, self.combined_cds, self.combined_utr = [], [], []
+        self.set_logger(logger) #Set it to None by default
         self.introns = []
         self.splices = []
         self.finalized = False # Flag. We do not want to repeat the finalising more than once.        
@@ -481,6 +482,7 @@ class transcript:
                     for attribute in ["chrom", "source", "score","strand", "attributes" ]:
                         setattr(new_transcript,attribute, getattr(self, attribute))
                     #Determine which ORFs I have on my right and left
+                    new_transcript.parent = self.parent
                     if counter==0: #leftmost
                         left = None
                         right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
@@ -531,7 +533,7 @@ class transcript:
                         #exon with partial UTR
                         else:
                             new_exon = list(exon)
-                            if texon[0]<=boundary[0]<=texon[1] and texon[1]<=boundary[1]:
+                            if texon[0]<boundary[0]<=texon[1] and texon[1]<=boundary[1]:
                                 if left is not None:
                                     if self.strand=="-":
                                         new_exon[1] = exon[0]+(texon[1]-boundary[0])
@@ -540,7 +542,7 @@ class transcript:
                                     self.logger.debug("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
                                     self.logger.debug("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
                                     texon[0] = boundary[0]
-                            if texon[0]<=boundary[1]<=texon[1] and texon[0]>=boundary[0]:
+                            if texon[0]<boundary[1]<texon[1] and texon[0]>=boundary[0]:
                                 if right is not None:
                                     if self.strand == "-":
                                         new_exon[0] = exon[1]-(boundary[1]-texon[0])
@@ -551,11 +553,15 @@ class transcript:
                                     texon[1] = boundary[1]
                             elif texon[0]<=boundary[0]<=boundary[1]<=texon[1]: #Monoexonic
                                 if self.strand == "-":
-                                    new_exon[1] = exon[0]+(texon[1]-boundary[0])
-                                    new_exon[0] = exon[1]-(boundary[1]-texon[0])
+                                    if left is not None:
+                                        new_exon[1] = exon[0]+(texon[1]-boundary[0])
+                                    if right is not None:
+                                        new_exon[0] = exon[1]-(boundary[1]-texon[0])
                                 else:
-                                    new_exon[0]=exon[1]-(texon[1]-boundary[0])
-                                    new_exon[1] = exon[0]+(boundary[1]-texon[0])
+                                    if left is not None:
+                                        new_exon[0]=exon[1]-(texon[1]-boundary[0])
+                                    if right is not None:
+                                        new_exon[1] = exon[0]+(boundary[1]-texon[0])
                                 
                                 texon[0] = boundary[0]
                                 texon[1] = boundary[1]
@@ -568,7 +574,6 @@ class transcript:
                         tstart=min(tstart, texon[0])
                         tend=max(tend,texon[1])
                            
-                    
                     if right is not None:
                         self.logger.debug( "TID {0} TEND {1} Boun[1] {2}".format(self.id, tend, boundary[1]) )
                         #assert tend == boundary[1]
@@ -968,6 +973,7 @@ class transcript:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
             
             if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length): #Leave leeway for TD
+                self.logger.warn("Wrong ORF:\n\t{0}\ncDNA length: {1}\nStart,end: {2}-{3}".format(str(orf), self.cdna_length, self.start, self.end))
                 continue
             if self.strand is None:
                 self.strand=new_strand=orf.strand

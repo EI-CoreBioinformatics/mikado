@@ -26,17 +26,16 @@ def main():
         raise ValueError("Start greater than end: {0}\t{1}".format(args.start,args.end))
 
     currentTranscript=None
-    chromFound=False
     with GTF(args.gtf) as gtf:
         for row in gtf:
             if row.chrom!=args.chrom:
                 continue
             else:
-                if chromFound is False: chromFound=True
-                if args.assume_sorted is True and row.end>args.end: break
                 if row.is_transcript is True:
                     if currentTranscript is not None and currentTranscript.start>=args.start and currentTranscript.end<=args.end:
                         print(currentTranscript.__str__(to_gtf=True), file=args.out)
+                    if args.assume_sorted is True and row.end>args.end:
+                        break
                     currentTranscript=transcript(row)
                 else:
                     currentTranscript.addExon(row)

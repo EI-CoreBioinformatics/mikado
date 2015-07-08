@@ -19,7 +19,9 @@ import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import multiprocessing
 from multiprocessing.context import Process
-import threading
+from IPython.core.history import sqlite3
+from sqlalchemy.dialects.mysql import mysqlconnector
+#import threading
 # import queue
 
 #from memory_profiler import profile
@@ -105,7 +107,7 @@ class Creator:
                                                               db=self.json_conf["db"],
                                                               dbtype=self.json_conf["dbtype"]),
                                     connect_args={"check_same_thread": False},
-                                    poolclass = sqlalchemy.pool.StaticPool
+                                    poolclass = sqlalchemy.pool.QueuePool
                                     )   #create_engine("sqlite:///{0}".format(args.db))
         
             Session = sessionmaker()
@@ -203,6 +205,27 @@ class Creator:
             self.printer_queue.task_done()
         return
     
+    def db_connection(self):
+        if self.json_conf["dbtype"] == "sqlite":
+            return sqlite3.connect(database= self.json_conf["db"])
+        elif self.json_conf["dbtype"] == "mysql":
+            import MySQLdb
+            return MySQLdb.connect(host = self.json_conf["dbhost"],
+                                   user = self.json_conf["dbuser"],
+                                   passwd = self.json_conf["dbpasswd"],
+                                   db = self.json_conf["db"]
+                                    )
+        elif self.json_conf["dbtype"] == "postgresql":
+            import postgresql
+            return postgresql.open("pq://{user}:{passwd}@{host}/{db}".format(
+                                                                                     host = self.json_conf["dbhost"],
+                                                                                     user = self.json_conf["dbuser"],
+                                                                                     passwd = self.json_conf["dbpasswd"],
+                                                                                     db = self.json_conf["db"]                         
+                                                                                     )  )
+            
+    
+    
     #@profile
     def analyse_locus(self, slocus: superlocus ) -> [superlocus]:
 
@@ -224,13 +247,12 @@ class Creator:
         #Load the CDS information
         logger.info("Loading transcript data")
         slocus.set_logger(logger)
-        slocus.load_all_transcript_data()
+        slocus.load_all_transcript_data(pool = self.connection_pool)
         #Split the superlocus in the stranded components
         logger.info("Splitting by strand")
         stranded_loci = sorted(list(slocus.split_strands()))
         #Define the loci        
         logger.debug("Divided into {0} loci".format(len(stranded_loci)))
-        
         
         logger.info("Defining loci")
         for stranded_locus in stranded_loci:
@@ -324,6 +346,9 @@ class Creator:
         self.queue_logger.propagate = False
         
         jobs = []
+        
+        self.connection_pool = sqlalchemy.pool.QueuePool( self.db_connection, pool_size=self.threads, max_overflow=self.threads*2 )
+        self.queue_logger.debug("Created the connection pool for dbs")
         
         for row in self.define_input():
             if row.is_exon is True:

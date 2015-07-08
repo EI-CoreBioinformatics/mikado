@@ -229,19 +229,24 @@ class superlocus(abstractlocus):
         self.monosubloci_metrics_calculated = False
 
     #@profile
-    def connect_to_db(self):
+    def connect_to_db(self, pool):
                 
         '''This method will connect to the database using the information contained in the JSON configuration.'''
         
         db = self.json_dict["db"]
         dbtype = self.json_dict["dbtype"]
         
-        self.engine = create_engine("{dbtype}:///{db}".format(
+        if pool is None:
+            self.engine = create_engine("{dbtype}:///{db}".format(
                                                               db=db,
                                                               dbtype=dbtype),
-                                    connect_args={"check_same_thread": False},
-                                    poolclass = sqlalchemy.pool.StaticPool,
-                                    )   #create_engine("sqlite:///{0}".format(args.db))
+                                        connect_args={"check_same_thread": False},
+                                        poolclass = sqlalchemy.pool.StaticPool,
+                                        )   #create_engine("sqlite:///{0}".format(args.db))
+        else:
+            self.engine = create_engine( "{dbtype}://".format(dbtype=dbtype),
+                                         pool = pool
+                                          )
         
         self.sessionmaker = sessionmaker()
         self.sessionmaker.configure(bind=self.engine)
@@ -266,14 +271,15 @@ class superlocus(abstractlocus):
                 self.remove_transcript_from_locus(tid)
         return 
     #@profile
-    def load_all_transcript_data(self):
+    def load_all_transcript_data(self, pool=None):
         
         '''This method will load data into the transcripts instances, and perform the split_by_cds if required
         by the configuration.'''
         
         if "db" not in self.json_dict or self.json_dict["db"] is None:
             return #No data to load
-        self.connect_to_db()
+        self.connect_to_db(pool)
+            
         self.locus_verified_introns=[]
         dbquery = self.db_baked(self.session).params(chrom_name = self.chrom).all()
         if len(dbquery)>0:
@@ -291,7 +297,8 @@ class superlocus(abstractlocus):
         tasks = [ensure_future(self.load_transcript_data(tid)) for tid in self.transcripts]
 #         
         loop.run_until_complete(asyncio.wait(tasks))
-        self.session.close()
+        self.sessionmaker.close_all()
+
 
     ###### Sublocus-related steps ######
                

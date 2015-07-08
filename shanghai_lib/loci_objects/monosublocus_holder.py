@@ -78,20 +78,33 @@ class monosublocus_holder(sublocus,abstractlocus):
         
         self.calculate_scores()
         
-        for lc in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting, 
-                                        cds_only=self.json_dict["run_options"]["subloci_from_cds_only"]):
-            lc = dict((x.id, x) for x in lc)
-            selected_tid=self.choose_best(lc)
-            selected_transcript = self.transcripts[selected_tid]
-            if selected_transcript.score==0 and purge is True:
-                pass
-            else:
-                new_locus = locus(selected_transcript, logger=self.logger)
-                self.loci.append(new_locus)
+        transcripts = dict()
+        transcripts.update(self.transcripts)
+        
+        while len(transcripts)>0:
+            cliques, communities = self.find_communities(set(transcripts.values()), inters=self.is_intersecting, 
+                                        cds_only=self.json_dict["run_options"]["subloci_from_cds_only"])
+            for pos, clique in enumerate(cliques):
+                cliques[pos]=frozenset( [x.id for x in clique] )
+            to_remove = set()
+            for lc in communities:
+                lc = dict((x.id, x) for x in lc)
+                selected_tid=self.choose_best(lc)
+                selected_transcript = self.transcripts[selected_tid]
+                to_remove.add(selected_tid)
+                for clique in cliques:
+                    if selected_tid in clique:
+                        to_remove.update(clique)
+                
+                if purge is False or selected_transcript.score>0:
+                    new_locus = locus(selected_transcript, logger=self.logger)
+                    self.loci.append(new_locus)
+            self.logger.debug("Removing {0} transcripts from {1}".format(len(to_remove), self.id))
+            for t in to_remove:
+                del transcripts[t]
         
         self.splitted = True
         return
-
 
     @classmethod
     def is_intersecting(cls, transcript_instance, other, cds_only=False):

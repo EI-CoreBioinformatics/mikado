@@ -23,6 +23,13 @@ def main():
     parser.add_argument('--purge', action='store_true', default=None,
                         help='Flag. If set, the pipeline will suppress any loci whose transcripts do not pass the requirements set in the JSON file.'
                         )
+    log_options=parser.add_argument_group("Log options")
+    log_options.add_argument("-l", "--log", default=None, help="File to write the log to. Default: decided by the configuration file.")
+    verbosity=log_options.add_mutually_exclusive_group()
+    verbosity.add_argument("--verbose", action="store_true", default=False, help="Flag. If set, the debug mode will be activated.")
+    verbosity.add_argument("--noverbose", action="store_true", default=False, help="Flag. If set, the debug mode will be activated.")
+    log_options.add_argument("-lv", "--log-level", dest="log_level", choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,
+                             help="Loggin level. Default: retrieved by the configuration file.")
     parser.add_argument("gff", type=argparse.FileType("r"), nargs="?", default=None)
     
     args=parser.parse_args()
@@ -32,6 +39,18 @@ def main():
     
     if args.procs is not None:
         args.json_conf["run_options"]["threads"] = args.procs
+        
+    if args.log == "stderr":
+        args.json_conf["log_settings"]['log']=None
+    elif args.log is not None:
+        args.json_conf["log_settings"]['log']=args.log
+        
+    if args.log_level is not None:
+        args.json_conf["log_settings"]['log_level']=args.log_level
+    elif args.verbose is True:
+        args.json_conf["log_settings"]['log_level']="DEBUG"
+    elif args.noverbose is True:
+        args.json_conf["log_settings"]['log_level']="ERROR"
         
     if args.monoloci_out is not None:
         args.json_conf["monoloci_out"] = args.monoloci_out

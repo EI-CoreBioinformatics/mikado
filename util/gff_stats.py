@@ -170,7 +170,7 @@ class Calculator:
 #             if record.feature == "superlocus":
 #                 continue
 
-            if record.feature == "locus" or (record.is_parent is True and record.is_transcript is False):
+            if record.feature == "locus" or record.is_gene is True or (record.is_parent is True and record.is_transcript is False):
                 if record.feature == "protein":
                     continue #Hack for the AT gff .. stupid "protein" features ...
 
@@ -181,6 +181,8 @@ class Calculator:
                 self.genes[record.id] = gene_object(record, only_coding=self.only_coding)    
 #                 currentGene = record.id
             elif record.is_transcript is True:
+                if record.parent is None:
+                    raise TypeError("No parent found for:\n{0}".format(str(record)))
                 transcript2gene[record.id]=record.parent[0]
                 if self.is_gff is False:
                     new_record = record.copy()

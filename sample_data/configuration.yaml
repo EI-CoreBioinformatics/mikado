@@ -6,7 +6,7 @@ blast:
   num_threads: 4
   program: blastx
 chimera_split:
-  blast_check: false
+  blast_check: true
   execute: true
   blast_params:
     evalue: 0.0001
@@ -16,7 +16,7 @@ chimera_split:
     minimal_hsp_overlap: 0.9
 log_settings:
   log: null
-  log_level: WARN
+  log_level: DEBUG
 db: data.db
 dbtype: sqlite
 orf_loading:

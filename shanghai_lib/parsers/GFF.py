@@ -199,10 +199,20 @@ class gffLine(object):
     def is_transcript(self):
         if self.feature is None:
             return False
+        elif self.is_gene is True:
+            return False
         if "transcript"==self.feature or "RNA" in self.feature.upper():
             return True
         return False
-        
+    
+    @property
+    def is_gene(self):
+        if self.feature is None:
+            return False
+        if "gene" in self.feature and self.is_parent is True:
+            return True
+        return False
+    
     @property
     def is_parent(self):
         if self.parent is None:

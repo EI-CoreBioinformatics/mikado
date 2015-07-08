@@ -311,7 +311,7 @@ class Creator:
         
         self.setup_logger()
         
-        self.printer_process=threading.Thread(target=self.printer) # @UndefinedVariable
+        self.printer_process=Process(target=self.printer) # @UndefinedVariable
         self.printer_process.start()
         
         currentLocus = None
@@ -335,7 +335,7 @@ class Creator:
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
 #                         self.analyse_locus(currentLocus)
-                        while len(jobs)>=self.threads+1:
+                        while len(jobs)>=self.threads:
                             for job in jobs:
                                 if job.is_alive() is False:
                                     jobs.remove(job)

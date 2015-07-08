@@ -1145,9 +1145,13 @@ class transcript:
     def find_overlapping_cds(cls, candidates: list) -> list:
         '''Wrapper for the abstractlocus method, used for finding overlapping ORFs.
         It will pass to the function the class's "is_overlapping_cds" method
-        (which would be otherwise be inaccessible from the abstractlocus class method)'''
+        (which would be otherwise be inaccessible from the abstractlocus class method).
+        As we are interested only in the communities, not the cliques, this wrapper discards the cliques
+        (first element of the abstractlocus.find_communities results) 
+        
+        '''
 #         graph, cliques = abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
-        return abstractlocus.find_communities(candidates, inters=cls.is_overlapping_cds)
+        return abstractlocus.find_communities(candidates, inters=cls.is_overlapping_cds)[1]
     
     
     @classmethod
@@ -1174,8 +1178,11 @@ class transcript:
         
     @classmethod
     def find_communities(cls, objects: list) -> list:
-        '''Wrapper for the abstractlocus method.'''
-        return abstractlocus.find_communities(objects, inters=cls.is_intersecting)
+        '''Wrapper for the abstractlocus method.
+        As we are interested only in the communities, not the cliques, this wrapper discards the cliques
+        (first element of the abstractlocus.find_communities results) 
+        '''
+        return abstractlocus.find_communities(objects, inters=cls.is_intersecting)[1]
 
     
     @classmethod

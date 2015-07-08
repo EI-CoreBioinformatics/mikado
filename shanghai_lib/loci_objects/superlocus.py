@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import asyncio
 if sys.version_info.minor>4 or (sys.version_info.minor == 4 and sys.version_info.micro>=4):
     #Necessary for future compatibility
-    from asyncio import ensure_future  # @NoMove
+    from asyncio import ensure_future  
 else:
     from asyncio import async as ensure_future
 
@@ -342,7 +342,7 @@ class superlocus(abstractlocus):
         candidates = set(self.transcripts.values()) 
         if len(candidates)==0:
             raise InvalidLocusError("This superlocus has no transcripts in it!")
-        subloci = self.find_communities(candidates, inters=self.is_intersecting,
+        _, subloci = self.find_communities(candidates, inters=self.is_intersecting,
                                         cds_only=self.json_dict["run_options"]["subloci_from_cds_only"])
 
         #Now we should define each sublocus and store it in a permanent structure of the class

@@ -108,6 +108,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if hasattr(self, "json_dict"):
             if "requirements" in self.json_dict and "expression" in self.json_dict["requirements"]:
                 self.json_dict["requirements"]["compiled"]=compile(self.json_dict["requirements"]["expression"], "<json>", "eval")
+        self.set_logger(None)
+                
 
     def set_logger(self, logger):
         '''Set a logger for the instance.'''
@@ -197,7 +199,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
 
     @classmethod
-    def find_communities(cls, objects: list, inters=None, **kwargs) -> list:
+    def find_communities(cls, objects: list, inters=None, **kwargs) -> (list,list):
         '''This function is a wrapper around the networkX methods to find
         cliques and communities inside a graph.
         The method takes as mandatory inputs the following:
@@ -205,7 +207,9 @@ class abstractlocus(metaclass=abc.ABCMeta):
             - "inters" a function/method that determines whether two objects are connected or not.
             
         The objects are indexed inside a dictionary to prevent memory leaks (the graph otherwise would replicate each object for each clique).
-        
+        The method returns two lists as result:
+        - cliques of original objects
+        - communities of the original objects
         The method accepts also kwargs that can be passed to the inters function.
         WARNING: the kwargs option is really stupid and does not check for correctness of the arguments!        
         '''
@@ -214,7 +218,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
             inters = cls.is_intersecting
 #         assert hasattr(inters, "__call__")
 
-        indexer=dict() #Dictionary to keep track of what obkect is what index
+        indexer=dict() #Dictionary to keep track of what object is what index
         
         graph=networkx.Graph()
         graph.add_nodes_from(list(range(len(objects)))) #Add the nodes as numbers
@@ -227,14 +231,18 @@ class abstractlocus(metaclass=abc.ABCMeta):
             obj=indexer[num]
             for other_num in indexer:
                 if (num!=other_num) and inters(obj, indexer[other_num], **kwargs):
-                    graph.add_edge(*tuple(sorted( [num, other_num] ))) 
+                    graph.add_edge(*tuple(sorted( [num, other_num] ))) #Connections are not directional
 
-        cliques=list(networkx.find_cliques(graph))
+        cliques=[frozenset(x) for x in networkx.find_cliques(graph)]
         communities = list(networkx.k_clique_communities(graph, 2, cliques))+[frozenset(x) for x in cliques if len(x)==1]
         final_communities=list()
+        final_cliques = list()
         for community in communities:
             final_communities.append( [indexer[num] for num in community]  )
-        return final_communities
+        for clique in cliques:
+            final_cliques.append( [indexer[num] for num in clique ]  )
+            
+        return final_cliques,final_communities
 
 
     @classmethod

@@ -128,20 +128,51 @@ class sublocus(abstractlocus):
 
         self.logger.debug("Defining monosubloci for {0}".format(self.id))
         
-        for msbl in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
-            msbl = dict((x.id, x) for x in msbl) #Transform into dictionary
-            while len(msbl)>0:
+        transcripts = dict()
+        transcripts.update(self.transcripts)
+        
+        while len(transcripts)>0:
+            cliques, communities = self.find_communities(set(transcripts.values()), inters=self.is_intersecting)
+            for pos, clique in enumerate(cliques):
+                cliques[pos]=frozenset( [x.id for x in clique] )
+                
+            to_remove = set()
+            for msbl in communities:
+                msbl = dict((x.id, x) for x in msbl)
                 selected_tid=self.choose_best(msbl)
                 selected_transcript = self.transcripts[selected_tid]
-                if selected_transcript.score==0 and purge is True:
-                    break
-                else:
+                to_remove.add(selected_tid)
+                for clique in cliques:
+                    self.logger.debug("Edge for {0}: {1}".format(self.id, cliques))
+                    if selected_tid in cliques:
+                        to_remove.update(clique)
+                if purge is False or selected_transcript.score>0:
                     new_locus = monosublocus(selected_transcript, logger=self.logger)
                     self.monosubloci.append(new_locus)
-                    #This is a waste of time - I already calculate the network inside find_communities ...
-                    not_intersecting_selected = [tid for tid in msbl if
-                                             (tid!=selected_tid and self.is_intersecting(selected_transcript, self.transcripts[tid]) is False) ]
-                    msbl = dict( (tid,self.transcripts[tid]) for tid in not_intersecting_selected )
+            if len(to_remove)<1:
+                message="No transcripts to remove from the pool for {0}\n".format(self.id)
+                message+="Transcripts remaining: {0}".format(communities)
+                exc = ValueError(message)
+                self.logger.exception(exc)
+                raise exc
+            self.logger.debug("Removing {0} from transcripts for {1}".format(len(to_remove), self.id))
+            for t in to_remove:
+                del transcripts[t]
+        self.logger.debug("Defined monosubloci for {0}".format(self.id))
+#         for msbl in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
+#             msbl = dict((x.id, x) for x in msbl) #Transform into dictionary
+#             while len(msbl)>0:
+#                 selected_tid=self.choose_best(msbl)
+#                 selected_transcript = self.transcripts[selected_tid]
+#                 if selected_transcript.score==0 and purge is True:
+#                     break
+#                 else:
+#                     new_locus = monosublocus(selected_transcript, logger=self.logger)
+#                     self.monosubloci.append(new_locus)
+#                     #This is a waste of time - I already calculate the network inside find_communities ...
+#                     not_intersecting_selected = [tid for tid in msbl if
+#                                              (tid!=selected_tid and self.is_intersecting(selected_transcript, self.transcripts[tid]) is False) ]
+#                     msbl = dict( (tid,self.transcripts[tid]) for tid in not_intersecting_selected )
         
         self.splitted=True
         self.logger.debug("Defined monosubloci for {0}".format(self.id))

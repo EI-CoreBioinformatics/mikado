@@ -274,8 +274,26 @@ def check_json(json_conf, json_file):
         raise shanghai_lib.exceptions.InvalidJson("No database specified.") 
     if "dbtype" not in json_conf:
         raise shanghai_lib.exceptions.InvalidJson("DB type not specified.")
-    if json_conf["dbtype"] not in ("sqlite", "mysql", "psql"):
-        raise shanghai_lib.exceptions.InvalidJson("Invalid DB type: {0}. At the moment we support sqlite, mysql, psql".format(json_conf["dbtype"]))
+    if json_conf["dbtype"] not in ("sqlite", "mysql", "postgresql"):
+        raise shanghai_lib.exceptions.InvalidJson("Invalid DB type: {0}. At the moment we support sqlite, mysql, postgresql".format(json_conf["dbtype"]))
+        
+    if json_conf["dbtype"] in ("mysql", "postgresql"):
+        if "dbhost" not in json_conf:
+            raise shanghai_lib.exceptions.InvalidJson("No host specified for the {0} database!".format(json_conf["dbtype"]))
+        if "dbuser" not in json_conf:
+            raise shanghai_lib.exceptions.InvalidJson("No user specified for the {0} database!".format(json_conf["dbtype"]))
+        if "dbpasswd" not in json_conf or json_conf['dbpasswd'] is None:
+            json_conf["dbpasswd"]=''
+        if "dbport" in json_conf and json_conf["dbport"] is not None:
+            if not type(json_conf["dbport"]) is int:
+                raise shanghai_lib.exceptions.InvalidJson("Invalid type for dbport: {0}".format(type(json_conf["dbport"])))
+            
+        else:
+            #Default ports
+            if json_conf["dbtype"]=="mysql":
+                json_conf["dbport"] = 3306
+            else:
+                json_conf["dbport"] =  5432
         
     if "input" not in json_conf:
         json_conf["input"]=None

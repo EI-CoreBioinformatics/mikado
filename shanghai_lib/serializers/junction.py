@@ -29,7 +29,7 @@ class junction(dbBase):
     chrom_id=Column(Integer, ForeignKey(Chrom.id), unique=False)
     start=Column(Integer, nullable=False)
     end=Column(Integer, nullable=False)
-    name=Column(String)
+    name=Column(String(200))
     strand=Column(CHAR)
     junctionStart=Column(Integer, nullable=False)
     junctionEnd=Column(Integer, nullable=False)
@@ -64,11 +64,22 @@ class junction(dbBase):
         
 class junctionSerializer:
         
-    def __init__(self, handle, db, fai=None, dbtype="sqlite", maxobjects=10000):
+    def __init__(self, handle, db, fai=None, dbtype="sqlite", maxobjects=10000, json_conf=None):
         
         self.BED12 = bed12.bed12Parser(handle)
-        self.engine=create_engine("{dbtype}:///{db}".format(dbtype=dbtype,
-                                                       db=db))
+        if json_conf is not None:
+            if json_conf["dbtype"]=="sqlite":
+                self.engine=create_engine("sqlite:///{0}".format(json_conf["db"]))
+            else:
+                self.engine=create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
+                                                                                            dbtype=json_conf["dbtype"],
+                                                                                            dbuser=json_conf["dbuser"],
+                                                                                            dbpasswd=json_conf["dbpasswd"],
+                                                                                            dbhost=json_conf["dbhost"],
+                                                                                            db=json_conf["db"]))
+        else:
+            self.engine=create_engine("sqlite:///{0}".format(db))
+        
         session=sessionmaker()
         session.configure(bind=self.engine)
 

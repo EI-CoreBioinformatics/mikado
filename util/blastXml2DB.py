@@ -3,6 +3,7 @@
 import sys, os, argparse
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from shanghai_lib.serializers.blast_utils import xmlSerializer
+from shanghai_lib import json_utils
 from Bio import SeqIO
 
 def to_seqio(string):
@@ -18,6 +19,7 @@ def main():
 	parser.add_argument("--definition", action="store_true", default=False, help="Use query def instead of ID for the output.")
 	parser.add_argument("--query_seqs", default=None, type=to_seqio, help="Query sequences")
 	parser.add_argument("--target_seqs", default=None, type=to_seqio, help="Target sequences")
+	parser.add_argument("--json-conf", dest="json_conf", default=None, type= json_utils.to_json  )
 	parser.add_argument("xml", type=str, help="XML file to parse.")
 	parser.add_argument("dbout", type=str, default=":memory:",
 			    nargs='?', help="Optional output file. Default: :memory:")
@@ -29,7 +31,8 @@ def main():
 				max_target_seqs=args.max_target_seqs,
 				maxobjects=args.maxobjects,
 				target_seqs=args.target_seqs,
-				query_seqs=args.query_seqs
+				query_seqs=args.query_seqs,
+				json_conf = args.json_conf
 				)()
 
 

@@ -355,7 +355,9 @@ class xmlSerializer:
 	def __init__(self, db, xml, max_target_seqs=float("Inf"),
 				target_seqs=None,
 				query_seqs=None,
-				keep_definition=False, maxobjects=10000  ):
+				keep_definition=False, maxobjects=10000,
+				json_conf = None
+				  ):
 		'''Initializing method. Arguments:
 		-db
 		-xml (it can be a handle or a valid file address)
@@ -373,7 +375,18 @@ class xmlSerializer:
 		self.handler.setFormatter(self.formatter)
 		self.logger.addHandler(self.handler)
 		
-		self.engine=create_engine("sqlite:///{0}".format(db))
+		if json_conf is not None:
+			if json_conf["dbtype"]=="sqlite":
+				self.engine=create_engine("sqlite:///{0}".format(json_conf["db"]))
+			else:
+				self.engine=create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
+																							dbtype=json_conf["dbtype"],
+																							dbuser=json_conf["dbuser"],
+																							dbpasswd=json_conf["dbpasswd"],
+																							dbhost=json_conf["dbhost"],
+																							db=json_conf["db"]))
+		else:
+			self.engine=create_engine("sqlite:///{0}".format(db))
 		session=sessionmaker()
 		session.configure(bind=self.engine)
 		dbBase.metadata.create_all(self.engine) #@UndefinedVariable

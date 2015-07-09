@@ -20,7 +20,7 @@ from shanghai_lib.loci_objects.superlocus import superlocus
 import multiprocessing
 from multiprocessing.context import Process
 from IPython.core.history import sqlite3
-from sqlalchemy.dialects.mysql import mysqlconnector
+
 #import threading
 # import queue
 
@@ -36,7 +36,7 @@ from sqlalchemy.dialects.mysql import mysqlconnector
 class Creator:
 
     #@profile
-    def __init__(self, json_conf: dict):
+    def __init__(self, json_conf: dict, commandline = ""):
         
         if type(json_conf) is str:
             assert os.path.exists(json_conf)
@@ -44,6 +44,7 @@ class Creator:
         else:
             assert type(json_conf) is dict
         
+        self.commandline = commandline
         self.json_conf = json_conf
         self.threads = self.json_conf["run_options"]["threads"]
         self.input_file = self.json_conf["input"]
@@ -51,10 +52,23 @@ class Creator:
         self.sub_out = self.json_conf["subloci_out"]
         self.monolocus_out = self.json_conf["monoloci_out"]
         self.locus_out = self.json_conf["loci_out"]
+        self.context = multiprocessing.get_context() #@UndefinedVariable
+        self.manager = self.context.Manager() #@UndefinedVariable
+        self.printer_queue = self.manager.Queue(-1)
+        self.logging_queue = self.manager.Queue(-1) #queue for logging
+      
+        self.setup_logger()
+        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
+        self.queue_logger = logging.getLogger( "parser")
+        self.queue_logger.addHandler(self.logger_queue_handler)
+        self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
+        self.queue_logger.propagate = False
         
-        self.commandline = None
         if self.locus_out is None:
             raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
+
+        
+
 
     def define_input(self):
         '''Function to check that the input file exists and is valid. It returns the parser.'''
@@ -103,17 +117,26 @@ class Creator:
         self.main_logger.info("Command line: {0}".format(self.commandline))
         
         if self.json_conf["chimera_split"]["blast_check"] is True:
-            engine = create_engine("{dbtype}:///{db}".format(
-                                                              db=self.json_conf["db"],
-                                                              dbtype=self.json_conf["dbtype"]),
-                                    connect_args={"check_same_thread": False},
-                                    poolclass = sqlalchemy.pool.QueuePool
-                                    )   #create_engine("sqlite:///{0}".format(args.db))
-        
+            engine=create_engine( "{0}://".format(self.json_conf["dbtype"]), creator=self.db_connection)
+                                 
+#                                  "{0}://".format(self.json_conf["dbtype"]), pool = self.connection_pool)
             Session = sessionmaker()
             Session.configure(bind=engine)
             session=Session()
-            
+#             if self.json_conf["dbtype"]=="sqlite":
+#                 engine = create_engine("{dbtype}:///{db}".format(
+#                                                                  db=self.json_conf["db"],
+#                                                                  dbtype=self.json_conf["dbtype"]),
+#                                        connect_args={"check_same_thread": False},
+#                                        poolclass = sqlalchemy.pool.QueuePool
+#                                        )   #create_engine("sqlite:///{0}".format(args.db))
+#             else:
+#                 #check_same_thread makes PSQL/MySQL crash!
+#                 engine = create_engine("{dbtype}:///{db}".format(
+#                                                                  db=self.json_conf["db"],
+#                                                                  dbtype=self.json_conf["dbtype"]),
+#                                        poolclass = sqlalchemy.pool.QueuePool
+#                                        )   #create_engine("sqlite:///{0}".format(args.db))
             evalue=self.json_conf["chimera_split"]["blast_params"]["evalue"]
             queries_with_hits = session.query(shanghai_lib.serializers.blast_utils.Hit.query_id ).filter(
                                                                                                  shanghai_lib.serializers.blast_utils.Hit.evalue<=evalue,
@@ -125,7 +148,6 @@ class Creator:
                                                                                                                total_queries,
                                                                                                                round(100*queries_with_hits/total_queries,2)
                                                                                                                ))
-        
             session.close()
         
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
@@ -213,16 +235,26 @@ class Creator:
             return MySQLdb.connect(host = self.json_conf["dbhost"],
                                    user = self.json_conf["dbuser"],
                                    passwd = self.json_conf["dbpasswd"],
-                                   db = self.json_conf["db"]
+                                   db = self.json_conf["db"],
+                                   port = self.json_conf["dbport"]
                                     )
         elif self.json_conf["dbtype"] == "postgresql":
-            import postgresql
-            return postgresql.open("pq://{user}:{passwd}@{host}/{db}".format(
-                                                                                     host = self.json_conf["dbhost"],
-                                                                                     user = self.json_conf["dbuser"],
-                                                                                     passwd = self.json_conf["dbpasswd"],
-                                                                                     db = self.json_conf["db"]                         
-                                                                                     )  )
+            import psycopg2
+            return psycopg2.connect(
+                                    host = self.json_conf["dbhost"],
+                                   user = self.json_conf["dbuser"],
+                                   password = self.json_conf["dbpasswd"],
+                                   database = self.json_conf["db"],
+                                   port = self.json_conf["dbport"]
+                                   ) 
+        
+#             import postgresql
+#             return postgresql.open("pq://{user}:{passwd}@{host}/{db}".format(
+#                                                                                      host = self.json_conf["dbhost"],
+#                                                                                      user = self.json_conf["dbuser"],
+#                                                                                      passwd = self.json_conf["dbpasswd"],
+#                                                                                      db = self.json_conf["db"]                         
+#                                                                                      )  )
             
     
     
@@ -326,29 +358,15 @@ class Creator:
         #NOTE: Pool, Process and Manager must NOT become instance attributes!
         #Otherwise it will raise all sorts of mistakes
         
-        self.context = multiprocessing.get_context() #@UndefinedVariable
-        self.manager = self.context.Manager() #@UndefinedVariable
-        self.printer_queue = self.manager.Queue(-1)
-        self.logging_queue = self.manager.Queue(-1) #queue for logging
-        
-        self.setup_logger()
-        
+        self.connection_pool = sqlalchemy.pool.QueuePool( self.db_connection, pool_size=self.threads, max_overflow=self.threads*2 )
         self.printer_process=Process(target=self.printer) # @UndefinedVariable
         self.printer_process.start()
         
         currentLocus = None
         currentTranscript = None
         
-        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue) # @UndefinedVariable
-        self.queue_logger = logging.getLogger( "parser")
-        self.queue_logger.addHandler(self.logger_queue_handler)
-        self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"]) #We need to set this to the lowest possible level, otherwise we overwrite the global configuration
-        self.queue_logger.propagate = False
-        
         jobs = []
         
-        self.connection_pool = sqlalchemy.pool.QueuePool( self.db_connection, pool_size=self.threads, max_overflow=self.threads*2 )
-        self.queue_logger.debug("Created the connection pool for dbs")
         
         for row in self.define_input():
             if row.is_exon is True:

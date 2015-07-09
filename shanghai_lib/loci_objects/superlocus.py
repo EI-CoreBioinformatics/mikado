@@ -240,7 +240,6 @@ class superlocus(abstractlocus):
             self.engine = create_engine("{dbtype}:///{db}".format(
                                                               db=db,
                                                               dbtype=dbtype),
-                                        connect_args={"check_same_thread": False},
                                         poolclass = sqlalchemy.pool.StaticPool,
                                         )   #create_engine("sqlite:///{0}".format(args.db))
         else:
@@ -297,7 +296,10 @@ class superlocus(abstractlocus):
         tasks = [ensure_future(self.load_transcript_data(tid)) for tid in self.transcripts]
 #         
         loop.run_until_complete(asyncio.wait(tasks))
+        self.session.close()
         self.sessionmaker.close_all()
+        self.session = None
+        self.sessionmaker = None
 
 
     ###### Sublocus-related steps ######

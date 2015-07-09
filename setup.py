@@ -43,7 +43,7 @@ setup(
                       "networkx",
                       "sqlalchemy>=1",
                       "biopython>=1.6",
-                      "py-postgresql>=1.1.0",
+                      "psycopg2",
                       "mysqlclient>=1.3.6" ],
 
     data_files = [ ("sample_data", glob.glob("sample_data/*"))],

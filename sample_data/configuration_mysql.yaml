@@ -1,0 +1,77 @@
+blast:
+  database: uniprot_sprot_plants.fasta
+  evalue: 1
+  execute: true
+  max_target_seqs: 20
+  num_threads: 4
+  program: blastx
+chimera_split:
+  blast_check: true
+  execute: true
+  blast_params:
+    evalue: 0.0001
+    hsp_evalue: 0.0001
+    leniency: STRINGENT
+    max_target_seqs: 3
+    minimal_hsp_overlap: 0.9
+log_settings:
+  log: null
+  log_level: DEBUG
+db: ara_test
+dbtype: mysql
+dbhost: localhost
+dbpasswd: null
+dbuser: venturil
+orf_loading:
+  minimal_secondary_orf_length: 200
+  strand_specific: true
+requirements:
+  expression: [((exon_num.multi and cdna_length.multi and max_intron_length), or,
+    (exon_num.mono and combined_cds_length.mono and cdna_length.mono))]
+  parameters:
+    cdna_length.mono: {operator: gt, value: 50}
+    cdna_length.multi: {operator: ge, value: 100}
+    combined_cds_length.mono: {operator: gt, value: -1}
+    exon_num.mono: {operator: eq, value: 1}
+    exon_num.multi: {operator: gt, value: 1}
+    max_intron_length: {operator: le, value: 100000}
+run_options:
+  exclude_cds: false
+  purge: false
+  remove_overlapping_fragments: true
+  subloci_from_cds_only: true
+  threads: 5
+scoring:
+  cdna_length: {rescaling: max}
+  cds_not_maximal: {rescaling: min}
+  cds_not_maximal_fraction: {rescaling: min}
+  combined_cds_fraction: {rescaling: target, value: 0.8}
+  combined_cds_intron_fraction: {rescaling: max}
+  combined_cds_length: {rescaling: max}
+  combined_cds_num: {rescaling: max}
+  exon_fraction: {rescaling: max}
+  exon_num: {rescaling: max}
+  five_utr_length: {rescaling: target, value: 200}
+  five_utr_num_complete:
+    filter: {operator: lt, value: 3}
+    rescaling: target
+    value: 1
+  highest_cds_exon_number: {rescaling: max}
+  intron_fraction: {rescaling: max}
+  number_internal_orfs: {rescaling: target, value: 1}
+  proportion_verified_introns: {rescaling: max}
+  proportion_verified_introns_inlocus: {rescaling: max}
+  retained_fraction: {rescaling: min}
+  retained_intron_num: {rescaling: min}
+  selected_cds_fraction: {rescaling: target, value: 0.8}
+  selected_cds_intron_fraction: {rescaling: max}
+  selected_cds_length: {rescaling: max}
+  selected_cds_num: {rescaling: max}
+  three_utr_length:
+    filter: {operator: le, value: 2500}
+    rescaling: target
+    value: 400
+  three_utr_num_complete:
+    filter: {operator: lt, value: 3}
+    rescaling: target
+    value: 2

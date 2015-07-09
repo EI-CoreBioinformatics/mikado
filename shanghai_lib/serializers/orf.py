@@ -17,7 +17,7 @@ class orf(dbBase):
     query_id=Column(Integer, ForeignKey(Query.id), unique=False)
     start=Column(Integer, nullable=False)
     end=Column(Integer, nullable=False)
-    name=Column(String)
+    name=Column(String(200))
     strand=Column(CHAR)
     thickStart=Column(Integer, nullable=False)
     thickEnd=Column(Integer, nullable=False)
@@ -84,7 +84,7 @@ class orf(dbBase):
         
 class orfSerializer:
         
-    def __init__(self, handle, db, fasta_index=None, dbtype="sqlite", maxobjects=1000000):
+    def __init__(self, handle, db, fasta_index=None, maxobjects=1000000, json_conf=None):
         
         '''Constructor function. Arguments:
         - handle         the BED12 file
@@ -107,8 +107,18 @@ class orfSerializer:
 
         
         self.BED12 = bed12.bed12Parser(handle, fasta_index=fasta_index, transcriptomic=True)
-        self.engine=create_engine("{dbtype}:///{db}".format(dbtype=dbtype,
-                                                       db=db))
+        if json_conf is not None:
+            if json_conf["dbtype"]=="sqlite":
+                self.engine=create_engine("sqlite:///{0}".format(json_conf["db"]))
+            else:
+                self.engine=create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
+                                                                                            dbtype=json_conf["dbtype"],
+                                                                                            dbuser=json_conf["dbuser"],
+                                                                                            dbpasswd=json_conf["dbpasswd"],
+                                                                                            dbhost=json_conf["dbhost"],
+                                                                                            db=json_conf["db"]))
+        else:
+            self.engine=create_engine("sqlite:///{0}".format(db))
 
         session=sessionmaker()
         session.configure(bind=self.engine)

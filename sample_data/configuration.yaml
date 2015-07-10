@@ -19,6 +19,7 @@ log_settings:
   log_level: DEBUG
 db: data.db
 dbtype: sqlite
+source: "Shanghai"
 orf_loading:
   minimal_secondary_orf_length: 200
   strand_specific: true
@@ -36,7 +37,7 @@ run_options:
   exclude_cds: false
   purge: false
   remove_overlapping_fragments: true
-  subloci_from_cds_only: true
+  subloci_from_cds_only: false #true
   threads: 5
 scoring:
   cdna_length: {rescaling: max}

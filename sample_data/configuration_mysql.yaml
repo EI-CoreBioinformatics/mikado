@@ -38,7 +38,7 @@ requirements:
 run_options:
   exclude_cds: false
   purge: false
-  remove_overlapping_fragments: true
+  remove_overlapping_fragments: false #true
   subloci_from_cds_only: true
   threads: 5
 scoring:

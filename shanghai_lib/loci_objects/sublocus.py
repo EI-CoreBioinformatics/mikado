@@ -128,22 +128,18 @@ class sublocus(abstractlocus):
 
         self.logger.debug("Defining monosubloci for {0}".format(self.id))
         
-        transcripts = dict()
-        transcripts.update(self.transcripts)
+        transcript_graph = self.define_graph(self.transcripts, inters=self.is_intersecting)
         
-        while len(transcripts)>0:
-            cliques, communities = self.find_communities(set(transcripts.values()), inters=self.is_intersecting)
-            for pos, clique in enumerate(cliques):
-                cliques[pos]=frozenset( [x.id for x in clique] )
-                
+        
+        while len(transcript_graph)>0:
+            cliques, communities = self.find_communities(transcript_graph)
             to_remove = set()
             for msbl in communities:
-                msbl = dict((x.id, x) for x in msbl)
+                msbl = dict((x, self.transcripts[x]) for x in msbl)
                 selected_tid=self.choose_best(msbl)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
                 for clique in cliques:
-                    self.logger.debug("Edge for {0}: {1}".format(self.id, cliques))
                     if selected_tid in cliques:
                         to_remove.update(clique)
                 if purge is False or selected_transcript.score>0:
@@ -156,8 +152,7 @@ class sublocus(abstractlocus):
                 self.logger.exception(exc)
                 raise exc
             self.logger.debug("Removing {0} from transcripts for {1}".format(len(to_remove), self.id))
-            for t in to_remove:
-                del transcripts[t]
+            transcript_graph.remove_nodes_from(to_remove)
         self.logger.debug("Defined monosubloci for {0}".format(self.id))
 #         for msbl in self.find_communities(set(self.transcripts.values()), inters=self.is_intersecting):
 #             msbl = dict((x.id, x) for x in msbl) #Transform into dictionary

@@ -933,7 +933,9 @@ class transcript:
     def load_orfs_coroutine(self):
         '''Asynchronous coroutine for loading orfs from the database'''
         candidate_orfs = yield from self.retrieve_orfs()
+        self.logger.debug("Loading ORF for {0}".format(self.id))
         self.load_orfs(candidate_orfs)
+        self.logger.debug("Loaded ORF for {0}".format(self.id))
     
     
     def load_orfs(self, candidate_orfs):
@@ -960,6 +962,7 @@ class transcript:
         '''
 
         if candidate_orfs is None or len(candidate_orfs)==0:
+            self.logger.debug( "No ORF for {0}".format(self.id) )
             return
         
         self.finalize()
@@ -1151,7 +1154,14 @@ class transcript:
         
         '''
 #         graph, cliques = abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
-        return abstractlocus.find_communities(candidates, inters=cls.is_overlapping_cds)[1]
+        d=dict( (x.id, x) for x in candidates )
+        communities = abstractlocus.find_communities( abstractlocus.define_graph(d, inters=cls.is_overlapping_cds) )[1]
+        final_communities = []
+        for comm in communities:
+            #Each community is a frozenset of ids
+            final_communities.append( set(d[x] for x in comm)  )
+        final_communities = [frozenset(x) for x in final_communities]
+        return final_communities 
     
     
     @classmethod
@@ -1182,7 +1192,10 @@ class transcript:
         As we are interested only in the communities, not the cliques, this wrapper discards the cliques
         (first element of the abstractlocus.find_communities results) 
         '''
-        return abstractlocus.find_communities(objects, inters=cls.is_intersecting)[1]
+        d=dict((x, x) for x in objects )
+        communities = abstractlocus.find_communities( abstractlocus.define_graph(d, inters=cls.is_intersecting) )[1]
+
+        return communities 
 
     
     @classmethod
@@ -1205,7 +1218,7 @@ class transcript:
         if type(Id) is not str:
             raise ValueError("Invalid value for id: {0}, type {1}".format(
                                                                           Id, type(Id)))
-        self.__id = Id
+        self.__id = sys.intern(Id)
 
     @property
     def available_metrics(self) -> list:

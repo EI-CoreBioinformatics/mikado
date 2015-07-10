@@ -7,10 +7,11 @@ import logging
 from logging import handlers as logging_handlers
 import time
 
-#SQLAlchemy imports
+#SQLAlchemy/DB imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 import sqlalchemy
+import sqlite3
 
 #Shanghai imports
 import shanghai_lib.loci_objects
@@ -19,14 +20,10 @@ import shanghai_lib.serializers.blast_utils
 from shanghai_lib.loci_objects.superlocus import superlocus
 import multiprocessing
 from multiprocessing.context import Process
-from IPython.core.history import sqlite3
-
-#import threading
-# import queue
-
-#from memory_profiler import profile
+import itertools
 
 #For profiling
+#from memory_profiler import profile
 # if "line_profiler" not in dir(): #@UndefinedVariable
 #     def profile(function):
 #         def inner(*args, **kwargs):
@@ -37,6 +34,11 @@ class Creator:
 
     #@profile
     def __init__(self, json_conf: dict, commandline = ""):
+        
+        '''Constructor. It takes a single argument as input - the JSON/YAML configuration,
+        prepared by the json_utils functions.
+        Optional keyword: commandline (i.e. the commandline used to start the program)'''
+        
         
         if type(json_conf) is str:
             assert os.path.exists(json_conf)
@@ -66,9 +68,6 @@ class Creator:
         
         if self.locus_out is None:
             raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
-
-        
-
 
     def define_input(self):
         '''Function to check that the input file exists and is valid. It returns the parser.'''
@@ -114,29 +113,17 @@ class Creator:
         self.main_logger.addHandler(self.log_handler)
         
         self.main_logger.info("Begun analysis of {0}".format(self.input_file)  )
-        self.main_logger.info("Command line: {0}".format(self.commandline))
+        if self.commandline!='':
+            self.main_logger.info("Command line: {0}".format(self.commandline))
+        else:
+            self.main_logger.info("Analysis launched directly, without using the launch script.")
         
         if self.json_conf["chimera_split"]["blast_check"] is True:
             engine=create_engine( "{0}://".format(self.json_conf["dbtype"]), creator=self.db_connection)
-                                 
-#                                  "{0}://".format(self.json_conf["dbtype"]), pool = self.connection_pool)
             Session = sessionmaker()
             Session.configure(bind=engine)
             session=Session()
-#             if self.json_conf["dbtype"]=="sqlite":
-#                 engine = create_engine("{dbtype}:///{db}".format(
-#                                                                  db=self.json_conf["db"],
-#                                                                  dbtype=self.json_conf["dbtype"]),
-#                                        connect_args={"check_same_thread": False},
-#                                        poolclass = sqlalchemy.pool.QueuePool
-#                                        )   #create_engine("sqlite:///{0}".format(args.db))
-#             else:
-#                 #check_same_thread makes PSQL/MySQL crash!
-#                 engine = create_engine("{dbtype}:///{db}".format(
-#                                                                  db=self.json_conf["db"],
-#                                                                  dbtype=self.json_conf["dbtype"]),
-#                                        poolclass = sqlalchemy.pool.QueuePool
-#                                        )   #create_engine("sqlite:///{0}".format(args.db))
+
             evalue=self.json_conf["chimera_split"]["blast_params"]["evalue"]
             queries_with_hits = session.query(shanghai_lib.serializers.blast_utils.Hit.query_id ).filter(
                                                                                                  shanghai_lib.serializers.blast_utils.Hit.evalue<=evalue,
@@ -155,8 +142,6 @@ class Creator:
         
         return
 
-    def set_commandline(self, string: str):
-        self.commandline=string
 
     def printer(self):
 
@@ -181,8 +166,8 @@ class Creator:
         print('##gff-version 3', file=locus_out)
 
         if self.sub_out is not None:
-            self.sub_metrics_file=re.sub("$",".metrics.tsv",  re.sub(".gff?$", "", self.sub_out  ))
-            self.sub_scores_file=re.sub("$",".scores.tsv",  re.sub(".gff?$", "", self.sub_out  ))
+            self.sub_metrics_file=re.sub("$",".metrics.tsv",  re.sub(".gff.?$", "", self.sub_out  ))
+            self.sub_scores_file=re.sub("$",".scores.tsv",  re.sub(".gff.?$", "", self.sub_out  ))
             sub_metrics=csv.DictWriter(open(self.sub_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
             sub_metrics.writeheader()
             sub_scores=csv.DictWriter(open(self.sub_scores_file,'w'), score_keys, delimiter="\t")
@@ -204,7 +189,7 @@ class Creator:
             
             if stranded_locus=="EXIT":
                 return #Poison pill - once we receive a "EXIT" signal, we exit
-            logger.info("Received {0}".format(stranded_locus.id))
+            logger.debug("Received {0}".format(stranded_locus.id))
             if self.sub_out is not None: #Skip this section if no sub_out is defined
                 sub_lines = stranded_locus.__str__(level="subloci", print_cds=not self.json_conf["run_options"]["exclude_cds"] )
                 sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
@@ -228,6 +213,23 @@ class Creator:
         return
     
     def db_connection(self):
+        '''Creator function for the database connection. It necessitates the following information from
+        the json_conf dictionary:
+        
+        - dbtype (one of sqlite, mysql, postgresql)
+        - db (name of the database file, for sqlite, otherwise name of the database)
+        
+        If the database is MySQL/PostGreSQL, the method also requires:
+        
+        - dbuser
+        - dbhost
+        - dbpasswd
+        - dbport
+        
+        These are controlled and added automatically by the json_utils functions.
+        
+        '''
+        
         if self.json_conf["dbtype"] == "sqlite":
             return sqlite3.connect(database= self.json_conf["db"])
         elif self.json_conf["dbtype"] == "mysql":
@@ -265,7 +267,8 @@ class Creator:
         It also accepts as optional keywords a dictionary with the CDS information (derived from a bed12Parser)
         and a "lock" used for avoiding writing collisions during multithreading.
         The function splits the superlocus into its strand components and calls the relevant methods
-        to define the loci. It also prints out the results to the requested output files.
+        to define the loci.
+        When it is finished, it transmits the superloci to the printer function.
         '''
     
         #Define the logger
@@ -277,11 +280,12 @@ class Creator:
         logger.propagate = False
     
         #Load the CDS information
-        logger.info("Loading transcript data")
+        logger.info("Started with {0}".format(slocus.id))
+        logger.debug("Loading transcript data")
         slocus.set_logger(logger)
         slocus.load_all_transcript_data(pool = self.connection_pool)
         #Split the superlocus in the stranded components
-        logger.info("Splitting by strand")
+        logger.debug("Splitting by strand")
         stranded_loci = sorted(list(slocus.split_strands()))
         #Define the loci        
         logger.debug("Divided into {0} loci".format(len(stranded_loci)))
@@ -290,7 +294,7 @@ class Creator:
         for stranded_locus in stranded_loci:
             try:
                 stranded_locus.define_loci()
-                logger.info("Defined loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                logger.debug("Defined loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
                                                                                stranded_locus.start,
                                                                                stranded_locus.end,
                                                                                stranded_locus.strand))
@@ -302,17 +306,28 @@ class Creator:
                 logger.exception("Exception: {0}".format(err))
                 stranded_loci.remove(stranded_locus)
                 
-        logger.info("Defined loci")
+        logger.debug("Defined loci")
+        
         #Remove overlapping fragments.
         #This part should be rewritten in order to make it more flexible and powerful.
         for stranded_locus in stranded_loci:
+            to_check = list(filter(lambda fl: fl.monoexonic is True,  stranded_locus.loci))
+            tids = []
+            for fl in to_check:
+                tids.extend( fl.transcripts.keys() )
+            logger.debug("Transcripts to check for {0}: {1}".format(stranded_locus.id, tids ))
             
-            if self.json_conf["run_options"]["remove_overlapping_fragments"] is True and len(stranded_loci)>1:
-                for final_locus in stranded_locus.loci:
-                    for other_superlocus in filter(lambda x: x!=stranded_locus, stranded_loci):
-                        for other_final_locus in other_superlocus.loci:
-                            if other_final_locus.other_is_fragment( final_locus ) is True and final_locus in stranded_locus.loci: 
-                                stranded_locus.loci.remove(final_locus)
+            for final_locus in to_check:
+                logger.debug("Checking if {0} is a fragment".format( list(final_locus.transcripts.keys())[0]  ))
+                for other_final_locus in filter(lambda x: x.monoexonic is False,
+                                                itertools.chain(*[x.loci for x in filter(lambda sl: sl!=stranded_locus, stranded_loci) ])): 
+                    if other_final_locus.other_is_fragment( final_locus ) is True:
+                        stranded_locus.loci.remove(final_locus)
+                        if self.json_conf["run_options"]["remove_overlapping_fragments"] is False:
+                            final_locus.is_fragment = True
+                            stranded_locus.loci.append(final_locus)
+                        break
+                                
             putter_counter = 0
             while True:
                 try:
@@ -335,6 +350,7 @@ class Creator:
                         break
         
         #close up shop
+        logger.info("Finished with {0}".format(slocus.id))
         logger.removeHandler(handler)
         handler.close()
         return
@@ -367,7 +383,7 @@ class Creator:
         
         jobs = []
         
-        
+        self.logger.debug("Source: {0}".format(self.json_conf["source"]))        
         for row in self.define_input():
             if row.is_exon is True:
                 currentTranscript.addExon(row)

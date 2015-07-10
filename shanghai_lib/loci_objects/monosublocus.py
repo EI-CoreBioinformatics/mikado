@@ -27,9 +27,11 @@ class monosublocus(abstractlocus):
         self.feature="monosublocus"
         self.parent=None
         self.score = transcript_instance.score
+        
 #         self.source = "locus_pipeline"
         self.tid = transcript_instance.id
         self.set_logger(logger)
+        self.attributes=dict()
         
     def __str__(self, print_cds=True):
         
@@ -42,13 +44,22 @@ class monosublocus(abstractlocus):
         self_line.id="{0}_{1}".format(self.source,self.id)
         self_line.name=self.name
         self_line.parent=self.parent
+        self_line.attributes.update(self.attributes)
+        if "is_fragment" in self.attributes and self.attributes["is_fragment"] is False:
+            del self_line.attributes["is_fragment"]
         self_line.attributes["multiexonic"]=(not self.monoexonic)
         lines.append(str(self_line))
             
         for tid in self.transcripts:
             transcript_instance=self.transcripts[tid]
             transcript_instance.source=self.source
-            transcript_instance.parent=self_line.id 
+            transcript_instance.parent=self_line.id
+            self.logger.debug(self.attributes)
+            for attribute in self.attributes:
+                if attribute not in transcript_instance.attributes:
+                    if attribute=="is_fragment" and self.attributes[attribute] is False: continue
+                    transcript_instance.attributes[attribute] = self.attributes[attribute]
+#                  
             lines.append(transcript_instance.__str__(print_cds=print_cds).rstrip())
             
         return "\n".join(lines)

@@ -27,6 +27,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
         self.stranded=True
         self.initialized = False
+        self.monoexonic = False
         
         #raise NotImplementedError("This is an abstract class and should not be called directly!")
     
@@ -199,51 +200,46 @@ class abstractlocus(metaclass=abc.ABCMeta):
 
 
     @classmethod
-    def find_communities(cls, objects: list, inters=None, **kwargs) -> (list,list):
-        '''This function is a wrapper around the networkX methods to find
-        cliques and communities inside a graph.
+    def define_graph(cls, objects: dict, inters=None, **kwargs) -> networkx.Graph :
+        '''This function will compute the graph which will later be used by find_communities.  
         The method takes as mandatory inputs the following:
-            - "objects" a list of objects that form the graph
+            - "objects" a dictionary of objects that form the graph
             - "inters" a function/method that determines whether two objects are connected or not.
-            
-        The objects are indexed inside a dictionary to prevent memory leaks (the graph otherwise would replicate each object for each clique).
-        The method returns two lists as result:
-        - cliques of original objects
-        - communities of the original objects
+
+        It will then return a graph.
         The method accepts also kwargs that can be passed to the inters function.
         WARNING: the kwargs option is really stupid and does not check for correctness of the arguments!        
         '''
-        
+
         if inters is None:
             inters = cls.is_intersecting
 #         assert hasattr(inters, "__call__")
 
-        indexer=dict() #Dictionary to keep track of what object is what index
-        
         graph=networkx.Graph()
-        graph.add_nodes_from(list(range(len(objects)))) #Add the nodes as numbers
-        objects=list(objects)
-        for num in range(len(objects)): #Assign each object to an index
-            indexer[num]=objects[num]
+        
+        graph.add_nodes_from( objects.keys() ) #As we are using intern for transcripts, this should prevent memory usage to increase too much  
 
         #edges=set() #Calculate connections
-        for num in indexer:
-            obj=indexer[num]
-            for other_num in indexer:
-                if (num!=other_num) and inters(obj, indexer[other_num], **kwargs):
-                    graph.add_edge(*tuple(sorted( [num, other_num] ))) #Connections are not directional
+        for obj in objects:
+            for other_obj in filter(lambda x: x!=obj, objects):
+                if inters(objects[obj], objects[other_obj], **kwargs):
+                    graph.add_edge(*tuple(sorted( [obj, other_obj] ))) #Connections are not directional
 
+        return graph
+
+
+    @classmethod
+    def find_communities(cls, graph: networkx.Graph )-> (list,list):
+        '''This function is a wrapper around the networkX methods to find
+        cliques and communities inside a graph.
+        The method takes as input a precomputed graph and returns
+        two lists:
+            - cliques
+            - communities
+        '''
         cliques=[frozenset(x) for x in networkx.find_cliques(graph)]
         communities = list(networkx.k_clique_communities(graph, 2, cliques))+[frozenset(x) for x in cliques if len(x)==1]
-        final_communities=list()
-        final_cliques = list()
-        for community in communities:
-            final_communities.append( [indexer[num] for num in community]  )
-        for clique in cliques:
-            final_cliques.append( [indexer[num] for num in clique ]  )
-            
-        return final_cliques,final_communities
-
+        return cliques,communities
 
     @classmethod
     def find_cliques(cls,objects: list, inters=None) -> (networkx.Graph, list):
@@ -292,6 +288,8 @@ class abstractlocus(metaclass=abc.ABCMeta):
         More precisely, it updates the boundaries (start and end), adds the transcript to the internal "transcripts" store,
         and extends the splices and introns with those found inside the transcript.'''
         transcript_instance.finalize()
+        self.monoexonic = self.monoexonic and transcript_instance.monoexonic
+        
         if self.initialized is True:
             if check_in_locus is False:
                 pass
@@ -327,6 +325,7 @@ class abstractlocus(metaclass=abc.ABCMeta):
         if self.initialized is False:
             self.initialized = True
         self.source=transcript_instance.source
+#         self.source = "Mikado"
         return
 
     def remove_transcript_from_locus(self, tid: str):

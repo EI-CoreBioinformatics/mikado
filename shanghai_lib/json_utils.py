@@ -301,7 +301,7 @@ def check_json(json_conf, json_file):
         assert os.path.exists(json_conf["input"]) and os.path.isfile(json_conf["input"])
 
     if "source" not in json_conf:
-        json_conf["source"]="Shanghai"
+        json_conf["source"]="Mikado"
         
     for prefix in ["","mono","sub"]:
         key="{0}loci_out".format(prefix)

@@ -78,17 +78,14 @@ class monosublocus_holder(sublocus,abstractlocus):
         
         self.calculate_scores()
         
-        transcripts = dict()
-        transcripts.update(self.transcripts)
+        graph = self.define_graph(self.transcripts, inters=self.is_intersecting,
+                                  cds_only=self.json_dict["run_options"]["subloci_from_cds_only"]) 
         
-        while len(transcripts)>0:
-            cliques, communities = self.find_communities(set(transcripts.values()), inters=self.is_intersecting, 
-                                        cds_only=self.json_dict["run_options"]["subloci_from_cds_only"])
-            for pos, clique in enumerate(cliques):
-                cliques[pos]=frozenset( [x.id for x in clique] )
+        while len(graph)>0:
+            cliques, communities = self.find_communities(graph)
             to_remove = set()
             for lc in communities:
-                lc = dict((x.id, x) for x in lc)
+                lc = dict((x, self.transcripts[x]) for x in lc)
                 selected_tid=self.choose_best(lc)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
@@ -100,8 +97,7 @@ class monosublocus_holder(sublocus,abstractlocus):
                     new_locus = locus(selected_transcript, logger=self.logger)
                     self.loci.append(new_locus)
             self.logger.debug("Removing {0} transcripts from {1}".format(len(to_remove), self.id))
-            for t in to_remove:
-                del transcripts[t]
+            graph.remove_nodes_from(to_remove) #Remove nodes from graph, iterate
         
         self.splitted = True
         return
@@ -117,7 +113,7 @@ class monosublocus_holder(sublocus,abstractlocus):
         - If one or both of the transcript is monoexonic OR one or both lack an ORF, check for any exonic overlap
         - Otherwise, check for any CDS overlap. 
         '''
-        if transcript_instance==other:
+        if transcript_instance.id==other.id:
             return False # We do not want intersection with oneself
 
         if cls.overlap((transcript_instance.start,transcript_instance.end), (other.start,other.end) )<=0: return False

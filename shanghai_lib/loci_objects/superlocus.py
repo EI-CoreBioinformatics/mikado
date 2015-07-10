@@ -9,7 +9,8 @@ if sys.version_info.minor>4 or (sys.version_info.minor == 4 and sys.version_info
     #Necessary for future compatibility
     from asyncio import ensure_future  
 else:
-    from asyncio import async as ensure_future
+    from asyncio.tasks import async as ensure_future
+
 
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -27,7 +28,7 @@ from shanghai_lib.loci_objects.transcript import transcript
 from shanghai_lib.loci_objects.sublocus import sublocus
 from shanghai_lib.loci_objects.monosublocus_holder import monosublocus_holder
 from shanghai_lib.parsers.GFF import gffLine
-from shanghai_lib.exceptions import InvalidLocusError,NoJsonConfigError
+from shanghai_lib.exceptions import NoJsonConfigError
 
 class superlocus(abstractlocus):
     
@@ -273,7 +274,9 @@ class superlocus(abstractlocus):
     def load_all_transcript_data(self, pool=None):
         
         '''This method will load data into the transcripts instances, and perform the split_by_cds if required
-        by the configuration.'''
+        by the configuration.
+        Asyncio coroutines are used to decrease runtime.
+        '''
         
         if "db" not in self.json_dict or self.json_dict["db"] is None:
             return #No data to load
@@ -298,6 +301,9 @@ class superlocus(abstractlocus):
         loop.run_until_complete(asyncio.wait(tasks))
         self.session.close()
         self.sessionmaker.close_all()
+        num_coding = sum( 1 for x in self.transcripts if self.transcripts[x].selected_cds_length>0  )
+        self.logger.debug("Found {0} coding transcripts out of {1} in {2}".format(num_coding, len(self.transcripts), self.id)  )
+        
         self.session = None
         self.sessionmaker = None
 
@@ -348,17 +354,16 @@ class superlocus(abstractlocus):
             self.subloci_defined=True
             return
 
-        candidates = set(self.transcripts.values()) 
-        if len(candidates)==0:
-            raise InvalidLocusError("This superlocus has no transcripts in it!")
-        _, subloci = self.find_communities(candidates, inters=self.is_intersecting,
+#         candidates = set(self.transcripts.values())
+        transcript_graph = self.define_graph(self.transcripts, inters=self.is_intersecting,
                                         cds_only=self.json_dict["run_options"]["subloci_from_cds_only"])
+        _, subloci = self.find_communities(transcript_graph)
 
         #Now we should define each sublocus and store it in a permanent structure of the class
-                
         for subl in subloci:
             if len(subl)==0:
                 continue
+            subl = [self.transcripts[x] for x in subl]
             subl=sorted(subl)
             new_sublocus = sublocus(subl[0], json_dict=self.json_dict, logger=self.logger)
             for ttt in subl[1:]:
@@ -497,19 +502,22 @@ class superlocus(abstractlocus):
         self.monoholders = []
         
         for monosublocus_instance in sorted(self.monosubloci):
-            if self.monoholders == []:
+#             if self.monoholders == []:
+#                 holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, logger=self.logger)
+#                 self.monoholders.append(holder)
+#             else:
+            found_holder=False
+            for holder in self.monoholders:
+                if monosublocus_holder.in_locus(holder, monosublocus_instance):
+                    holder.add_monosublocus(monosublocus_instance)
+                    found_holder=True
+                    break
+            if found_holder is False:
                 holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, logger=self.logger)
                 self.monoholders.append(holder)
-            else:
-                found_holder=False
-                for holder in self.monoholders:
-                    if monosublocus_holder.in_locus(holder, monosublocus_instance):
-                        holder.add_monosublocus(monosublocus_instance)
-                        found_holder=True
-                        break
-                if found_holder is False:
-                    holder = monosublocus_holder(monosublocus_instance, json_dict=self.json_dict, logger=self.logger)
-                    self.monoholders.append(holder)
+                
+        for monoholder in self.monoholders:
+            monoholder.calculate_scores()
                 
     def compile_requirements(self):
         '''Quick function to evaluate the filtering expression, if it is present.'''

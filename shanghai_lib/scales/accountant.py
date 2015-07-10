@@ -117,16 +117,22 @@ class accountant:
         if tr.strand is None: s="+"
         else: s=tr.strand
 
-        if len(result.j_f1)==1:
-            for refid,refgene,junc_f1,nucl_f1 in zip(result.RefId, result.RefGene, result.j_f1, result.n_f1):
-                if junc_f1==100 and nucl_f1>=95:
-                    for parent in tr.parent:
+        
+        if result.ccode!=("u",):
+            self.pred_genes[parent][tr.id]|=0b100
+            for refid,refgene in zip(result.RefId, result.RefGene):
+                self.ref_genes[refgene][refid] |= 0b100
+
+            if len(result.j_f1)==1:
+                for refid,refgene,junc_f1,nucl_f1 in zip(result.RefId, result.RefGene, result.j_f1, result.n_f1):
+                    if junc_f1==100 and nucl_f1>=95:
+                        for parent in tr.parent:
+                            if nucl_f1==100:
+                                self.pred_genes[parent][tr.id] |= 0b01
+                            self.pred_genes[parent][tr.id] |= 0b10
+                        self.ref_genes[refgene][refid] |= 0b10
                         if nucl_f1==100:
-                            self.pred_genes[parent][tr.id] |= 0b01
-                        self.pred_genes[parent][tr.id] |= 0b10
-                    self.ref_genes[refgene][refid] |= 0b10
-                    if nucl_f1==100:
-                        self.ref_genes[refgene][refid] |= 0b01
+                            self.ref_genes[refgene][refid] |= 0b01
 
         if tr.chrom not in self.exons:
             self.exons[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
@@ -415,17 +421,23 @@ class accountant:
         found_ref_genes_stringent = 0
         found_ref_genes_lenient = 0
         
+        missed_genes = 0
+        missed_transcripts = 0
         
         ref_transcripts = 0
         for ref_gene in self.ref_genes:
-            gene_found = 0b00
+            gene_match = 0b00
+            gene_not_found = 0b0
             for _,val in self.ref_genes[ref_gene].items():
                 ref_transcripts+=1
                 found_ref_transcripts_lenient += (0b10 & val ) >> 1 
-                found_ref_transcripts_stringent += 0b1 & val 
-                gene_found |= val 
-            found_ref_genes_stringent += gene_found & 0b1
-            found_ref_genes_lenient += (gene_found & 0b10) >> 1
+                found_ref_transcripts_stringent += 0b1 & val
+                missed_transcripts +=  (0b100 & val ) >> 2 ^ 0b1 #Will evaluate to 1 if the transcript has at least one match
+                gene_not_found ^= (0b100 & val ) >> 2 ^ 0b1
+                gene_match |= val 
+            found_ref_genes_stringent += gene_match & 0b1
+            found_ref_genes_lenient += (gene_match & 0b10) >> 1
+            missed_genes += gene_not_found
         
         self.logger.debug("Found ref transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(found_ref_transcripts_stringent, found_ref_transcripts_lenient, ref_transcripts)   )
         
@@ -435,15 +447,22 @@ class accountant:
         found_pred_genes_lenient = 0
         pred_transcripts = 0
         
+        novel_genes = 0
+        novel_transcripts = 0
+        
         for pred_gene in self.pred_genes:
-            gene_found = 0b00
+            gene_match = 0b000
+            gene_not_found = 0b0
             for _,val in self.pred_genes[pred_gene].items():
                 pred_transcripts+=1
                 found_pred_transcripts_lenient += (0b10 & val ) >> 1 
-                found_pred_transcripts_stringent += 0b1 & val 
-                gene_found |= val 
-            found_pred_genes_stringent += gene_found & 0b1
-            found_pred_genes_lenient += (gene_found & 0b10)>>1
+                found_pred_transcripts_stringent += 0b1 & val
+                novel_transcripts += (0b100 & val ) >> 2 ^ 0b1 #Will evaluate to 1 if the transcript has at least one match
+                gene_not_found ^= (0b100 & val ) >> 2 ^ 0b1
+                gene_match |= val 
+            found_pred_genes_stringent += gene_match & 0b1
+            found_pred_genes_lenient += (gene_match & 0b10)>>1
+            novel_genes += gene_not_found
         
         self.logger.debug("Found pred transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(found_pred_transcripts_stringent, found_pred_transcripts_lenient, pred_transcripts)   )
 
@@ -512,44 +531,70 @@ class accountant:
             print("         {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level (stringent):",  gene_recall_stringent*100, gene_precision_stringent*100, gene_f1_stringent*100 )  , file=out  )
             print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level (lenient):",  gene_recall_lenient*100, gene_precision_lenient*100, gene_f1_lenient*100 )  , file=out  )
             print(file=out)
-            print("        Matching intron chains: {0}".format(intron_chains_common_pred), file=out)
-            print("         Matched intron chains: {0}".format(intron_chains_common_ref), file=out)
+            print("         Matching intron chains: {0}".format(intron_chains_common_pred), file=out)
+            print("          Matched intron chains: {0}".format(intron_chains_common_ref), file=out)
+            
+            print("", file = out)            
 #             print(" Matched intron chains: {0}".format(len(self.matching_chains)), file=out)
             
-            print("            {0} {1}/{2}  ({3:.2f}%)".format("Missed exons (stringent):",
+            print("       {0} {1}/{2}  ({3:.2f}%)".format("Missed exons (stringent):",
                                                        exon_ref_stringent-exon_common_stringent,
                                                        exon_ref_stringent,
                                                        100*(exon_ref_stringent-exon_common_stringent)/(exon_ref_stringent) if exon_ref_stringent>0 else 0 ),
                   file=out)
-            print("             {0} {1}/{2}  ({3:.2f}%)".format("Novel exons (stringent):",
+            print("        {0} {1}/{2}  ({3:.2f}%)".format("Novel exons (stringent):",
                                                        exon_pred_stringent-exon_common_stringent,
                                                        exon_pred_stringent,
                                                        100*(exon_pred_stringent-exon_common_stringent)/(exon_pred_stringent) if exon_pred_stringent>0 else 0 ),
                   file=out)
-            print("              {0} {1}/{2}  ({3:.2f}%)".format("Missed exons (lenient):",
+            print("         {0} {1}/{2}  ({3:.2f}%)".format("Missed exons (lenient):",
                                                        exon_ref_lenient-exon_common_lenient,
                                                        exon_ref_lenient,
                                                        100*(exon_ref_lenient-exon_common_lenient)/(exon_ref_lenient) if exon_ref_lenient>0 else 0 ),
                   file=out)
-            print("               {0} {1}/{2}  ({3:.2f}%)".format("Novel exons (lenient):",
+            print("          {0} {1}/{2}  ({3:.2f}%)".format("Novel exons (lenient):",
                                                        exon_pred_lenient-exon_common_lenient,
                                                        exon_pred_lenient,
                                                        100*(exon_pred_lenient-exon_common_lenient)/(exon_pred_lenient) if exon_pred_lenient>0 else 0 ),
                   file=out)
 
             
-            print("                      {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
+            print("                 {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
                                                        intron_ref-intron_common,
                                                        intron_ref,
                                                        100*(intron_ref-intron_common)/intron_ref if intron_ref>0 else 0 ),
                   file=out)
 
             
-            print("                       {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
+            print("                  {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
                                                        intron_pred-intron_common,
                                                        intron_pred,
                                                        100*(intron_pred-intron_common)/intron_pred if intron_pred>0 else 0 ),
                   file=out)
+            print("", file = out)
+            print("             {0} {1}/{2} ({3:.2f}%)".format("Missed transcripts:",
+                                                                missed_transcripts,
+                                                                num_ref_transcripts,
+                                                                100*missed_transcripts/num_ref_transcripts if num_ref_transcripts>0 else 0
+                                                                ), file=out)
+            print("              {0} {1}/{2} ({3:.2f}%)".format("Novel transcripts:",
+                                                                novel_transcripts,
+                                                                num_pred_transcripts,
+                                                                100*novel_transcripts/num_pred_transcripts if num_pred_transcripts>0 else 0
+                                                                ), file=out)
+
+            print("                   {0} {1}/{2} ({3:.2f}%)".format("Missed genes:",
+                                                                missed_genes,
+                                                                len(self.ref_genes),
+                                                                100*missed_genes/len(self.ref_genes) if len(self.ref_genes)>0 else 0 
+                                                                ), file=out)
+            print("                    {0} {1}/{2} ({3:.2f}%)".format("Novel genes:",
+                                                                novel_genes,
+                                                                len(self.pred_genes),
+                                                                100*novel_genes/len(self.pred_genes) if len(self.pred_genes)>0 else 0
+                                                                ), file=out)
+
+
             
             
         self.logger.removeHandler(self.queue_handler)

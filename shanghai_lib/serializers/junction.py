@@ -11,6 +11,8 @@ from shanghai_lib.serializers.dbutils import dbBase,Inspector
 class Chrom(dbBase):
     
     __tablename__="chrom"
+    __table_args__ = {"extend_existing": True }
+    
     id=Column(Integer, primary_key=True)
     name=Column(String(200))
     length=Column(Integer, nullable=True)
@@ -24,6 +26,7 @@ class Chrom(dbBase):
 
 class junction(dbBase):
     __tablename__="junctions"
+    
      
     id=Column(Integer, primary_key=True)
     chrom_id=Column(Integer, ForeignKey(Chrom.id), unique=False)
@@ -34,7 +37,7 @@ class junction(dbBase):
     junctionStart=Column(Integer, nullable=False)
     junctionEnd=Column(Integer, nullable=False)
     score=Column(Float)
-    __table_args__ = ( Index("junction_index", "chrom_id", "junctionStart", "junctionEnd"  ), )
+    __table_args__ = ( Index("junction_index", "chrom_id", "junctionStart", "junctionEnd"  ), {"extend_existing": True })
     
     chrom_object= relationship(Chrom, uselist=False, backref=backref("junctions"), lazy="immediate")
     

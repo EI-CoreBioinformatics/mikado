@@ -190,6 +190,7 @@ class Creator:
             if stranded_locus=="EXIT":
                 return #Poison pill - once we receive a "EXIT" signal, we exit
             logger.debug("Received {0}".format(stranded_locus.id))
+            stranded_locus.set_logger(logger)
             if self.sub_out is not None: #Skip this section if no sub_out is defined
                 sub_lines = stranded_locus.__str__(level="subloci", print_cds=not self.json_conf["run_options"]["exclude_cds"] )
                 sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
@@ -231,7 +232,7 @@ class Creator:
         '''
         
         if self.json_conf["dbtype"] == "sqlite":
-            return sqlite3.connect(database= self.json_conf["db"])
+            return sqlite3.connect(database= self.json_conf["db"]) #@UndefinedVariable
         elif self.json_conf["dbtype"] == "mysql":
             import MySQLdb
             return MySQLdb.connect(host = self.json_conf["dbhost"],
@@ -309,25 +310,24 @@ class Creator:
         logger.debug("Defined loci")
         
         #Remove overlapping fragments.
-        #This part should be rewritten in order to make it more flexible and powerful.
+        loci_to_check = {True: set(), False:set()}
         for stranded_locus in stranded_loci:
-            to_check = list(filter(lambda fl: fl.monoexonic is True,  stranded_locus.loci))
-            tids = []
-            for fl in to_check:
-                tids.extend( fl.transcripts.keys() )
-            logger.debug("Transcripts to check for {0}: {1}".format(stranded_locus.id, tids ))
-            
-            for final_locus in to_check:
-                logger.debug("Checking if {0} is a fragment".format( list(final_locus.transcripts.keys())[0]  ))
-                for other_final_locus in filter(lambda x: x.monoexonic is False,
-                                                itertools.chain(*[x.loci for x in filter(lambda sl: sl!=stranded_locus, stranded_loci) ])): 
-                    if other_final_locus.other_is_fragment( final_locus ) is True:
-                        stranded_locus.loci.remove(final_locus)
-                        if self.json_conf["run_options"]["remove_overlapping_fragments"] is False:
-                            final_locus.is_fragment = True
-                            stranded_locus.loci.append(final_locus)
+            for _,locus_instance in stranded_locus.loci.items():
+                loci_to_check[locus_instance.monoexonic].add(locus_instance)
+        
+        
+        for stranded_locus in stranded_loci:
+            for locus_id,locus_instance in stranded_locus.loci.items():
+                if locus_instance in loci_to_check[True]:
+                    logger.debug("Checking if {0} is a fragment".format( _ ))
+                    for other_locus in loci_to_check[False]:
+                        if other_locus.other_is_fragment( locus_instance) is True:
+                            if self.json_conf["run_options"]["remove_overlapping_fragments"] is False:
+                                stranded_locus.loci[locus_id].is_fragment=True
+                            else:
+                                del stranded_locus.loci[locus_id]
                         break
-                                
+                    
             putter_counter = 0
             while True:
                 try:

@@ -254,7 +254,18 @@ class assigner:
         self.stat_calculator.print_stats(self.genes)
     
     
-    def calc_compare(self,tr:transcript, other:transcript) ->  result_storer:
+    def calc_compare(self, tr:transcript, other:transcript) ->  result_storer:
+        
+        '''Thin layer around the calc_compare class method'''
+        
+        result, other_exon = self.compare(tr, other)
+        
+        self.stat_calculator.store(tr, result, other_exon)
+        
+        return result
+    
+    @classmethod
+    def compare(cls,tr:transcript, other:transcript) ->  (result_storer,tuple):
     
         '''Function to compare two transcripts and determine a ccode.
         Available ccodes (from Cufflinks documentation):
@@ -284,6 +295,7 @@ class assigner:
         - K    Reverse intron retention - the annotated gene model retains an intron compared to the prediction
         - P    Possible polymerase run-on fragment (within 2Kbases of a reference transcript), on the opposite strand
     
+        This is a class method, and can therefore be used from outside the compare script.
         ''' 
         
         tr_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in tr.exons]))
@@ -414,10 +426,8 @@ class assigner:
                          )
         if ccode is None:
             raise ValueError("Ccode is null;\n{0}".format(  repr(result)))
-     
-        self.stat_calculator.store(tr, result, other_exon)
     
-        return result
+        return result,other_exon
     
     
     def print_tmap(self, res:result_storer):

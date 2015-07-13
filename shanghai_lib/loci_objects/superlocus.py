@@ -2,6 +2,7 @@
 
 #Core imports
 import sys,os.path
+import collections
 import sqlalchemy
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import asyncio
@@ -29,6 +30,7 @@ from shanghai_lib.loci_objects.sublocus import sublocus
 from shanghai_lib.loci_objects.monosublocus_holder import monosublocus_holder
 from shanghai_lib.parsers.GFF import gffLine
 from shanghai_lib.exceptions import NoJsonConfigError
+
 
 class superlocus(abstractlocus):
     
@@ -124,14 +126,14 @@ class superlocus(abstractlocus):
             raise ValueError("Unrecognized level: {0}".format(level))
         
         if level=="loci" or (level is None and self.loci_defined is True):
-            self.define_loci()
+            self.define_alternative_splicing()
             if len(self.loci)>0:
                 source="{0}_loci".format(self.source)
                 superlocus_line.source=source
                 lines.append(str(superlocus_line))
                 found=dict()
                 
-                for locus_instance in self.loci:
+                for _,locus_instance in self.loci.items():
                     locus_instance.source=source
                     locus_instance.parent = new_id
                     if locus_instance.id in found:
@@ -394,6 +396,9 @@ class superlocus(abstractlocus):
         #Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
             self.excluded_transcripts=sublocus_instance.define_monosubloci(purge=self.purge, excluded=self.excluded_transcripts)
+            for tid in sublocus_instance.transcripts:
+                #Update the score
+                self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
             for ml in sublocus_instance.monosubloci:
                 ml.parent = self.id
                 self.monosubloci.append(ml)
@@ -490,12 +495,50 @@ class superlocus(abstractlocus):
             monoholder.define_loci(purge=self.purge)
             for locus_instance in monoholder.loci:
                 locus_instance.parent = self.id
-                self.loci.append(locus_instance)
-            
-        self.loci=sorted(self.loci)
+                self.loci.append( locus_instance )
+        
+        
+        
+        loci = collections.OrderedDict()
+        for l in sorted(self.loci):
+            loci[l.id]=l
+        self.loci = loci
         self.loci_defined = True
         
         return
+    
+    
+    def define_alternative_splicing(self):
+        
+        #First off, define genes
+        
+        self.define_loci()
+
+        candidates = collections.defaultdict(set)
+        
+        t_graph = self.define_graph(self.transcripts, inters=monosublocus_holder.is_intersecting,
+                                    cds_only=self.json_dict["run_options"]["subloci_from_cds_only"]  )
+        cliques, _ = self.find_communities(t_graph)
+        
+        loci_cliques = dict()
+        for lid,locus_instance in self.loci.items():
+            self.loci[lid].set_logger(self.logger)
+            loci_cliques[lid] = set()
+            for clique in cliques:
+                if locus_instance.primary_transcript_id in clique:
+                    loci_cliques[locus_instance.id].update(clique)
+
+        for tid in self.transcripts:
+            loci_in = list(filter(lambda lid: tid in loci_cliques[lid], loci_cliques ))
+            if len(loci_in)==1:
+                candidates[loci_in[0]].add(tid)
+                     
+            
+        for lid in candidates:
+            for tid in sorted(candidates[lid], key=lambda tid: self.transcripts[tid].score, reverse=True  ):
+                self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
+        
+    
     
     def calculate_mono_metrics(self):
         '''Wrapper to calculate the metrics for the monosubloci.'''

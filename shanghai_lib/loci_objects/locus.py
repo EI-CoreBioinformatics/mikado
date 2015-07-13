@@ -100,7 +100,7 @@ class locus(monosublocus,abstractlocus):
         
         for tid in self.transcripts:
             result,_ = assigner.compare(other, self.transcripts[tid]) 
-            self.logger.warn("{0} vs. {1}: {2}".format(tid, other.id, result.ccode[0]))
+            self.logger.debug("{0} vs. {1}: {2}".format(tid, other.id, result.ccode[0]))
             if result.ccode[0] not in ("j", "n"):
                 return False
             if result.n_f1==0 or result.j_f1 == 0:

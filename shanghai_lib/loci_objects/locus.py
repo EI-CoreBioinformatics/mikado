@@ -76,7 +76,8 @@ class locus(monosublocus,abstractlocus):
 #             return True
 #         return False
         result, _ = assigner.compare( other.primary_transcript, self.primary_transcript)
-        if result.ccode == ("x",) or result.ccode == ("P",):
+        #Exclude anything which is completely contained within an intron, or is a monoexonic fragment overlapping/in the neighborhood
+        if result.ccode[0] in ("x", "i", "P"):  
             return True
         return False
 

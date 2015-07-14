@@ -318,6 +318,7 @@ class assigner:
     
         other_exon = None
     
+        #Both multiexonic
         if min(tr.exon_num, other.exon_num)>1:
             assert min(len(tr.splices), len(other.splices))>0, (tr.introns, tr.splices)
             one_intron_confirmed = any(intron in other.introns for intron in tr.introns)
@@ -362,7 +363,11 @@ class assigner:
         if ccode is None:
             if min(tr.exon_num, other.exon_num)>1:
                 if junction_recall == 1 and junction_precision<1:
-                    ccode = "n" # we have recovered all the junctions AND added some other junctions of our own
+                    new_splices = set.difference(set(tr.splices), set(other.splices))
+                    if any( min(other.splices)<splice<max(other.splices) for splice in new_splices  ):
+                        ccode="j"
+                    else:
+                        ccode = "n" # we have recovered all the junctions AND added some other junctions of our own
                 elif junction_recall>0 and 0<junction_precision<1:
                     if one_intron_confirmed is True:
                         ccode = "j"

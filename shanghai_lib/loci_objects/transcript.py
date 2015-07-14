@@ -972,33 +972,29 @@ class transcript:
         self.internal_orfs = []
         self.finalized = False
         primary_orf=True # Token to be set to False after the first CDS is exhausted
-        self.loaded_bed12 = [] #This will keep in memory the original BED12 objects        
+        self.loaded_bed12 = [] #This will keep in memory the original BED12 objects
+        
+        #If we are looking at a multiexonic transcript
+        if not (self.monoexonic is True and self.strand is None):
+            candidate_orfs = list(filter( lambda co: co.strand == "+", candidate_orfs))
+        else:
+            #Candidate ORFs are already sorted by CDS length
+            candidate_orfs = list(filter( lambda co: co.strand == candidate_orfs[0].strand, candidate_orfs  ))
+        
+                
         for orf in candidate_orfs:
             #Minimal check
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
+                primary_orf = False
             
             if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length): #Leave leeway for TD
                 self.logger.warn("Wrong ORF:\n\t{0}\ncDNA length: {1}\nStart,end: {2}-{3}".format(str(orf), self.cdna_length, self.start, self.end))
                 continue
+
             if self.strand is None:
-                self.strand=new_strand=orf.strand
-            else:
-                new_strand=self.strand
-            primary_orf = False
-
+                self.strand = orf.strand
             
-            if self.strand is None: #Must be monoexonic
-                self.strand=new_strand=orf.strand
-            elif orf.strand == "-":
-                assert self.monoexonic is True
-                if new_strand is not None and orf.strand!=new_strand:
-                        continue #Skip
-                if self.strand=="+":
-                    self.strand="-"
-                elif self.strand=="-":
-                    self.strand="+"
-
             self.loaded_bed12.append(orf)
             cds_exons = []
             current_start, current_end = 0,0
@@ -1166,9 +1162,9 @@ class transcript:
     
     @classmethod
     def is_overlapping_cds(cls, first, second):
-        if first==second or first.strand!=second.strand or cls.overlap(
-                                                                       (first.thickStart,first.thickEnd),
-                                                                       (second.thickStart,second.thickEnd))<0:
+        if first==second or cls.overlap(
+                                        (first.thickStart,first.thickEnd),
+                                        (second.thickStart,second.thickEnd))<=0:
             return False
         return True
         

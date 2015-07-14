@@ -1,4 +1,5 @@
 import sys,os.path
+import itertools
 from shanghai_lib.loci_objects.transcript import transcript
 from shanghai_lib.scales.assigner import assigner
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -27,8 +28,41 @@ class locus(monosublocus,abstractlocus):
     def add_transcript_to_locus(self, transcript_instance):
         '''Loci must be able to add multiple transcripts.'''
         
-        if not self.is_alternative_splicing(transcript_instance):
+        if len(self.transcripts)>=self.json_conf["alternative_splicing"]["max_isoforms"]:
+            self.logger.debug("{0} not added because the locus has already too many transcripts.".format(transcript_instance.id))
             return
+        if not self.is_alternative_splicing(transcript_instance):
+            self.logger.debug("{0} not added because it is not a valid splicing isoform.".format(transcript_instance.id))
+            return
+        if transcript_instance.combined_utr_length>self.json_conf["alternative_splicing"]["max_utr_length"]:
+            self.logger.debug("{0} not added because it has too much UTR ({1)}.".format(transcript_instance.id,
+                                                                                        transcript_instance.combined_utr_length))
+            return
+        if transcript_instance.five_utr_length>self.json_conf["alternative_splicing"]["max_fiveutr_length"]:
+            self.logger.debug("{0} not added because it has too much 5'UTR ({1)}.".format(transcript_instance.id,
+                                                                                        transcript_instance.five_utr_length))
+            return
+        if transcript_instance.three_utr_length>self.json_conf["alternative_splicing"]["max_threeutr_length"]:
+            self.logger.debug("{0} not added because it has too much 5'UTR ({1)}.".format(transcript_instance.id,
+                                                                                        transcript_instance.three_utr_length))
+            return
+        
+        if self.json_conf["alternative_splicing"]["keep_retained_introns"] is False:
+            self.find_retained_introns(transcript_instance)
+            if transcript_instance.retained_intron_num>0:
+                self.logger.debug("{0} not added because it has {1} retained introns.".format(transcript_instance.id,
+                                                                                              transcript_instance.retained_intron_num))
+                return
+        if self.json_conf["alternative_splicing"]["min_cds_overlap"]>0 and self.primary_transcript.combined_cds_length>0:
+            tr_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in transcript_instance.combined_cds]))
+            primary_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in self.primary_transcript.combined_cds]))
+            nucl_overlap = len(set.intersection(primary_nucls, tr_nucls))
+            ol = nucl_overlap/self.primary_transcript.combined_cds_length 
+            if ol <self.json_conf["alternative_splicing"]["min_cds_overlap"]:
+                self.logger.debug("{0} not added because its CDS overlap with the primary CDS is too low ({1:.2f}%).".format(transcript_instance.id,
+                                                                                                                             ol*100))
+                return
+        
         transcript_instance.attributes["primary"]=False
         
         abstractlocus.add_transcript_to_locus(self, transcript_instance)
@@ -82,6 +116,8 @@ class locus(monosublocus,abstractlocus):
         return False
 
     
+    def set_json_conf(self, jconf: dict):
+        self.json_conf = jconf
     
     def is_alternative_splicing(self, other):
     

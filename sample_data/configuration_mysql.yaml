@@ -25,6 +25,11 @@ dbuser: venturil
 orf_loading:
   minimal_secondary_orf_length: 200
   strand_specific: true
+#Alternative splicing
+alternative_splicing:
+  report: true
+  keep_retained_introns: false
+  max_isoforms: 3
 requirements:
   expression: [((exon_num.multi and cdna_length.multi and max_intron_length), or,
     (exon_num.mono and combined_cds_length.mono and cdna_length.mono))]

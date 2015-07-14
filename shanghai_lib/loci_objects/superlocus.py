@@ -126,7 +126,9 @@ class superlocus(abstractlocus):
             raise ValueError("Unrecognized level: {0}".format(level))
         
         if level=="loci" or (level is None and self.loci_defined is True):
-            self.define_alternative_splicing()
+            self.define_loci()
+            if self.json_dict["alternative_splicing"]["report"] is True:
+                self.define_alternative_splicing()
             if len(self.loci)>0:
                 source="{0}_loci".format(self.source)
                 superlocus_line.source=source
@@ -523,6 +525,7 @@ class superlocus(abstractlocus):
         loci_cliques = dict()
         for lid,locus_instance in self.loci.items():
             self.loci[lid].set_logger(self.logger)
+            self.loci[lid].set_json_conf( self.json_dict )
             loci_cliques[lid] = set()
             for clique in cliques:
                 if locus_instance.primary_transcript_id in clique:

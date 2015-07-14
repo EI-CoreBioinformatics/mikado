@@ -1,6 +1,7 @@
 import sys,os.path,re
 from distutils import spawn
 import yaml
+from shanghai_lib.exceptions import InvalidJson
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from shanghai_lib.loci_objects.transcript import transcript
 # from shanghai_lib import *
@@ -22,6 +23,60 @@ def check_log(json_conf):
                                                                                                           json_conf["log_level"],
                                                                                                           "\n\t".join(valid_levels)
                                                                                                           )  )
+    return json_conf
+
+
+def check_alternative_splicing(json_conf):
+    
+    '''This function checks the options for the alternative splicing reporting.
+    If no option is present in the configuration file, the basic "alternative_splicing": {"report" = False }
+    will be added to the json_conf.
+    
+    Possible options:
+    
+    - min_cds_overlap:    Amount of CDS recall on the primary transcript. It can be expressed as values b/w 01 and 1,
+                          or 1 to 100. Default: 0.
+    - max_utr_length      Maximum UTR length of the AS isoforms.
+    - max_isoforms        Maximum number of isoforms per locus.
+    
+    '''
+    
+    if "alternative_splicing" not in json_conf:
+        json_conf["alternative_splicing"]=dict()
+    
+    if "report" not in json_conf["alternative_splicing"]:
+        json_conf["alternative_splicing"]["report"]=False
+    else:
+        assert type(json_conf["alternative_splicing"]["report"]) is bool
+        if "min_cds_overlap" not in json_conf["alternative_splicing"]:
+            json_conf["alternative_splicing"]["min_cds_overlap"]=0
+        else:
+            assert type(json_conf["alternative_splicing"]["min_cds_overlap"]) is float
+            if json_conf["alternative_splicing"]["min_cds_overlap"]<0 or json_conf["alternative_splicing"]["min_cds_overlap"]>100:
+                raise InvalidJson("Invalid percentage value for min_cds_overlap: {0}".format(json_conf["alternative_splicing"]["min_cds_overlap"]))
+            if 1<json_conf["alternative_splicing"]["min_cds_overlap"]<=100:
+                json_conf["alternative_splicing"]["min_cds_overlap"]/=100
+        if "max_isoforms" not in  json_conf["alternative_splicing"]:
+            json_conf["alternative_splicing"]["max_isoforms"]=10000
+        else:
+            assert type(json_conf["alternative_splicing"]["max_isoforms"]) is int and json_conf["alternative_splicing"]["max_isoforms"]>=1
+        if "max_utr_length" not in json_conf["alternative_splicing"]:
+            json_conf["alternative_splicing"]["max_utr_length"]= float("Inf")
+        else:
+            assert type(json_conf["alternative_splicing"]["max_utr_length"]) is int and json_conf["alternative_splicing"]["max_utr_length"]>=0
+        if "max_fiveutr_length" not in json_conf["alternative_splicing"]:
+            json_conf["alternative_splicing"]["max_fiveutr_length"]= float("Inf")
+        else:
+            assert type(json_conf["alternative_splicing"]["max_fiveutr_length"]) is int and json_conf["alternative_splicing"]["max_fiveutr_length"]>=0
+        if "max_threeutr_length" not in json_conf["alternative_splicing"]:
+            json_conf["alternative_splicing"]["max_threeutr_length"]= float("Inf")
+        else:
+            assert type(json_conf["alternative_splicing"]["max_threeutr_length"]) is int and json_conf["alternative_splicing"]["max_threeutr_length"]>=0
+        if "keep_retained_introns" not in json_conf["alternative_splicing"]:
+            json_conf["alternative_splicing"]["keep_retained_introns"]=True
+        else:
+            assert type(json_conf["alternative_splicing"]["keep_retained_introns"]) is bool
+    
     return json_conf
 
 
@@ -315,6 +370,7 @@ def check_json(json_conf, json_file):
     json_conf = check_chimera_split(json_conf)
     json_conf = check_run_options(json_conf)
     json_conf = check_log(json_conf)
+    json_conf = check_alternative_splicing(json_conf)
     return json_conf
        
 def to_json(string):

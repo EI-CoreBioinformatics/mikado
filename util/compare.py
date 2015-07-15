@@ -1,4 +1,4 @@
-import sys,argparse,os
+import sys,argparse,os,re
 sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 #import random
@@ -210,16 +210,18 @@ def main():
         if row.is_transcript is True:
             queue_logger.debug("Transcript row:\n{0}".format(str(row)))
             if currentTranscript is not None:
-                try:
-                    assigner_instance.get_best(currentTranscript)
-                except Exception as err:
-                    queue_logger.exception(err)
-                    log_queue_listener.enqueue_sentinel()
-                    handler.close()
-                    log_queue_listener.stop()
-                    args.queue_handler.close()
-                    raise
-                
+                if re.search("\.orf[0-9]+$", currentTranscript.id  ) and not currentTranscript.id.endswith("orf1"):
+                    pass
+                else:
+                    try:
+                        assigner_instance.get_best(currentTranscript)
+                    except Exception as err:
+                        queue_logger.exception(err)
+                        log_queue_listener.enqueue_sentinel()
+                        handler.close()
+                        log_queue_listener.stop()
+                        args.queue_handler.close()
+                        raise
             currentTranscript=transcript(row)
         elif row.is_exon is True:
             try:
@@ -235,15 +237,18 @@ def main():
             continue
 
     if currentTranscript is not None:
-        try:
-            assigner_instance.get_best(currentTranscript)
-        except Exception as err:
-            queue_logger.exception(err)
-            log_queue_listener.enqueue_sentinel()
-            handler.close()
-            log_queue_listener.stop()
-            args.queue_handler.close()
-            raise
+        if re.search("\.orf[0-9]+$", currentTranscript.id  ) and not currentTranscript.id.endswith("orf1"):
+            pass
+        else:
+            try:
+                assigner_instance.get_best(currentTranscript)
+            except Exception as err:
+                queue_logger.exception(err)
+                log_queue_listener.enqueue_sentinel()
+                handler.close()
+                log_queue_listener.stop()
+                args.queue_handler.close()
+                raise
  
     assigner_instance.finish()
 #     stat_storer_instance.print_stats(args)

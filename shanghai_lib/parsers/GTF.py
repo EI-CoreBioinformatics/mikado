@@ -122,10 +122,18 @@ class gtfLine(object):
 
             for tag in order:
                 if tag in self.attributes:
-                    self._info.append( "{0} \"{1}\"".format(tag, self.attributes[tag] ) )
+                    if type(self.attributes[tag]) is list:
+                        val = ",".join(self.attributes[tag])
+                    else:
+                        val = self.attributes[tag]
+                    self._info.append( "{0} \"{1}\"".format(tag, val ) )
 
             for info in filter(lambda x: x not in order, self.attributes.keys()):
-                self._info.append("{0} \"{1}\"".format(info, self.attributes[info] ) )
+                if type(self.attributes[info]) is list:
+                        val = ",".join(self.attributes[info])
+                else:
+                    val = self.attributes[info]
+                self._info.append("{0} \"{1}\"".format(info, val ) )
 
             self.fields.append('; '.join(self._info))
             self.fields[-1]+=';' #Fields finito, si può stampare.

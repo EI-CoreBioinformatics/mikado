@@ -111,23 +111,25 @@ def main():
             raise ValueError("Unrecognized format")
     
     parser=argparse.ArgumentParser("Script to trim down the terminal exons of multiexonic transcripts")
-    parser.add_argument("-ml", "--max_length", type=int, default=50, help="Maximmal length of terminal exons")
-    parser.add_argument("--keep_cds", action="store_true", default=False, help="Keep the CDS information.")
-    parser.add_argument("ann", type=to_ann)
+    parser.add_argument("-ml", "--max_length", type=int, default=50, help="Maximal length of trimmed terminal exons")
+    parser.add_argument("--as_gtf", default=False, action="store_true", help="Flag. If set, the output will be in GTF rather than GFF3 format.")
+    parser.add_argument("ann", type=to_ann, help="Reference GTF/GFF output file.")
     parser.add_argument("out", nargs="?", default=sys.stdout, type=argparse.FileType('w'))
     args=parser.parse_args()
     
+    if args.as_gtf is False:
+        print("##gff-version 3", file=args.out)
 
     currentTranscript=None
     
     for record in args.ann:
         if record.is_transcript is True:
             if currentTranscript is not None:
-                print(strip_terminal(currentTranscript, args), file=args.out)
+                print(strip_terminal(currentTranscript, args).__str__( to_gtf = args.as_gtf ), file=args.out)
             currentTranscript=shanghai_lib.loci_objects.transcript.transcript(record)
         elif record.is_exon is True:
             currentTranscript.addExon(record)
             
-    print(strip_terminal(currentTranscript, args), file=args.out)
+    print(strip_terminal(currentTranscript, args).__str__( to_gtf = args.as_gtf), file=args.out)
     
 if __name__ == "__main__": main()

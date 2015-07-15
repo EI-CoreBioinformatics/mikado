@@ -129,6 +129,11 @@ class gtfLine(object):
                     self._info.append( "{0} \"{1}\"".format(tag, val ) )
 
             for info in filter(lambda x: x not in order, self.attributes.keys()):
+                if info == "Parent" and self.attributes[info] in (self.gene, self.transcript, self.parent):
+                    continue
+                if info == "ID" and self.attributes[info] in (self.gene, self.transcript):
+                    continue 
+                
                 if type(self.attributes[info]) is list:
                         val = ",".join(self.attributes[info])
                 else:

@@ -708,15 +708,7 @@ class transcript:
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
         
-        if not ( sorted([self.start,self.end] ) == sorted([self.selected_cds_start, self.selected_cds_end]) ) or \
-            not (self.combined_cds_length==self.combined_utr_length==0 or self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-#             last_exon = self.exons[-1]
-#             if last_exon[1]<self.end:
-#                 self.exons[-1] = (last_exon[0], self.end)
-#             first_exon = self.exons[0]
-#             if first_exon[0]>self.start:
-#                 self.exons[0] = (self.start, first_exon[1])
-#             if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
+        if self.cdna_length > self.combined_utr_length + self.combined_cds_length:
             if self.combined_utr == [] and self.combined_cds!=[]:
                 self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0,1))
                 for exon in self.exons:
@@ -733,12 +725,14 @@ class transcript:
                             self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
                             self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                         else:
-                            raise shanghai_lib.exceptions.InvalidCDS("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds,
-                                                                            (self.start,self.selected_cds_start), (self.end, self.selected_cds_end )) 
+                            raise shanghai_lib.exceptions.InvalidCDS("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds
+                                                                            ) 
                 if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
                     raise shanghai_lib.exceptions.InvalidCDS("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
             else:
-                raise shanghai_lib.exceptions.InvalidCDS("Invalid input", self.id, self.exons, self.combined_cds, self.combined_utr)
+#                 raise shanghai_lib.exceptions.InvalidCDS("Invalid input", self.id, (self.cdna_length, self.combined_utr_length, self.combined_cds_length),
+#                                                           self.exons, self.combined_cds, self.combined_utr)
+                pass
 
 
 #         assert len(self.exons)>0
@@ -1379,22 +1373,6 @@ class transcript:
             return self.combined_cds[-1][1]
        
     @property
-    def selected_cds_start(self):
-        '''This property returns the location of the start of the best CDS for the transcript.
-        If no CDS is defined, it defaults to the transcript start.'''
-
-        if len(self.combined_cds)==0 or not hasattr(self, "internal_orf_cds"):
-            if self.strand=="+":
-                return self.start
-            else:
-                return self.end
-            
-        if self.strand=="+":
-            return self.selected_internal_orf_cds[0][1]
-        else:
-            return self.selected_internal_orf_cds[-1][2]
-
-    @property
     def combined_cds(self):
         '''This is a list which contains all the non-overlapping CDS segments inside the cDNA.
         The list comprises the segments as duples (start,end).'''
@@ -1438,21 +1416,6 @@ class transcript:
             return self.combined_cds[-1][1]
 
     @property
-    def selected_cds_end(self):
-        '''This property returns the location of the end of the best CDS for the transcript.
-        If no CDS is defined, it defaults to the transcript start.'''
-
-        if len(self.combined_cds)==0 or not hasattr(self, "selected_internal_orf_cds"):
-            if self.strand=="+":
-                return self.end
-            else:
-                return self.start
-        if self.strand=="-":
-            return self.selected_internal_orf_cds[0][1]
-        else:
-            return self.selected_internal_orf_cds[-1][2]
-
-    @property
     def selected_cds(self):
         '''This property return the CDS exons of the ORF selected as best inside the cDNA, in the form of duplices (start, end)'''
         if len(self.combined_cds)==0:
@@ -1461,6 +1424,36 @@ class transcript:
             self.__selected_cds=list((x[1],x[2]) for x in filter(lambda x: x[0]=="CDS", self.selected_internal_orf))
         return self.__selected_cds
 
+    @property
+    def selected_cds_start(self):
+        '''This property returns the location of the start of the best CDS for the transcript.
+        If no CDS is defined, it defaults to the transcript start.'''
+
+        if len(self.combined_cds)==0:
+            if self.strand=="+":
+                return self.start
+            else:
+                return self.end
+            
+        if self.strand=="+":
+            return self.selected_cds[0][0]
+        else:
+            return self.selected_cds[-1][1]
+        
+    @property
+    def selected_cds_end(self):
+        '''This property returns the location of the end of the best CDS for the transcript.
+        If no CDS is defined, it defaults to the transcript start.'''
+
+        if len(self.combined_cds)==0:
+            if self.strand=="+":
+                return self.end
+            else:
+                return self.start
+        if self.strand=="-":
+            return self.selected_cds[0][0]
+        else:
+            return self.selected_cds[-1][1]
 
 
     @property
@@ -1770,14 +1763,32 @@ class transcript:
         distance=0
         if self.strand=="+":
             for exon in self.exons:
-                distance+=min(exon[1],self.selected_cds_start)-exon[0]+1
+                distance+=min(exon[1],self.selected_cds_start-1)-exon[0]+1
                 if self.selected_cds_start<=exon[1]:break
         elif self.strand=="-":
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
-                distance+=exon[1]+1-max(self.selected_cds_start,exon[0])
+                distance+=exon[1]+1-max(self.selected_cds_start+1,exon[0])
                 if self.selected_cds_start>=exon[0]:break
+        return distance
+
+    @metric
+    def selected_end_distance_from_tes(self):
+        '''This property returns the distance of the end of the best CDS from the transcript end site.
+        If no CDS is defined, it defaults to 0.'''
+        if len(self.combined_cds)==0: return 0
+        distance=0
+        if self.strand=="-":
+            for exon in self.exons:
+                distance+=min(exon[1],self.selected_cds_end-1)-exon[0]+1
+                if self.selected_cds_end<=exon[1]:break
+        elif self.strand=="+":
+            exons=self.exons[:]
+            exons.reverse()
+            for exon in exons:
+                distance+=exon[1]+1-max(self.selected_cds_end+1,exon[0])
+                if self.selected_cds_end>=exon[0]:break
         return distance
 
     @metric
@@ -1788,33 +1799,16 @@ class transcript:
         distance=0
         if self.strand=="-":
             for exon in self.exons:
-                distance+=min(exon[1],self.combined_cds_end)-exon[0]+1
+                distance+=min(exon[1],self.combined_cds_end-1)-exon[0]+1
                 if self.cds_end<=exon[1]:break
-        elif self.strand=="-":
+        elif self.strand=="+":
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
-                distance+=exon[1]+1-max(self.combined_cds_end,exon[0])
+                distance+=exon[1]+1-max(self.combined_cds_end+1,exon[0])
                 if self.cds_end>=exon[0]:break
         return distance
     
-    @metric
-    def selected_end_distance_from_tes(self):
-        '''This property returns the distance of the end of the best CDS from the transcript end site.
-        If no CDS is defined, it defaults to 0.'''
-        if len(self.combined_cds)==0: return 0
-        distance=0
-        if self.strand=="-":
-            for exon in self.exons:
-                distance+=min(exon[1],self.selected_cds_end)-exon[0]+1
-                if self.selected_cds_end<=exon[1]:break
-        elif self.strand=="-":
-            exons=self.exons[:]
-            exons.reverse()
-            for exon in exons:
-                distance+=exon[1]+1-max(self.selected_cds_end,exon[0])
-                if self.selected_cds_end>=exon[0]:break
-        return distance
 
     @metric
     def combined_cds_intron_fraction(self):

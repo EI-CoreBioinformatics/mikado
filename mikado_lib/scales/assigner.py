@@ -331,18 +331,18 @@ class assigner:
                 junction_f1 = 0
     
         else:
-            junction_overlap=junction_f1=junction_precision=junction_recall=0
+            junction_overlap=junction_f1=junction_precision=junction_recall=1
         
         ccode = None
         distance = 0
-        if junction_f1 == 1:
+        if junction_f1 == 1 and tr.exon_num>1:
             if tr.strand==other.strand or tr.strand is None:
                 ccode = "=" #We have recovered all the junctions
             else:
                 ccode = "c" #We will set this to x at the end of the function
             
-        elif (tr.exon_num==other.exon_num==1 and tr.start==other.start and tr.end==other.end):
-            junction_f1 = junction_precision = junction_precision = 1 #Set to one
+        elif ( junction_f1 == 1 and nucl_f1>=0.95):
+            other_exon=other.exons[0]
             if tr.strand==other.strand or tr.strand is None:
                 ccode = "_" #We have recovered all the junctions
             else:
@@ -412,7 +412,7 @@ class assigner:
                     else:
                         ccode = "O" #Reverse generic overlap
                 elif tr.exon_num == other.exon_num ==1:
-                    junction_f1 = junction_precision = junction_precision = 1 #Set to one
+                    junction_f1 = junction_precision = junction_recall = 1 #Set to one
                     if nucl_f1>=0.95 and other.strand==tr.strand:
                         other_exon=other.exons[0]
                         ccode="_"
@@ -421,7 +421,7 @@ class assigner:
                     else:
                         ccode="m" #just a generic exon overlap b/w two monoexonic transcripts
         
-        if ccode in ("e","o","c") and tr.strand is not None and other.strand is not None and tr.strand!=other.strand:
+        if ccode in ("e","o","c", "m") and tr.strand is not None and other.strand is not None and tr.strand!=other.strand:
             ccode="x"
     
         result = result_storer(other.id, ",".join(other.parent), ccode, tr.id, ",".join(tr.parent), 

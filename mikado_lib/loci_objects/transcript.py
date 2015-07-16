@@ -680,7 +680,7 @@ class transcript:
         '''Method to completely remove CDS information from a transcript. Necessary for those cases where
         the input is malformed.'''
         
-        self.logger.warn("Stripping CDS from {0}".format(self.id))
+        self.logger.warning("Stripping CDS from {0}".format(self.id))
         self.finalized = False
         self.combined_cds = []
         self.combined_utr = []
@@ -1255,23 +1255,24 @@ class transcript:
         '''Returns the exons in the 5' UTR of the selected ORF. If the start codon is absent, no UTR is given.'''
         if len(self.combined_cds)==0:
             return []
-        elif self.has_start_codon is False:
-            return []
-        if self.strand=="+":
-            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.selected_cds_start, self.selected_internal_orf  )  )
-        elif self.strand=="-":
+#         elif self.has_start_codon is False:
+#             return []
+        if self.strand=="-":
             return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.selected_cds_start, self.selected_internal_orf  )  )
+        else:
+            return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.selected_cds_start, self.selected_internal_orf  )  )
+            
 
     @property
     def three_utr(self):
         '''Returns the exons in the 3' UTR of the selected ORF. If the end codon is absent, no UTR is given.'''
         if len(self.combined_cds)==0:
             return []
-        elif self.has_stop_codon is False:
-            return []
+#         elif self.has_stop_codon is False:
+#             return []
         if self.strand=="-":
             return list(filter( lambda exon: exon[0]=="UTR" and exon[2]<self.selected_cds_end, self.selected_internal_orf  )  )
-        elif self.strand=="+":
+        else:
             return list(filter( lambda exon: exon[0]=="UTR" and exon[1]>self.selected_cds_end, self.selected_internal_orf  )  )
 
     @property
@@ -1430,15 +1431,16 @@ class transcript:
         If no CDS is defined, it defaults to the transcript start.'''
 
         if len(self.combined_cds)==0:
-            if self.strand=="+":
-                return self.start
-            else:
-                return self.end
+            return None
+#             if self.strand=="+":
+#                 return self.start
+#             else:
+#                 return self.end
             
-        if self.strand=="+":
-            return self.selected_cds[0][0]
-        else:
+        if self.strand=="-":
             return self.selected_cds[-1][1]
+        else:
+            return self.selected_cds[0][0]
         
     @property
     def selected_cds_end(self):
@@ -1446,10 +1448,11 @@ class transcript:
         If no CDS is defined, it defaults to the transcript start.'''
 
         if len(self.combined_cds)==0:
-            if self.strand=="+":
-                return self.end
-            else:
-                return self.start
+            return None
+#             if self.strand=="+":
+#                 return self.end
+#             else:
+#                 return self.start
         if self.strand=="-":
             return self.selected_cds[0][0]
         else:
@@ -1761,7 +1764,7 @@ class transcript:
         If no CDS is defined, it defaults to 0.'''
         if len(self.combined_cds)==0: return 0
         distance=0
-        if self.strand=="+":
+        if self.strand=="+" or self.strand is None:
             for exon in self.exons:
                 distance+=min(exon[1],self.selected_cds_start-1)-exon[0]+1
                 if self.selected_cds_start<=exon[1]:break
@@ -1783,7 +1786,7 @@ class transcript:
             for exon in self.exons:
                 distance+=min(exon[1],self.selected_cds_end-1)-exon[0]+1
                 if self.selected_cds_end<=exon[1]:break
-        elif self.strand=="+":
+        elif self.strand=="+" or self.strand is None:
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:

@@ -64,6 +64,6 @@ class tabParser(object):
 
     def __str__(self): return self.line
 
-# import shanghai_lib.parsers.bed12
-# import shanghai_lib.parsers.GFF
-# import shanghai_lib.parsers.GTF
+# import mikado_lib.parsers.bed12
+# import mikado_lib.parsers.GFF
+# import mikado_lib.parsers.GTF

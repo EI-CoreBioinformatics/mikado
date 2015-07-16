@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #coding: utf_8
 
-from shanghai_lib.parsers import Parser
+from mikado_lib.parsers import Parser
 #from copy import deepcopy
 import io
 

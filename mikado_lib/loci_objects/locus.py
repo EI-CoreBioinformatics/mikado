@@ -1,10 +1,10 @@
 import sys,os.path
 import itertools
-from shanghai_lib.loci_objects.transcript import transcript
-from shanghai_lib.scales.assigner import assigner
+from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.scales.assigner import assigner
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.loci_objects.monosublocus import monosublocus
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus
+from mikado_lib.loci_objects.monosublocus import monosublocus
+from mikado_lib.loci_objects.abstractlocus import abstractlocus
 
 class locus(monosublocus,abstractlocus):
     

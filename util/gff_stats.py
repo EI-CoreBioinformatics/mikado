@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 
 
-import sys, argparse, os.path
-from shanghai_lib.exceptions import InvalidCDS
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shanghai_lib.parsers import GFF,GTF
-from shanghai_lib.loci_objects import transcript
+import sys, argparse
+from mikado_lib.exceptions import InvalidCDS
+from mikado_lib.parsers import GFF,GTF
+from mikado_lib.loci_objects import transcript
 from scipy.stats.mstats import mquantiles
 # import io,os,re
 import scipy
 import numpy
-import shanghai_lib
+import mikado_lib
 from collections import namedtuple, Counter
 from array import array as cArray
 
@@ -100,7 +99,7 @@ class gene_object:
                     to_remove.add(tid) 
                 if self.transcripts[tid].selected_cds_length>0:
                     self.coding_transcripts.add(tid)
-            except shanghai_lib.exceptions.InvalidTranscript as _:
+            except mikado_lib.exceptions.InvalidTranscript as _:
                 print("Invalid transcript: {0}".format(tid), file=sys.stderr)
                 to_remove.add(tid)
         if len(to_remove)==len(self.transcripts):

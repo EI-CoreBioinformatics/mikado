@@ -1,5 +1,4 @@
 import sys,argparse,os,re
-sys.path.append(os.path.dirname(os.path.dirname( os.path.abspath(__file__)  )))
 import collections
 #import random
 import multiprocessing
@@ -7,12 +6,12 @@ import logging
 from logging import handlers as log_handlers
 
 
-from shanghai_lib.loci_objects.transcript import transcript
-from shanghai_lib.scales.assigner import assigner
-from shanghai_lib.scales.reference_gene import gene
-from shanghai_lib.parsers.GTF import GTF
-from shanghai_lib.parsers.GFF import GFF3
-from shanghai_lib.scales.accountant import accountant 
+from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.scales.assigner import assigner
+from mikado_lib.scales.reference_gene import gene
+from mikado_lib.parsers.GTF import GTF
+from mikado_lib.parsers.GFF import GFF3
+from mikado_lib.scales.accountant import accountant 
 
 
 '''This is still an embryo. Ideally, this program would perform the following functions:

@@ -14,13 +14,13 @@ import sqlalchemy
 import sqlite3
 
 #Shanghai imports
-import shanghai_lib.loci_objects
-import shanghai_lib.parsers
-import shanghai_lib.serializers.blast_utils
-from shanghai_lib.loci_objects.superlocus import superlocus
+import mikado_lib.loci_objects
+import mikado_lib.parsers
+import mikado_lib.serializers.blast_utils
+from mikado_lib.loci_objects.superlocus import superlocus
 import multiprocessing
 from multiprocessing.context import Process
-import itertools
+
 
 #For profiling
 #from memory_profiler import profile
@@ -42,7 +42,7 @@ class Creator:
         
         if type(json_conf) is str:
             assert os.path.exists(json_conf)
-            json_conf = shanghai_lib.json_utils.to_json(json_conf) 
+            json_conf = mikado_lib.json_utils.to_json(json_conf) 
         else:
             assert type(json_conf) is dict
         
@@ -67,15 +67,15 @@ class Creator:
         self.queue_logger.propagate = False
         
         if self.locus_out is None:
-            raise shanghai_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
+            raise mikado_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
 
     def define_input(self):
         '''Function to check that the input file exists and is valid. It returns the parser.'''
         
         if self.input_file.endswith(".gtf"):
-            parser=shanghai_lib.parsers.GTF.GTF
+            parser=mikado_lib.parsers.GTF.GTF
         else:
-            parser=shanghai_lib.parsers.GFF.GFF3
+            parser=mikado_lib.parsers.GFF.GFF3
             
         verified=False
         for row in parser(self.input_file):
@@ -83,7 +83,7 @@ class Creator:
                 verified=True
                 break
         if verified is False:
-            raise shanghai_lib.exceptions.InvalidJson("Invalid input file: {0}".format(self.input_file))
+            raise mikado_lib.exceptions.InvalidJson("Invalid input file: {0}".format(self.input_file))
 
         return parser(self.input_file)
 
@@ -125,10 +125,10 @@ class Creator:
             session=Session()
 
             evalue=self.json_conf["chimera_split"]["blast_params"]["evalue"]
-            queries_with_hits = session.query(shanghai_lib.serializers.blast_utils.Hit.query_id ).filter(
-                                                                                                 shanghai_lib.serializers.blast_utils.Hit.evalue<=evalue,
+            queries_with_hits = session.query(mikado_lib.serializers.blast_utils.Hit.query_id ).filter(
+                                                                                                 mikado_lib.serializers.blast_utils.Hit.evalue<=evalue,
                                                                                             ).distinct().count()
-            total_queries = session.query(shanghai_lib.serializers.blast_utils.Query).count()
+            total_queries = session.query(mikado_lib.serializers.blast_utils.Query).count()
             self.main_logger.info("Queries with at least one hit at evalue<={0}: {1} out of {2} ({3}%)".format(
                                                                                                                evalue,
                                                                                                                queries_with_hits,
@@ -158,7 +158,7 @@ class Creator:
         #Define mandatory output files        
         self.locus_metrics_file = re.sub("$",".metrics.tsv",  re.sub(".gff.?$", "", self.locus_out  ))
         self.locus_scores_file = re.sub("$",".scores.tsv",  re.sub(".gff.?$", "", self.locus_out  ))
-        locus_metrics=csv.DictWriter(open(self.locus_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
+        locus_metrics=csv.DictWriter(open(self.locus_metrics_file,'w'), mikado_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
         locus_metrics.writeheader()
         locus_scores=csv.DictWriter(open(self.locus_scores_file,'w'), score_keys, delimiter="\t")
         locus_scores.writeheader()
@@ -168,7 +168,7 @@ class Creator:
         if self.sub_out is not None:
             self.sub_metrics_file=re.sub("$",".metrics.tsv",  re.sub(".gff.?$", "", self.sub_out  ))
             self.sub_scores_file=re.sub("$",".scores.tsv",  re.sub(".gff.?$", "", self.sub_out  ))
-            sub_metrics=csv.DictWriter(open(self.sub_metrics_file,'w'), shanghai_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
+            sub_metrics=csv.DictWriter(open(self.sub_metrics_file,'w'), mikado_lib.loci_objects.superlocus.superlocus.available_metrics, delimiter="\t")
             sub_metrics.writeheader()
             sub_scores=csv.DictWriter(open(self.sub_scores_file,'w'), score_keys, delimiter="\t")
             sub_scores.writeheader()
@@ -389,7 +389,7 @@ class Creator:
                 currentTranscript.addExon(row)
             elif row.is_transcript is True:
                 if currentTranscript is not None:
-                    if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
+                    if mikado_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                         currentLocus.add_transcript_to_locus(currentTranscript, check_in_locus=False)
                         assert currentTranscript.id in currentLocus.transcripts
                     else:
@@ -404,13 +404,13 @@ class Creator:
                         job.start()
                         jobs.append(job)
 
-                        currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
-                currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
+                        currentLocus=mikado_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
+                currentTranscript=mikado_lib.loci_objects.transcript.transcript(row, source=self.json_conf["source"])
             else:
                 continue
         
         if currentTranscript is not None:
-            if shanghai_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
+            if mikado_lib.loci_objects.superlocus.superlocus.in_locus(currentLocus, currentTranscript) is True:
                 currentLocus.add_transcript_to_locus(currentTranscript)
             else:
 #                 self.analyse_locus(currentLocus)
@@ -426,7 +426,7 @@ class Creator:
 
                 
 
-                currentLocus=shanghai_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
+                currentLocus=mikado_lib.loci_objects.superlocus.superlocus(currentTranscript, stranded=False, json_dict=self.json_conf)
                 
         if currentLocus is not None:
 #             self.analyse_locus(currentLocus)

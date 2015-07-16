@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 
-import sys,os
-sys.path.append(
-    os.path.dirname(
-        os.path.dirname(__file__)
-        )
-    )
+import sys
+
 import argparse
-from shanghai_lib.parsers.GTF import GTF
-from shanghai_lib.loci_objects.transcript import transcript
+from mikado_lib.parsers.GTF import GTF
+from mikado_lib.loci_objects.transcript import transcript
 
 def main():
 

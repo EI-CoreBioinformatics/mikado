@@ -1,9 +1,8 @@
 import sys,os,argparse
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib import exceptions
+from mikado_lib import exceptions
 import copy
-from shanghai_lib.loci_objects.transcript_checker import transcript_checker
-from shanghai_lib.parsers import GTF
+from mikado_lib.loci_objects.transcript_checker import transcript_checker
+from mikado_lib.parsers import GTF
 from Bio import SeqIO
 
 def main():

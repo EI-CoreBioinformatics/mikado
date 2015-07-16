@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 
 
-import sys,argparse,os
-sys.path.append(
-                os.path.dirname(os.path.dirname(__file__))
-                )
-from shanghai_lib.parsers import GTF
+import sys,argparse
+from mikado_lib.parsers import GTF
 
 
 # genes=set()

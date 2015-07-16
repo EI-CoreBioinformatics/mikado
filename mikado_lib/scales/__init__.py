@@ -8,7 +8,7 @@ This module defines the classes needed for the "compare" script, namely:
 - accountant:        This class calculates the final summary statistics for the comparison.
 """
 
-import shanghai_lib.scales.accountant
-import shanghai_lib.scales.assigner
-import shanghai_lib.scales.reference_gene
-import shanghai_lib.scales.result_storer
+import mikado_lib.scales.accountant
+import mikado_lib.scales.assigner
+import mikado_lib.scales.reference_gene
+import mikado_lib.scales.result_storer

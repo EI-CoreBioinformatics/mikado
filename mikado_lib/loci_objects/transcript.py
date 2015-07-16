@@ -3,7 +3,7 @@ import os.path,sys,re
 from collections import OrderedDict
 import inspect
 import asyncio
-from shanghai_lib.exceptions import InvalidTranscript
+from mikado_lib.exceptions import InvalidTranscript
 # import logging
 # import pickle
 # import copy
@@ -17,16 +17,16 @@ from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 
-#Shanghai imports
-from shanghai_lib.serializers.junction import junction, Chrom
-import shanghai_lib.serializers.orf
-from shanghai_lib.serializers.blast_utils import Query, Hit
-from shanghai_lib.serializers.orf import orf
-from shanghai_lib.parsers import bed12
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
-from shanghai_lib.parsers.GTF import gtfLine
-from shanghai_lib.parsers.GFF import gffLine
-import shanghai_lib.exceptions
+#mikado imports
+from mikado_lib.serializers.junction import junction, Chrom
+import mikado_lib.serializers.orf
+from mikado_lib.serializers.blast_utils import Query, Hit
+from mikado_lib.serializers.orf import orf
+from mikado_lib.parsers import bed12
+from mikado_lib.loci_objects.abstractlocus import abstractlocus # Needed for the BronKerbosch algorithm ...
+from mikado_lib.parsers.GTF import gtfLine
+from mikado_lib.parsers.GFF import gffLine
+import mikado_lib.exceptions
 
 #from memory_profiler import profile
 #import logging
@@ -81,9 +81,9 @@ class transcript:
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
     blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
-    orf_baked = bakery(lambda session: session.query(shanghai_lib.serializers.orf.orf))
-    orf_baked += lambda q: q.filter(shanghai_lib.serializers.orf.orf.query_id==bindparam("query_id"))
-    orf_baked += lambda q: q.order_by(desc(shanghai_lib.serializers.orf.orf.cds_len))
+    orf_baked = bakery(lambda session: session.query(mikado_lib.serializers.orf.orf))
+    orf_baked += lambda q: q.filter(mikado_lib.serializers.orf.orf.query_id==bindparam("query_id"))
+    orf_baked += lambda q: q.order_by(desc(mikado_lib.serializers.orf.orf.cds_len))
     
     ######### Class special methods ####################
     
@@ -367,10 +367,10 @@ class transcript:
         '''This function will append an exon/CDS feature to the object.'''
 
         if self.finalized is True:
-            raise shanghai_lib.exceptions.ModificationError("You cannot add exons to a finalized transcript!")
+            raise mikado_lib.exceptions.ModificationError("You cannot add exons to a finalized transcript!")
         
         if self.id not in gffLine.parent:
-            raise shanghai_lib.exceptions.InvalidTranscript("""Mismatch between transcript and exon:\n
+            raise mikado_lib.exceptions.InvalidTranscript("""Mismatch between transcript and exon:\n
             {0}\n
             {1}\n
             {2}
@@ -390,7 +390,7 @@ class transcript:
             self.has_stop_codon = True
             return
         else:
-            raise shanghai_lib.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
+            raise mikado_lib.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
             
         start,end=sorted([gffLine.start, gffLine.end])
         store.append((start, end) )
@@ -698,13 +698,13 @@ class transcript:
         self.introns = []
         self.splices=[]
         if len(self.exons)==0:
-            raise shanghai_lib.exceptions.InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
+            raise mikado_lib.exceptions.InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
 
         if len(self.exons)>1 and self.strand is None:
-            raise shanghai_lib.exceptions.InvalidTranscript("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
+            raise mikado_lib.exceptions.InvalidTranscript("Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
 
         if self.combined_utr!=[] and self.combined_cds==[]:
-            raise shanghai_lib.exceptions.InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
+            raise mikado_lib.exceptions.InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
         
@@ -725,12 +725,12 @@ class transcript:
                             self.combined_utr.append( (exon[0], self.combined_cds[0][0]-1)  )
                             self.combined_utr.append( (self.combined_cds[-1][1]+1, exon[1]))
                         else:
-                            raise shanghai_lib.exceptions.InvalidCDS("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds
+                            raise mikado_lib.exceptions.InvalidCDS("Error while inferring the UTR", exon, self.id, self.exons, self.combined_cds
                                                                             ) 
                 if not (self.combined_cds_length==self.combined_utr_length==0 or  self.cdna_length == self.combined_utr_length + self.combined_cds_length):
-                    raise shanghai_lib.exceptions.InvalidCDS("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
+                    raise mikado_lib.exceptions.InvalidCDS("Failed to create the UTR", self.id, self.exons, self.combined_cds, self.combined_utr)
             else:
-#                 raise shanghai_lib.exceptions.InvalidCDS("Invalid input", self.id, (self.cdna_length, self.combined_utr_length, self.combined_cds_length),
+#                 raise mikado_lib.InvalidCDS("Invalid input", self.id, (self.cdna_length, self.combined_utr_length, self.combined_cds_length),
 #                                                           self.exons, self.combined_cds, self.combined_utr)
                 pass
 
@@ -744,7 +744,7 @@ class transcript:
                     self.exons[-1] = (self.exons[-1][0], self.end)
                 
                 if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:    
-                    raise shanghai_lib.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
+                    raise mikado_lib.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
                     but its first and last exons define it up until {estart}:{eend}!""".format(
                                                                                                id=self.id,
                                                                                                tstart=self.start,
@@ -753,13 +753,13 @@ class transcript:
                                                                                                eend=self.exons[-1][1]
                                                                                                ))
         except IndexError as err:
-            raise shanghai_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
+            raise mikado_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
 
         if len(self.exons)>1:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
                 if exonA[1]>=exonB[0]:
-                    raise shanghai_lib.exceptions.InvalidTranscript("Overlapping exons found!\n{0} {1}/{2}\n{3}".format(self.id, exonA, exonB, self.exons))
+                    raise mikado_lib.exceptions.InvalidTranscript("Overlapping exons found!\n{0} {1}/{2}\n{3}".format(self.id, exonA, exonB, self.exons))
                 self.introns.append( (exonA[1]+1, exonB[0]-1) ) #Append the splice junction
                 self.splices.extend( [exonA[1]+1, exonB[0]-1] ) # Append the splice locations
 

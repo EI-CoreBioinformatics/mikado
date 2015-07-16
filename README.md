@@ -1,8 +1,8 @@
-#Shanghai - pick your transcript: a pipeline to determine and select the best RNA-Seq prediction
+#Mikado - pick your transcript: a pipeline to determine and select the best RNA-Seq prediction
 
 ##Overview
 
-Shanghai is a lightweight Python3 pipeline whose purpose is to facilitate the identification
+Mikado is a lightweight Python3 pipeline whose purpose is to facilitate the identification
 of expressed loci from RNA-Seq data * and to select the best model in each locus.
 
 The logic of the pipeline is as follows:

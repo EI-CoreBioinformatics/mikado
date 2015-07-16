@@ -2,8 +2,8 @@ import argparse
 from logging import handlers as log_handlers
 import logging
 # import itertools
-from shanghai_lib.loci_objects.transcript import transcript
-from shanghai_lib.scales.result_storer import result_storer  
+from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.scales.result_storer import result_storer  
 # import collections
 import operator
 import collections

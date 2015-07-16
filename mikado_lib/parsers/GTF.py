@@ -1,9 +1,7 @@
 #coding: utf_8
 
-import sys,os.path
 import copy
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.parsers import Parser
+from mikado_lib.parsers import Parser
 # import re
 
 class gtfLine(object):

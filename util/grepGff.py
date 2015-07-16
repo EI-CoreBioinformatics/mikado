@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
 
-import sys,argparse,os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from shanghai_lib.parsers import GFF
+import sys,argparse
+from mikado_lib.parsers import GFF
 
 def main():
     parser=argparse.ArgumentParser('Script to parse and retrieve given features from a GFF file.')

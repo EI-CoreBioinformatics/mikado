@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-import sys,os,argparse
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import shanghai_lib.parsers
-import shanghai_lib.loci_objects
+import sys,argparse
+import mikado_lib.parsers
+import mikado_lib.loci_objects
 
 def main():
     
@@ -14,7 +13,7 @@ def main():
     
     currentTranscript=None
     
-    for row in shanghai_lib.parsers.GFF.GFF3(args.gff):
+    for row in mikado_lib.parsers.GFF.GFF3(args.gff):
         if row.is_parent and not row.is_transcript:
             continue
         if row.is_exon:
@@ -24,7 +23,7 @@ def main():
                 currentTranscript.finalize()
                 assert len(currentTranscript.introns)==1
                 introns=sorted(currentTranscript.introns)
-                bed12=shanghai_lib.parsers.bed12.BED12()
+                bed12=mikado_lib.parsers.bed12.BED12()
                 bed12.chrom=currentTranscript.chrom
                 bed12.strand=currentTranscript.strand
                 bed12.score=currentTranscript.score
@@ -40,13 +39,13 @@ def main():
                 bed12.blockStarts=[0, bed12.blockSizes[0]+introns[0][1]-introns[0][0] ] 
                 print(bed12, file=args.out)
                                            
-            currentTranscript=shanghai_lib.loci_objects.transcript.transcript(row)
+            currentTranscript=mikado_lib.loci_objects.transcript.transcript(row)
             
     if currentTranscript is not None:
         currentTranscript.finalize()
         assert len(currentTranscript.introns)==1
         introns=sorted(currentTranscript.introns)
-        bed12=shanghai_lib.parsers.bed12.BED12()
+        bed12=mikado_lib.parsers.bed12.BED12()
         bed12.chrom=currentTranscript.chrom
         bed12.strand=currentTranscript.strand
         bed12.start=currentTranscript.start

@@ -3,12 +3,12 @@ from Bio import SeqIO
 import Bio.File
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy import Column,String,Integer,ForeignKey,CHAR,Index,Float,Boolean
-from shanghai_lib.parsers import bed12
+from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from shanghai_lib.serializers.dbutils import dbBase,Inspector
-from shanghai_lib.serializers.blast_utils import Query
+from mikado_lib.serializers.dbutils import dbBase,Inspector
+from mikado_lib.serializers.blast_utils import Query
 
 class orf(dbBase):
     __tablename__="orf"

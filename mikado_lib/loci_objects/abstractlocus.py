@@ -1,11 +1,9 @@
-import os,sys
 import operator
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import abc
 import random
 import logging
 import networkx 
-from shanghai_lib.exceptions import NotInLocusError
+from mikado_lib.exceptions import NotInLocusError
 
 class abstractlocus(metaclass=abc.ABCMeta):
     

@@ -1,8 +1,8 @@
 import sys,argparse
-import shanghai_lib.parsers
-import shanghai_lib.loci_objects.transcript
+import mikado_lib.parsers
+import mikado_lib.loci_objects.transcript
 
-def strip_terminal(currentTranscript: shanghai_lib.loci_objects.transcript.transcript, args: argparse.Namespace) -> shanghai_lib.loci_objects.transcript.transcript:
+def strip_terminal(currentTranscript: mikado_lib.loci_objects.transcript.transcript, args: argparse.Namespace) -> mikado_lib.loci_objects.transcript.transcript:
     '''This function will take as input a transcript and then:
     - return immediately if the transcript is monoexonic
     - trim the terminal exons to a length of max(args.max_length (if longer), CDS boundary)
@@ -104,9 +104,9 @@ def main():
     
     def to_ann(string):
         if string.endswith("gtf"):
-            return shanghai_lib.parsers.GTF.GTF(string)
+            return mikado_lib.parsers.GTF.GTF(string)
         elif string.endswith("gff") or string.endswith("gff3"):
-            return shanghai_lib.parsers.GFF.GFF3(string)
+            return mikado_lib.parsers.GFF.GFF3(string)
         else:
             raise ValueError("Unrecognized format")
     
@@ -126,7 +126,7 @@ def main():
         if record.is_transcript is True:
             if currentTranscript is not None:
                 print(strip_terminal(currentTranscript, args).__str__( to_gtf = args.as_gtf ), file=args.out)
-            currentTranscript=shanghai_lib.loci_objects.transcript.transcript(record)
+            currentTranscript=mikado_lib.loci_objects.transcript.transcript(record)
         elif record.is_exon is True:
             currentTranscript.addExon(record)
             

@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 
-import sys, os, argparse
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.serializers.blast_utils import xmlSerializer
-from shanghai_lib import json_utils
+import os, argparse
+from mikado_lib.serializers.blast_utils import xmlSerializer
+from mikado_lib import json_utils
 from Bio import SeqIO
 
 def to_seqio(string):

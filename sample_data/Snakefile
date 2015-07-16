@@ -1,6 +1,5 @@
 import os,sys
-sys.path.append(os.path.join(os.environ["HOME"],"workspace/Shanghai"))
-import shanghai_lib.json_utils
+import mikado_lib.json_utils
 
 swissprot = "uniprot_sprot_plants.fasta"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
@@ -32,7 +31,7 @@ rule test_json:
     input: DBs, configname
     output: "{0}.check".format(configname)
     run:
-        __= shanghai_lib.json_utils.to_json(configname)
+        __= mikado_lib.json_utils.to_json(configname)
         shell("touch {output}")
 
 rule blast_complete:
@@ -47,9 +46,9 @@ rule to_db:
     output: config["db"]
     #shell: "python3 ../util/junction2SQLite.py --fai {input[fai]} {input[junctions]} {output}; python3 ../util/orf2SQLite.py --fasta {input[fasta]} {input[orf]} {output}; python3 ../util/blastXml2SQLite.py --definition --max_target_seqs {config[blast][max_target_seqs]} {input[blast]} {output}"
     run:
-        shanghai_lib.serializers.junction.junctionSerializer(input["junctions"], output, fai=input["fai"]).serialize()
-        shanghai_lib.serializers.orf.orfSerializer(input["orf"], output, fasta_index=input["fasta"]).serialize()
-        shanghai_lib.serializers.blast_utils.xmlSerializer(output, input["blast"], keep_definition=True,
+        mikado_lib.serializers.junction.junctionSerializer(input["junctions"], output, fai=input["fai"]).serialize()
+        mikado_lib.serializers.orf.orfSerializer(input["orf"], output, fasta_index=input["fasta"]).serialize()
+        mikado_lib.serializers.blast_utils.xmlSerializer(output, input["blast"], keep_definition=True,
 						       target_seqs=config["blast"]["database"],
 						       max_target_seqs=config["blast"]["max_target_seqs"] ).serialize()
 
@@ -57,5 +56,5 @@ rule complete:
     params: prefix="all"
     input: db=config["db"], configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed"
     output: "all.loci.gff3", "all.loci.scores.tsv"
-    shell: """run_pipeline.py --source {params[prefix]} --json_conf {input[configuration]} \
+    shell: """mikado_pick.py --source {params[prefix]} --json_conf {input[configuration]} \
 	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""  

@@ -1,7 +1,6 @@
-import sys,os,argparse
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.serializers import orf
-from shanghai_lib import json_utils
+import argparse
+from mikado_lib.serializers import orf
+from mikado_lib import json_utils
 from Bio import SeqIO
 
 def main():

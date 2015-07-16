@@ -1,11 +1,11 @@
 import sys,os.path
-from shanghai_lib.loci_objects.excluded_locus import excluded_locus
-#from shanghai_lib.loci_objects.monosublocus_holder import monosublocus_holder
+from mikado_lib.loci_objects.excluded_locus import excluded_locus
+#from mikado_lib.loci_objects.monosublocus_holder import monosublocus_holder
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus
-from shanghai_lib.loci_objects.monosublocus import monosublocus
-from shanghai_lib.loci_objects.transcript import transcript
-from shanghai_lib.parsers.GFF import gffLine
+from mikado_lib.loci_objects.abstractlocus import abstractlocus
+from mikado_lib.loci_objects.monosublocus import monosublocus
+from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.parsers.GFF import gffLine
 
 class sublocus(abstractlocus):
     

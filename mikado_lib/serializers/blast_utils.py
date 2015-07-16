@@ -15,7 +15,7 @@ from Bio.Blast.NCBIXML import parse as xparser
 import io
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from shanghai_lib.serializers.dbutils import dbBase
+from mikado_lib.serializers.dbutils import dbBase
 import logging
 
 '''This module is used to serialise BLAST objects into a database.'''

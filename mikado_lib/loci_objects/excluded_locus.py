@@ -1,7 +1,7 @@
 import sys,os.path
-from shanghai_lib.loci_objects.transcript import transcript
+from mikado_lib.loci_objects.transcript import transcript
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus
+from mikado_lib.loci_objects.abstractlocus import abstractlocus
 
 #Resolution order is important here!
 class excluded_locus(abstractlocus):

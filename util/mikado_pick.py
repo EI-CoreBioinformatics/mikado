@@ -2,10 +2,8 @@
 
 #import sys
 #from logging import Logger
-import argparse
-import sys,os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import shanghai_lib.loci_objects
+import argparse,sys
+import mikado_lib.loci_objects
 
 def main():
         
@@ -35,7 +33,7 @@ def main():
     args=parser.parse_args()
 
     args.json_conf.close()
-    args.json_conf = shanghai_lib.json_utils.to_json(args.json_conf.name)
+    args.json_conf = mikado_lib.json_utils.to_json(args.json_conf.name)
     
     if args.procs is not None:
         args.json_conf["run_options"]["threads"] = args.procs
@@ -70,7 +68,7 @@ def main():
         args.gff=args.gff.name
         args.json_conf["input"]=args.gff
     
-    creator = shanghai_lib.loci_objects.Creator.Creator(args.json_conf, commandline = " ".join(sys.argv))
+    creator = mikado_lib.loci_objects.Creator.Creator(args.json_conf, commandline = " ".join(sys.argv))
     creator() #Run
        
 if __name__=="__main__": main()

@@ -1,11 +1,10 @@
-import sys,os.path,re
+import os.path,re
 from distutils import spawn
 import yaml
-from shanghai_lib.exceptions import InvalidJson
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.loci_objects.transcript import transcript
-# from shanghai_lib import *
-import shanghai_lib.exceptions
+from mikado_lib.exceptions import InvalidJson
+from mikado_lib.loci_objects.transcript import transcript
+# from mikado_lib import *
+import mikado_lib.exceptions
 import json
 import subprocess
 
@@ -19,7 +18,7 @@ def check_log(json_conf):
     else:
         valid_levels=["INFO", "WARN", "ERROR", "CRITICAL", "DEBUG" ]
         if json_conf["log_settings"]["log_level"] not in valid_levels:
-            raise shanghai_lib.exceptions.InvalidJson( "Invalid log level: {0}\mValid levels: {1}".format(
+            raise mikado_lib.exceptions.InvalidJson( "Invalid log level: {0}\mValid levels: {1}".format(
                                                                                                           json_conf["log_level"],
                                                                                                           "\n\t".join(valid_levels)
                                                                                                           )  )
@@ -98,7 +97,7 @@ def check_chimera_split(json_conf):
                 if json_conf["chimera_split"]["blast_params"]["evalue"] is None:
                     json_conf["chimera_split"]["blast_params"]["evalue"]=json_conf["chimera_split"]["blast_params"]["hsp_evalue"]
                 elif json_conf["chimera_split"]["blast_params"]["evalue"] > json_conf["chimera_split"]["blast_params"]["hsp_evalue"]:
-                    raise shanghai_lib.exceptions.InvalidJson( "Maximum HSP evalues cannot be higher than global e-values."  )
+                    raise mikado_lib.exceptions.InvalidJson( "Maximum HSP evalues cannot be higher than global e-values."  )
             else:
                 if json_conf["chimera_split"]["blast_params"]["evalue"] is None:
                     json_conf["chimera_split"]["blast_params"]["hsp_evalue"]=None
@@ -128,7 +127,7 @@ def check_scoring(json_conf):
     invalid_filter=set()
     available_metrics = transcript.get_available_metrics()
     if "scoring" not in json_conf or len(json_conf["scoring"].keys())==0:
-        raise shanghai_lib.exceptions.InvalidJson("No parameters specified for scoring!")
+        raise mikado_lib.exceptions.InvalidJson("No parameters specified for scoring!")
     
     for parameter in json_conf["scoring"]:
         if parameter not in available_metrics:
@@ -142,19 +141,19 @@ def check_scoring(json_conf):
             elif conf["operator"] not in ("gt","ge","eq","lt","le", "ne","in", "not in"):
                 invalid_filter.add(parameter)
         if "rescaling" not in json_conf["scoring"][parameter]:
-            raise shanghai_lib.exceptions.UnrecognizedRescaler("No rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(parameter))
+            raise mikado_lib.exceptions.UnrecognizedRescaler("No rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(parameter))
         elif json_conf["scoring"][parameter]["rescaling"] not in ("max","min", "target"):
-            raise shanghai_lib.exceptions.UnrecognizedRescaler("Invalid rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(parameter))
+            raise mikado_lib.exceptions.UnrecognizedRescaler("Invalid rescaling specified for {0}. Must be one among \"max\",\"min\", and \"target\".".format(parameter))
         elif json_conf["scoring"][parameter]["rescaling"]=="target":
             if "value" not in json_conf["scoring"][parameter]:
-                raise shanghai_lib.exceptions.UnrecognizedRescaler("Target rescaling requested for {0}, but no target value specified. Please specify it with the \"value\" keyword.".format(parameter))
+                raise mikado_lib.exceptions.UnrecognizedRescaler("Target rescaling requested for {0}, but no target value specified. Please specify it with the \"value\" keyword.".format(parameter))
             json_conf["scoring"][parameter]["value"]=float(json_conf["scoring"][parameter]["value"])
         
         if "multiplier" not in json_conf["scoring"][parameter]:
             json_conf["scoring"][parameter]["multiplier"]=1
         else:
             if type(json_conf["scoring"][parameter]["multiplier"]) not in (float,int) or json_conf["scoring"][parameter]["multiplier"]==0:
-                raise shanghai_lib.exceptions.InvalidJson("Invalid multiplier: {0}".format(json_conf["scoring"][parameter]["multiplier"]))
+                raise mikado_lib.exceptions.InvalidJson("Invalid multiplier: {0}".format(json_conf["scoring"][parameter]["multiplier"]))
             json_conf["scoring"][parameter]["multiplier"]=float(json_conf["scoring"][parameter]["multiplier"])
 
     if len(parameters_not_found)>0 or len(double_parameters)>0 or len(invalid_filter)>0:
@@ -165,7 +164,7 @@ def check_scoring(json_conf):
             err_message+="The following parameters have been specified more than once, please correct:\n\t{0}".format("\n\t".join(list(double_parameters)))
         if len(invalid_filter)>0:
             err_message+="The following parameters have an invalid filter, please correct:\n\t{0}".format("\n\t".join(list(invalid_filter)))
-        raise shanghai_lib.exceptions.InvalidJson(err_message)
+        raise mikado_lib.exceptions.InvalidJson(err_message)
     
     return json_conf
 
@@ -178,20 +177,20 @@ def check_requirements(json_conf):
     if "requirements" in json_conf:
         #Check that the parameters are valid
         if "parameters" not in json_conf["requirements"]:
-            raise shanghai_lib.exceptions.InvalidJson("The requirements field must have a \"parameters\" subfield!")
+            raise mikado_lib.exceptions.InvalidJson("The requirements field must have a \"parameters\" subfield!")
         for key in json_conf["requirements"]["parameters"]:
             key_name=key.split(".")[0]
             if key_name not in available_metrics:
                 parameters_not_found.append(key_name)
             if "operator" not in json_conf["requirements"]["parameters"][key]:
-                raise shanghai_lib.exceptions.InvalidJson("No operator provided for requirement {0}".format(key))
+                raise mikado_lib.exceptions.InvalidJson("No operator provided for requirement {0}".format(key))
             elif "value" not in json_conf["requirements"]["parameters"][key]:
-                raise shanghai_lib.exceptions.InvalidJson("No value provided for requirement {0}".format(key))
+                raise mikado_lib.exceptions.InvalidJson("No value provided for requirement {0}".format(key))
             elif json_conf["requirements"]["parameters"][key]["operator"] not in ("gt","ge","eq","lt","le", "ne","in", "not in"):
-                raise shanghai_lib.exceptions.UnrecognizedOperator("Unrecognized operator: {0}".format(json_conf["requirements"]["parameters"][key]["operator"]))
+                raise mikado_lib.exceptions.UnrecognizedOperator("Unrecognized operator: {0}".format(json_conf["requirements"]["parameters"][key]["operator"]))
             json_conf["requirements"]["parameters"][key]["name"]=key_name
         if len(parameters_not_found)>0:
-            raise shanghai_lib.exceptions.InvalidJson("The following parameters, selected for filtering, are invalid:\n\t{0}".format(
+            raise mikado_lib.exceptions.InvalidJson("The following parameters, selected for filtering, are invalid:\n\t{0}".format(
                                                                                                                                  "\n\t".join(parameters_not_found)
                                                                                                                                  ))
         if "expression" not in json_conf["requirements"]: #Create automatically a filtering expression
@@ -206,7 +205,7 @@ def check_requirements(json_conf):
             keys = list(filter(lambda x: x not in ("and","or", "not", "xor"), re.findall("([^ ()]+)", json_conf["requirements"]["expression"])))
             diff_params=set.difference(set(keys), set(json_conf["requirements"]["parameters"].keys()))
             if len(diff_params)>0:
-                raise shanghai_lib.exceptions.InvalidJson("Expression and required parameters mismatch:\n\t{0}".format("\n\t".join(list(diff_params))))
+                raise mikado_lib.exceptions.InvalidJson("Expression and required parameters mismatch:\n\t{0}".format("\n\t".join(list(diff_params))))
         for key in keys: #Create the final expression
             newexpr=re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)
         json_conf["requirements"]["expression"]=newexpr        
@@ -222,9 +221,9 @@ def check_blast(json_conf, json_file):
         return json_conf
     
     if "program" not in json_conf["blast"]:
-        raise shanghai_lib.exceptions.InvalidJson("No BLAST program specified.") 
+        raise mikado_lib.exceptions.InvalidJson("No BLAST program specified.") 
     elif os.path.basename(json_conf["blast"]["program"]) not in ("blastn","blastx","tblastx"):
-        raise shanghai_lib.exceptions.InvalidJson("""Invalid BLAST program specified: {0}.
+        raise mikado_lib.exceptions.InvalidJson("""Invalid BLAST program specified: {0}.
         Supported options: blastn, blastx, tblastx.""")
     if os.path.dirname(json_conf["blast"]["program"])=="":
         program=spawn.find_executable(json_conf["blast"]["program"]) #@UndefinedVariable
@@ -234,7 +233,7 @@ def check_blast(json_conf, json_file):
         except OSError:
             program=None
     if program is None:
-        raise shanghai_lib.exceptions.InvalidJson("The selected BLAST program {0} has not been found on this system!".format(json_conf["blast"]["program"]))
+        raise mikado_lib.exceptions.InvalidJson("The selected BLAST program {0} has not been found on this system!".format(json_conf["blast"]["program"]))
     json_conf["blast"]["program"]=program
          
     if "evalue" not in json_conf["blast"]:
@@ -242,11 +241,11 @@ def check_blast(json_conf, json_file):
     else:
         if type(json_conf["blast"]["evalue"]) not in (float,int) or \
             0>json_conf["blast"]["evalue"]:
-                raise shanghai_lib.exceptions.InvalidJson("Invalid evalue: {0}".format(json_conf["blast"]["evalue"]))
+                raise mikado_lib.exceptions.InvalidJson("Invalid evalue: {0}".format(json_conf["blast"]["evalue"]))
     if "max_target_seqs" in json_conf["blast"]:
         assert type(json_conf["blast"]["max_target_seqs"]) is int
     if "database" not in json_conf["blast"]:
-        raise shanghai_lib.exceptions.InvalidJson("No BLAST database provided!")
+        raise mikado_lib.exceptions.InvalidJson("No BLAST database provided!")
     json_conf["blast"]["database"]=os.path.abspath(json_conf["blast"]["database"])
     if not os.path.exists(json_conf["blast"]["database"]):
         db=os.path.join(
@@ -254,7 +253,7 @@ def check_blast(json_conf, json_file):
                 os.path.basename(json_conf["blast"]["database"])
                 )
         if not os.path.exists(db):
-            raise shanghai_lib.exceptions.InvalidJson("I need a valid BLAST database! This file does not exist:\n{0}".format(json_conf["blast"]["database"]))
+            raise mikado_lib.exceptions.InvalidJson("I need a valid BLAST database! This file does not exist:\n{0}".format(json_conf["blast"]["database"]))
         else:
             json_conf["blast"]["database"]=os.path.abspath(db)
     else:
@@ -284,12 +283,12 @@ def check_orf_loading(json_conf):
             json_conf["orf_loading"]["strand_specific"]=False
         else:
             if not type(json_conf["orf_loading"]["strand_specific"]) is bool:
-                raise shanghai_lib.exceptions.InvalidJson("Invalid strand_specific value: {0}".format(json_conf["orf_loading"]["strand_specific"]))
+                raise mikado_lib.exceptions.InvalidJson("Invalid strand_specific value: {0}".format(json_conf["orf_loading"]["strand_specific"]))
         if "minimal_secondary_orf_length" not in json_conf["orf_loading"]:
             json_conf["orf_loading"]["minimal_secondary_orf_length"]=0
         else:
             if not type(json_conf["orf_loading"]["minimal_secondary_orf_length"]) is int:
-                raise shanghai_lib.exceptions.InvalidJson("Invalid minimal_secondary_orf_length value: {0}".format(json_conf["orf_loading"]["minimal_secondary_orf_length"]))
+                raise mikado_lib.exceptions.InvalidJson("Invalid minimal_secondary_orf_length value: {0}".format(json_conf["orf_loading"]["minimal_secondary_orf_length"]))
 
     return json_conf
 
@@ -326,22 +325,22 @@ def check_json(json_conf, json_file):
     '''Quick function to check that the JSON dictionary is well formed.'''
     
     if "db" not in json_conf:
-        raise shanghai_lib.exceptions.InvalidJson("No database specified.") 
+        raise mikado_lib.exceptions.InvalidJson("No database specified.") 
     if "dbtype" not in json_conf:
-        raise shanghai_lib.exceptions.InvalidJson("DB type not specified.")
+        raise mikado_lib.exceptions.InvalidJson("DB type not specified.")
     if json_conf["dbtype"] not in ("sqlite", "mysql", "postgresql"):
-        raise shanghai_lib.exceptions.InvalidJson("Invalid DB type: {0}. At the moment we support sqlite, mysql, postgresql".format(json_conf["dbtype"]))
+        raise mikado_lib.exceptions.InvalidJson("Invalid DB type: {0}. At the moment we support sqlite, mysql, postgresql".format(json_conf["dbtype"]))
         
     if json_conf["dbtype"] in ("mysql", "postgresql"):
         if "dbhost" not in json_conf:
-            raise shanghai_lib.exceptions.InvalidJson("No host specified for the {0} database!".format(json_conf["dbtype"]))
+            raise mikado_lib.exceptions.InvalidJson("No host specified for the {0} database!".format(json_conf["dbtype"]))
         if "dbuser" not in json_conf:
-            raise shanghai_lib.exceptions.InvalidJson("No user specified for the {0} database!".format(json_conf["dbtype"]))
+            raise mikado_lib.exceptions.InvalidJson("No user specified for the {0} database!".format(json_conf["dbtype"]))
         if "dbpasswd" not in json_conf or json_conf['dbpasswd'] is None:
             json_conf["dbpasswd"]=''
         if "dbport" in json_conf and json_conf["dbport"] is not None:
             if not type(json_conf["dbport"]) is int:
-                raise shanghai_lib.exceptions.InvalidJson("Invalid type for dbport: {0}".format(type(json_conf["dbport"])))
+                raise mikado_lib.exceptions.InvalidJson("Invalid type for dbport: {0}".format(type(json_conf["dbport"])))
             
         else:
             #Default ports

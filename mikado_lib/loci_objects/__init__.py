@@ -6,12 +6,12 @@
     The creation of the loci is delegated to the "Creator" class.
 '''
 
-import shanghai_lib.loci_objects.abstractlocus
-import shanghai_lib.loci_objects.Creator
-import shanghai_lib.loci_objects.excluded_locus
-import shanghai_lib.loci_objects.locus
-import shanghai_lib.loci_objects.monosublocus
-import shanghai_lib.loci_objects.sublocus
-import shanghai_lib.loci_objects.superlocus
-import shanghai_lib.loci_objects.transcript
-import shanghai_lib.loci_objects.transcript_checker
+import mikado_lib.loci_objects.abstractlocus
+import mikado_lib.loci_objects.Creator
+import mikado_lib.loci_objects.excluded_locus
+import mikado_lib.loci_objects.locus
+import mikado_lib.loci_objects.monosublocus
+import mikado_lib.loci_objects.sublocus
+import mikado_lib.loci_objects.superlocus
+import mikado_lib.loci_objects.transcript
+import mikado_lib.loci_objects.transcript_checker

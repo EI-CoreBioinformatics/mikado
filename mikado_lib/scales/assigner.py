@@ -8,10 +8,10 @@ import operator
 import itertools
 from collections import namedtuple
 
-from shanghai_lib.scales.result_storer import result_storer
-from shanghai_lib.loci_objects.transcript import transcript
-import shanghai_lib.exceptions
-from shanghai_lib.scales.accountant import accountant
+from mikado_lib.scales.result_storer import result_storer
+from mikado_lib.loci_objects.transcript import transcript
+import mikado_lib.exceptions
+from mikado_lib.scales.accountant import accountant
 
 
 class assigner:
@@ -83,16 +83,16 @@ class assigner:
             tr.finalize()
             if self.args.exclude_utr is True:
                 tr.remove_utrs()
-        except shanghai_lib.exceptions.InvalidCDS:
+        except mikado_lib.exceptions.InvalidCDS:
             try:
                 tr.strip_cds()
-            except shanghai_lib.exceptions.InvalidTranscript as err:
+            except mikado_lib.exceptions.InvalidTranscript as err:
                 self.logger.warn("Invalid transcript: {0}".format(tr.id))
                 self.logger.warn("Error message: {0}".format(err))
                 self.done+=1
                 self.print_tmap(None)
                 return None
-        except shanghai_lib.exceptions.InvalidTranscript as err:
+        except mikado_lib.exceptions.InvalidTranscript as err:
     #         args.queue.put_nowait("mock")
             self.logger.warn("Invalid transcript: {0}".format(tr.id))
             self.logger.warn("Error message: {0}".format(err))

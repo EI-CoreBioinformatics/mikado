@@ -1,12 +1,10 @@
-import sys,os
-import io
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+import io,os
 from sqlalchemy import Column,String,Integer,ForeignKey,CHAR,Index,Float
-from shanghai_lib.parsers import bed12
+from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from shanghai_lib.serializers.dbutils import dbBase,Inspector
+from mikado_lib.serializers.dbutils import dbBase,Inspector
 
 class Chrom(dbBase):
     

@@ -2,8 +2,8 @@
 
 import sys,os.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus
-from shanghai_lib.parsers.GFF import gffLine
+from mikado_lib.loci_objects.abstractlocus import abstractlocus
+from mikado_lib.parsers.GFF import gffLine
 #from builtins import str
 #from transcript import transcript
 #import random, sys

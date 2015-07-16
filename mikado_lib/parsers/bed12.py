@@ -5,7 +5,7 @@ try:
     import Bio.File
 except:
     pass
-from shanghai_lib.parsers import Parser
+from mikado_lib.parsers import Parser
 
 '''Generic module for parsing bed12Parser files.'''
  

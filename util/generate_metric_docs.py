@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
 
-#This block is necessary to add to the PATH the parent folder, where the various modules are located
-import sys
-import os
-path=os.path.dirname( os.path.dirname(os.path.abspath(__file__) ))
-sys.path.insert(0,path)
 
 #from loci_objects.sublocus import sublocus
-from shanghai_lib.loci_objects.transcript import transcript
+from mikado_lib.loci_objects.transcript import transcript
 import re
 
 '''Quick script to automate the generation of metrics definition from the files.'''

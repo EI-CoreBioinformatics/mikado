@@ -1,8 +1,7 @@
 import sys,os
 from copy import deepcopy
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import shanghai_lib.parsers
-import shanghai_lib.loci_objects
+import mikado_lib.parsers
+import mikado_lib.loci_objects
 from Bio import SeqIO
 import argparse
 
@@ -12,9 +11,9 @@ def main():
         if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size>0:
             raise ValueError("Invalid input file.")
         if  string[-4:]==".gtf":
-            gff_function=shanghai_lib.parsers.GTF.GTF
+            gff_function=mikado_lib.parsers.GTF.GTF
         else:
-            gff_function=shanghai_lib.parsers.GFF.GFF3 
+            gff_function=mikado_lib.parsers.GFF.GFF3 
         
         gff=gff_function(string)
         record=next(gff)
@@ -74,9 +73,9 @@ If set, the output will be GFF3, regardless of the input format.""")
                             tr.check_strand()
                             if tr.reversed is True:
                                 reversed_transcripts+=1
-                        except shanghai_lib.exceptions.IncorrectStrandError:
+                        except mikado_lib.exceptions.IncorrectStrandError:
                             to_delete.append(tid)
-                        except shanghai_lib.exceptions.InvalidTranscript:
+                        except mikado_lib.exceptions.InvalidTranscript:
                             to_delete.append(tid)
                 for tid in to_delete:
                     del currentTranscripts[tid]
@@ -108,12 +107,12 @@ If set, the output will be GFF3, regardless of the input format.""")
                 try:
                     tr.check_strand()
                     print(tr, file=args.out)
-                except shanghai_lib.exceptions.IncorrectStrandError:
+                except mikado_lib.exceptions.IncorrectStrandError:
                     pass
-                except shanghai_lib.exceptions.InvalidTranscript:
+                except mikado_lib.exceptions.InvalidTranscript:
                     pass
                 currentTranscripts=dict()
-                currentTranscript = shanghai_lib.loci_objects.transcript_checker.transcript_checker(
+                currentTranscript = mikado_lib.loci_objects.transcript_checker.transcript_checker(
                                                                                        record,
                                                                                        currentSeq,
                                                                                        strand_specific=args.strand_specific,
@@ -127,7 +126,7 @@ If set, the output will be GFF3, regardless of the input format.""")
                 assert currentParent.id in record.parent, record
             except TypeError:
                 raise TypeError(str(currentParent), str(record))
-            currentTranscript = shanghai_lib.loci_objects.transcript_checker.transcript_checker(
+            currentTranscript = mikado_lib.loci_objects.transcript_checker.transcript_checker(
                                                                                record,
                                                                                currentSeq,
                                                                                strand_specific=args.strand_specific,
@@ -150,9 +149,9 @@ If set, the output will be GFF3, regardless of the input format.""")
             tr.check_strand()
             if tr.reversed is True:
                 reversed_transcripts+=1
-        except shanghai_lib.exceptions.IncorrectStrandError:
+        except mikado_lib.exceptions.IncorrectStrandError:
             to_delete.append(tid)
-        except shanghai_lib.exceptions.InvalidTranscript:
+        except mikado_lib.exceptions.InvalidTranscript:
             to_delete.append(tid)
     for tid in to_delete:
         del currentTranscripts[tid]

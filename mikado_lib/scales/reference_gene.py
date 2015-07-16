@@ -1,6 +1,6 @@
 import logging
-from shanghai_lib.loci_objects import transcript
-from shanghai_lib.exceptions import InvalidTranscript,InvalidCDS
+from mikado_lib.loci_objects import transcript
+from mikado_lib.exceptions import InvalidTranscript,InvalidCDS
 
 class gene:
     

@@ -8,11 +8,11 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import asyncio
 if sys.version_info.minor>4 or (sys.version_info.minor == 4 and sys.version_info.micro>=4):
     #Necessary for future compatibility
-    from asyncio import ensure_future  
+    from asyncio.events import ensure_future  
 else:
     from asyncio.tasks import async as ensure_future
 
-
+asyncio
 #SQLAlchemy imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
@@ -21,15 +21,15 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 
 #Shanghai imports
-from shanghai_lib.serializers.junction import junction, Chrom
-from shanghai_lib.loci_objects.abstractlocus import abstractlocus
-from shanghai_lib.loci_objects.monosublocus import monosublocus
-from shanghai_lib.loci_objects.excluded_locus import excluded_locus
-from shanghai_lib.loci_objects.transcript import transcript
-from shanghai_lib.loci_objects.sublocus import sublocus
-from shanghai_lib.loci_objects.monosublocus_holder import monosublocus_holder
-from shanghai_lib.parsers.GFF import gffLine
-from shanghai_lib.exceptions import NoJsonConfigError
+from mikado_lib.serializers.junction import junction, Chrom
+from mikado_lib.loci_objects.abstractlocus import abstractlocus
+from mikado_lib.loci_objects.monosublocus import monosublocus
+from mikado_lib.loci_objects.excluded_locus import excluded_locus
+from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.loci_objects.sublocus import sublocus
+from mikado_lib.loci_objects.monosublocus_holder import monosublocus_holder
+from mikado_lib.parsers.GFF import gffLine
+from mikado_lib.exceptions import NoJsonConfigError
 
 
 class superlocus(abstractlocus):

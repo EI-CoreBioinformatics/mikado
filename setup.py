@@ -12,13 +12,13 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 
 setup(
 
-    name = "shanghai",
+    name = "Mikado",
     version = "0.7",
     
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
 
-    url="http://stash.tgac.ac.uk/users/venturil/repos/locus_pipeline/",
+    url="http://stash.tgac.ac.uk/users/venturil/repos/mikado/",
 
     author="Luca Venturini",
     author_email="luca.venturini@tgac.ac.uk",

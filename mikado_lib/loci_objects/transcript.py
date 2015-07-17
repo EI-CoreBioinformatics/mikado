@@ -1744,17 +1744,17 @@ class transcript:
     def start_distance_from_tss(self):
         '''This property returns the distance of the start of the combined CDS from the transcript start site.
         If no CDS is defined, it defaults to 0.'''
-        if len(self.combined_cds)==0: return 0
+        if len(self.internal_orfs)<2: return self.selected_start_distance_from_tss()
         distance=0
-        if self.strand=="+":
+        if self.strand=="+" or self.strand is None:
             for exon in self.exons:
-                distance+=min(exon[1],self.combined_cds_start)-exon[0]+1
+                distance+=min(exon[1],self.combined_cds_start-1)-exon[0]+1
                 if self.combined_cds_start<=exon[1]:break
         elif self.strand=="-":
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
-                distance+=exon[1]+1-max(self.combined_cds_start,exon[0])
+                distance+=exon[1]+1-max(self.combined_cds_start+1,exon[0])
                 if self.combined_cds_start>=exon[0]:break
         return distance
                 
@@ -1798,18 +1798,18 @@ class transcript:
     def end_distance_from_tes(self):
         '''This property returns the distance of the end of the combined CDS from the transcript end site.
         If no CDS is defined, it defaults to 0.'''
-        if len(self.combined_cds)==0: return 0
+        if len(self.internal_orfs)<2: return self.selected_end_distance_from_tes()
         distance=0
         if self.strand=="-":
             for exon in self.exons:
                 distance+=min(exon[1],self.combined_cds_end-1)-exon[0]+1
-                if self.cds_end<=exon[1]:break
-        elif self.strand=="+":
+                if self.combined_cds_end<=exon[1]:break
+        elif self.strand=="+" or self.strand is None:
             exons=self.exons[:]
             exons.reverse()
             for exon in exons:
                 distance+=exon[1]+1-max(self.combined_cds_end+1,exon[0])
-                if self.cds_end>=exon[0]:break
+                if self.combined_cds_end>=exon[0]:break
         return distance
     
 

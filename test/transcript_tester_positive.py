@@ -100,7 +100,10 @@ Chr2    TAIR10    three_prime_UTR    628570    628676    .    +    .    Parent=A
         self.assertEqual(self.tr.three_utr_length, 628676+1-628570)
         
         self.assertEqual(self.tr.selected_start_distance_from_tss,626878-626842, self.tr.selected_end_distance_from_tes )
+        self.assertEqual(self.tr.selected_start_distance_from_tss, self.tr.start_distance_from_tss)
+        
         self.assertEqual(self.tr.selected_end_distance_from_tes,628676-628569, self.tr.selected_end_distance_from_tes )
+        self.assertEqual(self.tr.selected_end_distance_from_tes,self.tr.end_distance_from_tes)
 
     def test_strip_cds(self):
 

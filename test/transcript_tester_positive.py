@@ -158,4 +158,17 @@ Chr2    TAIR10    three_prime_UTR    628570    628676    .    +    .    Parent=A
         self.tr.exons+=[(625878,625880)]
         self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
 
+    def test_complete(self):
+        
+        self.assertTrue(self.tr.has_stop_codon)
+        self.assertTrue(self.tr.has_start_codon)
+        self.assertTrue(self.tr.is_complete)
+        
+    def test_lengths(self):
+        
+        self.assertEqual(self.tr.cdna_length, 815)
+        self.assertEqual(self.tr.selected_cds_length, 672)
+        
+
+
 unittest.main()        

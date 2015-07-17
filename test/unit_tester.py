@@ -1,8 +1,8 @@
 import unittest
 from mikado_lib import json_utils
 from mikado_lib import exceptions
-from mikado_lib.parsers import GFF,GTF, bed12
-from mikado_lib.loci_objects import transcript, superlocus,abstractlocus
+from mikado_lib.parsers import GFF#,GTF, bed12
+from mikado_lib.loci_objects import transcript, superlocus#,abstractlocus
 
 class LocusTester(unittest.TestCase):
      

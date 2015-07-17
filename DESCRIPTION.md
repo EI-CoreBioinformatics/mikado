@@ -1,5 +1,5 @@
-Shanghai is a lightweight Python3 pipeline whose purpose is to facilitate the identification
-of expressed loci from RNA-Seq data * and to select the best model in each locus.
+Mikado is a lightweight Python3 pipeline whose purpose is to facilitate the identification
+of expressed loci from RNA-Seq data * and to select the best models in each locus.
 
 The logic of the pipeline is as follows:
 
@@ -15,6 +15,7 @@ The logic of the pipeline is as follows:
 
     * At this stage, monoexonic and multiexonic transcript are checked for overlaps
     * Moreover, two multiexonic transcripts are considered to belong to the same locus if they share a splice *site* (not junction)
+    
+6. Once the loci have been defined, the program backtracks and looks for transcripts which can be assigned unambiguously to a single locus and constitute valid alternative splicing isoforms of the main transcripts. 
 
-The resulting, cleaned file does contain therefore only one transcript per locus.
-The criteria used to select the "*best*" transcript are left to the user's discretion.
+The criteria used to select the "*best*" transcript are left to the user's discretion, using specific configuration files.

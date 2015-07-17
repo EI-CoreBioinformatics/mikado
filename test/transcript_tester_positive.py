@@ -1,6 +1,8 @@
 import unittest
 import re
-import mikado_lib
+import mikado_lib.parsers
+import mikado_lib.exceptions
+import mikado_lib.loci_objects
 
 class TranscriptTester(unittest.TestCase):
 
@@ -142,5 +144,18 @@ Chr2    TAIR10    three_prime_UTR    628570    628676    .    +    .    Parent=A
         self.tr.strip_cds()
         self.tr.load_orfs( [self.orf] )
         self.assertEqual(self.tr.selected_cds_start, None)
+
+    def test_raises_invalid(self):
+
+        self.tr.finalized = False
+        self.tr.strand = None
+        
+        self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
+        
+        self.tr.strand = "+"
+        self.tr.finalize()
+        self.tr.finalized = False
+        self.tr.exons+=[(625878,625880)]
+        self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
 
 unittest.main()        

@@ -279,7 +279,6 @@ class assigner:
         - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
         - u    Unknown, intergenic transcript
         - x    Exonic overlap with reference on the opposite strand
-        - s    An intron of the transfrag overlaps a reference intron on the opposite strand (likely due to read mapping errors)
     
         Please note that the description for i is changed from Cufflinks.
     
@@ -330,8 +329,10 @@ class assigner:
             else:
                 junction_f1 = 0
     
-        else:
+        elif tr.exon_num==other.exon_num==1:
             junction_overlap=junction_f1=junction_precision=junction_recall=1
+        else:
+            junction_overlap=junction_f1=junction_precision=junction_recall=0
         
         ccode = None
         distance = 0

@@ -1,6 +1,7 @@
 import unittest
 import re
-import mikado_lib
+import mikado_lib.parsers
+import mikado_lib.loci_objects
 
 class TranscriptTester(unittest.TestCase):
 

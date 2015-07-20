@@ -112,8 +112,8 @@ class transcript:
                 raise TypeError("Invalid data type: {0}".format(type(transcript_row))) 
                     
         self.chrom = transcript_row.chrom
-        assert "transcript"==transcript_row.feature or "RNA" in transcript_row.feature.upper(), transcript_row.feature
-        self.feature="transcript"
+        assert transcript_row.is_transcript is True
+        self.feature=transcript_row.feature
         self.id = transcript_row.id
         self.name = transcript_row.name
         if source is None:

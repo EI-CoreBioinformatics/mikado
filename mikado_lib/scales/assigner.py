@@ -425,6 +425,9 @@ class assigner:
         
         if ccode in ("e","o","c", "m") and prediction.strand is not None and reference.strand is not None and prediction.strand!=reference.strand:
             ccode="x"
+        
+        if prediction.strand != reference.strand:
+            reference_exon = None
     
         result = result_storer(reference.id, ",".join(reference.parent), ccode, prediction.id, ",".join(prediction.parent), 
                          round(nucl_precision*100,2), round(100*nucl_recall,2),round(100*nucl_f1,2),

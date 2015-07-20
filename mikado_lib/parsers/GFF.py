@@ -72,8 +72,11 @@ class gffLine(object):
                 if itemized[0].lower()=="parent":
                     self.parent=itemized[1]
                     
-                elif itemized[1].upper()=="ID":
+                elif itemized[0].upper()=="ID":
                     self.id=itemized[1]
+                elif itemized[1].lower()=="derives_from":
+                    assert self.parent is None
+                    self.parent=itemized[1]
                 else:
                     self.attributes[itemized[0]]=itemized[1]
                     self.attributeOrder.append(itemized[0])

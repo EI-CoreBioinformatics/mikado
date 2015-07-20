@@ -201,7 +201,7 @@ class gffLine(object):
             return False
         elif self.is_gene is True:
             return False
-        if "transcript"==self.feature or "RNA" in self.feature.upper():
+        if "transcript"==self.feature or "RNA" in self.feature.upper() or self.feature=="protein":
             return True
         return False
     

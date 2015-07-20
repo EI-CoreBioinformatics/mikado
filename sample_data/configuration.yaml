@@ -19,7 +19,12 @@ log_settings:
   log_level: INFO
 db: data.db
 dbtype: sqlite
-source: "Shanghai"
+source: "Mikado"
+alternative_splicing:
+  report: true
+  min_cds_overlap: 60
+  keep_retained_introns: false
+  max_isoforms: 3
 orf_loading:
   minimal_secondary_orf_length: 200
   strand_specific: true

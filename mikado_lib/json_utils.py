@@ -50,7 +50,7 @@ def check_alternative_splicing(json_conf):
         if "min_cds_overlap" not in json_conf["alternative_splicing"]:
             json_conf["alternative_splicing"]["min_cds_overlap"]=0
         else:
-            assert type(json_conf["alternative_splicing"]["min_cds_overlap"]) is float
+            assert type(json_conf["alternative_splicing"]["min_cds_overlap"]) in (float,int)
             if json_conf["alternative_splicing"]["min_cds_overlap"]<0 or json_conf["alternative_splicing"]["min_cds_overlap"]>100:
                 raise InvalidJson("Invalid percentage value for min_cds_overlap: {0}".format(json_conf["alternative_splicing"]["min_cds_overlap"]))
             if 1<json_conf["alternative_splicing"]["min_cds_overlap"]<=100:

@@ -3,6 +3,7 @@ import re
 import mikado_lib.parsers
 import mikado_lib.exceptions
 import mikado_lib.loci_objects
+import mikado_lib.serializers
 
 class TranscriptTester(unittest.TestCase):
 
@@ -63,7 +64,6 @@ Chr2    TAIR10    three_prime_UTR    628570    628676    .    +    .    Parent=A
         self.orf.blockStarts = 0
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
-            
 
     def test_basics(self):
         
@@ -85,6 +85,13 @@ Chr2    TAIR10    three_prime_UTR    628570    628676    .    +    .    Parent=A
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 626878)
         self.assertEqual(self.tr.selected_cds_end, 628569)
+        
+    def test_secondary_orf(self):
+        
+        self.assertEqual(self.tr.cds_not_maximal, 0)
+        self.assertEqual(self.tr.cds_not_maximal_fraction, 0)
+        
+        
         
     def test_utr(self):
         self.assertEqual(self.tr.five_utr,[("UTR", 626842,626877)] )
@@ -124,7 +131,16 @@ Chr2    TAIR10    three_prime_UTR    628570    628676    .    +    .    Parent=A
         self.assertEqual(self.tr.three_utr, [])
         self.assertEqual(self.tr.five_utr, [])
         self.assertEqual(self.tr.combined_cds,
-                         [(626878,626880),(626963,627059),(627137,627193),(627312,627397),(627488,627559),(627696,627749),(627840,627915),(628044,628105),(628182,628241),(628465,628569)],
+                         [(626878,626880),
+                          (626963,627059),
+                          (627137,627193),
+                          (627312,627397),
+                          (627488,627559),
+                          (627696,627749),
+                          (627840,627915),
+                          (628044,628105),
+                          (628182,628241),
+                          (628465,628569)],
                          self.tr.combined_cds)
         self.assertEqual(self.tr.combined_utr, [], self.tr.combined_utr)
 
@@ -171,7 +187,109 @@ Chr2    TAIR10    three_prime_UTR    628570    628676    .    +    .    Parent=A
         
         self.assertEqual(self.tr.cdna_length, 815)
         self.assertEqual(self.tr.selected_cds_length, 672)
+        self.assertAlmostEqual(self.tr.combined_cds_fraction,  672/815, delta=0.01)
+        self.assertAlmostEqual(self.tr.selected_cds_fraction,  672/815, delta=0.01)
         
+    def testSegments(self):
+        
+        self.assertEqual(self.tr.combined_cds_num,  10)
+        self.assertEqual(self.tr.selected_cds_num,  10)
+        self.assertEqual(self.tr.highest_cds_exon_number,  10)
+        self.assertEqual(self.tr.max_intron_length, 223)
+        self.assertEqual(self.tr.number_internal_orfs, 1)
+
+    def testDoubleOrf(self):
+
+        '''Test to verify the introduction of multiple ORFs.'''
+
+        self.tr.strip_cds()
+        self.tr.finalized = False
+
+        first_orf=mikado_lib.parsers.bed12.BED12()
+        first_orf.chrom=self.tr.id
+        first_orf.start = 0
+        first_orf.end = self.tr.cdna_length
+        first_orf.name = self.tr.id
+        first_orf.strand="+"
+        first_orf.score = 0
+        first_orf.thickStart = 50
+        first_orf.thickEnd = 400
+        first_orf.blockCount = 1
+        first_orf.blockSize = self.tr.cdna_length
+        first_orf.blockSizes = [self.tr.cdna_length]
+        first_orf.blockStarts = [0]
+        first_orf.rgb = 0
+        first_orf.has_start_codon = True
+        first_orf.has_stop_codon = True
+        first_orf.transcriptomic = True
+        
+        #This should not be incorporated
+        second_orf=mikado_lib.parsers.bed12.BED12()
+        second_orf.chrom=self.tr.id
+        second_orf.start = 0
+        second_orf.end = self.tr.cdna_length
+        second_orf.name = "second"
+        second_orf.strand="+"
+        second_orf.score = 0
+        second_orf.thickStart = 200
+        second_orf.thickEnd = 410
+        second_orf.blockCount = 1
+        second_orf.blockSize = self.tr.cdna_length
+        second_orf.blockSizes = [self.tr.cdna_length]
+        second_orf.blockStarts = [0]
+        second_orf.rgb = 0
+        second_orf.has_start_codon = True
+        second_orf.has_stop_codon = True
+        second_orf.transcriptomic = True
+
+        self.assertTrue( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, second_orf)  )
+
+
+        #This should be added
+        third_orf=mikado_lib.parsers.bed12.BED12()
+        third_orf.chrom=self.tr.id
+        third_orf.start = 0
+        third_orf.end = self.tr.cdna_length
+        third_orf.name = "third"
+        third_orf.strand="+"
+        third_orf.score = 0
+        third_orf.thickStart = 500
+        third_orf.thickEnd = 800
+        third_orf.blockCount = 1
+        third_orf.blockSize = self.tr.cdna_length
+        third_orf.blockSizes = [self.tr.cdna_length]
+        third_orf.blockStarts = [0]
+        third_orf.rgb = 0
+        third_orf.has_start_codon = True
+        third_orf.has_stop_codon = True
+        third_orf.transcriptomic = True
+
+        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, third_orf)  )
+        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(second_orf, third_orf)  )
+
+        self.assertFalse( third_orf == second_orf)
+        self.assertFalse( first_orf == second_orf)
+        self.assertFalse( first_orf == third_orf)
+        
+        
+        candidates = [first_orf, second_orf, third_orf]
+        
+        self.assertEqual(len(mikado_lib.loci_objects.transcript.transcript.find_overlapping_cds(candidates)),2)
+        
+        self.tr.load_orfs([first_orf, second_orf, third_orf])
+        
+        self.assertTrue(self.tr.is_complete)
+        self.tr.finalize()
+        
+        self.assertEqual(self.tr.combined_cds_length, 652  )
+        self.assertEqual(self.tr.selected_cds_length, 351  )
+        self.assertEqual(self.tr.number_internal_orfs,2, "\n".join([str(x) for x in self.tr.internal_orfs]))
+        
+        new_transcripts = sorted(  self.tr.split_by_cds() )
+        
+        self.assertEqual( len(new_transcripts), 2)
+        self.assertEqual( new_transcripts[0].three_utr_length, 0  )
+        self.assertEqual( new_transcripts[1].five_utr_length, 0  )
 
 
 unittest.main()        

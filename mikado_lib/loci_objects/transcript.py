@@ -127,7 +127,9 @@ class transcript:
 
         self.parent = transcript_row.parent
         self.attributes = transcript_row.attributes
-        self.blast_hits = []        
+        self.blast_hits = []   
+        self.json_dict = None
+             
         
     def __str__(self, to_gtf=False, print_cds=True):
         '''Each transcript will be printed out in the GFF style.
@@ -410,7 +412,10 @@ class transcript:
         '''
         self.finalize()
         
-        minimal_overlap=self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        if self.json_dict is not None:
+            minimal_overlap=self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        else:
+            minimal_overlap=0
         new_transcripts=[]
         if self.number_internal_orfs<2:
             new_transcripts=[self]
@@ -420,7 +425,7 @@ class transcript:
             for orf in sorted(self.loaded_bed12, key=operator.attrgetter("thickStart", "thickEnd")):
                 cds_boundaries[(orf.thickStart,orf.thickEnd)]=[orf]
             
-            if self.json_dict["chimera_split"]["blast_check"] is True:
+            if self.json_dict is not None and self.json_dict["chimera_split"]["blast_check"] is True:
                                 
                 cds_hit_dict=OrderedDict().fromkeys(cds_boundaries.keys())
                 for key in cds_hit_dict:
@@ -587,6 +592,7 @@ class transcript:
                     
                     new_transcript.start=min( exon[0] for exon in new_transcript.exons )
                     new_transcript.end=max( exon[1] for exon in new_transcript.exons )
+                    new_transcript.json_dict=self.json_dict
                     #Now we have to modify the BED12s to reflect the fact that we are starting/ending earlier
                     new_bed12s = []
                     for obj in bed12_objects:
@@ -849,7 +855,7 @@ class transcript:
         self.load_verified_introns(introns)
         self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
         if len(self.query_id)==0:
-            self.logger.warn("Transcript not in database: {0}".format(self.id))
+            self.logger.warning("Transcript not in database: {0}".format(self.id))
         else:
             self.query_id = self.query_id[0].id
             yield from self.load_orfs_coroutine()
@@ -890,15 +896,14 @@ class transcript:
     def retrieve_orfs(self):
         
         '''This method will look up the ORFs loaded inside the database.
-        This function is used to load the various CDSs from an external database.
+        During the selection, the function will also remove overlapping ORFs.
         '''
         
         if self.query_id is None:
             return []
         
-        minimal_secondary_orf_length=self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
-
+        
         orf_results = self.orf_baked(self.session).params(query_id = self.query_id)
         
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
@@ -908,19 +913,8 @@ class transcript:
             candidate_orfs=orf_results.all()
             
         if len(candidate_orfs)==0: return []
-        
-        candidate_cliques=self.find_overlapping_cds(candidate_orfs)
-        new_orfs=[]
-        for clique in candidate_cliques:
-            new_orfs.append(sorted(clique, reverse=True, key=operator.attrgetter("cds_len"))[0])
-
-        candidate_orfs=[]
-        if len(new_orfs)>0:
-            candidate_orfs=[new_orfs[0].as_bed12()]
-            for orf in filter(lambda x: x.cds_len>minimal_secondary_orf_length, new_orfs[1:]):
-                candidate_orfs.append(orf.as_bed12())
-                
-        return candidate_orfs
+        else:
+            return [orf.as_bed12() for orf in candidate_orfs]
     
     #@profile
     @asyncio.coroutine
@@ -953,14 +947,33 @@ class transcript:
                 - if the transcript is monoexonic: invert its genomic strand
                 - if the transcript is multiexonic: skip
             - Start looking at the exons
+        
         '''
+
+        #Prepare the transcript
+        self.finalize()
+        
+        #Prepare the ORFs to load
+        if self.json_dict is not None:
+            minimal_secondary_orf_length=self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
+        else:
+            minimal_secondary_orf_length=0
+            
+        candidate_cliques=self.find_overlapping_cds(candidate_orfs)
+        new_orfs=[]
+        for clique in candidate_cliques:
+            new_orfs.append(sorted(clique, reverse=True, key=operator.attrgetter("cds_len"))[0])
+
+        candidate_orfs=[]
+        if len(new_orfs)>0:
+            candidate_orfs=[new_orfs[0]]
+            for orf in filter(lambda x: x.cds_len>minimal_secondary_orf_length, new_orfs[1:]):
+                candidate_orfs.append(orf)
 
         if candidate_orfs is None or len(candidate_orfs)==0:
             self.logger.debug( "No ORF for {0}".format(self.id) )
             return
         
-        self.finalize()
-
         self.combined_utr = []
         self.combined_cds = []
         self.internal_orfs = []
@@ -976,14 +989,14 @@ class transcript:
             candidate_orfs = list(filter( lambda co: co.strand == candidate_orfs[0].strand, candidate_orfs  ))
         
                 
-        for orf in candidate_orfs:
+        for orf in sorted(candidate_orfs, key=operator.attrgetter( "cds_len"  ), reverse=True):
             #Minimal check
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
                 primary_orf = False
             
             if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length): #Leave leeway for TD
-                self.logger.warn("Wrong ORF:\n\t{0}\ncDNA length: {1}\nStart,end: {2}-{3}".format(str(orf), self.cdna_length, self.start, self.end))
+                self.logger.warning("Wrong ORF:\n\t{0}\ncDNA length: {1}\nStart,end: {2}-{3}".format(str(orf), self.cdna_length, self.start, self.end))
                 continue
 
             if self.strand is None:
@@ -1144,7 +1157,7 @@ class transcript:
         
         '''
 #         graph, cliques = abstractlocus.find_cliques( candidates, inters=cls.is_overlapping_cds)
-        d=dict( (x.id, x) for x in candidates )
+        d=dict( (x.name, x) for x in candidates )
         communities = abstractlocus.find_communities( abstractlocus.define_graph(d, inters=cls.is_overlapping_cds) )[1]
         final_communities = []
         for comm in communities:
@@ -1744,7 +1757,7 @@ class transcript:
     def start_distance_from_tss(self):
         '''This property returns the distance of the start of the combined CDS from the transcript start site.
         If no CDS is defined, it defaults to 0.'''
-        if len(self.internal_orfs)<2: return self.selected_start_distance_from_tss()
+        if len(self.internal_orfs)<2: return self.selected_start_distance_from_tss
         distance=0
         if self.strand=="+" or self.strand is None:
             for exon in self.exons:
@@ -1798,7 +1811,7 @@ class transcript:
     def end_distance_from_tes(self):
         '''This property returns the distance of the end of the combined CDS from the transcript end site.
         If no CDS is defined, it defaults to 0.'''
-        if len(self.internal_orfs)<2: return self.selected_end_distance_from_tes()
+        if len(self.internal_orfs)<2: return self.selected_end_distance_from_tes
         distance=0
         if self.strand=="-":
             for exon in self.exons:

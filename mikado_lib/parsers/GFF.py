@@ -74,9 +74,6 @@ class gffLine(object):
                     
                 elif itemized[0].upper()=="ID":
                     self.id=itemized[1]
-                elif itemized[1].lower()=="derives_from":
-                    assert self.parent is None
-                    self.parent=itemized[1]
                 else:
                     self.attributes[itemized[0]]=itemized[1]
                     self.attributeOrder.append(itemized[0])
@@ -204,7 +201,7 @@ class gffLine(object):
             return False
         elif self.is_gene is True:
             return False
-        if "transcript"==self.feature or "RNA" in self.feature.upper() or self.feature=="protein":
+        if "transcript"==self.feature or "RNA" in self.feature.upper():
             return True
         return False
     
@@ -237,6 +234,10 @@ class gffLine(object):
             return self.id
         else:
             return None
+    
+    @property    
+    def derived(self):
+        return "Derives_from" in self.attributes
 
 class GFF3(Parser):
     def __init__(self,handle: io.TextIOWrapper):

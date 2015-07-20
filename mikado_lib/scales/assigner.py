@@ -65,7 +65,7 @@ class assigner:
                     self.gene_matches[gid][tid].append(new_result)
         return
 
-    def get_best(self,tr:transcript):
+    def get_best(self,prediction:transcript):
         
         '''This function will get the best possible assignment for each transcript.
         Fusion genes are called when the following conditions are verified:
@@ -76,42 +76,42 @@ class assigner:
         
         '''
 
-        self.logger.debug("Started with {0}".format(tr.id))
+        self.logger.debug("Started with {0}".format(prediction.id))
         
-        tr.set_logger(self.logger)
+        prediction.set_logger(self.logger)
         try:
-            tr.finalize()
+            prediction.finalize()
             if self.args.exclude_utr is True:
-                tr.remove_utrs()
+                prediction.remove_utrs()
         except mikado_lib.exceptions.InvalidCDS:
             try:
-                tr.strip_cds()
+                prediction.strip_cds()
             except mikado_lib.exceptions.InvalidTranscript as err:
-                self.logger.warn("Invalid transcript: {0}".format(tr.id))
+                self.logger.warn("Invalid transcript: {0}".format(prediction.id))
                 self.logger.warn("Error message: {0}".format(err))
                 self.done+=1
                 self.print_tmap(None)
                 return None
         except mikado_lib.exceptions.InvalidTranscript as err:
     #         args.queue.put_nowait("mock")
-            self.logger.warn("Invalid transcript: {0}".format(tr.id))
+            self.logger.warn("Invalid transcript: {0}".format(prediction.id))
             self.logger.warn("Error message: {0}".format(err))
             self.done+=1
             self.print_tmap(None)
             return None
         
-        if self.args.protein_coding is True and tr.combined_cds_length == 0:
+        if self.args.protein_coding is True and prediction.combined_cds_length == 0:
     #         args.queue.put_nowait("mock")
-            self.logger.debug("No CDS for {0}. Ignoring.".format(tr.id))
+            self.logger.debug("No CDS for {0}. Ignoring.".format(prediction.id))
             self.done+=1
             self.print_tmap(None)
             return None
     
-        if tr.chrom in self.indexer:    
-            keys = self.indexer[tr.chrom]
+        if prediction.chrom in self.indexer:    
+            keys = self.indexer[prediction.chrom]
         else:
             keys=[]        
-        indexed = bisect.bisect(keys, (tr.start,tr.end) )
+        indexed = bisect.bisect(keys, (prediction.start,prediction.end) )
         
         found = []
     
@@ -131,7 +131,7 @@ class assigner:
                 search_right=False
         
         while search_left is True:
-            if  keys[left_index][1]+self.args.distance<tr.start:
+            if  keys[left_index][1]+self.args.distance<prediction.start:
                 search_left=False
                 continue
             found.append( keys[left_index] )
@@ -140,7 +140,7 @@ class assigner:
                 search_left=False
         
         while search_right is True:
-            if keys[right_index][0]-self.args.distance>tr.end:
+            if keys[right_index][0]-self.args.distance>prediction.end:
                 search_right=False
                 continue
             found.append(keys[right_index])
@@ -150,24 +150,24 @@ class assigner:
     
         distances = []
         for key in found:
-            distances.append( (key, max( 0, max(tr.start,key[0] ) - min(tr.end, key[1])   )   ) )
+            distances.append( (key, max( 0, max(prediction.start,key[0] ) - min(prediction.end, key[1])   )   ) )
     
         distances = sorted(distances, key = operator.itemgetter(1))
     
         #Unknown transcript
         if len(found)==0 or distances[0][1]>self.args.distance:
             ccode = "u"
-            best_result = result_storer( "-", "-", ccode, tr.id, ",".join(tr.parent), *[0]*6+["-"] )
-            self.stat_calculator.store(tr, best_result, None)
+            best_result = result_storer( "-", "-", ccode, prediction.id, ",".join(prediction.parent), *[0]*6+["-"] )
+            self.stat_calculator.store(prediction, best_result, None)
             results = [best_result] 
     
         #Polymerase run-on
         else:
             if distances[0][1]>0:
-                match = self.positions[tr.chrom][distances[0][0]][0]
+                match = self.positions[prediction.chrom][distances[0][0]][0]
                 results = []
-                for other in match:
-                    results.append( self.calc_compare(tr, other))
+                for reference in match:
+                    results.append( self.calc_compare(prediction, reference))
                 
                 best_result = sorted(results, key=operator.attrgetter("distance"))[0]
             else:
@@ -175,11 +175,11 @@ class assigner:
                 
                 if len(matches)>1:
                     #Possible fusion
-                    matches = [self.positions[tr.chrom][x[0]][0] for x in matches]
+                    matches = [self.positions[prediction.chrom][x[0]][0] for x in matches]
                     
                     strands = set(x.strand for x in matches)
-                    if len(strands)>1 and tr.strand in strands:
-                        matches = list(filter(lambda match: match.strand == tr.strand, matches))
+                    if len(strands)>1 and prediction.strand in strands:
+                        matches = list(filter(lambda match: match.strand == prediction.strand, matches))
                     if len(matches)==0:
                         raise ValueError("I filtered out all matches. This is wrong!")
                     
@@ -191,7 +191,7 @@ class assigner:
                         return result.j_f1[0], result.n_f1[0]
                     
                     for match in matches:
-                        m_res = sorted([self.calc_compare(tr, tra) for tra in match], reverse=True, key=get_f1  )
+                        m_res = sorted([self.calc_compare(prediction, tra) for tra in match], reverse=True, key=get_f1  )
                         #A fusion is called only if I have one of the following conditions:
                         #the transcript gets one of the junctions of the other transcript
                         #the exonic overlap is >=10% (n_recall)_
@@ -229,12 +229,12 @@ class assigner:
                         
                     best_result = result_storer(*values)
                 else:
-                    match =  self.positions[tr.chrom][matches[0][0]][0]
+                    match =  self.positions[prediction.chrom][matches[0][0]][0]
                     
-                    results = sorted([self.calc_compare(tr, tra) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
+                    results = sorted([self.calc_compare(prediction, tra) for tra in match], reverse=True, key=operator.attrgetter( "j_f1", "n_f1" )  )
                     
                     if not(len(results) == len(match.transcripts) and len(results)>0):
-                        raise ValueError((match, str(tr)))
+                        raise ValueError((match, str(prediction)))
                     best_result = results[0]
     #     args.queue.put_nowait(result)
     #     args.refmap_queue.put_nowait(result)
@@ -243,7 +243,7 @@ class assigner:
            
         for result in results:
             self.add_to_refmap( result)
-        self.logger.debug("Finished with {0}".format(tr.id))
+        self.logger.debug("Finished with {0}".format(prediction.id))
         self.print_tmap(best_result)
         self.done+=1
         return best_result
@@ -265,7 +265,7 @@ class assigner:
         return result
     
     @classmethod
-    def compare(cls,tr:transcript, other:transcript) ->  (result_storer,tuple):
+    def compare(cls,prediction:transcript, reference:transcript) ->  (result_storer,tuple):
     
         '''Function to compare two transcripts and determine a ccode.
         Available ccodes (from Cufflinks documentation):
@@ -297,78 +297,78 @@ class assigner:
         This is a class method, and can therefore be used from outside the compare script.
         ''' 
         
-        tr_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in tr.exons]))
-        other_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in other.exons]))
+        prediction_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in prediction.exons]))
+        reference_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in reference.exons]))
         
         
         nucl_overlap = len(set.intersection(
-                                            other_nucls, tr_nucls
+                                            reference_nucls, prediction_nucls
                                         )
                            )
                            
-        assert nucl_overlap<=min(other.cdna_length,tr.cdna_length), (tr.id, tr.cdna_length, other.id, other.cdna_length, nucl_overlap)
+        assert nucl_overlap<=min(reference.cdna_length,prediction.cdna_length), (prediction.id, prediction.cdna_length, reference.id, reference.cdna_length, nucl_overlap)
         
-        nucl_recall = nucl_overlap/other.cdna_length   # Sensitivity
-        nucl_precision = nucl_overlap/tr.cdna_length 
+        nucl_recall = nucl_overlap/reference.cdna_length   # Sensitivity
+        nucl_precision = nucl_overlap/prediction.cdna_length 
         if max(nucl_recall, nucl_precision) == 0:
             nucl_f1 = 0
         else:
             nucl_f1 = 2*(nucl_recall*nucl_precision)/(nucl_recall + nucl_precision) 
     
-        other_exon = None
+        reference_exon = None
     
         #Both multiexonic
-        if min(tr.exon_num, other.exon_num)>1:
-            assert min(len(tr.splices), len(other.splices))>0, (tr.introns, tr.splices)
-            one_intron_confirmed = any(intron in other.introns for intron in tr.introns)
-            junction_overlap = len( set.intersection(set(tr.splices), set(other.splices))   )
-            junction_recall = junction_overlap / len(other.splices)
-            junction_precision = junction_overlap / len(tr.splices)
+        if min(prediction.exon_num, reference.exon_num)>1:
+            assert min(len(prediction.splices), len(reference.splices))>0, (prediction.introns, prediction.splices)
+            one_intron_confirmed = any(intron in reference.introns for intron in prediction.introns)
+            junction_overlap = len( set.intersection(set(prediction.splices), set(reference.splices))   )
+            junction_recall = junction_overlap / len(reference.splices)
+            junction_precision = junction_overlap / len(prediction.splices)
             if max(junction_recall, junction_precision)>0:
                 junction_f1 = 2*(junction_recall*junction_precision)/(junction_recall+junction_precision)
             else:
                 junction_f1 = 0
     
-        elif tr.exon_num==other.exon_num==1:
+        elif prediction.exon_num==reference.exon_num==1:
             junction_overlap=junction_f1=junction_precision=junction_recall=1
         else:
             junction_overlap=junction_f1=junction_precision=junction_recall=0
         
         ccode = None
         distance = 0
-        if junction_f1 == 1 and tr.exon_num>1:
-            if tr.strand==other.strand or tr.strand is None:
+        if junction_f1 == 1 and prediction.exon_num>1:
+            if prediction.strand==reference.strand or prediction.strand is None:
                 ccode = "=" #We have recovered all the junctions
             else:
                 ccode = "c" #We will set this to x at the end of the function
             
         elif ( junction_f1 == 1 and nucl_f1>=0.95):
-            other_exon=other.exons[0]
-            if tr.strand==other.strand or tr.strand is None:
+            reference_exon=reference.exons[0]
+            if prediction.strand==reference.strand or prediction.strand is None:
                 ccode = "_" #We have recovered all the junctions
             else:
                 ccode = "x"
             
-        elif tr.start>other.end or tr.end<other.start: # Outside the transcript - polymerase run-on
-            distance = max(tr.start-other.end, other.start-tr.end)
-            if other.strand == tr.strand:
+        elif prediction.start>reference.end or prediction.end<reference.start: # Outside the transcript - polymerase run-on
+            distance = max(prediction.start-reference.end, reference.start-prediction.end)
+            if reference.strand == prediction.strand:
                 ccode = "p"
             else:
                 ccode = "P" 
-            distance = max(tr.start-other.end, other.start-tr.end) 
+            distance = max(prediction.start-reference.end, reference.start-prediction.end) 
      
         elif nucl_precision==1:
-            if tr.exon_num==1 or (tr.exon_num>1 and junction_precision==1):
+            if prediction.exon_num==1 or (prediction.exon_num>1 and junction_precision==1):
                 ccode="c"
      
         if ccode is None:
-            if min(tr.exon_num, other.exon_num)>1:
+            if min(prediction.exon_num, reference.exon_num)>1:
                 if junction_recall == 1 and junction_precision<1:
-                    new_splices = set.difference(set(tr.splices), set(other.splices))
-                    if any( min(other.splices)<splice<max(other.splices) for splice in new_splices  ):
+                    new_splices = set.difference(set(prediction.splices), set(reference.splices))
+                    if any( min(reference.splices)<splice<max(reference.splices) for splice in new_splices  ):
                         ccode="j"
                     else:
-                        ccode = "n" # we have recovered all the junctions AND added some other junctions of our own
+                        ccode = "n" # we have recovered all the junctions AND added some reference junctions of our own
                 elif junction_recall>0 and 0<junction_precision<1:
                     if one_intron_confirmed is True:
                         ccode = "j"
@@ -377,11 +377,11 @@ class assigner:
                 elif junction_precision==1:
                     ccode = "c"
                     if nucl_precision<1:
-                        for intron in other.introns:
-                            if intron in tr.introns: continue
-                            if intron[1]<tr.start: continue
-                            elif intron[0]>tr.end: continue
-                            if tr.start<intron[0] and intron[1]<tr.end:
+                        for intron in reference.introns:
+                            if intron in prediction.introns: continue
+                            if intron[1]<prediction.start: continue
+                            elif intron[0]>prediction.end: continue
+                            if prediction.start<intron[0] and intron[1]<prediction.end:
                                 ccode="j"
                                 break
                         
@@ -391,41 +391,41 @@ class assigner:
                         ccode = "o" 
                     else:
                         if nucl_overlap == 0:
-                            if other.start<tr.start<other.end: #The only explanation for no nucleotide overlap and no nucl overlap is that it is inside an intron
+                            if reference.start<prediction.start<reference.end: #The only explanation for no nucleotide overlap and no nucl overlap is that it is inside an intron
                                 ccode = "I"
-                            elif tr.start<other.start<tr.end:
+                            elif prediction.start<reference.start<prediction.end:
                                 ccode="K" #reverse intron retention
             else:
-                if tr.exon_num==1 and other.exon_num>1:
+                if prediction.exon_num==1 and reference.exon_num>1:
                     if nucl_precision<1 and nucl_overlap>0:
-                        outside = max( other.start-tr.start,0  )+max(tr.end-other.end,0) #Fraction outside
-                        if tr.cdna_length-nucl_overlap-outside>10:
+                        outside = max( reference.start-prediction.start,0  )+max(prediction.end-reference.end,0) #Fraction outside
+                        if prediction.cdna_length-nucl_overlap-outside>10:
                             ccode = "e"
                         else:
                             ccode = "o"
                     elif nucl_overlap>0:
                         ccode = "o"
-                    elif nucl_recall==0 and  other.start < tr.start < other.end:
+                    elif nucl_recall==0 and  reference.start < prediction.start < reference.end:
                         ccode = "i" #Monoexonic fragment inside an intron
-                elif tr.exon_num>1 and other.exon_num==1:
+                elif prediction.exon_num>1 and reference.exon_num==1:
                     if nucl_recall==1:
                         ccode = "n" #Extension
                     else:
                         ccode = "O" #Reverse generic overlap
-                elif tr.exon_num == other.exon_num ==1:
+                elif prediction.exon_num == reference.exon_num ==1:
                     junction_f1 = junction_precision = junction_recall = 1 #Set to one
-                    if nucl_f1>=0.95 and other.strand==tr.strand:
-                        other_exon=other.exons[0]
+                    if nucl_f1>=0.95 and reference.strand==prediction.strand:
+                        reference_exon=reference.exons[0]
                         ccode="_"
                     elif nucl_precision==1:
                         ccode="c" #contained
                     else:
                         ccode="m" #just a generic exon overlap b/w two monoexonic transcripts
         
-        if ccode in ("e","o","c", "m") and tr.strand is not None and other.strand is not None and tr.strand!=other.strand:
+        if ccode in ("e","o","c", "m") and prediction.strand is not None and reference.strand is not None and prediction.strand!=reference.strand:
             ccode="x"
     
-        result = result_storer(other.id, ",".join(other.parent), ccode, tr.id, ",".join(tr.parent), 
+        result = result_storer(reference.id, ",".join(reference.parent), ccode, prediction.id, ",".join(prediction.parent), 
                          round(nucl_precision*100,2), round(100*nucl_recall,2),round(100*nucl_f1,2),
                          round(junction_precision*100,2), round(100*junction_recall,2), round(100*junction_f1,2),
                          distance
@@ -433,7 +433,7 @@ class assigner:
         if ccode is None:
             raise ValueError("Ccode is null;\n{0}".format(  repr(result)))
     
-        return result,other_exon
+        return result,reference_exon
     
     
     def print_tmap(self, res:result_storer):

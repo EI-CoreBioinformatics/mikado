@@ -3,7 +3,7 @@
 ##Overview
 
 Mikado is a lightweight Python3 pipeline whose purpose is to facilitate the identification
-of expressed loci from RNA-Seq data * and to select the best model in each locus.
+of expressed loci from RNA-Seq data * and to select the best models in each locus.
 
 The logic of the pipeline is as follows:
 

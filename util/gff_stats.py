@@ -25,7 +25,11 @@ class transcriptComputer(transcript.transcript):
                    'introns', 'exons',
                    'exon_lengths', 'intron_lengths',
                    'cdna_length', 'selected_cds_length',
-                   'cds_intron_lengths', 'cds_exon_lengths'   ]
+                   'cds_intron_lengths', 'cds_exon_lengths',
+                   "five_utr_length", "three_utr_length",
+                   "five_utr_num", "three_utr_num"
+
+                      ]
     data_tuple = namedtuple("transcript_data", data_fields, verbose=False)
     
     def __init__(self, *args, **kwargs):
@@ -288,6 +292,13 @@ class Calculator:
         multiexonic_lengths = cArray('i')
         monocds_lengths = cArray('i')
         
+        five_utr_lengths = cArray('i')
+        five_utr_nums = cArray('i')
+        
+        three_utr_lengths = cArray('i')
+        three_utr_nums = cArray('i')
+
+        
         for gene in self.genes:
             for tid in self.genes[gene].transcripts:
                 exons.extend(  self.genes[gene].transcripts[tid].exon_lengths  )
@@ -306,6 +317,12 @@ class Calculator:
                 cds_exon_num.append(cds_num)
                 cdna_lengths.append( self.genes[gene].transcripts[tid].cdna_length  )
                 cds_lengths.append( self.genes[gene].transcripts[tid].selected_cds_length  )
+                if self.genes[gene].transcripts[tid].selected_cds_length>0:
+                    five_utr_lengths.append(self.genes[gene].transcripts[tid].five_utr_length)
+                    three_utr_lengths.append(self.genes[gene].transcripts[tid].three_utr_length)
+                    five_utr_nums.append(self.genes[gene].transcripts[tid].five_utr_num)
+                    three_utr_nums.append(self.genes[gene].transcripts[tid].three_utr_num)
+               
                 if self.only_coding is False and self.genes[gene].transcripts[tid].selected_cds_length>0:
                     cdna_lengths_coding.append(self.genes[gene].transcripts[tid].cdna_length)
                     exons_coding.extend(self.genes[gene].transcripts[tid].exon_lengths)
@@ -316,6 +333,12 @@ class Calculator:
         row["Stat"] = 'CDNA lengths'
         row["Total"] = 'NA'
         ar = cdna_lengths
+        row = self.get_stats(row, ar)
+        rower.writerow(row)
+        
+        row["Stat"] = 'CDNA lengths (mRNAs)'
+        row["Total"] = 'NA'
+        ar = cdna_lengths_coding
         row = self.get_stats(row, ar)
         rower.writerow(row)
 
@@ -404,6 +427,30 @@ class Calculator:
         
         row["Stat"] = "CDS Intron lengths"
         ar = cds_introns
+        row = self.get_stats(row, ar)
+        row["Total"]="NA"
+        rower.writerow(row)
+
+        row["Stat"] = "5'UTR exon number"
+        ar = five_utr_nums
+        row = self.get_stats(row, ar)
+        row["Total"]="NA"
+        rower.writerow(row)
+        
+        row["Stat"] = "3'UTR exon number"
+        ar = three_utr_nums
+        row = self.get_stats(row, ar)
+        row["Total"]="NA"
+        rower.writerow(row)
+
+        row["Stat"] = "5'UTR length"
+        ar = five_utr_lengths
+        row = self.get_stats(row, ar)
+        row["Total"]="NA"
+        rower.writerow(row)
+        
+        row["Stat"] = "3'UTR length"
+        ar = three_utr_lengths
         row = self.get_stats(row, ar)
         row["Total"]="NA"
         rower.writerow(row)

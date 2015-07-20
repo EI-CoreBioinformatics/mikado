@@ -180,10 +180,6 @@ class accountant:
             self.exons[tr.chrom][s][exon] |= 0b100
             if other_exon is not None:
                 assert type(other_exon) is tuple
-                for refgene, refid in zip(result.RefGene, result.RefId):
-                    for exon in self.ref_genes[refgene][refid].exons:
-                        assert exon in self.exons[tr.chrom], (refid, exon, self.ref_genes[refgene][refid].exons)
-                
                 assert other_exon in self.exons[tr.chrom][s], (tr.id, tr.exons, other_exon)
                 if not 0b100 & self.exons[tr.chrom][s][other_exon]:
                     self.exons[tr.chrom][s][other_exon] |= 0b100 #Check the other exon is marked as single 

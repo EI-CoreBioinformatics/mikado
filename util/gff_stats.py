@@ -168,7 +168,7 @@ class Calculator:
             if record.header is True:
                 continue
 
-            if record.derived is True:
+            if record.derived is True and record.is_gene is False:
                 derived_features.add(record.id)
             elif record.feature == "locus" or record.is_gene is True or (record.is_parent is True and record.is_transcript is False):
                 self.genes[record.id] = gene_object(record, only_coding=self.only_coding)    

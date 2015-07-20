@@ -254,13 +254,14 @@ class assigner:
         self.stat_calculator.print_stats(self.genes)
     
     
-    def calc_compare(self, tr:transcript, other:transcript) ->  result_storer:
+    def calc_compare(self, prediction:transcript, reference:transcript) ->  result_storer:
         
         '''Thin layer around the calc_compare class method'''
         
-        result, other_exon = self.compare(tr, other)
+        result, reference_exon = self.compare(prediction, reference)
         
-        self.stat_calculator.store(tr, result, other_exon)
+        assert reference_exon in reference.exons
+        self.stat_calculator.store(prediction, result, reference_exon)
         
         return result
     

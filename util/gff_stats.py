@@ -184,9 +184,6 @@ class Calculator:
                 self.genes[record.parent[0]].transcripts[record.id] = transcriptComputer(record)
             else:
                 for parent in filter( lambda parent: parent not in derived_features, record.parent):
-                    if parent not in transcript2gene:
-                        print(record)
-                        raise KeyError(parent, derived_features, transcript2gene)
                     gid = transcript2gene[parent]
                     self.genes[gid].transcripts[parent].addExon(record)
 

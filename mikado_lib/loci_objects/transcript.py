@@ -379,11 +379,11 @@ class transcript:
             """.format(self.id, gffLine.parent,gffLine))
         assert gffLine.is_exon is True, str(gffLine)
             
-        if gffLine.feature=="CDS":
+        if gffLine.feature.upper().endswith("CDS"):
             store=self.combined_cds
         elif "combined_utr" in gffLine.feature or "UTR" in gffLine.feature.upper():
             store=self.combined_utr
-        elif gffLine.feature=="exon":
+        elif gffLine.feature.endswith("exon"):
             store=self.exons
         elif gffLine.feature=="start_codon":
             self.has_start_codon = True

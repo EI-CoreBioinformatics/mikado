@@ -260,7 +260,7 @@ class assigner:
         
         result, reference_exon = self.compare(prediction, reference)
         
-        assert reference_exon in reference.exons
+        assert reference_exon is None or reference_exon in reference.exons
         self.stat_calculator.store(prediction, result, reference_exon)
         
         return result

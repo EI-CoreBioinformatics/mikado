@@ -191,7 +191,7 @@ class gffLine(object):
         if self.feature is None:
             return False
         f=self.feature.lower()
-        if f in ("cds","exon") or "utr" in f or "codon" in f:
+        if f.endswith("cds") or f.endswith("exon") or "utr" in f or "codon" in f:
             return True
         return False
         
@@ -201,7 +201,7 @@ class gffLine(object):
             return False
         elif self.is_gene is True:
             return False
-        if "transcript"==self.feature or "RNA" in self.feature.upper():
+        if self.feature.endswith("transcript") or "RNA" in self.feature.upper():
             return True
         return False
     
@@ -209,7 +209,7 @@ class gffLine(object):
     def is_gene(self):
         if self.feature is None:
             return False
-        if "gene" in self.feature and self.is_parent is True:
+        if self.feature.endswith("gene") and self.is_parent is True:
             return True
         return False
     

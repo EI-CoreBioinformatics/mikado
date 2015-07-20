@@ -209,6 +209,8 @@ class gffLine(object):
     def is_gene(self):
         if self.feature is None:
             return False
+        if self.is_transcript is True:
+            return False
         if self.feature.endswith("gene") and self.is_parent is True:
             return True
         return False

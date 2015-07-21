@@ -1358,28 +1358,37 @@ class transcript:
     @property
     def combined_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the combined CDS.'''
-        if len(self.combined_cds)<2:
+        if self.number_internal_orfs<2:
+            return self.selected_cds_introns
+        if self.number_internal_orfs==0 or len(self.combined_cds)<2:
             return set()
+        
         cintrons=[]
-        all_cintrons=[]
         for position in range(len(self.combined_cds)-1):
             former=self.combined_cds[position]
             latter=self.combined_cds[position+1]
             junc=(former[1]+1,latter[0]-1)
             if junc in self.introns:
                 cintrons.append(junc)
-        if len(self.selected_cds_introns)>0:
-            assert len(cintrons)>0,(self.id, self.selected_cds_introns,all_cintrons,self.introns) 
         cintrons=set(cintrons)
         return cintrons
 
     @property
     def selected_cds_introns(self):
         '''This property returns the introns which are located between CDS segments in the selected ORF.'''
+#         if self.number_internal_orfs<2:
+#             return self.combined_cds_introns
+#         
+        if len(self.selected_cds)<2:
+            return set()
+        if self.number_internal_orfs==0 or len(self.combined_cds)<2:
+            return set()
+
+        
         cintrons=[]
         for position in range(len(self.selected_internal_orf_cds)-1):
             cintrons.append(
-                            (self.selected_internal_orf_cds[position][1]+1, self.selected_internal_orf_cds[position+1][2]-1)
+                            (self.selected_internal_orf_cds[position][2]+1, self.selected_internal_orf_cds[position+1][1]-1)
                             )
         cintrons=set(cintrons)
         return cintrons

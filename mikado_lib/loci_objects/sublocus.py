@@ -231,7 +231,7 @@ class sublocus(abstractlocus):
             #Check that the overlap is at least as long as the minimum between the exon and the intron.
             if any(filter(
                           lambda junction: self.overlap(exon,junction)>=junction[1]-junction[0],
-                          self.introns                          
+                          self.combined_cds_introns                          
                           )) is True:
                     transcript_instance.retained_introns.append(exon)
         transcript_instance.retained_introns=tuple(transcript_instance.retained_introns)

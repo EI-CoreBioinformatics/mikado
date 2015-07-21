@@ -7,7 +7,9 @@ import mikado_lib.loci_objects
 
 class TranscriptTester(unittest.TestCase):
 
-    tr_gff="""Chr2    TAIR10    mRNA    626842    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380;Name=AT2G02380.1;Index=1
+    tr_gff="""Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380;Name=AT2G02380.1;Index=1
+Chr2    TAIR10    exon    626642    626780    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    five_prime_UTR    626642    626780    .    +    .    Parent=AT2G02380.1
 Chr2    TAIR10    exon    626842    626880    .    +    .    Parent=AT2G02380.1
 Chr2    TAIR10    five_prime_UTR    626842    626877    .    +    .    Parent=AT2G02380.1
 Chr2    TAIR10    CDS    626878    626880    .    +    0    Parent=AT2G02380.1
@@ -71,12 +73,13 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         
         self.assertEqual(self.tr.chrom, "Chr2")
         self.assertEqual(self.tr.strand, "+")
-        self.assertEqual(self.tr.exon_num, 11)
+        self.assertEqual(self.tr.exon_num, 12)
         self.assertEqual(self.tr.exon_num, len(self.tr.exons))
-        self.assertEqual(self.tr.start, 626842)
+        self.assertEqual(self.tr.start, 626642)
         self.assertEqual(self.tr.end, 629176)
         self.assertEqual(self.tr.exons,
-                         [(626842,626880),
+                         [(626642,626780),
+                          (626842,626880),
                           (626963,627059),
                           (627137,627193),
                           (627312,627397),
@@ -112,19 +115,67 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.cds_not_maximal_fraction, 0)
         
     def test_utr(self):
-        self.assertEqual(self.tr.five_utr,[("UTR", 626842,626877)] )
+        self.assertEqual(self.tr.five_utr,[ ("UTR",626642,626780), ("UTR", 626842,626877)] )
         self.assertEqual(self.tr.three_utr,[("UTR", 628570,628676),("UTR", 629070,629176) ] )
+
+    def test_introns(self):
+        
+        self.assertEqual(self.tr.introns, 
+                         set([(626781,    626841),
+                          (626881,    626962),
+                          (627060,    627136),
+                          (627194,    627311),
+                          (627398,    627487),
+                          (627560,    627695),
+                          (627750,    627839),
+                          (627916,    628043),
+                          (628106,    628181),
+                          (628242,    628464),
+                          (628677,    629069),
+                          ]),
+                         self.tr.introns
+                         
+                         )
+        self.assertEqual(self.tr.combined_cds_introns,
+                         set([(626881,    626962),
+                          (627060,    627136),
+                          (627194,    627311),
+                          (627398,    627487),
+                          (627560,    627695),
+                          (627750,    627839),
+                          (627916,    628043),
+                          (628106,    628181),
+                          (628242,    628464),
+                         ]),
+                         self.tr.combined_cds_introns
+                         )
+        self.assertEqual(self.tr.selected_cds_introns,
+                         set([(626881,    626962),
+                          (627060,    627136),
+                          (627194,    627311),
+                          (627398,    627487),
+                          (627560,    627695),
+                          (627750,    627839),
+                          (627916,    628043),
+                          (628106,    628181),
+                          (628242,    628464),
+                         ]),
+                         self.tr.selected_cds_introns
+                         )
 
     def test_utr_metrics(self):
 
         '''Test for UTR exon num, start distance, etc.'''
 
-        self.assertEqual(self.tr.five_utr_num, 1)
+        self.assertEqual(self.tr.five_utr_num, 2)
         self.assertEqual(self.tr.three_utr_num, 2)
-        self.assertEqual(self.tr.five_utr_length, 626877+1-626842)
+        self.assertEqual(self.tr.five_utr_num_complete, 1)
+        self.assertEqual(self.tr.three_utr_num_complete, 1)
+        
+        self.assertEqual(self.tr.five_utr_length, 626780+1-626642+ 626877+1-626842  )
         self.assertEqual(self.tr.three_utr_length, 628676+1-628570 + 629176+1-629070 )
         
-        self.assertEqual(self.tr.selected_start_distance_from_tss,626878-626842, self.tr.selected_end_distance_from_tes )
+        self.assertEqual(self.tr.selected_start_distance_from_tss, 626780+1-626642+  626878-626842, self.tr.selected_end_distance_from_tes )
         self.assertEqual(self.tr.selected_start_distance_from_tss, self.tr.start_distance_from_tss)
         
         self.assertEqual(self.tr.selected_end_distance_from_tes,628676-628569+ 629176+1-629070, self.tr.selected_end_distance_from_tes )
@@ -205,10 +256,10 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         
     def test_lengths(self):
         
-        self.assertEqual(self.tr.cdna_length, 922    )
+        self.assertEqual(self.tr.cdna_length, 1061    )
         self.assertEqual(self.tr.selected_cds_length, 672)
-        self.assertAlmostEqual(self.tr.combined_cds_fraction,  672/922, delta=0.01)
-        self.assertAlmostEqual(self.tr.selected_cds_fraction,  672/922, delta=0.01)
+        self.assertAlmostEqual(self.tr.combined_cds_fraction,  672/1061, delta=0.01)
+        self.assertAlmostEqual(self.tr.selected_cds_fraction,  672/1061, delta=0.01)
         
     def testSegments(self):
         

@@ -140,4 +140,23 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertEqual(self.tr.selected_cds_start, 8737-(8571-5928))
         self.assertEqual(self.tr.selected_cds_end, 5928+(8737-8666))
 
+    def test_introns(self):
+        
+        self.assertEqual(self.tr.introns, 
+                         set([
+                          ]),
+                         self.tr.introns
+                         )
+        self.assertEqual(self.tr.combined_cds_introns,
+                         set([
+                         ]),
+                         self.tr.combined_cds_introns
+                         )
+        self.assertEqual(self.tr.selected_cds_introns,
+                         set([
+                         ]),
+                         self.tr.selected_cds_introns
+                         )
+
+
 unittest.main()        

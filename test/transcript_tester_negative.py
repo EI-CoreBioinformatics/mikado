@@ -97,13 +97,57 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         '''Test for UTR exon num, start distance, etc.'''
  
         self.assertEqual(self.tr.five_utr_num, 1)
+        self.assertEqual(self.tr.five_utr_num_complete, 0)
         self.assertEqual(self.tr.three_utr_num, 2)
+        self.assertEqual(self.tr.three_utr_num_complete, 1)
+        
         self.assertEqual(self.tr.five_utr_length, 8737+1-8667)
         self.assertEqual(self.tr.three_utr_length, 6263+1-5928 + 6914+1-6437 )
         self.assertEqual(self.tr.selected_start_distance_from_tss,8738-8667, self.tr.selected_end_distance_from_tes )
         self.assertEqual(self.tr.selected_end_distance_from_tes,6263+1-5928 + 6915-6437, self.tr.selected_end_distance_from_tes )
         self.assertEqual(self.tr.selected_end_distance_from_junction, 6915-6437+1  )
         self.assertEqual(self.tr.end_distance_from_junction, self.tr.selected_end_distance_from_junction )
+
+    def test_introns(self):
+        
+        self.assertEqual(self.tr.introns, 
+                         set([(8465,8570),
+                              (8326,8416),
+                              (7988,8235),
+                              (7836,7941),
+                              (7650,7761),
+                              (7451,7563),
+                              (7233,7383),
+                              (7070,7156),
+                              (6264,6436),
+                          ]),
+                         self.tr.introns
+                         )
+        self.assertEqual(self.tr.combined_cds_introns,
+                         set([(8465,8570),
+                              (8326,8416),
+                              (7988,8235),
+                              (7836,7941),
+                              (7650,7761),
+                              (7451,7563),
+                              (7233,7383),
+                              (7070,7156),
+                         ]),
+                         self.tr.combined_cds_introns
+                         )
+        self.assertEqual(self.tr.selected_cds_introns,
+                         set([(8465,8570),
+                              (8326,8416),
+                              (7988,8235),
+                              (7836,7941),
+                              (7650,7761),
+                              (7451,7563),
+                              (7233,7383),
+                              (7070,7156),
+                         ]),
+                         self.tr.selected_cds_introns
+                         )
+
  
     def test_strip_cds(self):
  

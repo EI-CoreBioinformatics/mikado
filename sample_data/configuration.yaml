@@ -59,6 +59,9 @@ scoring:
     filter: {operator: lt, value: 3}
     rescaling: target
     value: 1
+  selected_end_distance_from_junction:
+    filter: {operator: lt, value: 55}
+    rescaling: min
   highest_cds_exon_number: {rescaling: max}
   intron_fraction: {rescaling: max}
   number_internal_orfs: {rescaling: target, value: 1}

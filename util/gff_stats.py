@@ -457,6 +457,12 @@ class Calculator:
         row["Total"]="NA"
         rower.writerow(row)
 
+        row["Stat"] = "Stop distance from junction"
+        ar = end_distance_from_junction
+        row = self.get_stats(row, ar)
+        row["Total"]="NA"
+        rower.writerow(row)
+
         row["Stat"] = "Intergenic distances"
         ar = self.distances
         row = self.get_stats(row, ar)

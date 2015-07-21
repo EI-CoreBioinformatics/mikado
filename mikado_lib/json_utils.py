@@ -24,6 +24,22 @@ def check_log(json_conf):
                                                                                                           )  )
     return json_conf
 
+def merge_dictionaries(a, b, path=None):
+    '''Recursive function to merge two dictionaries.
+    Source: http://stackoverflow.com/questions/7204805/dictionaries-of-dictionaries-merge'''
+    if path is None:
+        path = []
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge_dictionaries(a[key], b[key], path + [str(key)])
+            else:
+                pass # same leaf value                                                                                                                                                                       
+        else:
+            a[key] = b[key]
+    return a
+
+
 
 def check_alternative_splicing(json_conf):
     
@@ -323,6 +339,15 @@ def check_run_options(json_conf):
 
 def check_json(json_conf, json_file):
     '''Quick function to check that the JSON dictionary is well formed.'''
+    
+    if "scoring_file" in json_conf:
+        with open(json_conf["scoring_file"]) as scoring_file:
+            if json_conf["scoring_file"].endswith("yaml"):
+                scoring=yaml.load(scoring_file)
+            else:
+                scoring=json.load(scoring_file)
+        assert type(json_conf) is dict and type(scoring) is dict, (type(json_conf), type(scoring))
+        json_conf = merge_dictionaries( json_conf, scoring )
     
     if "db" not in json_conf:
         raise mikado_lib.exceptions.InvalidJson("No database specified.") 

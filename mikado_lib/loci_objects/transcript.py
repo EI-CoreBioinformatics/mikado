@@ -129,7 +129,8 @@ class transcript:
         self.attributes = transcript_row.attributes
         self.blast_hits = []   
         self.json_dict = None
-             
+        self.internal_orfs=[]
+        
         
     def __str__(self, to_gtf=False, print_cds=True):
         '''Each transcript will be printed out in the GFF style.
@@ -393,7 +394,7 @@ class transcript:
             return
         else:
             raise mikado_lib.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffLine.feature))
-            
+        
         start,end=sorted([gffLine.start, gffLine.end])
         store.append((start, end) )
 
@@ -703,6 +704,8 @@ class transcript:
             return
         self.introns = []
         self.splices=[]
+        
+        
         if len(self.exons)==0:
             raise mikado_lib.exceptions.InvalidTranscript("No exon defined for the transcript {0}. Aborting".format(self.tid))
 
@@ -713,6 +716,8 @@ class transcript:
             raise mikado_lib.exceptions.InvalidTranscript("Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
         self.exons = sorted(self.exons, key=operator.itemgetter(0,1) ) # Sort the exons by start then stop
+        
+
         
         if self.cdna_length > self.combined_utr_length + self.combined_cds_length:
             if self.combined_utr == [] and self.combined_cds!=[]:
@@ -742,25 +747,8 @@ class transcript:
 
 
 #         assert len(self.exons)>0
-        try:
-            if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
-                if self.exons[0][0]>self.start and self.selected_cds[0][0]==self.start:
-                    self.exons[0] = (self.start, self.exons[0][0])
-                if self.exons[-1][1]<self.end and self.selected_cds[-1][1]==self.end:
-                    self.exons[-1] = (self.exons[-1][0], self.end)
-                
-                if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:    
-                    raise mikado_lib.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
-                    but its first and last exons define it up until {estart}:{eend}!""".format(
-                                                                                               id=self.id,
-                                                                                               tstart=self.start,
-                                                                                               tend=self.end,
-                                                                                               estart=self.exons[0][0],
-                                                                                               eend=self.exons[-1][1]
-                                                                                               ))
-        except IndexError as err:
-            raise mikado_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
 
+        self.internal_orfs = []
         if len(self.exons)>1:
             for index in range(len(self.exons)-1):
                 exonA, exonB = self.exons[index:index+2]
@@ -778,7 +766,7 @@ class transcript:
             if self.strand=="+": self.has_stop_codon=True
             elif self.strand=="-": self.has_start_codon=True
         
-        self.internal_orfs = []
+#         assert self.selected_internal_orf_index > -1
         self.segments = [ ("exon",e[0],e[1]) for e in self.exons] + \
                     [("CDS", c[0],c[1]) for c in self.combined_cds ] + \
                     [ ("UTR", u[0], u[1]) for u in self.combined_utr ]
@@ -789,11 +777,35 @@ class transcript:
             self.selected_internal_orf_index=0
         
         self.introns = set(self.introns)
-        self.splices = set(self.splices)            
+        self.splices = set(self.splices)
         _ = self.selected_internal_orf
-#         assert self.selected_internal_orf_index > -1
+
+
         if len(self.combined_cds)>0:
             self.feature="mRNA"
+
+        try:
+            if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:
+                if self.exons[0][0]>self.start and self.selected_cds[0][0]==self.start:
+                    self.exons[0] = (self.start, self.exons[0][0])
+                if self.exons[-1][1]<self.end and self.selected_cds[-1][1]==self.end:
+                    self.exons[-1] = (self.exons[-1][0], self.end)
+                
+                if self.exons[0][0]!=self.start or self.exons[-1][1]!=self.end:    
+                    raise mikado_lib.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
+                    but its first and last exons define it up until {estart}:{eend}!
+                    Exons: {exons}
+                    """.format(
+                                id=self.id,
+                                tstart=self.start,
+                                tend=self.end,
+                                estart=self.exons[0][0],
+                                eend=self.exons[-1][1],
+                                exons=self.exons
+                                ))
+        except IndexError as err:
+            raise mikado_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
+
         
         self.set_relative_properties()
         
@@ -1806,6 +1818,46 @@ class transcript:
                 distance+=exon[1]+1-max(self.selected_cds_end+1,exon[0])
                 if self.selected_cds_end>=exon[0]:break
         return distance
+
+    @metric
+    def selected_end_distance_from_junction(self):
+        '''This metric returns the distance between the stop codon and the nearest downstream junction.
+        In many eukaryotes, this distance cannot exceed 50-55 bps, otherwise the transcript becomes a target of NMD.
+        If the transcript is not coding or there is no junction downstream of the stop codon, the metric returns 0.'''
+        
+        if len(self.combined_cds)==0 or self.exon_num==1: return 0
+        if self.strand=="+":
+            #Case 1: the stop is after the latest junction
+            if self.selected_cds_end>max(self.splices):
+                return 0
+            else:
+                return min(list(filter(lambda s: s>self.selected_cds_end, self.splices )))-self.selected_cds_end
+        elif self.strand=="-":
+            if self.selected_cds_end<min(self.splices):
+                return 0
+            else:
+                return self.selected_cds_end-max(list(filter(lambda s: s<self.selected_cds_end, self.splices )))
+
+    @metric
+    def end_distance_from_junction(self):
+        '''This metric returns the distance between the stop codon and the nearest downstream junction.
+        In many eukaryotes, this distance cannot exceed 50-55 bps, otherwise the transcript becomes a target of NMD.
+        If the transcript is not coding or there is no junction downstream of the stop codon, the metric returns 0.
+        This metric considers the combined CDS end.'''
+        
+        if len(self.combined_cds)==0 or self.exon_num==1: return 0
+        if self.strand=="+":
+            #Case 1: the stop is after the latest junction
+            if self.combined_cds_end>max(self.splices):
+                return 0
+            else:
+                return min(list(filter(lambda s: s>self.combined_cds_end, self.splices )))-self.combined_cds_end
+        elif self.strand=="-":
+            if self.combined_cds_end<min(self.splices):
+                return 0
+            else:
+                return self.combined_cds_end-max(list(filter(lambda s: s<self.combined_cds_end, self.splices )))
+
 
     @metric
     def end_distance_from_tes(self):

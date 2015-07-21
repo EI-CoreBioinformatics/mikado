@@ -27,8 +27,8 @@ class transcriptComputer(transcript.transcript):
                    'cdna_length', 'selected_cds_length',
                    'cds_intron_lengths', 'cds_exon_lengths',
                    "five_utr_length", "three_utr_length",
-                   "five_utr_num", "three_utr_num"
-
+                   "five_utr_num", "three_utr_num",
+                   "selected_end_distance_from_junction"
                       ]
     data_tuple = namedtuple("transcript_data", data_fields, verbose=False)
     
@@ -298,6 +298,7 @@ class Calculator:
         three_utr_lengths = cArray('i')
         three_utr_nums = cArray('i')
 
+        end_distance_from_junction = cArray('i')
         
         for gene in self.genes:
             for tid in self.genes[gene].transcripts:
@@ -322,6 +323,7 @@ class Calculator:
                     three_utr_lengths.append(self.genes[gene].transcripts[tid].three_utr_length)
                     five_utr_nums.append(self.genes[gene].transcripts[tid].five_utr_num)
                     three_utr_nums.append(self.genes[gene].transcripts[tid].three_utr_num)
+                    end_distance_from_junction.append(self.genes[gene].transcripts[tid].selected_end_distance_from_junction)
                
                 if self.only_coding is False and self.genes[gene].transcripts[tid].selected_cds_length>0:
                     cdna_lengths_coding.append(self.genes[gene].transcripts[tid].cdna_length)

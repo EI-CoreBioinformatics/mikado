@@ -54,7 +54,7 @@ scoring:
   combined_cds_num: {rescaling: max}
   exon_fraction: {rescaling: max}
   exon_num: {rescaling: max}
-  five_utr_length: {rescaling: target, value: 200}
+  five_utr_length: {rescaling: target, value: 100}
   five_utr_num_complete:
     filter: {operator: lt, value: 3}
     rescaling: target
@@ -73,8 +73,8 @@ scoring:
   three_utr_length:
     filter: {operator: le, value: 2500}
     rescaling: target
-    value: 400
+    value: 200
   three_utr_num_complete:
     filter: {operator: lt, value: 3}
     rescaling: target
-    value: 2
+    value: 1

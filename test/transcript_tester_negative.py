@@ -2,8 +2,8 @@ import unittest
 import re
 import mikado_lib.parsers
 import mikado_lib.loci_objects
-import mikado_lib.serializers
-import operator
+# import mikado_lib.serializers
+# import operator
 
 
 class TranscriptTester(unittest.TestCase):
@@ -102,6 +102,8 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.assertEqual(self.tr.three_utr_length, 6263+1-5928 + 6914+1-6437 )
         self.assertEqual(self.tr.selected_start_distance_from_tss,8738-8667, self.tr.selected_end_distance_from_tes )
         self.assertEqual(self.tr.selected_end_distance_from_tes,6263+1-5928 + 6915-6437, self.tr.selected_end_distance_from_tes )
+        self.assertEqual(self.tr.selected_end_distance_from_junction, 6915-6437+1  )
+        self.assertEqual(self.tr.end_distance_from_junction, self.tr.selected_end_distance_from_junction )
  
     def test_strip_cds(self):
  

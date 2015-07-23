@@ -447,7 +447,7 @@ class transcript:
                         cds_hits = cds_hit_dict[cds_boundary]
                         old_hits = cds_hit_dict[old_boundary]
                         if cds_hits == set() and old_hits==set(): #No hit found for either CDS
-                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="CLEMENT": #If we are clement, we DO NOT split
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"]=="PERMISSIVE": #If we are clement, we DO NOT split
                                 new_boundaries[-1].append(cds_boundary)
                             else: #Otherwise, we do split
                                 new_boundaries.append([cds_boundary])
@@ -1007,8 +1007,12 @@ class transcript:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
                 primary_orf = False
             
-            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length): #Leave leeway for TD
-                self.logger.warning("Wrong ORF:\n\t{0}\ncDNA length: {1}\nStart,end: {2}-{3}".format(str(orf), self.cdna_length, self.start, self.end))
+            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length) or not (orf.length == self.cdna_length) : #Leave leeway for TD
+                self.logger.warning("Wrong ORF for {0}: cDNA length: {1}; orf length: {2}; CDS: {3}-{4}".format(orf.id,
+                                                                                                                      self.cdna_length, 
+                                                                                                                      orf.length,
+                                                                                                                      orf.thickStart,orf.thickEnd 
+                                                                                                                      ))
                 continue
 
             if self.strand is None:

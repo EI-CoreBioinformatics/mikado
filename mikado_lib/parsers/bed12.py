@@ -15,7 +15,7 @@ class BED12:
         if len(args)==0:
             self.header=True
             return 
-        
+        self.invalid = False
         line=args[0]
         if type(line) in (str,None):
             if line is None or line[0]=="#":
@@ -53,6 +53,9 @@ class BED12:
         
         if fasta_index is not None:
             assert self.id in fasta_index
+            if len(fasta_index[self.id])<self.length:
+                self.invalid = True
+            
             start_codon = fasta_index[self.id][self.thickStart-1:self.thickStart+2] # I have translated into 1-offset
             stop_codon = fasta_index[self.id][self.thickEnd-3:self.thickEnd]
             if self.strand=="-":
@@ -67,6 +70,25 @@ class BED12:
                 self.has_stop_codon=True
             else:
                 self.has_stop_codon=False
+                
+            #This is a bug in TD by which sometimes truncates ORFs even when there would be a read through
+            if self.has_stop_codon is False and (self.strand!="-" and self.thickEnd<self.length-2) or (self.strand=="-" and self.thickStart>2):
+                sequence = fasta_index[self.id]
+                if self.strand!="-":
+                    for num in range(self.thickEnd+3, self.end, 3  ):
+                        codon= sequence[num-3:num]
+                        if str(codon) in  ("TAA", "TGA", "TAG"):
+                            self.has_stop_codon=True
+                            break
+                    self.thickEnd = num
+                else:
+                    
+                    for num in reversed(range(self.start, self.thickStart,3)):
+                        codon = sequence[num-3:num]
+                        if str(codon) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
+                            self.has_stop_codon=True
+                            break
+                    self.thickStart=num
         
         assert self.blockCount==len(self.blockStarts)==len(self.blockSizes)
         
@@ -109,6 +131,9 @@ class BED12:
     def cds_len(self):
         return self.thickEnd-self.thickStart+1
     
+    def length(self):
+        return self.end-self.start
+    
     @property
     def has_start_codon(self):
         return self.__has_start
@@ -139,6 +164,17 @@ class BED12:
             return self.chrom
         else:
             return self.name
+        
+    @property
+    def invalid(self):
+        return self.__invalid
+    
+    @invalid.setter
+    def invalid(self, value):
+        if type(value) is not bool:
+            raise ValueError("Invalid value for invalid (should be boolean): {0}".format(value))
+        self.__invalid = value
+        
 
 class bed12Parser(Parser):
 

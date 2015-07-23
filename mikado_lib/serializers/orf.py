@@ -131,7 +131,7 @@ class orfSerializer:
         
     def serialize(self):
         objects = []
-        cache=dict()
+        cache=dict() #Dictionary to hold the data before bulk loading into the database
         
         for record in self.session.query(Query):
             cache[record.name]=record.id
@@ -152,7 +152,7 @@ class orfSerializer:
             cache[record.name]=record.id
             
         for row in self.BED12:
-            if row.header is True:
+            if row.header is True or row.invalid is True:
                 continue
             if row.id in cache:
                 current_query = cache[row.id]

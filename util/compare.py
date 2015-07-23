@@ -228,9 +228,9 @@ def main():
             except Exception as err:
                 queue_logger.exception(err)
                 #In case of error, signal the threads to exit
-                args.queue.put("EXIT")
-                args.queue.all_tasks_done = True
-                args.refmap_queue.put("EXIT")
+#                 args.queue.put("EXIT")
+#                 args.queue.all_tasks_done = True
+#                 args.refmap_queue.put("EXIT")
                 break
         else:
             continue

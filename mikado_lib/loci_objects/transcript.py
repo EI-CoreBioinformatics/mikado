@@ -1007,7 +1007,7 @@ class transcript:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
                 primary_orf = False
             
-            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length) or not (orf.length == self.cdna_length) : #Leave leeway for TD
+            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length) or not (len(orf) == self.cdna_length) : #Leave leeway for TD
                 self.logger.warning("Wrong ORF for {0}: cDNA length: {1}; orf length: {2}; CDS: {3}-{4}".format(orf.id,
                                                                                                                       self.cdna_length, 
                                                                                                                       orf.length,

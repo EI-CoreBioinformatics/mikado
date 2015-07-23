@@ -50,10 +50,15 @@ class BED12:
         self.blockStarts = [int(x) for x in self.blockStarts.split(",")]
         self.has_start_codon = None
         self.has_stop_codon = None
+        if transcriptomic is True:
+            if (self.thickEnd-self.thickStart+1)%3!=0:
+                print("Wrong CDS length", self.thickEnd-self.thickStart+1 )
+                self.invalid = True
+                return
         
-        if fasta_index is not None:
+        if transcriptomic is True and fasta_index is not None:
             assert self.id in fasta_index
-            if len(fasta_index[self.id])<self.length:
+            if len(fasta_index[self.id])<len(self):
                 self.invalid = True
             
             start_codon = fasta_index[self.id][self.thickStart-1:self.thickStart+2] # I have translated into 1-offset
@@ -71,21 +76,21 @@ class BED12:
             else:
                 self.has_stop_codon=False
                 
-            #This is a bug in TD by which sometimes truncates ORFs even when there would be a read through
-            if self.has_stop_codon is False and (self.strand!="-" and self.thickEnd<self.length-2) or (self.strand=="-" and self.thickStart>2):
+#             #This is a bug in TD by which sometimes truncates ORFs even when there would be a read through
+            if self.has_stop_codon is False and (self.strand!="-" and self.thickEnd<len(self)-2) or (self.strand=="-" and self.thickStart>2):
                 sequence = fasta_index[self.id]
                 if self.strand!="-":
                     for num in range(self.thickEnd+3, self.end, 3  ):
                         codon= sequence[num-3:num]
-                        if str(codon) in  ("TAA", "TGA", "TAG"):
+                        if str(codon.seq) in  ("TAA", "TGA", "TAG"):
                             self.has_stop_codon=True
                             break
                     self.thickEnd = num
                 else:
-                    
+                     
                     for num in reversed(range(self.start, self.thickStart,3)):
                         codon = sequence[num-3:num]
-                        if str(codon) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
+                        if str(codon.seq) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
                             self.has_stop_codon=True
                             break
                     self.thickStart=num
@@ -113,6 +118,9 @@ class BED12:
     def __hash__(self):
         return super().__hash__()
     
+    def __len__(self):
+        return self.end-self.start+1
+
     
     @property
     def strand(self):
@@ -130,9 +138,6 @@ class BED12:
     @property
     def cds_len(self):
         return self.thickEnd-self.thickStart+1
-    
-    def length(self):
-        return self.end-self.start
     
     @property
     def has_start_codon(self):

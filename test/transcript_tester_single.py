@@ -32,7 +32,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         self.orf=mikado_lib.parsers.bed12.BED12()
         self.orf.chrom=self.tr.id
-        self.orf.start = 0
+        self.orf.start = 1
         self.orf.end = self.tr.cdna_length
         self.orf.name = self.tr.id
         self.orf.strand="+"
@@ -44,7 +44,8 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.orf.blockStarts = 0
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
-            
+        self.orf.transcriptomic = True
+        self.assertFalse(self.orf.invalid)
 
     def test_basics(self):
         

@@ -341,6 +341,15 @@ def check_json(json_conf, json_file):
     '''Quick function to check that the JSON dictionary is well formed.'''
     
     if "scoring_file" in json_conf:
+        if os.path.exists(os.path.abspath(json_conf["scoring_file"])):
+            json_conf["scoring_file"]=os.path.abspath(json_conf["scoring_file"])
+        else:
+            if os.path.exists(os.path.join(os.path.dirname(json_conf["filename"]), json_conf["scoring_file"] )):
+                json_conf["scoring_file"]=os.path.join(os.path.dirname(json_conf["filename"]), json_conf["scoring_file"] )
+            else:
+                raise mikado_lib.exceptions.InvalidJson("Scoring file not found: {0}".format(json_conf["scoring_file"]))
+                
+        
         with open(json_conf["scoring_file"]) as scoring_file:
             if json_conf["scoring_file"].endswith("yaml"):
                 scoring=yaml.load(scoring_file)
@@ -407,5 +416,6 @@ def to_json(string):
             json_dict = yaml.load(json_file)
         else:
             json_dict = json.load(json_file)
+    json_dict["filename"]=string
     json_dict=check_json(json_dict, json_file.name)
     return json_dict

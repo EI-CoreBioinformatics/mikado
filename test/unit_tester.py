@@ -1,4 +1,5 @@
 import unittest
+import os.path
 from mikado_lib import json_utils
 from mikado_lib import exceptions
 from mikado_lib.parsers import GFF#,GTF, bed12
@@ -39,7 +40,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         #Test that creating a superlocus without configuration fails
         with self.assertRaises(exceptions.NoJsonConfigError):
             _=superlocus.superlocus(transcript1)
-        my_json = "../sample_data/configuration.json"
+        my_json =  os.path.join(os.path.dirname(__file__),  "../sample_data/configuration.yaml")
         my_json=json_utils.to_json(my_json)
         slocus=superlocus.superlocus(transcript1, json_dict=my_json)
         slocus.add_transcript_to_locus(transcript2)

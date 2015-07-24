@@ -481,6 +481,8 @@ class transcript:
             else:
                 spans = [] 
                 
+                #Now that we have collapsed the ORFs into usable boundaries, I have to
+                
                 for counter,(boundary, bed12_objects) in enumerate(cds_boundaries.items()):
                     #I *know* that I am moving left to right 
                     new_transcript=self.__class__()
@@ -513,7 +515,10 @@ class transcript:
                     tlength = 0
                     tstart = float("Inf")
                     tend = float("-Inf")
-                    self.logger.debug( "Transcript {0} counter {1}, left {2} right {3}".format(self.id, counter, left, right) )
+                    
+                    self.logger.debug( "Transcript {0} counter {1}, left {2} right {3}".format(self.id, counter,
+                                                                                               len(left) if left is not None else 0,
+                                                                                               len(right) if right is not None else 0 ) )
                     
                     for exon in exons:
                         #Translate into transcript coordinates
@@ -548,7 +553,7 @@ class transcript:
                                     self.logger.debug("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
                                     self.logger.debug("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
                                     texon[0] = boundary[0]
-                            if texon[0]<boundary[1]<texon[1] and texon[0]>=boundary[0]:
+                            if texon[0]<=boundary[1]<texon[1] and texon[0]>=boundary[0]:
                                 if right is not None:
                                     if self.strand == "-":
                                         new_exon[0] = exon[1]-(boundary[1]-texon[0])
@@ -598,11 +603,14 @@ class transcript:
                     new_bed12s = []
                     for obj in bed12_objects:
                         assert type(obj) is bed12.BED12, (obj, bed12_objects)
+                        
                         obj.start=1
-                        obj.end=min(obj.end, tend)-tstart
-                        obj.thickStart=min(obj.thickStart,tend)-tstart+1 
+                        obj.end=min(obj.end, tend)-tstart+1
+                        obj.fasta_length=obj.end
+                        obj.thickStart=min(obj.thickStart,tend)-tstart+1
                         obj.thickEnd=min(obj.thickEnd,tend)-tstart+1
                         obj.blockSizes=[obj.end]
+                        assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length, str(obj)  )
                         new_bed12s.append(obj)
                     
                     new_transcript.finalize()
@@ -1010,7 +1018,7 @@ class transcript:
             if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length) or not (len(orf) == self.cdna_length) : #Leave leeway for TD
                 self.logger.warning("Wrong ORF for {0}: cDNA length: {1}; orf length: {2}; CDS: {3}-{4}".format(orf.id,
                                                                                                                       self.cdna_length, 
-                                                                                                                      orf.length,
+                                                                                                                      len(orf),
                                                                                                                       orf.thickStart,orf.thickEnd 
                                                                                                                       ))
                 continue

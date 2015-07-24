@@ -89,7 +89,7 @@ class orfSerializer:
         '''Constructor function. Arguments:
         - handle         the BED12 file
         - db             Output DB
-        - fasta_index    A SeqIO-like index of sequence records.
+        - fasta_index    A SeqIO-like index of sequence records. Alternatively, the path to the FASTA file. REQUIRED.
         - maxobjects    Integer. Indicates how big should the cache be for objects to be loaded inside the DB
         
         It is HIGHLY RECOMMENDED to provide the fasta index, as it will make the population of the Query
@@ -100,7 +100,7 @@ class orfSerializer:
             assert os.path.exists(fasta_index)
             self.fasta_index=SeqIO.index(fasta_index,"fasta")
         elif fasta_index is None:
-            self.fasta_index = None
+            raise ValueError("A fasta index is needed for the serialization!")
         else:
             assert type(fasta_index) is Bio.File._IndexedSeqFileDict
             self.fasta_index=fasta_index

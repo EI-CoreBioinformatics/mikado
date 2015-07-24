@@ -12,10 +12,12 @@ from mikado_lib.parsers import Parser
 class BED12:
     
     def __init__(self, *args:str, fasta_index = None, transcriptomic=False):
+        self.transcriptomic = transcriptomic
+        
         if len(args)==0:
             self.header=True
             return 
-        self.invalid = False
+        
         line=args[0]
         if type(line) in (str,None):
             if line is None or line[0]=="#":
@@ -39,7 +41,7 @@ class BED12:
             self.name, self.score, self.strand, \
             self.thickStart, self.thickEnd, self.rgb, \
             self.blockCount, self.blockSizes, self.blockStarts = line
-            
+        
         self.start=int(self.start)+1
         self.end = int(self.end)
         self.score = float(self.score)
@@ -50,28 +52,40 @@ class BED12:
         self.blockStarts = [int(x) for x in self.blockStarts.split(",")]
         self.has_start_codon = None
         self.has_stop_codon = None
+        self.start_codon=None
+        self.stop_codon=None
+        self.fasta_length = len(self)
+        
         if transcriptomic is True:
-            if (self.thickEnd-self.thickStart+1)%3!=0:
-                print("Wrong CDS length", self.thickEnd-self.thickStart+1 )
-                self.invalid = True
-                return
+            self.has_start_codon = False
+            self.has_stop_codon = False
+
+            if self.strand=="-":
+                self.thickEnd-=3
+                
+        if self.invalid is True: return
+        
         
         if transcriptomic is True and fasta_index is not None:
             assert self.id in fasta_index
-            if len(fasta_index[self.id])<len(self):
-                self.invalid = True
+            self.fasta_length = len(fasta_index[self.id])
+            if self.invalid is True: return
             
-            start_codon = fasta_index[self.id][self.thickStart-1:self.thickStart+2] # I have translated into 1-offset
-            stop_codon = fasta_index[self.id][self.thickEnd-3:self.thickEnd]
+            start_codon = fasta_index[self.id][self.thickStart-1:self.thickStart+2] 
+            stop_codon = fasta_index[self.id][self.thickEnd:self.thickEnd+3] 
             if self.strand=="-":
+                start_codon = fasta_index[self.id][self.thickStart-1:self.thickStart+2]
                 start_codon=start_codon.reverse_complement()
                 stop_codon=stop_codon.reverse_complement()
                 start_codon,stop_codon=stop_codon,start_codon
-            if str(start_codon.seq)=="ATG":
+            self.start_codon = str(start_codon.seq)
+            self.stop_codon = str(stop_codon.seq)  
+                
+            if self.start_codon=="ATG":
                 self.has_start_codon=True
             else:
                 self.has_start_codon=False
-            if str(stop_codon.seq) in ("TAA", "TGA", "TAG"):
+            if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon=True
             else:
                 self.has_stop_codon=False
@@ -81,19 +95,18 @@ class BED12:
                 sequence = fasta_index[self.id]
                 if self.strand!="-":
                     for num in range(self.thickEnd+3, self.end, 3  ):
-                        codon= sequence[num-3:num]
+                        codon= sequence[num:num+3]
                         if str(codon.seq) in  ("TAA", "TGA", "TAG"):
                             self.has_stop_codon=True
                             break
-                    self.thickEnd = num
-                else:
-                     
-                    for num in reversed(range(self.start, self.thickStart,3)):
-                        codon = sequence[num-3:num]
-                        if str(codon.seq) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
-                            self.has_stop_codon=True
-                            break
-                    self.thickStart=num
+                    self.thickEnd = num-3
+#                 else:
+#                     for num in reversed(range(self.start, self.thickStart-1,3)):
+#                         codon = sequence[num-3:num]
+#                         if str(codon.seq) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
+#                             self.has_stop_codon=True
+#                             break
+#                     self.thickStart=num
         
         assert self.blockCount==len(self.blockStarts)==len(self.blockSizes)
         
@@ -172,13 +185,27 @@ class BED12:
         
     @property
     def invalid(self):
-        return self.__invalid
+        if self.thickStart<self.start or self.thickEnd>self.end:
+            return True
+        
+        if "fasta_length" not in self.__dict__:
+            self.fasta_length=len(self) 
+        
+        if len(self)!=self.fasta_length:
+            return True
+        if self.transcriptomic is True and (self.thickEnd-self.thickStart+1)%3!=0:
+            return True
+        return False
+        
+    @property
+    def transcriptomic(self):
+        return self.__transcriptomic
     
-    @invalid.setter
-    def invalid(self, value):
+    @transcriptomic.setter
+    def transcriptomic(self, value):
         if type(value) is not bool:
-            raise ValueError("Invalid value for invalid (should be boolean): {0}".format(value))
-        self.__invalid = value
+            raise ValueError("Invalid value: {0}".format(value))
+        self.__transcriptomic = value
         
 
 class bed12Parser(Parser):

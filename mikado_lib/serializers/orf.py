@@ -1,4 +1,5 @@
 import sys,os
+import logging
 from Bio import SeqIO
 import Bio.File
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -95,6 +96,12 @@ class orfSerializer:
         It is HIGHLY RECOMMENDED to provide the fasta index, as it will make the population of the Query
         table much faster.
         '''
+        self.logger = logging.getLogger("main")
+        self.logger.setLevel(logging.INFO)
+        self.handler = logging.StreamHandler()
+        self.formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
+        self.handler.setFormatter(self.formatter)
+        self.logger.addHandler(self.handler)
 
         if type(fasta_index) is str:
             assert os.path.exists(fasta_index)
@@ -152,7 +159,10 @@ class orfSerializer:
             cache[record.name]=record.id
             
         for row in self.BED12:
-            if row.header is True or row.invalid is True:
+            if row.header is True:
+                continue
+            if row.invalid is True:
+                self.logger.warn("Invalid entry: {0}".format(row))
                 continue
             if row.id in cache:
                 current_query = cache[row.id]

@@ -159,5 +159,220 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
                          self.tr.selected_cds_introns
                          )
 
+    def testDoubleOrf(self):
+
+        '''Test to verify the introduction of multiple ORFs.'''
+
+        self.tr.strip_cds()
+        self.tr.finalized = False
+
+        first_orf=mikado_lib.parsers.bed12.BED12()
+        first_orf.chrom=self.tr.id
+        first_orf.start = 1
+        first_orf.end = self.tr.cdna_length
+        first_orf.name = self.tr.id
+        first_orf.strand="+"
+        first_orf.score = 0
+        first_orf.thickStart = 51
+        first_orf.thickEnd = 398
+        first_orf.blockCount = 1
+        first_orf.blockSize = self.tr.cdna_length
+        first_orf.blockSizes = [self.tr.cdna_length]
+        first_orf.blockStarts = [0]
+        first_orf.rgb = 0
+        first_orf.has_start_codon = True
+        first_orf.has_stop_codon = True
+        first_orf.transcriptomic = True
+        self.assertFalse(first_orf.invalid)
+        #This should not be incorporated
+        second_orf=mikado_lib.parsers.bed12.BED12()
+        second_orf.chrom=self.tr.id
+        second_orf.start = 1
+        second_orf.end = self.tr.cdna_length
+        second_orf.name = "second"
+        second_orf.strand="+"
+        second_orf.score = 0
+        second_orf.thickStart = 201
+        second_orf.thickEnd = 410
+        second_orf.blockCount = 1
+        second_orf.blockSize = self.tr.cdna_length
+        second_orf.blockSizes = [self.tr.cdna_length]
+        second_orf.blockStarts = [0]
+        second_orf.rgb = 0
+        second_orf.has_start_codon = True
+        second_orf.has_stop_codon = True
+        second_orf.transcriptomic = True
+        self.assertFalse(second_orf.invalid)
+
+        self.assertTrue( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, second_orf)  )
+
+
+        #This should be added
+        third_orf=mikado_lib.parsers.bed12.BED12()
+        third_orf.chrom=self.tr.id
+        third_orf.start = 1
+        third_orf.end = self.tr.cdna_length
+        third_orf.name = "third"
+        third_orf.strand="+"
+        third_orf.score = 0
+        third_orf.thickStart = 501
+        third_orf.thickEnd = 800
+        third_orf.blockCount = 1
+        third_orf.blockSize = self.tr.cdna_length
+        third_orf.blockSizes = [self.tr.cdna_length]
+        third_orf.blockStarts = [0]
+        third_orf.rgb = 0
+        third_orf.has_start_codon = True
+        third_orf.has_stop_codon = True
+        third_orf.transcriptomic = True
+        self.assertFalse(third_orf.invalid)
+
+        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, third_orf)  )
+        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(second_orf, third_orf)  )
+
+        self.assertFalse( third_orf == second_orf)
+        self.assertFalse( first_orf == second_orf)
+        self.assertFalse( first_orf == third_orf)
+        
+        
+        candidates = [first_orf, second_orf, third_orf]
+        
+        self.assertEqual(len(mikado_lib.loci_objects.transcript.transcript.find_overlapping_cds(candidates)),2)
+        
+        import logging
+        handler = logging.StreamHandler()
+        handler.setLevel("DEBUG")
+        logger = logging.getLogger("test")
+        logger.setLevel("DEBUG")
+        logger.addHandler(handler)
+        logger.debug("TEST")
+        logger.propagate = False
+        self.tr.set_logger(logger)
+        
+        self.tr.load_orfs([first_orf, second_orf, third_orf])
+        
+        self.assertTrue(self.tr.is_complete)
+        self.tr.finalize()
+        self.assertEqual(self.tr.number_internal_orfs, 2, (self.tr.cdna_length, self.tr.selected_start_distance_from_tss, self.tr.selected_end_distance_from_tes) )
+        
+        
+        self.assertEqual(self.tr.combined_cds_length, 648  )
+        self.assertEqual(self.tr.selected_cds_length, 348  )
+        self.assertEqual(self.tr.number_internal_orfs,2, "\n".join([str(x) for x in self.tr.internal_orfs]))
+        
+        new_transcripts = sorted(  self.tr.split_by_cds() )
+        
+        self.assertEqual( len(new_transcripts), 2)
+        self.assertEqual( new_transcripts[0].three_utr_length, 0  )
+        self.assertEqual( new_transcripts[1].five_utr_length, 0  )
+
+    def testDoubleOrf_negative(self):
+
+        '''Test to verify the introduction of multiple ORFs.'''
+
+        self.tr.strip_cds()
+        self.tr.finalized = False
+
+        first_orf=mikado_lib.parsers.bed12.BED12()
+        first_orf.chrom=self.tr.id
+        first_orf.start = 1
+        first_orf.end = self.tr.cdna_length
+        first_orf.name = self.tr.id
+        first_orf.strand="-"
+        first_orf.score = 0
+        first_orf.thickStart = 51
+        first_orf.thickEnd = 398
+        first_orf.blockCount = 1
+        first_orf.blockSize = self.tr.cdna_length
+        first_orf.blockSizes = [self.tr.cdna_length]
+        first_orf.blockStarts = [0]
+        first_orf.rgb = 0
+        first_orf.has_start_codon = True
+        first_orf.has_stop_codon = True
+        first_orf.transcriptomic = True
+        self.assertFalse(first_orf.invalid)
+        #This should not be incorporated
+        second_orf=mikado_lib.parsers.bed12.BED12()
+        second_orf.chrom=self.tr.id
+        second_orf.start = 1
+        second_orf.end = self.tr.cdna_length
+        second_orf.name = "second"
+        second_orf.strand="-"
+        second_orf.score = 0
+        second_orf.thickStart = 201
+        second_orf.thickEnd = 410
+        second_orf.blockCount = 1
+        second_orf.blockSize = self.tr.cdna_length
+        second_orf.blockSizes = [self.tr.cdna_length]
+        second_orf.blockStarts = [0]
+        second_orf.rgb = 0
+        second_orf.has_start_codon = True
+        second_orf.has_stop_codon = True
+        second_orf.transcriptomic = True
+        self.assertFalse(second_orf.invalid)
+
+        self.assertTrue( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, second_orf)  )
+
+
+        #This should be added
+        third_orf=mikado_lib.parsers.bed12.BED12()
+        third_orf.chrom=self.tr.id
+        third_orf.start = 1
+        third_orf.end = self.tr.cdna_length
+        third_orf.name = "third"
+        third_orf.strand="-"
+        third_orf.score = 0
+        third_orf.thickStart = 501
+        third_orf.thickEnd = 800
+        third_orf.blockCount = 1
+        third_orf.blockSize = self.tr.cdna_length
+        third_orf.blockSizes = [self.tr.cdna_length]
+        third_orf.blockStarts = [0]
+        third_orf.rgb = 0
+        third_orf.has_start_codon = True
+        third_orf.has_stop_codon = True
+        third_orf.transcriptomic = True
+        self.assertFalse(third_orf.invalid)
+
+        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, third_orf)  )
+        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(second_orf, third_orf)  )
+
+        self.assertFalse( third_orf == second_orf)
+        self.assertFalse( first_orf == second_orf)
+        self.assertFalse( first_orf == third_orf)
+        
+        
+        candidates = [first_orf, second_orf, third_orf]
+        
+        self.assertEqual(len(mikado_lib.loci_objects.transcript.transcript.find_overlapping_cds(candidates)),2)
+        
+        import logging
+        handler = logging.StreamHandler()
+        handler.setLevel("DEBUG")
+        logger = logging.getLogger("test")
+        logger.setLevel("DEBUG")
+        logger.addHandler(handler)
+        logger.debug("TEST")
+        logger.propagate = False
+        self.tr.set_logger(logger)
+        
+        self.tr.load_orfs([first_orf, second_orf, third_orf])
+        
+        self.assertTrue(self.tr.is_complete)
+        self.tr.finalize()
+        self.assertEqual(self.tr.number_internal_orfs, 2, (self.tr.cdna_length, self.tr.selected_start_distance_from_tss, self.tr.selected_end_distance_from_tes) )
+        
+        
+        self.assertEqual(self.tr.combined_cds_length, 648  )
+        self.assertEqual(self.tr.selected_cds_length, 348  )
+        self.assertEqual(self.tr.number_internal_orfs,2, "\n".join([str(x) for x in self.tr.internal_orfs]))
+        
+        new_transcripts = sorted(  self.tr.split_by_cds() )
+        
+        self.assertEqual( len(new_transcripts), 2)
+        self.assertEqual( new_transcripts[0].five_utr_length, 0  )
+        self.assertEqual( new_transcripts[1].three_utr_length, 0  )
+
+
 
 unittest.main()        

@@ -143,20 +143,28 @@ class orfSerializer:
         for record in self.session.query(Query):
             cache[record.name]=record.id
         
+        done=0
         if self.fasta_index is not None:
             for record in self.fasta_index:
                 if record in cache: continue
                 objects.append(Query(record, len(self.fasta_index[record])))
                 if len(objects)>=self.maxobjects:
+                    done+=len(objects)
+                    self.logger.info("Loaded {0} transcripts into query table".format(done))
                     self.session.bulk_save_objects(objects)
                     objects=[]
-            
+        
+            done+=len(objects)
+            self.logger.info("Finished loading {0} transcripts into query table".format(done))    
             self.session.bulk_save_objects(objects)
             self.session.commit()
             objects=[]
-            
+            done=0
+        
+        self.logger.info("Loading IDs into the cache")
         for record in self.session.query(Query):
             cache[record.name]=record.id
+        self.logger.info("Finished loading IDs into the cache")
             
         for row in self.BED12:
             if row.header is True:
@@ -176,8 +184,13 @@ class orfSerializer:
             current_junction = orf( row, current_query)
             objects.append(current_junction)
             if len(objects)>=self.maxobjects:
+                done+=len(objects)
+                self.logger.info("Loaded {0} ORFs into the database".format(done))
                 self.session.bulk_save_objects(objects)
                 objects=[]
+
+        done+=len(objects)
+        self.logger.info("Finished loading {0} ORFs into the database".format(done))
 
         self.session.bulk_save_objects(objects)
         self.session.commit()

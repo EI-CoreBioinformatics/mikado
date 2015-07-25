@@ -94,19 +94,22 @@ class BED12:
             if self.has_stop_codon is False and (self.strand!="-" and self.thickEnd<len(self)-2) or (self.strand=="-" and self.thickStart>2):
                 sequence = fasta_index[self.id]
                 if self.strand!="-":
+                    num=self.thickEnd+3
                     for num in range(self.thickEnd+3, self.end, 3  ):
                         codon= sequence[num:num+3]
                         if str(codon.seq) in  ("TAA", "TGA", "TAG"):
                             self.has_stop_codon=True
                             break
                     self.thickEnd = num-3
-#                 else:
-#                     for num in reversed(range(self.start, self.thickStart-1,3)):
-#                         codon = sequence[num-3:num]
-#                         if str(codon.seq) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
-#                             self.has_stop_codon=True
-#                             break
-#                     self.thickStart=num
+                else:
+                    num=self.thickStart-4
+                    for num in reversed(range(self.start, self.thickStart-4,3)):
+                        codon = sequence[num-3:num]
+                        if str(codon.seq) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
+                            self.has_stop_codon=True
+                            break
+                    self.thickStart=num+4
+                assert self.invalid is False
         
         assert self.blockCount==len(self.blockStarts)==len(self.blockSizes)
         

@@ -35,12 +35,12 @@ def main():
                             exon_no=0
                             for row in filter(lambda x: x.feature=="exon", sorted(rows, key=operator.attrgetter("start"))):
                                     exon_no+=1
-                                    row.info["exon_number"]=exon_no
+                                    row.attributes["exon_number"]=exon_no
                                     print(row, file=args.out)
                             exon_no=0
                             for row in filter(lambda x: x.feature=="CDS", sorted(rows, key=operator.attrgetter("start"))):
                                     exon_no+=1
-                                    row.info["exon_number"]=exon_no
+                                    row.attributes["exon_number"]=exon_no
                                     print(row, file=args.out)
                     rows=[record]
                     current=deepcopy(record)

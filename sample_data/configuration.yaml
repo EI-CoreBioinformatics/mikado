@@ -16,7 +16,7 @@ chimera_split:
     minimal_hsp_overlap: 0.9
 log_settings:
   log: null
-  log_level: INFO
+  log_level: DEBUG
 db: data.db
 dbtype: sqlite
 source: "Mikado"
@@ -32,6 +32,7 @@ run_options:
   exclude_cds: false
   purge: false
   remove_overlapping_fragments: true
+  fragments_maximal_cds: 100
   subloci_from_cds_only: false #true
   threads: 5
 scoring_file: scoring.yaml

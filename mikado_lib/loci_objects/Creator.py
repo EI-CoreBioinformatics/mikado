@@ -321,7 +321,8 @@ class Creator:
                 if locus_instance in loci_to_check[True]:
                     logger.debug("Checking if {0} is a fragment".format( _ ))
                     for other_locus in loci_to_check[False]:
-                        if other_locus.other_is_fragment( locus_instance) is True:
+                        if other_locus.other_is_fragment( locus_instance, 
+                                                          minimal_cds_length=self.json_conf["run_options"]["fragments_maximal_cds"] ) is True:
                             if self.json_conf["run_options"]["remove_overlapping_fragments"] is False:
                                 stranded_locus.loci[locus_id].is_fragment=True
                             else:

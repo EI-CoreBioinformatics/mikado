@@ -324,6 +324,11 @@ def check_run_options(json_conf):
         json_conf["run_options"]["remove_overlapping_fragments"]=False
     else:
         assert type(json_conf["run_options"]["remove_overlapping_fragments"]) is bool
+    if "fragments_maximal_cds" not in json_conf["run_options"]:
+        json_conf["run_options"]["fragments_maximal_cds"]=100
+    else:
+        assert type(json_conf["run_options"]["fragments_maximal_cds"]) is int and json_conf["run_options"]["fragments_maximal_cds"]>=0 
+        
     if "threads" not in json_conf["run_options"]:
         json_conf["run_options"]["threads"]=1
     else:

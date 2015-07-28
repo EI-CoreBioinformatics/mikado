@@ -81,6 +81,151 @@ class Target(dbBase):
 		self.length=length
 
 	
+
+
+class Hsp(dbBase):
+
+	'''This class serializes and stores into the DB the various HSPs.
+	It is directly connected to the Hit table, through the "hit_id" 
+	reference key.
+	The Hit reference can be accessed through the hit_object attribute;
+	back-reference (Hit to Hsps) is given by the "hsps" attribute.
+	
+	Keys:
+	- hit_id 				Reference for the Hit table
+	- counter				Indicates the number of the HSP for the hit
+	- query_hsp_start		Start position on the query
+	- query_hsp_end			End position on the query
+	- target_hsp_start		Start position on the target
+	- target_hsp_end		End position on the target
+	- hsp_evalue			Evalue of the HSP
+	- hsp_bits				Bit-score of the HSP
+	- hsp_identity			Identity (in %) of the alignment
+	- hsp_length			Length of the HSP
+	
+	An HSP row has the following constraints:
+	- Counter,hit_id must be unique (and are primary keys)
+	- The combination ("Hit_id","query_hsp_start","query_hsp_end", "target_hsp_start", "target_hsp_end") must be unique
+	'''
+
+	__tablename__ = "hsp"
+	counter = Column(Integer) #Indicates the number of the HSP inside the hit
+	query_id=Column(Integer, ForeignKey(Query.id), unique=False)
+	target_id=Column(Integer, ForeignKey(Target.id), unique=False)
+	pk_constraint = PrimaryKeyConstraint("counter", "query_id", "target_id", name="hsp_constraint")
+	query_index = Index( "hsp_query_idx", "query_id", unique=False )
+	target_index = Index( "hsp_target_idx", "target_id", unique=False )
+	query_hsp_start = Column(Integer)
+	query_hsp_end = Column(Integer)
+	target_hsp_start = Column(Integer)
+	target_hsp_end = Column(Integer)
+	uni_constraint = UniqueConstraint("query_id", "target_id", "query_hsp_start", "query_hsp_end", "target_hsp_start", "target_hsp_end")
+	hsp_evalue = Column(Float)
+	hsp_bits = Column(Float)
+	hsp_identity = Column(Float)
+	hsp_length = Column(Integer)
+
+	query_object=relationship(Query, uselist=False)
+	target_object=relationship(Target, uselist=False)
+
+# 	hit_object=relationship(Hit, uselist=False, lazy="immediate", backref=backref("hsps"),
+# 						foreign_keys=[query_id, target_id],
+# 						primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
+	
+	__table_args__ = (pk_constraint,)
+	
+	def __init__(self, hsp, counter, query_id, target_id):
+		self.counter = counter
+		self.query_hsp_start = hsp.query_start
+		self.query_hsp_end = hsp.query_end
+		self.target_hsp_start = hsp.sbjct_start
+		self.target_hsp_end = hsp.sbjct_end
+		self.hsp_identity = float(hsp.identities)/hsp.align_length*100
+		self.hsp_length = hsp.align_length
+		self.hsp_bits = hsp.bits
+		self.hsp_evalue = hsp.expect
+		self.query_id = query_id
+		self.target_id = target_id
+	
+	def __str__(self):
+		'''Simple printing function.'''
+		line=[]
+		line.append(self.query)
+		line.append(self.target)
+		line.append(self.query_hsp_start)
+		line.append(self.query_hsp_end)
+		line.append(self.target_hsp_start)
+		line.append(self.target_hsp_end)
+		line.append(self.hsp_evalue)
+		return "\t".join([str(x) for x in line])
+		
+	#@profile
+	def as_dict(self):
+		
+		'''Method to return a dict representation of the object. Necessary for storing.
+		This method returns a dictionary *without any attribute that requires joined data*.
+		It is meant to be used only by the method as_dict of the Hit class.'''
+		
+		keys=[
+			"query_hsp_start",
+			"query_hsp_end",
+			"target_hsp_start",
+			"target_hsp_end",
+			"hsp_evalue",
+			"hsp_bits"
+			]
+		
+# 		special_keys=["query_hsp_cov","target_hsp_cov"] #Keys which we want to assign directly rather than inside a loop
+		
+		state=dict().fromkeys(keys)
+# 		state["query"]=self.query
+# 		state["target"]=self.target
+# 		state["query_hsp_cov"]=self.query_hsp_cov
+# 		state["target_hsp_cov"]=self.target_hsp_cov
+		
+		for key in keys:
+			state[key]=getattr(self, key)
+		
+		return state
+
+	def as_full_dict(self):
+
+		'''Method to return a dict representation of the object.
+		This method also checks query name and hit name, so it is slower than as_dict and used
+		when it is necessary to retrieve data independently from Hit.'''
+		
+		state=self.as_dict()
+		state["query"]=self.query
+		state["target"]=self.target
+		state["query_hsp_cov"]=self.query_hsp_cov
+		state["target_hsp_cov"]=self.target_hsp_cov
+		
+		return state
+
+
+
+	@property
+	def query(self):
+		'''Returns the name of the query sequence, through a nested SQL query.'''
+		return self.query_object.name
+
+	@property
+	def target(self):
+		'''Returns the name of the target sequence, through a nested SQL query.'''
+		return self.target_object.name
+
+	
+	@property
+	def query_hsp_cov(self):
+		'''This property returns the percentage of the query which is covered by the HSP.'''
+		return (self.query_hsp_end-self.query_hsp_start+1)/(self.query_object.length)
+	
+	@property
+	def target_hsp_cov(self):
+		'''This property returns the percentage of the target which is covered by the HSP.'''
+		return (self.target_hsp_end-self.target_hsp_start+1)/(self.target_object.length)
+
+
 class Hit(dbBase):
 	
 	'''This class is used to serialise and store in a DB a BLAST hit.
@@ -114,6 +259,10 @@ class Hit(dbBase):
 	
 	query_object = relationship(Query, uselist=False, lazy="immediate", backref=backref("hits" ))
 	target_object = relationship(Target, uselist=False, lazy="immediate", backref=backref("hits" ) )
+	
+	hsps=relationship(Hsp, uselist=True, lazy="subquery", backref=backref("hit_object", uselist=False),
+							foreign_keys=[query_id, target_id],
+							primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
 	
 	__table_args__ = (qt_constraint,)
 	
@@ -197,6 +346,9 @@ class Hit(dbBase):
 		
 		state["hsps"]=[]
 		for hsp in self.hsps:
+			h = hsp.as_dict()
+			h["query_hsp_cov"] = (h["query_hsp_end"]-h["query_hsp_start"]+1)/(state["query_len"])
+			h["target_hsp_cov"] = (h["target_hsp_end"]-h["target_hsp_start"]+1)/(state["target_len"])
 			state["hsps"].append(hsp.as_dict())
 			
 		return state
@@ -224,128 +376,6 @@ class Hit(dbBase):
 		return self.target_len*self.target_multiplier/(self.query_len*self.query_multiplier)
 	
 
-class Hsp(dbBase):
-
-	'''This class serializes and stores into the DB the various HSPs.
-	It is directly connected to the Hit table, through the "hit_id" 
-	reference key.
-	The Hit reference can be accessed through the hit_object attribute;
-	back-reference (Hit to Hsps) is given by the "hsps" attribute.
-	
-	Keys:
-	- hit_id 				Reference for the Hit table
-	- counter				Indicates the number of the HSP for the hit
-	- query_hsp_start		Start position on the query
-	- query_hsp_end			End position on the query
-	- target_hsp_start		Start position on the target
-	- target_hsp_end		End position on the target
-	- hsp_evalue			Evalue of the HSP
-	- hsp_bits				Bit-score of the HSP
-	- hsp_identity			Identity (in %) of the alignment
-	- hsp_length			Length of the HSP
-	
-	An HSP row has the following constraints:
-	- Counter,hit_id must be unique (and are primary keys)
-	- The combination ("Hit_id","query_hsp_start","query_hsp_end", "target_hsp_start", "target_hsp_end") must be unique
-	'''
-
-	__tablename__ = "hsp"
-	counter = Column(Integer) #Indicates the number of the HSP inside the hit
-	query_id=Column(Integer, ForeignKey(Query.id), unique=False)
-	target_id=Column(Integer, ForeignKey(Target.id), unique=False)
-	pk_constraint = PrimaryKeyConstraint("counter", "query_id", "target_id", name="hsp_constraint")
-	query_index = Index( "hsp_query_idx", "query_id", unique=False )
-	target_index = Index( "hsp_target_idx", "target_id", unique=False )
-	query_hsp_start = Column(Integer)
-	query_hsp_end = Column(Integer)
-	target_hsp_start = Column(Integer)
-	target_hsp_end = Column(Integer)
-	uni_constraint = UniqueConstraint("query_id", "target_id", "query_hsp_start", "query_hsp_end", "target_hsp_start", "target_hsp_end")
-	hsp_evalue = Column(Float)
-	hsp_bits = Column(Float)
-	hsp_identity = Column(Float)
-	hsp_length = Column(Integer)
-
-	query_object=relationship(Query, uselist=False, lazy="immediate")
-	target_object=relationship(Target, uselist=False, lazy="immediate")
-
-	hit_object=relationship(Hit, uselist=False, lazy="immediate", backref=backref("hsps"),
-						foreign_keys=[query_id, target_id],
-						primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
-	
-	__table_args__ = (pk_constraint,)
-	
-	def __init__(self, hsp, counter, query_id, target_id):
-		self.counter = counter
-		self.query_hsp_start = hsp.query_start
-		self.query_hsp_end = hsp.query_end
-		self.target_hsp_start = hsp.sbjct_start
-		self.target_hsp_end = hsp.sbjct_end
-		self.hsp_identity = float(hsp.identities)/hsp.align_length*100
-		self.hsp_length = hsp.align_length
-		self.hsp_bits = hsp.bits
-		self.hsp_evalue = hsp.expect
-		self.query_id = query_id
-		self.target_id = target_id
-	
-	def __str__(self):
-		'''Simple printing function.'''
-		line=[]
-		line.append(self.query)
-		line.append(self.target)
-		line.append(self.query_hsp_start)
-		line.append(self.query_hsp_end)
-		line.append(self.target_hsp_start)
-		line.append(self.target_hsp_end)
-		line.append(self.hsp_evalue)
-		return "\t".join([str(x) for x in line])
-		
-	#@profile
-	def as_dict(self):
-		
-		'''Method to return a dict representation of the object. Necessary for storing.'''
-		
-		keys=[
-			"query_hsp_start",
-			"query_hsp_end",
-			"target_hsp_start",
-			"target_hsp_end",
-			"hsp_evalue",
-			]
-		
-		special_keys=["query_hsp_cov","target_hsp_cov"] #Keys which we want to assign directly rather than inside a loop
-		
-		state=dict().fromkeys(keys+special_keys)
-		state["query"]=self.query
-		state["target"]=self.target
-		state["query_hsp_cov"]=self.query_hsp_cov
-		state["target_hsp_cov"]=self.target_hsp_cov
-		
-		for key in keys:
-			state[key]=getattr(self, key)
-		
-		return state
-
-	@property
-	def query(self):
-		'''Returns the name of the query sequence, through a nested SQL query.'''
-		return self.query_object.name
-
-	@property
-	def target(self):
-		'''Returns the name of the target sequence, through a nested SQL query.'''
-		return self.target_object.name
-
-	
-	@property
-	def query_hsp_cov(self):
-		'''This property returns the percentage of the query which is covered by the HSP.'''
-		return (self.query_hsp_end-self.query_hsp_start+1)/(self.query_object.length)
-	
-	@property
-	def target_hsp_cov(self):
-		'''This property returns the percentage of the target which is covered by the HSP.'''
-		return (self.target_hsp_end-self.target_hsp_start+1)/(self.target_object.length)
 
 class xmlSerializer:
 	

@@ -15,8 +15,8 @@ chimera_split:
     max_target_seqs: 3
     minimal_hsp_overlap: 0.9
 log_settings:
-  log: null
-  log_level: INFO
+  log: mikado.log
+  log_level: DEBUG
 db: data.db
 dbtype: sqlite
 source: "Mikado"

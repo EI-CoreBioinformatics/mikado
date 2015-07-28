@@ -24,10 +24,21 @@ The resulting, cleaned file does contain therefore only one transcript per locus
 The criteria used to select the "*best*" transcript are left to the user's discretion.
 
 ##Implementation
-The pipeline is implemented in Python3, and does not require any non-standard library.
-It has been tested on UNIX and Windows systems, using Python 3.4.3.
+The pipeline is implemented in Python3, and it does require the following libraries:
+	* SQLAlchemy, for using the internal databases
+	* NetworkX, as it provides the methods necessary to describe and serialise transcript loci as Undirected Acyclic Graphs.
+	* BioPython, for reading BLAST and FASTA data files
+	* PyYaml, to use YAML configuration files.
+	
+The following packages are recommended for additional functionalities but not necessary:
+	* Numpy and SciPy: optionally used by the gff_stats utility
+	* psycopg2 and mysqlclient (v. >= 1.3.6), for using PosGreSQL or MySQL databases instead of default SQLite
+	* H5Py and PyTable, for using HDF5 files instead of SQLite files as databases.
+
+It has been tested on UNIX systems, using Python 3.4.3. A version of Python higher or equivalent is needed, as
+the program makes use of new language functionalities such as the asyncio module.
 Beware that Cygwin at the time of this writing does not provide a version of Python3 more recent than 3.2.3,
-which might generate problems. 
+and it is therefore unsuitable for using Mikado.
 
 ###Implementation details
 

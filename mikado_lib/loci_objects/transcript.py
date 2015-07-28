@@ -1149,9 +1149,13 @@ class transcript:
         max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
         maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
         
-        blast_hits_query = self.blast_baked(self.session).params(query_id = self.query_id, evalue = maximum_evalue, max_target_seqs=max_target_seqs )                 
+        blast_hits_query = self.blast_baked(self.session).params(query_id = self.query_id, evalue = maximum_evalue, max_target_seqs=max_target_seqs )
+        counter=0
+        self.logger.debug("Starting to load BLAST data for {0}".format(self.id))                 
         for hit in blast_hits_query:
+            counter+=1
             self.blast_hits.append(hit.as_dict())
+        self.logger.debug("Loaded {0} BLAST data for {1}".format(counter,self.id))
         
     def load_cds(self, cds_dict, trust_strand=False, minimal_secondary_orf_length=0):
         '''Deprecated'''

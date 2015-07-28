@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os, argparse
-from mikado_lib.serializers.blast_utils import xmlSerializer
+from mikado_lib.serializers.blast_utils import XmlSerializer
 from mikado_lib import json_utils
 from Bio import SeqIO
 
@@ -25,7 +25,7 @@ def main():
 
 	args=parser.parse_args()
 	
-	xmlSerializer(args.dbout, args.xml,
+	XmlSerializer(args.dbout, args.xml,
 				keep_definition=args.definition,
 				max_target_seqs=args.max_target_seqs,
 				maxobjects=args.maxobjects,

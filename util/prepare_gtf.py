@@ -61,7 +61,7 @@ def main():
         transcript_line.end=max(r.end for r in lines)
         transcript_object=transcript_checker(transcript_line, args.fasta, lenient=args.lenient, strand_specific=args.strand_specific)
         for line in lines:
-            transcript_object.addExon(line)
+            transcript_object.add_exon(line)
         try:
             transcript_object.finalize()
             transcript_object.check_strand()

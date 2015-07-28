@@ -11,4 +11,4 @@ This module defines the classes needed for the "compare" script, namely:
 import mikado_lib.scales.accountant
 import mikado_lib.scales.assigner
 import mikado_lib.scales.reference_gene
-import mikado_lib.scales.result_storer
+import mikado_lib.scales.restultstorer

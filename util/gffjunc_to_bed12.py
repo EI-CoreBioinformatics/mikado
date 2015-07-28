@@ -17,7 +17,7 @@ def main():
         if row.is_parent and not row.is_transcript:
             continue
         if row.is_exon:
-            currentTranscript.addExon(row)
+            currentTranscript.add_exon(row)
         elif row.is_transcript:
             if currentTranscript is not None:
                 currentTranscript.finalize()
@@ -39,7 +39,7 @@ def main():
                 bed12.blockStarts=[0, bed12.blockSizes[0]+introns[0][1]-introns[0][0] ] 
                 print(bed12, file=args.out)
                                            
-            currentTranscript=mikado_lib.loci_objects.transcript.transcript(row)
+            currentTranscript=mikado_lib.loci_objects.transcript.Transcript(row)
             
     if currentTranscript is not None:
         currentTranscript.finalize()

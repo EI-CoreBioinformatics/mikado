@@ -44,11 +44,11 @@ rule blast_complete:
 rule junction_to_db:
     params: prefix="all"
     input: junctions="junctions.bed", fai="genome.fai"
-    output: "junction_serialized.ok"
+    output: "junction_serialized.ok",config["db"] 
     run:
         import sys
         print(sys.version_info)
-        mikado_lib.serializers.junction.junctionSerializer("junctions.bed", config["db"], fai="genome.fai").serialize();
+        mikado_lib.serializers.junction.JunctionSerializer("junctions.bed", config["db"], fai="genome.fai").serialize();
         subprocess.call("touch junction_serialized.ok", shell=True)
 
 rule orf_to_db:
@@ -56,15 +56,15 @@ rule orf_to_db:
     input: orf="all.bed", fasta="all.fasta", check="junction_serialized.ok"
     output: "orf_serialized.ok"
     run:
-        mikado_lib.serializers.orf.orfSerializer("all.bed", config["db"], fasta_index="all.fasta").serialize();
+        mikado_lib.serializers.orf.OrfSerializer("all.bed", config["db"], fasta_index="all.fasta").serialize();
         subprocess.call("touch orf_serialized.ok", shell=True)
 
 rule blast_to_db:
     params: prefix="all"
     input: blast="all.blast.xml", check="orf_serialized.ok"
-    output: "blast_serialized.ok", config["db"] 
+    output: "blast_serialized.ok"
     run:
-        mikado_lib.serializers.blast_utils.xmlSerializer("data.db", "all.blast.xml", keep_definition=True,
+        mikado_lib.serializers.blast_utils.XmlSerializer("data.db", "all.blast.xml", keep_definition=True,
 						       target_seqs=config["blast"]["database"],
 						       max_target_seqs=config["blast"]["max_target_seqs"] ).serialize();
         subprocess.call("touch blast_serialized.ok", shell=True);

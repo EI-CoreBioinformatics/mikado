@@ -1,18 +1,18 @@
 import sys,os.path
 import itertools
-from mikado_lib.loci_objects.transcript import transcript
-from mikado_lib.scales.assigner import assigner
+from mikado_lib.loci_objects.transcript import Transcript
+from mikado_lib.scales.assigner import Assigner
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from mikado_lib.loci_objects.monosublocus import monosublocus
-from mikado_lib.loci_objects.abstractlocus import abstractlocus
+from mikado_lib.loci_objects.monosublocus import Monosublocus
+from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 
-class locus(monosublocus,abstractlocus):
+class locus(Monosublocus,Abstractlocus):
     
-    '''Minimal which inherits from monosublocus. It will define the final loci.''' 
+    '''Minimal which inherits from Monosublocus. It will define the final loci.'''
     
     __name__ = "locus"
     
-    def __init__(self,transcript_instance: transcript, logger = None):
+    def __init__(self,transcript_instance: Transcript, logger = None):
         self.counter=0
         transcript_instance.attributes["primary"]=True
         super().__init__(transcript_instance, logger=logger)
@@ -26,51 +26,51 @@ class locus(monosublocus,abstractlocus):
         self.feature=self.__name__
         return super().__str__(print_cds=print_cds)
     
-    def add_transcript_to_locus(self, transcript_instance:transcript):
+    def add_transcript_to_locus(self, transcript:Transcript):
         '''Loci must be able to add multiple transcripts.'''
         
         if len(self.transcripts)>=self.json_conf["alternative_splicing"]["max_isoforms"]:
-            self.logger.debug("{0} not added because the locus has already too many transcripts.".format(transcript_instance.id))
+            self.logger.debug("{0} not added because the locus has already too many transcripts.".format(transcript.id))
             return
-        if not self.is_alternative_splicing(transcript_instance):
-            self.logger.debug("{0} not added because it is not a valid splicing isoform.".format(transcript_instance.id))
+        if not self.is_alternative_splicing(transcript):
+            self.logger.debug("{0} not added because it is not a valid splicing isoform.".format(transcript.id))
             return
-        if transcript_instance.combined_utr_length>self.json_conf["alternative_splicing"]["max_utr_length"]:
-            self.logger.debug("{0} not added because it has too much UTR ({1)}.".format(transcript_instance.id,
-                                                                                        transcript_instance.combined_utr_length))
+        if transcript.combined_utr_length>self.json_conf["alternative_splicing"]["max_utr_length"]:
+            self.logger.debug("{0} not added because it has too much UTR ({1)}.".format(transcript.id,
+                                                                                        transcript.combined_utr_length))
             return
-        if transcript_instance.five_utr_length>self.json_conf["alternative_splicing"]["max_fiveutr_length"]:
-            self.logger.debug("{0} not added because it has too much 5'UTR ({1)}.".format(transcript_instance.id,
-                                                                                        transcript_instance.five_utr_length))
+        if transcript.five_utr_length>self.json_conf["alternative_splicing"]["max_fiveutr_length"]:
+            self.logger.debug("{0} not added because it has too much 5'UTR ({1)}.".format(transcript.id,
+                                                                                        transcript.five_utr_length))
             return
-        if transcript_instance.three_utr_length>self.json_conf["alternative_splicing"]["max_threeutr_length"]:
-            self.logger.debug("{0} not added because it has too much 5'UTR ({1)}.".format(transcript_instance.id,
-                                                                                        transcript_instance.three_utr_length))
+        if transcript.three_utr_length>self.json_conf["alternative_splicing"]["max_threeutr_length"]:
+            self.logger.debug("{0} not added because it has too much 5'UTR ({1)}.".format(transcript.id,
+                                                                                        transcript.three_utr_length))
             return
         
         if self.json_conf["alternative_splicing"]["keep_retained_introns"] is False:
-            self.find_retained_introns(transcript_instance)
-            if transcript_instance.retained_intron_num>0:
-                self.logger.debug("{0} not added because it has {1} retained introns.".format(transcript_instance.id,
-                                                                                              transcript_instance.retained_intron_num))
+            self.find_retained_introns(transcript)
+            if transcript.retained_intron_num>0:
+                self.logger.debug("{0} not added because it has {1} retained introns.".format(transcript.id,
+                                                                                              transcript.retained_intron_num))
                 return
         if self.json_conf["alternative_splicing"]["min_cds_overlap"]>0 and self.primary_transcript.combined_cds_length>0:
-            tr_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in transcript_instance.combined_cds]))
+            tr_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in transcript.combined_cds]))
             primary_nucls = set(itertools.chain(*[range(x[0], x[1]+1) for x in self.primary_transcript.combined_cds]))
             nucl_overlap = len(set.intersection(primary_nucls, tr_nucls))
             ol = nucl_overlap/self.primary_transcript.combined_cds_length 
             if ol <self.json_conf["alternative_splicing"]["min_cds_overlap"]:
-                self.logger.debug("{0} not added because its CDS overlap with the primary CDS is too low ({1:.2f}%).".format(transcript_instance.id,
+                self.logger.debug("{0} not added because its CDS overlap with the primary CDS is too low ({1:.2f}%).".format(transcript.id,
                                                                                                                              ol*100))
                 return
         
-        transcript_instance.attributes["primary"]=False
+        transcript.attributes["primary"]=False
         
-        abstractlocus.add_transcript_to_locus(self, transcript_instance)
+        Abstractlocus.add_transcript_to_locus(self, transcript)
     
     def other_is_fragment(self,other, minimal_cds_length=0):
         '''This function checks whether another *monoexonic* locus on the opposite strand* is a fragment, by checking its classification
-        according to assigner.compare. Briefly, a transcript is classified as fragment if it follows the following criteria:
+        according to Assigner.compare. Briefly, a transcript is classified as fragment if it follows the following criteria:
         
             - it is monoexonic
             - it has a combined_cds_length inferior to maximal_cds
@@ -114,7 +114,7 @@ class locus(monosublocus,abstractlocus):
             self.logger.debug("{0} has a CDS of {1}, not a fragment by definition".format(other.primary_transcript_id, other.primary_transcript.combined_cds_length ))
             return False
 
-        result, _ = assigner.compare( other.primary_transcript, self.primary_transcript)
+        result, _ = Assigner.compare( other.primary_transcript, self.primary_transcript)
         #Exclude anything which is completely contained within an intron, or is a monoexonic fragment overlapping/in the neighborhood
         self.logger.debug("Comparison between {0} and {1}: class code \"{2}\"".format( self.primary_transcript.id, other.primary_transcript.id, result.ccode[0]  ))
         if result.ccode[0] in ("x", "i", "P"):  
@@ -129,7 +129,7 @@ class locus(monosublocus,abstractlocus):
     
         '''This function defines whether another transcript could be a putative alternative splice variant.
         To do so, it compares the candidate against all transcripts in the locus, and calculates
-        the class code using scales.assigner.compare.
+        the class code using scales.Assigner.compare.
         If all the matches are "n" or "j", the transcript is considered as an AS event.
         '''
         
@@ -142,7 +142,7 @@ class locus(monosublocus,abstractlocus):
         if other.retained_intron_num>0: return False
         
         for tid in self.transcripts:
-            result,_ = assigner.compare(other, self.transcripts[tid]) 
+            result,_ = Assigner.compare(other, self.transcripts[tid])
             self.logger.debug("{0} vs. {1}: {2}".format(tid, other.id, result.ccode[0]))
             if result.ccode[0] not in ("j", "n"):
                 return False
@@ -154,7 +154,7 @@ class locus(monosublocus,abstractlocus):
     
     @property
     def id(self):
-        Id = abstractlocus.id.fget(self)  # @UndefinedVariable
+        Id = Abstractlocus.id.fget(self)  # @UndefinedVariable
         if self.counter>0:
             Id = "{0}.{1}".format(Id, self.counter)
         return Id

@@ -4,7 +4,7 @@ import sys
 
 import argparse
 from mikado_lib.parsers.GTF import GTF
-from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.loci_objects.transcript import Transcript
 
 def main():
 
@@ -32,9 +32,9 @@ def main():
                         print(currentTranscript.__str__(to_gtf=True), file=args.out)
                     if args.assume_sorted is True and row.end>args.end:
                         break
-                    currentTranscript=transcript(row)
+                    currentTranscript=Transcript(row)
                 else:
-                    currentTranscript.addExon(row)
+                    currentTranscript.add_exon(row)
 
     if currentTranscript is not None and currentTranscript.start>=args.start and currentTranscript.end<=args.end:
         print(currentTranscript.__str__(to_gtf=True), file=args.out)

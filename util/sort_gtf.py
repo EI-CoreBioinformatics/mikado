@@ -2,7 +2,7 @@
 
 import sys
 from mikado_lib.parsers.GTF import GTF
-from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.loci_objects.transcript import Transcript
 import argparse
 
 def main():
@@ -25,9 +25,9 @@ def main():
                 assert currentTranscript.exon_num>0, (currentTranscript.id, record.id)
                 transcripts.append(currentTranscript)
             assert record.id is not None, str(record)
-            currentTranscript=transcript(record)
+            currentTranscript=Transcript(record)
         else:
-            currentTranscript.addExon(record)
+            currentTranscript.add_exon(record)
 
     transcripts.append(currentTranscript)
     for tr in sorted(transcripts):

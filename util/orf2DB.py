@@ -14,7 +14,7 @@ def main():
     if args.fasta is not None:
         args.fasta=SeqIO.index(args.fasta, "fasta")
     
-    serializer=orf.orfSerializer(args.bed12, args.db, fasta_index=args.fasta, maxobjects=args.max_objects, json_conf=args.json_conf)
+    serializer=orf.OrfSerializer(args.bed12, args.db, fasta_index=args.fasta, maxobjects=args.max_objects, json_conf=args.json_conf)
     serializer.serialize()
     
 if __name__=="__main__": main()

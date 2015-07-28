@@ -2,17 +2,15 @@
 
 import sys,os.path
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from mikado_lib.loci_objects.abstractlocus import abstractlocus
-from mikado_lib.parsers.GFF import gffLine
-#from builtins import str
-#from transcript import transcript
-#import random, sys
+from mikado_lib.loci_objects.abstractlocus import Abstractlocus
+from mikado_lib.parsers.GFF import GffLine
 
-class monosublocus(abstractlocus):
+
+class Monosublocus(Abstractlocus):
     
     '''Very basic class which holds a single transcript.'''
     
-    __name__ = "monosublocus"
+    __name__ = "Monosublocus"
     
     ########### Special methods ############
     
@@ -24,7 +22,7 @@ class monosublocus(abstractlocus):
         super().add_transcript_to_locus(transcript_instance)
         self.score = transcript_instance.score
 #         self.__dict__.update(transcript_instance.__dict__)
-        self.feature="monosublocus"
+        self.feature="Monosublocus"
         self.parent=None
         self.score = transcript_instance.score
         
@@ -37,7 +35,7 @@ class monosublocus(abstractlocus):
         
         lines=[]
 
-        self_line=gffLine('')
+        self_line=GffLine('')
         for attr in ["chrom", 'feature','source','start','end','strand']:
             setattr(self_line,attr, getattr(self,attr))
         self_line.phase,self_line.score=None,self.score
@@ -72,7 +70,7 @@ class monosublocus(abstractlocus):
         '''For this basic class, this method raises a NotImplementedError -
         as this container should hold only one transcript.'''
         
-        raise NotImplementedError("In a monosublocus there should be one and only one transcript!")
+        raise NotImplementedError("In a Monosublocus there should be one and only one transcript!")
 
 
     def is_intersecting(self):

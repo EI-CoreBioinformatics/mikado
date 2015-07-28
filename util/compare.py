@@ -6,12 +6,12 @@ import logging
 from logging import handlers as log_handlers
 
 
-from mikado_lib.loci_objects.transcript import transcript
-from mikado_lib.scales.assigner import assigner
-from mikado_lib.scales.reference_gene import gene
+from mikado_lib.loci_objects.transcript import Transcript
+from mikado_lib.scales.assigner import Assigner
+from mikado_lib.scales.reference_gene import Gene
 from mikado_lib.parsers.GTF import GTF
 from mikado_lib.parsers.GFF import GFF3
-from mikado_lib.scales.accountant import accountant 
+from mikado_lib.scales.accountant import Accountant
 
 
 '''This is still an embryo. Ideally, this program would perform the following functions:
@@ -130,10 +130,10 @@ def main():
 #         logger.debug(str(row))
         if row.is_transcript is True:
             queue_logger.debug("Transcript\n{0}".format(str(row)))
-            tr = transcript(row)
+            tr = Transcript(row)
             transcript2gene[row.id]=row.gene
             if row.gene not in genes:
-                genes[row.gene] = gene(tr, gid=row.gene)
+                genes[row.gene] = Gene(tr, gid=row.gene)
             genes[row.gene].add(tr)
             assert tr.id in genes[row.gene].transcripts
         elif row.is_exon is True:
@@ -144,11 +144,11 @@ def main():
                 for tr in row.transcript:
 #                     logger.debug(tr)
                     gid = transcript2gene[tr]
-                    genes[gid][tr].addExon(row)
+                    genes[gid][tr].add_exon(row)
             else:
 #                 logger.debug(row.transcript)
                 try:
-                    genes[row.gene][row.transcript].addExon(row)
+                    genes[row.gene][row.transcript].add_exon(row)
                 except KeyError as exc:
                     assert row.gene in genes
                     queue_logger.exception(exc)
@@ -197,8 +197,8 @@ def main():
     queue_logger.info("Finished preparation; found {0} reference genes".format(len(genes)))
     queue_logger.debug("Gene names (first 20): {0}".format("\n\t".join(list(genes.keys())[:20] )))
     
-    accountant_instance = accountant(genes, args) #start the class which will manage the statistics
-    assigner_instance = assigner(genes, positions, args, accountant_instance)
+    accountant_instance = Accountant(genes, args) #start the class which will manage the statistics
+    assigner_instance = Assigner(genes, positions, args, accountant_instance)
 
 
     currentTranscript = None
@@ -221,10 +221,10 @@ def main():
                         log_queue_listener.stop()
                         args.queue_handler.close()
                         raise
-            currentTranscript=transcript(row)
+            currentTranscript=Transcript(row)
         elif row.is_exon is True:
             try:
-                currentTranscript.addExon(row)
+                currentTranscript.add_exon(row)
             except Exception as err:
                 queue_logger.exception(err)
                 #In case of error, signal the threads to exit

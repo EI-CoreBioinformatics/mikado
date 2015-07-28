@@ -13,7 +13,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 setup(
 
     name = "Mikado",
-    version = "0.7.8",
+    version = "0.7.9",
     
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
@@ -25,10 +25,9 @@ setup(
 
     license="GPL3",
 
-    classifiers = [
-
+    classifiers=[
         "Development Status :: 4 - Beta",
-        "Topic :: Gene Annotation ",
+        "Topic :: Gene Annotation",
         "License :: OSI Approved :: GPL3",
         'Programming Language :: Python :: 3.4',
     ],

@@ -138,7 +138,7 @@ If set, the output will be GFF3, regardless of the input format.""")
             assert len(currentTranscripts)>0, (str(currentParent),currentTranscripts)
             for parent in record.parent:
                 try:
-                    currentTranscripts[parent].addExon(record)
+                    currentTranscripts[parent].add_exon(record)
                 except KeyError:
                     print(currentTranscripts)
                     raise

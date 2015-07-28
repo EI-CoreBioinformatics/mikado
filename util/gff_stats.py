@@ -18,7 +18,7 @@ numpy.warnings.filterwarnings("ignore")
 scipy.seterr(all="ignore") #Suppress warnings
 
 
-class transcriptComputer(transcript.transcript):
+class transcriptComputer(transcript.Transcript):
     
     data_fields = ["parent", 'chrom',
                    'start', 'end',
@@ -189,7 +189,7 @@ class Calculator:
             else:
                 for parent in filter( lambda parent: parent not in derived_features, record.parent):
                     gid = transcript2gene[parent]
-                    self.genes[gid].transcripts[parent].addExon(record)
+                    self.genes[gid].transcripts[parent].add_exon(record)
 
         for gid in self.genes:
             self.genes[gid].finalize()

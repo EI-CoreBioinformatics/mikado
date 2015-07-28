@@ -8,7 +8,7 @@
 
 import mikado_lib.loci_objects.abstractlocus
 import mikado_lib.loci_objects.Creator
-import mikado_lib.loci_objects.excluded_locus
+import mikado_lib.loci_objects.excluded
 import mikado_lib.loci_objects.locus
 import mikado_lib.loci_objects.monosublocus
 import mikado_lib.loci_objects.sublocus

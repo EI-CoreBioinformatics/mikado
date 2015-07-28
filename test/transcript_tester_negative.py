@@ -37,7 +37,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         tr_lines[pos] = re.sub("\s+", "\t", line)
         assert len(tr_lines[pos].split("\t"))==9, line.split("\t")
         
-    tr_gff_lines = [mikado_lib.parsers.GFF.gffLine(line) for line in tr_lines]
+    tr_gff_lines = [mikado_lib.parsers.GFF.GffLine(line) for line in tr_lines]
     
     for l in tr_gff_lines:
         assert l.header is False
@@ -46,9 +46,9 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     def setUp(self):
         '''Basic creation test.'''
         
-        self.tr = mikado_lib.loci_objects.transcript.transcript(self.tr_gff_lines[0])
+        self.tr = mikado_lib.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
-            self.tr.addExon(line)
+            self.tr.add_exon(line)
         self.tr.finalize()
 
         self.orf=mikado_lib.parsers.bed12.BED12()
@@ -258,7 +258,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid, (len(second_orf), second_orf.cds_len))
 
-        self.assertTrue( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, second_orf)  )
+        self.assertTrue( mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf)  )
 
 
         #This should be added
@@ -280,8 +280,8 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.assertFalse(third_orf.invalid, (len(third_orf), third_orf.cds_len))
         
 
-        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(first_orf, third_orf)  )
-        self.assertFalse( mikado_lib.loci_objects.transcript.transcript.is_overlapping_cds(second_orf, third_orf)  )
+        self.assertFalse( mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, third_orf)  )
+        self.assertFalse( mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(second_orf, third_orf)  )
 
         self.assertFalse( third_orf == second_orf)
         self.assertFalse( first_orf == second_orf)
@@ -289,7 +289,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         
         
         candidates = [first_orf, second_orf, third_orf]
-        self.assertEqual(len(mikado_lib.loci_objects.transcript.transcript.find_overlapping_cds(candidates)),2)
+        self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)),2)
         self.tr.load_orfs(candidates)
         
         self.assertTrue(self.tr.is_complete)

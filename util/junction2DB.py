@@ -11,7 +11,7 @@ def main():
     parser.add_argument("db", nargs="?", default=":memory:")
     args=parser.parse_args()
     
-    serializer=junction.junctionSerializer(args.bed12, args.db, fai=args.fai, json_conf=args.json_conf, maxobjects=args.max_objects)
+    serializer=junction.JunctionSerializer(args.bed12, args.db, fai=args.fai, json_conf=args.json_conf, maxobjects=args.max_objects)
     serializer()
     
 if __name__=="__main__": main()

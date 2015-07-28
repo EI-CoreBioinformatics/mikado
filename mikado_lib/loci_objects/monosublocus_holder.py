@@ -1,18 +1,18 @@
 import sys,os.path
-from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.loci_objects.transcript import Transcript
 #from mikado_lib.exceptions import NotInLocusError
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-#from mikado_lib.mikado_lib.excluded_locus import excluded_locus
-from mikado_lib.loci_objects.abstractlocus import abstractlocus
-from mikado_lib.loci_objects.sublocus import sublocus
+#from mikado_lib.mikado_lib.Excluded import Excluded
+from mikado_lib.loci_objects.abstractlocus import Abstractlocus
+from mikado_lib.loci_objects.sublocus import Sublocus
 from mikado_lib.loci_objects.locus import locus
-from mikado_lib.loci_objects.monosublocus import monosublocus
+from mikado_lib.loci_objects.monosublocus import Monosublocus
 
 #Resolution order is important here!
-class monosublocus_holder(sublocus,abstractlocus):
+class monosublocus_holder(Sublocus,Abstractlocus):
     
-    '''This is a container that groups together the transcripts surviving the selection for the monosublocus.
-    The class inherits from both sublocus and abstractlocus (the main abstract class) in order to be able to reuse
+    '''This is a container that groups together the transcripts surviving the selection for the Monosublocus.
+    The class inherits from both sublocus and Abstractlocus (the main abstract class) in order to be able to reuse
     some of the code present in the former.
     Internally, the most important method is define_loci - which will select the best transcript(s) and remove all the overlapping ones.
     The intersection function for this object is quite laxer than in previous stages, and so are the requirements for the inclusion.
@@ -20,9 +20,9 @@ class monosublocus_holder(sublocus,abstractlocus):
 
     __name__ = "monosubloci_holder"
 
-    def __init__(self, monosublocus_instance: monosublocus, json_dict=None, logger=None):
+    def __init__(self, monosublocus_instance: Monosublocus, json_dict=None, logger=None):
         
-        abstractlocus.__init__(self)
+        Abstractlocus.__init__(self)
         self.set_logger(logger)
         self.splitted=False
         self.metrics_calculated = False
@@ -36,8 +36,8 @@ class monosublocus_holder(sublocus,abstractlocus):
         
         
 
-    def add_transcript_to_locus(self, transcript_instance, check_in_locus = True):
-        '''Override of the sublocus method, and reversal to the original method in the abstractlocus class.
+    def add_transcript_to_locus(self, transcript, check_in_locus = True):
+        '''Override of the sublocus method, and reversal to the original method in the Abstractlocus class.
         The check_in_locus boolean flag is used to decide whether to check if the transcript is in the locus or not.
         This should be set to False for the first transcript, and True afterwards.'''
 #         if check_in_locus is True:
@@ -45,10 +45,10 @@ class monosublocus_holder(sublocus,abstractlocus):
 #             if check is False:
 #                 raise NotInLocusError()
 #         
-        abstractlocus.add_transcript_to_locus(self, transcript_instance, check_in_locus=True)
-        self.locus_verified_introns = set.union(self.locus_verified_introns, transcript_instance.verified_introns)
+        Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=True)
+        self.locus_verified_introns = set.union(self.locus_verified_introns, transcript.verified_introns)
             
-    def add_monosublocus(self, monosublocus_instance: monosublocus):
+    def add_monosublocus(self, monosublocus_instance: Monosublocus):
         '''Wrapper to extract the transcript from the monosubloci and pass it to the constructor.'''
         assert len(monosublocus_instance.transcripts)==1
         if len(self.transcripts)==0:
@@ -68,7 +68,7 @@ class monosublocus_holder(sublocus,abstractlocus):
     
     def define_loci(self, purge=False, excluded=None):
         '''This is the main function of the class. It is analogous to the define_subloci class defined
-        for sublocus objects, but it returns "locus" objects (not "monosublocus").'''
+        for sublocus objects, but it returns "locus" objects (not "Monosublocus").'''
         if self.splitted is True:
             return
         
@@ -147,13 +147,13 @@ class monosublocus_holder(sublocus,abstractlocus):
         return False
 
     @classmethod
-    def in_locus(cls, locus_instance: abstractlocus, transcript_instance: transcript, flank=0) -> bool:
+    def in_locus(cls, locus_instance: Abstractlocus, transcript_instance: Transcript, flank=0) -> bool:
         '''This method checks whether a transcript / monosbulocus falls inside the locus coordinates.'''
         if hasattr(transcript_instance, "transcripts"):
             assert len(transcript_instance.transcripts)==1
             transcript_instance = transcript_instance.transcripts[list(transcript_instance.transcripts.keys())[0]]
             assert hasattr(transcript_instance,"finalize")
-        is_in_locus = abstractlocus.in_locus(locus_instance, transcript_instance, flank=flank)
+        is_in_locus = Abstractlocus.in_locus(locus_instance, transcript_instance, flank=flank)
         if is_in_locus is True:
             is_in_locus=False
             for tran in locus_instance.transcripts:
@@ -164,4 +164,4 @@ class monosublocus_holder(sublocus,abstractlocus):
     
     @property
     def id(self):
-        return abstractlocus.id.fget(self)  # @UndefinedVariable
+        return Abstractlocus.id.fget(self)  # @UndefinedVariable

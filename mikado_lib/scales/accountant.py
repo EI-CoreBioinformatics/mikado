@@ -2,24 +2,25 @@ import argparse
 from logging import handlers as log_handlers
 import logging
 # import itertools
-from mikado_lib.loci_objects.transcript import transcript
-from mikado_lib.scales.result_storer import result_storer  
+from mikado_lib.loci_objects.transcript import Transcript
+from mikado_lib.scales.restultstorer import RestultStorer
 # import collections
 import operator
 import collections
 
-class accountant:
-    
-    '''This class stores the data necessary to calculate the final statistics - base and exon Sn/Sp/F1 etc.'''
-    
-    def __init__(self, genes:dict, args:argparse.Namespace):
 
-        '''Class constructor. It requires:
-        - The reference gene dictionary (containing the various transcript instances)
-        - A namespace (like those provided by argparse) containing the parameters for the run.        
-        '''
+class Accountant:
+    
+    """This class stores the data necessary to calculate the final statistics - base and exon Sn/Sp/F1 etc."""
+    
+    def __init__(self, genes: dict, args: argparse.Namespace):
 
-        if hasattr(args,"log_queue"):
+        """Class constructor. It requires:
+        :param genes: a dictionary
+        :param args: A namespace (like those provided by argparse) containing the parameters for the run.
+        """
+
+        if hasattr(args, "log_queue"):
             self.queue_handler = log_handlers.QueueHandler(args.log_queue)
         else:
             self.queue_handler = logging.NullHandler
@@ -34,17 +35,7 @@ class accountant:
         
         self.args = args
      
-#         
-#         self.pred_introns = dict()
-#         self.pred_intron_chains = dict()
-#         self.matching_intron_chains = collections.Counter()
-#         self.found_genes = set()
-#         self.found_transcripts = collections.Counter()
-#         self.pred_transcripts = set()
-#         self.pred_genes = set()
-        
         self.introns = dict()
-        #This is the easy part
         self.exons = dict()
         self.starts = dict()
         self.ends = dict()
@@ -58,14 +49,16 @@ class accountant:
                 self.ref_genes[gene][tr.id] = 0b00
 #                 self.ref_transcript_num+=1
                 if tr.chrom not in self.introns:
-                    self.exons[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-                    self.starts[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-                    self.ends[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
+                    self.exons[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+                    self.starts[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+                    self.ends[tr.chrom] = dict([("+", dict()), ("-", dict())  ]  )
                     
-                    self.introns[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-                    self.intron_chains[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-                if tr.strand is None: s="+"
-                else: s=tr.strand
+                    self.introns[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+                    self.intron_chains[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+                if tr.strand is None:
+                    s = "+"
+                else:
+                    s = tr.strand
 
                 # 0b000001: in reference
                 # 0b000010: in prediction
@@ -98,27 +91,30 @@ class accountant:
                         else:
                             self.exons[tr.chrom][s][exon] |= 0b01000
 
+    def store(self, tr: Transcript, result: RestultStorer, other_exon: tuple):
 
+        """Add exons introns intron chains etc. to the storage.
+        :param tr: a "Transcript" instance
+        :param result: Instance of "result_storer"
+        :param other_exon: either None or an integer duplex
 
-    def store(self, tr:transcript, result:result_storer, other_exon:tuple):
-
-        '''Add exons introns intron chains etc. to the storage.
         A transcript is considered a perfect match if it has junction_f1==100 and nucleotide_f1==100;
         a lenient match if it has junction_f1==100 and nucleotide_f1>95,
         i.e. min(nucleotide_precision, nucleotide_recall)>90.4 
-        '''
+        """
 
         for parent in tr.parent:
             if parent not in self.pred_genes:
-                self.pred_genes[parent]=dict()
+                self.pred_genes[parent] = dict()
             if tr.id not in self.pred_genes[parent]: 
-                self.pred_genes[parent][tr.id]=0b00
+                self.pred_genes[parent][tr.id] = 0b00
 
-        if tr.strand is None: s="+"
-        else: s=tr.strand
+        if tr.strand is None:
+            s = "+"
+        else:
+            s = tr.strand
 
-        
-        if result.ccode!=("u",):
+        if result.ccode != ("u",):
             self.pred_genes[parent][tr.id]|=0b100
             for refid,refgene in zip(result.RefId, result.RefGene):
                 self.ref_genes[refgene][refid] |= 0b100
@@ -135,11 +131,11 @@ class accountant:
                             self.ref_genes[refgene][refid] |= 0b01
 
         if tr.chrom not in self.exons:
-            self.exons[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-            self.starts[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-            self.ends[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-            self.introns[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
-            self.intron_chains[tr.chrom]=dict([ ("+", dict()), ("-", dict())  ]  )
+            self.exons[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+            self.starts[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+            self.ends[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+            self.introns[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
+            self.intron_chains[tr.chrom] = dict([ ("+", dict()), ("-", dict())  ]  )
             
         if tr.exon_num>1:
             ic_key =tuple(tr.introns) 
@@ -148,22 +144,22 @@ class accountant:
                 assert result.RefId[0] in self.intron_chains[tr.chrom][s][ic_key][0]
             
             if ic_key not in self.intron_chains[tr.chrom][s]:
-                self.intron_chains[tr.chrom][s][ic_key]=[set(),set()]
+                self.intron_chains[tr.chrom][s][ic_key] = [set(),set()]
             self.intron_chains[tr.chrom][s][ic_key][1].add(tr.id)
 
             for intron in tr.introns:
                 if intron not in self.introns[tr.chrom][s]:
-                    self.introns[tr.chrom][s][intron]=0b0
+                    self.introns[tr.chrom][s][intron] = 0b0
                 self.introns[tr.chrom][s][intron] |= 0b10
             
             for index,exon in enumerate(tr.exons):
                 if exon not in self.exons[tr.chrom][s]:
-                    self.exons[tr.chrom][s][exon]=0b0
+                    self.exons[tr.chrom][s][exon] = 0b0
                 self.exons[tr.chrom][s][exon] |= 0b10 #set it as "in prediction" 
                 if index == 0:
                     self.exons[tr.chrom][s][exon] |= 0b010000
                     if exon[1] not in self.starts[tr.chrom][s]:
-                        self.starts[tr.chrom][s][exon[1]]=0b0
+                        self.starts[tr.chrom][s][exon[1]] = 0b0
                     self.starts[tr.chrom][s][exon[1]] |= 0b10
                 elif index == tr.exon_num-1:
                     self.exons[tr.chrom][s][exon] |= 0b010000
@@ -175,7 +171,7 @@ class accountant:
         else:
             exon=tr.exons[0]
             if exon not in self.exons[tr.chrom][s]:
-                self.exons[tr.chrom][s][exon]=0b0
+                self.exons[tr.chrom][s][exon] = 0b0
             self.exons[tr.chrom][s][exon] |= 0b10
             self.exons[tr.chrom][s][exon] |= 0b100
             if other_exon is not None:
@@ -186,8 +182,13 @@ class accountant:
 #                 self.exons[tr.chrom][s][exon] |= 0b100000
                 self.exons[tr.chrom][s][other_exon] |= 0b100000
 
-    def print_stats(self, genes):
- 
+    def print_stats(self):
+
+        """
+        This method calculates and prints the final stats file. It is called when the prediction file
+        parsing has been terminated correctly.
+        """
+
         num_ref_transcripts = sum(len(self.ref_genes[gid]) for gid in self.ref_genes) 
         num_pred_transcripts = sum(len(self.pred_genes[gid]) for gid in self.pred_genes)
  

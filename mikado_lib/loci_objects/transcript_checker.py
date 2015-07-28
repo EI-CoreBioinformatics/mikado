@@ -1,9 +1,9 @@
 import sys,os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from mikado_lib.loci_objects.transcript import transcript
+from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.exceptions import IncorrectStrandError
 
-class transcript_checker(transcript):
+class transcript_checker(Transcript):
     
     '''This is a subclass of the generic transcript class. Its purpose is to compare
     the information of the transcript instance with the information contained in a

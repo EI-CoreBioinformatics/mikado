@@ -2,7 +2,7 @@ import sys,argparse
 import mikado_lib.parsers
 import mikado_lib.loci_objects.transcript
 
-def strip_terminal(currentTranscript: mikado_lib.loci_objects.transcript.transcript, args: argparse.Namespace) -> mikado_lib.loci_objects.transcript.transcript:
+def strip_terminal(currentTranscript: mikado_lib.loci_objects.transcript.Transcript, args: argparse.Namespace) -> mikado_lib.loci_objects.transcript.Transcript:
     '''This function will take as input a transcript and then:
     - return immediately if the transcript is monoexonic
     - trim the terminal exons to a length of max(args.max_length (if longer), CDS boundary)
@@ -126,9 +126,9 @@ def main():
         if record.is_transcript is True:
             if currentTranscript is not None:
                 print(strip_terminal(currentTranscript, args).__str__( to_gtf = args.as_gtf ), file=args.out)
-            currentTranscript=mikado_lib.loci_objects.transcript.transcript(record)
+            currentTranscript=mikado_lib.loci_objects.transcript.Transcript(record)
         elif record.is_exon is True:
-            currentTranscript.addExon(record)
+            currentTranscript.add_exon(record)
             
     print(strip_terminal(currentTranscript, args).__str__( to_gtf = args.as_gtf), file=args.out)
     

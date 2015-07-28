@@ -7,6 +7,7 @@ import Bio.File
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import operator
+import sqlalchemy.exc
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref

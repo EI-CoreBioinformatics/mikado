@@ -1,5 +1,6 @@
 import os,sys
 import mikado_lib.json_utils
+import subprocess
 
 swissprot = "uniprot_sprot_plants.fasta"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
@@ -40,21 +41,37 @@ rule blast_complete:
     output: "all.blast.xml"
     shell: "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output}"
 
-rule to_db:
+rule junction_to_db:
     params: prefix="all"
-    input: blast="all.blast.xml", junctions="junctions.bed", orf="all.bed", fai="genome.fai", fasta="all.fasta"
-    output: config["db"]
-    #shell: "python3 ../util/junction2SQLite.py --fai {input[fai]} {input[junctions]} {output}; python3 ../util/orf2SQLite.py --fasta {input[fasta]} {input[orf]} {output}; python3 ../util/blastXml2SQLite.py --definition --max_target_seqs {config[blast][max_target_seqs]} {input[blast]} {output}"
+    input: junctions="junctions.bed", fai="genome.fai"
+    output: "junction_serialized.ok"
     run:
-        mikado_lib.serializers.junction.junctionSerializer(input["junctions"], output, fai=input["fai"]).serialize()
-        mikado_lib.serializers.orf.orfSerializer(input["orf"], output, fasta_index=input["fasta"]).serialize()
-        mikado_lib.serializers.blast_utils.xmlSerializer(output, input["blast"], keep_definition=True,
+        import sys
+        print(sys.version_info)
+        mikado_lib.serializers.junction.junctionSerializer("junctions.bed", config["db"], fai="genome.fai").serialize();
+        subprocess.call("touch junction_serialized.ok", shell=True)
+
+rule orf_to_db:
+    params: prefix="all"
+    input: orf="all.bed", fasta="all.fasta", check="junction_serialized.ok"
+    output: "orf_serialized.ok"
+    run:
+        mikado_lib.serializers.orf.orfSerializer("all.bed", config["db"], fasta_index="all.fasta").serialize();
+        subprocess.call("touch orf_serialized.ok", shell=True)
+
+rule blast_to_db:
+    params: prefix="all"
+    input: blast="all.blast.xml", check="orf_serialized.ok"
+    output: "blast_serialized.ok", config["db"] 
+    run:
+        mikado_lib.serializers.blast_utils.xmlSerializer("data.db", "all.blast.xml", keep_definition=True,
 						       target_seqs=config["blast"]["database"],
-						       max_target_seqs=config["blast"]["max_target_seqs"] ).serialize()
+						       max_target_seqs=config["blast"]["max_target_seqs"] ).serialize();
+        subprocess.call("touch blast_serialized.ok", shell=True);
 
 rule complete:
     params: prefix="all"
-    input: db=config["db"], configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed"
+    input: db=config["db"], configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed", check="blast_serialized.ok"
     output: "all.loci.gff3", "all.loci.scores.tsv"
     shell: """mikado_pick.py --source {params[prefix]} --json_conf {input[configuration]} \
 	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""  

@@ -16,6 +16,7 @@ class locus(monosublocus,abstractlocus):
         self.counter=0
         transcript_instance.attributes["primary"]=True
         super().__init__(transcript_instance, logger=logger)
+        self.logger.debug("Created locus object with {0}".format(transcript_instance.id))
         self.primary_transcript_id = transcript_instance.id
         
         self.attributes["is_fragment"]=False
@@ -25,7 +26,7 @@ class locus(monosublocus,abstractlocus):
         self.feature=self.__name__
         return super().__str__(print_cds=print_cds)
     
-    def add_transcript_to_locus(self, transcript_instance):
+    def add_transcript_to_locus(self, transcript_instance:transcript):
         '''Loci must be able to add multiple transcripts.'''
         
         if len(self.transcripts)>=self.json_conf["alternative_splicing"]["max_isoforms"]:
@@ -67,13 +68,13 @@ class locus(monosublocus,abstractlocus):
         
         abstractlocus.add_transcript_to_locus(self, transcript_instance)
     
-    def other_is_fragment(self,other):
-        '''This function checks whether another *monoexonic* locus on the opposite strand* is a fragment, by checking that:
-            - there is some overlap between the two transcripts
-            - the fragment has 
+    def other_is_fragment(self,other, minimal_cds_length=0):
+        '''This function checks whether another *monoexonic* locus on the opposite strand* is a fragment, by checking its classification
+        according to assigner.compare. Briefly, a transcript is classified as fragment if it follows the following criteria:
         
-            - the fragment is completely contained inside the coordinates of the other transcript
-            - the transcript has at least some exonic overlap and overlaps at most one exon.
+            - it is monoexonic
+            - it has a combined_cds_length inferior to maximal_cds
+            - it is classified as x,i,P
         '''
 
         if type(self)!=type(other):
@@ -109,8 +110,13 @@ class locus(monosublocus,abstractlocus):
 #         if 0<overlapping_exons<=2 and overlapping_introns<=1:
 #             return True
 #         return False
+        if other.primary_transcript.combined_cds_length>minimal_cds_length:
+            self.logger.debug("{0} has a CDS of {1}, not a fragment by definition".format(other.primary_transcript_id, other.primary_transcript.combined_cds_length ))
+            return False
+
         result, _ = assigner.compare( other.primary_transcript, self.primary_transcript)
         #Exclude anything which is completely contained within an intron, or is a monoexonic fragment overlapping/in the neighborhood
+        self.logger.debug("Comparison between {0} and {1}: class code \"{2}\"".format( self.primary_transcript.id, other.primary_transcript.id, result.ccode[0]  ))
         if result.ccode[0] in ("x", "i", "P"):  
             return True
         return False

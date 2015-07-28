@@ -93,20 +93,28 @@ class BED12:
 #             #This is a bug in TD by which sometimes truncates ORFs even when there would be a read through
             if self.has_stop_codon is False and (self.strand!="-" and self.thickEnd<len(self)-2) or (self.strand=="-" and self.thickStart>2):
                 sequence = fasta_index[self.id]
+                tstart,tend = self.thickStart,self.thickEnd
                 if self.strand!="-":
+                    num=self.thickEnd+3
                     for num in range(self.thickEnd+3, self.end, 3  ):
                         codon= sequence[num:num+3]
                         if str(codon.seq) in  ("TAA", "TGA", "TAG"):
                             self.has_stop_codon=True
                             break
                     self.thickEnd = num-3
-#                 else:
-#                     for num in reversed(range(self.start, self.thickStart-1,3)):
-#                         codon = sequence[num-3:num]
-#                         if str(codon.seq) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
-#                             self.has_stop_codon=True
-#                             break
-#                     self.thickStart=num
+                else:
+                    num=self.thickStart
+                    #This while loop is necessary b/c range does not function backwards
+                    #and reversed mingles poorly with non-unary steps
+                    #i.e reversed(range(1,10,3)) = [9,6,3,0], not [10,7,4,1] ...
+                    while num>self.start:
+                        num-=3
+                        codon = sequence[num-3:num]
+                        if str(codon.seq) in  ("TTA", "TCA", "CTA"): #Reversed version, save on reversal, should save time
+                            self.has_stop_codon=True
+                            break
+                    self.thickStart=num
+                assert self.invalid is False, ((tstart,tend), (self.strand, self.thickStart,self.thickEnd))
         
         assert self.blockCount==len(self.blockStarts)==len(self.blockSizes)
         

@@ -21,6 +21,7 @@ myRecords/__pycache__/__init__.cpython-34.pyc
 myRecords/__pycache__/Sam.cpython-34.pyc
 Chr*
 */*~
+sample_data/*.ok
 sample_data/.snakemake
 sample_data/*db
 sample_data/*xml
@@ -37,3 +38,5 @@ Reference/*
 build/*
 *~
 shanghai.egg-info/
+dist/*
+Mikado.egg-info/*

@@ -502,7 +502,7 @@ class transcript:
                         right = cds_boundaries[list(cds_boundaries.keys())[counter+1]]
                     counter+=1 #Otherwise they start from 0    
                     new_transcript.id = "{0}.split{1}".format(self.id, counter)
-                    
+                    new_transcript.set_logger(self.logger)
                     my_exons = []
                     
                     
@@ -526,25 +526,51 @@ class transcript:
                         texon = [tlength+1, tlength+elength]
                         tlength += elength
                         #Exon completely contained in the ORF
-                        if texon[0]>=boundary[0] and texon[1]<=boundary[1]: 
+                        if texon[0]>=boundary[0] and texon[1]<=boundary[1]:
+                            self.logger.debug("Appending CDS exon {0}".format((exon))) 
                             my_exons.append(exon)
                         #Exon on the left of the CDS
                         elif texon[1]<=boundary[0]:
                             if left is None:
+                                self.logger.debug("Appending left UTR exon {0}".format((exon)))
                                 my_exons.append(exon)
                             else:
+                                self.logger.debug("Discarding left UTR exon {0}".format((exon)))
                                 discarded_exons.append(exon)
                                 continue
                         elif texon[0]>=boundary[1]:
                             if right is None:
+                                self.logger.debug("Appending right UTR exon {0}".format((exon)))
                                 my_exons.append(exon)
                             else:
+                                self.logger.debug("Discarding right UTR exon {0}".format((exon)))
                                 discarded_exons.append(exon)
                                 continue
                         #exon with partial UTR
                         else:
                             new_exon = list(exon)
-                            if texon[0]<boundary[0]<=texon[1] and texon[1]<=boundary[1]:
+                            if texon[0]<=boundary[0]<=boundary[1]<=texon[1]: #Monoexonic
+                                if self.strand == "-":
+                                    if left is not None:
+                                        new_exon[1] = exon[0]+(texon[1]-boundary[0])
+                                    if right is not None:
+                                        new_exon[0] = exon[1]-(boundary[1]-texon[0])
+                                else:
+                                    if left is not None:
+                                        new_exon[0]=exon[1]-(texon[1]-boundary[0])
+                                    if right is not None:
+                                        new_exon[1] = exon[0]+(boundary[1]-texon[0])
+                                self.logger.debug("[Monoexonic] Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
+                                self.logger.debug("[Monoexonic] GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
+                                self.logger.debug("[Monoexonic] Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
+                                self.logger.debug("[Monoexonic] Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
+                                
+                                if left is not None:
+                                    texon[0] = boundary[0]
+                                if right is not None:
+                                    texon[1] = boundary[1]
+
+                            elif texon[0]<boundary[0]<=texon[1] and texon[1]<=boundary[1]:
                                 if left is not None:
                                     if self.strand=="-":
                                         new_exon[1] = exon[0]+(texon[1]-boundary[0])
@@ -562,24 +588,6 @@ class transcript:
                                     self.logger.debug("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
                                     self.logger.debug("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
                                     texon[1] = boundary[1]
-                            elif texon[0]<=boundary[0]<=boundary[1]<=texon[1]: #Monoexonic
-                                if self.strand == "-":
-                                    if left is not None:
-                                        new_exon[1] = exon[0]+(texon[1]-boundary[0])
-                                    if right is not None:
-                                        new_exon[0] = exon[1]-(boundary[1]-texon[0])
-                                else:
-                                    if left is not None:
-                                        new_exon[0]=exon[1]-(texon[1]-boundary[0])
-                                    if right is not None:
-                                        new_exon[1] = exon[0]+(boundary[1]-texon[0])
-                                
-                                texon[0] = boundary[0]
-                                texon[1] = boundary[1]
-                                self.logger.debug("Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
-                                self.logger.debug("GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
-                                self.logger.debug("Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
-                                self.logger.debug("Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
                             
                             my_exons.append(tuple(sorted(new_exon)))
                         tstart=min(tstart, texon[0])
@@ -616,6 +624,7 @@ class transcript:
                     new_transcript.finalize()
                     if new_transcript.monoexonic is True:
                         new_transcript.strand=None
+                    self.logger.debug( "Loading {0} ORFs into the new transcript".format(len(new_bed12s)) )
                     new_transcript.load_orfs(new_bed12s)
                     
                     if new_transcript.selected_cds_length<=0:
@@ -988,6 +997,9 @@ class transcript:
         if len(new_orfs)>0:
             candidate_orfs=[new_orfs[0]]
             for orf in filter(lambda x: x.cds_len>minimal_secondary_orf_length, new_orfs[1:]):
+                if orf.invalid is True:
+                    self.logger.warn("Removed invalid ORF: {0}".format(orf))
+                    continue
                 candidate_orfs.append(orf)
 
         if candidate_orfs is None or len(candidate_orfs)==0:
@@ -1015,7 +1027,7 @@ class transcript:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
                 primary_orf = False
             
-            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length) or not (len(orf) == self.cdna_length) : #Leave leeway for TD
+            if not (orf.thickStart>=1 and orf.thickEnd<=self.cdna_length) or not (len(orf) == self.cdna_length):
                 self.logger.warning("Wrong ORF for {0}: cDNA length: {1}; orf length: {2}; CDS: {3}-{4}".format(orf.id,
                                                                                                                       self.cdna_length, 
                                                                                                                       len(orf),
@@ -1070,7 +1082,11 @@ class transcript:
         
             self.internal_orfs.append( sorted(cds_exons, key=operator.itemgetter(1,2)   ) )
 
+        if len(self.internal_orf_lengths)==0:
+            self.logger.warning("No candidate ORF retained for {0}".format(self.id))
+
         if len(self.internal_orfs)==1:
+            self.logger.debug("Found 1 ORF for {0}".format(self.id))
             self.combined_cds = sorted(
                               [(a[1],a[2]) for a in filter(lambda x: x[0]=="CDS", self.internal_orfs[0])],
                               key=operator.itemgetter(0,1)
@@ -1084,7 +1100,7 @@ class transcript:
             
             
         elif len(self.internal_orfs)>1:
-            
+            self.logger.debug("Found {0} ORF for {1}".format(len(self.internal_orfs) ,self.id))
             cds_spans = []
             candidates = []
             for internal_cds in self.internal_orfs:

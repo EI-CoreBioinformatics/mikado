@@ -414,6 +414,7 @@ class Transcript:
         logger = self.logger
         del self.logger
         state = self.__dict__.copy()
+        self.logger = logger
 
         if hasattr(self, "json_dict"):
             if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
@@ -826,7 +827,7 @@ class Transcript:
 
         if len(self.exons) == 0:
             raise mikado_lib.exceptions.InvalidTranscript(
-                "No exon defined for the transcript {0}. Aborting".format(self.tid))
+                "No exon defined for the transcript {0}. Aborting".format(self.id))
 
         if len(self.exons) > 1 and self.strand is None:
             raise mikado_lib.exceptions.InvalidTranscript(
@@ -1996,7 +1997,7 @@ class Transcript:
     @Metric
     def is_complete(self):
         """Boolean. True if the selected ORF has both start and end."""
-        return (self.has_start_codon is True) and (self.has_stop_codon is True)
+        return (self.__has_start_codon is True) and (self.__has_stop_codon is True)
 
     @Metric
     def exon_num(self):

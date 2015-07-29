@@ -34,7 +34,7 @@ class RestultStorer:
                     setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
             elif 4 < index < len(self.__slots__):
                 if type(getattr(self, self.__slots__[index])) in (float, int):
-                    setattr(self, key, tuple( [getattr(self, self.__slots__[index])]))
+                    setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
 
     def _asdict(self):
 

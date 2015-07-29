@@ -137,8 +137,19 @@ class Locus(Monosublocus, Abstractlocus):
             self.primary_transcript.id,
             other.primary_transcript.id,
             result.ccode[0]))
-        if result.ccode[0] in ("x", "i", "P", "p"):
+        if result.ccode[0] in ("i", "P", "p", "x"):
             return True
+        # if result.ccode[0] == "x":
+        #     # If the transcript bridges an intron completely, it probably is not a a fragment.
+        #     # Otherwise, return True.
+        #     ostart, oend = other.primary_transcript.start, other.primary_transcript.end
+        #     if sum(1 for x in filter(lambda intron:
+        #                              self.overlap(intron, (ostart, oend)) >= (intron[1]-intron[0]+1),
+        #                              self.primary_transcript.introns)) >= 1:
+        #         return False
+        #     else:
+        #         return True
+
         return False
 
     def set_json_conf(self, jconf: dict):

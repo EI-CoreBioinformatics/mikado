@@ -343,7 +343,12 @@ class Assigner:
         """Function to compare two transcripts and determine a ccode.
 
         :param prediction: the transcript query
+        :type prediction: Transcript
+
         :param reference: the reference transcript against which we desire to calculate the ccode and other stats.
+        :type reference: Transcript
+
+        :rtype (ResultStorer, (int,int)) | (ResultStorer, None)
 
         Available ccodes (from Cufflinks documentation):
         
@@ -473,7 +478,7 @@ class Assigner:
                     else:
                         if nucl_overlap == 0:
                             # The only explanation for no nucleotide overlap
-                            # and no nucl overlap is that it is inside an intron
+                            # and no junction overlap is that it is inside an intron
                             if reference.start < prediction.start < reference.end:
                                 ccode = "I"
                             elif prediction.start < reference.start < prediction.end:

@@ -7,8 +7,6 @@ import sys, argparse
 from mikado_lib.exceptions import InvalidCDS
 from mikado_lib.parsers import GFF, GTF
 from mikado_lib.loci_objects import transcript
-from scipy.stats.mstats import mquantiles
-import scipy
 import numpy
 import mikado_lib
 from collections import namedtuple, Counter
@@ -16,7 +14,6 @@ from array import array as cArray
 
 numpy.seterr(all="ignore")  # Suppress warnings
 numpy.warnings.filterwarnings("ignore")
-scipy.seterr(all="ignore")  # Suppress warnings
 
 
 class TranscriptComputer(transcript.Transcript):
@@ -294,7 +291,7 @@ class Calculator:
         counter_object = Counter(array)
         moder = [x for x in counter_object if counter_object[x] == counter_object.most_common(1)[0][1]]
         row["Mode"] = ";".join(str(x) for x in moder)
-        quantiles = mquantiles(array, prob=[0, 0.05, 0.10, 0.25, 0.5, 0.75, 0.9, 0.95, 1])
+        quantiles = [ numpy.percentile(array, x) for x in  [0, 5, 10, 25, 50, 75, 90, 95, 100]]
         for key, val in zip(['Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max'], quantiles):
             try:
                 row[key] = "{0:,.0f}".format(val)  # No decimal

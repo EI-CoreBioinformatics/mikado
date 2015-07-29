@@ -90,13 +90,13 @@ class Query(dbBase):
     """
 
     __tablename__ = "query"
-    id = Column(Integer, primary_key=True)
-    name = Column(String(200), unique=True, index=True)
-    length = Column(Integer, nullable=True)  # This so we can load data also from the orf class
+    query_id = Column(Integer, primary_key=True)
+    query_name = Column(String(200), unique=True, index=True)
+    query_length = Column(Integer, nullable=True)  # This so we can load data also from the orf class
 
     def __init__(self, name, length):
-        self.name = name
-        self.length = length
+        self.query_name = name
+        self.query_length = length
 
 
 class Target(dbBase):
@@ -104,25 +104,25 @@ class Target(dbBase):
     """
     Very simple serialization class for Target objects.
 
-    :param id: integer key
+    :param target_id: integer key
     :type id: int
 
-    :param name: name of the targets
+    :param target_name: name of the targets
     :type name: str
 
-    :param length: length of the targets
+    :param target_length: length of the targets
     :type length: int
     """
 
     __tablename__ = "target"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(200), unique=True, index=True)
-    length = Column(Integer)
+    target_id = Column(Integer, primary_key=True)
+    target_name = Column(String(200), unique=True, index=True)
+    target_length = Column(Integer)
 
     def __init__(self, name, length):
-        self.name = name
-        self.length = length
+        self.target_name = name
+        self.target_length = length
 
 
 class Hsp(dbBase):
@@ -181,8 +181,8 @@ class Hsp(dbBase):
 
     __tablename__ = "hsp"
     counter = Column(Integer)  # Indicates the number of the HSP inside the hit
-    query_id = Column(Integer, ForeignKey(Query.id), unique=False)
-    target_id = Column(Integer, ForeignKey(Target.id), unique=False)
+    query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
+    target_id = Column(Integer, ForeignKey(Target.target_id), unique=False)
     pk_constraint = PrimaryKeyConstraint("counter", "query_id", "target_id", name="hsp_constraint")
     query_index = Index("hsp_query_idx", "query_id", unique=False)
     target_index = Index("hsp_target_idx", "target_id", unique=False)
@@ -275,22 +275,22 @@ class Hsp(dbBase):
     @property
     def query(self):
         """Returns the name of the query sequence, through a nested SQL query."""
-        return self.query_object.name
+        return self.query_object.query_name
 
     @property
     def target(self):
         """Returns the name of the target sequence, through a nested SQL query."""
-        return self.target_object.name
+        return self.target_object.target_name
 
     @property
     def query_hsp_cov(self):
         """This property returns the percentage of the query which is covered by the HSP."""
-        return (self.query_hsp_end - self.query_hsp_start + 1) / self.query_object.length
+        return (self.query_hsp_end - self.query_hsp_start + 1) / self.query_object.query_length
 
     @property
     def target_hsp_cov(self):
         """This property returns the percentage of the target which is covered by the HSP."""
-        return (self.target_hsp_end - self.target_hsp_start + 1) / self.target_object.length
+        return (self.target_hsp_end - self.target_hsp_start + 1) / self.target_object.target_length
 
 
 class Hit(dbBase):
@@ -305,8 +305,8 @@ class Hit(dbBase):
     """
 
     __tablename__ = "hit"
-    query_id = Column(Integer, ForeignKey(Query.id), unique=False)
-    target_id = Column(Integer, ForeignKey(Target.id), unique=False)
+    query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
+    target_id = Column(Integer, ForeignKey(Target.target_id), unique=False)
     qt_constraint = PrimaryKeyConstraint("query_id", "target_id", name="hit_id")
     query_index = Index("hit_query_idx", "query_id", unique=False)
     target_index = Index("hit_target_idx", "query_id", unique=False)
@@ -440,7 +440,7 @@ class Hit(dbBase):
         This method retrieves the length of the query from the entry in the Query table.
         :rtype int
         """
-        return self.query_object.length
+        return self.query_object.query_length
 
     @property
     def query(self):
@@ -448,7 +448,7 @@ class Hit(dbBase):
         This method retrieves the name of the query from the entry in the Query table.
         :rtype str
         """
-        return self.query_object.name
+        return self.query_object.query_name
 
     @property
     def target(self):
@@ -457,7 +457,7 @@ class Hit(dbBase):
         :rtype str
         """
 
-        return self.target_object.name
+        return self.target_object.target_name
 
     @property
     def target_len(self):
@@ -466,7 +466,7 @@ class Hit(dbBase):
         :rtype int
         """
 
-        return self.target_object.length
+        return self.target_object.target_length
 
     @property
     def query_hit_ratio(self):
@@ -603,9 +603,9 @@ class XmlSerializer:
         queries = dict()
         self.logger.info("Loading previous IDs")
         for query in self.session.query(Query):
-            queries[query.name] = query.id
+            queries[query.query_name] = query.query_id
         for query in self.session.query(Target):
-            targets[query.name] = query.id
+            targets[query.target_name] = query.target_id
         self.logger.info("Loaded previous IDs")
 
         self.logger.info("Started the serialisation")
@@ -618,14 +618,14 @@ class XmlSerializer:
                 if len(objects) >= self.maxobjects:
                     self.logger.info("Loading {0} objects into the \"target\" table".format(len(objects)))
                     self.engine.execute(Target.__table__.insert(),
-                                        [{"name": obj.name, "length": obj.length} for obj in objects]
+                                        [{"target_name": obj.target_name, "target_length": obj.target_length} for obj in objects]
                                         )
                     #                         self.session.bulk_save_objects(objects, return_defaults=False)
                     self.logger.info("Loaded {0} objects into the \"target\" table".format(len(objects)))
                     objects = []
             self.logger.info("Loading {0} objects into the \"target\" table".format(len(objects)))
             self.engine.execute(Target.__table__.insert(),
-                                [{"name": obj.name, "length": obj.length} for obj in objects]
+                                [{"target_name": obj.target_name, "target_length": obj.target_length} for obj in objects]
                                 )
             #             self.session.bulk_save_objects(objects)
             self.logger.info("Loaded {0} objects into the \"target\" table".format(len(objects)))
@@ -642,14 +642,14 @@ class XmlSerializer:
                 if len(objects) >= self.maxobjects:
                     self.logger.info("Loading {0} objects into the \"query\" table".format(len(objects)))
                     self.engine.execute(Query.__table__.insert(),
-                                        [{"name": obj.name, "length": obj.length} for obj in objects]
+                                        [{"query_name": obj.query_name, "query_length": obj.query_length} for obj in objects]
                                         )
                     #                     self.session.bulk_save_objects(objects, return_defaults=False)
                     self.logger.info("Loaded {0} objects into the \"query\" table".format(len(objects)))
                     objects = []
             self.logger.info("Loading {0} objects into the \"query\" table".format(len(objects)))
             self.engine.execute(Query.__table__.insert(),
-                                [{"name": obj.name, "length": obj.length} for obj in objects]
+                                [{"query_name": obj.query_name, "query_length": obj.query_length} for obj in objects]
                                 )
             #             self.session.bulk_save_objects(objects)
             self.session.commit()
@@ -659,9 +659,9 @@ class XmlSerializer:
 
         self.logger.info("Loading all IDs")
         for query in self.session.query(Query):
-            queries[query.name] = (query.id, query.length is not None)
+            queries[query.query_name] = (query.query_id, query.query_length is not None)
         for query in self.session.query(Target):
-            targets[query.name] = (query.id, query.length is not None)
+            targets[query.target_name] = (query.target_id, query.target_length is not None)
         self.logger.info("Loaded all IDs")
 
         # Memorize the mapping ... it is just faster
@@ -689,15 +689,15 @@ class XmlSerializer:
             if name in queries:
                 current_query = queries[name][0]
                 if queries[name][1] is False:
-                    self.session.query(Query).filter(Query.name == name).update({"length": record.query_length})
+                    self.session.query(Query).filter(Query.query_name == name).update({"query_length": record.query_length})
                     self.session.commit()
             else:
                 self.logger.warn("Adding {0} to the db".format(name))
                 current_query = Query(name, record.query_length)
                 self.session.add(current_query)
                 self.session.commit()
-                queries[name] = (current_query.id, True)
-                current_query = current_query.id
+                queries[name] = (current_query.query_id, True)
+                current_query = current_query.query_id
 
             for ccc, alignment in filter(lambda x: x[0] <= self.max_target_seqs, enumerate(record.alignments)):
 
@@ -709,8 +709,8 @@ class XmlSerializer:
                 if record.alignments[ccc].accession in targets:
                     current_target = targets[record.alignments[ccc].accession][0]
                     if targets[record.alignments[ccc].accession][1] is False:
-                        self.session.query(Target).filter(Target.name == record.alignments[ccc].accession).update(
-                            {"length": record.query_length}
+                        self.session.query(Target).filter(Target.target_name == record.alignments[ccc].accession).update(
+                            {"target_length": record.query_length}
                         )
 
                 else:
@@ -718,9 +718,9 @@ class XmlSerializer:
                     self.session.add(current_target)
                     try:
                         self.session.commit()
-                        assert type(current_target.id) is int
-                        targets[record.alignments[ccc].accession] = (current_target.id, True)
-                        current_target = current_target.id
+                        assert type(current_target.target_id) is int
+                        targets[record.alignments[ccc].accession] = (current_target.target_id, True)
+                        current_target = current_target.target_id
                     except sqlalchemy.exc.IntegrityError:
                         self.session.rollback()
                         continue

@@ -75,3 +75,8 @@ rule complete:
     output: "all.loci.gff3", "all.loci.scores.tsv"
     shell: """mikado_pick.py --source {params[prefix]} --json_conf {input[configuration]} \
 	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""  
+
+rule compare:
+    input: reference="reference.gff3", prediction="all.loci.gff3"
+    output: "compare.stats", "compare.tmap", "compare.refmap", "compare.log"
+    shell: """compare.py -r {input[reference]} -p {input[prediction]} -o compare -l compare.log"""

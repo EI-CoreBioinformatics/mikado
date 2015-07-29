@@ -24,7 +24,7 @@ class Orf(dbBase):
 
 
     :param id: numerical key index
-    :type id: int
+    :type orf_id: int
 
     :param query_id: foreign key id for the blast Query table
     :type query_id: int
@@ -66,8 +66,8 @@ class Orf(dbBase):
 
     __tablename__ = "orf"
 
-    id = Column(Integer, primary_key=True)
-    query_id = Column(Integer, ForeignKey(Query.id), unique=False)
+    orf_id = Column(Integer, primary_key=True)
+    query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     start = Column(Integer, nullable=False)
     end = Column(Integer, nullable=False)
     name = Column(String(200))
@@ -135,7 +135,7 @@ class Orf(dbBase):
         This property returns the name column value of the corresponding Query object.
         """
 
-        return self.query_object.name
+        return self.query_object.query_name
 
 
 class OrfSerializer:
@@ -220,7 +220,7 @@ class OrfSerializer:
         cache = dict()  # Dictionary to hold the data before bulk loading into the database
 
         for record in self.session.query(Query):
-            cache[record.name] = record.id
+            cache[record.query_name] = record.query_id
 
         done = 0
         if self.fasta_index is not None:
@@ -243,7 +243,7 @@ class OrfSerializer:
 
         self.logger.info("Loading IDs into the cache")
         for record in self.session.query(Query):
-            cache[record.name] = record.id
+            cache[record.query_name] = record.query_id
         self.logger.info("Finished loading IDs into the cache")
 
         for row in self.BED12:
@@ -258,8 +258,8 @@ class OrfSerializer:
                 current_query = Query(row.id, row.end)
                 self.session.add(current_query)
                 self.session.commit()
-                cache[current_query.name] = current_query.id
-                current_query = current_query.id
+                cache[current_query.query_name] = current_query.query_id
+                current_query = current_query.query_id
 
             current_junction = Orf(row, current_query)
             objects.append(current_junction)

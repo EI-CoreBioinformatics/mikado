@@ -84,7 +84,7 @@ class Transcript:
     # Query baking to minimize overhead
     bakery = baked.bakery()
     query_baked = bakery(lambda session: session.query(Query))
-    query_baked += lambda q: q.filter(Query.name == bindparam("query_name"))
+    query_baked += lambda q: q.filter(Query.query_name == bindparam("query_name"))
 
     blast_baked = bakery(lambda session: session.query(Hit))
     blast_baked += lambda q: q.filter(and_(Hit.query_id == bindparam("query_id"),
@@ -986,7 +986,7 @@ class Transcript:
         if len(self.query_id) == 0:
             self.logger.warning("Transcript not in database: {0}".format(self.id))
         else:
-            self.query_id = self.query_id[0].id
+            self.query_id = self.query_id[0].query_id
             yield from self.load_orfs_coroutine()
             yield from self.load_blast()
         self.logger.debug("Loaded {0}".format(self.id))

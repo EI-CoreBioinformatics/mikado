@@ -188,8 +188,10 @@ class JunctionSerializer:
 
         self.session = session()
         self.maxobjects = maxobjects
+
+        self.fai = fai
         if type(fai) is str:
-            assert os.path.exists(self.fai)
+            assert os.path.exists(fai)
             self.fai = open(self.fai)
         else:
             if fai is not None:

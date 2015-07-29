@@ -41,6 +41,7 @@ setup(
     scripts=glob.glob("util/*.py"),
 
     install_requires=["pyyaml",
+                      "numpy",
                       "networkx",
                       "sqlalchemy>=1",
                       "biopython>=1.6",

@@ -1,5 +1,12 @@
+# coding: utf-8
+
+"""
+This class defines the results of the Assigner.compare method.
+"""
+
+
 class RestultStorer:
-    """This class is used by shangaicompare to store the results of a comparison."""
+    """This class stores the results in pre-defined slots, to reduce memory usage."""
 
     __slots__ = ["RefId", "RefGene", "ccode",
                  "TID", "GID", "n_prec",
@@ -10,30 +17,30 @@ class RestultStorer:
 
         """
         :param args: a list/tuple
+        :type args: list | tuple
 
         """
 
         if len(args) != len(self.__slots__):
             raise ValueError("Result_storer expected {0} but only received {1}".format(len(self.__slots__), len(args)))
 
+        self.RefId, self.RefGene, self.ccode, self.TID, self.GID, \
+            self.n_prec, self.n_recall, self.n_f1, self.j_prec, self.j_recall, \
+            self.j_f1, self.distance = args
+
         for index, key in enumerate(self.__slots__):
             if index < 3:
-                if type(args[index]) is str:
-                    setattr(self, key, tuple([args[index]]))
-                else:
-                    setattr(self, key, args[index])
-            elif index in (3, 4, len(self.__slots__)):
-                setattr(self, key, args[index])
-            else:
-                if type(args[index]) in (float, int):
-                    setattr(self, key, tuple([args[index]]))
-                else:
-                    setattr(self, key, tuple(args[index]))
+                if type(getattr(self, self.__slots__[index])) is str:
+                    setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
+            elif 4 < index < len(self.__slots__):
+                if type(getattr(self, self.__slots__[index])) in (float, int):
+                    setattr(self, key, tuple( [getattr(self, self.__slots__[index])]))
 
     def _asdict(self):
 
         """
         :return: a dictionary containing the items of the class
+        :rtype : dict
         """
         d = dict().fromkeys(self.__slots__)
 

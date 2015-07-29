@@ -1,4 +1,14 @@
-import os.path, re
+#!/usr/bin/env python3
+# coding: utf-8
+
+"""
+This module defines the functionalities needed to verify the integrity and completeness
+of Mikado configuration files. Missing values are replaced with default ones,
+while existing values are checked for type and consistency.
+"""
+
+import os.path
+import re
 from distutils import spawn
 import yaml
 from mikado_lib.exceptions import InvalidJson
@@ -78,7 +88,7 @@ def check_alternative_splicing(json_conf):
     - min_cds_overlap:    Amount of CDS recall on the primary transcript. It can be expressed as values b/w 01 and 1,
                           or 1 to 100. Default: 0.
     - max_utr_length      Maximum UTR length of the AS isoforms.
-    - max_isoforms        Maximum number of isoforms per locus.
+    - max_isoforms        Maximum number of isoforms per Locus.
 
     :return: json_conf
     :rtype dict
@@ -96,7 +106,7 @@ def check_alternative_splicing(json_conf):
         else:
             assert type(json_conf["alternative_splicing"]["min_cds_overlap"]) in (float, int)
             if json_conf["alternative_splicing"]["min_cds_overlap"] < 0 or json_conf["alternative_splicing"][
-                "min_cds_overlap"] > 100:
+                    "min_cds_overlap"] > 100:
                 raise InvalidJson("Invalid percentage value for min_cds_overlap: {0}".format(
                     json_conf["alternative_splicing"]["min_cds_overlap"]))
             if 1 < json_conf["alternative_splicing"]["min_cds_overlap"] <= 100:
@@ -105,22 +115,22 @@ def check_alternative_splicing(json_conf):
             json_conf["alternative_splicing"]["max_isoforms"] = 10000
         else:
             assert type(json_conf["alternative_splicing"]["max_isoforms"]) is int and \
-                   json_conf["alternative_splicing"]["max_isoforms"] >= 1
+                json_conf["alternative_splicing"]["max_isoforms"] >= 1
         if "max_utr_length" not in json_conf["alternative_splicing"]:
             json_conf["alternative_splicing"]["max_utr_length"] = float("Inf")
         else:
             assert type(json_conf["alternative_splicing"]["max_utr_length"]) is int and \
-                   json_conf["alternative_splicing"]["max_utr_length"] >= 0
+                json_conf["alternative_splicing"]["max_utr_length"] >= 0
         if "max_fiveutr_length" not in json_conf["alternative_splicing"]:
             json_conf["alternative_splicing"]["max_fiveutr_length"] = float("Inf")
         else:
             assert type(json_conf["alternative_splicing"]["max_fiveutr_length"]) is int and \
-                   json_conf["alternative_splicing"]["max_fiveutr_length"] >= 0
+                json_conf["alternative_splicing"]["max_fiveutr_length"] >= 0
         if "max_threeutr_length" not in json_conf["alternative_splicing"]:
             json_conf["alternative_splicing"]["max_threeutr_length"] = float("Inf")
         else:
             assert type(json_conf["alternative_splicing"]["max_threeutr_length"]) is int and \
-                   json_conf["alternative_splicing"]["max_threeutr_length"] >= 0
+                json_conf["alternative_splicing"]["max_threeutr_length"] >= 0
         if "keep_retained_introns" not in json_conf["alternative_splicing"]:
             json_conf["alternative_splicing"]["keep_retained_introns"] = True
         else:
@@ -492,7 +502,6 @@ def check_json(json_conf, json_file):
     :return json_conf
     :rtype dict
     """
-
 
     if "scoring_file" in json_conf:
         if os.path.exists(os.path.abspath(json_conf["scoring_file"])):

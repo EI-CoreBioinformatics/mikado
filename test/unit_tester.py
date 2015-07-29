@@ -1,3 +1,9 @@
+# coding: utf-8
+
+"""
+Very basic, all too basic test for some functionalities of locus-like classes.
+"""
+
 import unittest
 import os.path
 from mikado_lib import json_utils
@@ -8,14 +14,15 @@ from mikado_lib.loci_objects import transcript, superlocus  # ,Abstractlocus
 
 class LocusTester(unittest.TestCase):
     def test_locus(self):
-        """Basic testing of the locus functionality."""
+        """Basic testing of the Locus functionality."""
 
         gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t200\t.\t+\t.\tID=t0
 Chr1\tfoo\texon\t101\t200\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
         gff_transcript1 = [GFF.GffLine(x) for x in gff_transcript1]
         self.assertEqual(gff_transcript1[0].chrom, "Chr1", gff_transcript1[0])
         transcript1 = transcript.Transcript(gff_transcript1[0])
-        for exon in gff_transcript1[1:]: transcript1.add_exon(exon)
+        for exon in gff_transcript1[1:]:
+            transcript1.add_exon(exon)
         transcript1.finalize()
         self.assertTrue(transcript1.monoexonic)
         self.assertEqual(transcript1.chrom, gff_transcript1[0].chrom)
@@ -26,7 +33,8 @@ Chr1\tfoo\texon\t301\t400\t.\t+\t.\tID=t1:exon2;Parent=t1
 Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         gff_transcript2 = [GFF.GffLine(x) for x in gff_transcript2]
         transcript2 = transcript.Transcript(gff_transcript2[0])
-        for exon in gff_transcript2[1:-1]: transcript2.add_exon(exon)
+        for exon in gff_transcript2[1:-1]:
+            transcript2.add_exon(exon)
         # Test that a transcript cannot be finalized if the exons do not define the external boundaries
         with self.assertRaises(exceptions.InvalidTranscript):
             transcript2.finalize()
@@ -36,7 +44,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.assertEqual(transcript2.exon_num, len(gff_transcript2) - 1)
         # Test that trying to modify a transcript after it has been finalized causes errors
         with self.assertRaises(exceptions.ModificationError):
-            for exon in gff_transcript2[1:]: transcript2.add_exon(exon)
+            for exon in gff_transcript2[1:]:
+                transcript2.add_exon(exon)
         # Test that creating a superlocus without configuration fails
         with self.assertRaises(exceptions.NoJsonConfigError):
             _ = superlocus.Superlocus(transcript1)
@@ -58,7 +67,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
 Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
         gff_transcript3 = [GFF.GffLine(x) for x in gff_transcript3]
         transcript3 = transcript.Transcript(gff_transcript3[0])
-        for exon in gff_transcript3[1:]: transcript3.add_exon(exon)
+        for exon in gff_transcript3[1:]:
+                transcript3.add_exon(exon)
         transcript3.finalize()
         minusuperlocus = superlocus.Superlocus(transcript3, json_dict=my_json)
         minusuperlocus.define_loci()

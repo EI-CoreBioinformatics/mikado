@@ -1,7 +1,12 @@
-import sys, os.path
+# coding: utf-8
+
+"""
+The Sublocus class is the first to be invoked during the Mikado pick analysis. Each of these containers
+holds transcripts which either are monoexonic and overlapping, or multiexonic and with at least an intron
+in common.
+"""
+
 from mikado_lib.loci_objects.excluded import Excluded
-# from mikado_lib.loci_objects.monosublocus_holder import monosublocus_holder
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.loci_objects.monosublocus import Monosublocus
 from mikado_lib.loci_objects.transcript import Transcript
@@ -10,8 +15,9 @@ from mikado_lib.parsers.GFF import GffLine
 
 class Sublocus(Abstractlocus):
     """
-    The sublocus class is created either by the superlocus class during the subloci definition, or directly using a G(T|F)line-like object.
-    It is used to define the final monosubloci.
+    The sublocus class is created either by the superlocus class during
+    the subloci definition, or directly using a G(T|F)line-like object.
+    It is used to define the monosubloci.
     """
 
     __name__ = "sublocus"
@@ -23,28 +29,29 @@ class Sublocus(Abstractlocus):
 
         """
         :param span: an instance which describes a genomic interval
-        :type span: Transcript
-        :type span: Abstractlocus
+        :type span: Transcript | Abstractlocus
 
         :param json_dict: a configuration dictionary
         :type json_dict: dict
 
         :param logger: a logger instance from the logging library
-        :type logger: logging.Logger
+        :type logger: logging.Logger | None
 
         This class takes as input a "span" feature - e.g. a GffLine or a transcript_instance.
         The span instance should therefore have such attributes as chrom, strand, start, end, attributes.
         """
 
         self.counter = 0  # simple tag for avoiding collisions in the GFF output
+        self.__splitted = False
         super().__init__()
-        self.set_logger(logger)
+        self.logger = logger
         self.json_dict = json_dict
         self.fixedSize = True if span.feature == "sublocus" else False
         if span.__name__ == "transcript":
             span.finalize()
         self.purge = self.json_dict["run_options"]["purge"]
         self.source = self.json_dict["source"]
+
         self.excluded = None
         self.splitted = False
         self.metrics_calculated = False  # Flag to indicate that we have not calculated the metrics for the transcripts
@@ -63,9 +70,16 @@ class Sublocus(Abstractlocus):
         if type(span) is Transcript:
             self.add_transcript_to_locus(span)
         else:
-            for key in ["parent", "start", "end", "chrom", "strand", "attributes"]:
-                setattr(self, key, getattr(span, key))
+            self.parent = getattr(span, "parent")
+            self.chrom = getattr(span, "chrom")
+            self.start = getattr(span, "start")
+            self.end = getattr(span, "end")
+            self.strand = getattr(span, "strand")
+            self.attributes = getattr(span, "attributes")
+
+        self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
+        self.scores = dict()
 
     def __str__(self, print_cds=True):
 
@@ -82,7 +96,7 @@ class Sublocus(Abstractlocus):
         self_line.attributes["multiexonic"] = (not self.monoexonic)
         lines.append(str(self_line))
 
-        for tid in sorted(self.transcripts, key=lambda tid: self.transcripts[tid]):
+        for tid in sorted(self.transcripts, key=lambda ttid: self.transcripts[ttid]):
             self.transcripts[tid].source = self.source
             self.transcripts[tid].parent = self_line.id
             lines.append(self.transcripts[tid].__str__(print_cds=print_cds).rstrip())
@@ -91,13 +105,16 @@ class Sublocus(Abstractlocus):
 
     # ########## Class instance methods #####################
 
-    def add_transcript_to_locus(self, transcript: Transcript):
+    def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
 
         """
-        :param transcript: the transcript which might be putatively added to the locus.
+        :param transcript: the transcript which might be putatively added to the Locus.
         :type transcript: Transcript
 
-        This is an override of the original method, as at the sublocus stage we need to accomplish a couple of things more:
+        :param kwargs: eventual keyword arguments are ignored.
+
+        This is an override of the original method, as at the sublocus stage
+        we need to accomplish a couple of things more:
         - check that transcripts added to the sublocus are either all monoexonic or all multiexonic
         - change the id of the transcripts to  
         """
@@ -112,7 +129,8 @@ class Sublocus(Abstractlocus):
                                                                                         transcript.start,
                                                                                         transcript.end))
 
-        if transcript is None: return
+        if transcript is None:
+            return
         if self.initialized is False:
             self.monoexonic = transcript.monoexonic
         elif self.monoexonic != transcript.monoexonic:
@@ -136,14 +154,14 @@ class Sublocus(Abstractlocus):
         be excluded (True) or retained (False)
         :type purge: bool
 
-        :param excluded: the excluded locus to which transcripts from purged loci will be added to
+        :param excluded: the excluded Locus to which transcripts from purged loci will be added to
         :type excluded: None
         :type excluded: mikado_lib.loci_objects.excluded.Excluded
 
         This function retrieves the best non-overlapping transcripts inside the sublocus, according to the score
         calculated by calculate_scores (explicitly called inside the method).
-        The "excluded" keyword must contain either None or a monosublocus_holder object. It is used to contain
-        transcripts that must self.blast_hits = []be excluded from the locus due to unmet requirements. 
+        The "excluded" keyword must contain either None or a MonosublocusHolder object. It is used to contain
+        transcripts that must self.blast_hits = []be excluded from the Locus due to unmet requirements.
         """
 
         self.monosubloci = []
@@ -237,7 +255,11 @@ class Sublocus(Abstractlocus):
         is *completely* contained within a transcript exon. Such non-CDS exons must be *after* the
         CDS start; a retained intron should contain a premature stop codon, not a delayed start. 
         CDS exons are ignored because their retention might be perfectly valid.
-        The results are stored inside the transcript instance, in the "retained_introns" tuple."""
+        The results are stored inside the transcript instance, in the "retained_introns" tuple.
+
+        :param transcript: a Transcript instance
+        :type transcript: Transcript
+        """
 
         transcript.retained_introns = []
 
@@ -289,7 +311,7 @@ class Sublocus(Abstractlocus):
         self.get_metrics()
         not_passing = set()
         if not hasattr(self, "logger"):
-            self.set_logger(None)
+            self.logger = None
             self.logger.setLevel("DEBUG")
         self.logger.debug("Calculating scores for {0}".format(self.id))
         if "requirements" in self.json_dict:
@@ -330,7 +352,7 @@ class Sublocus(Abstractlocus):
             del previous_not_passing
 
         if len(self.transcripts) == 0:
-            self.logger.warn("No transcripts pass the muster for {0}".format(self.id))
+            self.logger.warning("No transcripts pass the muster for {0}".format(self.id))
             return
         self.scores = dict()
         for tid in self.transcripts:
@@ -342,12 +364,15 @@ class Sublocus(Abstractlocus):
                 target = self.json_dict["scoring"][param]["value"]
                 denominator = max(abs(x - target) for x in metrics)
             else:
+                target = None
                 denominator = (max(metrics) - min(metrics))
-            if denominator == 0: denominator = 1
+            if denominator == 0:
+                denominator = 1
 
             for tid in self.transcripts:
                 tid_metric = getattr(self.transcripts[tid], param)
                 check = True
+                score = 0
                 if "filter" in self.json_dict["scoring"][param]:
                     check = self.evaluate(tid_metric, self.json_dict["scoring"][param]["filter"])
                 if check is False:
@@ -379,7 +404,7 @@ class Sublocus(Abstractlocus):
 
         # The rower is an instance of the DictWriter class from the standard CSV module
 
-        for tid in sorted(self.transcripts.keys(), key=lambda tid: self.transcripts[tid]):
+        for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
             row = {}
             for key in self.available_metrics:
                 if key.lower() in ("id", "tid"):
@@ -427,7 +452,7 @@ class Sublocus(Abstractlocus):
         self.metrics_calculated = True
         return
 
-    ############### Class methods ################
+    # ############## Class methods ################
 
     @classmethod
     def is_intersecting(cls, transcript, other):
@@ -442,7 +467,9 @@ class Sublocus(Abstractlocus):
         the intersection is seen as overlap between exons. 
         """
 
-        if transcript.id == other.id: return False  # We do not want intersection with oneself
+        if transcript.id == other.id:
+            # We do not want intersection with oneself
+            return False
         for exon in transcript.exons:
             if any(
                     filter(
@@ -478,7 +505,7 @@ class Sublocus(Abstractlocus):
     @property
     def id(self):
         """
-        :return: The name of the locus.
+        :return: The name of the Locus.
         :rtype str
         """
         if self.monoexonic is True:

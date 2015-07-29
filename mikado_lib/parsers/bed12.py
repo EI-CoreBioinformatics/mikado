@@ -1,3 +1,11 @@
+# coding: utf-8
+
+"""
+Module to parse BED12 objects. Much more basic than what PyBedtools could offer,
+but at the same time more pythonic.
+"""
+
+
 import random
 import os
 from Bio import SeqIO
@@ -90,7 +98,10 @@ class BED12:
 
         """
 
-        self.transcriptomic = transcriptomic
+        self.__has_start = False
+        self.__has_stop = False
+        self.__transcriptomic = False
+        self.__strand = None
 
         if len(args) == 0:
             self.header = True
@@ -116,9 +127,9 @@ class BED12:
         self.transcriptomic = transcriptomic
         self.header = False
         self.chrom, self.start, self.end, \
-        self.name, self.score, self.strand, \
-        self.thickStart, self.thickEnd, self.rgb, \
-        self.blockCount, self.blockSizes, self.blockStarts = line
+            self.name, self.score, self.strand, \
+            self.thickStart, self.thickEnd, self.rgb, \
+            self.blockCount, self.blockSizes, self.blockStarts = line
 
         self.start = int(self.start) + 1
         self.end = int(self.end)
@@ -141,12 +152,14 @@ class BED12:
             if self.strand == "-":
                 self.thickEnd -= 3
 
-        if self.invalid is True: return
+        if self.invalid is True:
+            return
 
         if transcriptomic is True and fasta_index is not None:
             assert self.id in fasta_index
             self.fasta_length = len(fasta_index[self.id])
-            if self.invalid is True: return
+            if self.invalid is True:
+                return
 
             start_codon = fasta_index[self.id][self.thickStart - 1:self.thickStart + 2]
             stop_codon = fasta_index[self.id][self.thickEnd:self.thickEnd + 3]
@@ -188,8 +201,8 @@ class BED12:
                     while num > self.start:
                         num -= 3
                         codon = sequence[num - 3:num]
-                        if str(codon.seq) in (
-                        "TTA", "TCA", "CTA"):  # Reversed version, save on reversal, should save time
+                        # Reversed version, save on reversal, should save time
+                        if str(codon.seq) in ("TTA", "TCA", "CTA"):
                             self.has_stop_codon = True
                             break
                     self.thickStart = num
@@ -212,7 +225,8 @@ class BED12:
     def __eq__(self, other):
         for key in ["chrom", "strand", "start", "end", "thickStart", "thickEnd", "blockCount", "blockSizes",
                     "blockStarts"]:
-            if getattr(self, key) != getattr(other, key): return False
+            if getattr(self, key) != getattr(other, key):
+                return False
         return True
 
     def __hash__(self):
@@ -248,6 +262,12 @@ class BED12:
 
     @property
     def cds_len(self):
+        """
+        Return the length of the internal feature i.e. the CDS:
+        thickEnd-thickStart+1
+
+        :rtype int
+        """
         return self.thickEnd - self.thickStart + 1
 
     @property
@@ -379,8 +399,7 @@ class Bed12Parser(Parser):
                 assert os.path.exists(fasta_index)
                 fasta_index = SeqIO.index(fasta_index, "fasta")
             else:
-                assert type(fasta_index) in (Bio.File._IndexedSeqFileDict, Bio.File._SQLiteManySeqFilesDict), \
-                    (type(fasta_index))
+                assert "SeqIO" in repr(fasta_index) and "index" in repr(fasta_index)
 
         self.fasta_index = fasta_index
 

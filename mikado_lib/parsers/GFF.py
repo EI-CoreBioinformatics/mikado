@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # coding: utf_8
 
+
+"""
+Module to serialize GFF files.
+"""
+
 from mikado_lib.parsers import Parser
-# from copy import deepcopy
-import io
 
 
 class GffLine(object):
@@ -51,7 +54,7 @@ class GffLine(object):
         """
         Constructor method.
         :param line: the GFF line to be serialised
-        :type line: str
+        :type line: str,None
 
         :param my_line: optional string to be passed along. For exotic uses of the constructor.
         :type my_line: str
@@ -62,7 +65,10 @@ class GffLine(object):
 
         self.attributes = dict()
         self.id = None
-        self.parent = None
+        self.parent = []
+        self.__score = None
+        self.__strand = None
+
         self.attributeOrder = []
         if line is None:  # Empty constructor
             return
@@ -400,8 +406,7 @@ class GFF3(Parser):
         """
         Constructor method.
         :param handle: the input file. It can be a file handle or a file name.
-        :type handle: io.TextIOWrapper
-        :type handle: str
+        :type handle: io.TextIOWrapper | str
         """
         super().__init__(handle)
         self.header = False
@@ -412,7 +417,8 @@ class GFF3(Parser):
             raise StopIteration
 
         line = self._handle.readline()
-        if line == '': raise StopIteration
+        if line == '':
+            raise StopIteration
 
         if line[0] == "#":
             return GffLine(line, header=True)

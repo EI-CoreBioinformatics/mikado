@@ -7,6 +7,7 @@
 
 import io
 
+
 class HeaderError(Exception):
     """
     Mock exception which is raised when a header/comment line (e.g. starting with "#") is found.
@@ -18,15 +19,18 @@ class SizeError(Exception):
     """
     Custom exception
     """
-    def __init__(self, value=None): self.value = value
+    def __init__(self, value=None):
+        self.value = value
 
-    def __str__(self): return str(self.value)
+    def __str__(self):
+        return str(self.value)
 
 
 class Parser(object):
     """Generic parser iterator. Base parser class."""
 
     def __init__(self, handle):
+        self.__closed = False
         if not isinstance(handle, io.IOBase):
             try:
                 handle = open(handle)
@@ -44,10 +48,14 @@ class Parser(object):
         return self
 
     def __exit__(self, *args):
+        _ = args
         self._handle.close()
         self.closed = True
 
     def close(self):
+        """
+        Alias for __exit__
+        """
         self.__exit__()
 
     @property
@@ -82,8 +90,10 @@ class TabParser(object):
     """Base class for iterating over tabular file formats."""
 
     def __init__(self, line: str):
-        if not isinstance(line, str): raise TypeError
-        if line == '': raise StopIteration
+        if not isinstance(line, str):
+            raise TypeError
+        if line == '':
+            raise StopIteration
 
         self.line = line.rstrip()
         self._fields = self.line.split('\t')

@@ -1,11 +1,16 @@
+# coding: utf-8
+
+"""
+This module defines the RNA objects. It also defines Metric, a property alias.
+"""
+
 import operator
-import os.path, sys, re
+import sys
+import re
 from collections import OrderedDict
 import inspect
 import asyncio
 from mikado_lib.exceptions import InvalidTranscript
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -68,7 +73,8 @@ class Transcript:
     :param attributes: a dictionary with additional informations from the GFFline
     :type attributes: dict
 
-    After all exons have been loaded into the instance (see "addExon"), the class must be finalized with the appropriate method.
+    After all exons have been loaded into the instance (see "addExon"),
+    the class must be finalized with the appropriate method.
     CDS locations can be uploaded from the external, using a dictionary of indexed BED12 entries.
     The database queries are baked at the *class* level in order to minimize overhead.
     """
@@ -100,9 +106,29 @@ class Transcript:
         Note: I am assuming that the input line is an object from my own "GFF" class.
         The transcript instance must be initialised by a "(m|r|lnc|whatever)RNA" or "transcript" GffLine."""
 
+        # Mock setting of base hidden variables
+        self.__logger = None
+        self.__id = ""
+        self.__strand = None
+        self.__score = None
+        self.__has_start_codon = self.__has_stop_codon = False
+        self.__max_internal_orf_index = None
+        self.__max_internal_orf_length = self.__intron_fraction = self.__exon_fraction = 0
+        self.__proportion_verified_introns_inlocus = 0
+        self.__retained_fraction = 0
+        self.__combined_cds_intron_fraction = 0
+        self.__selected_cds_intron_fraction = 0
+        self.__non_overlapping_cds = set()
+        self.__exons = set()
+        self.__parent = []
+        self.__combined_cds = []
+        self.__selected_cds = []
+        self.__combined_utr = []
+
+        # Starting settings for everything else
         self.chrom = None
         self.exons, self.combined_cds, self.combined_utr = [], [], []
-        self.set_logger(logger)  # Set it to NullHandler by default
+        self.logger = logger
         self.introns = []
         self.splices = []
         self.finalized = False  # Flag. We do not want to repeat the finalising more than once.
@@ -111,6 +137,21 @@ class Transcript:
         self.non_overlapping_cds = None
         self.verified_introns = set()
         self.segments = []
+
+        # Relative properties
+        self.retained_introns = []
+        self.retained_fraction = 0
+        self.exon_fraction = 1
+        self.intron_fraction = 1
+        self.cds_intron_fraction = 1
+        self.selected_cds_intron_fraction = 1
+
+        # Things that will be populated by querying the database
+        self.loaded_bed12 = []
+        self.engine = None
+        self.session = None
+        self.sessionmaker = None
+        self.query_id = None
 
         if len(args) == 0:
             return
@@ -369,7 +410,11 @@ class Transcript:
         return (self == other) or (self > other)
 
     def __getstate__(self):
+
+        logger = self.logger
+        del self.logger
         state = self.__dict__.copy()
+
         if hasattr(self, "json_dict"):
             if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
                 del state["json_dict"]["requirements"]["compiled"]
@@ -385,21 +430,20 @@ class Transcript:
         if "blast_baked" in state:
             del state["blast_baked"]
             del state["query_baked"]
-        if hasattr(self, "logger"):
-            del state['logger']
 
         return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)
+        # Set the logger to NullHandler
+        self.logger = None
 
-    ######### Class instance methods ####################
+    # ######## Class instance methods ####################
 
     def add_exon(self, gffline):
         """This function will append an exon/CDS feature to the object.
         :param gffline: an annotation line
-        :type gffline: mikado_lib.parsers.GFF.GffLine
-        :type GffLine: mikado_lib.parsers.GTF.GtfLine
+        :type gffline: mikado_lib.parsers.GFF.GffLine, mikado_lib.parsers.GTF.GtfLine
         """
 
         if self.finalized is True:
@@ -433,15 +477,18 @@ class Transcript:
 
     # @profile
     def split_by_cds(self):
-        """This method is used for transcripts that have multiple ORFs. It will split them according to the CDS information
-        into multiple transcripts. UTR information will be retained only if no ORF is down/upstream.
-        The minimal overlap is defined inside the JSON at the key ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-        - basically, we consider a HSP a hit only if the overlap is over a certain threshold and the HSP evalue under a certain threshold. 
+        """This method is used for transcripts that have multiple ORFs.
+        It will split them according to the CDS information into multiple transcripts.
+        UTR information will be retained only if no ORF is down/upstream.
+        The minimal overlap is defined inside the JSON at the key
+            ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        basically, we consider a HSP a hit only if the overlap is over a certain threshold
+        and the HSP evalue under a certain threshold.
         
         The split by CDS can be executed in three different ways - CLEMENT, LENIENT, STRINGENT:
         
-        - STRINGENT: split if two CDSs do not have hits in common - even when one or both do not have a hit at all.
-        - CLEMENT: split only if two CDSs have hits and none of those is in common between them.
+        - PERMISSIVE: split if two CDSs do not have hits in common - even when one or both do not have a hit at all.
+        - STRINGENT: split only if two CDSs have hits and none of those is in common between them.
         - LENIENT: split if *both* lack hits, OR *both* have hits and none of those is in common.
         """
         self.finalize()
@@ -473,7 +520,8 @@ class Transcript:
                         # If I have a valid hit b/w the CDS region and the hit, add the name to the set
                         for cds_run in cds_boundaries:
                             if Abstractlocus.overlap(cds_run, (
-                                    hsp['query_hsp_start'], hsp['query_hsp_end'])) >= minimal_overlap * (cds_run[1] + 1 - cds_run[0]):
+                                    hsp['query_hsp_start'],
+                                    hsp['query_hsp_end'])) >= minimal_overlap * (cds_run[1] + 1 - cds_run[0]):
                                 cds_hit_dict[cds_run].add(hit["target"])
 
                 new_boundaries = []
@@ -485,14 +533,14 @@ class Transcript:
                         cds_hits = cds_hit_dict[cds_boundary]
                         old_hits = cds_hit_dict[old_boundary]
                         if cds_hits == set() and old_hits == set():  # No hit found for either CDS
-                            # If we are clement, we DO NOT split
-                            if self.json_dict['chimera_split']['blast_params']['leniency'] == "PERMISSIVE":
+                            # If we are stringent, we DO NOT split
+                            if self.json_dict['chimera_split']['blast_params']['leniency'] == "STRINGENT":
                                 new_boundaries[-1].append(cds_boundary)
                             else:  # Otherwise, we do split
                                 new_boundaries.append([cds_boundary])
                         elif cds_hits == set() or old_hits == set():  # We have hits for only one
-                            # If we are stringent, we split
-                            if self.json_dict["chimera_split"]["blast_params"]["leniency"] == "STRINGENT":
+                            # If we are permissive, we split
+                            if self.json_dict["chimera_split"]["blast_params"]["leniency"] == "PERMISSIVE":
                                 new_boundaries.append([cds_boundary])
                             else:
                                 new_boundaries[-1].append(cds_boundary)
@@ -544,7 +592,7 @@ class Transcript:
                         right = cds_boundaries[list(cds_boundaries.keys())[counter + 1]]
                     counter += 1  # Otherwise they start from 0
                     new_transcript.id = "{0}.split{1}".format(self.id, counter)
-                    new_transcript.set_logger(self.logger)
+                    new_transcript.logger = self.logger
                     my_exons = []
 
                     discarded_exons = []
@@ -557,12 +605,10 @@ class Transcript:
                     tstart = float("Inf")
                     tend = float("-Inf")
 
-                    self.logger.debug("Transcript {0} counter {1}, left {2} right {3}".format(self.id,
-                                                                                              counter,
-                                                                                              len(left) if left is not None else 0,
-                                                                                              len(right) if right is not None else 0
-                                                                                              )
-                                      )
+                    self.logger.debug("TID {0} counter {1}, left {2} right {3}".format(self.id,
+                                                                                       counter,
+                                                                                       (left and len(left)) or 0,
+                                                                                       (right and len(right)) or 0))
 
                     for exon in exons:
                         # Translate into transcript coordinates
@@ -812,8 +858,7 @@ class Transcript:
                             raise mikado_lib.exceptions.InvalidCDS("Error while inferring the UTR", exon, self.id,
                                                                    self.exons, self.combined_cds
                                                                    )
-                if not (
-                        self.combined_cds_length == self.combined_utr_length == 0 or
+                if not (self.combined_cds_length == self.combined_utr_length == 0 or
                         self.cdna_length == self.combined_utr_length + self.combined_cds_length):
                     raise mikado_lib.exceptions.InvalidCDS("Failed to create the UTR", self.id, self.exons,
                                                            self.combined_cds, self.combined_utr)
@@ -882,19 +927,8 @@ class Transcript:
         except IndexError as err:
             raise mikado_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
 
-        self.set_relative_properties()
-
         self.finalized = True
         return
-
-    def set_relative_properties(self):
-        """Function to set to the basic value relative values like e.g. retained_intron"""
-        self.retained_introns = []
-        self.retained_fraction = 0
-        self.exon_fraction = 1
-        self.intron_fraction = 1
-        self.cds_intron_fraction = 1
-        self.selected_cds_intron_fraction = 1
 
     def reverse_strand(self):
         """Method to reverse the strand"""
@@ -924,13 +958,20 @@ class Transcript:
         self.session = self.sessionmaker()
 
     @asyncio.coroutine
-    def load_information_from_db(self, json_dict, introns=None, session=None, loop=None):
+    def load_information_from_db(self, json_dict, introns=None, session=None):
         """This method will invoke the check for:
-        
-        orfs
-        blast hits (this necessarily after the ORF check).
-        
-        Verified introns can be provided from outside using the keyword. Otherwise, they will be extracted from the database directly.
+
+        :param json_dict: Necessary configuration file
+        :type json_dict: dict
+
+        :param introns: the verified introns in the Locus
+        :type introns: None,set
+
+        :param session: an SQLAlchemy session
+        :type session: sqlalchemy.orm.session
+
+        Verified introns can be provided from outside using the keyword.
+        Otherwise, they will be extracted from the database directly.
         """
 
         self.logger.debug("Loading {0}".format(self.id))
@@ -951,23 +992,31 @@ class Transcript:
 
     # @profile
     def load_json(self, json_dict):
+        """
+        Setter for the json configuration dictionary.
+        :param json_dict: The configuration dictionary
+        :type json_dict: dict
+        """
         self.json_dict = json_dict
 
     # @profile
     def load_verified_introns(self, introns=None):
 
-        """This method will load verified junctions from the external (usually the superlocus class)."""
+        """This method will load verified junctions from the external (usually the superlocus class).
+
+        :param introns: verified introns
+        :type introns: set,None
+        """
 
         if introns is None:
             chrom_id = self.session.query(Chrom.id).filter(Chrom.name == self.chrom).one().id
             for intron in self.introns:
                 if self.session.query(Junction).filter(and_(
-                                Junction.chrom_id == chrom_id,
-                                Junction.junctionStart == intron[0],
-                                Junction.junctionEnd == intron[1],
-                                Junction.strand == self.strand
-                )
-                ).count() == 1:
+                    Junction.chrom_id == chrom_id,
+                    Junction.junctionStart == intron[0],
+                    Junction.junctionEnd == intron[1],
+                    Junction.strand == self.strand
+                )).count() == 1:
                     self.verified_introns.add(intron)
 
         else:
@@ -1060,7 +1109,7 @@ class Transcript:
             candidate_orfs = [new_orfs[0]]
             for orf in filter(lambda x: x.cds_len > minimal_secondary_orf_length, new_orfs[1:]):
                 if orf.invalid is True:
-                    self.logger.warn("Removed invalid ORF: {0}".format(orf))
+                    self.logger.warning("Removed invalid ORF: {0}".format(orf))
                     continue
                 candidate_orfs.append(orf)
 
@@ -1089,13 +1138,11 @@ class Transcript:
                 primary_orf = False
 
             if not (orf.thickStart >= 1 and orf.thickEnd <= self.cdna_length) or not (len(orf) == self.cdna_length):
-                self.logger.warning("Wrong ORF for {0}: cDNA length: {1}; orf length: {2}; CDS: {3}-{4}".format(orf.id,
-                                                                                                                self.cdna_length,
-                                                                                                                len(
-                                                                                                                    orf),
-                                                                                                                orf.thickStart,
-                                                                                                                orf.thickEnd
-                                                                                                                ))
+                message = "Wrong ORF for {0}: ".format(orf.id)
+                message += "cDNA length: {0}; ".format(self.cdna_length)
+                message += "orf length: {0}; ".format(len(orf))
+                message += "CDS: {0}-{1}".format(orf.thickStart, orf.thickEnd)
+                self.logger.warning(message)
                 continue
 
             if self.strand is None:
@@ -1118,7 +1165,6 @@ class Transcript:
                             u_end = c_start - 1
                             cds_exons.append(("UTR", exon[0], u_end))
                         c_end = exon[1] - max(0, current_end - orf.thickEnd)
-                        #                         assert c_end>=exon[0]
                         if c_start <= c_end:
                             cds_exons.append(("CDS", c_start, c_end))
                         if c_end < exon[1]:
@@ -1167,7 +1213,6 @@ class Transcript:
             for internal_cds in self.internal_orfs:
                 candidates.extend([tuple([a[1], a[2]]) for a in filter(lambda tup: tup[0] == "CDS", internal_cds)])
 
-            candidates = set(candidates)
             # for mc in self.merge_cliques(*self.find_cliques(candidates)):
             for mc in self.find_communities(candidates):
                 span = tuple([min(t[0] for t in mc),
@@ -1200,7 +1245,7 @@ class Transcript:
             assert self.cdna_length == self.combined_cds_length + self.combined_utr_length, (
                 self.cdna_length, self.combined_cds, self.combined_utr)
 
-        if self.internal_orfs == []:
+        if not self.internal_orfs:
             self.finalize()
         else:
             self.feature = "mRNA"
@@ -1234,22 +1279,33 @@ class Transcript:
             self.blast_hits.append(hit.as_dict())
         self.logger.debug("Loaded {0} BLAST data for {1}".format(counter, self.id))
 
-    def set_logger(self, logger=None):
+    @property
+    def logger(self):
+        """
+        Property. It returns the logger instance attached to the class.
+        :rtype : logging.Logger | None
+        """
+
+        return self.__logger
+
+    @logger.setter
+    def logger(self, logger):
         """Set a logger for the instance.
         :param logger: a Logger instance
-        :type logger: logging.Logger
+        :type logger: logging.Logger | None
         """
         if logger is None:
             logger = Abstractlocus.create_default_logger()
-        self.logger = logger
+        self.__logger = logger
 
-    @classmethod
+    @logger.deleter
+    def logger(self):
+        """
+        Destroyer for the logger. It sets the internal __logger attribute to None.
+        """
+        self.__logger = None
+
     # ###################Class methods#####################################
-    def find_cliques(cls, candidates):
-        """Wrapper for the Abstractlocus method. It will pass to the function the class's "is_intersecting" method
-        (which would be otherwise be inaccessible from the Abstractlocus class method)"""
-        #         return Abstractlocus.find_cliques( candidates, inters=cls.is_intersecting)
-        raise NotImplementedError()
 
     @classmethod
     def find_overlapping_cds(cls, candidates: list) -> list:
@@ -1327,7 +1383,7 @@ class Transcript:
         """
 
         :param objects: a list of objects to analyse
-        :type objects: list
+        :type objects: list,set
 
         Wrapper for the Abstractlocus method.
         As we are interested only in the communities, not the cliques, this wrapper discards the cliques
@@ -1348,7 +1404,7 @@ class Transcript:
             list(filter(lambda x: x not in ["tid", "parent", "score"], metrics)))
         return final_metrics
 
-        ####################Class properties##################################
+    # ###################Class properties##################################
 
     @property
     def id(self):
@@ -1356,32 +1412,38 @@ class Transcript:
         return self.__id
 
     @id.setter
-    def id(self, Id):
+    def id(self, newid):
         """
-        :param Id: a string which will become the ID of the instance.
-        :type Id: str
+        :param newid: a string which will become the ID of the instance.
+        :type newid: str
         """
 
-        if type(Id) is not str:
+        if type(newid) is not str:
             raise ValueError("Invalid value for id: {0}, type {1}".format(
-                Id, type(Id)))
-        self.__id = sys.intern(Id)
+                newid, type(newid)))
+        self.__id = sys.intern(newid)
 
     @property
     def available_metrics(self) -> list:
         """Return the list of available metrics, using the "get_metrics" function."""
-        return self.get_metrics()
+        return self.get_available_metrics()
 
     @property
     def strand(self):
         """
         Strand of the transcript. One of None, "-", "+"
+
+        :rtype str,None
         """
         return self.__strand
 
     @strand.setter
     def strand(self, strand):
         """
+
+        :param strand
+        :type strand: None,str
+
         Setter for the strand of the transcript. It must be one of None, "-", "+"
         """
         if strand in ("+", "-"):
@@ -1449,11 +1511,17 @@ class Transcript:
 
     @property
     def selected_internal_orf_index(self):
-        """Token which memorizes the position in the ORF list of the selected ORF."""
+        """Token which memorizes the position in the ORF list of the selected ORF.
+        :rtype : None | int
+        """
         return self.__max_internal_orf_index
 
     @selected_internal_orf_index.setter
     def selected_internal_orf_index(self, index):
+        """Setter for selected_internal_orf_index.
+        :param index:
+        :type index: None,int
+        """
         if index is None:
             self.__max_internal_orf_index = index
             return
@@ -1498,20 +1566,23 @@ class Transcript:
 
     @property
     def exons(self):
-        """This property stores the exons of the transcript as (start,end) tuples."""
+        """This property stores the exons of the transcript as (start,end) tuples.
+
+        :rtype : list
+        """
         return self.__exons
 
     @exons.setter
     def exons(self, *args):
         """
         :param args: a list/set of exons
-        :type args: set
-        :type args: list
+        :type args: set | list
+
         """
 
         if type(args[0]) not in (set, list):
             raise TypeError(type(args[0]))
-        self.__exons = args[0]
+        self.__exons = list(args[0])
 
     @property
     def combined_cds_introns(self):
@@ -1570,11 +1641,19 @@ class Transcript:
         return self.__combined_cds
 
     @combined_cds.setter
-    def combined_cds(self, *args):
-        if type(args[0]) is not list or (len(args[0]) > 0 and len(list(filter(
-                lambda x: len(x) != 2 or type(x[0]) is not int or type(x[1]) is not int, args[0]))) > 0):
-            raise TypeError("Invalid value for combined CDS: {0}".format(args[0]))
-        self.__combined_cds = args[0]
+    def combined_cds(self, combined):
+        """
+        Setter for combined_cds. It performs some basic checks, e.g. that all the members of the list
+        are integer duplexes.
+
+        :param combined: list
+        :type combined: list[(int,int)]
+        """
+
+        if type(combined) is not list or (len(combined) > 0 and len(list(filter(
+                lambda x: len(x) != 2 or type(x[0]) is not int or type(x[1]) is not int, combined))) > 0):
+            raise TypeError("Invalid value for combined CDS: {0}".format(combined))
+        self.__combined_cds = combined
 
     @property
     def combined_utr(self):
@@ -1583,11 +1662,18 @@ class Transcript:
         return self.__combined_utr
 
     @combined_utr.setter
-    def combined_utr(self, *args):
-        if type(args[0]) is not list or (len(args[0]) > 0 and len(list(filter(
-                lambda x: len(x) != 2 or type(x[0]) is not int or type(x[1]) is not int, args[0]))) > 0):
-            raise TypeError("Invalid value for combined CDS: {0}".format(args[0]))
-        self.__combined_utr = args[0]
+    def combined_utr(self, combined):
+        """Setter for combined UTR. It performs some basic checks, e.g. that all the members of the list
+        are integer duplexes.
+
+        :param combined: UTR list
+        :type combined: list[(int,int)]
+
+        """
+        if type(combined) is not list or (len(combined) > 0 and len(list(filter(
+                lambda x: len(x) != 2 or type(x[0]) is not int or type(x[1]) is not int, combined))) > 0):
+            raise TypeError("Invalid value for combined CDS: {0}".format(combined))
+        self.__combined_utr = combined
 
     @property
     def combined_cds_end(self):
@@ -1641,6 +1727,10 @@ class Transcript:
 
     @property
     def monoexonic(self):
+        """
+        Property. True if the transcript has only one exon, False otherwise.
+        :rtype bool
+        """
         if len(self.exons) == 1:
             return True
         return False
@@ -1649,7 +1739,9 @@ class Transcript:
 
     @Metric
     def tid(self):
-        """ID of the transcript - cannot be an undefined value. Alias of id."""
+        """ID of the transcript - cannot be an undefined value. Alias of id.
+        :rtype str
+        """
         return self.id
 
     @tid.setter
@@ -1792,7 +1884,7 @@ class Transcript:
     def selected_cds_number_fraction(self):
         """This property returns the proportion of best possible CDS segments vs. the number of exons.
         See selected_cds_number."""
-        return self.selected_cds_number / self.exon_num
+        return self.selected_cds_num / self.exon_num
 
     @Metric
     def cds_not_maximal(self):
@@ -1824,7 +1916,8 @@ class Transcript:
 
     @Metric
     def five_utr_num_complete(self):
-        """This property returns the number of 5' UTR segments for the selected ORF, considering only those which are complete exons."""
+        """This property returns the number of 5' UTR segments for the selected ORF,
+        considering only those which are complete exons."""
         return len(list(filter(lambda utr: (utr[1], utr[2]) in self.exons, self.five_utr)))
 
     @Metric
@@ -1867,42 +1960,43 @@ class Transcript:
 
     @Metric
     def has_start_codon(self):
-        """Boolean. True if the selected ORF has a start codon."""
-        return self.__has_start
+        """Boolean. True if the selected ORF has a start codon.
+        :rtype: bool"""
+        return self.__has_start_codon
 
     @has_start_codon.setter
-    def has_start_codon(self, *args):
+    def has_start_codon(self, value):
         """Setter. Checks that the argument is boolean.
-        :param args: list
-        :type args: list(bool)
-        :type args: bool
+        :param value: boolean flag
+        :type value: bool
         """
 
-        if args[0] not in (None, False, True):
-            raise TypeError("Invalid value for has_start_codon: {0}".format(type(args[0])))
-        self.__has_start = args[0]
+        if value not in (None, False, True):
+            raise TypeError("Invalid value for has_start_codon: {0}".format(type(value)))
+        self.__has_start_codon = value
 
     @Metric
     def has_stop_codon(self):
-        """Boolean. True if the selected ORF has a stop codon."""
-        return self.__has_stop
+        """Boolean. True if the selected ORF has a stop codon.
+        :rtype bool
+        """
+        return self.__has_stop_codon
 
     @has_stop_codon.setter
-    def has_stop_codon(self, *args):
+    def has_stop_codon(self, value):
         """Setter. Checks that the argument is boolean.
-        :param args: list
-        :type args: list(bool)
-        :type args: bool
+        :param value: list
+        :type value: bool
         """
 
-        if args[0] not in (None, False, True):
-            raise TypeError("Invalid value for has_stop_codon: {0}".format(type(args[0])))
-        self.__has_stop = args[0]
+        if value not in (None, False, True):
+            raise TypeError("Invalid value for has_stop_codon: {0}".format(type(value)))
+        self.__has_stop_codon = value
 
     @Metric
     def is_complete(self):
         """Boolean. True if the selected ORF has both start and end."""
-        return self.has_start_codon and self.has_stop_codon
+        return (self.has_start_codon is True) and (self.has_stop_codon is True)
 
     @Metric
     def exon_num(self):
@@ -1918,7 +2012,7 @@ class Transcript:
 
     @exon_fraction.setter
     def exon_fraction(self, *args):
-        """Setter for exon_fraction. Set from the locus-type classes.
+        """Setter for exon_fraction. Set from the Locus-type classes.
         :param args: list of values, only the first is retained
         :type args: list(float)
         :type args: float
@@ -1930,13 +2024,13 @@ class Transcript:
 
     @Metric
     def intron_fraction(self):
-        """This property returns the fraction of introns of the transcript vs. the total number of introns in the locus.
+        """This property returns the fraction of introns of the transcript vs. the total number of introns in the Locus.
         If the transcript is by itself, it returns 1. Set from outside."""
         return self.__intron_fraction
 
     @intron_fraction.setter
     def intron_fraction(self, *args):
-        """Setter for intron_fraction. Set from the locus-type classes.
+        """Setter for intron_fraction. Set from the Locus-type classes.
         :param args: list of values, only the first is retained
         :type args: list(float)
         :type args: float
@@ -1960,54 +2054,60 @@ class Transcript:
     def start_distance_from_tss(self):
         """This property returns the distance of the start of the combined CDS from the transcript start site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.internal_orfs) < 2: return self.selected_start_distance_from_tss
+        if len(self.internal_orfs) < 2:
+            return self.selected_start_distance_from_tss
         distance = 0
         if self.strand == "+" or self.strand is None:
             for exon in self.exons:
                 distance += min(exon[1], self.combined_cds_start - 1) - exon[0] + 1
-                if self.combined_cds_start <= exon[1]: break
+                if self.combined_cds_start <= exon[1]:
+                    break
         elif self.strand == "-":
-            exons = self.exons[:]
-            exons.reverse()
+            exons = reversed(list(self.exons[:]))
             for exon in exons:
                 distance += exon[1] + 1 - max(self.combined_cds_start + 1, exon[0])
-                if self.combined_cds_start >= exon[0]: break
+                if self.combined_cds_start >= exon[0]:
+                    break
         return distance
 
     @Metric
     def selected_start_distance_from_tss(self):
         """This property returns the distance of the start of the best CDS from the transcript start site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.combined_cds) == 0: return 0
+        if len(self.combined_cds) == 0:
+            return 0
         distance = 0
         if self.strand == "+" or self.strand is None:
             for exon in self.exons:
                 distance += min(exon[1], self.selected_cds_start - 1) - exon[0] + 1
-                if self.selected_cds_start <= exon[1]: break
+                if self.selected_cds_start <= exon[1]:
+                    break
         elif self.strand == "-":
-            exons = self.exons[:]
-            exons.reverse()
+            exons = reversed(list(self.exons[:]))
             for exon in exons:
                 distance += exon[1] + 1 - max(self.selected_cds_start + 1, exon[0])
-                if self.selected_cds_start >= exon[0]: break
+                if self.selected_cds_start >= exon[0]:
+                    break
         return distance
 
     @Metric
     def selected_end_distance_from_tes(self):
         """This property returns the distance of the end of the best CDS from the transcript end site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.combined_cds) == 0: return 0
+        if len(self.combined_cds) == 0:
+            return 0
         distance = 0
         if self.strand == "-":
             for exon in self.exons:
                 distance += min(exon[1], self.selected_cds_end - 1) - exon[0] + 1
-                if self.selected_cds_end <= exon[1]: break
+                if self.selected_cds_end <= exon[1]:
+                    break
         elif self.strand == "+" or self.strand is None:
-            exons = self.exons[:]
-            exons.reverse()
+            exons = reversed(list(self.exons[:]))
             for exon in exons:
                 distance += exon[1] + 1 - max(self.selected_cds_end + 1, exon[0])
-                if self.selected_cds_end >= exon[0]: break
+                if self.selected_cds_end >= exon[0]:
+                    break
         return distance
 
     @Metric
@@ -2016,7 +2116,8 @@ class Transcript:
         In many eukaryotes, this distance cannot exceed 50-55 bps, otherwise the transcript becomes a target of NMD.
         If the transcript is not coding or there is no junction downstream of the stop codon, the metric returns 0."""
 
-        if len(self.combined_cds) == 0 or self.exon_num == 1: return 0
+        if len(self.combined_cds) == 0 or self.exon_num == 1:
+            return 0
         if self.strand == "+":
             # Case 1: the stop is after the latest junction
             if self.selected_cds_end > max(self.splices):
@@ -2036,7 +2137,8 @@ class Transcript:
         If the transcript is not coding or there is no junction downstream of the stop codon, the metric returns 0.
         This metric considers the combined CDS end."""
 
-        if len(self.combined_cds) == 0 or self.exon_num == 1: return 0
+        if len(self.combined_cds) == 0 or self.exon_num == 1:
+            return 0
         if self.strand == "+":
             # Case 1: the stop is after the latest junction
             if self.combined_cds_end > max(self.splices):
@@ -2053,36 +2155,45 @@ class Transcript:
     def end_distance_from_tes(self):
         """This property returns the distance of the end of the combined CDS from the transcript end site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.internal_orfs) < 2: return self.selected_end_distance_from_tes
+        if len(self.internal_orfs) < 2:
+            return self.selected_end_distance_from_tes
         distance = 0
         if self.strand == "-":
             for exon in self.exons:
                 distance += min(exon[1], self.combined_cds_end - 1) - exon[0] + 1
-                if self.combined_cds_end <= exon[1]: break
+                if self.combined_cds_end <= exon[1]:
+                    break
         elif self.strand == "+" or self.strand is None:
-            exons = self.exons[:]
-            exons.reverse()
+            exons = reversed(list(self.exons[:]))
             for exon in exons:
                 distance += exon[1] + 1 - max(self.combined_cds_end + 1, exon[0])
-                if self.combined_cds_end >= exon[0]: break
+                if self.combined_cds_end >= exon[0]:
+                    break
         return distance
 
     @Metric
     def combined_cds_intron_fraction(self):
-        """This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the locus.
+        """This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the Locus.
         If the transcript is by itself, it returns 1."""
         return self.__combined_cds_intron_fraction
 
     @combined_cds_intron_fraction.setter
-    def combined_cds_intron_fraction(self, *args):
-        if type(args[0]) not in (float, int) or (args[0] < 0 or args[0] > 1):
-            raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
-        self.__combined_cds_intron_fraction = args[0]
+    def combined_cds_intron_fraction(self, value):
+        """
+        This is the setter for combined_cds_intron_fraction. It checks that the value is
+        a valid type, i.e. a float or integer between 0 and 1, before setting it.
+        :param value
+        :type value: int,float
+        """
+
+        if type(value) not in (float, int) or (value < 0 or value > 1):
+            raise TypeError("Invalid value for the fraction: {0}".format(value))
+        self.__combined_cds_intron_fraction = value
 
     @Metric
     def selected_cds_intron_fraction(self):
         """This property returns the fraction of CDS introns of the selected ORF of the transcript
-        vs. the total number of CDS introns in the locus (considering only the selected ORF).
+        vs. the total number of CDS introns in the Locus (considering only the selected ORF).
         If the transcript is by itself, it should return 1.
         """
         return self.__selected_cds_intron_fraction
@@ -2133,7 +2244,7 @@ class Transcript:
 
     @Metric
     def proportion_verified_introns_inlocus(self):
-        """This metric returns, as a fraction, how many of the verified introns inside the locus
+        """This metric returns, as a fraction, how many of the verified introns inside the Locus
         are contained inside the transcript."""
         return self.__proportion_verified_introns_inlocus
 

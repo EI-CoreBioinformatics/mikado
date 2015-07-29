@@ -1,9 +1,13 @@
-import sys, os
+#!/usr/bin/env python3
+# coding:utf-8
+
+"""
+This module contains the necessary classes for serialising and querying ORF data.
+"""
+
+import os
 import logging
 from Bio import SeqIO
-import Bio.File
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
@@ -181,7 +185,7 @@ class OrfSerializer:
         elif fasta_index is None:
             raise ValueError("A fasta index is needed for the serialization!")
         else:
-            assert type(fasta_index) is Bio.File._IndexedSeqFileDict
+            assert "SeqIO.index" in repr(fasta_index)
             self.fasta_index = fasta_index
 
         self.BED12 = bed12.Bed12Parser(handle, fasta_index=fasta_index, transcriptomic=True)

@@ -1,36 +1,45 @@
 #!/usr/bin/env python3
+# coding: utf-8
+
+"""Utility to sort GTF files with a transcript attribute"""
 
 import sys
 from mikado_lib.parsers.GTF import GTF
 from mikado_lib.loci_objects.transcript import Transcript
 import argparse
 
+
 def main():
-    
-    parser=argparse.ArgumentParser('Utility to sort GTF files with a transcript attribute')
-    parser.add_argument("gtf", type=argparse.FileType("r"),
-                    help="Input GTF")
+    """
+    Main script function
+    """
+
+    parser = argparse.ArgumentParser('Utility to sort GTF files with a transcript attribute')
+    parser.add_argument("gtf", type=argparse.FileType(),
+                        help="Input GTF")
     parser.add_argument("out", default=sys.stdout, nargs="?",
                         type=argparse.FileType("w"),
                         help="Output file. Default: stdout.")
-    args=parser.parse_args()
+    args = parser.parse_args()
 
-    transcripts=[]
+    transcripts = []
 
-    currentTranscript=None
+    transcript = None
 
     for record in GTF(args.gtf.name):
         if record.is_transcript is True:
-            if currentTranscript is not None:
-                assert currentTranscript.exon_num>0, (currentTranscript.id, record.id)
-                transcripts.append(currentTranscript)
+            if transcript is not None:
+                assert transcript.exon_num > 0, (transcript.id, record.id)
+                transcripts.append(transcript)
             assert record.id is not None, str(record)
-            currentTranscript=Transcript(record)
+            transcript = Transcript(record)
         else:
-            currentTranscript.add_exon(record)
+            transcript.add_exon(record)
 
-    transcripts.append(currentTranscript)
+    transcripts.append(transcript)
     for tr in sorted(transcripts):
         print(tr.__str__(to_gtf=True), file=args.out)
-        
-if __name__=='__main__': main()
+
+
+if __name__ == '__main__':
+    main()

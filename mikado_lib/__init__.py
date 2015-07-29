@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 # coding: utf_8
 
-# __all__ = ["parsers", "loci_objects", "serializers", "exceptions", "json_utils", "scales"]
+"""
+Mikado is a Python suite whose purpose is to find and resolve genic loci in a genomic annotation.
+This is the library it relies onto.
+"""
 
 import mikado_lib.parsers
 import mikado_lib.loci_objects

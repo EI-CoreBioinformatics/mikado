@@ -1,5 +1,13 @@
+# coding: utf-8
+
+"""
+This class is the main workhorse of the compare.py utility.
+"""
+
+import sys
 import csv
 from logging import handlers as log_handlers
+import queue
 import logging
 import collections
 import argparse
@@ -7,7 +15,6 @@ import bisect
 import operator
 import itertools
 from collections import namedtuple
-
 from mikado_lib.scales.restultstorer import RestultStorer
 from mikado_lib.loci_objects.transcript import Transcript
 import mikado_lib.exceptions
@@ -33,12 +40,23 @@ class Assigner:
         :type positions: collections.defaultdict
 
         :param args: the parameters passed through the command line
+        :type args: None | argparse.Namespace
 
         :param stat_calculator: an instance of Accountant, to which the results will be sent to.
         :type stat_calculator: Accountant
         """
 
-        self.args = args
+        if args is None:
+            self.args = argparse.Namespace
+            self.args.out = sys.stdout
+            self.args.distance = 2000
+            self.args.protein_coding = False
+            self.args.loq_queue = queue.Queue()
+            self.args.exclude_utr = False
+            self.args.verbose = False
+        else:
+            self.args = args
+
         self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
         self.logger = logging.getLogger("Assigner")
         self.logger.addHandler(self.queue_handler)
@@ -108,7 +126,7 @@ class Assigner:
 
         self.logger.debug("Started with {0}".format(prediction.id))
 
-        prediction.set_logger(self.logger)
+        prediction.logger = self.logger
         try:
             prediction.finalize()
             if self.args.exclude_utr is True:
@@ -208,7 +226,7 @@ class Assigner:
 
                     strands = set(x.strand for x in matches)
                     if len(strands) > 1 and prediction.strand in strands:
-                        matches = list(filter(lambda match: match.strand == prediction.strand, matches))
+                        matches = list(filter(lambda mmatch: mmatch.strand == prediction.strand, matches))
                     if len(matches) == 0:
                         raise ValueError("I filtered out all matches. This is wrong!")
 
@@ -216,8 +234,16 @@ class Assigner:
                     results = []  # Final results
                     dubious = []  # Necessary for a double check.
 
-                    def get_f1(result):
-                        return result.j_f1[0], result.n_f1[0]
+                    def get_f1(curr_result):
+                        """
+                        Simple getter for F1 statistics (N_F1 and J_F1)
+                        :param curr_result: a result storer
+                        :type curr_result: ResultStorer
+
+                        :return: (J_F1, N_F1)
+                        :rtype (float, float)
+                        """
+                        return curr_result.j_f1[0], curr_result.n_f1[0]
 
                     for match in matches:
                         m_res = sorted([self.calc_compare(prediction, tra) for tra in match], reverse=True, key=get_f1)
@@ -231,9 +257,14 @@ class Assigner:
                         results.extend(m_res)
                         best_fusion_results.append(m_res[0])
 
-                    def dubious_getter(dubious):
+                    def dubious_getter(dubious_result):
+                        """
+                        Function used to perform the sorting of the matches.
+                        :param dubious_result: a result
+                        :type dubious_result: ResultStorer
+                        """
                         getter = operator.attrgetter("j_f1", "n_f1")
-                        return getter(dubious[0])
+                        return getter(dubious_result[0])
 
                     if len(results) == 0:
                         # I have filtered out all the results, because I only match partially the reference genes
@@ -319,7 +350,8 @@ class Assigner:
         - =    Complete intron chain match
         - c    Contained
         - j    Potentially novel isoform (fragment): at least one splice junction is shared with a reference transcript
-        - e    Single exon transfrag overlapping a reference exon and at least 10 bp of a reference intron, indicating a possible pre-mRNA fragment.
+        - e    Single exon transfrag overlapping a reference exon and at least 10 bp of a reference intron,
+               indicating a possible pre-mRNA fragment.
         - i    A *monoexonic* transfrag falling entirely within a reference intron
         - o    Generic exonic overlap with a reference transcript
         - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
@@ -330,10 +362,12 @@ class Assigner:
     
         We also provide the following additional classifications:
         
-        - f    gene fusion - in this case, this ccode will be followed by the ccodes of the matches for each gene, separated by comma
+        - f    gene fusion - in this case, this ccode will be followed by the ccodes of the matches for each gene,
+               separated by comma
         - _    Complete match, for monoexonic transcripts (nucleotide F1>=95% - i.e. min(precision,recall)>=90.4%
         - m    Exon overlap between two monoexonic transcripts
-        - n    Potentially novel isoform, where all the known junctions have been confirmed and we have added others as well
+        - n    Potentially novel isoform, where all the known junctions have been confirmed and we have
+               added others as well *externally*
         - I    *multiexonic* transcript falling completely inside a known transcript
         - h    the transcript is multiexonic and extends a monoexonic reference transcript
         - O    Reverse generic overlap - the reference is monoexonic and overlaps the prediction
@@ -387,15 +421,15 @@ class Assigner:
             else:
                 ccode = "c"  # We will set this to x at the end of the function
 
-        elif (junction_f1 == 1 and nucl_f1 >= 0.95):
+        elif junction_f1 == 1 and nucl_f1 >= 0.95:
             reference_exon = reference.exons[0]
             if prediction.strand == reference.strand or prediction.strand is None:
                 ccode = "_"  # We have recovered all the junctions
             else:
                 ccode = "x"
 
-        elif prediction.start > reference.end or prediction.end < reference.start:  # Outside the transcript - polymerase run-on
-            distance = max(prediction.start - reference.end, reference.start - prediction.end)
+        # Outside the transcript - polymerase run-on
+        elif prediction.start > reference.end or prediction.end < reference.start:
             if reference.strand == prediction.strand:
                 ccode = "p"
             else:
@@ -423,7 +457,8 @@ class Assigner:
                     ccode = "c"
                     if nucl_precision < 1:
                         for intron in reference.introns:
-                            if intron in prediction.introns: continue
+                            if intron in prediction.introns:
+                                continue
                             if intron[1] < prediction.start:
                                 continue
                             elif intron[0] > prediction.end:
@@ -432,8 +467,7 @@ class Assigner:
                                 ccode = "j"
                                 break
 
-
-                elif (junction_recall == 0 and junction_precision == 0):
+                elif junction_recall == 0 and junction_precision == 0:
                     if nucl_f1 > 0:
                         ccode = "o"
                     else:
@@ -447,8 +481,8 @@ class Assigner:
             else:
                 if prediction.exon_num == 1 and reference.exon_num > 1:
                     if nucl_precision < 1 and nucl_overlap > 0:
-                        outside = max(reference.start - prediction.start, 0) +\
-                                  max(prediction.end - reference.end, 0)  # Fraction outside
+                        # Fraction outside
+                        outside = max(reference.start - prediction.start, 0) + max(prediction.end - reference.end, 0)
                         if prediction.cdna_length - nucl_overlap - outside > 10:
                             ccode = "e"
                         else:
@@ -472,8 +506,9 @@ class Assigner:
                     else:
                         ccode = "m"  # just a generic exon overlap b/w two monoexonic transcripts
 
-        if ccode in ("e", "o", "c","m") and prediction.strand is not None and \
-                reference.strand is not None and prediction.strand != reference.strand:
+        if ccode in ("e", "o", "c", "m") and prediction.strand != reference.strand and all([x is not None for x in
+                                                                                            (prediction.strand,
+                                                                                             reference.strand)]):
             ccode = "x"
 
         if prediction.strand != reference.strand:
@@ -492,6 +527,11 @@ class Assigner:
         return result, reference_exon
 
     def print_tmap(self, res: RestultStorer):
+        """
+        This method will print a ResultStorer instance onto the TMAP file.
+        :param res: result from compare
+        :type res: ResultStorer
+        """
         if self.done % 10000 == 0 and self.done > 0:
             self.logger.info("Done {0:,} transcripts".format(self.done))
         elif self.done % 1000 == 0 and self.done > 0:
@@ -519,14 +559,13 @@ class Assigner:
 
                 rows = []
                 best_picks = []
-                best_pick = None
                 assert len(self.gene_matches[gid].keys()) > 0
                 for tid in sorted(self.gene_matches[gid].keys()):
                     if len(self.gene_matches[gid][tid]) == 0:
                         row = tuple([tid, gid, "NA", "NA", "NA"])
                     else:
-                        best = \
-                        sorted(self.gene_matches[gid][tid], key=operator.attrgetter("j_f1", "n_f1"), reverse=True)[0]
+                        best = sorted(self.gene_matches[gid][tid],
+                                      key=operator.attrgetter("j_f1", "n_f1"), reverse=True)[0]
                         best_picks.append(best)
                         if len(best.ccode) == 1:
                             row = tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])

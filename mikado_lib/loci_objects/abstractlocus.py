@@ -1,30 +1,48 @@
+# coding: utf-8
+
+"""
+Module that defines the blueprint for all loci classes.
+"""
+
 import operator
 import abc
 import random
 import logging
 import networkx
 from mikado_lib.exceptions import NotInLocusError
+from sys import maxsize
 
 
 class Abstractlocus(metaclass=abc.ABCMeta):
-    """This abstract class defines the basic features of any locus-like object.
+    """This abstract class defines the basic features of any Locus-like object.
     It also defines methods/properties that are needed throughout the program,
     e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method."""
 
     __name__ = "Abstractlocus"
 
-    ###### Special methods #########
+    # ##### Special methods #########
 
     @abc.abstractmethod
     def __init__(self):
+
+        # Mock values
+        self.__source = ""
+
+        self.__logger = None
+        self.__stranded = False
+
         self.transcripts = dict()
         self.introns, self.exons, self.splices = set(), set(), set()
         # Consider only the CDS part
         self.combined_cds_introns, self.selected_cds_introns = set(), set()
-        self.start, self.end, self.strand = float("Inf"), float("-Inf"), None
+        self.start, self.end, self.strand = maxsize, -maxsize, None
         self.stranded = True
         self.initialized = False
         self.monoexonic = False
+        self.chrom = None
+        self.source = None
+        self.cds_introns = set()
+        self.json_conf = dict()
 
     @abc.abstractmethod
     def __str__(self):
@@ -78,22 +96,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def __getstate__(self):
         """Method to allow serialisation - we remove the byte-compiled eval expression."""
 
+        logger = self.logger
+        del self.logger
         state = self.__dict__.copy()
+        self.logger = logger
+
         if hasattr(self, "json_dict"):
             if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
                 del state["json_dict"]["requirements"]["compiled"]
 
         if hasattr(self, "session"):
-            self.session.expunge_all()
-            state["session"].expunge_all()
-            del state["sessionmaker"]
-            del state["session"]
+            if self.session is not None:
+                self.session.expunge_all()
+                state["session"].expunge_all()
+            state["sessionmaker"] = None
+            state["session"] = None
 
         if hasattr(self, "engine"):
             del state["engine"]
-
-        if hasattr(self, "logger"):
-            del state["logger"]
 
         return state
 
@@ -104,13 +124,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if "requirements" in self.json_dict and "expression" in self.json_dict["requirements"]:
                 self.json_dict["requirements"]["compiled"] = compile(self.json_dict["requirements"]["expression"],
                                                                      "<json>", "eval")
-        self.set_logger(None)
-
-    def set_logger(self, logger):
-        """Set a logger for the instance."""
-        if logger is None:
-            logger = self.create_default_logger()
-        self.logger = logger
+        # Set the logger to NullHandler
+        self.logger = self.create_default_logger()
 
     # #### Static methods #######
     @staticmethod
@@ -171,7 +186,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     # #### Class methods ########
 
-
     @classmethod
     def create_default_logger(cls):
         """Static method to create a default logging instance for the loci.
@@ -215,8 +229,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             return False
         if locus_instance.chrom == transcript.chrom and \
                 (locus_instance.stranded is False or locus_instance.strand == transcript.strand) and \
-                        cls.overlap((locus_instance.start, locus_instance.end), (transcript.start, transcript.end),
-                                    flank=flank) > 0:
+                cls.overlap(
+                    (locus_instance.start, locus_instance.end),
+                    (transcript.start, transcript.end),
+                    flank=flank) > 0:
             return True
         return False
 
@@ -224,10 +240,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def define_graph(cls, objects: dict, inters=None, **kwargs) -> networkx.Graph:
         """
         :param objects: a dictionary of objects to be grouped into a graph
-        :type objects: dict[str]=object
+        :type objects: dict
 
         :param inters: the intersecting function to be used to define the graph
-        :type inters: function
+        :type inters: callable
 
         :param kwargs: optional arguments to be passed to the inters function
         :type kwargs: dict
@@ -248,7 +264,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         graph = networkx.Graph()
 
         # As we are using intern for transcripts, this should prevent memory usage to increase too much
-        graph.add_nodes_from( objects.keys() )
+        graph.add_nodes_from(objects.keys())
 
         for obj in objects:
             for other_obj in filter(lambda x: x != obj, objects):
@@ -286,8 +302,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type inters: function
 
         Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
-        It is the new interface for the BronKerbosch function, which is not called directly from outside this class any longer.
-        The "inters" keyword provides the function used to determine whether two vertices are connected or not in the graph.
+        It is the new interface for the BronKerbosch function, which is not called directly
+        from outside this class any longer.
+        The "inters" keyword provides the function used to determine
+        whether two vertices are connected or not in the graph.
         """
         if inters is None:
             inters = cls.is_intersecting
@@ -326,7 +344,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             list(filter(lambda t: t.score == max(transcripts.values(), key=operator.attrgetter("score")).score,
                         transcripts.values()))).id
 
-    ####### Class instance methods  #######
+    # ###### Class instance methods  #######
 
     def add_transcript_to_locus(self, transcript, check_in_locus=True):
         """
@@ -337,10 +355,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         or instead whether to trust the assignment to be correct
         :type check_in_locus: bool
 
-        This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method) and
-        upon a successful check extends the superlocus with the new transcript.
-        More precisely, it updates the boundaries (start and end), adds the transcript to the internal "transcripts" store,
-        and extends the splices and introns with those found inside the transcript.
+        This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method)
+        and upon a successful check extends the superlocus with the new transcript.
+        More precisely, it updates the boundaries (start and end) it adds the transcript
+        to the internal "transcripts" store, and finally it extends
+        the splices and introns with those found inside the transcript.
         """
 
         transcript.finalize()
@@ -350,7 +369,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             if check_in_locus is False:
                 pass
             elif not self.in_locus(self, transcript):
-                raise NotInLocusError("""Trying to merge a locus with an incompatible transcript!
+                raise NotInLocusError("""Trying to merge a Locus with an incompatible transcript!
                 Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]
                 Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}
                 """.format(
@@ -394,7 +413,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if tid not in self.transcripts:
-            raise KeyError("Transcript {0} is not present in the locus.".format(tid))
+            raise KeyError("Transcript {0} is not present in the Locus.".format(tid))
 
         if len(self.transcripts) == 1:
             self.transcripts = dict()
@@ -475,14 +494,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def is_intersecting(self):
+    def is_intersecting(cls, *args, **kwargs):
         """
+
+        :param args: positional arguments
+        :param kwargs: keyword arguments
+
         This class method defines how two transcript objects will be considered as overlapping.
         It is used by the BronKerbosch method, and must be implemented at the class level for each child object.
         """
         raise NotImplementedError("The is_intersecting method should be defined for each child!")
 
-    ###### Properties #######
+    # ##### Properties #######
 
     @property
     def stranded(self):
@@ -492,21 +515,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return self.__stranded
 
     @stranded.setter
-    def stranded(self, *args):
+    def stranded(self, flag):
         """
-        :param args: boolean value
-        :type args: list(bool)
-        :type args: bool
+        :param flag: boolean value
+        :type flag: bool
         """
-        if len(args) == 0:
-            args = [True]
-        stranded = args[0]
-        if type(stranded) != bool:
+
+        if type(flag) is not bool:
             raise ValueError("The stranded attribute must be boolean!")
-        self.__stranded = stranded
+        self.__stranded = flag
 
     @property
     def id(self) -> str:
+        """
+        This is a generic string generator for all inherited children.
+        :rtype : str
+        """
         return "{0}:{1}{2}:{3}-{4}".format(
             self.__name__,
             self.chrom,
@@ -516,4 +540,56 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def name(self) -> str:
+        """
+        Alias for id.
+        :rtype : str
+        """
         return self.id
+
+    @property
+    def logger(self):
+        """
+        Logger instance for the class.
+        :rtype : logging.Logger
+        """
+        return self.__logger
+
+    @logger.setter
+    def logger(self, logger):
+        """Set a logger for the instance.
+        :param logger
+        :type logger: logging.Logger | Nonell
+        """
+        if logger is None:
+            logger = self.create_default_logger()
+        elif type(logger) is not logging.Logger:
+            raise TypeError("Invalid logger: {0}".format(type(logger)))
+        self.__logger = logger
+
+    @logger.deleter
+    def logger(self):
+        """
+        Deleter method. It sets the logger to None. Used specifically for pickling.
+        """
+        self.__logger = None
+
+    @property
+    def source(self):
+        """
+        Property. Returns the source field.
+        :rtype : str
+        """
+        return self.__source
+
+    @source.setter
+    def source(self, value):
+        """
+        Setter for source. It accepts only strings.
+        :param value:
+        :type value: str
+
+        """
+        if not value:
+            value = "Mikado"
+        assert type(value) is str
+        self.__source = value

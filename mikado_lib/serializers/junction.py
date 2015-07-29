@@ -1,10 +1,27 @@
-import io, os
-from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float
+# coding: utf-8
+
+"""
+This module is necessary to serialise the junction information
+provided in BED12 format by programs such as TopHat or portcullis.
+Please convert any other (custom) format into BED12
+before loading.
+"""
+
+import io
+import os
 from mikado_lib.parsers import bed12
+from mikado_lib.serializers.dbutils import dbBase
+from mikado_lib.serializers.dbutils import Inspector
+from sqlalchemy import Column
+from sqlalchemy import String
+from sqlalchemy import Integer
+from sqlalchemy import ForeignKey
+from sqlalchemy import CHAR
+from sqlalchemy import Index
+from sqlalchemy import Float
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from mikado_lib.serializers.dbutils import dbBase, Inspector
 
 
 class Chrom(dbBase):
@@ -117,6 +134,10 @@ class Junction(dbBase):
 
     @property
     def chrom(self):
+        """
+        This property returns the name of the chromosome upon which the junction is located.
+        """
+
         return self.chrom_object.name
 
 
@@ -125,31 +146,23 @@ class JunctionSerializer:
     This class is used to serialize a junction BED12 file into an SQL database.
     """
 
-    def __init__(self, handle, db, fai=None, dbtype="sqlite", maxobjects=10000, json_conf=None):
+    def __init__(self, handle, db, fai=None, maxobjects=10000, json_conf=None):
 
         """
         :param handle: the file to be serialized.
-        :type handle: str
-        :type handle: io.IOBase
+        :type handle: str | io.IOBase
 
         :param db: the database to connect to. Can be None.
-        :type db: None
-        :type db: str
+        :type db: None | str
 
         :param fai: an optional FAI file to be used for generating the database.
-        :type fai: str
-        :type fai: io.IOBase
-
-
-        :param dbtype: optional type of database to use.
-        :type dbtype: str
+        :type fai: str | io.IOBase
 
         :param maxobjects: maximal number of objects to cache in memory before bulk loading. Default 10^4
         :type maxobjects: int
 
         :param json_conf: Optional configuration dictionary with db connection parameters.
-        :type json_conf: dict
-        :type json_conf: None
+        :type json_conf: dict | None
         """
 
         self.BED12 = bed12.Bed12Parser(handle)
@@ -170,12 +183,18 @@ class JunctionSerializer:
         session.configure(bind=self.engine)
 
         inspector = Inspector.from_engine(self.engine)
-        if not Junction.__tablename__ in inspector.get_table_names():
+        if Junction.__tablename__ not in inspector.get_table_names():
             dbBase.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session()
         self.maxobjects = maxobjects
-        self.fai = fai
+        if type(fai) is str:
+            assert os.path.exists(self.fai)
+            self.fai = open(self.fai)
+        else:
+            if fai is not None:
+                assert type(fai) is io.TextIOWrapper
+            self.fai = fai
 
     def serialize(self):
         """
@@ -184,11 +203,6 @@ class JunctionSerializer:
 
         sequences = dict()
         if self.fai is not None:
-            if type(self.fai) is str:
-                assert os.path.exists(self.fai)
-                self.fai = open(self.fai)
-            else:
-                assert type(self.fai) is io.TextIOWrapper
             for line in self.fai:
                 name, length = line.rstrip().split()[:2]
                 current_chrom = Chrom(name, length=int(length))

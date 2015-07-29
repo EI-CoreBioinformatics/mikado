@@ -1,11 +1,21 @@
-import sys, os
+# coding: utf-8
+
+"""This module is used to serialise BLAST objects into a database.
+It consists of various different classes:
+
+- Query
+- Target
+- Hit
+- HSP
+
+The module also contains helper functions such as mean().
+"""
+
+import os
 import sqlalchemy
 import gzip
 import subprocess
 from Bio import SeqIO
-import Bio.File
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 import operator
 import sqlalchemy.exc
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index
@@ -17,8 +27,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.serializers.dbutils import dbBase
 import logging
-
-"""This module is used to serialise BLAST objects into a database."""
 
 
 def mean(l: list):
@@ -191,10 +199,6 @@ class Hsp(dbBase):
 
     query_object = relationship(Query, uselist=False)
     target_object = relationship(Target, uselist=False)
-
-    #     hit_object=relationship(Hit, uselist=False, lazy="immediate", backref=backref("hsps"),
-    #                         foreign_keys=[query_id, target_id],
-    #                         primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
 
     __table_args__ = (pk_constraint,)
 
@@ -571,7 +575,7 @@ class XmlSerializer:
         elif query_seqs is None:
             self.query_seqs = None
         else:
-            assert type(query_seqs) is Bio.File._IndexedSeqFileDict
+            assert "SeqIO.index" in repr(query_seqs)
             self.query_seqs = query_seqs
 
         if type(target_seqs) is str:
@@ -580,7 +584,7 @@ class XmlSerializer:
         elif target_seqs is None:
             self.target_seqs = None
         else:
-            assert type(target_seqs) is Bio.File._IndexedSeqFileDict
+            assert "SeqIO.index" in repr(target_seqs)
             self.target_seqs = target_seqs
 
         self.max_target_seqs = max_target_seqs

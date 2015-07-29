@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # coding=utf-8
 
+"""
+This module defines the Creator class, which is the main workhorse for Mikado pick.
+"""
+
 import re
 import csv
 import os
@@ -11,6 +15,7 @@ import time
 # SQLAlchemy/DB imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
+import sqlalchemy.pool
 import sqlalchemy
 import sqlite3
 
@@ -41,12 +46,23 @@ class Creator:
     """
 
     # @profile
-    def __init__(self, json_conf: dict, commandline=""):
+    def __init__(self, json_conf, commandline=""):
 
         """Constructor. It takes a single argument as input - the JSON/YAML configuration,
         prepared by the json_utils functions.
-        Optional keyword: commandline (i.e. the commandline used to start the program)"""
 
+        :param json_conf: Either a configuration dictionary or the configuration file.
+        :type json_conf: str,dict
+
+        :param commandline: optional, the commandline used to start the program
+        :type commandline: str
+        """
+
+        # Mock variables
+        self.formatter = self.main_logger = self.log_writer = self.log_handler = self.logger = None
+        self.log_level = "WARN"
+
+        # Now we start the real work
         if type(json_conf) is str:
             assert os.path.exists(json_conf)
             json_conf = mikado_lib.json_utils.to_json(json_conf)
@@ -164,33 +180,35 @@ class Creator:
 
         score_keys = ["tid", "parent", "score"] + sorted(list(self.json_conf["scoring"].keys()))
         # Define mandatory output files
-        self.locus_metrics_file = re.sub("$", ".metrics.tsv", re.sub(".gff.?$", "", self.locus_out))
-        self.locus_scores_file = re.sub("$", ".scores.tsv", re.sub(".gff.?$", "", self.locus_out))
-        locus_metrics = csv.DictWriter(open(self.locus_metrics_file, 'w'),
+        locus_metrics_file = re.sub("$", ".metrics.tsv", re.sub(".gff.?$", "", self.locus_out))
+        locus_scores_file = re.sub("$", ".scores.tsv", re.sub(".gff.?$", "", self.locus_out))
+        locus_metrics = csv.DictWriter(open(locus_metrics_file, 'w'),
                                        mikado_lib.loci_objects.superlocus.Superlocus.available_metrics, delimiter="\t")
         locus_metrics.writeheader()
-        locus_scores = csv.DictWriter(open(self.locus_scores_file, 'w'), score_keys, delimiter="\t")
+        locus_scores = csv.DictWriter(open(locus_scores_file, 'w'), score_keys, delimiter="\t")
         locus_scores.writeheader()
         locus_out = open(self.locus_out, 'w')
         print('##gff-version 3', file=locus_out)
 
         if self.sub_out is not None:
-            self.sub_metrics_file = re.sub("$", ".metrics.tsv", re.sub(".gff.?$", "", self.sub_out))
-            self.sub_scores_file = re.sub("$", ".scores.tsv", re.sub(".gff.?$", "", self.sub_out))
-            sub_metrics = csv.DictWriter(open(self.sub_metrics_file, 'w'),
+            sub_metrics_file = re.sub("$", ".metrics.tsv", re.sub(".gff.?$", "", self.sub_out))
+            sub_scores_file = re.sub("$", ".scores.tsv", re.sub(".gff.?$", "", self.sub_out))
+            sub_metrics = csv.DictWriter(open(sub_metrics_file, 'w'),
                                          mikado_lib.loci_objects.superlocus.Superlocus.available_metrics,
                                          delimiter="\t")
             sub_metrics.writeheader()
-            sub_scores = csv.DictWriter(open(self.sub_scores_file, 'w'), score_keys, delimiter="\t")
+            sub_scores = csv.DictWriter(open(sub_scores_file, 'w'), score_keys, delimiter="\t")
             sub_scores.writeheader()
             sub_out = open(self.sub_out, 'w')
             print('##gff-version 3', file=sub_out)
         else:
-            self.sub_metrics = self.sub_scores = None
+            sub_metrics = sub_scores = sub_out = None
 
         if self.monolocus_out is not None:
             mono_out = open(self.monolocus_out, 'w')
             print('##gff-version 3', file=mono_out)
+        else:
+            mono_out = None
 
         while True:
             stranded_locus = self.printer_queue.get()
@@ -198,7 +216,7 @@ class Creator:
             if stranded_locus == "EXIT":
                 return  # Poison pill - once we receive a "EXIT" signal, we exit
             logger.debug("Received {0}".format(stranded_locus.id))
-            stranded_locus.set_logger(logger)
+            stranded_locus.logger = logger
             if self.sub_out is not None:  # Skip this section if no sub_out is defined
                 sub_lines = stranded_locus.__str__(level="subloci",
                                                    print_cds=not self.json_conf["run_options"]["exclude_cds"])
@@ -217,8 +235,10 @@ class Creator:
             locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()]
             locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
             locus_lines = stranded_locus.__str__(print_cds=not self.json_conf["run_options"]["exclude_cds"])
-            for row in locus_metrics_rows: locus_metrics.writerow(row)
-            for row in locus_scores_rows: locus_scores.writerow(row)
+            for row in locus_metrics_rows:
+                locus_metrics.writerow(row)
+            for row in locus_scores_rows:
+                locus_scores.writerow(row)
 
             if locus_lines != '':
                 print(locus_lines, file=locus_out)
@@ -279,18 +299,19 @@ class Creator:
         """
 
         # Define the logger
-        if slocus is None: return
+        if slocus is None:
+            return
         handler = logging_handlers.QueueHandler(self.logging_queue)  # @UndefinedVariable
         logger = logging.getLogger("{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end))
         logger.addHandler(handler)
-        logger.setLevel(self.json_conf["log_settings"][
-                            "log_level"])  # We need to set this to the lowest possible level, otherwise we overwrite the global configuration
+        # We need to set this to the lowest possible level, otherwise we overwrite the global configuration
+        logger.setLevel(self.json_conf["log_settings"]["log_level"])
         logger.propagate = False
 
         # Load the CDS information
         logger.info("Started with {0}".format(slocus.id))
         logger.debug("Loading transcript data")
-        slocus.set_logger(logger)
+        slocus.logger = logger
         slocus.load_all_transcript_data(pool=self.connection_pool)
         # Split the superlocus in the stranded components
         logger.debug("Splitting by strand")
@@ -320,12 +341,13 @@ class Creator:
         loci_to_check = {True: set(), False: set()}
         for stranded_locus in stranded_loci:
             for _, locus_instance in stranded_locus.loci.items():
+                locus_instance.logger = logger
                 loci_to_check[locus_instance.monoexonic].add(locus_instance)
 
         for stranded_locus in stranded_loci:
             for locus_id, locus_instance in stranded_locus.loci.items():
                 if locus_instance in loci_to_check[True]:
-                    logger.debug("Checking if {0} is a fragment".format(_))
+                    logger.debug("Checking if {0} is a fragment".format(locus_instance.id))
                     for other_locus in loci_to_check[False]:
                         if other_locus.other_is_fragment(locus_instance,
                                                          minimal_cds_length=self.json_conf["run_options"][
@@ -350,10 +372,11 @@ class Creator:
                         putter_counter += 1
                         time.sleep(0.0001)
                     else:
-                        logger.exception("Error in reporting for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
-                                                                                                  stranded_locus.start,
-                                                                                                  stranded_locus.end,
-                                                                                                  stranded_locus.strand))
+                        message = "Error in reporting for {0}:{1}-{2}".format(stranded_locus.chrom,
+                                                                              stranded_locus.start,
+                                                                              stranded_locus.end)
+                        message += ", strand {0}".format(stranded_locus.strand)
+                        logger.exception(message)
                         logger.exception(err)
                         break
 
@@ -397,7 +420,8 @@ class Creator:
                 current_transcript.add_exon(row)
             elif row.is_transcript is True:
                 if current_transcript is not None:
-                    if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(current_locus, current_transcript) is True:
+                    if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(current_locus, current_transcript) \
+                            is True:
                         current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
                         assert current_transcript.id in current_locus.transcripts
                     else:

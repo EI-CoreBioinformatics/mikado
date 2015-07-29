@@ -1,3 +1,10 @@
+# coding: utf-8
+
+"""
+Pretty basic class that defines a reference gene with its transcripts.
+Minimal checks.
+"""
+
 import logging
 from mikado_lib.loci_objects import transcript
 from mikado_lib.exceptions import InvalidTranscript, InvalidCDS
@@ -21,9 +28,11 @@ class Gene:
         self.set_logger(logger)
         self.exception_message = ''
     
-    def set_logger(self, logger: logging.Logger):
+    def set_logger(self, logger):
         """
         :param logger: a Logger instance.
+        :type logger: None | logging.Logger
+
         """
         if logger is None:
             self.logger = logging.getLogger("null_logger")
@@ -32,13 +41,13 @@ class Gene:
         else:
             self.logger = logger
         for tid in self.transcripts:
-            self.transcripts[tid].set_logger(logger)
+            self.transcripts[tid].logger = logger
 
     def add(self, tr: transcript):
         """
         :param tr:
 
-        This method adds a transcript to the locus.
+        This method adds a transcript to the Locus.
         """
         self.start = min(self.start, tr.start)
         self.end = max(self.end, tr.end)

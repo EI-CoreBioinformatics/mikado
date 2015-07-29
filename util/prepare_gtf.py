@@ -1,65 +1,89 @@
-import sys,os,argparse
+#!/usr/bin/env python3
+# coding: utf-8
+
+"""Script to prepare a GTF for the pipeline; it will perform the following operations:
+    1- add the "transcript" feature
+    2- sort by coordinates
+    3- check the strand
+"""
+
+import sys
+import os
+import argparse
 from mikado_lib import exceptions
 import copy
-from mikado_lib.loci_objects.transcript_checker import transcript_checker
+from mikado_lib.loci_objects.transcriptchecker import TranscriptChecker
 from mikado_lib.parsers import GTF
 from Bio import SeqIO
 
+
 def main():
-    
+    """Main script function."""
+
     def to_gff(string):
-        if  string[-4:]!=".gtf":
+        """
+        Function to verify the input file.
+        :param string: filename
+        """
+        if string[-4:] != ".gtf":
             raise TypeError("This script takes as input only GTF files.")
-        
-        gff=GTF.GTF(string)
-        record=next(gff)
+
+        gff = GTF.GTF(string)
         for record in gff:
             if record.header is False:
                 gff.close()
                 return GTF.GTF(string)
         raise ValueError("Empty GTF file provided.")
-    
+
     def to_seqio(string):
-        if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size>0:
+        """
+        Function to index a FASTA file using SeqIO.
+        :param string: a vaild file name
+        :type string: str
+        """
+        if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size > 0:
             raise ValueError("Invalid input file.")
         print("Loading reference")
-#         seqdict = SeqIO.index(string, "fasta")
         seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
-        print("Reference loaded") 
+        print("Reference loaded")
         return seqdict
-    
-    parser=argparse.ArgumentParser("""Script to prepare a GTF for the pipeline; it will perform the following operations:
+
+    parser = argparse.ArgumentParser("""Script to prepare a GTF for the pipeline; it will perform the following operations:
     1- add the "transcript" feature
     2- sort by coordinates
     3- check the strand""")
     parser.add_argument("--fasta", type=to_seqio, required=True,
-                        help="Genome FASTA file. Required." )
+                        help="Genome FASTA file. Required.")
     parser.add_argument("-s", "--strand-specific", dest="strand_specific", action="store_true", default=False,
-                        help="Flag. If set, monoexonic transcripts will be left on their strand rather than being moved to the unknown strand.")
+                        help="""Flag. If set, monoexonic transcripts will be left on their strand
+                        rather than being moved to the unknown strand.""")
     parser.add_argument("-l", "--lenient", action="store_true", default=False,
-                        help="Flag. If set, transcripts with mixed +/- splices will not cause exceptions but rather be annotated as problematic.")
+                        help="""Flag. If set, transcripts with mixed +/- splices will not cause exceptions
+                        but rather be annotated as problematic.""")
     parser.add_argument("gff", type=to_gff, help="Input GTF file.")
     parser.add_argument("out", default=sys.stdout, nargs='?', type=argparse.FileType('w'),
                         help="Output file. Default: STDOUT.")
-    args=parser.parse_args()
-    
-    exon_lines=dict()
-    
+    args = parser.parse_args()
+
+    exon_lines = dict()
+
     for row in args.gff:
-        if row.feature!="exon": continue
+        if row.feature != "exon":
+            continue
         if row.transcript not in exon_lines:
-            exon_lines[row.transcript]=[]
+            exon_lines[row.transcript] = []
         exon_lines[row.transcript].append(row)
-    
-    transcripts=[]
-    
+
+    transcripts = []
+
     for tid in exon_lines:
-        lines=exon_lines[tid]
+        lines = exon_lines[tid]
         transcript_line = copy.deepcopy(lines[0])
-        transcript_line.feature="transcript"
-        transcript_line.start=min(r.start for r in lines)
-        transcript_line.end=max(r.end for r in lines)
-        transcript_object=transcript_checker(transcript_line, args.fasta, lenient=args.lenient, strand_specific=args.strand_specific)
+        transcript_line.feature = "transcript"
+        transcript_line.start = min(r.start for r in lines)
+        transcript_line.end = max(r.end for r in lines)
+        transcript_object = TranscriptChecker(transcript_line, args.fasta, lenient=args.lenient,
+                                              strand_specific=args.strand_specific)
         for line in lines:
             transcript_object.add_exon(line)
         try:
@@ -70,8 +94,10 @@ def main():
         except exceptions.InvalidTranscript:
             continue
         transcripts.append(transcript_object)
-        
+
     for obj in sorted(transcripts):
         print(obj.__str__(to_gtf=True), file=args.out)
-    
-if __name__=="__main__": main()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,13 @@
+# coding:utf-8
+
+"""
+Custom exceptions for Mikado.
+"""
+
+
 class NotInLocusError(AssertionError):
     """
-    Error to be raised when a method tries to add a transcript to a locus it does not belong to.
+    Error to be raised when a method tries to add a transcript to a Locus it does not belong to.
     """
     pass
 
@@ -14,7 +21,7 @@ class NoJsonConfigError(ValueError):
 
 class InvalidLocusError(ValueError):
     """
-    Exception to be raised when something has made a locus object invalid.
+    Exception to be raised when something has made a Locus object invalid.
     """
     pass
 

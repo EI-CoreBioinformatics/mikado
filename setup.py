@@ -1,3 +1,5 @@
+# coding: utf-8
+
 """Setup file for PyPI"""
 
 from setuptools import setup, find_packages
@@ -12,10 +14,10 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 
 setup(
 
-    name = "Mikado",
-    version = "0.7.9",
-    
-    description="A Python3 annotation program to select the best gene model in each locus",
+    name="Mikado",
+    version="0.8",
+
+    description="A Python3 annotation program to select the best gene model in each Locus",
     long_description=long_description,
 
     url="http://stash.tgac.ac.uk/users/venturil/repos/mikado/",
@@ -34,24 +36,24 @@ setup(
 
     keywords="rna-seq annotation genomics transcriptomics",
 
-    packages = find_packages(),
+    packages=find_packages(),
 
-    scripts = glob.glob("util/*.py"),
+    scripts=glob.glob("util/*.py"),
 
     install_requires=["pyyaml",
                       "networkx",
                       "sqlalchemy>=1",
                       "biopython>=1.6",
-                      
-                       ],
 
-    extras_require = {
-                    "postgresql": ["psycopg2"],
-                    "mysql": ["mysqlclient>=1.3.6"],
-                    "stats": ["scipy","numpy"]  
-                    
-                    },
+                      ],
 
-    data_files = [ ("sample_data", glob.glob("sample_data/*"))],
+    extras_require={
+        "postgresql": ["psycopg2"],
+        "mysql": ["mysqlclient>=1.3.6"],
+        "stats": ["scipy", "numpy"]
+
+    },
+
+    data_files=[("sample_data", glob.glob("sample_data/*"))],
 
 )

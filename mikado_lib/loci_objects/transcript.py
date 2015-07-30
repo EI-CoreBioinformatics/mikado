@@ -666,15 +666,15 @@ class Transcript:
                             new_exon = list(exon)
                             if texon[0] == boundary[1]:
                                 if right is None:
-                                    self.logger.debug("Appending right UTR exon {0}".format(exon))
+                                    self.logger.debug("Appending right UTR exon {0}".format(new_exon))
                                 else:
-                                    new_exon = [new_exon[0], new_exon[0]+1]
+                                    new_exon = [new_exon[1], new_exon[1]+1]
                                     self.logger.debug("Appending moonobase exon {0}".format(new_exon))
                             elif texon[1] == boundary[0]:
                                 if left is None:
-                                    self.logger.debug("Appending left UTR exon {0}".format(exon))
+                                    self.logger.debug("Appending left UTR exon {0}".format(new_exon))
                                 else:
-                                    new_exon = [new_exon[1], new_exon[1]+1]
+                                    new_exon = [new_exon[0], new_exon[0]+1]
                                     self.logger.debug("Appending moonobase exon {0}".format(new_exon))
                             # Case 3
                             elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic

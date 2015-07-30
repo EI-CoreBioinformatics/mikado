@@ -118,7 +118,7 @@ class BED12:
             self._fields = self._line.split("\t")
         elif type(self._line) not in (list, tuple):
             raise TypeError("I need an ordered array, not {0}".format(type(self._line)))
-        
+
         if len(self._fields) != 12:
             self.header = True
             return

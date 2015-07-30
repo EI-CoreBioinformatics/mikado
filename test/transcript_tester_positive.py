@@ -6,13 +6,99 @@ Unit test for a transcript on the positive strand.
 
 import unittest
 import re
+import copy
 import mikado_lib.parsers
 import mikado_lib.exceptions
 import mikado_lib.loci_objects
+import logging
+
+
+class Chr5Tester(unittest.TestCase):
+
+    handler = logging.StreamHandler()
+    handler.setLevel("DEBUG")
+    logger = logging.getLogger("test")
+    logger.setLevel("DEBUG")
+    logger.propagate = False
+    formatter = logging.Formatter(
+        "{asctime} - {levelname} - {module}:{lineno} - {funcName} - {name} - {message}",
+        style="{"
+        )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.debug("TEST")
+
+    def setUp(self):
+        self.tr = mikado_lib.loci_objects.transcript.Transcript()
+        self.tr.chrom = "Chr5"
+        self.tr.start = 22597965
+        self.tr.end = 22602701
+        self.tr.strand = "+"
+        self.tr.score = 1000
+        self.tr.parent = "StringTie_DN.70115"
+        self.tr.id = "StringTie_DN.70115.4"
+        self.tr.source = "StringTie"
+        self.tr.feature = "transcript"
+        self.tr.exons = [(22597965, 22601782),
+                         (22601862, 22601957),
+                         (22602039, 22602701)]
+
+        self.tr.logger = self.logger
+
+        # First ORF
+        self.bed1 = mikado_lib.parsers.bed12.BED12()
+        self.bed1.chrom = self.tr.id
+        self.bed1.start = 1
+        self.bed1.end = 4577
+        self.bed1.name = "{0}.1".format(self.tr.id)
+        self.bed1.strand = "+"
+        self.bed1.score = 0
+        self.bed1.thickStart = 434
+        self.bed1.thickEnd = 3736
+        self.bed1.has_start_codon = True
+        self.bed1.transcriptomic = True
+        self.bed1.has_stop_codon = True
+        self.bed1.blockCount = 1
+        self.bed1.blockSizes = [len(self.bed1)]
+        self.bed1.blockStarts = [0]
+
+        # Second ORF
+        self.bed2 = copy.deepcopy(self.bed1)
+        self.bed2.name = "{0}.2".format(self.tr.id)
+        self.bed2.thickStart = 2
+        self.bed2.thickEnd = 388
+        self.bed2.has_start_codon = False
+
+        # Third ORF
+        self.bed3 = copy.deepcopy(self.bed1)
+        self.bed3.name = "{0}.3".format(self.tr.id)
+        self.bed3.thickStart = 3914
+        self.bed3.thickEnd = 4393
+
+    def test_finalise(self):
+        self.tr.finalize()
+        self.assertTrue(self.tr.finalized)
+
+    def test_load_orfs(self):
+        self.assertFalse(self.bed1.invalid)
+        self.assertFalse(self.bed2.invalid)
+        self.assertFalse(self.bed3.invalid)
+        print(self.bed3.cds_len)
+        self.assertEqual(self.bed3.cds_len, self.bed3.thickEnd-self.bed3.thickStart+1 )
+
+        self.tr.load_orfs([self.bed1, self.bed2, self.bed3])
+        self.assertEqual(self.tr.number_internal_orfs, 3)
+        self.assertEqual(self.tr.selected_cds_length, self.bed1.cds_len)
+
+    def test_split(self):
+
+        self.tr.load_orfs([self.bed3, self.bed1])
+        splitted_transcripts = [l for l in self.tr.split_by_cds()]
+        self.assertEqual(len(splitted_transcripts), 2)
 
 
 class TranscriptTesterPositive(unittest.TestCase):
-    tr_gff = """Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380;Name=AT2G02380.1;Index=1
+    tr_gff = """Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380
 Chr2    TAIR10    exon    626642    626780    .    +    .    Parent=AT2G02380.1
 Chr2    TAIR10    five_prime_UTR    626642    626780    .    +    .    Parent=AT2G02380.1
 Chr2    TAIR10    exon    626842    626880    .    +    .    Parent=AT2G02380.1
@@ -330,7 +416,6 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
         self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
-        import logging
         handler = logging.StreamHandler()
         handler.setLevel("DEBUG")
         logger = logging.getLogger("test")

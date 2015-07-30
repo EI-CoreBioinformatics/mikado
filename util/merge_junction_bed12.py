@@ -109,6 +109,7 @@ def main():
         newrecord.chrom = key[0]
         newrecord.start = min(x.start for x in juncs[key])
         newrecord.end = max(x.end for x in juncs[key])
+        newrecord.strand = key[1]
         newrecord.name = args.delim.join(x.name for x in juncs[key])
         newrecord.score = sum(x.score if x.score is not None else 0 for x in juncs[key])
         newrecord.thickStart = key[2]+1

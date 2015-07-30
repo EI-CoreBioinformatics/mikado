@@ -34,6 +34,8 @@ setup(
         'Programming Language :: Python :: 3.4',
     ],
 
+    zip_safe=False,
+
     keywords="rna-seq annotation genomics transcriptomics",
 
     packages=find_packages(),

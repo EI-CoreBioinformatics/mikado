@@ -102,6 +102,15 @@ class BED12:
         self.__has_stop = False
         self.__transcriptomic = False
         self.__strand = None
+        self.chrom = None
+        self.start = self.end = self.thickStart = self.thickEnd = 0
+        self.score = 0
+        self.strand = None
+        self.rgb = ''
+        self.blockSizes = [0]
+        self.blockStarts = [0]
+        self.blockCount = 1
+        self.invalid_reason = ''
 
         if len(args) == 0:
             self.header = True
@@ -239,8 +248,7 @@ class BED12:
     def strand(self):
         """
         Strand of the feature. It must be one of None,+,-
-        :rtype None
-        :rtype str
+        :rtype None | str
         """
         return self.__strand
 
@@ -249,11 +257,10 @@ class BED12:
         """
         Setter for strand. It verifies that the value is correct.
         :param strand: New strand value
-        :type strand: str
-        :type strand: None
+        :type strand: str | None
         """
 
-        if strand in (".", "?"):
+        if strand in (".", "?", None):
             self.__strand = None
         elif strand in ("+", "-"):
             self.__strand = strand
@@ -341,14 +348,29 @@ class BED12:
         :rtype bool
         """
         if self.thickStart < self.start or self.thickEnd > self.end:
+            self.invalid_reason = "thickStart {0} <start {1}: {2}; end {3} <thickEnd {4} {5}".format(
+                self.thickStart,
+                self.start,
+                self.thickStart < self.start,
+                self.end,
+                self.thickEnd,
+                self.thickEnd > self.end)
             return True
 
         if "fasta_length" not in self.__dict__:
             self.fasta_length = len(self)
 
         if len(self) != self.fasta_length:
+            self.invalid_reason = "Fasta length != BED length: {0} vs. {1}".format(
+                self.fasta_length,
+                len(self)
+            )
             return True
-        if self.transcriptomic is True and (self.thickEnd - self.thickStart + 1) % 3 != 0:
+        if self.transcriptomic is True and self.cds_len % 3 != 0:
+            self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
+                self.cds_len,
+                self.cds_len %3
+            )
             return True
         return False
 

@@ -127,6 +127,8 @@ class Transcript:
 
         # Starting settings for everything else
         self.chrom = None
+        self.source = "Mikado"
+        self.attributes = dict()
         self.exons, self.combined_cds, self.combined_utr = [], [], []
         self.logger = logger
         self.introns = []
@@ -145,6 +147,9 @@ class Transcript:
         self.intron_fraction = 1
         self.cds_intron_fraction = 1
         self.selected_cds_intron_fraction = 1
+
+        # Json configuration
+        self.json_dict = None
 
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
@@ -574,7 +579,8 @@ class Transcript:
 
                 # Now that we have collapsed the ORFs into usable boundaries, I have to
 
-                for counter, (boundary, bed12_objects) in enumerate(cds_boundaries.items()):
+                for counter, (boundary, bed12_objects) in enumerate(sorted(cds_boundaries.items(),
+                                                                           key=operator.itemgetter(0))):
                     # I *know* that I am moving left to right
                     new_transcript = self.__class__()
                     new_transcript.feature = "mRNA"
@@ -606,22 +612,40 @@ class Transcript:
                     tstart = float("Inf")
                     tend = float("-Inf")
 
-                    self.logger.debug("TID {0} counter {1}, left {2} right {3}".format(self.id,
-                                                                                       counter,
-                                                                                       (left and len(left)) or 0,
-                                                                                       (right and len(right)) or 0))
+                    self.logger.debug("TID {0} counter {1}, boundary {2}, left {3} right {4}".format(self.id,
+                                                                                        boundary,
+                                                                                        counter,
+                                                                                        boundary,
+                                                                                        (left and len(left)) or 0,
+                                                                                        (right and len(right)) or 0))
 
-                    for exon in exons:
+                    for exon in sorted(exons, key=operator.itemgetter(0)):
+
                         # Translate into transcript coordinates
                         elength = exon[1] - exon[0] + 1
                         texon = [tlength + 1, tlength + elength]
                         tlength += elength
+                        self.logger.debug("Analysing exon {0} [{1}] for {2}".format(exon, texon, self.id))
+                        if not any([
+                                    texon[0] <= boundary[0] <= boundary[1] <= texon[1],
+                                    texon[0] <= boundary[0] <= texon[1] <= boundary[1],
+                                    texon[1] >= boundary[1] >= texon[0] >= boundary[0],
+                                    texon[0] >= boundary[0] and texon[1] <= boundary[1],
+                                    texon[1] <= boundary[0],
+                                    texon[0] >= boundary[1],
+                                    ]):
+                                raise AssertionError("Unaccounted case for {0} (texon {1}); boundaries: {2}".format(
+                                    exon,
+                                    texon,
+                                    boundary
+                                ))
+
                         # Exon completely contained in the ORF
                         if texon[0] >= boundary[0] and texon[1] <= boundary[1]:
                             self.logger.debug("Appending CDS exon {0}".format(exon))
                             my_exons.append(exon)
                         # Exon on the left of the CDS
-                        elif texon[1] <= boundary[0]:
+                        elif texon[1] < boundary[0]:
                             if left is None:
                                 self.logger.debug("Appending left UTR exon {0}".format(exon))
                                 my_exons.append(exon)
@@ -629,7 +653,7 @@ class Transcript:
                                 self.logger.debug("Discarding left UTR exon {0}".format(exon))
                                 discarded_exons.append(exon)
                                 continue
-                        elif texon[0] >= boundary[1]:
+                        elif texon[0] > boundary[1]:
                             if right is None:
                                 self.logger.debug("Appending right UTR exon {0}".format(exon))
                                 my_exons.append(exon)
@@ -640,7 +664,21 @@ class Transcript:
                         # exon with partial UTR
                         else:
                             new_exon = list(exon)
-                            if texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic
+                            if texon[0] == boundary[1]:
+                                if right is None:
+                                    self.logger.debug("Appending right UTR exon {0}".format(exon))
+                                else:
+                                    new_exon = [new_exon[0], new_exon[0]+1]
+                                    self.logger.debug("Appending moonobase exon {0}".format(new_exon))
+                            elif texon[1] == boundary[0]:
+                                if left is None:
+                                    self.logger.debug("Appending left UTR exon {0}".format(exon))
+                                else:
+                                    new_exon = [new_exon[1], new_exon[1]+1]
+                                    self.logger.debug("Appending moonobase exon {0}".format(new_exon))
+                            # Case 3
+                            elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic
+                                self.logger.debug("Exon {0}, case 3.1".format(exon))
                                 if self.strand == "-":
                                     if left is not None:
                                         new_exon[1] = exon[0] + (texon[1] - boundary[0])
@@ -670,6 +708,7 @@ class Transcript:
                                     texon[1] = boundary[1]
 
                             elif texon[0] <= boundary[0] <= texon[1] <= boundary[1]:
+                                self.logger.debug("Exon {0}, case 3.2".format(exon))
                                 if left is not None:
                                     if self.strand == "-":
                                         new_exon[1] = exon[0] + (texon[1] - boundary[0])
@@ -680,7 +719,9 @@ class Transcript:
                                     self.logger.debug(
                                         "GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
                                     texon[0] = boundary[0]
-                            if texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
+
+                            elif texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
+                                self.logger.debug("Exon {0}, case 3.3".format(exon))
                                 if right is not None:
                                     if self.strand == "-":
                                         new_exon[0] = exon[1] - (boundary[1] - texon[0])
@@ -691,8 +732,12 @@ class Transcript:
                                     self.logger.debug(
                                         "Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
                                     texon[1] = boundary[1]
+                                else:
+                                    self.logger.debug("New exon: {0}".format(new_exon))
+                                    self.logger.debug("New texon: {0}".format(texon))
 
                             my_exons.append(tuple(sorted(new_exon)))
+
                         tstart = min(tstart, texon[0])
                         tend = max(tend, texon[1])
 
@@ -719,7 +764,9 @@ class Transcript:
                         obj.thickStart = min(obj.thickStart, tend) - tstart + 1
                         obj.thickEnd = min(obj.thickEnd, tend) - tstart + 1
                         obj.blockSizes = [obj.end]
-                        assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length, str(obj))
+                        assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length,
+                                                      obj.invalid_reason,
+                                                      str(obj))
                         new_bed12s.append(obj)
 
                     new_transcript.finalize()
@@ -1208,7 +1255,7 @@ class Transcript:
             )
 
         elif len(self.internal_orfs) > 1:
-            self.logger.debug("Found {0} ORF for {1}".format(len(self.internal_orfs), self.id))
+            self.logger.debug("Found {0} ORFs for {1}".format(len(self.internal_orfs), self.id))
             cds_spans = []
             candidates = []
             for internal_cds in self.internal_orfs:
@@ -2242,6 +2289,24 @@ class Transcript:
             return 0
         else:
             return len(self.verified_introns) / len(self.introns)
+
+    @Metric
+    def non_verified_introns_num(self):
+        """
+        This metric returns the number of introns of the transcript which are not validated
+        by external data.
+        :rtype : int
+        """
+        return len(self.introns) - len(self.verified_introns)
+
+    @Metric
+    def verified_introns_num(self):
+        """
+        This metric returns the number of introns of the transcript which are validated
+        by external data.
+        :rtype : int
+        """
+        return len(self.verified_introns)
 
     @Metric
     def proportion_verified_introns_inlocus(self):

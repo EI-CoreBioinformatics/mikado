@@ -109,17 +109,14 @@ class BED12:
 
         self._line = args[0]
         if type(self._line) in (str, None):
-            if self._line is None or self._line[0] == "#":
+            if self._line is None or len(self._line) ==0 or self._line[0] == "#":
                 self.header = True
                 return
 
-            self._line = self._line.rstrip().split("\t")
-        elif self._line is None:
-            self.header = True
-            return
+            self._fields = self._line.rstrip().split("\t")
         elif type(self._line) not in (list, tuple):
             raise TypeError("I need an ordered array, not {0}".format(type(self._line)))
-        if len(self._line) != 12:
+        if len(self._fields) != 12:
             self.header = True
             return
             # raise ValueError("Erroneous number of fields detected")
@@ -129,7 +126,7 @@ class BED12:
         self.chrom, self.start, self.end, \
             self.name, self.score, self.strand, \
             self.thickStart, self.thickEnd, self.rgb, \
-            self.blockCount, self.blockSizes, self.blockStarts = self._line
+            self.blockCount, self.blockSizes, self.blockStarts = self._fields
 
         self.start = int(self.start) + 1
         self.end = int(self.end)

@@ -669,7 +669,7 @@ class Transcript:
                                 if right is not None:
                                     texon[1] = boundary[1]
 
-                            elif texon[0] < boundary[0] <= texon[1] <= boundary[1]:
+                            elif texon[0] <= boundary[0] <= texon[1] <= boundary[1]:
                                 if left is not None:
                                     if self.strand == "-":
                                         new_exon[1] = exon[0] + (texon[1] - boundary[0])
@@ -680,7 +680,7 @@ class Transcript:
                                     self.logger.debug(
                                         "GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
                                     texon[0] = boundary[0]
-                            if texon[1] > boundary[1] >= texon[0] >= boundary[0]:
+                            if texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
                                 if right is not None:
                                     if self.strand == "-":
                                         new_exon[0] = exon[1] - (boundary[1] - texon[0])

@@ -78,7 +78,14 @@ def main():
         args.bed = [mikado_lib.parsers.bed12.Bed12Parser(sys.stdin)]
         results = [serialise(sys.stdin, args.tophat)]
     else:
-        pool = multiprocessing.Pool(processes=min(len(args.bed), args.threads))
+        # The process pool has size which is the minimum of
+        # number of available cores
+        # number of BED files
+        # number of requested cores
+        pool = multiprocessing.Pool(processes=min(len(args.bed),
+                                                  args.threads,
+                                                  multiprocessing.cpu_count()
+                                                  ))
         results = pool.starmap(serialise, zip(args.bed, [args.tophat]*len(args.bed)))
         pool.close()
         pool.join()

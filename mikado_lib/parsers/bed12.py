@@ -108,8 +108,8 @@ class BED12:
             return
 
         self._line = args[0]
-        if type(self._line) in (str, None):
-            if self._line is None or len(self._line) ==0 or self._line[0] == "#":
+        if type(self._line) is str or self._line is None:
+            if self._line is None or len(self._line) == 0 or self._line[0] == "#":
                 self.header = True
                 return
 

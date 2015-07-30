@@ -1,19 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="a1802b00-7f80-4b1f-9d22-3b306b29b6c1" name="Default" comment="">
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/Mikado.iml" afterPath="$PROJECT_DIR$/.idea/Mikado.iml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/sample_data/Snakefile" afterPath="$PROJECT_DIR$/sample_data/Snakefile" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mikado_lib/serializers/blast_utils.py" afterPath="$PROJECT_DIR$/mikado_lib/serializers/blast_utils.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/util/gff_stats.py" afterPath="$PROJECT_DIR$/util/gff_stats.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mikado_lib/serializers/junction.py" afterPath="$PROJECT_DIR$/mikado_lib/serializers/junction.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/misc.xml" afterPath="$PROJECT_DIR$/.idea/misc.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mikado_lib/serializers/orf.py" afterPath="$PROJECT_DIR$/mikado_lib/serializers/orf.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/setup.py" afterPath="$PROJECT_DIR$/setup.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mikado_lib/loci_objects/transcript.py" afterPath="$PROJECT_DIR$/mikado_lib/loci_objects/transcript.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/vcs.xml" afterPath="$PROJECT_DIR$/.idea/vcs.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-    </list>
+    <list default="true" id="a1802b00-7f80-4b1f-9d22-3b306b29b6c1" name="Default" comment="" />
     <ignored path="Mikado.iws" />
     <ignored path=".idea/workspace.xml" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -60,8 +48,8 @@
       <file leaf-file-name="transcript.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/mikado_lib/loci_objects/transcript.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.42980295">
-              <caret line="988" column="53" selection-start-line="988" selection-start-column="53" selection-end-line="988" selection-end-column="53" />
+            <state vertical-scroll-proportion="0.6514778">
+              <caret line="1289" column="28" selection-start-line="1289" selection-start-column="20" selection-end-line="1289" selection-end-column="28" />
               <folding />
             </state>
           </provider>
@@ -388,7 +376,7 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="0" width="1920" height="949" extended-state="6" />
-    <editor active="true" />
+    <editor active="false" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" weight="0.24960506" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
       <window_info id="TODO" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" weight="0.33" sideWeight="0.5" order="6" side_tool="false" content_ui="tabs" />
@@ -500,8 +488,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/mikado_lib/loci_objects/transcript.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.42980295">
-          <caret line="988" column="53" selection-start-line="988" selection-start-column="53" selection-end-line="988" selection-end-column="53" />
+        <state vertical-scroll-proportion="0.6514778">
+          <caret line="1289" column="28" selection-start-line="1289" selection-start-column="20" selection-end-line="1289" selection-end-column="28" />
           <folding />
         </state>
       </provider>

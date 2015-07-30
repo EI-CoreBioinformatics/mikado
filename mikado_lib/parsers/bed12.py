@@ -109,13 +109,16 @@ class BED12:
 
         self._line = args[0]
         if type(self._line) is str or self._line is None:
-            if self._line is None or len(self._line) == 0 or self._line[0] == "#":
+            if self._line is None:
+                self._line = ''
+            self._line = self._line.rstrip()
+            if len(self._line) == 0 or self._line[0] == "#":
                 self.header = True
                 return
-
-            self._fields = self._line.rstrip().split("\t")
+            self._fields = self._line.split("\t")
         elif type(self._line) not in (list, tuple):
             raise TypeError("I need an ordered array, not {0}".format(type(self._line)))
+        
         if len(self._fields) != 12:
             self.header = True
             return

@@ -104,11 +104,11 @@ def main():
         newrecord.end = max(x.end for x in juncs[key])
         newrecord.name = args.delim.join(x.name for x in juncs[key])
         newrecord.score = sum(x.score if x.score is not None else 0 for x in juncs[key])
-        newrecord.thickStart = key[2]
+        newrecord.thickStart = key[2]+1
         newrecord.thickEnd = key[3]
         newrecord.rgb = "255,0,0"
         newrecord.blockCount = 2
-        newrecord.blockSizes = [newrecord.thickStart-newrecord.start,
+        newrecord.blockSizes = [newrecord.thickStart-newrecord.start+1,
                                 newrecord.end-newrecord.thickEnd+1]
         newrecord.blockStarts = [0, newrecord.thickEnd - newrecord.start+1]
         print(newrecord, file=args.output)

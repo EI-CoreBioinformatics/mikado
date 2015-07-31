@@ -612,12 +612,13 @@ class Transcript:
                     tstart = float("Inf")
                     tend = float("-Inf")
 
-                    self.logger.debug("TID {0} counter {1}, boundary {2}, left {3} right {4}".format(self.id,
-                                                                                        boundary,
-                                                                                        counter,
-                                                                                        boundary,
-                                                                                        (left and len(left)) or 0,
-                                                                                        (right and len(right)) or 0))
+                    self.logger.debug("""TID {0} counter {1}, boundary {2},
+                                        left {3} right {4}""".format(self.id,
+                                                                     boundary,
+                                                                     counter,
+                                                                     boundary,
+                                                                     (left and len(left)) or 0,
+                                                                     (right and len(right)) or 0))
 
                     for exon in sorted(exons, key=operator.itemgetter(0)):
 
@@ -626,22 +627,9 @@ class Transcript:
                         texon = [tlength + 1, tlength + elength]
                         tlength += elength
                         self.logger.debug("Analysing exon {0} [{1}] for {2}".format(exon, texon, self.id))
-                        if not any([
-                                    texon[0] <= boundary[0] <= boundary[1] <= texon[1],
-                                    texon[0] <= boundary[0] <= texon[1] <= boundary[1],
-                                    texon[1] >= boundary[1] >= texon[0] >= boundary[0],
-                                    texon[0] >= boundary[0] and texon[1] <= boundary[1],
-                                    texon[1] <= boundary[0],
-                                    texon[0] >= boundary[1],
-                                    ]):
-                                raise AssertionError("Unaccounted case for {0} (texon {1}); boundaries: {2}".format(
-                                    exon,
-                                    texon,
-                                    boundary
-                                ))
 
                         # Exon completely contained in the ORF
-                        if texon[0] >= boundary[0] and texon[1] <= boundary[1]:
+                        if boundary[0] <= texon[0] < texon[1] <= boundary[1]:
                             self.logger.debug("Appending CDS exon {0}".format(exon))
                             my_exons.append(exon)
                         # Exon on the left of the CDS
@@ -664,18 +652,31 @@ class Transcript:
                         # exon with partial UTR
                         else:
                             new_exon = list(exon)
-                            if texon[0] == boundary[1]:
-                                if right is None:
-                                    self.logger.debug("Appending right UTR exon {0}".format(new_exon))
-                                else:
-                                    new_exon = [new_exon[1], new_exon[1]+1]
-                                    self.logger.debug("Appending moonobase exon {0}".format(new_exon))
-                            elif texon[1] == boundary[0]:
+                            if texon[1] == boundary[0]:
+                                # In this case we have that the exon ends exactly at the end of the
+                                # UTR, so we have to keep a one-base exon
                                 if left is None:
-                                    self.logger.debug("Appending left UTR exon {0}".format(new_exon))
+                                    self.logger.debug("Appending mixed UTR/CDS left exon {0}".format(exon))
                                 else:
-                                    new_exon = [new_exon[0], new_exon[0]+1]
-                                    self.logger.debug("Appending moonobase exon {0}".format(new_exon))
+                                    discarded_exons.append((exon[0], exon[1]-1))
+                                    new_exon = (exon[1]-1, exon[1])
+                                    texon = (texon[1]-1, texon[1])
+                                    self.logger.debug("Appending monobase left exon {0} (Texon {1}".format(
+                                        new_exon,
+                                        texon))
+                            elif texon[0] == boundary[1]:
+                                # In this case we have that the exon ends exactly at the end of the
+                                # UTR, so we have to keep a one-base exon
+                                if right is None:
+                                    self.logger.debug("Appending mixed UTR/CDS right exon {0}".format(exon))
+                                else:
+                                    discarded_exons.append((exon[0]+1, exon[1]))
+                                    new_exon = (exon[0], exon[0]+1)
+                                    texon = (texon[0], texon[0]+1)
+                                    self.logger.debug("Appending monobase right exon {0} (Texon {1})".format(
+                                        new_exon,
+                                        texon))
+
                             # Case 3
                             elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic
                                 self.logger.debug("Exon {0}, case 3.1".format(exon))

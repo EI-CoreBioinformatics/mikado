@@ -47,14 +47,12 @@ setup(
                       "networkx",
                       "sqlalchemy>=1",
                       "biopython>=1.6",
-
+                      "pandas"
                       ],
 
     extras_require={
         "postgresql": ["psycopg2"],
         "mysql": ["mysqlclient>=1.3.6"],
-        "stats": ["scipy", "numpy"]
-
     },
 
     data_files=[("sample_data", glob.glob("sample_data/*"))],

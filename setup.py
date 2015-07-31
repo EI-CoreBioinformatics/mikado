@@ -17,7 +17,7 @@ setup(
     name="Mikado",
     version="0.8",
 
-    description="A Python3 annotation program to select the best gene model in each Locus",
+    description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
 
     url="http://stash.tgac.ac.uk/users/venturil/repos/mikado/",

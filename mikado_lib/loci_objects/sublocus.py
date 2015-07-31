@@ -251,36 +251,79 @@ class Sublocus(Abstractlocus):
     def find_retained_introns(self, transcript):
 
         """This method checks the number of exons that are possibly retained introns for a given transcript.
-        To perform this operation, it checks for each non-CDS exon whether it exists a sublocus intron that
-        is *completely* contained within a transcript exon. Such non-CDS exons must be *after* the
-        CDS start; a retained intron should contain a premature stop codon, not a delayed start. 
-        CDS exons are ignored because their retention might be perfectly valid.
+        A retained intron is defined as an exon which:
+
+         - spans completely an intron of another model *between coding exons*
+         - is not completely coding itself
+         - has *part* of the non-coding section lying inside the intron
+
         The results are stored inside the transcript instance, in the "retained_introns" tuple.
 
         :param transcript: a Transcript instance
         :type transcript: Transcript
+
+        :returns : transcript.retained_introns
+        :rtype : tuple[tuple[int,int]]
         """
 
+        # Create the store
         transcript.retained_introns = []
 
-        if transcript.strand == "+":
-            filtering = filter(lambda e: e not in transcript.non_overlapping_cds and
-                               e[0] >= transcript.combined_cds_start,
-                               transcript.exons
-                               )
-        else:
-            filtering = filter(lambda e: e not in transcript.non_overlapping_cds and
-                               e[1] <= transcript.combined_cds_start,
-                               transcript.exons
-                               )
-        for exon in filtering:
-            # Check that the overlap is at least as long as the minimum between the exon and the intron.
-            if any(filter(
-                    lambda junction: self.overlap(exon, junction) >= junction[1] - junction[0],
-                    self.combined_cds_introns
-            )) is True:
+        # Exclude from consideration any exon which is fully coding
+        for exon in transcript.exons:
+            in_cds = sorted(list(
+                filter( lambda cds: cds[0] >= exon[0] or cds[1] <= exon[1], transcript.combined_cds)
+                ))
+            if len(in_cds)==1 and in_cds[0]==exon:
+                # Completely coding exon
+                continue
+
+            # Find overlapping introns
+            intersecting_introns = list(
+                filter(lambda intron: self.overlap(exon, intron) >= intron[1]-intron[0]+1,
+                       self.combined_cds_introns
+                       ))
+
+            # If no CDS intron is completely overlapping the exon, continue
+            if len(intersecting_introns) == 0:
+                continue
+
+            # Now start to check
+            if len(in_cds) == 0:
+                # Completely UTR exon and there is at least one CDS intron
+                # which is completely contained inside it
                 transcript.retained_introns.append(exon)
-        transcript.retained_introns = tuple(transcript.retained_introns)
+            else:
+                for position,fragment in enumerate(in_cds):
+                    if position < len(in_cds) - 1:
+                        to_check = (fragment[1] + 1, in_cds[position + 1][0] -1)
+                        # If any of the fragments overlaps the intersecting introns,
+                        # this is a retained intron exon
+                        if any(True if self.overlap(to_check, intron)> 0 else False
+                                    for intron in intersecting_introns):
+                                transcript.retained_introns.append(exon)
+                                break
+                    if position == len(in_cds) - 1: # last fragment to analyse
+                        if fragment[1] < exon[1]:
+                            to_check = (fragment[1] + 1, exon[1])
+                            # If any of the fragments overlaps the intersecting introns,
+                            # this is a retained intron exon
+                            if any(True if self.overlap(to_check, intron) > 0 else False
+                                    for intron in intersecting_introns):
+                                transcript.retained_introns.append(exon)
+                                break
+                    if position == 0: # first fragment to analyse
+                        if fragment[0] > exon[0]:
+                            to_check = (exon[0], fragment[0] - 1)
+                            # If any of the fragments overlaps the intersecting introns,
+                            # this is a retained intron exon
+                            if any(True if self.overlap(to_check, intron) > 0 else False
+                                    for intron in intersecting_introns):
+                                transcript.retained_introns.append(exon)
+                                break
+
+        # Sort the exons marked as retained introns
+        transcript.retained_introns = tuple(sorted(transcript.retained_introns))
 
     def load_scores(self, scores):
         """

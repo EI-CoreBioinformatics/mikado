@@ -13,7 +13,14 @@ import mikado_lib.loci_objects
 import logging
 
 
-class Chr5Tester(unittest.TestCase):
+class MonoBaseTester(unittest.TestCase):
+
+    """
+    This test verifies the correct ORF loading and splitting
+     in the case where the transcript has multiple ORFs and
+     in one case it starts exactly at the terminal point of
+      a previous exon.
+    """
 
     handler = logging.StreamHandler()
     handler.setLevel("DEBUG")

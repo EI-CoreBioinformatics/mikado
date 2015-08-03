@@ -70,7 +70,7 @@ class Orf(dbBase):
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     start = Column(Integer, nullable=False)
     end = Column(Integer, nullable=False)
-    name = Column(String(200))
+    orf_name = Column(String(200))
     strand = Column(CHAR)
     thickStart = Column(Integer, nullable=False)
     thickEnd = Column(Integer, nullable=False)
@@ -91,7 +91,7 @@ class Orf(dbBase):
         self.end = bed12_object.end
         self.thickStart = bed12_object.thickStart
         self.thickEnd = bed12_object.thickEnd
-        self.name = bed12_object.name
+        self.orf_name = bed12_object.name
         self.strand = bed12_object.strand
         self.score = bed12_object.score
         self.has_start_codon = bed12_object.has_start_codon

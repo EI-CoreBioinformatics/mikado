@@ -9,6 +9,7 @@ import os
 import logging
 from Bio import SeqIO
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
+from sqlalchemy.ext.hybrid import hybrid_property
 from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
@@ -114,7 +115,7 @@ class Orf(dbBase):
         b.query = b.chrom = self.query
         b.start = self.start
         b.end = self.end
-        b.name = self.name
+        b.name = self.orf_name
         b.score = self.score
         b.strand = self.strand
         b.thickStart = self.thickStart
@@ -129,7 +130,7 @@ class Orf(dbBase):
 
         return b
 
-    @property
+    @hybrid_property
     def query(self):
         """
         This property returns the name column value of the corresponding Query object.

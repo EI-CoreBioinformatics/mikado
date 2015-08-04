@@ -41,6 +41,7 @@ class GtfLine(object):
 
         self.header = False
         self.attributes = {}
+        self._info = []
 
         self.feature = None
         if len(args) > 0:
@@ -66,7 +67,7 @@ class GtfLine(object):
             if len(self.fields) != 9:
                 raise ValueError(line)
             self.chrom, self.source, self.feature = self.fields[0:3]
-            self.start, self.end = tuple(int(i) for i in self.fields[3:5])
+            self.start, self.end = int(self.fields[3]), int(self.fields[4])
             self.end = self.end
             try:
                 self.score = float(self.fields[5])
@@ -86,12 +87,8 @@ class GtfLine(object):
                 except:
                     raise
 
-            self._info = self.fields[8].split(';')
-            try:
-                self._info.remove('')
-            except ValueError:
-                pass
-            for info in self._info:
+            for info in filter(lambda x: x !='', self.fields[8].split(';')):
+                self._info.append(info)
                 info = info.lstrip().split(' ')
                 try:
                     self.attributes[info[0]] = info[1].replace('"', '')

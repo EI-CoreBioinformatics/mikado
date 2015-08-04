@@ -22,6 +22,7 @@ from sqlalchemy import Float
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.ext.hybrid import hybrid_method,hybrid_property
 
 
 class Chrom(dbBase):
@@ -132,13 +133,33 @@ class Junction(dbBase):
             end=self.end
         )
 
-    @property
+    @hybrid_property
     def chrom(self):
         """
         This property returns the name of the chromosome upon which the junction is located.
         """
 
         return self.chrom_object.name
+
+    @hybrid_method
+    def is_equal(self, chrom, start, end, strand):
+        """
+        Function to verify whether a set of coordinates is equal to those in the DB.
+
+        :param chrom: chromosome
+        :type chrom: str
+
+        :param start: start position (1-offset)
+        :type start: int
+
+        :param end: end position (1-offset)
+        :type end: int
+
+        :param strand: strand of the junction
+        :type strand: str
+        """
+        return (self.chrom == chrom) and (self.start == start) and \
+               (self.end == end) and (self.strand == strand)
 
 
 class JunctionSerializer:

@@ -33,7 +33,7 @@ class Parser(object):
         self.__closed = False
         if not isinstance(handle, io.IOBase):
             try:
-                handle = open(handle)
+                handle = open(handle, "rt", buffering=1)
             except:
                 raise TypeError
         self._handle = handle

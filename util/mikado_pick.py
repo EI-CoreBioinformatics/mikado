@@ -8,6 +8,25 @@ import sys
 import mikado_lib.loci_objects
 
 
+if "line_profiler" not in dir():
+    def profile(function):
+        """
+        Mock wrapper to imitate the profile decorator
+        :param function: the function to be wrapped
+        :return:
+        """
+        def inner(*args, **kwargs):
+            """
+            Returns the wrapped function
+            :param args: arguments to be passed
+            :param kwargs: keyword arguments to be passed
+            :return:
+            """
+            return function(*args, **kwargs)
+        return inner
+
+
+@profile
 def main():
     """
     Main script function.
@@ -30,6 +49,9 @@ def main():
                         help='''Flag. If set, the pipeline will suppress any loci whose transcripts
                         do not pass the requirements set in the JSON file.'''
                         )
+    parser.add_argument("--single", action="store_true", default=False,
+                        help="""Flag. If set, Creator will be launched with a single process.
+                        Useful for debugging purposes only.""")
     log_options = parser.add_argument_group("Log options")
     log_options.add_argument("-l", "--log", default=None,
                              help="File to write the log to. Default: decided by the configuration file.")
@@ -55,6 +77,8 @@ def main():
         args.json_conf["log_settings"]['log'] = None
     elif args.log is not None:
         args.json_conf["log_settings"]['log'] = args.log
+
+    args.json_conf["single_thread"] = args.single
 
     if args.log_level is not None:
         args.json_conf["log_settings"]['log_level'] = args.log_level

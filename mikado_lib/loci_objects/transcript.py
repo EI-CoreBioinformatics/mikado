@@ -21,7 +21,7 @@ from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 
 # mikado imports
-from mikado_lib.serializers.junction import Junction, Chrom
+from mikado_lib.serializers.junction import Junction
 import mikado_lib.serializers.orf
 from mikado_lib.serializers.blast_utils import Query, Hit
 from mikado_lib.serializers.orf import Orf
@@ -35,11 +35,22 @@ import mikado_lib.exceptions
 # from memory_profiler import profile
 # import logging
 
-# if "line_profiler" not in dir(): #@UndefinedVariable
-#     def profile(function):
-#         def inner(*args, **kwargs):
-#             return function(*args, **kwargs)
-#         return inner
+if "line_profiler" not in dir():
+    def profile(function):
+        """
+        Mock wrapper to imitate the profile decorator
+        :param function: the function to be wrapped
+        :return:
+        """
+        def inner(*args, **kwargs):
+            """
+            Returns the wrapped function
+            :param args: arguments to be passed
+            :param kwargs: keyword arguments to be passed
+            :return:
+            """
+            return function(*args, **kwargs)
+        return inner
 
 
 class Metric(property):
@@ -421,13 +432,14 @@ class Transcript:
         state = self.__dict__.copy()
         self.logger = logger
 
-        if hasattr(self, "json_dict"):
+        if hasattr(self, "json_dict") and self.json_dict is not None:
             if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
                 del state["json_dict"]["requirements"]["compiled"]
 
         if hasattr(self, "session"):
-            state["session"].expunge_all()
-            state["session"].close()
+            if state["session"] is not None:
+                state["session"].expunge_all()
+                state["session"].close()
             del state["session"]
         if hasattr(self, "sessionmaker"):
             del state["sessionmaker"]
@@ -481,7 +493,7 @@ class Transcript:
         start, end = sorted([gffline.start, gffline.end])
         store.append((start, end))
 
-    # @profile
+    @profile
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
@@ -577,37 +589,32 @@ class Transcript:
             else:
                 spans = []
 
-                # Now that we have collapsed the ORFs into usable boundaries, I have to
+                if self.strand == "-":
+                    reversal = True
+                else:
+                    reversal = False
 
                 for counter, (boundary, bed12_objects) in enumerate(sorted(cds_boundaries.items(),
-                                                                           key=operator.itemgetter(0))):
-                    # I *know* that I am moving left to right
+                                                                           key=operator.itemgetter(0))
+                                                                    ):
                     new_transcript = self.__class__()
                     new_transcript.feature = "mRNA"
                     for attribute in ["chrom", "source", "score", "strand", "attributes"]:
                         setattr(new_transcript, attribute, getattr(self, attribute))
                     # Determine which ORFs I have on my right and left
                     new_transcript.parent = self.parent
+                    left = True
+                    right = True
                     if counter == 0:  # leftmost
-                        left = None
-                        right = cds_boundaries[list(cds_boundaries.keys())[counter + 1]]
-                    elif 1 + counter == len(cds_boundaries):  # rightmost
-                        left = cds_boundaries[list(cds_boundaries.keys())[counter - 1]]
-                        right = None
-                    else:  # somewhere in the middle
-                        left = cds_boundaries[list(cds_boundaries.keys())[counter - 1]]
-                        right = cds_boundaries[list(cds_boundaries.keys())[counter + 1]]
+                        left = False
+                    if 1 + counter == len(cds_boundaries):  # rightmost
+                        right = False
                     counter += 1  # Otherwise they start from 0
                     new_transcript.id = "{0}.split{1}".format(self.id, counter)
                     new_transcript.logger = self.logger
                     my_exons = []
 
                     discarded_exons = []
-                    if self.strand == "-":
-                        exons = sorted(self.exons, reverse=True, key=operator.itemgetter(0))
-                    else:
-                        exons = sorted(self.exons, key=operator.itemgetter(0))
-
                     tlength = 0
                     tstart = float("Inf")
                     tend = float("-Inf")
@@ -617,11 +624,10 @@ class Transcript:
                                                                      boundary,
                                                                      counter,
                                                                      boundary,
-                                                                     (left and len(left)) or 0,
-                                                                     (right and len(right)) or 0))
+                                                                     left,
+                                                                     right))
 
-                    for exon in sorted(exons, key=operator.itemgetter(0)):
-
+                    for exon in sorted(self.exons, key=operator.itemgetter(0), reverse=reversal):
                         # Translate into transcript coordinates
                         elength = exon[1] - exon[0] + 1
                         texon = [tlength + 1, tlength + elength]
@@ -634,19 +640,20 @@ class Transcript:
                             my_exons.append(exon)
                         # Exon on the left of the CDS
                         elif texon[1] < boundary[0]:
-                            if left is None:
-                                self.logger.debug("Appending left UTR exon {0}".format(exon))
+                            if left is False:
+                                self.logger.debug("Appending 5'UTR exon {0}".format(
+                                    exon))
                                 my_exons.append(exon)
                             else:
-                                self.logger.debug("Discarding left UTR exon {0}".format(exon))
+                                self.logger.debug("Discarding 5'UTR exon {0}".format(exon))
                                 discarded_exons.append(exon)
                                 continue
                         elif texon[0] > boundary[1]:
-                            if right is None:
-                                self.logger.debug("Appending right UTR exon {0}".format(exon))
+                            if right is False:
+                                self.logger.debug("Appending 3'UTR exon {0}".format(exon))
                                 my_exons.append(exon)
                             else:
-                                self.logger.debug("Discarding right UTR exon {0}".format(exon))
+                                self.logger.debug("Discarding 3'UTR exon {0}".format(exon))
                                 discarded_exons.append(exon)
                                 continue
                         # exon with partial UTR
@@ -655,40 +662,61 @@ class Transcript:
                             if texon[1] == boundary[0]:
                                 # In this case we have that the exon ends exactly at the end of the
                                 # UTR, so we have to keep a one-base exon
-                                if left is None:
-                                    self.logger.debug("Appending mixed UTR/CDS left exon {0}".format(exon))
+                                if left is False:
+                                    self.logger.debug("Appending mixed UTR/CDS 5' exon {0}".format(exon))
                                 else:
-                                    discarded_exons.append((exon[0], exon[1]-1))
-                                    new_exon = (exon[1]-1, exon[1])
-                                    texon = (texon[1]-1, texon[1])
-                                    self.logger.debug("Appending monobase left exon {0} (Texon {1}".format(
-                                        new_exon,
-                                        texon))
+                                    if self.strand == "+":
+                                        # Keep only the LAST base
+                                        discarded_exons.append((exon[0], exon[1]-1))
+                                        new_exon = (exon[1]-1, exon[1])
+                                        texon = (texon[1]-1, texon[1])
+                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                            new_exon,
+                                            texon))
+                                    else:
+                                        # Keep only the FIRST base
+                                        discarded_exons.append((exon[0]+1, exon[1]))
+                                        new_exon = (exon[0], exon[0]+1)
+                                        texon = (texon[1]-1, texon[1])
+                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                            new_exon,
+                                            texon))
+
                             elif texon[0] == boundary[1]:
                                 # In this case we have that the exon ends exactly at the end of the
-                                # UTR, so we have to keep a one-base exon
-                                if right is None:
+                                # CDS, so we have to keep a one-base exon
+                                if right is False:
                                     self.logger.debug("Appending mixed UTR/CDS right exon {0}".format(exon))
                                 else:
-                                    discarded_exons.append((exon[0]+1, exon[1]))
-                                    new_exon = (exon[0], exon[0]+1)
-                                    texon = (texon[0], texon[0]+1)
-                                    self.logger.debug("Appending monobase right exon {0} (Texon {1})".format(
-                                        new_exon,
-                                        texon))
+                                    if self.strand == "+":
+                                        # In this case we have to keep only the FIRST base
+                                        discarded_exons.append((exon[0]+1, exon[1]))
+                                        new_exon = (exon[0], exon[0]+1)
+                                        texon = (texon[0], texon[0]+1)
+                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                            new_exon,
+                                            texon))
+                                    else:
+                                        # In this case we have to keep only the LAST base
+                                        discarded_exons.append((exon[0], exon[1]-1))
+                                        new_exon = (exon[1]-1, exon[1])
+                                        texon = (texon[1]-1, texon[1])
+                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                            new_exon,
+                                            texon))
 
                             # Case 3
                             elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic
                                 self.logger.debug("Exon {0}, case 3.1".format(exon))
                                 if self.strand == "-":
-                                    if left is not None:
+                                    if left is True:
                                         new_exon[1] = exon[0] + (texon[1] - boundary[0])
-                                    if right is not None:
+                                    if right is True:
                                         new_exon[0] = exon[1] - (boundary[1] - texon[0])
                                 else:
-                                    if left is not None:
+                                    if left is True:
                                         new_exon[0] = exon[1] - (texon[1] - boundary[0])
-                                    if right is not None:
+                                    if right is True:
                                         new_exon[1] = exon[0] + (boundary[1] - texon[0])
                                 self.logger.debug(
                                     "[Monoexonic] Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0],
@@ -703,14 +731,13 @@ class Transcript:
                                     "[Monoexonic] Gend shifted for {0}, {1} to {2}".format(self.id, exon[1],
                                                                                            new_exon[1]))
 
-                                if left is not None:
+                                if left is True:
                                     texon[0] = boundary[0]
-                                if right is not None:
+                                if right is True:
                                     texon[1] = boundary[1]
 
                             elif texon[0] <= boundary[0] <= texon[1] <= boundary[1]:
-                                self.logger.debug("Exon {0}, case 3.2".format(exon))
-                                if left is not None:
+                                if left is True:
                                     if self.strand == "-":
                                         new_exon[1] = exon[0] + (texon[1] - boundary[0])
                                     else:
@@ -722,8 +749,7 @@ class Transcript:
                                     texon[0] = boundary[0]
 
                             elif texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
-                                self.logger.debug("Exon {0}, case 3.3".format(exon))
-                                if right is not None:
+                                if right is True:
                                     if self.strand == "-":
                                         new_exon[0] = exon[1] - (boundary[1] - texon[0])
                                     else:
@@ -742,9 +768,9 @@ class Transcript:
                         tstart = min(tstart, texon[0])
                         tend = max(tend, texon[1])
 
-                    if right is not None:
+                    if right is True:
                         self.logger.debug("TID {0} TEND {1} Boun[1] {2}".format(self.id, tend, boundary[1]))
-                    elif left is not None:
+                    if left is True:
                         self.logger.debug("TID {0} TSTART {1} Boun[0] {2}".format(self.id, tstart, boundary[0]))
 
                     assert len(my_exons) > 0, (discarded_exons, boundary)
@@ -989,7 +1015,7 @@ class Transcript:
             pass
         return
 
-    # @profile
+    @profile
     def connect_to_db(self):
 
         """This method will connect to the database using the information contained in the JSON configuration."""
@@ -1029,7 +1055,7 @@ class Transcript:
             self.connect_to_db()
         else:
             self.session = session
-        self.load_verified_introns(introns)
+        yield from self.load_verified_introns(introns)
         self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
         if len(self.query_id) == 0:
             self.logger.warning("Transcript not in database: {0}".format(self.id))
@@ -1048,7 +1074,8 @@ class Transcript:
         """
         self.json_dict = json_dict
 
-    # @profile
+    @asyncio.coroutine
+#    @profile
     def load_verified_introns(self, introns=None):
 
         """This method will load verified junctions from the external (usually the superlocus class).
@@ -1058,14 +1085,12 @@ class Transcript:
         """
 
         if introns is None:
-            chrom_id = self.session.query(Chrom.id).filter(Chrom.name == self.chrom).one().id
+            # chrom_id = self.session.query(Chrom.id).filter(Chrom.name == self.chrom).one().id
             for intron in self.introns:
-                if self.session.query(Junction).filter(and_(
-                    Junction.chrom_id == chrom_id,
-                    Junction.junctionStart == intron[0],
-                    Junction.junctionEnd == intron[1],
-                    Junction.strand == self.strand
-                )).count() == 1:
+                if self.session.query(Junction).filter(Junction.is_equal(self.chrom,
+                                                                         intron[0],
+                                                                         intron[1],
+                                                                         self.strand)).count() == 1:
                     self.verified_introns.add(intron)
 
         else:
@@ -1078,6 +1103,7 @@ class Transcript:
         # @profile
 
     @asyncio.coroutine
+#    @profile
     def retrieve_orfs(self):
 
         """This method will look up the ORFs loaded inside the database.
@@ -1102,8 +1128,8 @@ class Transcript:
         else:
             return [orf.as_bed12() for orf in candidate_orfs]
 
-    # @profile
     @asyncio.coroutine
+#    @profile
     def load_orfs_coroutine(self):
         """Asynchronous coroutine for loading orfs from the database"""
         candidate_orfs = yield from self.retrieve_orfs()
@@ -1111,6 +1137,7 @@ class Transcript:
         self.load_orfs(candidate_orfs)
         self.logger.debug("Loaded ORF for {0}".format(self.id))
 
+    @profile
     def load_orfs(self, candidate_orfs):
 
         """
@@ -1302,7 +1329,7 @@ class Transcript:
         return
 
     @asyncio.coroutine
-    # @profile
+#    @profile
     def load_blast(self):
 
         """This method looks into the DB for hits corresponding to the desired requirements.

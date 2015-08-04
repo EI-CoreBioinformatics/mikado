@@ -25,16 +25,195 @@ import mikado_lib.parsers
 import mikado_lib.serializers.blast_utils
 from mikado_lib.loci_objects.superlocus import Superlocus
 import multiprocessing
+import multiprocessing.managers
 from multiprocessing.context import Process
-
+import functools
 
 # For profiling
 # from memory_profiler import profile
-# if "line_profiler" not in dir(): #@UndefinedVariable
-#     def profile(function):
-#         def inner(*args, **kwargs):
-#             return function(*args, **kwargs)
-#         return inner
+if "line_profiler" not in dir(): #@UndefinedVariable
+    def profile(function):
+        """
+        Mock wrapper to make the program function also without memory_profile/cProfile
+        enabled.
+        """
+        def inner(*args, **kwargs):
+            return function(*args, **kwargs)
+        return inner
+
+@profile
+def connector(json_conf):
+    """Creator function for the database connection. It necessitates the following information from
+    the json_conf dictionary:
+
+    - dbtype (one of sqlite, mysql, postgresql)
+    - db (name of the database file, for sqlite, otherwise name of the database)
+
+    If the database is MySQL/PostGreSQL, the method also requires:
+
+    - dbuser
+    - dbhost
+    - dbpasswd
+    - dbport
+
+    These are controlled and added automatically by the json_utils functions.
+
+    :param json_conf: configuration dictionary
+    :type json_conf: dict
+
+    :rtype : MySQLdb.connect | sqlite3.connect | psycopg2.connect
+
+    """
+
+    if json_conf["dbtype"] == "sqlite":
+        return sqlite3.connect(database=json_conf["db"])  # @UndefinedVariable
+    elif json_conf["dbtype"] == "mysql":
+        import MySQLdb
+        return MySQLdb.connect(host=json_conf["dbhost"],
+                               user=json_conf["dbuser"],
+                               passwd=json_conf["dbpasswd"],
+                               db=json_conf["db"],
+                               port=json_conf["dbport"]
+                               )
+    elif json_conf["dbtype"] == "postgresql":
+        import psycopg2
+        return psycopg2.connect(
+            host=json_conf["dbhost"],
+            user=json_conf["dbuser"],
+            password=json_conf["dbpasswd"],
+            database=json_conf["db"],
+            port=json_conf["dbport"]
+        )
+
+@profile
+def analyse_locus(slocus: Superlocus,
+                  json_conf: dict,
+                  printer_queue: multiprocessing.managers.AutoProxy,
+                  logging_queue: multiprocessing.managers.AutoProxy,
+                  connection_pool,
+                  ) -> [Superlocus]:
+
+    """
+    :param slocus: a superlocus instance
+    :type slocus: mikado_lib.loci_objects.superlocus.Superlocus
+
+    :param json_conf: the configuration dictionary
+    :type json_conf: dict
+
+    :param logging_queue: the logging queue
+    :type logging_queue: multiprocessing.managers.AutoProxy
+
+    :param printer_queue: the printing queue
+    :type printer_queue: multiprocessing.managers.AutoProxy
+
+    :param connection_pool: the connection pool
+
+    This function takes as input a "superlocus" instance and the pipeline configuration.
+    It also accepts as optional keywords a dictionary with the CDS information (derived from a Bed12Parser)
+    and a "lock" used for avoiding writing collisions during multithreading.
+    The function splits the superlocus into its strand components and calls the relevant methods
+    to define the loci.
+    When it is finished, it transmits the superloci to the printer function.
+    """
+
+    # Define the logger
+    if slocus is None:
+        return
+
+    if connection_pool is None:
+        # Create the connection pool from scratch
+        db_connection = functools.partial(connector, json_conf)
+        connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
+
+    handler = logging_handlers.QueueHandler(logging_queue)  # @UndefinedVariable
+    logger = logging.getLogger("{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end))
+    logger.addHandler(handler)
+    # We need to set this to the lowest possible level, otherwise we overwrite the global configuration
+    logger.setLevel(json_conf["log_settings"]["log_level"])
+    logger.propagate = False
+
+    # Load the CDS information
+    logger.info("Started with {0}".format(slocus.id))
+    logger.debug("Loading transcript data")
+    slocus.logger = logger
+    slocus.load_all_transcript_data(pool=connection_pool)
+    # Split the superlocus in the stranded components
+    logger.debug("Splitting by strand")
+    stranded_loci = sorted(list(slocus.split_strands()))
+    # Define the loci
+    logger.debug("Divided into {0} loci".format(len(stranded_loci)))
+
+    logger.info("Defining loci")
+    for stranded_locus in stranded_loci:
+        try:
+            stranded_locus.define_loci()
+            logger.debug("Defined loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                                                                            stranded_locus.start,
+                                                                            stranded_locus.end,
+                                                                            stranded_locus.strand))
+        except Exception as err:
+            logger.exception("Error in defining loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                                                                                          stranded_locus.start,
+                                                                                          stranded_locus.end,
+                                                                                          stranded_locus.strand))
+            logger.exception("Exception: {0}".format(err))
+            stranded_loci.remove(stranded_locus)
+
+    logger.debug("Defined loci")
+
+    # Remove overlapping fragments.
+    loci_to_check = {True: set(), False: set()}
+    for stranded_locus in stranded_loci:
+        for _, locus_instance in stranded_locus.loci.items():
+            locus_instance.logger = logger
+            loci_to_check[locus_instance.monoexonic].add(locus_instance)
+
+    for stranded_locus in stranded_loci:
+        for locus_id, locus_instance in stranded_locus.loci.items():
+            if locus_instance in loci_to_check[True]:
+                logger.debug("Checking if {0} is a fragment".format(locus_instance.id))
+                for other_locus in loci_to_check[False]:
+                    if other_locus.other_is_fragment(locus_instance,
+                                                     minimal_cds_length=json_conf["run_options"][
+                                                         "fragments_maximal_cds"]) is True:
+                        if json_conf["run_options"]["remove_overlapping_fragments"] is False:
+                            stranded_locus.loci[locus_id].is_fragment = True
+                        else:
+                            del stranded_locus.loci[locus_id]
+                    break
+
+        # putter_counter = 0
+        printer_queue.put(stranded_locus)
+        logger.debug("Finished for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+                                                                    stranded_locus.start,
+                                                                    stranded_locus.end,
+                                                                    stranded_locus.strand))
+        # while True:
+        #     try:
+        #         self.printer_queue.put(stranded_locus)
+        #         logger.debug("Finished for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
+        #                                                                     stranded_locus.start,
+        #                                                                     stranded_locus.end,
+        #                                                                     stranded_locus.strand))
+        #         break
+        #     except Exception as err:
+        #         if putter_counter < 10:
+        #             putter_counter += 1
+        #             time.sleep(0.0001)
+        #         else:
+        #             message = "Error in reporting for {0}:{1}-{2}".format(stranded_locus.chrom,
+        #                                                                   stranded_locus.start,
+        #                                                                   stranded_locus.end)
+        #             message += ", strand {0}".format(stranded_locus.strand)
+        #             logger.exception(message)
+        #             logger.exception(err)
+        #             break
+
+    # close up shop
+    logger.info("Finished with {0}".format(slocus.id))
+    logger.removeHandler(handler)
+    handler.close()
+    return
 
 
 class Creator:
@@ -79,9 +258,14 @@ class Creator:
         self.locus_out = self.json_conf["loci_out"]
         self.context = multiprocessing.get_context()
         self.manager = self.context.Manager()
+        import queue
         self.printer_queue = self.manager.Queue(-1)
-        self.logging_queue = self.manager.Queue(-1)  # queue for logging
+        self.logging_queue = self.manager.Queue(-1)
 
+        # self.printer_queue = self.manager.Queue(-1)
+        # self.logging_queue = self.manager.Queue(-1)  # queue for logging
+
+        self.db_connection = functools.partial(connector, self.json_conf)
         self.setup_logger()
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -89,6 +273,10 @@ class Creator:
         # We need to set this to the lowest possible level, otherwise we overwrite the global configuration
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.queue_logger.propagate = False
+        if self.json_conf["single_thread"] is True:
+            # Reset threads to 1
+            self.logger.warning("Reset number of threads to 1 as requested")
+            self.threads = self.json_conf["run_options"]["threads"] = 1
 
         if self.locus_out is None:
             raise mikado_lib.exceptions.InvalidJson("No output prefix specified for the final loci. Key: \"loci_out\"")
@@ -145,7 +333,8 @@ class Creator:
             self.main_logger.info("Analysis launched directly, without using the launch script.")
 
         if self.json_conf["chimera_split"]["blast_check"] is True:
-            engine = create_engine("{0}://".format(self.json_conf["dbtype"]), creator=self.db_connection)
+            engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+                                   creator=self.db_connection)
             smaker = sessionmaker()
             smaker.configure(bind=engine)
             session = smaker()
@@ -245,147 +434,6 @@ class Creator:
             self.printer_queue.task_done()
         return
 
-    def db_connection(self):
-        """Creator function for the database connection. It necessitates the following information from
-        the json_conf dictionary:
-        
-        - dbtype (one of sqlite, mysql, postgresql)
-        - db (name of the database file, for sqlite, otherwise name of the database)
-        
-        If the database is MySQL/PostGreSQL, the method also requires:
-        
-        - dbuser
-        - dbhost
-        - dbpasswd
-        - dbport
-        
-        These are controlled and added automatically by the json_utils functions.
-        
-        """
-
-        if self.json_conf["dbtype"] == "sqlite":
-            return sqlite3.connect(database=self.json_conf["db"])  # @UndefinedVariable
-        elif self.json_conf["dbtype"] == "mysql":
-            import MySQLdb
-            return MySQLdb.connect(host=self.json_conf["dbhost"],
-                                   user=self.json_conf["dbuser"],
-                                   passwd=self.json_conf["dbpasswd"],
-                                   db=self.json_conf["db"],
-                                   port=self.json_conf["dbport"]
-                                   )
-        elif self.json_conf["dbtype"] == "postgresql":
-            import psycopg2
-            return psycopg2.connect(
-                host=self.json_conf["dbhost"],
-                user=self.json_conf["dbuser"],
-                password=self.json_conf["dbpasswd"],
-                database=self.json_conf["db"],
-                port=self.json_conf["dbport"]
-            )
-
-    # @profile
-    def analyse_locus(self, slocus: Superlocus) -> [Superlocus]:
-
-        """
-        :param slocus: a superlocus instance
-        :type slocus: mikado_lib.loci_objects.superlocus.Superlocus
-
-        This function takes as input a "superlocus" instance and the pipeline configuration.
-        It also accepts as optional keywords a dictionary with the CDS information (derived from a Bed12Parser)
-        and a "lock" used for avoiding writing collisions during multithreading.
-        The function splits the superlocus into its strand components and calls the relevant methods
-        to define the loci.
-        When it is finished, it transmits the superloci to the printer function.
-        """
-
-        # Define the logger
-        if slocus is None:
-            return
-        handler = logging_handlers.QueueHandler(self.logging_queue)  # @UndefinedVariable
-        logger = logging.getLogger("{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end))
-        logger.addHandler(handler)
-        # We need to set this to the lowest possible level, otherwise we overwrite the global configuration
-        logger.setLevel(self.json_conf["log_settings"]["log_level"])
-        logger.propagate = False
-
-        # Load the CDS information
-        logger.info("Started with {0}".format(slocus.id))
-        logger.debug("Loading transcript data")
-        slocus.logger = logger
-        slocus.load_all_transcript_data(pool=self.connection_pool)
-        # Split the superlocus in the stranded components
-        logger.debug("Splitting by strand")
-        stranded_loci = sorted(list(slocus.split_strands()))
-        # Define the loci
-        logger.debug("Divided into {0} loci".format(len(stranded_loci)))
-
-        logger.info("Defining loci")
-        for stranded_locus in stranded_loci:
-            try:
-                stranded_locus.define_loci()
-                logger.debug("Defined loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
-                                                                                stranded_locus.start,
-                                                                                stranded_locus.end,
-                                                                                stranded_locus.strand))
-            except Exception as err:
-                logger.exception("Error in defining loci for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
-                                                                                              stranded_locus.start,
-                                                                                              stranded_locus.end,
-                                                                                              stranded_locus.strand))
-                logger.exception("Exception: {0}".format(err))
-                stranded_loci.remove(stranded_locus)
-
-        logger.debug("Defined loci")
-
-        # Remove overlapping fragments.
-        loci_to_check = {True: set(), False: set()}
-        for stranded_locus in stranded_loci:
-            for _, locus_instance in stranded_locus.loci.items():
-                locus_instance.logger = logger
-                loci_to_check[locus_instance.monoexonic].add(locus_instance)
-
-        for stranded_locus in stranded_loci:
-            for locus_id, locus_instance in stranded_locus.loci.items():
-                if locus_instance in loci_to_check[True]:
-                    logger.debug("Checking if {0} is a fragment".format(locus_instance.id))
-                    for other_locus in loci_to_check[False]:
-                        if other_locus.other_is_fragment(locus_instance,
-                                                         minimal_cds_length=self.json_conf["run_options"][
-                                                             "fragments_maximal_cds"]) is True:
-                            if self.json_conf["run_options"]["remove_overlapping_fragments"] is False:
-                                stranded_locus.loci[locus_id].is_fragment = True
-                            else:
-                                del stranded_locus.loci[locus_id]
-                        break
-
-            putter_counter = 0
-            while True:
-                try:
-                    self.printer_queue.put(stranded_locus)
-                    logger.debug("Finished for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
-                                                                                stranded_locus.start,
-                                                                                stranded_locus.end,
-                                                                                stranded_locus.strand))
-                    break
-                except Exception as err:
-                    if putter_counter < 10:
-                        putter_counter += 1
-                        time.sleep(0.0001)
-                    else:
-                        message = "Error in reporting for {0}:{1}-{2}".format(stranded_locus.chrom,
-                                                                              stranded_locus.start,
-                                                                              stranded_locus.end)
-                        message += ", strand {0}".format(stranded_locus.strand)
-                        logger.exception(message)
-                        logger.exception(err)
-                        break
-
-        # close up shop
-        logger.info("Finished with {0}".format(slocus.id))
-        logger.removeHandler(handler)
-        handler.close()
-        return
-
     def __getstate__(self):
         self.not_pickable = ["queue_logger", "manager", "printer_process", "log_process", "pool", "main_logger",
                              "log_handler", "log_writer", "logger"]
@@ -396,7 +444,7 @@ class Creator:
 
         return state
 
-    # @profile
+    @profile
     def __call__(self):
 
         """This method will activate the class and start the analysis of the input file."""
@@ -414,6 +462,8 @@ class Creator:
 
         jobs = []
 
+        pool = multiprocessing.Pool(processes=self.threads)
+
         self.logger.debug("Source: {0}".format(self.json_conf["source"]))
         for row in self.define_input():
             if row.is_exon is True:
@@ -425,15 +475,35 @@ class Creator:
                         current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
                         assert current_transcript.id in current_locus.transcripts
                     else:
-                        while len(jobs) >= self.threads:
-                            for job in jobs:
-                                if job.is_alive() is False:
-                                    jobs.remove(job)
-                            time.sleep(0.1)
-
-                        job = Process(target=self.analyse_locus, args=(current_locus,))
-                        job.start()
-                        jobs.append(job)
+                        if self.json_conf["single_thread"] is True:
+                            analyse_locus(current_locus,
+                                          self.json_conf,
+                                          self.printer_queue,
+                                          self.logging_queue,
+                                          None
+                                          # self.connection_pool
+                                          )
+                        else:
+                            # while len(jobs) >= self.threads:
+                            #     for job in jobs:
+                            #         if job.is_alive() is False:
+                            #             jobs.remove(job)
+                            #
+                            # job = Process(target=analyse_locus, args=(current_locus,
+                            #                                           self.json_conf,
+                            #                                           self.printer_queue,
+                            #                                           self.logging_queue,
+                            #                                           self.connection_pool
+                            #                                           ))
+                            # job.start()
+                            # jobs.append(job)
+                            jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                                  self.json_conf,
+                                                                  self.printer_queue,
+                                                                  self.logging_queue,
+                                                                              None
+                                                                  # self.connection_pool
+                                                                  )))
 
                         current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript,
                                                                                       stranded=False,
@@ -446,37 +516,80 @@ class Creator:
             if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(current_locus, current_transcript) is True:
                 current_locus.add_transcript_to_locus(current_transcript)
             else:
-                while len(jobs) >= self.threads + 1:
-                    for job in jobs:
-                        if job.is_alive() is False:
-                            jobs.remove(job)
-                    time.sleep(0.1)
-
-                job = Process(target=self.analyse_locus, args=(current_locus,))
-                job.start()
-                jobs.append(job)
+                if self.json_conf["single_thread"] is True:
+                    analyse_locus(current_locus,
+                                  self.json_conf,
+                                  self.printer_queue,
+                                  self.logging_queue,
+                                  None)
+                                  # self.connection_pool)
+                else:
+                    # while len(jobs) >= self.threads:
+                    #     for job in jobs:
+                    #         if job.is_alive() is False:
+                    #             jobs.remove(job)
+                    #
+                    # job = Process(target=analyse_locus, args=(current_locus,
+                    #                                           self.json_conf,
+                    #                                           self.printer_queue,
+                    #                                           self.logging_queue,
+                    #                                           self.connection_pool
+                    #                                           ))
+                    # job.start()
+                    # jobs.append(job)
+                    jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                          self.json_conf,
+                                                          self.printer_queue,
+                                                          self.logging_queue,
+                                                                      None
+                                                          # self.connection_pool
+                                                          )))
 
                 current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript, stranded=False,
                                                                               json_dict=self.json_conf)
 
         if current_locus is not None:
-            while len(jobs) >= self.threads + 1:
-                for job in jobs:
-                    if job.is_alive() is False:
-                        jobs.remove(job)
-                time.sleep(0.1)
-
-                job = Process(target=self.analyse_locus, args=(current_locus,))
-                job.start()
-                jobs.append(job)
-
-            job = Process(target=self.analyse_locus, args=(current_locus,))
-            job.start()
-            jobs.append(job)
-
+            # while len(multiprocessing.active_children()) >= self.threads + 2:
+            #         continue
+            if self.json_conf["single_thread"] is True:
+                analyse_locus(current_locus,
+                              self.json_conf,
+                              self.printer_queue,
+                              self.logging_queue,
+                              None
+                              # self.connection_pool
+                              )
+            else:
+                # while len(jobs) >= self.threads:
+                #     for job in jobs:
+                #         if job.is_alive() is False:
+                #             jobs.remove(job)
+                #
+                # job = Process(target=self.analyse_locus, args=(current_locus,
+                #                                                self.json_conf,
+                #                                                self.printer_queue,
+                #                                                self.logging_queue,
+                #                                                self.connection_pool
+                #                                                ))
+                # job.start()
+                # jobs.append(job)
+                jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                      self.json_conf,
+                                                      self.printer_queue,
+                                                      self.logging_queue,
+                                                                  None
+                                                      # self.connection_pool
+                                                      )))
         for job in jobs:
-            if job.is_alive() is True:
-                job.join()
+            job.get()
+
+        # while len(jobs) > 0:
+        #     for job in jobs:
+        #         if job.is_alive() is False:
+        #             jobs.remove(job)
+        #
+        pool.close()
+        pool.join()
 
         self.printer_queue.join()
         self.printer_queue.put("EXIT")

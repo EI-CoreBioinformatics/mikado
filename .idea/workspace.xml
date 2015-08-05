@@ -3,7 +3,6 @@
   <component name="ChangeListManager">
     <list default="true" id="a1802b00-7f80-4b1f-9d22-3b306b29b6c1" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py" afterPath="$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/sample_data/Snakefile" afterPath="$PROJECT_DIR$/sample_data/Snakefile" />
     </list>
     <ignored path="Mikado.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -27,8 +26,8 @@
       <file leaf-file-name="Creator.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.27641279">
-              <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
+            <state vertical-scroll-proportion="0.8710074">
+              <caret line="639" column="81" selection-start-line="639" selection-start-column="81" selection-end-line="639" selection-end-column="81" />
               <folding>
                 <element signature="e#132#141#0" expanded="true" />
               </folding>
@@ -92,8 +91,8 @@
         <option value="$PROJECT_DIR$/mikado_lib/json_utils.py" />
         <option value="$PROJECT_DIR$/mikado_lib/loci_objects/transcript.py" />
         <option value="$PROJECT_DIR$/mikado_lib/serializers/blast_utils.py" />
-        <option value="$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py" />
         <option value="$PROJECT_DIR$/sample_data/Snakefile" />
+        <option value="$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py" />
       </list>
     </option>
   </component>
@@ -608,8 +607,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.27641279">
-          <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
+        <state vertical-scroll-proportion="0.8710074">
+          <caret line="639" column="81" selection-start-line="639" selection-start-column="81" selection-end-line="639" selection-end-column="81" />
           <folding>
             <element signature="e#132#141#0" expanded="true" />
           </folding>

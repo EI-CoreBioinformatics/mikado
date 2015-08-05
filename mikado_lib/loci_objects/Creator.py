@@ -636,6 +636,6 @@ class Creator:
         self.printer_queue.put("EXIT")
         # The printing process must be started AFTER we have put the stopping signal  into the queue
         self.printer_process.join()
-        self.main_logger.info("Finished analysis of {0}".format(self.input_file))
         self.log_writer.stop()
+        self.main_logger.info("Finished analysis of {0}".format(self.input_file))
         return 0

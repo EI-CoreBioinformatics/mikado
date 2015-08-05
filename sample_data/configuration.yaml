@@ -6,7 +6,7 @@ blast:
   num_threads: 4
   program: blastx
 chimera_split:
-  blast_check: false
+  blast_check: true
   execute: true
   blast_params:
     evalue: 0.0001

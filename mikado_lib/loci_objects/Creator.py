@@ -485,23 +485,27 @@ class Creator:
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-            data_dict["junctions"] = set((x.chrom, x.junctionStart, x.junctionEnd, x.strand) for x in
-                                         session.query(mikado_lib.serializers.junction.Junction))
+            data_dict["junctions"] = self.manager.dict()
+            for x in session.query(mikado_lib.serializers.junction.Junction):
+                data_dict["junctions"][(x.chrom, x.junctionStart, x.junctionEnd, x.strand)] = None
+
             self.main_logger.info("{0} junctions loaded".format(len(data_dict["junctions"])))
-            data_dict['orf'] = dict()
             queries = dict((x.query_id, x) for x in engine.execute("select * from query"))
+            data_dict['orf'] = self.manager.dict()
             # Then load ORFs
             for x in engine.execute("select * from orf"):
                 query_name = queries[x.query_id].query_name
                 if query_name not in data_dict['orf']:
-                    data_dict['orf'][query_name] = []
-                data_dict['orf'][query_name].append(
+                    data_dict['orf'][query_name] = self.manager.list()
+                data_dict['orf'][query_name] += [
                     mikado_lib.serializers.orf.Orf.as_bed12_static(x, query_name)
-                )
-                
+                ]
+
             self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
 
             # Finally load BLAST
+            data_dict["hit"] = self.manager.dict()
+
             if self.json_conf["chimera_split"]["execute"] is True and \
                     self.json_conf["chimera_split"]["blast_check"] is True:
                 hsps = dict()
@@ -516,7 +520,7 @@ class Creator:
 
                 targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
 
-                data_dict["hit"] = dict()
+                data_dict["hit"] = self.manager.dict()
 
                 hit_counter = 0
                 hits = engine.execute("select * from hit where evalue <= {0} order by query_id,evalue;".format(
@@ -541,24 +545,29 @@ class Creator:
                     if my_query.query_name not in data_dict["hit"]:
                         data_dict["hit"][my_query.query_name] = list()
 
-                    data_dict["hit"][my_query.query_name].append(
+                    # We HAVE to use the += approach because extend/append
+                    # leave the original list empty
+                    data_dict["hit"][my_query.query_name] += [
                         mikado_lib.serializers.blast_utils.Hit.as_full_dict_static(
                             hit,
                             hsps[hit.query_id][hit.target_id],
                             my_query,
                             my_target
                         )
-                    )
+                    ]
                     hit_counter += 1
                     if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
                         self.main_logger.info("Loaded {0} BLAST hits in database".format(hit_counter))
 
                 del hsps
                 assert len(data_dict["hit"]) <= len(queries)
-                self.main_logger.info("{0} BLAST hits loaded".format(len(data_dict["hit"])))
+                self.main_logger.info("{0} BLAST hits loaded for {1} queries".format(
+                    hit_counter,
+                    len(data_dict["hit"])
+                ))
                 self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
-        else:
-            self.main_logger.info("Skipping BLAST loading")
+            else:
+                self.main_logger.info("Skipping BLAST loading")
 
         self.main_logger.info("Finished to preload the database into memory")
 

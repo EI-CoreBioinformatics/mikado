@@ -8,6 +8,7 @@ This module defines the Creator class, which is the main workhorse for Mikado pi
 import re
 import csv
 import os
+import threading
 import logging
 from logging import handlers as logging_handlers
 import collections
@@ -27,7 +28,6 @@ import mikado_lib.serializers.blast_utils
 from mikado_lib.loci_objects.superlocus import Superlocus
 import multiprocessing
 import multiprocessing.managers
-from multiprocessing.context import Process
 
 # For profiling
 # from memory_profiler import profile
@@ -441,7 +441,6 @@ class Creator:
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
 
-        import threading
         self.printer_process = threading.Thread(target=self.printer)
         self.printer_process.start()
 

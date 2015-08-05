@@ -3,8 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="a1802b00-7f80-4b1f-9d22-3b306b29b6c1" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py" afterPath="$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/Mikado.iml" afterPath="$PROJECT_DIR$/.idea/Mikado.iml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/sample_data/Snakefile" afterPath="$PROJECT_DIR$/sample_data/Snakefile" />
     </list>
     <ignored path="Mikado.iws" />
     <ignored path=".idea/workspace.xml" />
@@ -28,11 +27,21 @@
       <file leaf-file-name="Creator.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state vertical-scroll-proportion="0.66339064">
-              <caret line="114" column="59" selection-start-line="114" selection-start-column="59" selection-end-line="114" selection-end-column="59" />
+            <state vertical-scroll-proportion="0.27641279">
+              <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
               <folding>
                 <element signature="e#132#141#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="Snakefile" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/sample_data/Snakefile">
+          <provider selected="true" editor-type-id="text-editor">
+            <state vertical-scroll-proportion="0.0">
+              <caret line="28" column="27" selection-start-line="28" selection-start-column="27" selection-end-line="28" selection-end-column="27" />
+              <folding />
             </state>
           </provider>
         </entry>
@@ -78,13 +87,13 @@
         <option value="$PROJECT_DIR$/util/blastXml2DB.py" />
         <option value="$PROJECT_DIR$/mikado_lib/serializers/junction.py" />
         <option value="$PROJECT_DIR$/mikado_lib/serializers/orf.py" />
-        <option value="$PROJECT_DIR$/sample_data/Snakefile" />
         <option value="$PROJECT_DIR$/mikado_lib/loci_objects/superlocus.py" />
         <option value="$PROJECT_DIR$/setup.py" />
         <option value="$PROJECT_DIR$/mikado_lib/json_utils.py" />
         <option value="$PROJECT_DIR$/mikado_lib/loci_objects/transcript.py" />
         <option value="$PROJECT_DIR$/mikado_lib/serializers/blast_utils.py" />
         <option value="$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py" />
+        <option value="$PROJECT_DIR$/sample_data/Snakefile" />
       </list>
     </option>
   </component>
@@ -134,6 +143,20 @@
             </PATH_ELEMENT>
             <PATH_ELEMENT>
               <option name="myItemId" value="Mikado" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+          </PATH>
+          <PATH>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="Mikado" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.ProjectViewProjectNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="Mikado" />
+              <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
+            </PATH_ELEMENT>
+            <PATH_ELEMENT>
+              <option name="myItemId" value="sample_data" />
               <option name="myItemType" value="com.intellij.ide.projectView.impl.nodes.PsiDirectoryNode" />
             </PATH_ELEMENT>
           </PATH>
@@ -493,13 +516,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/sample_data/Snakefile">
-      <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.0">
-          <caret line="58" column="76" selection-start-line="58" selection-start-column="76" selection-end-line="58" selection-end-column="76" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/mikado_lib/serializers/junction.py">
       <provider selected="true" editor-type-id="text-editor">
         <state vertical-scroll-proportion="-0.42487684">
@@ -582,10 +598,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/sample_data/Snakefile">
+      <provider selected="true" editor-type-id="text-editor">
+        <state vertical-scroll-proportion="0.0">
+          <caret line="28" column="27" selection-start-line="28" selection-start-column="27" selection-end-line="28" selection-end-column="27" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/mikado_lib/loci_objects/Creator.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state vertical-scroll-proportion="0.66339064">
-          <caret line="114" column="59" selection-start-line="114" selection-start-column="59" selection-end-line="114" selection-end-column="59" />
+        <state vertical-scroll-proportion="0.27641279">
+          <caret line="15" column="0" selection-start-line="15" selection-start-column="0" selection-end-line="15" selection-end-column="0" />
           <folding>
             <element signature="e#132#141#0" expanded="true" />
           </folding>

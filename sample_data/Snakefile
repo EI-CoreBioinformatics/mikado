@@ -26,7 +26,7 @@ rule mock:
 rule decompress:
     input:  zipDBs
     output: DBs
-    shell: "gunzip -fk {input}"
+    shell: "gzip -dc {input} > {output}"
 
 rule test_json:
     input: DBs, configname

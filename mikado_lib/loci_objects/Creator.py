@@ -98,7 +98,6 @@ def analyse_locus(slocus: Superlocus,
                   json_conf: dict,
                   printer_queue: multiprocessing.managers.AutoProxy,
                   logging_queue: multiprocessing.managers.AutoProxy,
-                  connection_pool,
                   data_dict
                   ) -> [Superlocus]:
 
@@ -115,8 +114,6 @@ def analyse_locus(slocus: Superlocus,
     :param printer_queue: the printing queue
     :type printer_queue: multiprocessing.managers.AutoProxy
 
-    :param connection_pool: the connection pool
-
     :param data_dict: a dictionary of preloaded data
     :type data_dict: dict
 
@@ -132,10 +129,8 @@ def analyse_locus(slocus: Superlocus,
     if slocus is None:
         return
 
-    if connection_pool is None:
-        # Create the connection pool from scratch
-        db_connection = functools.partial(connector, json_conf)
-        connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
+    db_connection = functools.partial(connector, json_conf)
+    connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
 
     handler = logging_handlers.QueueHandler(logging_queue)  # @UndefinedVariable
     logger = logging.getLogger("{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end))
@@ -200,26 +195,6 @@ def analyse_locus(slocus: Superlocus,
                                                                     stranded_locus.start,
                                                                     stranded_locus.end,
                                                                     stranded_locus.strand))
-        # while True:
-        #     try:
-        #         self.printer_queue.put(stranded_locus)
-        #         logger.debug("Finished for {0}:{1}-{2}, strand: {3}".format(stranded_locus.chrom,
-        #                                                                     stranded_locus.start,
-        #                                                                     stranded_locus.end,
-        #                                                                     stranded_locus.strand))
-        #         break
-        #     except Exception as err:
-        #         if putter_counter < 10:
-        #             putter_counter += 1
-        #             time.sleep(0.0001)
-        #         else:
-        #             message = "Error in reporting for {0}:{1}-{2}".format(stranded_locus.chrom,
-        #                                                                   stranded_locus.start,
-        #                                                                   stranded_locus.end)
-        #             message += ", strand {0}".format(stranded_locus.strand)
-        #             logger.exception(message)
-        #             logger.exception(err)
-        #             break
 
     # close up shop
     logger.info("Finished with {0}".format(slocus.id))
@@ -466,9 +441,8 @@ class Creator:
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
 
-        self.connection_pool = sqlalchemy.pool.QueuePool(self.db_connection, pool_size=self.threads,
-                                                         max_overflow=self.threads * 2)
-        self.printer_process = Process(target=self.printer)
+        import threading
+        self.printer_process = threading.Thread(target=self.printer)
         self.printer_process.start()
 
         current_locus = None
@@ -595,31 +569,14 @@ class Creator:
                                           self.json_conf,
                                           self.printer_queue,
                                           self.logging_queue,
-                                          None,
                                           data_dict
-                                          # self.connection_pool
                                           )
                         else:
-                            # while len(jobs) >= self.threads:
-                            #     for job in jobs:
-                            #         if job.is_alive() is False:
-                            #             jobs.remove(job)
-                            #
-                            # job = Process(target=analyse_locus, args=(current_locus,
-                            #                                           self.json_conf,
-                            #                                           self.printer_queue,
-                            #                                           self.logging_queue,
-                            #                                           self.connection_pool
-                            #                                           ))
-                            # job.start()
-                            # jobs.append(job)
                             jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
                                                                               self.json_conf,
                                                                               self.printer_queue,
                                                                               self.logging_queue,
-                                                                              None,
                                                                               data_dict
-                                                                              # self.connection_pool
                                                                               )))
 
                         current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript,
@@ -638,27 +595,12 @@ class Creator:
                                   self.json_conf,
                                   self.printer_queue,
                                   self.logging_queue,
-                                  None,
                                   data_dict)
                 else:
-                    # while len(jobs) >= self.threads:
-                    #     for job in jobs:
-                    #         if job.is_alive() is False:
-                    #             jobs.remove(job)
-                    #
-                    # job = Process(target=analyse_locus, args=(current_locus,
-                    #                                           self.json_conf,
-                    #                                           self.printer_queue,
-                    #                                           self.logging_queue,
-                    #                                           self.connection_pool
-                    #                                           ))
-                    # job.start()
-                    # jobs.append(job)
                     jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
                                                                       self.json_conf,
                                                                       self.printer_queue,
                                                                       self.logging_queue,
-                                                                      None,
                                                                       data_dict
                                                                       )))
 
@@ -666,36 +608,18 @@ class Creator:
                                                                               json_dict=self.json_conf)
 
         if current_locus is not None:
-            # while len(multiprocessing.active_children()) >= self.threads + 2:
-            #         continue
             if self.json_conf["single_thread"] is True:
                 analyse_locus(current_locus,
                               self.json_conf,
                               self.printer_queue,
                               self.logging_queue,
-                              None,
                               data_dict
-                              # self.connection_pool
                               )
             else:
-                # while len(jobs) >= self.threads:
-                #     for job in jobs:
-                #         if job.is_alive() is False:
-                #             jobs.remove(job)
-                #
-                # job = Process(target=self.analyse_locus, args=(current_locus,
-                #                                                self.json_conf,
-                #                                                self.printer_queue,
-                #                                                self.logging_queue,
-                #                                                self.connection_pool
-                #                                                ))
-                # job.start()
-                # jobs.append(job)
                 jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
                                                                   self.json_conf,
                                                                   self.printer_queue,
                                                                   self.logging_queue,
-                                                                  None,
                                                                   data_dict
                                                                   )))
         for job in jobs:

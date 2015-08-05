@@ -491,19 +491,23 @@ class Creator:
 
             self.main_logger.info("{0} junctions loaded".format(len(data_dict["junctions"])))
             queries = dict((x.query_id, x) for x in engine.execute("select * from query"))
-            data_dict['orf'] = self.manager.dict()
+
             # Then load ORFs
+            orfs = collections.defaultdict(list)
+
             for x in engine.execute("select * from orf"):
                 query_name = queries[x.query_id].query_name
-                if query_name not in data_dict['orf']:
-                    data_dict['orf'][query_name] = self.manager.list()
-                data_dict['orf'][query_name] += [
-                    mikado_lib.serializers.orf.Orf.as_bed12_static(x, query_name)
-                ]
+                orfs[query_name].append(mikado_lib.serializers.orf.Orf.as_bed12_static(x, query_name))
+
+            data_dict['orf'] = self.manager.dict()
+            for key in orfs:
+                data_dict["orf"][key] = self.manager.list(orfs[key])
+            del orfs
 
             self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
 
             # Finally load BLAST
+
             data_dict["hit"] = self.manager.dict()
 
             if self.json_conf["chimera_split"]["execute"] is True and \
@@ -530,6 +534,7 @@ class Creator:
                 # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
                 current_counter = 0
                 current_hit = None
+                hits_dict = collections.defaultdict(list)
 
                 for hit in hits:
                     if current_hit != hit.query_id:
@@ -542,24 +547,25 @@ class Creator:
                     my_query = queries[hit.query_id]
                     my_target = targets[hit.target_id]
 
-                    if my_query.query_name not in data_dict["hit"]:
-                        data_dict["hit"][my_query.query_name] = list()
-
                     # We HAVE to use the += approach because extend/append
                     # leave the original list empty
-                    data_dict["hit"][my_query.query_name] += [
+                    hits_dict[my_query.query_name].append(
                         mikado_lib.serializers.blast_utils.Hit.as_full_dict_static(
                             hit,
                             hsps[hit.query_id][hit.target_id],
                             my_query,
                             my_target
                         )
-                    ]
+                    )
                     hit_counter += 1
                     if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
                         self.main_logger.info("Loaded {0} BLAST hits in database".format(hit_counter))
 
+                for key in hits_dict:
+                    data_dict["hit"][key] = self.manager.list(hits_dict[key])
+
                 del hsps
+                del hits_dict
                 assert len(data_dict["hit"]) <= len(queries)
                 self.main_logger.info("{0} BLAST hits loaded for {1} queries".format(
                     hit_counter,

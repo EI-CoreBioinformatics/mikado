@@ -34,23 +34,22 @@ import mikado_lib.exceptions
 
 # from memory_profiler import profile
 # import logging
-
-if "line_profiler" not in dir():
-    def profile(function):
-        """
-        Mock wrapper to imitate the profile decorator
-        :param function: the function to be wrapped
-        :return:
-        """
-        def inner(*args, **kwargs):
-            """
-            Returns the wrapped function
-            :param args: arguments to be passed
-            :param kwargs: keyword arguments to be passed
-            :return:
-            """
-            return function(*args, **kwargs)
-        return inner
+# if "line_profiler" not in dir():
+#     def profile(function):
+#         """
+#         Mock wrapper to imitate the profile decorator
+#         :param function: the function to be wrapped
+#         :return:
+#         """
+#         def inner(*args, **kwargs):
+#             """
+#             Returns the wrapped function
+#             :param args: arguments to be passed
+#             :param kwargs: keyword arguments to be passed
+#             :return:
+#             """
+#             return function(*args, **kwargs)
+#         return inner
 
 
 class Metric(property):
@@ -493,7 +492,7 @@ class Transcript:
         start, end = sorted([gffline.start, gffline.end])
         store.append((start, end))
 
-    @profile
+    # @profile
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
@@ -1015,7 +1014,6 @@ class Transcript:
             pass
         return
 
-    @profile
     def connect_to_db(self):
 
         """This method will connect to the database using the information contained in the JSON configuration."""
@@ -1107,18 +1105,17 @@ class Transcript:
             max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
             maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
 
-            hits = list(filter( lambda x: x["evalue"] <= maximum_evalue,
-                [data_dict["hit"][hit] for hit in filter(lambda x: x[0] == self.id, data_dict["hit"].keys())]
-            ))
+            if self.id in data_dict["hit"]:
+                hits = data_dict["hit"][self.id] # this is a dictionary full of lists of dictionary
+            else:
+                hits = list()
+
             self.logger.debug("Found {0} potential BLAST hits for {1} with evalue <= {2}".format(
                 len(hits),
                 self.id,
                 maximum_evalue))
 
-            for hit in sorted(hits, key=operator.itemgetter("evalue")):
-                self.blast_hits.append(hit)
-                if len(self.blast_hits) == max_target_seqs:
-                    break
+            self.blast_hits.extend(hits)
             self.logger.debug("Loaded {0} BLAST data for {1}".format(len(self.blast_hits),
                                                                      self.id))
 
@@ -1196,7 +1193,7 @@ class Transcript:
         self.load_orfs(candidate_orfs)
         self.logger.debug("Loaded ORF for {0}".format(self.id))
 
-    @profile
+    # @profile
     def load_orfs(self, candidate_orfs):
 
         """

@@ -31,16 +31,23 @@ from multiprocessing.context import Process
 
 # For profiling
 # from memory_profiler import profile
-# if "line_profiler" not in dir(): #@UndefinedVariable
+# if "line_profiler" not in dir():  # @UndefinedVariable
 #     def profile(function):
 #         """
 #         Mock wrapper to make the program function also without memory_profile/cProfile
 #         enabled.
+#         :param function: the function to be wrapped
 #         """
 #         def inner(*args, **kwargs):
+#             """Inner function of the wrapper
+#             :param args: positional arguments
+#             :param kwargs: keyword arguments
+#             """
 #             return function(*args, **kwargs)
 #         return inner
 #
+
+
 # @profile
 def connector(json_conf):
     """Creator function for the database connection. It necessitates the following information from
@@ -110,6 +117,9 @@ def analyse_locus(slocus: Superlocus,
 
     :param connection_pool: the connection pool
 
+    :param data_dict: a dictionary of preloaded data
+    :type data_dict: dict
+
     This function takes as input a "superlocus" instance and the pipeline configuration.
     It also accepts as optional keywords a dictionary with the CDS information (derived from a Bed12Parser)
     and a "lock" used for avoiding writing collisions during multithreading.
@@ -138,7 +148,7 @@ def analyse_locus(slocus: Superlocus,
     logger.info("Started with {0}".format(slocus.id))
     logger.debug("Loading transcript data")
     slocus.logger = logger
-    slocus.load_all_transcript_data(pool=connection_pool, data_dict = data_dict)
+    slocus.load_all_transcript_data(pool=connection_pool, data_dict=data_dict)
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
     stranded_loci = sorted(list(slocus.split_strands()))
@@ -260,7 +270,6 @@ class Creator:
         self.locus_out = self.json_conf["loci_out"]
         self.context = multiprocessing.get_context()
         self.manager = self.context.Manager()
-        import queue
         self.printer_queue = self.manager.Queue(-1)
         self.logging_queue = self.manager.Queue(-1)
 
@@ -325,7 +334,10 @@ class Creator:
         self.logger.setLevel(self.log_level)
         self.logger.addHandler(self.log_handler)
 
-        self.main_logger.setLevel(logging.INFO)
+        if self.log_level == "DEBUG":
+            self.main_logger.setLevel(logging.DEBUG)
+        else:
+            self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)
 
         self.main_logger.info("Begun analysis of {0}".format(self.input_file))
@@ -346,7 +358,7 @@ class Creator:
                 mikado_lib.serializers.blast_utils.Hit.evalue <= evalue,
             ).distinct().count()
             total_queries = session.query(mikado_lib.serializers.blast_utils.Query).count()
-            self.main_logger.info("Queries with at least one hit at evalue<={0}: {1} out of {2} ({3}%)".format(
+            self.main_logger.debug("Queries with at least one hit at evalue<={0}: {1} out of {2} ({3}%)".format(
                 evalue,
                 queries_with_hits,
                 total_queries,
@@ -467,26 +479,85 @@ class Creator:
         data_dict = None
         if self.json_conf["run_options"]["preload"] is True:
             self.main_logger.info("Starting to preload the database into memory")
+
             data_dict = dict()
             engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-            data_dict["junctions"] = set( (x.chrom, x.junctionStart, x.junctionEnd, x.strand) for x in
-                                          session.query(mikado_lib.serializers.junction.Junction))
-            data_dict['orf'] = collections.defaultdict(list)
-            for x in session.query(mikado_lib.serializers.orf.Orf):
-                data_dict['orf'][x.query].append(x.as_bed12())
+            data_dict["junctions"] = set((x.chrom, x.junctionStart, x.junctionEnd, x.strand) for x in
+                                         session.query(mikado_lib.serializers.junction.Junction))
+            self.main_logger.info("{0} junctions loaded".format(len(data_dict["junctions"])))
+            data_dict['orf'] = dict()
 
-            # prefilter hits
-            data_dict["hit"] = dict( ((x.query, x.target), x.as_dict()) for x in session.query(
-                mikado_lib.serializers.blast_utils.Hit).filter(
-                mikado_lib.serializers.blast_utils.Hit.evalue <=
-                self.json_conf["chimera_split"]["blast_params"]["evalue"]).options(
-            ))
-            self.main_logger.debug("{0} BLAST hits loaded".format(len(data_dict["hit"])))
-            self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
-            self.main_logger.info("Finished to preload the database into memory")
+            # Then load ORFs
+            for x in session.query(mikado_lib.serializers.orf.Orf):
+                if x.query not in data_dict['orf']:
+                    data_dict['orf'][x.query] = []
+                data_dict['orf'][x.query].append(x.as_bed12())
+            self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
+
+            # Finally load BLAST
+            if self.json_conf["chimera_split"]["execute"] is True and \
+                    self.json_conf["chimera_split"]["blast_check"] is True:
+                hsps = dict()
+                for hsp in engine.execute("select * from hsp where hsp_evalue <= {0}".format(
+                    self.json_conf["chimera_split"]["blast_params"]["hsp_evalue"]
+                )).fetchall():
+                    if hsp.query_id not in hsps:
+                        hsps[hsp.query_id] = collections.defaultdict(list)
+                    hsps[hsp.query_id][hsp.target_id].append(hsp)
+
+                self.main_logger.info("{0} HSPs prepared".format(len(hsps)))
+
+                queries = dict((x.query_id, x) for x in engine.execute("select * from query"))
+                targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
+
+                data_dict["hit"] = dict()
+
+                hit_counter = 0
+                hits = engine.execute("select * from hit where evalue <= {0} order by query_id,evalue;".format(
+                    self.json_conf["chimera_split"]["blast_params"]["evalue"]
+                ))
+
+                # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
+                current_counter = 0
+                current_hit = None
+
+                for hit in hits:
+                    if current_hit != hit.query_id:
+                        current_hit = hit.query_id
+                        current_counter = 0
+
+                    current_counter += 1
+                    if current_counter > self.json_conf["chimera_split"]["blast_params"]["max_target_seqs"]:
+                        continue
+                    my_query = queries[hit.query_id]
+                    my_target = targets[hit.target_id]
+
+                    if my_query.query_name not in data_dict["hit"]:
+                        data_dict["hit"][my_query.query_name] = list()
+
+                    data_dict["hit"][my_query.query_name].append(
+                        mikado_lib.serializers.blast_utils.Hit.as_full_dict_static(
+                            hit,
+                            hsps[hit.query_id][hit.target_id],
+                            my_query,
+                            my_target
+                        )
+                    )
+                    hit_counter += 1
+                    if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
+                        self.main_logger.info("Loaded {0} BLAST hits in database".format(hit_counter))
+
+                del hsps
+                assert len(data_dict["hit"]) <= len(queries)
+                self.main_logger.info("{0} BLAST hits loaded".format(len(data_dict["hit"])))
+                self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
+        else:
+            self.main_logger.info("Skipping BLAST loading")
+
+        self.main_logger.info("Finished to preload the database into memory")
 
         pool = multiprocessing.Pool(processes=self.threads)
 
@@ -525,13 +596,13 @@ class Creator:
                             # job.start()
                             # jobs.append(job)
                             jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                                  self.json_conf,
-                                                                  self.printer_queue,
-                                                                  self.logging_queue,
+                                                                              self.json_conf,
+                                                                              self.printer_queue,
+                                                                              self.logging_queue,
                                                                               None,
                                                                               data_dict
-                                                                  # self.connection_pool
-                                                                  )))
+                                                                              # self.connection_pool
+                                                                              )))
 
                         current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript,
                                                                                       stranded=False,
@@ -551,7 +622,6 @@ class Creator:
                                   self.logging_queue,
                                   None,
                                   data_dict)
-                                  # self.connection_pool)
                 else:
                     # while len(jobs) >= self.threads:
                     #     for job in jobs:
@@ -567,13 +637,12 @@ class Creator:
                     # job.start()
                     # jobs.append(job)
                     jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                          self.json_conf,
-                                                          self.printer_queue,
-                                                          self.logging_queue,
+                                                                      self.json_conf,
+                                                                      self.printer_queue,
+                                                                      self.logging_queue,
                                                                       None,
                                                                       data_dict
-                                                          # self.connection_pool
-                                                          )))
+                                                                      )))
 
                 current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript, stranded=False,
                                                                               json_dict=self.json_conf)
@@ -605,13 +674,12 @@ class Creator:
                 # job.start()
                 # jobs.append(job)
                 jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                      self.json_conf,
-                                                      self.printer_queue,
-                                                      self.logging_queue,
+                                                                  self.json_conf,
+                                                                  self.printer_queue,
+                                                                  self.logging_queue,
                                                                   None,
                                                                   data_dict
-                                                      # self.connection_pool
-                                                      )))
+                                                                  )))
         for job in jobs:
             job.get()
 

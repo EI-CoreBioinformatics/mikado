@@ -238,10 +238,16 @@ class Hsp(dbBase):
         return "\t".join([str(x) for x in line])
 
     # @profile
-    def as_dict(self):
+
+    @classmethod
+    def as_dict_static(cls, state_obj):
         """Method to return a dict representation of the object. Necessary for storing.
         This method returns a dictionary *without any attribute that requires joined data*.
-        It is meant to be used only by the method as_dict of the Hit class."""
+        As a static method, it is useful to be used outside of the class.
+        :param state_obj: an instance of the HSP class or a collections.namedtuple object from a direct query
+
+        :rtype : dict
+        """
 
         keys = [
             "query_hsp_start",
@@ -253,11 +259,16 @@ class Hsp(dbBase):
         ]
 
         state = dict().fromkeys(keys)
-
         for key in keys:
-            state[key] = getattr(self, key)
-
+            state[key] = getattr(state_obj, key)
         return state
+
+    def as_dict(self):
+        """Method to return a dict representation of the object. Necessary for storing.
+        This method returns a dictionary *without any attribute that requires joined data*.
+        It is meant to be used only by the method as_dict of the Hit class."""
+
+        return self.as_dict_static(self)
 
     def as_full_dict(self):
         """Method to return a dict representation of the object.
@@ -392,9 +403,16 @@ class Hit(dbBase):
         return "\t".join(str(x) for x in line)
 
     # @profile
-    def as_dict(self):
+
+    @classmethod
+    def as_dict_static(cls, state_obj):
         """Method to return a dict representation of the object.
-        Necessary for storing."""
+        Static method to be called from outside the class.
+
+        :param state_obj: a namedtuple or an instance of this class
+
+        :rtype: dict
+        """
 
         keys = [
             "evalue",
@@ -411,13 +429,58 @@ class Hit(dbBase):
             "target_aligned_length",
         ]
 
-        special_keys = ["query", "target", "hsps", "query_len",
-                        "target_len", "query_hit_ratio", "hit_query_ratio"]  # Keys we want to set directly
-
-        state = dict().fromkeys(keys + special_keys)
+        state = dict().fromkeys(keys)
 
         for key in keys:
-            state[key] = getattr(self, key)
+            state[key] = getattr(state_obj, key)
+
+        return state
+
+    @classmethod
+    def as_full_dict_static(cls, hit_tuple,
+                            hsp_list,
+                            query_tuple,
+                            target_tuple):
+        """
+        :param hit_tuple: Hit namedtuple (from direct query to the DB)
+        :type hit_tuple: collections.namedtuple
+        :param hsp_list: list of hsp dictionaries from Hsp.as_dict_static
+        :type hsp_list: list(collections.namedtuple)
+
+        :param query_tuple: Query namedtuple
+        :type query_tuple: collections.namedtuple
+        :param target_tuple: Target namedtuple
+        :type target_tuple: collections.namedtuple
+        :rtype: dict
+        """
+
+        state = cls.as_dict_static(hit_tuple)
+        hsps = [Hsp.as_dict_static(h) for h in hsp_list]
+
+        state["query"] = query_tuple.query_name
+        state["target"] = target_tuple.target_name
+        state["query_len"] = query_tuple.query_length
+        state["target_len"] = target_tuple.target_length
+        state["query_hit_ratio"] = (query_tuple.query_length * hit_tuple.query_multiplier) / \
+                                   (target_tuple.target_length * hit_tuple.target_multiplier)
+        state["hit_query_ratio"] = (target_tuple.target_length * hit_tuple.target_multiplier) / \
+                                   (query_tuple.query_length * hit_tuple.query_multiplier)
+        state["hsps"] = []
+        for h in hsps:
+            h["query_hsp_cov"] = (h["query_hsp_end"] - h["query_hsp_start"] + 1) / (state["query_len"])
+            h["target_hsp_cov"] = (h["target_hsp_end"] - h["target_hsp_start"] + 1) / (state["target_len"])
+            state["hsps"].append(h)
+
+        return state
+
+    def as_dict(self):
+        """Method to return a dict representation of the object.
+        Necessary for storing.
+
+        :rtype: dict
+        """
+
+        state = self.as_dict_static(self)
 
         state["query"] = self.query
         state["target"] = self.target
@@ -431,7 +494,7 @@ class Hit(dbBase):
             h = hsp.as_dict()
             h["query_hsp_cov"] = (h["query_hsp_end"] - h["query_hsp_start"] + 1) / (state["query_len"])
             h["target_hsp_cov"] = (h["target_hsp_end"] - h["target_hsp_start"] + 1) / (state["target_len"])
-            state["hsps"].append(hsp.as_dict())
+            state["hsps"].append(h)
 
         return state
 
@@ -491,7 +554,7 @@ class XmlSerializer:
     a database. We are using SQLalchemy, so the database type could be any of SQLite, MySQL, PSQL, etc."""
 
     def __init__(self, xml, max_target_seqs=float("Inf"),
-                 db = None,
+                 db=None,
                  target_seqs=None,
                  query_seqs=None,
                  keep_definition=False, maxobjects=10000,

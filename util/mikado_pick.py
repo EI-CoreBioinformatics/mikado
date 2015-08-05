@@ -45,9 +45,13 @@ def main():
                         help="Flag. If set, not CDS information will be printed out in the GFF output files.")
     parser.add_argument('--source', type=str, default=None,
                         help='Source field to use for the output files.')
-    parser.add_argument('--purge', action='store_true', default=None,
+    parser.add_argument('--purge', action='store_true', default=False,
                         help='''Flag. If set, the pipeline will suppress any loci whose transcripts
                         do not pass the requirements set in the JSON file.'''
+                        )
+    parser.add_argument('--cache', action='store_true', default=False,
+                        help='''Flag. If set, the Mikado DB will be pre-loaded into memory for faster access.
+                        WARNING: this option will increase memory usage and the preloading might be quite slow.'''
                         )
     parser.add_argument("--single", action="store_true", default=False,
                         help="""Flag. If set, Creator will be launched with a single process.
@@ -77,6 +81,9 @@ def main():
         args.json_conf["log_settings"]['log'] = None
     elif args.log is not None:
         args.json_conf["log_settings"]['log'] = args.log
+
+    if args.cache is True:
+        args.json_conf["run_options"]["preload"] = True
 
     args.json_conf["single_thread"] = args.single
 

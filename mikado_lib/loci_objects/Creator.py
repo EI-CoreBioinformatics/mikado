@@ -501,7 +501,7 @@ class Creator:
 
             data_dict['orf'] = self.manager.dict()
             for key in orfs:
-                data_dict["orf"][key] = self.manager.list(orfs[key])
+                data_dict["orf"][key] = orfs[key]
             del orfs
 
             self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
@@ -562,7 +562,7 @@ class Creator:
                         self.main_logger.info("Loaded {0} BLAST hits in database".format(hit_counter))
 
                 for key in hits_dict:
-                    data_dict["hit"][key] = self.manager.list(hits_dict[key])
+                    data_dict["hit"][key] = hits_dict[key]
 
                 del hsps
                 del hits_dict

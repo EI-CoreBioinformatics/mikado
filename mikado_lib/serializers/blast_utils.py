@@ -490,7 +490,8 @@ class XmlSerializer:
     """This class has the role of taking in input a blast XML file and (partially) serialise it into
     a database. We are using SQLalchemy, so the database type could be any of SQLite, MySQL, PSQL, etc."""
 
-    def __init__(self, db, xml, max_target_seqs=float("Inf"),
+    def __init__(self, xml, max_target_seqs=float("Inf"),
+                 db = None,
                  target_seqs=None,
                  query_seqs=None,
                  keep_definition=False, maxobjects=10000,
@@ -499,7 +500,7 @@ class XmlSerializer:
         """Initializing method. Arguments:
 
         :param db: the name of the SQLite database
-        :type db: str
+        :type db: str | None
 
         :param xml: The XML to parse.
 
@@ -536,11 +537,14 @@ class XmlSerializer:
                 self.engine = create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
                     dbtype=json_conf["dbtype"],
                     dbuser=json_conf["dbuser"],
-                    dbpasswd=json_conf["dbpasswd"],
+                    dbpasswd=json_conf["dbpasswd"] if json_conf["dbpasswd"] is not None else "",
                     dbhost=json_conf["dbhost"],
                     db=json_conf["db"]))
         else:
+            if db is None:
+                db = ":memory:"
             self.engine = create_engine("sqlite:///{0}".format(db))
+
         session = sessionmaker()
         session.configure(bind=self.engine)
         dbBase.metadata.create_all(self.engine)  # @UndefinedVariable

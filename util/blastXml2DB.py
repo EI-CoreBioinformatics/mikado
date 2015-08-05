@@ -39,11 +39,12 @@ def main():
     parser.add_argument("--json-conf", dest="json_conf", default=None, type=json_utils.to_json)
     parser.add_argument("xml", type=str, help="XML file to parse.")
     parser.add_argument("dbout", type=str, default=":memory:",
-                        nargs='?', help="Optional output file. Default: :memory:")
+                        nargs='?', help="Optional output database. Default: :memory:")
 
     args = parser.parse_args()
 
-    XmlSerializer(args.dbout, args.xml,
+    XmlSerializer(args.xml,
+                  db = args.dbout,
                   keep_definition=args.definition,
                   max_target_seqs=args.max_target_seqs,
                   maxobjects=args.maxobjects,

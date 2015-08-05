@@ -167,7 +167,7 @@ class JunctionSerializer:
     This class is used to serialize a junction BED12 file into an SQL database.
     """
 
-    def __init__(self, handle, db, fai=None, maxobjects=10000, json_conf=None):
+    def __init__(self, handle, db=":memory:", fai=None, maxobjects=10000, json_conf=None):
 
         """
         :param handle: the file to be serialized.
@@ -194,7 +194,7 @@ class JunctionSerializer:
                 self.engine = create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
                     dbtype=json_conf["dbtype"],
                     dbuser=json_conf["dbuser"],
-                    dbpasswd=json_conf["dbpasswd"],
+                    dbpasswd=json_conf["dbpasswd"] if json_conf["dbpasswd"] is not None else "",
                     dbhost=json_conf["dbhost"],
                     db=json_conf["db"]))
         else:

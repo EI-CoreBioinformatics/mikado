@@ -460,6 +460,10 @@ def check_run_options(json_conf):
         json_conf["run_options"]["purge"] = False
     else:
         assert type(json_conf["run_options"]["purge"]) is bool
+    if "preload" not in json_conf["run_options"]:
+        json_conf["run_options"]["preload"] = False
+    else:
+        assert type(json_conf["run_options"]["preload"]) is bool
     if "exclude_cds" not in json_conf["run_options"]:
         json_conf["run_options"]["exclude_cds"] = False
     else:

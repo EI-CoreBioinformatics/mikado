@@ -16,7 +16,7 @@ chimera_split:
     minimal_hsp_overlap: 0.9
 log_settings:
   log: mikado.log
-  log_level: DEBUG
+  log_level: WARN
 db: sample
 dbtype: mysql
 dbhost: localhost
@@ -38,5 +38,4 @@ run_options:
   fragments_maximal_cds: 100
   subloci_from_cds_only: false #true
   threads: 5
-  preload: true
 scoring_file: scoring.yaml

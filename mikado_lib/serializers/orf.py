@@ -144,7 +144,7 @@ class OrfSerializer:
     This class has the purpose of automating the loading of ORF information into the SQL database.
     """
 
-    def __init__(self, handle, db, fasta_index=None, maxobjects=1000000, json_conf=None):
+    def __init__(self, handle, db=None, fasta_index=None, maxobjects=1000000, json_conf=None):
 
         """Constructor function. Arguments:
         - handle         the BED12 file
@@ -197,7 +197,7 @@ class OrfSerializer:
                 self.engine = create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
                     dbtype=json_conf["dbtype"],
                     dbuser=json_conf["dbuser"],
-                    dbpasswd=json_conf["dbpasswd"],
+                    dbpasswd=json_conf["dbpasswd"] if json_conf["dbpasswd"] is not None else "",
                     dbhost=json_conf["dbhost"],
                     db=json_conf["db"]))
         else:
@@ -225,10 +225,16 @@ class OrfSerializer:
 
         done = 0
         if self.fasta_index is not None:
+            self.logger.info("{0} entries to load".format(len(self.fasta_index)))
+            self.logger.info("{0} entries already present in db".format(
+                len(list(filter(lambda rr: rr not in cache, self.fasta_index.keys())))
+            ))
+            found = set()
             for record in self.fasta_index:
-                if record in cache:
-                    continue
                 objects.append(Query(record, len(self.fasta_index[record])))
+                self.logger.info("Appended {0}".format(record))
+                assert record not in found, record
+                found.add(record)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)
                     self.logger.info("Loaded {0} transcripts into query table".format(done))

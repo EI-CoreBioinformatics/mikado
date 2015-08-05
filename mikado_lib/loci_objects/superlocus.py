@@ -285,7 +285,7 @@ class Superlocus(Abstractlocus):
         self.session = self.sessionmaker()
 
     @asyncio.coroutine
-    def load_transcript_data(self, tid):
+    def load_transcript_data(self, tid, data_dict):
         """
         :param tid: the name of the transcript to retrieve data for.
         :type tid: str
@@ -294,7 +294,9 @@ class Superlocus(Abstractlocus):
 
         self.transcripts[tid].logger = self.logger
         yield from self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
-                                                                  session=self.session)
+                                                                  session=self.session,
+                                                                  data_dict=data_dict
+                                                                  )
         if self.json_dict["chimera_split"]["execute"] is True and self.transcripts[tid].number_internal_orfs > 1:
             try:
                 new_tr = list(self.transcripts[tid].split_by_cds())
@@ -308,7 +310,7 @@ class Superlocus(Abstractlocus):
         return
         # @profile
 
-    def load_all_transcript_data(self, pool=None):
+    def load_all_transcript_data(self, pool=None, data_dict = None):
 
         """This method will load data into the transcripts instances, and perform the split_by_cds if required
         by the configuration.
@@ -337,7 +339,7 @@ class Superlocus(Abstractlocus):
                     self.locus_verified_introns.append(intron)
 
         loop = asyncio.get_event_loop()
-        tasks = [ensure_future(self.load_transcript_data(tid)) for tid in self.transcripts]
+        tasks = [ensure_future(self.load_transcript_data(tid, data_dict)) for tid in self.transcripts]
         #
         loop.run_until_complete(asyncio.wait(tasks))
         self.session.close()

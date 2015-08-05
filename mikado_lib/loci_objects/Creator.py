@@ -10,7 +10,7 @@ import csv
 import os
 import logging
 from logging import handlers as logging_handlers
-import time
+import collections
 
 # SQLAlchemy/DB imports
 from sqlalchemy.engine import create_engine
@@ -31,17 +31,17 @@ import functools
 
 # For profiling
 # from memory_profiler import profile
-if "line_profiler" not in dir(): #@UndefinedVariable
-    def profile(function):
-        """
-        Mock wrapper to make the program function also without memory_profile/cProfile
-        enabled.
-        """
-        def inner(*args, **kwargs):
-            return function(*args, **kwargs)
-        return inner
-
-@profile
+# if "line_profiler" not in dir(): #@UndefinedVariable
+#     def profile(function):
+#         """
+#         Mock wrapper to make the program function also without memory_profile/cProfile
+#         enabled.
+#         """
+#         def inner(*args, **kwargs):
+#             return function(*args, **kwargs)
+#         return inner
+#
+# @profile
 def connector(json_conf):
     """Creator function for the database connection. It necessitates the following information from
     the json_conf dictionary:
@@ -85,12 +85,14 @@ def connector(json_conf):
             port=json_conf["dbport"]
         )
 
-@profile
+
+# @profile
 def analyse_locus(slocus: Superlocus,
                   json_conf: dict,
                   printer_queue: multiprocessing.managers.AutoProxy,
                   logging_queue: multiprocessing.managers.AutoProxy,
                   connection_pool,
+                  data_dict
                   ) -> [Superlocus]:
 
     """
@@ -136,7 +138,7 @@ def analyse_locus(slocus: Superlocus,
     logger.info("Started with {0}".format(slocus.id))
     logger.debug("Loading transcript data")
     slocus.logger = logger
-    slocus.load_all_transcript_data(pool=connection_pool)
+    slocus.load_all_transcript_data(pool=connection_pool, data_dict = data_dict)
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
     stranded_loci = sorted(list(slocus.split_strands()))
@@ -444,7 +446,7 @@ class Creator:
 
         return state
 
-    @profile
+    # @profile
     def __call__(self):
 
         """This method will activate the class and start the analysis of the input file."""
@@ -461,6 +463,22 @@ class Creator:
         current_transcript = None
 
         jobs = []
+
+        data_dict = None
+        if self.json_conf["run_options"]["preload"] is True:
+            data_dict = dict()
+            engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+                                   creator=self.db_connection)
+            session = sqlalchemy.orm.sessionmaker(bind=engine)()
+
+            data_dict["junctions"] = set( (x.chrom, x.junctionStart, x.junctionEnd, x.strand) for x in
+                                          session.query(mikado_lib.serializers.junction.Junction))
+            data_dict['orf'] = collections.defaultdict(list)
+            for x in session.query(mikado_lib.serializers.orf.Orf):
+                data_dict['orf'][x.query].append(x.as_bed12())
+
+            data_dict["hit"] = dict( ((x.query, x.target), x.as_dict()) for x in session.query(
+                mikado_lib.serializers.blast_utils.Hit) )
 
         pool = multiprocessing.Pool(processes=self.threads)
 
@@ -480,7 +498,8 @@ class Creator:
                                           self.json_conf,
                                           self.printer_queue,
                                           self.logging_queue,
-                                          None
+                                          None,
+                                          data_dict
                                           # self.connection_pool
                                           )
                         else:
@@ -501,7 +520,8 @@ class Creator:
                                                                   self.json_conf,
                                                                   self.printer_queue,
                                                                   self.logging_queue,
-                                                                              None
+                                                                              None,
+                                                                              data_dict
                                                                   # self.connection_pool
                                                                   )))
 
@@ -521,7 +541,8 @@ class Creator:
                                   self.json_conf,
                                   self.printer_queue,
                                   self.logging_queue,
-                                  None)
+                                  None,
+                                  data_dict)
                                   # self.connection_pool)
                 else:
                     # while len(jobs) >= self.threads:
@@ -541,7 +562,8 @@ class Creator:
                                                           self.json_conf,
                                                           self.printer_queue,
                                                           self.logging_queue,
-                                                                      None
+                                                                      None,
+                                                                      data_dict
                                                           # self.connection_pool
                                                           )))
 
@@ -556,7 +578,8 @@ class Creator:
                               self.json_conf,
                               self.printer_queue,
                               self.logging_queue,
-                              None
+                              None,
+                              data_dict
                               # self.connection_pool
                               )
             else:
@@ -577,7 +600,8 @@ class Creator:
                                                       self.json_conf,
                                                       self.printer_queue,
                                                       self.logging_queue,
-                                                                  None
+                                                                  None,
+                                                                  data_dict
                                                       # self.connection_pool
                                                       )))
         for job in jobs:

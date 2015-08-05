@@ -1033,7 +1033,8 @@ class Transcript:
         self.session = self.sessionmaker()
 
     @asyncio.coroutine
-    def load_information_from_db(self, json_dict, introns=None, session=None):
+    def load_information_from_db(self, json_dict, introns=None, session=None,
+                                 data_dict=None):
         """This method will invoke the check for:
 
         :param json_dict: Necessary configuration file
@@ -1045,25 +1046,77 @@ class Transcript:
         :param session: an SQLAlchemy session
         :type session: sqlalchemy.orm.session
 
+        :param data_dict: a dictionary containing the information directly
+        :type data_dict: dict
+
         Verified introns can be provided from outside using the keyword.
         Otherwise, they will be extracted from the database directly.
         """
 
         self.logger.debug("Loading {0}".format(self.id))
         self.load_json(json_dict)
-        if session is None:
-            self.connect_to_db()
+
+        if data_dict is not None:
+            self.retrieve_from_dict(data_dict)
         else:
-            self.session = session
-        yield from self.load_verified_introns(introns)
-        self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
-        if len(self.query_id) == 0:
-            self.logger.warning("Transcript not in database: {0}".format(self.id))
+            if session is None:
+                self.connect_to_db()
+            else:
+                self.session = session
+            yield from self.load_verified_introns(introns)
+            self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
+            if len(self.query_id) == 0:
+                self.logger.warning("Transcript not in database: {0}".format(self.id))
+            else:
+                self.query_id = self.query_id[0].query_id
+                yield from self.load_orfs_coroutine()
+                yield from self.load_blast()
+            self.logger.debug("Loaded {0}".format(self.id))
+
+    def retrieve_from_dict(self, data_dict):
+        """
+        Method to retrieve transcript data directly from a dictionary.
+        :param data_dict: the dictionary with loaded data from DB
+        """
+
+        self.logger.debug("Retrieving information from DB dictionary for {0}".format(self.id))
+        # Intron data
+        for intron in self.introns:
+            if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
+                self.verified_introns.add(intron)
+
+        # ORF data
+        trust_strand = self.json_dict["orf_loading"]["strand_specific"]
+
+        if self.id in data_dict["orf"]:
+            candidate_orfs = data_dict["orf"][self.id]
         else:
-            self.query_id = self.query_id[0].query_id
-            yield from self.load_orfs_coroutine()
-            yield from self.load_blast()
-        self.logger.debug("Loaded {0}".format(self.id))
+            candidate_orfs = []
+
+        # They must already be as ORFs
+        if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
+            # Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts
+            candidate_orfs = list(filter(lambda orf: orf.strand != "-", candidate_orfs))
+
+        self.load_orfs(candidate_orfs)
+
+        if self.json_dict["chimera_split"]["blast_check"] is True:
+            max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
+            maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
+
+            blast_hits = []
+
+            hits = list(filter(lambda x: x[0] == self.id, data_dict["hit"]))
+
+            def order_hits(hit):
+                return hit.evalue
+
+            counter = 0
+            for hit in sorted(hits, key=lambda h: order_hits(data_dict["hit"][h]))[:max_target_seqs]:
+                counter += 1
+                self.blast_hits.append(data_dict["hit"][hit])
+            self.logger.debug("Loaded {0} BLAST data for {1}".format(counter, self.id))
+        self.logger.debug("Retrieved information from DB dictionary for {0}".format(self.id))
 
     # @profile
     def load_json(self, json_dict):
@@ -2090,8 +2143,7 @@ class Transcript:
     def exon_fraction(self, *args):
         """Setter for exon_fraction. Set from the Locus-type classes.
         :param args: list of values, only the first is retained
-        :type args: list(float)
-        :type args: float
+        :type args: list(float) | float
         """
 
         if type(args[0]) not in (float, int) or (args[0] <= 0 or args[0] > 1):
@@ -2108,8 +2160,7 @@ class Transcript:
     def intron_fraction(self, *args):
         """Setter for intron_fraction. Set from the Locus-type classes.
         :param args: list of values, only the first is retained
-        :type args: list(float)
-        :type args: float
+        :type args: list(float) | float
         """
 
         if type(args[0]) not in (float, int) or (args[0] < 0 or args[0] > 1):
@@ -2278,8 +2329,7 @@ class Transcript:
     def selected_cds_intron_fraction(self, *args):
         """Setter for selected_cds_intron_fraction.
         :param args: either a single float/int or a list (only the first value is retained)
-        :type args: int
-        :type args: float
+        :type args: list(int) | list(float)
         """
 
         if type(args[0]) not in (float, int) or (args[0] < 0 or args[0] > 1):
@@ -2301,8 +2351,7 @@ class Transcript:
     def retained_fraction(self, *args):
         """Setter for retained_intron_fraction.
         :param args: either a single float/int or a list (only the first value is retained)
-        :type args: int
-        :type args: float
+        :type args: list(int) | list(float)
         """
 
         if type(args[0]) not in (float, int) or (args[0] < 0 or args[0] > 1):
@@ -2346,8 +2395,7 @@ class Transcript:
     def proportion_verified_introns_inlocus(self, *args):
         """Setter for retained_intron_fraction.
         :param args: either a single float/int or a list (only the first value is retained)
-        :type args: int
-        :type args: float
+        :type args: list(int) | list(float)
         """
 
         if type(args[0]) not in (float, int) or (args[0] < 0 or args[0] > 1):

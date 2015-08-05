@@ -11,7 +11,6 @@ from collections import OrderedDict
 import inspect
 import asyncio
 from mikado_lib.exceptions import InvalidTranscript
-
 # SQLAlchemy imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
@@ -19,7 +18,6 @@ from sqlalchemy.sql.expression import desc, asc
 from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
-
 # mikado imports
 from mikado_lib.serializers.junction import Junction
 import mikado_lib.serializers.orf
@@ -895,8 +893,6 @@ class Transcript:
 
         if self.finalized is True:
             return
-        self.introns = []
-        self.splices = []
 
         if len(self.exons) == 0:
             raise mikado_lib.exceptions.InvalidTranscript(
@@ -940,14 +936,17 @@ class Transcript:
                 pass
 
         self.internal_orfs = []
+        introns = []
+        splices = []
+
         if len(self.exons) > 1:
             for index in range(len(self.exons) - 1):
                 exona, exonb = self.exons[index:index + 2]
                 if exona[1] >= exonb[0]:
                     raise mikado_lib.exceptions.InvalidTranscript(
                         "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(self.id, exona, exonb, self.exons))
-                self.introns.append((exona[1] + 1, exonb[0] - 1))  # Append the splice junction
-                self.splices.extend([exona[1] + 1, exonb[0] - 1])  # Append the splice locations
+                introns.append((exona[1] + 1, exonb[0] - 1))  # Append the splice junction
+                splices.extend([exona[1] + 1, exonb[0] - 1])  # Append the splice locations
 
         self.combined_cds = sorted(self.combined_cds, key=operator.itemgetter(0, 1))
         self.combined_utr = sorted(self.combined_utr, key=operator.itemgetter(0, 1))
@@ -972,8 +971,8 @@ class Transcript:
         if self.combined_cds_length > 0:
             self.selected_internal_orf_index = 0
 
-        self.introns = set(self.introns)
-        self.splices = set(self.splices)
+        self.introns = set(introns)
+        self.splices = set(splices)
         _ = self.selected_internal_orf
 
         if len(self.combined_cds) > 0:
@@ -1071,7 +1070,6 @@ class Transcript:
                 yield from self.load_blast()
             self.logger.debug("Loaded {0}".format(self.id))
 
-
     @asyncio.coroutine
     def retrieve_from_dict(self, data_dict):
         """
@@ -1102,11 +1100,10 @@ class Transcript:
 
         if self.json_dict["chimera_split"]["blast_check"] is True:
             self.logger.debug("Retrieving BLAST hits for {0}".format(self.id))
-            max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
             maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
 
             if self.id in data_dict["hit"]:
-                hits = data_dict["hit"][self.id] # this is a dictionary full of lists of dictionary
+                hits = data_dict["hit"][self.id]  # this is a dictionary full of lists of dictionary
             else:
                 hits = list()
 
@@ -1565,7 +1562,7 @@ class Transcript:
         """
         Strand of the transcript. One of None, "-", "+"
 
-        :rtype str,None
+        :rtype str | None
         """
         return self.__strand
 
@@ -1574,7 +1571,7 @@ class Transcript:
         """
 
         :param strand
-        :type strand: None,str
+        :type strand: None | str
 
         Setter for the strand of the transcript. It must be one of None, "-", "+"
         """
@@ -1665,7 +1662,9 @@ class Transcript:
 
     @property
     def internal_orf_lengths(self):
-        """This property returns a list of the lengths of the internal ORFs."""
+        """This property returns a list of the lengths of the internal ORFs.
+        :rtype : list[int]
+        """
         lengths = []
         for internal_cds in self.internal_orfs:
             lengths.append(sum(x[2] - x[1] + 1 for x in filter(lambda c: c[0] == "CDS", internal_cds)))

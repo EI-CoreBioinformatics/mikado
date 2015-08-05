@@ -80,14 +80,14 @@ class Query(dbBase):
     """
     Very simple serialization class for Query objects.
 
-    :param id: integer key
-    :type id: int
+    :return id: integer key
+    :rtype id: int
 
-    :param name: name of the queries
-    :type name: str
+    :return name: name of the queries
+    :rtype name: str
 
-    :param length: length of the queries
-    :type length: int
+    :return length: length of the queries
+    :rtype length: int
     """
 
     __tablename__ = "query"
@@ -136,35 +136,35 @@ class Hsp(dbBase):
     
     Keys:
 
-    :param hit_id: Reference key for the Hit table
-    :type hit_id: int
+    :return hit_id: Reference key for the Hit table
+    :rtype hit_id: int
 
-    :param counter: It indicates the progressive number of the HSP for the hit
-    :type counter: int
+    :return counter: It indicates the progressive number of the HSP for the hit
+    :rtype counter: int
 
-    :param query_hsp_start: Start position on the query
-    :type query_hsp_start; int
+    :return query_hsp_start: Start position on the query
+    :rtype query_hsp_start; int
 
-    :param query_hsp_end: End position on the query
-    :type query_hsp_end: int
+    :return query_hsp_end: End position on the query
+    :rtype query_hsp_end: int
 
-    :param target_hsp_start: Start position on the target
-    :type target_hsp_start: int
+    :return target_hsp_start: Start position on the target
+    :rtype target_hsp_start: int
 
-    :param target_hsp_end: End position on the target
-    :type target_hsp_end: int
+    :return target_hsp_end: End position on the target
+    :rtype target_hsp_end: int
 
-    :param hsp_evalue: Evalue of the HSP
-    :type hsp_evalue: float
+    :return hsp_evalue: Evalue of the HSP
+    :rtype hsp_evalue: float
 
-    :param hsp_bits: Bit-score of the HSP
-    :type hsp_bits: float
+    :return hsp_bits: Bit-score of the HSP
+    :rtype hsp_bits: float
 
-    :param hsp_identity: Identity (in %) of the alignment
-    :type  hsp_identity: float
+    :return hsp_identity: Identity (in %) of the alignment
+    :rtype  hsp_identity: float
 
-    :param hsp_length: Length of the HSP
-    :type hsp_length: int
+    :return hsp_length: Length of the HSP
+    :rtype hsp_length: int
     
     An HSP row has the following constraints:
     - Counter,hit_id must be unique (and are primary keys)
@@ -172,11 +172,11 @@ class Hsp(dbBase):
 
     Moreover, the following properties are also present:
 
-    :param query_object: The referenced Query
-    :type query_object: Query
+    :return query_object: The referenced Query
+    :rtype query_object: Query
 
-    :param target_object: The reference Target
-    :type target_object: Target
+    :return target_object: The reference Target
+    :rtype target_object: Target
 
     """
 

@@ -40,3 +40,4 @@ build/*
 shanghai.egg-info/
 dist/*
 Mikado.egg-info/*
+.idea/*

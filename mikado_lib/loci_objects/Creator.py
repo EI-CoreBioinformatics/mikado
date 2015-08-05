@@ -575,7 +575,7 @@ class Creator:
             else:
                 self.main_logger.info("Skipping BLAST loading")
 
-        self.main_logger.info("Finished to preload the database into memory")
+            self.main_logger.info("Finished to preload the database into memory")
 
         pool = multiprocessing.Pool(processes=self.threads)
 

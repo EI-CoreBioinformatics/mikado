@@ -11,6 +11,7 @@ import os
 import logging
 from logging import handlers as logging_handlers
 import collections
+import functools
 
 # SQLAlchemy/DB imports
 from sqlalchemy.engine import create_engine
@@ -27,7 +28,6 @@ from mikado_lib.loci_objects.superlocus import Superlocus
 import multiprocessing
 import multiprocessing.managers
 from multiprocessing.context import Process
-import functools
 
 # For profiling
 # from memory_profiler import profile
@@ -466,6 +466,7 @@ class Creator:
 
         data_dict = None
         if self.json_conf["run_options"]["preload"] is True:
+            self.main_logger.info("Starting to preload the database into memory")
             data_dict = dict()
             engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
                                    creator=self.db_connection)
@@ -477,10 +478,15 @@ class Creator:
             for x in session.query(mikado_lib.serializers.orf.Orf):
                 data_dict['orf'][x.query].append(x.as_bed12())
 
+            # prefilter hits
             data_dict["hit"] = dict( ((x.query, x.target), x.as_dict()) for x in session.query(
-                mikado_lib.serializers.blast_utils.Hit) )
-            self.logger.debug("{0} BLAST hits loaded".format(len(data_dict["hit"])))
-            self.logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
+                mikado_lib.serializers.blast_utils.Hit).filter(
+                mikado_lib.serializers.blast_utils.Hit.evalue <=
+                self.json_conf["chimera_split"]["blast_params"]["evalue"]).options(
+            ))
+            self.main_logger.debug("{0} BLAST hits loaded".format(len(data_dict["hit"])))
+            self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
+            self.main_logger.info("Finished to preload the database into memory")
 
         pool = multiprocessing.Pool(processes=self.threads)
 

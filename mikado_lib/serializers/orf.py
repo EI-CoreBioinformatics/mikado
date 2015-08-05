@@ -106,29 +106,35 @@ class Orf(dbBase):
             end=self.end
         )
 
-    def as_bed12(self):
-        """Method to transform the mapper into a BED12 object."""
-
+    @classmethod
+    def as_bed12_static(cls, state, query_name):
+        """Class method to transform the mapper into a BED12 object.
+        Usable from outside the class."""
         b = bed12.BED12()
 
         b.header = False
-        b.query = b.chrom = self.query
-        b.start = self.start
-        b.end = self.end
-        b.name = self.orf_name
-        b.score = self.score
-        b.strand = self.strand
-        b.thickStart = self.thickStart
-        b.thickEnd = self.thickEnd
+        b.query = b.chrom = query_name
+        b.start = state.start
+        b.end = state.end
+        b.name = state.orf_name
+        b.score = state.score
+        b.strand = state.strand
+        b.thickStart = state.thickStart
+        b.thickEnd = state.thickEnd
         b.rgb = 0
         b.blockCount = 1
-        b.blockSizes = [self.end]
+        b.blockSizes = [state.end]
         b.blockStarts = [0]
 
-        b.has_start_codon = self.has_start_codon
-        b.has_stop_codon = self.has_stop_codon
+        b.has_start_codon = state.has_start_codon
+        b.has_stop_codon = state.has_stop_codon
 
         return b
+
+    def as_bed12(self):
+        """Method to transform the mapper into a BED12 object."""
+
+        return self.as_bed12_static(self, self.query)
 
     @hybrid_property
     def query(self):

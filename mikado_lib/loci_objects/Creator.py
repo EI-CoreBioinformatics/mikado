@@ -489,12 +489,16 @@ class Creator:
                                          session.query(mikado_lib.serializers.junction.Junction))
             self.main_logger.info("{0} junctions loaded".format(len(data_dict["junctions"])))
             data_dict['orf'] = dict()
-
+            queries = dict((x.query_id, x) for x in engine.execute("select * from query"))
             # Then load ORFs
-            for x in session.query(mikado_lib.serializers.orf.Orf):
-                if x.query not in data_dict['orf']:
-                    data_dict['orf'][x.query] = []
-                data_dict['orf'][x.query].append(x.as_bed12())
+            for x in engine.execute("select * from orf"):
+                query_name = queries[x.query_id].query_name
+                if query_name not in data_dict['orf']:
+                    data_dict['orf'][query_name] = []
+                data_dict['orf'][query_name].append(
+                    mikado_lib.serializers.orf.Orf.as_bed12_static(x, query_name)
+                )
+                
             self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
 
             # Finally load BLAST
@@ -510,7 +514,6 @@ class Creator:
 
                 self.main_logger.info("{0} HSPs prepared".format(len(hsps)))
 
-                queries = dict((x.query_id, x) for x in engine.execute("select * from query"))
                 targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
 
                 data_dict["hit"] = dict()

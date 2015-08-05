@@ -1057,7 +1057,7 @@ class Transcript:
         self.load_json(json_dict)
 
         if data_dict is not None:
-            self.retrieve_from_dict(data_dict)
+            yield from self.retrieve_from_dict(data_dict)
         else:
             if session is None:
                 self.connect_to_db()
@@ -1073,6 +1073,8 @@ class Transcript:
                 yield from self.load_blast()
             self.logger.debug("Loaded {0}".format(self.id))
 
+
+    @asyncio.coroutine
     def retrieve_from_dict(self, data_dict):
         """
         Method to retrieve transcript data directly from a dictionary.
@@ -1101,21 +1103,25 @@ class Transcript:
         self.load_orfs(candidate_orfs)
 
         if self.json_dict["chimera_split"]["blast_check"] is True:
+            self.logger.debug("Retrieving BLAST hits for {0}".format(self.id))
             max_target_seqs = self.json_dict["chimera_split"]["blast_params"]["max_target_seqs"] or float("inf")
             maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
 
-            blast_hits = []
+            hits = list(filter( lambda x: x["evalue"] <= maximum_evalue,
+                [data_dict["hit"][hit] for hit in filter(lambda x: x[0] == self.id, data_dict["hit"].keys())]
+            ))
+            self.logger.debug("Found {0} potential BLAST hits for {1} with evalue <= {2}".format(
+                len(hits),
+                self.id,
+                maximum_evalue))
 
-            hits = list(filter(lambda x: x[0] == self.id, data_dict["hit"]))
+            for hit in sorted(hits, key=operator.itemgetter("evalue")):
+                self.blast_hits.append(hit)
+                if len(self.blast_hits) == max_target_seqs:
+                    break
+            self.logger.debug("Loaded {0} BLAST data for {1}".format(len(self.blast_hits),
+                                                                     self.id))
 
-            def order_hits(hit):
-                return hit.evalue
-
-            counter = 0
-            for hit in sorted(hits, key=lambda h: order_hits(data_dict["hit"][h]))[:max_target_seqs]:
-                counter += 1
-                self.blast_hits.append(data_dict["hit"][hit])
-            self.logger.debug("Loaded {0} BLAST data for {1}".format(counter, self.id))
         self.logger.debug("Retrieved information from DB dictionary for {0}".format(self.id))
 
     # @profile

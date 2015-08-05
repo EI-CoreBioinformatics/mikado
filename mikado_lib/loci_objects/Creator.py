@@ -479,6 +479,8 @@ class Creator:
 
             data_dict["hit"] = dict( ((x.query, x.target), x.as_dict()) for x in session.query(
                 mikado_lib.serializers.blast_utils.Hit) )
+            self.logger.debug("{0} BLAST hits loaded".format(len(data_dict["hit"])))
+            self.logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
 
         pool = multiprocessing.Pool(processes=self.threads)
 

@@ -697,7 +697,7 @@ class Transcript:
                                         # In this case we have to keep only the LAST base
                                         discarded_exons.append((exon[0], exon[1]-1))
                                         new_exon = (exon[1]-1, exon[1])
-                                        texon = (texon[1]-1, texon[1])
+                                        texon = (texon[0], texon[0]+1)
                                         self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
                                             new_exon,
                                             texon))

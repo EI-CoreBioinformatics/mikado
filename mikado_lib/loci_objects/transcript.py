@@ -108,11 +108,19 @@ class Transcript:
 
     # ######## Class special methods ####################
 
-    def __init__(self, *args, source=None, logger=None):
+    def __init__(self, *args,
+                 source=None,
+                 logger=None,
+                 intron_range=(0, sys.maxsize)):
 
         """Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
-        The transcript instance must be initialised by a "(m|r|lnc|whatever)RNA" or "transcript" GffLine."""
+        The transcript instance must be initialised by a "(m|r|lnc|whatever)RNA" or "transcript" GffLine.
+
+        :param intron_range: range of valid intron size. Any intron shorter or longer than this will be flagged.
+        :type intron_range: list(int,int)
+
+        """
 
         # Mock setting of base hidden variables
         self.__logger = None
@@ -132,6 +140,7 @@ class Transcript:
         self.__combined_cds = []
         self.__selected_cds = []
         self.__combined_utr = []
+        self.intron_range = intron_range
 
         # Starting settings for everything else
         self.chrom = None
@@ -1222,25 +1231,7 @@ class Transcript:
         # Prepare the transcript
         self.finalize()
 
-        # Prepare the ORFs to load
-        if self.json_dict is not None:
-            minimal_secondary_orf_length = self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
-        else:
-            minimal_secondary_orf_length = 0
-
-        candidate_cliques = self.find_overlapping_cds(candidate_orfs)
-        new_orfs = []
-        for clique in candidate_cliques:
-            new_orfs.append(sorted(clique, reverse=True, key=operator.attrgetter("cds_len"))[0])
-
-        candidate_orfs = []
-        if len(new_orfs) > 0:
-            candidate_orfs = [new_orfs[0]]
-            for orf in filter(lambda x: x.cds_len > minimal_secondary_orf_length, new_orfs[1:]):
-                if orf.invalid is True:
-                    self.logger.warning("Removed invalid ORF: {0}".format(orf))
-                    continue
-                candidate_orfs.append(orf)
+        candidate_orfs = self.find_overlapping_cds(candidate_orfs)
 
         if candidate_orfs is None or len(candidate_orfs) == 0:
             self.logger.debug("No ORF for {0}".format(self.id))
@@ -1253,14 +1244,7 @@ class Transcript:
         primary_orf = True  # Token to be set to False after the first CDS is exhausted
         self.loaded_bed12 = []  # This will keep in memory the original BED12 objects
 
-        # If we are looking at a multiexonic transcript
-        if not (self.monoexonic is True and self.strand is None):
-            candidate_orfs = list(filter(lambda co: co.strand == "+", candidate_orfs))
-        else:
-            # Candidate ORFs are already sorted by CDS length
-            candidate_orfs = list(filter(lambda co: co.strand == candidate_orfs[0].strand, candidate_orfs))
-
-        for orf in sorted(candidate_orfs, key=operator.attrgetter("cds_len"), reverse=True):
+        for orf in candidate_orfs:
             # Minimal check
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
@@ -1436,11 +1420,11 @@ class Transcript:
 
     # ###################Class methods#####################################
 
-    @classmethod
-    def find_overlapping_cds(cls, candidates: list) -> list:
+    # @classmethod
+    def find_overlapping_cds(self, candidates: list) -> list:
         """
         :param candidates: candidate ORFs to analyse
-        :type candidates: list[mikado_lib.serializers.orf.Orf]
+        :type candidates: list(mikado_lib.serializers.orf.Orf)
 
         Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
         It will pass to the function the class's "is_overlapping_cds" method
@@ -1449,14 +1433,67 @@ class Transcript:
         (first element of the Abstractlocus.find_communities results)
         """
 
+        # If we are looking at a multiexonic transcript
+        if not (self.monoexonic is True and self.strand is None):
+            candidates = list(filter(lambda co: co.strand == "+", candidates))
+
+        # Prepare the minimal secondary length parameter
+        if self.json_dict is not None:
+            minimal_secondary_orf_length = self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
+        else:
+            minimal_secondary_orf_length = 0
+
+        self.logger.debug("{0} input ORFs for {1}".format(len(candidates), self.id))
+        candidates = list(filter(lambda x: x.invalid is False, candidates))
+        self.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), self.id))
+        if len(candidates) == 0:
+            return []
+
         d = dict((x.name, x) for x in candidates)
-        communities = Abstractlocus.find_communities(Abstractlocus.define_graph(d, inters=cls.is_overlapping_cds))[1]
-        final_communities = []
-        for comm in communities:
-            # Each community is a frozenset of ids
-            final_communities.append(set(d[x] for x in comm))
-        final_communities = [frozenset(x) for x in final_communities]
-        return final_communities
+
+        # First define the graph
+        graph = Abstractlocus.define_graph(d, inters=self.is_overlapping_cds)
+        candidate_orfs = []
+
+        def sorter(orf):
+            """Sorting function for the ORFs."""
+            return ((orf.has_start_codon and orf.has_stop_codon),
+                    (orf.has_start_codon or orf.has_stop_codon),
+                    orf.cds_len)
+
+        while len(graph) > 0:
+            cliques, communities = Abstractlocus.find_communities(graph)
+            self.logger.debug("Communities for {0}: {1}".format(self.id, communities))
+            self.logger.debug("Cliques for {0}: {1}".format(self.id, cliques))
+            to_remove = set()
+            for comm in communities:
+                comm = [d[x] for x in comm]
+                best_orf = sorted(comm, key=lambda x: sorter(x), reverse=True)[0]
+                candidate_orfs.append(best_orf)
+                for clique in filter(lambda cl: best_orf.name in cl, cliques):
+                    to_remove.update(clique)
+            graph.remove_nodes_from(to_remove)
+
+        candidate_orfs = sorted(candidate_orfs, key=sorter, reverse=True)
+        self.logger.debug("{0} candidate retained ORFs for {1}: {2}".format(
+            len(candidate_orfs),
+            self.id,
+            [x.name for x in candidate_orfs]))
+        final_orfs = [candidate_orfs[0]]
+        if len(candidate_orfs) > 1:
+            others = list(filter(lambda o: o.cds_len >= minimal_secondary_orf_length,
+                                          candidate_orfs[1:]))
+            self.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
+                len(others), self.id,
+                minimal_secondary_orf_length
+            ))
+            final_orfs.extend(others)
+
+        self.logger.debug("Retained {0} ORFs for {1}: {2}".format(len(final_orfs),
+                                                                  self.id,
+                                                                  [x.name for x in final_orfs]
+                                                                  ))
+        return final_orfs
 
     @classmethod
     def is_overlapping_cds(cls, first, second):
@@ -2408,3 +2445,23 @@ class Transcript:
             assert len(self.verified_introns) == 0
         assert 0 <= value <= 1
         self.__proportion_verified_introns_inlocus = value
+
+    @Metric
+    def num_introns_greater_than_max(self):
+        """
+        This metric returns the number of introns greater than the maximum acceptable intron size
+        indicated in the constructor.
+        :rtype : int
+        """
+
+        return sum(1 for x in filter( lambda x: x[1]-x[0]+1 > self.intron_range[1], self.introns))
+
+    @Metric
+    def num_introns_smaller_than_min(self):
+        """
+        This metric returns the number of introns smaller than the mininum acceptable intron size
+        indicated in the constructor.
+        :rtype : int
+        """
+
+        return sum(1 for x in filter( lambda x: x[1]-x[0]+1 < self.intron_range[0], self.introns))

@@ -458,9 +458,11 @@ class Creator:
                                    creator=self.db_connection)
             session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-            data_dict["junctions"] = self.manager.dict()
+            data_dict["junctions"] = dict()
             for x in session.query(mikado_lib.serializers.junction.Junction):
                 data_dict["junctions"][(x.chrom, x.junctionStart, x.junctionEnd, x.strand)] = None
+
+            data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
 
             self.main_logger.info("{0} junctions loaded".format(len(data_dict["junctions"])))
             queries = dict((x.query_id, x) for x in engine.execute("select * from query"))
@@ -472,16 +474,14 @@ class Creator:
                 query_name = queries[x.query_id].query_name
                 orfs[query_name].append(mikado_lib.serializers.orf.Orf.as_bed12_static(x, query_name))
 
-            data_dict['orf'] = self.manager.dict()
-            for key in orfs:
-                data_dict["orf"][key] = orfs[key]
+            data_dict['orf'] = self.manager.dict(orfs, lock=False)
             del orfs
 
             self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
 
             # Finally load BLAST
 
-            data_dict["hit"] = self.manager.dict()
+            data_dict["hit"] = dict()
 
             if self.json_conf["chimera_split"]["execute"] is True and \
                     self.json_conf["chimera_split"]["blast_check"] is True:
@@ -545,13 +545,17 @@ class Creator:
                     len(data_dict["hit"])
                 ))
                 self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
+                data_dict["hit"] = self.manager.dict(data_dict["hit"], lock=False)
             else:
+                data_dict["hit"] = self.manager.dict(data_dict["hit"], lock=False)
                 self.main_logger.info("Skipping BLAST loading")
 
             self.main_logger.info("Finished to preload the database into memory")
 
         pool = multiprocessing.Pool(processes=self.threads)
 
+        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        self.logger.info("Intron range: {0}".format(intron_range))
         self.logger.debug("Source: {0}".format(self.json_conf["source"]))
         for row in self.define_input():
             if row.is_exon is True:
@@ -581,7 +585,9 @@ class Creator:
                         current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript,
                                                                                       stranded=False,
                                                                                       json_dict=self.json_conf)
-                current_transcript = mikado_lib.loci_objects.transcript.Transcript(row, source=self.json_conf["source"])
+                current_transcript = mikado_lib.loci_objects.transcript.Transcript(row,
+                                                                                   source=self.json_conf["source"],
+                                                                                   intron_range=intron_range)
             else:
                 continue
 

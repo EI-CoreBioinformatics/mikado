@@ -15,6 +15,7 @@ from mikado_lib.exceptions import InvalidJson
 from mikado_lib.loci_objects.transcript import Transcript
 import mikado_lib.exceptions
 import json
+import sys
 import subprocess
 
 
@@ -324,6 +325,21 @@ def check_requirements(json_conf):
         for key in keys:  # Create the final expression
             newexpr = re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)
         json_conf["requirements"]["expression"] = newexpr
+
+    if "soft_requirements" not in json_conf:
+        json_conf["soft_requirements"] = dict()
+        json_conf["soft_requirements"] = (0, sys.maxsize)
+    if "intron_range" not in json_conf["soft_requirements"]:
+        raise InvalidJson("No intron range found!")
+        # json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)
+    else:
+        try:
+            f,s = (int(x) for x in json_conf["soft_requirements"]["intron_range"])
+            json_conf["soft_requirements"]["intron_range"] = (f,s)
+        except Exception:
+            raise InvalidJson("Invalid intron range: {0}".format(
+                json_conf["soft_requirements"]["intron_range"]
+            ))
 
     return json_conf
 

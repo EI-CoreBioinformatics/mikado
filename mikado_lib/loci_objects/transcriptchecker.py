@@ -23,7 +23,9 @@ class TranscriptChecker(Transcript):
         but rather will just report the number of splices supporting each strand.
     """
 
-    def __init__(self, gffline, fasta_index, strand_specific=False, lenient=False):
+    __translation_table = str.maketrans("ACGT", "TGCA")
+
+    def __init__(self, gffline, seq, strand_specific=False, lenient=False):
 
         """
         Constructor method. It inherits from Transcript, with some modifications.
@@ -31,7 +33,7 @@ class TranscriptChecker(Transcript):
         :param gffline: annotation line to begin the construction.
         :type gffline: GffLine | GtfLine
 
-        :param fasta_index: a SeqIO indexed FASTA file
+        :param seq: a SeqIO indexed FASTA file
 
         :param strand_specific: flag. If set, transcripts will not have their strand changed.
         :type strand_specific: bool
@@ -42,18 +44,31 @@ class TranscriptChecker(Transcript):
         self.__strand_specific = False
         self.mixed_attribute = ""
 
-        if fasta_index is None:
+        if seq is None:
             raise ValueError()
         super().__init__(gffline)
         self.original_strand = gffline.strand
         assert self.original_strand == self.strand
         self.parent = gffline.parent
-        self.fasta_index = fasta_index
+        self.fasta_seq = seq
         self.strand_specific = strand_specific
         self.checked = False
         self.lenient = lenient
         self.mixed_splices = False
         self.reversed = False
+
+    @property
+    def translation_table(self):
+        """
+        Returns the table used to reverse complement FASTA strings.
+        """
+        return self.__translation_table
+
+    def rev_complement(self,string):
+
+        return "".join(x for x in reversed(
+            string.translate(self.translation_table)
+        ))
 
     @property
     def strand_specific(self):
@@ -112,17 +127,22 @@ class TranscriptChecker(Transcript):
                 canonical_counter[strand] = 0
 
             for intron in self.introns:
-                splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
-                splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
+                splice_donor = self.fasta_seq[intron[0]-self.start - 1:intron[0]-self.start + 1]
+                splice_acceptor = self.fasta_seq[intron[1] - 2 -self.start:intron[1] -self.start ]
+
+                # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
+                # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
                 if self.strand == "-":
-                    rsa, rsd = splice_acceptor.reverse_complement(), splice_donor.reverse_complement()
-                    splice_donor, splice_acceptor = rsa, rsd
-                if (splice_donor.seq, splice_acceptor.seq) in canonical_splices:
+                    splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
+                                                     self.rev_complement(splice_donor)
+                                                     )
+                if (splice_donor, splice_acceptor) in canonical_splices:
                     canonical_counter["+"] += 1
                 else:
-                    rsa, rsd = splice_acceptor.reverse_complement(), splice_donor.reverse_complement()
-                    splice_donor, splice_acceptor = rsa, rsd
-                    if (splice_donor.seq, splice_acceptor.seq) in canonical_splices:
+                    splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
+                                                     self.rev_complement(splice_donor)
+                                                     )
+                    if (splice_donor, splice_acceptor) in canonical_splices:
                         canonical_counter["-"] += 1
                     else:
                         canonical_counter[None] += 1

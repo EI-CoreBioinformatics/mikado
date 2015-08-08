@@ -32,6 +32,7 @@ orf_loading:
   minimal_secondary_orf_length: 200
   strand_specific: true
 run_options:
+  shm: true
   exclude_cds: false
   purge: false
   remove_overlapping_fragments: true

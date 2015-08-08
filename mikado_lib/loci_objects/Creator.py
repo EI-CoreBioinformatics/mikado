@@ -8,6 +8,8 @@ This module defines the Creator class, which is the main workhorse for Mikado pi
 import re
 import csv
 import os
+import shutil
+import tempfile
 import threading
 import logging
 from logging import handlers as logging_handlers
@@ -73,7 +75,10 @@ def connector(json_conf):
     """
 
     if json_conf["dbtype"] == "sqlite":
-        return sqlite3.connect(database=json_conf["db"])  # @UndefinedVariable
+        if json_conf['run_options']['shm'] is False:
+            return sqlite3.connect(database=json_conf["db"])
+        else:
+            return sqlite3.connect(database=json_conf["run_options"]["shm_db"])
     elif json_conf["dbtype"] == "mysql":
         import MySQLdb
         return MySQLdb.connect(host=json_conf["dbhost"],
@@ -98,7 +103,7 @@ def analyse_locus(slocus: Superlocus,
                   json_conf: dict,
                   printer_queue: multiprocessing.managers.AutoProxy,
                   logging_queue: multiprocessing.managers.AutoProxy,
-                  data_dict
+                  # data_dict
                   ) -> [Superlocus]:
 
     """
@@ -114,8 +119,8 @@ def analyse_locus(slocus: Superlocus,
     :param printer_queue: the printing queue
     :type printer_queue: multiprocessing.managers.AutoProxy
 
-    :param data_dict: a dictionary of preloaded data
-    :type data_dict: dict
+    # :param data_dict: a dictionary of preloaded data
+    # :type data_dict: dict
 
     This function takes as input a "superlocus" instance and the pipeline configuration.
     It also accepts as optional keywords a dictionary with the CDS information (derived from a Bed12Parser)
@@ -128,22 +133,23 @@ def analyse_locus(slocus: Superlocus,
     # Define the logger
     if slocus is None:
         return
-
-    db_connection = functools.partial(connector, json_conf)
-    connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
-
     handler = logging_handlers.QueueHandler(logging_queue)  # @UndefinedVariable
     logger = logging.getLogger("{chr}:{start}-{end}".format(chr=slocus.chrom, start=slocus.start, end=slocus.end))
     logger.addHandler(handler)
     # We need to set this to the lowest possible level, otherwise we overwrite the global configuration
     logger.setLevel(json_conf["log_settings"]["log_level"])
     logger.propagate = False
-
-    # Load the CDS information
     logger.info("Started with {0}".format(slocus.id))
-    logger.debug("Loading transcript data")
     slocus.logger = logger
-    slocus.load_all_transcript_data(pool=connection_pool, data_dict=data_dict)
+
+    # Load the CDS information if necessary
+    if json_conf["dbtype"] != "sqlite":
+            logger.debug("Loading transcript data for {0}".format(slocus.id))
+            db_connection = functools.partial(connector, json_conf)
+            connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
+            slocus.load_all_transcript_data(pool=connection_pool)
+            # connection_pool.dispose()
+
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
     stranded_loci = sorted(list(slocus.split_strands()))
@@ -237,6 +243,7 @@ class Creator:
 
         self.commandline = commandline
         self.json_conf = json_conf
+
         self.threads = self.json_conf["run_options"]["threads"]
         self.input_file = self.json_conf["input"]
         _ = self.define_input()  # Check the input file
@@ -261,7 +268,7 @@ class Creator:
         self.queue_logger.propagate = False
         if self.json_conf["single_thread"] is True:
             # Reset threads to 1
-            self.logger.warning("Reset number of threads to 1 as requested")
+            self.main_logger.warning("Reset number of threads to 1 as requested")
             self.threads = self.json_conf["run_options"]["threads"] = 1
 
         if self.locus_out is None:
@@ -284,6 +291,43 @@ class Creator:
             raise mikado_lib.exceptions.InvalidJson("Invalid input file: {0}".format(self.input_file))
 
         return parser(self.input_file)
+
+    def setup_shm_db(self):
+        """
+        This method will copy the SQLite input DB into memory.
+        """
+
+        self.main_logger.info("SHM: {0}".format(self.json_conf["run_options"]["shm"]))
+        if self.json_conf["run_options"]["shm"] is True:
+            self.json_conf["run_options"]["shm_shared"] = False
+            self.main_logger.info("Copying the DB into memory")
+            assert self.json_conf["dbtype"] == "sqlite"
+            self.json_conf["run_options"]["preload"] = False
+            if self.json_conf["run_options"]["shm_db"] is not None:
+                self.json_conf["run_options"]["shm_db"] = os.path.join("/dev/shm/",
+                                                                       self.json_conf["run_options"]["shm_db"])
+                self.json_conf["run_options"]["shm_shared"] = True
+            else:
+                # Create temporary file
+                temp = tempfile.mktemp(suffix=".db",
+                                       prefix="/dev/shm/",
+                                       )
+                if os.path.exists(temp):
+                    os.remove(temp)
+                self.json_conf["run_options"]["shm_db"] = temp
+            if self.json_conf["run_options"]["shm"]:
+                if not os.path.exists(self.json_conf["run_options"]["shm_db"]):
+                    self.main_logger.info("Copying {0} into {1}")
+                    try:
+                        shutil.copy2(self.json_conf["db"],
+                                     self.json_conf["run_options"]["shm_db"]
+                                     )
+                    except PermissionError:
+                        self.main_logger.warn("Permission to write on /dev/shm denied. Back to using the DB on disk.")
+                        self.json_conf["run_options"]["shm"] = False
+                else:
+                    self.main_logger.info("{0} exists already. Doing nothing.".format(
+                        self.json_conf["run_options"]["shm_db"]))
 
     def setup_logger(self):
 
@@ -314,6 +358,8 @@ class Creator:
         else:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)
+        # Create the shared DB if necessary
+        self.setup_shm_db()
 
         self.main_logger.info("Begun analysis of {0}".format(self.input_file))
         if self.commandline != '':
@@ -462,20 +508,21 @@ class Creator:
             for x in session.query(mikado_lib.serializers.junction.Junction):
                 data_dict["junctions"][(x.chrom, x.junctionStart, x.junctionEnd, x.strand)] = None
 
-            data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
+            # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
 
             self.main_logger.info("{0} junctions loaded".format(len(data_dict["junctions"])))
             queries = dict((x.query_id, x) for x in engine.execute("select * from query"))
 
             # Then load ORFs
-            orfs = collections.defaultdict(list)
+            data_dict["orfs"] = collections.defaultdict(list)
 
             for x in engine.execute("select * from orf"):
                 query_name = queries[x.query_id].query_name
-                orfs[query_name].append(mikado_lib.serializers.orf.Orf.as_bed12_static(x, query_name))
+                data_dict["orfs"][query_name].append(
+                    mikado_lib.serializers.orf.Orf.as_bed12_static(x, query_name)
+                )
 
-            data_dict['orf'] = self.manager.dict(orfs, lock=False)
-            del orfs
+            # data_dict['orf'] = self.manager.dict(orfs, lock=False)
 
             self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
 
@@ -507,7 +554,7 @@ class Creator:
                 # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
                 current_counter = 0
                 current_hit = None
-                hits_dict = collections.defaultdict(list)
+                data_dict["hits"] = collections.defaultdict(list)
 
                 for hit in hits:
                     if current_hit != hit.query_id:
@@ -522,7 +569,7 @@ class Creator:
 
                     # We HAVE to use the += approach because extend/append
                     # leave the original list empty
-                    hits_dict[my_query.query_name].append(
+                    data_dict["hits"][my_query.query_name].append(
                         mikado_lib.serializers.blast_utils.Hit.as_full_dict_static(
                             hit,
                             hsps[hit.query_id][hit.target_id],
@@ -534,20 +581,18 @@ class Creator:
                     if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
                         self.main_logger.info("Loaded {0} BLAST hits in database".format(hit_counter))
 
-                for key in hits_dict:
-                    data_dict["hit"][key] = hits_dict[key]
-
+                # data_dict["hits"] = self.manager.dict(dict.update(data_dict["hits"]),
+                #                                       lock=False)
                 del hsps
-                del hits_dict
+                # del hits_dict
                 assert len(data_dict["hit"]) <= len(queries)
                 self.main_logger.info("{0} BLAST hits loaded for {1} queries".format(
                     hit_counter,
                     len(data_dict["hit"])
                 ))
                 self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
-                data_dict["hit"] = self.manager.dict(data_dict["hit"], lock=False)
             else:
-                data_dict["hit"] = self.manager.dict(data_dict["hit"], lock=False)
+                data_dict["hit"] = dict()
                 self.main_logger.info("Skipping BLAST loading")
 
             self.main_logger.info("Finished to preload the database into memory")
@@ -557,6 +602,11 @@ class Creator:
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: {0}".format(intron_range))
         self.logger.debug("Source: {0}".format(self.json_conf["source"]))
+        if self.json_conf["dbtype"] == "sqlite" and data_dict is not None:
+            self.queue_pool = sqlalchemy.pool.QueuePool(self.db_connection, pool_size=1, max_overflow=2)
+        else:
+            self.queue_pool = None
+
         for row in self.define_input():
             if row.is_exon is True:
                 current_transcript.add_exon(row)
@@ -567,20 +617,26 @@ class Creator:
                         current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
                         assert current_transcript.id in current_locus.transcripts
                     else:
-                        if self.json_conf["single_thread"] is True:
-                            analyse_locus(current_locus,
-                                          self.json_conf,
-                                          self.printer_queue,
-                                          self.logging_queue,
-                                          data_dict
-                                          )
-                        else:
-                            jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                                              self.json_conf,
-                                                                              self.printer_queue,
-                                                                              self.logging_queue,
-                                                                              data_dict
-                                                                              )))
+                        # Load data on the local thread before sending.
+                        if current_locus is not None:
+                            if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
+                                self.main_logger.info("Loading data for {0}".format(current_locus.id))
+                                current_locus.load_all_transcript_data(pool=self.queue_pool,
+                                                                       data_dict=data_dict)
+                            if self.json_conf["single_thread"] is True:
+                                analyse_locus(current_locus,
+                                              self.json_conf,
+                                              self.printer_queue,
+                                              self.logging_queue,
+                                              # data_dict
+                                              )
+                            else:
+                                jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                                                  self.json_conf,
+                                                                                  self.printer_queue,
+                                                                                  self.logging_queue,
+                                                                                  # data_dict
+                                                                                  )))
 
                         current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript,
                                                                                       stranded=False,
@@ -595,37 +651,45 @@ class Creator:
             if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(current_locus, current_transcript) is True:
                 current_locus.add_transcript_to_locus(current_transcript)
             else:
-                if self.json_conf["single_thread"] is True:
-                    analyse_locus(current_locus,
-                                  self.json_conf,
-                                  self.printer_queue,
-                                  self.logging_queue,
-                                  data_dict)
-                else:
-                    jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                                      self.json_conf,
-                                                                      self.printer_queue,
-                                                                      self.logging_queue,
-                                                                      data_dict
-                                                                      )))
+                if current_locus is not None:
+                    if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
+                        self.main_logger.info("Loading data for {0}".format(current_locus.id))
+                        current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
+                    if self.json_conf["single_thread"] is True:
+                        analyse_locus(current_locus,
+                                      self.json_conf,
+                                      self.printer_queue,
+                                      self.logging_queue,
+                                      # data_dict
+                                      )
+                    else:
+                        jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                                          self.json_conf,
+                                                                          self.printer_queue,
+                                                                          self.logging_queue,
+                                                                          # data_dict
+                                                                          )))
 
                 current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript, stranded=False,
                                                                               json_dict=self.json_conf)
 
         if current_locus is not None:
+            if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
+                self.main_logger.info("Loading data for {0}".format(current_locus.id))
+                current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
             if self.json_conf["single_thread"] is True:
                 analyse_locus(current_locus,
                               self.json_conf,
                               self.printer_queue,
                               self.logging_queue,
-                              data_dict
+                              # data_dict
                               )
             else:
                 jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
                                                                   self.json_conf,
                                                                   self.printer_queue,
                                                                   self.logging_queue,
-                                                                  data_dict
+                                                                  # data_dict
                                                                   )))
         for job in jobs:
             job.get()
@@ -643,5 +707,14 @@ class Creator:
         # The printing process must be started AFTER we have put the stopping signal  into the queue
         self.printer_process.join()
         self.log_writer.stop()
+        if self.queue_pool is not None:
+            self.queue_pool.dispose()
+
+        if self.json_conf["run_options"]["shm"] is True and self.json_conf["run_options"]["shm_shared"] is False:
+            self.main_logger.info("Removing shared memory DB {0}".format(
+                self.json_conf["run_options"]["shm_db"]
+            ))
+            os.remove(self.json_conf["run_options"]["shm_db"])
+
         self.main_logger.info("Finished analysis of {0}".format(self.input_file))
         return 0

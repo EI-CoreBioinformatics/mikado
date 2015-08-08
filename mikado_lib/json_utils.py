@@ -504,6 +504,18 @@ def check_run_options(json_conf):
     else:
         assert type(json_conf["run_options"]["subloci_from_cds_only"]) is bool
 
+    if "shm" not in json_conf["run_options"]:
+        json_conf["run_options"]["shm"] = False
+        json_conf["run_options"]["shm_db"] = None
+        json_conf["run_options"]["shm_shared"] = False
+    else:
+        assert type(json_conf["run_options"]["shm"]) is bool
+
+    if "shm_db" not in json_conf["run_options"]:
+        json_conf["run_options"]["shm_db"] = None
+    else:
+        assert json_conf["run_options"]["shm_db"] is None or type(json_conf["run_options"]["shm_db"]) is str
+
     return json_conf
 
 

@@ -531,7 +531,7 @@ class Creator:
 
             # Finally load BLAST
 
-            data_dict["hit"] = dict()
+            data_dict["hits"] = collections.defaultdict(list)
 
             if self.json_conf["chimera_split"]["execute"] is True and \
                     self.json_conf["chimera_split"]["blast_check"] is True:
@@ -547,8 +547,6 @@ class Creator:
 
                 targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
 
-                data_dict["hit"] = self.manager.dict()
-
                 hit_counter = 0
                 hits = engine.execute("select * from hit where evalue <= {0} order by query_id,evalue;".format(
                     self.json_conf["chimera_split"]["blast_params"]["evalue"]
@@ -557,7 +555,6 @@ class Creator:
                 # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
                 current_counter = 0
                 current_hit = None
-                data_dict["hits"] = collections.defaultdict(list)
 
                 for hit in hits:
                     if current_hit != hit.query_id:
@@ -588,14 +585,14 @@ class Creator:
                 #                                       lock=False)
                 del hsps
                 # del hits_dict
-                assert len(data_dict["hit"]) <= len(queries)
+                assert len(data_dict["hits"]) <= len(queries)
                 self.main_logger.info("{0} BLAST hits loaded for {1} queries".format(
                     hit_counter,
-                    len(data_dict["hit"])
+                    len(data_dict["hits"])
                 ))
-                self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hit"].keys())[:10]])))
+                self.main_logger.debug("{0}".format(", ".join([str(x) for x in list(data_dict["hits"].keys())[:10]])))
             else:
-                data_dict["hit"] = dict()
+                data_dict["hits"] = dict()
                 self.main_logger.info("Skipping BLAST loading")
 
             self.main_logger.info("Finished to preload the database into memory")

@@ -1111,8 +1111,8 @@ class Transcript:
             self.logger.debug("Retrieving BLAST hits for {0}".format(self.id))
             maximum_evalue = self.json_dict["chimera_split"]["blast_params"]["evalue"]
 
-            if self.id in data_dict["hit"]:
-                hits = data_dict["hit"][self.id]  # this is a dictionary full of lists of dictionary
+            if self.id in data_dict["hits"]:
+                hits = data_dict["hits"][self.id]  # this is a dictionary full of lists of dictionary
             else:
                 hits = list()
 

@@ -331,6 +331,7 @@ class Creator:
                 else:
                     self.main_logger.info("{0} exists already. Doing nothing.".format(
                         self.json_conf["run_options"]["shm_db"]))
+            self.main_logger.info("DB copied into memory")
 
     def setup_logger(self):
 
@@ -580,7 +581,7 @@ class Creator:
                     )
                     hit_counter += 1
                     if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
-                        self.main_logger.info("Loaded {0} BLAST hits in database".format(hit_counter))
+                        self.main_logger.debug("Loaded {0} BLAST hits in database".format(hit_counter))
 
                 # data_dict["hits"] = self.manager.dict(dict.update(data_dict["hits"]),
                 #                                       lock=False)

@@ -143,7 +143,7 @@ def analyse_locus(slocus: Superlocus,
     slocus.logger = logger
 
     # Load the CDS information if necessary
-    if json_conf["dbtype"] != "sqlite":
+    if json_conf["run_options"]["preload"] is False:
             logger.debug("Loading transcript data for {0}".format(slocus.id))
             db_connection = functools.partial(connector, json_conf)
             connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
@@ -621,7 +621,7 @@ class Creator:
                     else:
                         # Load data on the local thread before sending.
                         if current_locus is not None:
-                            if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
+                            if data_dict is not None:
                                 self.main_logger.debug("Loading data for {0}".format(current_locus.id))
                                 current_locus.load_all_transcript_data(pool=self.queue_pool,
                                                                        data_dict=data_dict)

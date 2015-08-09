@@ -328,7 +328,7 @@ def check_requirements(json_conf):
 
     if "soft_requirements" not in json_conf:
         json_conf["soft_requirements"] = dict()
-        json_conf["soft_requirements"] = (0, sys.maxsize)
+        json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)
     if "intron_range" not in json_conf["soft_requirements"]:
         raise InvalidJson("No intron range found!")
         # json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)

@@ -297,7 +297,7 @@ class Creator:
         This method will copy the SQLite input DB into memory.
         """
 
-        self.main_logger.info("SHM: {0}".format(self.json_conf["run_options"]["shm"]))
+        self.main_logger.info("Copy into a SHM db: {0}".format(self.json_conf["run_options"]["shm"]))
         if self.json_conf["run_options"]["shm"] is True:
             self.json_conf["run_options"]["shm_shared"] = False
             self.main_logger.info("Copying the DB into memory")
@@ -361,8 +361,6 @@ class Creator:
         else:
             self.main_logger.setLevel(logging.INFO)
         self.main_logger.addHandler(self.log_handler)
-        # Create the shared DB if necessary
-        self.setup_shm_db()
 
         self.main_logger.info("Begun analysis of {0}".format(self.input_file))
         if self.commandline != '':
@@ -389,6 +387,8 @@ class Creator:
                 round(100 * queries_with_hits / total_queries, 2)
             ))
             session.close()
+        # Create the shared DB if necessary
+        self.setup_shm_db()
 
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()

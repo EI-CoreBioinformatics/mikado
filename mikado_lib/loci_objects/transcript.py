@@ -1095,8 +1095,8 @@ class Transcript:
         # ORF data
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
 
-        if self.id in data_dict["orf"]:
-            candidate_orfs = data_dict["orf"][self.id]
+        if self.id in data_dict["orfs"]:
+            candidate_orfs = data_dict["orfs"][self.id]
         else:
             candidate_orfs = []
 

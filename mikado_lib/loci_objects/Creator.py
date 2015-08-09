@@ -317,7 +317,10 @@ class Creator:
                 self.json_conf["run_options"]["shm_db"] = temp
             if self.json_conf["run_options"]["shm"]:
                 if not os.path.exists(self.json_conf["run_options"]["shm_db"]):
-                    self.main_logger.info("Copying {0} into {1}")
+                    self.main_logger.info("Copying {0} into {1}".format(
+                        self.json_conf["db"],
+                        self.json_conf["run_options"]["shm_db"]
+                    ))
                     try:
                         shutil.copy2(self.json_conf["db"],
                                      self.json_conf["run_options"]["shm_db"]

@@ -368,6 +368,9 @@ class Creator:
         else:
             self.main_logger.info("Analysis launched directly, without using the launch script.")
 
+        # Create the shared DB if necessary
+        self.setup_shm_db()
+
         if self.json_conf["chimera_split"]["blast_check"] is True:
             engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
                                    creator=self.db_connection)
@@ -387,8 +390,6 @@ class Creator:
                 round(100 * queries_with_hits / total_queries, 2)
             ))
             session.close()
-        # Create the shared DB if necessary
-        self.setup_shm_db()
 
         self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
         self.log_writer.start()
@@ -675,7 +676,7 @@ class Creator:
 
         if current_locus is not None:
             if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
-                self.main_logger.info("Loading data for {0}".format(current_locus.id))
+                self.main_logger.debug("Loading data for {0}".format(current_locus.id))
                 current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
             if self.json_conf["single_thread"] is True:
                 analyse_locus(current_locus,
@@ -694,11 +695,6 @@ class Creator:
         for job in jobs:
             job.get()
 
-        # while len(jobs) > 0:
-        #     for job in jobs:
-        #         if job.is_alive() is False:
-        #             jobs.remove(job)
-        #
         pool.close()
         pool.join()
 

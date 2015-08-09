@@ -527,7 +527,7 @@ class Creator:
 
             # data_dict['orf'] = self.manager.dict(orfs, lock=False)
 
-            self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orf"])))
+            self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orfs"])))
 
             # Finally load BLAST
 
@@ -623,7 +623,7 @@ class Creator:
                         # Load data on the local thread before sending.
                         if current_locus is not None:
                             if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
-                                self.main_logger.info("Loading data for {0}".format(current_locus.id))
+                                self.main_logger.debug("Loading data for {0}".format(current_locus.id))
                                 current_locus.load_all_transcript_data(pool=self.queue_pool,
                                                                        data_dict=data_dict)
                             if self.json_conf["single_thread"] is True:

@@ -347,10 +347,13 @@ class Superlocus(Abstractlocus):
                 if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
                     self.locus_verified_introns.append(intron)
 
-        loop = asyncio.get_event_loop()
-        tasks = [ensure_future(self.load_transcript_data(tid, data_dict)) for tid in self.transcripts]
-        #
-        loop.run_until_complete(asyncio.wait(tasks))
+        for tid in self.transcripts:
+            self.load_transcript_data(tid, data_dict)
+
+        # loop = asyncio.get_event_loop()
+        # tasks = [ensure_future(self.load_transcript_data(tid, data_dict)) for tid in self.transcripts]
+        # #
+        # loop.run_until_complete(asyncio.wait(tasks))
         if data_dict is None:
             self.session.close()
             self.sessionmaker.close_all()

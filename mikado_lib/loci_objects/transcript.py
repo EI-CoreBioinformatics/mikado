@@ -1091,7 +1091,7 @@ class Transcript:
                 self.logger.warning("Transcript not in database: {0}".format(self.id))
             else:
                 self.query_id = self.query_id[0].query_id
-                self.load_orfs(self.retrieve_orfs())
+                self.load_orfs(list(self.retrieve_orfs()))
                 self.load_blast()
                 # yield from self.load_orfs_coroutine()
                 # yield from self.load_blast()

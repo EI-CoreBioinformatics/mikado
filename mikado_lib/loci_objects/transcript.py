@@ -1182,7 +1182,7 @@ class Transcript:
 
         # @profile
 
-    @asyncio.coroutine
+    # @asyncio.coroutine
 #    @profile
     def retrieve_orfs(self):
 

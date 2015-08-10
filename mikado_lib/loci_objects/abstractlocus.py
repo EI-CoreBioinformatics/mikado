@@ -197,10 +197,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                       )
 
         logger = logging.getLogger("{0}_logger".format(cls.__name__))
-        handler = logging.NullHandler()
-        handler.setFormatter(formatter)
+        # handler = logging.NullHandler()
+        # handler.setFormatter(formatter)
         logger.setLevel(logging.WARN)
-        logger.addHandler(handler)
+        # logger.addHandler(handler)
         return logger
 
     @classmethod

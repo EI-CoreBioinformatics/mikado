@@ -11,11 +11,11 @@ import sys
 import collections
 import sqlalchemy
 import asyncio
-if sys.version_info.minor > 4 or (sys.version_info.minor == 4 and sys.version_info.micro >= 4):
-    # Necessary for future compatibility
-    from asyncio.events import ensure_future
-else:
-    from asyncio.tasks import async as ensure_future
+# if sys.version_info.minor > 4 or (sys.version_info.minor == 4 and sys.version_info.micro >= 4):
+#     # Necessary for future compatibility
+#     from asyncio.events import ensure_future
+# else:
+#     from asyncio.tasks import async as ensure_future
 
 # SQLAlchemy imports
 from sqlalchemy.engine import create_engine

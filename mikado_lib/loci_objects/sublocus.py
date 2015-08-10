@@ -171,18 +171,28 @@ class Sublocus(Abstractlocus):
 
         self.logger.debug("Defining monosubloci for {0}".format(self.id))
 
-        transcript_graph = self.define_graph(self.transcripts, inters=self.is_intersecting)
+        transcript_graph = self.define_graph(self.transcripts,
+                                             inters=self.is_intersecting,
+                                             logger=self.logger
+                                             )
 
         while len(transcript_graph) > 0:
             cliques, communities = self.find_communities(transcript_graph)
+            self.logger.debug("Cliques: {0}".format(cliques))
+            self.logger.debug("Communities: {0}".format(communities))
             to_remove = set()
             for msbl in communities:
                 msbl = dict((x, self.transcripts[x]) for x in msbl)
                 selected_tid = self.choose_best(msbl)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
+                self.logger.debug("Selected: {0}".format(selected_tid))
                 for clique in cliques:
-                    if selected_tid in cliques:
+                    if selected_tid in clique:
+                        self.logger.debug("Removing as intersecting {0}: {1}".format(
+                            selected_tid,
+                            ",".join(list(clique))
+                        ))
                         to_remove.update(clique)
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Monosublocus(selected_transcript, logger=self.logger)
@@ -498,7 +508,7 @@ class Sublocus(Abstractlocus):
     # ############## Class methods ################
 
     @classmethod
-    def is_intersecting(cls, transcript, other):
+    def is_intersecting(cls, transcript, other, logger=None):
         """
         :param transcript: the first transcript to check
         :type transcript: Transcript
@@ -512,7 +522,11 @@ class Sublocus(Abstractlocus):
 
         if transcript.id == other.id:
             # We do not want intersection with oneself
+            if logger is not None:
+                logger.debug("Self-comparison for {0}".format(transcript.id))
             return False
+        if logger is not None:
+            logger.debug("Comparing {0} and {1}".format(transcript.id, other.id))
         for exon in transcript.exons:
             if any(
                     filter(
@@ -521,8 +535,11 @@ class Sublocus(Abstractlocus):
                         other.exons
                     )
             ) is True:
+                if logger is not None:
+                    logger.debug("{0} and {1} are intersecting".format(transcript.id, other.id))
                 return True
-
+        if logger is not None:
+            logger.debug("{0} and {1} are not intersecting".format(transcript.id, other.id))
         return False
 
     @property

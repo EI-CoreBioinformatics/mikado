@@ -118,7 +118,7 @@ class Target(dbBase):
     target_id = Column(Integer, primary_key=True)
     target_name = Column(String(200), unique=True, index=True)
     target_length = Column(Integer)
-    named_tup = collections.namedtuple("Query", ["query_id", "query_name", "query_length"])
+    named_tup = collections.namedtuple("Target", ["target_id", "target_name", "target_length"])
 
     def __init__(self, target_name, target_length):
         """
@@ -135,7 +135,7 @@ class Target(dbBase):
 
     def as_tuple(self):
         """Quick function to convert the SQLalchemy object into a named tuple with the same fields"""
-        return self.named_tup( self.query_id, self.query_name, self.query_length  )
+        return self.named_tup(self.target_id, self.target_name, self.target_length)
 
 
 class Hsp(dbBase):

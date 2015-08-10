@@ -8,25 +8,24 @@ import sys
 import mikado_lib.loci_objects
 
 
-if "line_profiler" not in dir():
-    def profile(function):
-        """
-        Mock wrapper to imitate the profile decorator
-        :param function: the function to be wrapped
-        :return:
-        """
-        def inner(*args, **kwargs):
-            """
-            Returns the wrapped function
-            :param args: arguments to be passed
-            :param kwargs: keyword arguments to be passed
-            :return:
-            """
-            return function(*args, **kwargs)
-        return inner
+# if "line_profiler" not in dir():
+#     def profile(function):
+#         """
+#         Mock wrapper to imitate the profile decorator
+#         :param function: the function to be wrapped
+#         :return:
+#         """
+#         def inner(*args, **kwargs):
+#             """
+#             Returns the wrapped function
+#             :param args: arguments to be passed
+#             :param kwargs: keyword arguments to be passed
+#             :return:
+#             """
+#             return function(*args, **kwargs)
+#         return inner
 
 
-@profile
 def main():
     """
     Main script function.

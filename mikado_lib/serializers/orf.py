@@ -14,7 +14,7 @@ from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from mikado_lib.serializers.dbutils import dbBase, Inspector
+from mikado_lib.serializers.dbutils import dbBase, Inspector, connect
 from mikado_lib.serializers.blast_utils import Query
 
 
@@ -205,15 +205,7 @@ class OrfSerializer:
 
         self.BED12 = bed12.Bed12Parser(handle, fasta_index=fasta_index, transcriptomic=True)
         if json_conf is not None:
-            if json_conf["dbtype"] == "sqlite":
-                self.engine = create_engine("sqlite:///{0}".format(json_conf["db"]))
-            else:
-                self.engine = create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
-                    dbtype=json_conf["dbtype"],
-                    dbuser=json_conf["dbuser"],
-                    dbpasswd=json_conf["dbpasswd"] if json_conf["dbpasswd"] is not None else "",
-                    dbhost=json_conf["dbhost"],
-                    db=json_conf["db"]))
+            self.engine = connect(json_conf)
         else:
             self.engine = create_engine("sqlite:///{0}".format(db))
 
@@ -246,7 +238,7 @@ class OrfSerializer:
             found = set()
             for record in self.fasta_index:
                 objects.append(Query(record, len(self.fasta_index[record])))
-                self.logger.info("Appended {0}".format(record))
+                self.logger.debug("Appended {0}".format(record))
                 assert record not in found, record
                 found.add(record)
                 if len(objects) >= self.maxobjects:

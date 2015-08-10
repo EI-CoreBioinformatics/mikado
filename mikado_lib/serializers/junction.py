@@ -10,8 +10,7 @@ before loading.
 import io
 import os
 from mikado_lib.parsers import bed12
-from mikado_lib.serializers.dbutils import dbBase
-from mikado_lib.serializers.dbutils import Inspector
+from mikado_lib.serializers.dbutils import dbBase, Inspector, connect
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -186,17 +185,12 @@ class JunctionSerializer:
         :type json_conf: dict | None
         """
 
+        if handle is None:
+            return
+
         self.BED12 = bed12.Bed12Parser(handle)
         if json_conf is not None:
-            if json_conf["dbtype"] == "sqlite":
-                self.engine = create_engine("sqlite:///{0}".format(json_conf["db"]))
-            else:
-                self.engine = create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
-                    dbtype=json_conf["dbtype"],
-                    dbuser=json_conf["dbuser"],
-                    dbpasswd=json_conf["dbpasswd"] if json_conf["dbpasswd"] is not None else "",
-                    dbhost=json_conf["dbhost"],
-                    db=json_conf["db"]))
+            self.engine = connect(json_conf)
         else:
             self.engine = create_engine("sqlite:///{0}".format(db))
 

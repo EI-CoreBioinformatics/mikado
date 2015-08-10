@@ -64,7 +64,7 @@ rule blast_to_db:
     input: blast="all.blast.xml", check="orf_serialized.ok"
     output: "blast_serialized.ok"
     run:
-        mikado_lib.serializers.blast_utils.XmlSerializer("all.blast.xml", keep_definition=True,
+        mikado_lib.serializers.blast_utils.XmlSerializer("all.blast.xml", discard_definition=False,
 						       target_seqs=config["blast"]["database"],
 							json_conf = config,
 						       max_target_seqs=config["blast"]["max_target_seqs"] ).serialize();

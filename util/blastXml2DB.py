@@ -32,8 +32,8 @@ def main():
     parser.add_argument("--max_target_seqs", type=int, default=float("Inf"),
                         help="Maximum number of target sequences.")
     parser.add_argument("--maxobjects", type=int, default=10**5, help="Maximum number of objects to cache in memory.")
-    parser.add_argument("--definition", action="store_true", default=False,
-                        help="Use query def instead of ID for the output.")
+    parser.add_argument("--discard_definition", action="store_false", default=True,
+                        help="Use query ID instead of the definition for the output.")
     parser.add_argument("--query_seqs", default=None, type=to_seqio, help="Query sequences")
     parser.add_argument("--target_seqs", default=None, type=to_seqio, help="Target sequences")
     parser.add_argument("--json-conf", dest="json_conf", default=None, type=json_utils.to_json)
@@ -45,7 +45,7 @@ def main():
 
     XmlSerializer(args.xml,
                   db = args.dbout,
-                  keep_definition=args.definition,
+                  discard_definition=args.discard_definition,
                   max_target_seqs=args.max_target_seqs,
                   maxobjects=args.maxobjects,
                   target_seqs=args.target_seqs,

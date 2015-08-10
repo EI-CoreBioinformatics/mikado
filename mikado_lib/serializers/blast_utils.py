@@ -28,6 +28,7 @@ import io
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.serializers.dbutils import dbBase
+from mikado_lib.serializers.dbutils import connect
 import logging
 
 
@@ -583,7 +584,7 @@ class XmlSerializer:
                  db=None,
                  target_seqs=None,
                  query_seqs=None,
-                 keep_definition=False, maxobjects=10000,
+                 discard_definition=True, maxobjects=10000,
                  json_conf=None
                  ):
         """Initializing method. Arguments:
@@ -599,9 +600,9 @@ class XmlSerializer:
 
         :param query_seqs: either a BioPython index of a FASTA file or the file itself.
 
-        :param keep_definition: flag. If set, the "definition" field in the XML
-        instead of "id" will be used for serializing.
-        :type keep_definition: bool
+        :param discard_definition: flag. If set to True, the "id" field in the XML
+        instead of "definition" will be used for serializing.
+        :type discard_definition: bool
 
         :param maxobjects: maximum number of objects to keep in memory before bulk loading. Default: 10^4
         :type maxobjects: int
@@ -619,16 +620,12 @@ class XmlSerializer:
         self.handler.setFormatter(self.formatter)
         self.logger.addHandler(self.handler)
 
+        if xml is None:
+            self.logger.warning("No BLAST XML provided. Exiting.")
+            return
+
         if json_conf is not None:
-            if json_conf["dbtype"] == "sqlite":
-                self.engine = create_engine("sqlite:///{0}".format(json_conf["db"]))
-            else:
-                self.engine = create_engine("{dbtype}://{dbuser}:{dbpasswd}@{dbhost}/{db}".format(
-                    dbtype=json_conf["dbtype"],
-                    dbuser=json_conf["dbuser"],
-                    dbpasswd=json_conf["dbpasswd"] if json_conf["dbpasswd"] is not None else "",
-                    dbhost=json_conf["dbhost"],
-                    db=json_conf["db"]))
+            self.engine = connect(json_conf)
         else:
             if db is None:
                 db = ":memory:"
@@ -661,7 +658,7 @@ class XmlSerializer:
         else:
             self.xml_parser = xml  # This is the BLAST object we will serialize
         # Runtime arguments
-        self.keep_definition = keep_definition
+        self.discard_definition = discard_definition
 
         if type(query_seqs) is str:
             assert os.path.exists(query_seqs)
@@ -777,7 +774,7 @@ class XmlSerializer:
             if len(record.descriptions) == 0:
                 continue
             query_counter += 1
-            if self.keep_definition is True:
+            if self.discard_definition is False:
                 name = record.query.split()[0]
             else:
                 name = record.query_id

@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-"""Script to prepare a GTF for the pipeline; it will perform the following operations:
-    1- add the "transcript" feature
-    2- sort by coordinates
-    3- check the strand
-"""
+__author__ = 'luca'
 
 import sys
 import os
@@ -76,61 +72,8 @@ def create_transcript(lines,
     return transcript_object
 
 
-def main():
+def prepare(args):
     """Main script function."""
-
-    def to_gff(string):
-        """
-        Function to verify the input file.
-        :param string: filename
-        """
-        if string[-4:] != ".gtf":
-            raise TypeError("This script takes as input only GTF files.")
-
-        gff = GTF.GTF(string)
-        for record in gff:
-            if record.header is False:
-                gff.close()
-                return GTF.GTF(string)
-        raise ValueError("Empty GTF file provided.")
-
-    def to_seqio_complete(string, logger_instance=None):
-        """
-        Function to index a FASTA file using SeqIO.
-        :param string: a vaild file name
-        :type string: str
-
-        :param logger_instance: a logging.Logger instance
-
-        # :param manager_instance: a multiprocessing.manager_instance instance
-        # :type manager_instance: None | multiprocessing.Manager
-        """
-
-        logger_instance.info("Loading reference file")
-        if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size > 0:
-            exc = ValueError("Invalid input file.")
-            logger_instance.exception(exc)
-            raise exc
-        seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
-
-        seqdict = dict((seq, str(seqdict[seq].seq)) for seq in seqdict)
-        # if manager_instance is not None:
-        #     logger_instance.debug("Loading index into shared memory object")
-        #     # seqdict = dict((x, multiprocessing.Array("u", seqdict[x], lock=False)) for x in seqdict)
-        #     seqdict = manager_instance.dict(seqdict, lock=False)
-        logger_instance.info("Finished loading reference file")
-        return seqdict
-
-    def to_cpu_count(string):
-        """
-        :param string: cpu requested
-        :rtype: int
-        """
-        try:
-            string = int(string)
-        except:
-            raise
-        return max(1, string)
 
     handler = logging.StreamHandler()
     formatter = logging.Formatter("{asctime}:{levelname} - {filename}:{lineno} - {funcName} - {message}",
@@ -139,31 +82,6 @@ def main():
     logger = logging.getLogger("main")
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
-
-    parser = argparse.ArgumentParser("""Script to prepare a GTF for the pipeline;
-    it will perform the following operations:
-    1- add the "transcript" feature
-    2- sort by coordinates
-    3- check the strand""")
-    parser.add_argument("--fasta", type=argparse.FileType(), required=True,
-                        help="Genome FASTA file. Required.")
-    verbosity = parser.add_mutually_exclusive_group()
-    verbosity.add_argument("-v", "--verbose", action="store_true", default=False)
-    verbosity.add_argument("-q", "--quiet", action="store_true", default=False)
-    parser.add_argument("-s", "--strand-specific", dest="strand_specific", action="store_true", default=False,
-                        help="""Flag. If set, monoexonic transcripts will be left on their strand
-                        rather than being moved to the unknown strand.""")
-    parser.add_argument("-l", "--lenient", action="store_true", default=False,
-                        help="""Flag. If set, transcripts with mixed +/- splices will not cause exceptions
-                        but rather be annotated as problematic.""")
-    parser.add_argument("-t", "--threads", help="Number of processors to use (default %(default)s)",
-                        type=to_cpu_count, default=1)
-    parser.add_argument("--single", action="store_true", default=False,
-                        help="Disable multi-threading. Useful for debugging.")
-    parser.add_argument("gff", type=to_gff, help="Input GTF file.")
-    parser.add_argument("out", default=sys.stdout, nargs='?', type=argparse.FileType('w'),
-                        help="Output file. Default: STDOUT.")
-    args = parser.parse_args()
 
     if args.verbose is True:
         logger.setLevel(logging.DEBUG)
@@ -250,5 +168,84 @@ def main():
         counter
         ))
 
-if __name__ == "__main__":
-    main()
+
+def to_seqio_complete(string, logger_instance=None):
+    """
+    Function to index a FASTA file using SeqIO.
+    :param string: a vaild file name
+    :type string: str
+
+    :param logger_instance: a logging.Logger instance
+
+    # :param manager_instance: a multiprocessing.manager_instance instance
+    # :type manager_instance: None | multiprocessing.Manager
+    """
+
+    logger_instance.info("Loading reference file")
+    if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size > 0:
+        exc = ValueError("Invalid input file.")
+        logger_instance.exception(exc)
+        raise exc
+    seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
+
+    seqdict = dict((seq, str(seqdict[seq].seq)) for seq in seqdict)
+    # if manager_instance is not None:
+    #     logger_instance.debug("Loading index into shared memory object")
+    #     # seqdict = dict((x, multiprocessing.Array("u", seqdict[x], lock=False)) for x in seqdict)
+    #     seqdict = manager_instance.dict(seqdict, lock=False)
+    logger_instance.info("Finished loading reference file")
+    return seqdict
+
+
+def prepare_parser():
+    def to_gff(string):
+        """
+        Function to verify the input file.
+        :param string: filename
+        """
+        if string[-4:] != ".gtf":
+            raise TypeError("This script takes as input only GTF files.")
+
+        gff = GTF.GTF(string)
+        for record in gff:
+            if record.header is False:
+                gff.close()
+                return GTF.GTF(string)
+        raise ValueError("Empty GTF file provided.")
+
+    def to_cpu_count(string):
+        """
+        :param string: cpu requested
+        :rtype: int
+        """
+        try:
+            string = int(string)
+        except:
+            raise
+        return max(1, string)
+
+    parser = argparse.ArgumentParser("""Script to prepare a GTF for the pipeline;
+    it will perform the following operations:
+    1- add the "transcript" feature
+    2- sort by coordinates
+    3- check the strand""")
+    parser.add_argument("--fasta", type=argparse.FileType(), required=True,
+                        help="Genome FASTA file. Required.")
+    verbosity = parser.add_mutually_exclusive_group()
+    verbosity.add_argument("-v", "--verbose", action="store_true", default=False)
+    verbosity.add_argument("-q", "--quiet", action="store_true", default=False)
+    parser.add_argument("-s", "--strand-specific", dest="strand_specific", action="store_true", default=False,
+                        help="""Flag. If set, monoexonic transcripts will be left on their strand
+                        rather than being moved to the unknown strand.""")
+    parser.add_argument("-l", "--lenient", action="store_true", default=False,
+                        help="""Flag. If set, transcripts with mixed +/- splices will not cause exceptions
+                        but rather be annotated as problematic.""")
+    parser.add_argument("-t", "--threads", help="Number of processors to use (default %(default)s)",
+                        type=to_cpu_count, default=1)
+    parser.add_argument("--single", action="store_true", default=False,
+                        help="Disable multi-threading. Useful for debugging.")
+    parser.add_argument("gff", type=to_gff, help="Input GTF file.")
+    parser.add_argument("out", default=sys.stdout, nargs='?', type=argparse.FileType('w'),
+                        help="Output file. Default: STDOUT.")
+    parser.set_defaults(func=prepare)
+    return parser

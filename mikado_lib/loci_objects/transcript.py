@@ -140,6 +140,7 @@ class Transcript:
         self.__combined_cds = []
         self.__selected_cds = []
         self.__combined_utr = []
+        self._selected_internal_orf_cds = []
         self.intron_range = intron_range
 
         # Starting settings for everything else
@@ -1009,6 +1010,13 @@ class Transcript:
         except IndexError as err:
             raise mikado_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
 
+        if len(self.combined_cds) == 0:
+            self.selected_internal_orf_cds = tuple([])
+        else:
+            self.selected_internal_orf_cds = tuple(
+                filter(lambda x: x[0] == "CDS", self.internal_orfs[self.selected_internal_orf_index])
+            )
+
         self.finalized = True
         return
 
@@ -1482,7 +1490,7 @@ class Transcript:
         final_orfs = [candidate_orfs[0]]
         if len(candidate_orfs) > 1:
             others = list(filter(lambda o: o.cds_len >= minimal_secondary_orf_length,
-                                          candidate_orfs[1:]))
+                                 candidate_orfs[1:]))
             self.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
                 len(others), self.id,
                 minimal_secondary_orf_length
@@ -1642,10 +1650,18 @@ class Transcript:
         """
 
         # Non-sense to calculate the maximum CDS for transcripts without it
-        if len(self.combined_cds) == 0:
-            return tuple([])
-        else:
-            return list(filter(lambda x: x[0] == "CDS", self.internal_orfs[self.selected_internal_orf_index]))
+        return self._selected_internal_orf_cds
+
+    @selected_internal_orf_cds.setter
+    def selected_internal_orf_cds(self, internal_orf):
+
+        if type(internal_orf) is not tuple:
+            raise TypeError("Invalid internal ORF type ({0}): {1}".format(
+                type(internal_orf),
+                internal_orf
+            ))
+
+        self._selected_internal_orf_cds = internal_orf
 
     @property
     def five_utr(self):
@@ -2454,7 +2470,7 @@ class Transcript:
         :rtype : int
         """
 
-        return sum(1 for x in filter( lambda x: x[1]-x[0]+1 > self.intron_range[1], self.introns))
+        return len(list(filter( lambda x: x[1]-x[0]+1 > self.intron_range[1], self.introns)))
 
     @Metric
     def num_introns_smaller_than_min(self):
@@ -2464,4 +2480,4 @@ class Transcript:
         :rtype : int
         """
 
-        return sum(1 for x in filter( lambda x: x[1]-x[0]+1 < self.intron_range[0], self.introns))
+        return len(list(filter( lambda x: x[1]-x[0]+1 < self.intron_range[0], self.introns)))

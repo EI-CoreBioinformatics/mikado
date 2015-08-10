@@ -321,29 +321,34 @@ class Superlocus(Abstractlocus):
 
         """
 
-        if "db" not in self.json_dict or self.json_dict["db"] is None:
-            return  # No data to load
-        self.connect_to_db(pool)
-
         self.locus_verified_introns = []
-        dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
-        if len(dbquery) > 0:
-            chrom_id = dbquery[0].id
+        if data_dict is None:
+            if "db" not in self.json_dict or self.json_dict["db"] is None:
+                return  # No data to load
+            self.connect_to_db(pool)
+            dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
+            if len(dbquery) > 0:
+                chrom_id = dbquery[0].id
+                for intron in self.introns:
+                    if len(self.junction_baked(self.session).params(
+                            chrom_id=chrom_id,
+                            junctionStart=intron[0],
+                            junctionEnd=intron[1],
+                            strand=self.strand
+                    ).all()) == 1:
+                        self.locus_verified_introns.append(intron)
+        else:
             for intron in self.introns:
-                if len(self.junction_baked(self.session).params(
-                        chrom_id=chrom_id,
-                        junctionStart=intron[0],
-                        junctionEnd=intron[1],
-                        strand=self.strand
-                ).all()) == 1:
+                if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
                     self.locus_verified_introns.append(intron)
 
         loop = asyncio.get_event_loop()
         tasks = [ensure_future(self.load_transcript_data(tid, data_dict)) for tid in self.transcripts]
         #
         loop.run_until_complete(asyncio.wait(tasks))
-        self.session.close()
-        self.sessionmaker.close_all()
+        if data_dict is None:
+            self.session.close()
+            self.sessionmaker.close_all()
         num_coding = sum(1 for x in self.transcripts if self.transcripts[x].selected_cds_length > 0)
         self.logger.debug(
             "Found {0} coding transcripts out of {1} in {2}".format(num_coding, len(self.transcripts), self.id))

@@ -537,6 +537,12 @@ class Transcript:
                 for key in cds_hit_dict:
                     cds_hit_dict[key] = set()
 
+                if not hasattr(self, "blast_hits"): # BUG, this is a hacky fix
+                    self.logger.warning("BLAST hits store lost for {0}! Creating a mock one to avoid a crash".format(
+                        self.id)
+                    )
+                    self.blast_hits = []
+
                 for hit in self.blast_hits:  # Determine for each CDS which are the hits available
                     for hsp in filter(lambda lambda_hsp:
                                       lambda_hsp["hsp_evalue"] <=

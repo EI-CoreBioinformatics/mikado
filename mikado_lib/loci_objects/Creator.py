@@ -51,7 +51,7 @@ import multiprocessing.managers
 
 
 # @profile
-def connector(json_conf):
+def connector(json_conf, logger):
     """Creator function for the database connection. It necessitates the following information from
     the json_conf dictionary:
 
@@ -70,17 +70,23 @@ def connector(json_conf):
     :param json_conf: configuration dictionary
     :type json_conf: dict
 
+    :param logger: a logger instance
+    :type logger: logging.Logger
+
     :rtype : MySQLdb.connect | sqlite3.connect | psycopg2.connect
 
     """
 
     if json_conf["dbtype"] == "sqlite":
         if json_conf['run_options']['shm'] is False:
+            logger.debug("Connecting to {0}".format(json_conf["db"]))
             return sqlite3.connect(database=json_conf["db"])
         else:
+            logger.debug("Connecting to {0}".format(json_conf["run_options"]["shm_db"]))
             return sqlite3.connect(database=json_conf["run_options"]["shm_db"])
     elif json_conf["dbtype"] == "mysql":
         import MySQLdb
+        logger.debug("Connecting to MySQL {0}".format(json_conf["run_options"]["db"]))
         return MySQLdb.connect(host=json_conf["dbhost"],
                                user=json_conf["dbuser"],
                                passwd=json_conf["dbpasswd"],
@@ -89,6 +95,7 @@ def connector(json_conf):
                                )
     elif json_conf["dbtype"] == "postgresql":
         import psycopg2
+        logger.debug("Connecting to PSQL {0}".format(json_conf["run_options"]["db"]))
         return psycopg2.connect(
             host=json_conf["dbhost"],
             user=json_conf["dbuser"],
@@ -145,7 +152,7 @@ def analyse_locus(slocus: Superlocus,
     # Load the CDS information if necessary
     if json_conf["run_options"]["preload"] is False:
             logger.debug("Loading transcript data for {0}".format(slocus.id))
-            db_connection = functools.partial(connector, json_conf)
+            db_connection = functools.partial(connector, json_conf, logger)
             connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
             slocus.load_all_transcript_data(pool=connection_pool)
             # connection_pool.dispose()
@@ -258,8 +265,8 @@ class Creator:
         # self.printer_queue = self.manager.Queue(-1)
         # self.logging_queue = self.manager.Queue(-1)  # queue for logging
 
-        self.db_connection = functools.partial(connector, self.json_conf)
         self.setup_logger()
+        self.db_connection = functools.partial(connector, self.json_conf, self.logger)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
         self.queue_logger.addHandler(self.logger_queue_handler)
@@ -373,8 +380,9 @@ class Creator:
         self.setup_shm_db()
 
         if self.json_conf["chimera_split"]["blast_check"] is True:
+            db_connection = functools.partial(connector, self.json_conf, self.main_logger)
             engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
-                                   creator=self.db_connection)
+                                   creator=db_connection)
             smaker = sessionmaker()
             smaker.configure(bind=engine)
             session = smaker()

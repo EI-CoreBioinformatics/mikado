@@ -126,8 +126,16 @@ class Orf(dbBase):
         b.blockSizes = [state.end]
         b.blockStarts = [0]
 
-        b.has_start_codon = state.has_start_codon
-        b.has_stop_codon = state.has_stop_codon
+        # Verbose block, but it is necessary as raw extraction from SQL
+        # yields 0/1 instead of True/False
+        if state.has_start_codon:
+            b.has_start_codon = True
+        else:
+            b.has_start_codon = False
+        if state.has_stop_codon:
+            b.has_stop_codon = True
+        else:
+            b.has_stop_codon = False
 
         return b
 

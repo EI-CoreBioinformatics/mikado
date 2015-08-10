@@ -14,6 +14,7 @@ import operator
 import collections
 import logging
 # import time
+import itertools
 from mikado_lib import exceptions
 import copy
 from mikado_lib.loci_objects.transcriptchecker import TranscriptChecker
@@ -23,6 +24,16 @@ import functools
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
+
+
+def grouper(iterable, n, fillvalue=None):
+    """Collect data into fixed-length chunks or blocks.
+    Source: itertools standard library documentation
+    https://docs.python.org/3/library/itertools.html?highlight=itertools#itertools-recipes
+    """
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return itertools.zip_longest(*args, fillvalue=fillvalue)
 
 
 def create_transcript(lines,
@@ -207,13 +218,11 @@ def main():
     for chrom in sorted(transcripts.keys()):
         for key in sorted(transcripts[chrom].keys(), key=operator.itemgetter(0, 1)):
             seq = args.fasta[chrom][key[0]:key[1]]
-            if args.single is False:
-                for tid in transcripts[chrom][key]:
-                    keys.append(pool.apply_async( partial_checker, args=(exon_lines[tid], seq)))
-            else:
-                keys.extend([tid, seq] for tid in transcripts[chrom][key])
-
-    pool.close()
+            # if args.single is False:
+            #     for tid in transcripts[chrom][key]:
+            #         keys.append(pool.apply_async( partial_checker, args=(exon_lines[tid], seq)))
+            # else:
+            keys.extend([tid, seq] for tid in transcripts[chrom][key])
 
     if args.single is True:
         for tid,seq in keys:
@@ -228,16 +237,23 @@ def main():
             print(transcript_object.__str__(to_gtf=True), file=args.out)
 
     else:
-        for key in keys:
-            transcript_object = key.get()
-            if transcript_object is None:
-                continue
-            counter += 1
-            if counter >= 10**4 and counter % (10**4) == 0:
-                logger.info("Retrieved {0} transcript positions".format(counter))
-            elif counter >= 10**3 and counter % (10**3) == 0:
-                logger.debug("Retrieved {0} transcript positions".format(counter))
-            print(transcript_object.__str__(to_gtf=True), file=args.out)
+        for group in grouper(keys, 100):
+            results = [
+                pool.apply_async(partial_checker, args=(exon_lines[tid], seq))
+                for (tid,seq) in group
+            ]
+            for transcript_object in results:
+                transcript_object = transcript_object.get()
+                if transcript_object is None:
+                    continue
+                counter += 1
+                if counter >= 10**4 and counter % (10**4) == 0:
+                    logger.info("Retrieved {0} transcript positions".format(counter))
+                elif counter >= 10**3 and counter % (10**3) == 0:
+                    logger.debug("Retrieved {0} transcript positions".format(counter))
+                print(transcript_object.__str__(to_gtf=True), file=args.out)
+        pool.close()
+        pool.join()
 
     logger.info("Finished to analyse {0} transcripts ({1} retained)".format(
         len(exon_lines),

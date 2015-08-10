@@ -293,10 +293,15 @@ class Superlocus(Abstractlocus):
         This routine is used to load data for a single transcript."""
 
         self.transcripts[tid].logger = self.logger
-        yield from self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
+        self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
                                                                   session=self.session,
                                                                   data_dict=data_dict
                                                                   )
+
+        # yield from self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
+        #                                                           session=self.session,
+        #                                                           data_dict=data_dict
+        #                                                           )
         if self.json_dict["chimera_split"]["execute"] is True and self.transcripts[tid].number_internal_orfs > 1:
             try:
                 new_tr = list(self.transcripts[tid].split_by_cds())

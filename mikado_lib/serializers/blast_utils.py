@@ -96,7 +96,7 @@ class Query(dbBase):
     query_name = Column(String(200), unique=True, index=True)
     query_length = Column(Integer, nullable=True)  # This so we can load data also from the orf class
 
-    named_tup = collections.namedtuple("Query", ["query_id", "query_name", "query_len"])
+    named_tup = collections.namedtuple("Query", ["query_id", "query_name", "query_length"])
 
     def __init__(self, name, length):
         self.query_name = name
@@ -118,7 +118,7 @@ class Target(dbBase):
     target_id = Column(Integer, primary_key=True)
     target_name = Column(String(200), unique=True, index=True)
     target_length = Column(Integer)
-    named_tup = collections.namedtuple("Target", ["target_id", "target_name", "target_len"])
+    named_tup = collections.namedtuple("Target", ["target_id", "target_name", "target_length"])
 
     def __init__(self, target_name, target_length):
         """
@@ -507,8 +507,8 @@ class Hit(dbBase):
 
         state["query"] = query_object.query_name
         state["target"] = target_object.target_name
-        state["query_len"] = query_object.query_len
-        state["target_len"] = target_object.target_len
+        state["query_len"] = query_object.query_length
+        state["target_len"] = target_object.target_length
         state["query_hit_ratio"] = state["query_len"] * state["query_multiplier"] /\
             (state["target_len"] * state["target_multiplier"])
 

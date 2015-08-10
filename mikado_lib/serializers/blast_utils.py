@@ -502,8 +502,8 @@ class Hit(dbBase):
         state = self.as_dict_static(self)
 
         # Retrieving the values ONCE
-        query_object = self.query_object
-        target_object = self.target_object
+        query_object = self.query_object.as_tuple()
+        target_object = self.target_object.as_tuple()
 
         state["query"] = query_object.query_name
         state["target"] = target_object.target_name

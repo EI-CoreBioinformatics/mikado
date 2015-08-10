@@ -1052,7 +1052,7 @@ class Transcript:
         self.sessionmaker.configure(bind=self.engine)
         self.session = self.sessionmaker()
 
-    @asyncio.coroutine
+    # @asyncio.coroutine
     def load_information_from_db(self, json_dict, introns=None, session=None,
                                  data_dict=None):
         """This method will invoke the check for:
@@ -1077,23 +1077,27 @@ class Transcript:
         self.load_json(json_dict)
 
         if data_dict is not None:
-            yield from self.retrieve_from_dict(data_dict)
+            self.retrieve_from_dict(data_dict)
+            # yield from self.retrieve_from_dict(data_dict)
         else:
             if session is None:
                 self.connect_to_db()
             else:
                 self.session = session
-            yield from self.load_verified_introns(introns)
+            self.load_verified_introns(introns)
+            # yield from self.load_verified_introns(introns)
             self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
             if len(self.query_id) == 0:
                 self.logger.warning("Transcript not in database: {0}".format(self.id))
             else:
                 self.query_id = self.query_id[0].query_id
-                yield from self.load_orfs_coroutine()
-                yield from self.load_blast()
+                self.load_orfs(self.retrieve_orfs())
+                self.load_blast()
+                # yield from self.load_orfs_coroutine()
+                # yield from self.load_blast()
             self.logger.debug("Loaded {0}".format(self.id))
 
-    @asyncio.coroutine
+    # @asyncio.coroutine
     def retrieve_from_dict(self, data_dict):
         """
         Method to retrieve transcript data directly from a dictionary.
@@ -1150,7 +1154,7 @@ class Transcript:
         """
         self.json_dict = json_dict
 
-    @asyncio.coroutine
+    # @asyncio.coroutine
 #    @profile
     def load_verified_introns(self, introns=None):
 
@@ -1379,8 +1383,8 @@ class Transcript:
             self.finalized = True
         return
 
-    @asyncio.coroutine
-#    @profile
+    # @asyncio.coroutine
+    # @profile
     def load_blast(self):
 
         """This method looks into the DB for hits corresponding to the desired requirements.

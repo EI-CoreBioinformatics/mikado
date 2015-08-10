@@ -336,11 +336,11 @@ class Hit(dbBase):
     target_aligned_length = Column(Integer)
 
     query_object = relationship(Query, uselist=False,
-                                # lazy="immediate",
+                                lazy="immediate",
                                 backref=backref("hits"))
     target_object = relationship(Target,
                                  uselist=False,
-                                 # lazy="immediate",
+                                 lazy="immediate",
                                  backref=backref("hits"))
 
     hsps = relationship(Hsp, uselist=True,

@@ -489,12 +489,19 @@ class Hit(dbBase):
 
         state = self.as_dict_static(self)
 
-        state["query"] = self.query
-        state["target"] = self.target
-        state["query_len"] = self.query_len
-        state["target_len"] = self.target_len
-        state["query_hit_ratio"] = self.query_hit_ratio
-        state["hit_query_ratio"] = self.hit_query_ratio
+        # Retrieving the values ONCE
+        query_object = self.query_object
+        target_object = self.target_object
+
+        state["query"] = query_object.query_name
+        state["target"] = target_object.target_name
+        state["query_len"] = query_object.query_len
+        state["target_len"] = target_object.target_len
+        state["query_hit_ratio"] = state["query_len"] * state["query_multiplier"] /\
+            (state["target_len"] * state["target_multiplier"])
+
+        state["hit_query_ratio"] = state["target_len"] * state["target_multiplier"] /\
+            (state["query_len"] * state["query_multiplier"])
 
         state["hsps"] = []
         for hsp in self.hsps:

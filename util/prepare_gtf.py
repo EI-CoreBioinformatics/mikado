@@ -26,7 +26,7 @@ import multiprocessing.connection
 import multiprocessing.sharedctypes
 
 
-def grouper(iterable, n, fillvalue=None):
+def grouper(iterable, n, fillvalue=(None, None)):
     """Collect data into fixed-length chunks or blocks.
     Source: itertools standard library documentation
     https://docs.python.org/3/library/itertools.html?highlight=itertools#itertools-recipes
@@ -238,9 +238,11 @@ def main():
 
     else:
         for group in grouper(keys, 100):
+            if group is None:
+                continue
             results = [
                 pool.apply_async(partial_checker, args=(exon_lines[tid], seq))
-                for (tid,seq) in group
+                for (tid, seq) in filter(lambda x: x != (None, None), group)
             ]
             for transcript_object in results:
                 transcript_object = transcript_object.get()

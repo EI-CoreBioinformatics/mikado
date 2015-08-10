@@ -10,6 +10,7 @@ It consists of various different classes:
 
 The module also contains helper functions such as mean().
 """
+import collections
 
 import os
 import sqlalchemy
@@ -95,9 +96,15 @@ class Query(dbBase):
     query_name = Column(String(200), unique=True, index=True)
     query_length = Column(Integer, nullable=True)  # This so we can load data also from the orf class
 
+    named_tup = collections.namedtuple("Query", ["query_id", "query_name", "query_length"])
+
     def __init__(self, name, length):
         self.query_name = name
         self.query_length = length
+
+    def as_tuple(self):
+        """Quick function to convert the SQLalchemy object into a named tuple with the same fields"""
+        return self.named_tup( self.query_id, self.query_name, self.query_length  )
 
 
 class Target(dbBase):
@@ -111,6 +118,7 @@ class Target(dbBase):
     target_id = Column(Integer, primary_key=True)
     target_name = Column(String(200), unique=True, index=True)
     target_length = Column(Integer)
+    named_tup = collections.namedtuple("Query", ["query_id", "query_name", "query_length"])
 
     def __init__(self, target_name, target_length):
         """
@@ -124,6 +132,10 @@ class Target(dbBase):
 
         self.target_name = target_name
         self.target_length = target_length
+
+    def as_tuple(self):
+        """Quick function to convert the SQLalchemy object into a named tuple with the same fields"""
+        return self.named_tup( self.query_id, self.query_name, self.query_length  )
 
 
 class Hsp(dbBase):

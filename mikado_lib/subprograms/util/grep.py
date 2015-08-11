@@ -26,7 +26,7 @@ def grep_gff(args):
     curr_gene = None
     curr_transcripts = dict()
 
-    for record in GFF.GFF3(args.gff):
+    for record in args.gff:
         if record.is_transcript is True:  # Potential gene line
             if args.reverse is False and (
                     record.id in mrna_ids or (args.genes is True and any([p in gene_ids for p in record.parent]))):
@@ -77,7 +77,7 @@ def grep_gtf(args):
             gene_id = line.rstrip()
             gene_ids.add(gene_id)
 
-    for record in GTF.GTF(args.gtf):
+    for record in args.gtf:
         if not record:
             continue
         if args.genes is False:

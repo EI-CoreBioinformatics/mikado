@@ -61,7 +61,7 @@ def main():
     if hasattr(args, "func"):
         args.func(args)
     else:
-        parser.print_usage()
+        parser.print_help()
 
 if __name__ == '__main__':
     main()

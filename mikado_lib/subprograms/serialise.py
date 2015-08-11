@@ -31,6 +31,8 @@ def serialise(args):
         meta.reflect(engine)
         for tab in reversed(meta.sorted_tables):
             tab.drop()
+        dbutils.dbBase.metadata.create_all(engine)
+
 
     if args.orfs is not None:
         serializer = orf.OrfSerializer(args.orfs, fasta_index=args.transcript_fasta, maxobjects=args.max_objects,

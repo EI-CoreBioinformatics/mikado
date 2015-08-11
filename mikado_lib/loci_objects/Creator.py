@@ -396,7 +396,7 @@ class Creator:
                 evalue,
                 queries_with_hits,
                 total_queries,
-                round(100 * queries_with_hits / total_queries, 2)
+                0 if total_queries == 0 else round(100 * queries_with_hits / total_queries, 2)
             ))
             session.close()
 

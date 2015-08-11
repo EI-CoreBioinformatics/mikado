@@ -26,6 +26,8 @@ def grep_gff(args):
     curr_gene = None
     curr_transcripts = dict()
 
+    print("##gff-version 3", file=args.out)
+
     for record in args.gff:
         if record.is_transcript is True:  # Potential gene line
             if args.reverse is False and (
@@ -36,7 +38,7 @@ def grep_gff(args):
                 curr_transcripts[record.id] = [record]
         elif record.is_exon is True:
             for parent in record.parent:
-                if parent in curr_transcripts:
+                if parent in mrna_ids:
                     curr_transcripts[parent].append(record)
         else:
             if curr_gene is not None and len(curr_transcripts) > 0:

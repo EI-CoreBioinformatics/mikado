@@ -6,6 +6,7 @@
 import argparse
 import sys
 import mikado_lib.loci_objects
+from mikado_lib.subprograms import to_gff
 
 
 def pick(args):
@@ -111,6 +112,6 @@ def pick_parser():
     log_options.add_argument("-lv", "--log-level", dest="log_level",
                              choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,
                              help="Logging level. Default: retrieved by the configuration file.")
-    parser.add_argument("gff", type=argparse.FileType(), nargs="?", default=None)
+    parser.add_argument("gff", type=to_gff, nargs="?", default=None)
     parser.set_defaults(func=pick)
     return parser

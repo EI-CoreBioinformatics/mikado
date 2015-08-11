@@ -1,8 +1,6 @@
 import argparse
 from mikado_lib.scales.compare import compare
-from mikado_lib.parsers.GTF import GTF
-from mikado_lib.parsers.GFF import GFF3
-
+from mikado_lib.subprograms import to_gff
 
 def compare_parser():
     """
@@ -11,24 +9,10 @@ def compare_parser():
     :return: the argument parser
     """
 
-    def to_gtf(string):
-        """Function to recognize the input file type and create the parser.
-
-        :param string: input file name.
-        :type string: str
-        """
-
-        if string.endswith(".gtf"):
-            return GTF(string)
-        elif string.endswith('.gff') or string.endswith('.gff3'):
-            return GFF3(string)
-        else:
-            raise ValueError('Unrecognized file format.')
-
     parser = argparse.ArgumentParser('Tool to define the spec/sens of predictions vs. references.')
     input_files = parser.add_argument_group('Prediction and annotation files.')
-    input_files.add_argument('-r', '--reference', type=to_gtf, help='Reference annotation file.', required=True)
-    input_files.add_argument('-p', '--prediction', type=to_gtf, help='Prediction annotation file.', required=True)
+    input_files.add_argument('-r', '--reference', type=to_gff, help='Reference annotation file.', required=True)
+    input_files.add_argument('-p', '--prediction', type=to_gff, help='Prediction annotation file.', required=True)
     parser.add_argument('--distance', type=int, default=2000,
                         help='''Maximum distance for a transcript to be considered a polymerase run-on.
                         Default: %(default)s''')

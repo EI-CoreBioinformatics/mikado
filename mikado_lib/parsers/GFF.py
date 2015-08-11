@@ -389,12 +389,19 @@ class GffLine(object):
             return None
 
     @property
-    def derived(self):
+    def is_derived(self):
         """
         Property. It checks whether there is a "Derives_from" attribute among the line attributes.
         :rtype bool
         """
         return "Derives_from" in self.attributes
+
+    @property
+    def derived_from(self):
+        if self.is_derived is False:
+            return None
+        else:
+            return self.attributes["Derives_from"].split(",")
 
 
 class GFF3(Parser):

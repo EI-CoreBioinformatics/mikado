@@ -42,7 +42,10 @@ def grep_gff(args):
                     curr_transcripts[parent].append(record)
         elif record.is_derived is True:
             for derivation in record.derived_from:
-                curr_transcripts[derivation].append(record)
+                if args.reverse is True and derivation not in mrna_ids:
+                    curr_transcripts[derivation].append(record)
+                elif args.reverse is False and derivation in mrna_ids:
+                    curr_transcripts[derivation].append(record)
         else:
             if curr_gene is not None and len(curr_transcripts) > 0:
                 print(curr_gene, file=args.out)

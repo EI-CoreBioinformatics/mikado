@@ -762,7 +762,7 @@ class XmlSerializer:
 
         query_counter = 0
         for record in self.xml_parser:
-            if record.application == "BLASTN":
+            if record.application in ("BLASTN", "TBLASTX", "BLASTP"):
                 q_mult = 1
                 h_mult = 1
             elif record.application == "BLASTX":

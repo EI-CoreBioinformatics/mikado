@@ -472,6 +472,14 @@ class GtfLine(object):
             key = list(filter(lambda x: x.lower() == "derives_from", self.attributes.keys()))[0]
             return self.attributes[key].split(",")
 
+    @property
+    def is_gene(self):
+        """
+        In a GTF this should always evaluate to False
+        """
+        return self.feature == "gene"
+
+
 class GTF(Parser):
     """The parsing class."""
 

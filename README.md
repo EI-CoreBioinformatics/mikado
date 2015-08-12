@@ -115,6 +115,11 @@ This utility is capable of generating detailed statistics on the content of an a
 mikado.py util stats <gff> <out>
 ```
 
+First Header  | Second Header
+------------- | -------------
+Content Cell  | Content Cell
+Content Cell  | Content Cell
+
 Typical output (this is the annotation of coding/lncRNAs for C. elegans):
 
 Stat | Total

@@ -8,11 +8,6 @@ import mikado_lib.subprograms.util.grep
 import argparse
 
 
-def default(args):
-
-    util_parser().print_help()
-
-
 def util_parser():
     """
     Function to return all available utility parsers.
@@ -20,7 +15,6 @@ def util_parser():
     """
     parser = argparse.ArgumentParser(prog="util",
                                      description="""Collection of utilities for managing GTF/GFF files.""")
-    parser.set_defaults(func=default)
     utils = parser.add_subparsers()
 
     utils.add_parser("awk_gtf", help="Script to retrieve specific feature slices from a GTF file.")
@@ -43,5 +37,6 @@ def util_parser():
     utils.add_parser("trim", help="Script to remove up to N bps from terminal exons in an annotation file.")
     utils.choices["trim"] = mikado_lib.subprograms.util.trim.trim_parser()
     utils.choices["trim"].prog = "mikado util trim"
+    parser.add_help = True
 
     return parser

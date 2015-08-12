@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
 import argparse
+import sys
 import mikado_lib.subprograms
 
 
-def main():
+def main(call_args=None):
 
     """
     Main launcher function for the pipeline.
     """
+    if call_args is None:
+        call_args = sys.argv[1:]
 
     parser = argparse.ArgumentParser(prog="mikado",
                                      description="""Mikado is a program to analyse RNA-Seq data and determine the best
@@ -49,9 +52,11 @@ def main():
     subparsers.choices["util"] = mikado_lib.subprograms.util.util_parser()
     subparsers.choices["util"].prog = "mikado util"
 
-    args = parser.parse_args()
+    args = parser.parse_args(call_args)
     if hasattr(args, "func"):
         args.func(args)
+    elif call_args[0] == "util":
+        mikado_lib.subprograms.util.util_parser().print_help()
     else:
         parser.print_help()
 

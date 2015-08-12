@@ -26,6 +26,8 @@ on the **same strand**.
 The resulting, cleaned file does contain therefore only one transcript per locus.
 The criteria used to select the "*best*" transcript are left to the user's discretion.
 
+*****
+
 ## Usage
 
 The suite is invoked using the command "mikado.py" followed by the desired subcommand. Detailed help, both for the
@@ -87,7 +89,7 @@ Typical invocation:
 mikado.py pick -p <processors> --json-conf <configuration> --loci_out <output file> <prepared GTF/GFF>
 ```
 
-## Compare
+### Compare
 
 A separate component of the Mikado suite, compare, is capable of comparing a reference file vs. a prediction file and
 calculate their concordance both at the global and at the local level. It has been heavily inspired by both Cuffcompare
@@ -102,12 +104,12 @@ mikado.py compare -p <prediction> -r <reference> -o <output> -l <log, otherwise 
 The utility is quite light and fast, although not at the level of Cuffcompare, but it is considerably more detailed than
 the predecessor.
 
-## Utilities
+### Utilities
 
 Mikado also provides some utilities related to the management of GFF/GTF files. These can be invoked as subcommands of
 mikado.py util.
 
-### Stats
+#### Stats
 
 This utility is capable of generating detailed statistics on the content of an annotation file. Typical usage:
 
@@ -115,45 +117,7 @@ This utility is capable of generating detailed statistics on the content of an a
 mikado.py util stats <gff> <out>
 ```
 
-First Header  | Second Header
-------------- | -------------
-Content Cell  | Content Cell
-Content Cell  | Content Cell
-
-Typical output (this is the annotation of coding/lncRNAs for C. elegans):
-
-Stat | Total
-
---- | ---
-
- Number of genes | 43277
-
-|Stat                            |Total |Average|Mode|Min|5%|10%|25%|Median|75%|90%|95%|Max|
-|Number of genes                 |43277 |NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|
-|Number of genes (coding)        |20517 |NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|
-|Number of transcripts           |53999 |NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|
-|Transcripts per gene            |53999 |1.25|1|1|1|1|1|1|1|2|2|55|
-|Number of coding transcripts    |31234 |1.25|1|1|1|1|1|1|1|2|2|55|
-|Coding transcripts per gene     |31234 |1.52|1|1|1|1|1|1|2|2|4|55|
-|CDNA lengths                    |NA    |919.41|21|17|21|21|21|567|1,374|2,199|2,933|56,072|
-|CDS lengths                     |NA    |773.50|0|0|0|0|0|417|1,152|1,908|2,636|55,686|
-|CDS lengths (mRNAs)             |NA    |1,337.26|993|39|261|357|624|1,038|1,587|2,463|3,315|55,686|
-|Monoexonic transcripts          |23339 |73.45|21|17|21|21|21|21|109|166|225|4,308|
-|MonoCDS transcripts             |784   |73.45|21|17|21|21|21|21|109|166|225|4,308|
-|Exons per transcript            |230296|4.26|1|1|1|1|1|3|6|10|12|66|
-|Exons per transcript (mRNAs)    |230296|6.64|4|1|2|2|4|6|8|12|15|66|
-|Exon lengths                    |NA    |215.58|21|1|21|54|96|150|260|437|592|14,975|
-|Exon lengths (mRNAs)            |NA    |232.46|114|1|61|76|107|162|276|459|618|14,975|
-|Intron lengths                  |NA    |351.13|47|1|44|45|48|73|359|840|1,312|100,913|
-|Intron lengths (mRNAs)          |NA    |351.11|47|1|44|45|48|73|359|840|1,312|100,913|
-|CDS exons per transcript        |200661|3.72|0|0|0|0|0|3|6|9|12|66|
-|CDS exons per transcript (mRNAs)|200661|6.42|4|1|2|2|3|5|8|12|15|66|
-|CDS exon lengths                |NA    |208.15|126|1|52|69|99|147|238|393|551|14,975|
-|CDS Intron lengths              |NA    |767.41|323|71|224|258|341|526|887|1,438|1,955|101,030|
-|Intergenic distances            |NA    |895.91|-18|-71,510|-939|-57|62|338|1,184|3,164|5,099|61,358|
-|Intergenic distances (coding)   |NA    |1,956.76|94|-62,789|-48|30|263|841|2,326|5,547|8,877|71,107|
-
-### Awk_Gtf
+#### Awk_Gtf
 
 This utility allows to retrieve all the features contained in a slice of a GTF file. Compared with a simple grep/awk, it
 is cognizant of the tree relationships and will avoid e.g. retrieving only some exons of a transcript instead of the
@@ -166,7 +130,7 @@ mikado.py util awk_gtf --chrom <chrom> --start <start> --end <end> <gtf> <out>
 
 Start/end parameters are optional, as the output file.
 
-### Grep
+#### Grep
 
 This utility allows to retrieve all transcripts/genes specified in a tab-separated input file.
 
@@ -174,7 +138,7 @@ This utility allows to retrieve all transcripts/genes specified in a tab-separat
 mikado.py util grep <ids> <gff/gtf> <out>
 ```
 
-### Trim
+#### Trim
 
 This utility allows to remove the trailing ends of gene models until they are at most N bps long. Shorter terminal
 exons are left untouched. It accepts both GTFs and GFFs.
@@ -184,6 +148,7 @@ Typical usage:
 mikado.py util trim -ml <maximum length> <gff/gtf> <out>
 ```
 
+*****
 
 ##Implementation
 The pipeline is implemented in Python3, and it does require the following libraries:
@@ -260,54 +225,14 @@ This option can factively lead to the loss of whole loci, if they contain only l
 
 GTF output is not supported, as the output is more hierarchical than what is supportable in a GTF file.
 
+*****
+
 ##Scoring transcripts
 
 ###Available metrics
 Metrics are defined into a text file, "metrics.txt". Each of them is defined as a property inside the "transcript" class.
 The documentation for each of them can be generated with the utility "generate_metric_docs.py" inside the util folder.  
 
-- *tid*:	ID of the transcript - cannot be an undefined value. Alias of id.
-- *parent*:	Name of the parent feature of the transcript.
-- *score*:	Numerical value which summarizes the reliability of the transcript.
-- *cdna_length*:	This property returns the length of the transcript.
-- *cds_not_maximal*:	This property returns the length of the CDS excluded from the selected ORF.
-- *cds_not_maximal_fraction*:	This property returns the fraction of bases not in the selected ORF compared to the total number of CDS bases in the cDNA.
-- *combined_cds_fraction*:	This property return the percentage of the CDS part of the transcript vs. the cDNA length
-- *combined_cds_intron_fraction*:	This property returns the fraction of CDS introns of the transcript vs. the total number of CDS introns in the locus. If the transcript is by itself, it returns 1.
-- *combined_cds_length*:	This property return the length of the CDS part of the transcript.
-- *combined_cds_num*:	This property returns the number of non-overlapping CDS segments in the transcript.
-- *combined_cds_num_fraction*:	This property returns the fraction of non-overlapping CDS segments in the transcript vs. the total number of exons
-- *combined_utr_fraction*:	This property returns the fraction of the cDNA which is not coding according to any ORF. Complement of combined_cds_fraction
-- *combined_utr_length*:	This property return the length of the UTR part of the transcript.
-- *end_distance_from_tes*:	This property returns the distance of the end of the combined CDS from the transcript end site. If no CDS is defined, it defaults to 0.
-- *exon_fraction*:	This property returns the fraction of exons of the transcript which are contained in the sublocus. If the transcript is by itself, it returns 1. Set from outside.
-- *exon_num*:	This property returns the number of exons of the transcript.
-- *five_utr_length*:	Returns the length of the 5' UTR of the selected ORF.
-- *five_utr_num*:	This property returns the number of 5' UTR segments for the selected ORF.
-- *five_utr_num_complete*:	This property returns the number of 5' UTR segments for the selected ORF, considering only those which are complete exons.
-- *has_start_codon*:	Boolean. True if the selected ORF has a start codon.
-- *has_stop_codon*:	Boolean. True if the selected ORF has a stop codon.
-- *highest_cds_exon_number*:	This property returns the maximum number of CDS segments among the ORFs; this number can refer to an ORF *DIFFERENT* from the maximal ORF.
-- *intron_fraction*:	This property returns the fraction of introns of the transcript vs. the total number of introns in the locus. If the transcript is by itself, it returns 1. Set from outside.
-- *is_complete*:	Boolean. True if the selected ORF has both start and end.
-- *number_internal_orfs*:	This property returns the number of ORFs inside a transcript.
-- *retained_fraction*:	This property returns the fraction of the cDNA which is contained in retained introns.
-- *retained_intron_num*:	This property records the number of introns in the transcripts which are marked as being retained. See the corresponding method in the sublocus class.
-- *selected_cds_exons_fraction*:	Returns the fraction of CDS segments in the selected ORF (irrespective of the number of exons involved)
-- *selected_cds_fraction*:	This property calculates the fraction of the selected CDS vs. the cDNA length.
-- *selected_cds_intron_fraction*:	This property returns the fraction of CDS introns of the selected ORF of the transcript vs. the total number of CDS introns in the locus (considering only the selected ORF). If the transcript is by itself, it should return 1.
-- *selected_cds_length*:	This property calculates the length of the CDS selected as best inside the cDNA.
-- *selected_cds_num*:	This property calculates the number of CDS exons for the selected ORF
-- *selected_end_distance_from_tes*:	This property returns the distance of the end of the best CDS from the transcript end site. If no CDS is defined, it defaults to 0.
-- *selected_start_distance_from_tss*:	This property returns the distance of the start of the best CDS from the transcript start site. If no CDS is defined, it defaults to 0.
-- *start_distance_from_tss*:	This property returns the distance of the start of the combined CDS from the transcript start site. If no CDS is defined, it defaults to 0.
-- *three_utr_length*:	Returns the length of the 5' UTR of the selected ORF.
-- *three_utr_num*:	This property returns the number of 3' UTR segments (referred to the selected ORF).
-- *three_utr_num_complete*:	This property returns the number of 3' UTR segments for the selected ORF, considering only those which are complete exons.
-- *utr_fraction*:	This property calculates the length of the UTR of the selected ORF vs. the cDNA length.
-- *utr_length*:	Returns the sum of the 5'+3' UTR lengths
-- *utr_num*:	Returns the number of UTR segments (referred to the selected ORF).
-- *utr_num_complete*:	Returns the number of UTR segments which are complete exons (referred to the selected ORF).
 
 
 ###Defining new metrics

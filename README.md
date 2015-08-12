@@ -115,32 +115,35 @@ This utility is capable of generating detailed statistics on the content of an a
 mikado.py util stats <gff> <out>
 ```
 
-Typical output:
+Typical output (this is the annotation of coding/lncRNAs for C. elegans):
 
-|Stat|Total|Average|Mode|Min|5%|10%|25%|Median|75%|90%|95%|Max
-|Number of genes|43277|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA
-|Number of genes (coding)|20517|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA
-|Number of transcripts|53999|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA
-|Transcripts per gene|53999|1.25|1|1|1|1|1|1|1|2|2|55
-|Number of coding transcripts|31234|1.25|1|1|1|1|1|1|1|2|2|55
-|Coding transcripts per gene|31234|1.52|1|1|1|1|1|1|2|2|4|55
-|CDNA lengths|NA|919.41|21|17|21|21|21|567|1,374|2,199|2,933|56,072
-|CDS lengths|NA|773.50|0|0|0|0|0|417|1,152|1,908|2,636|55,686
-|CDS lengths (mRNAs)|NA|1,337.26|993|39|261|357|624|1,038|1,587|2,463|3,315|55,686
-|Monoexonic transcripts|23339|73.45|21|17|21|21|21|21|109|166|225|4,308
-|MonoCDS transcripts|784|73.45|21|17|21|21|21|21|109|166|225|4,308
-|Exons per transcript|230296|4.26|1|1|1|1|1|3|6|10|12|66
-|Exons per transcript (mRNAs)|230296|6.64|4|1|2|2|4|6|8|12|15|66
-|Exon lengths|NA|215.58|21|1|21|54|96|150|260|437|592|14,975
-|Exon lengths (mRNAs)|NA|232.46|114|1|61|76|107|162|276|459|618|14,975
-|Intron lengths|NA|351.13|47|1|44|45|48|73|359|840|1,312|100,913
-|Intron lengths (mRNAs)|NA|351.11|47|1|44|45|48|73|359|840|1,312|100,913
-|CDS exons per transcript|200661|3.72|0|0|0|0|0|3|6|9|12|66
-|CDS exons per transcript (mRNAs)|200661|6.42|4|1|2|2|3|5|8|12|15|66
-|CDS exon lengths|NA|208.15|126|1|52|69|99|147|238|393|551|14,975
-|CDS Intron lengths|NA|767.41|323|71|224|258|341|526|887|1,438|1,955|101,030
-|Intergenic distances|NA|895.91|-18|-71,510|-939|-57|62|338|1,184|3,164|5,099|61,358
-|Intergenic distances (coding)|NA|1,956.76|94|-62,789|-48|30|263|841|2,326|5,547|8,877|71,107
+|Stat                            |Total |
+|Number of genes                 |43277 |
+
+|Stat                            |Total |Average|Mode|Min|5%|10%|25%|Median|75%|90%|95%|Max|
+|Number of genes                 |43277 |NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|
+|Number of genes (coding)        |20517 |NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|
+|Number of transcripts           |53999 |NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|
+|Transcripts per gene            |53999 |1.25|1|1|1|1|1|1|1|2|2|55|
+|Number of coding transcripts    |31234 |1.25|1|1|1|1|1|1|1|2|2|55|
+|Coding transcripts per gene     |31234 |1.52|1|1|1|1|1|1|2|2|4|55|
+|CDNA lengths                    |NA    |919.41|21|17|21|21|21|567|1,374|2,199|2,933|56,072|
+|CDS lengths                     |NA    |773.50|0|0|0|0|0|417|1,152|1,908|2,636|55,686|
+|CDS lengths (mRNAs)             |NA    |1,337.26|993|39|261|357|624|1,038|1,587|2,463|3,315|55,686|
+|Monoexonic transcripts          |23339 |73.45|21|17|21|21|21|21|109|166|225|4,308|
+|MonoCDS transcripts             |784   |73.45|21|17|21|21|21|21|109|166|225|4,308|
+|Exons per transcript            |230296|4.26|1|1|1|1|1|3|6|10|12|66|
+|Exons per transcript (mRNAs)    |230296|6.64|4|1|2|2|4|6|8|12|15|66|
+|Exon lengths                    |NA    |215.58|21|1|21|54|96|150|260|437|592|14,975|
+|Exon lengths (mRNAs)            |NA    |232.46|114|1|61|76|107|162|276|459|618|14,975|
+|Intron lengths                  |NA    |351.13|47|1|44|45|48|73|359|840|1,312|100,913|
+|Intron lengths (mRNAs)          |NA    |351.11|47|1|44|45|48|73|359|840|1,312|100,913|
+|CDS exons per transcript        |200661|3.72|0|0|0|0|0|3|6|9|12|66|
+|CDS exons per transcript (mRNAs)|200661|6.42|4|1|2|2|3|5|8|12|15|66|
+|CDS exon lengths                |NA    |208.15|126|1|52|69|99|147|238|393|551|14,975|
+|CDS Intron lengths              |NA    |767.41|323|71|224|258|341|526|887|1,438|1,955|101,030|
+|Intergenic distances            |NA    |895.91|-18|-71,510|-939|-57|62|338|1,184|3,164|5,099|61,358|
+|Intergenic distances (coding)   |NA    |1,956.76|94|-62,789|-48|30|263|841|2,326|5,547|8,877|71,107|
 
 ### Awk_Gtf
 
@@ -223,8 +226,9 @@ The pipeline can use as input files any properly GTF or GFF3 file. The only requ
 * All files must be sorted by chromosome, start and stop.
   * A utility called "sort_gtf.py", present in the util folder, can be used to sort GTFs.
   For GFF3s, our recommendation is to use [GenomeTools](http://genometools.org/), with e.g. the following command line:
-  "gt gff3 -sort -retainids -addids no -tidy -force -o <output> <input>"
-
+  ```bash
+  gt gff3 -sort -retainids -addids no -tidy -force -o <output> <input>
+  ```
 
 Additionally, the pipeline can also use the output of coding potential programs such as [TransDecoder](https://transdecoder.github.io/ "TransDecoder (Find Coding Regions Within Transcripts)").
 In order to give this type of data to the pipeline, the coding regions should be encoded into a BED12

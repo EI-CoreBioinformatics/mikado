@@ -456,6 +456,21 @@ class GtfLine(object):
             return True
         return False
 
+    @property
+    def is_derived(self):
+        """
+        Property. It checks whether there is a "Derives_from" attribute among the line attributes.
+        :rtype bool
+        """
+        return "derives_from" in [x.lower() for x in self.attributes]
+
+    @property
+    def derived_from(self):
+        if self.is_derived is False:
+            return None
+        else:
+            key = list(filter(lambda x: x.lower() == "derives_from", self.attributes.keys()))[0]
+            return self.attributes[key].split(",")
 
 class GTF(Parser):
     """The parsing class."""

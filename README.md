@@ -7,10 +7,12 @@ of expressed loci from RNA-Seq data * and to select the best models in each locu
 
 The logic of the pipeline is as follows:
 
-1. In a first step, the annotation (provided in GTF/GFF3 format) is parsed to locate *superloci* of overlapping features on the **same strand**.
+1. In a first step, the annotation (provided in GTF/GFF3 format) is parsed to locate *superloci* of overlapping features
+on the **same strand**.
 2. The superloci are divided into different *subloci*, each of which is defined as follows:
 
-    * For multiexonic transcripts, to belong to the same sublocus they must share at least a splicing junction (i.e. an intron)
+    * For multiexonic transcripts, to belong to the same sublocus they must share at least a splicing junction
+    (i.e. an intron)
     * For monoexonic transcripts, they must overlap for at least one base pair
     * All subloci must contain either only multiexonic or only monoexonic transcripts
 3. In each sublocus, the pipeline selects the best transcript according to a user-defined prioritization scheme.
@@ -18,10 +20,33 @@ The logic of the pipeline is as follows:
 5. The best non-overlapping transcripts are selected, in order to define the *loci* contained inside the superlocus.
 
     * At this stage, monoexonic and multiexonic transcript are checked for overlaps
-    * Moreover, two multiexonic transcripts are considered to belong to the same locus if they share a splice *site* (not junction)
+    * Moreover, two multiexonic transcripts are considered to belong to the same locus if they share a splice *site*
+    (not junction)
 
 The resulting, cleaned file does contain therefore only one transcript per locus.
 The criteria used to select the "*best*" transcript are left to the user's discretion.
+
+## Usage
+
+The main program is composed of three major steps:
+
+1. prepare
+2. serialise
+3. pick
+
+### Prepare
+
+The prepare component has the purpose of taking as input a GTF created from one or multiple alignment programs, and it
+will perform the following operations:
+
+1. Sort the transcripts, add a transcript feature line if needed.
+2. Strip the strand from monoexonic transcript data, if required
+
+
+## Utilities
+
+
+
 
 ##Implementation
 The pipeline is implemented in Python3, and it does require the following libraries:

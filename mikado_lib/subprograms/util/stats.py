@@ -225,7 +225,7 @@ class Calculator:
             if record.header is True:
                 continue
 
-            if record.derived is True and record.is_gene is False:
+            if record.is_derived is True and record.is_gene is False:
                 derived_features.add(record.id)
             elif record.feature == "Locus" or record.is_gene is True or (
                     record.is_parent is True and record.is_transcript is False):

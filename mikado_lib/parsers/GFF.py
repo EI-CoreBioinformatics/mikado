@@ -339,11 +339,7 @@ class GffLine(object):
         :rtype bool
         """
 
-        if self.feature is None:
-            return False
-        if self.is_transcript is True:
-            return False
-        if self.feature.endswith("gene") and self.is_parent is True:
+        if self.feature is not None and self.feature.endswith("gene") and self.is_parent is True:
             return True
         return False
 
@@ -354,7 +350,7 @@ class GffLine(object):
         :rtype bool
         """
 
-        if self.parent is None:
+        if len(self.parent) == 0:
             return True
         return False
 

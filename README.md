@@ -118,7 +118,7 @@ mikado.py util stats <gff> <out>
 Typical output (this is the annotation of coding/lncRNAs for C. elegans):
 
 Stat | Total |
---- | ---|
+--- | --- 
 | Number of genes | 43277 |
 
 |Stat                            |Total |Average|Mode|Min|5%|10%|25%|Median|75%|90%|95%|Max|

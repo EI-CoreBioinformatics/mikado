@@ -40,8 +40,49 @@ The prepare component has the purpose of taking as input a GTF created from one 
 will perform the following operations:
 
 1. Sort the transcripts, add a transcript feature line if needed.
-2. Strip the strand from monoexonic transcript data, if required
+2. Strip the strand from monoexonic transcripts, if required
+3. Check the strand of the junctions and either remove or flag those transcripts that contain junctions on both strands.
 
+Typical invocation of the step:
+
+```
+mikado.py prepare --fasta <genome file> -t <threads> <gtf> <out>
+```
+
+At the moment, *prepare only supports GTF files without CDS information*. GFF files can be used as input after sorting
+with genometools' with the following sample command line:
+
+```
+gt gff3 -sort -tidy -f -o <out gff> gff
+```
+
+### Serialise
+
+This step is used to create the SQL database which stores the data for the pick component.
+
+Typical invocation:
+
+```
+mikado.py serialise --orfs <transdecoder ORFs BED12> --transcript_fasta <transdecoder FASTA input> \
+  --target_seqs <BLAST database> --xml <BLAST XML (outfmt 5)> \
+  --junctions <reliable junctions BED> --genome_fai <genome FAI>
+  --json-conf <configuration in JSON/YAML>
+```
+
+### Pick
+
+This is the step where Mikado finally examines the prediction and chooses between different transcripts.
+
+The configuration of the run is contained in a JSON/YAML file, with additional parameters - typically the scoring -
+contained in a separate configuration file. Most of the options on the command line modify at runtime the values
+contained in the JSON file, so be cautious.
+Notice that the GFF/GTF *MUST* be sorted for the pipeline to function properly.
+
+Typical invocation:
+
+```
+mikado.py pick -p <processors> --json-conf <configuration> --loci_out <output file> <prepared GTF/GFF>
+```
 
 ## Utilities
 

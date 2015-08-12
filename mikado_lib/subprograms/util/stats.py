@@ -290,11 +290,12 @@ class Calculator:
         counter_object = Counter(array)
         moder = [x for x in counter_object if counter_object[x] == counter_object.most_common(1)[0][1]]
         row["Mode"] = ";".join(str(x) for x in moder)
+        keys = ['Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max']
         if len(array) == 0:
-            quantiles = []
+            quantiles = ["NA"]*len(keys)
         else:
             quantiles = [numpy.percentile(array, x) for x in [0, 5, 10, 25, 50, 75, 90, 95, 100]]
-        for key, val in zip(['Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max'], quantiles):
+        for key, val in zip(keys, quantiles):
             try:
                 row[key] = "{0:,.0f}".format(val)  # No decimal
             except KeyError:

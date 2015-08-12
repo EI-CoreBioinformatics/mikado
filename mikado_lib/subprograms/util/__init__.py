@@ -8,12 +8,19 @@ import mikado_lib.subprograms.util.grep
 import argparse
 
 
+def default(args):
+
+    util_parser().print_help()
+
+
 def util_parser():
     """
     Function to return all available utility parsers.
     :rtype: argparse.Namespace
     """
-    parser = argparse.ArgumentParser("util")
+    parser = argparse.ArgumentParser(prog="util",
+                                     description="""Collection of utilities for managing GTF/GFF files.""")
+    parser.set_defaults(func=default)
     utils = parser.add_subparsers()
 
     utils.add_parser("awk_gtf", help="Script to retrieve specific feature slices from a GTF file.")

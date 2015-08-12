@@ -4,14 +4,6 @@ import argparse
 import mikado_lib.subprograms
 
 
-def all():
-    """
-    Mock. It will launch the whole pipeline.
-    """
-    parser = argparse.ArgumentParser()
-    return parser
-
-
 def main():
 
     """
@@ -46,9 +38,9 @@ def main():
     subparsers.choices["pick"] = mikado_lib.subprograms.pick.pick_parser()
     subparsers.choices["pick"].prog = "mikado pick"
 
-    subparsers.add_parser( "compare", description="Comparison between reference and prediction",
-                           help="""Mikado compare produces a detailed comparison of reference and prediction files.
-                           It has been directly inspired by Cufflinks' cuffcompare and ParsEval.""")
+    subparsers.add_parser("compare", description="Comparison between reference and prediction",
+                          help="""Mikado compare produces a detailed comparison of reference and prediction files.
+                          It has been directly inspired by Cufflinks' cuffcompare and ParsEval.""")
     subparsers.choices["compare"] = mikado_lib.subprograms.compare.compare_parser()
     subparsers.choices["compare"].prog = "mikado compare"
 

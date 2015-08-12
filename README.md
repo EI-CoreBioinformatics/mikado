@@ -28,6 +28,9 @@ The criteria used to select the "*best*" transcript are left to the user's discr
 
 ## Usage
 
+The suite is invoked using the command "mikado.py" followed by the desired subcommand. Detailed help, both for the
+suite and for any subcommand, can be invoked using the -h/--help flag on the command line.
+
 The main program is composed of three major steps:
 
 1. prepare
@@ -45,14 +48,14 @@ will perform the following operations:
 
 Typical invocation of the step:
 
-```
+```bash
 mikado.py prepare --fasta <genome file> -t <threads> <gtf> <out>
 ```
 
 At the moment, *prepare only supports GTF files without CDS information*. GFF files can be used as input after sorting
 with genometools' with the following sample command line:
 
-```
+```bash
 gt gff3 -sort -tidy -f -o <out gff> gff
 ```
 
@@ -62,7 +65,7 @@ This step is used to create the SQL database which stores the data for the pick 
 
 Typical invocation:
 
-```
+```bash
 mikado.py serialise --orfs <transdecoder ORFs BED12> --transcript_fasta <transdecoder FASTA input> \
   --target_seqs <BLAST database> --xml <BLAST XML (outfmt 5)> \
   --junctions <reliable junctions BED> --genome_fai <genome FAI>
@@ -80,13 +83,95 @@ Notice that the GFF/GTF *MUST* be sorted for the pipeline to function properly.
 
 Typical invocation:
 
-```
+```bash
 mikado.py pick -p <processors> --json-conf <configuration> --loci_out <output file> <prepared GTF/GFF>
 ```
 
+## Compare
+
+A separate component of the Mikado suite, compare, is capable of comparing a reference file vs. a prediction file and
+calculate their concordance both at the global and at the local level. It has been heavily inspired by both Cuffcompare
+and ParsEval.
+
+It can be invoked in the following way:
+
+```bash
+mikado.py compare -p <prediction> -r <reference> -o <output> -l <log, otherwise STDERR>
+```
+
+The utility is quite light and fast, although not at the level of Cuffcompare, but it is considerably more detailed than
+the predecessor.
+
 ## Utilities
 
+Mikado also provides some utilities related to the management of GFF/GTF files. These can be invoked as subcommands of
+mikado.py util.
 
+### Stats
+
+This utility is capable of generating detailed statistics on the content of an annotation file. Typical usage:
+
+```bash
+mikado.py util stats <gff> <out>
+```
+
+Typical output:
+
+|Stat|Total|Average|Mode|Min|5%|10%|25%|Median|75%|90%|95%|Max
+|Number of genes|43277|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA
+|Number of genes (coding)|20517|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA
+|Number of transcripts|53999|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA|NA
+|Transcripts per gene|53999|1.25|1|1|1|1|1|1|1|2|2|55
+|Number of coding transcripts|31234|1.25|1|1|1|1|1|1|1|2|2|55
+|Coding transcripts per gene|31234|1.52|1|1|1|1|1|1|2|2|4|55
+|CDNA lengths|NA|919.41|21|17|21|21|21|567|1,374|2,199|2,933|56,072
+|CDS lengths|NA|773.50|0|0|0|0|0|417|1,152|1,908|2,636|55,686
+|CDS lengths (mRNAs)|NA|1,337.26|993|39|261|357|624|1,038|1,587|2,463|3,315|55,686
+|Monoexonic transcripts|23339|73.45|21|17|21|21|21|21|109|166|225|4,308
+|MonoCDS transcripts|784|73.45|21|17|21|21|21|21|109|166|225|4,308
+|Exons per transcript|230296|4.26|1|1|1|1|1|3|6|10|12|66
+|Exons per transcript (mRNAs)|230296|6.64|4|1|2|2|4|6|8|12|15|66
+|Exon lengths|NA|215.58|21|1|21|54|96|150|260|437|592|14,975
+|Exon lengths (mRNAs)|NA|232.46|114|1|61|76|107|162|276|459|618|14,975
+|Intron lengths|NA|351.13|47|1|44|45|48|73|359|840|1,312|100,913
+|Intron lengths (mRNAs)|NA|351.11|47|1|44|45|48|73|359|840|1,312|100,913
+|CDS exons per transcript|200661|3.72|0|0|0|0|0|3|6|9|12|66
+|CDS exons per transcript (mRNAs)|200661|6.42|4|1|2|2|3|5|8|12|15|66
+|CDS exon lengths|NA|208.15|126|1|52|69|99|147|238|393|551|14,975
+|CDS Intron lengths|NA|767.41|323|71|224|258|341|526|887|1,438|1,955|101,030
+|Intergenic distances|NA|895.91|-18|-71,510|-939|-57|62|338|1,184|3,164|5,099|61,358
+|Intergenic distances (coding)|NA|1,956.76|94|-62,789|-48|30|263|841|2,326|5,547|8,877|71,107
+
+### Awk_Gtf
+
+This utility allows to retrieve all the features contained in a slice of a GTF file. Compared with a simple grep/awk, it
+is cognizant of the tree relationships and will avoid e.g. retrieving only some exons of a transcript instead of the
+whole transcript object.
+
+Usage:
+```bash
+mikado.py util awk_gtf --chrom <chrom> --start <start> --end <end> <gtf> <out>
+```
+
+Start/end parameters are optional, as the output file.
+
+### Grep
+
+This utility allows to retrieve all transcripts/genes specified in a tab-separated input file.
+
+```bash
+mikado.py util grep <ids> <gff/gtf> <out>
+```
+
+### Trim
+
+This utility allows to remove the trailing ends of gene models until they are at most N bps long. Shorter terminal
+exons are left untouched. It accepts both GTFs and GFFs.
+Typical usage:
+
+```bash
+mikado.py util trim -ml <maximum length> <gff/gtf> <out>
+```
 
 
 ##Implementation

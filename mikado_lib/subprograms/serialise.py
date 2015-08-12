@@ -33,27 +33,29 @@ def serialise(args):
             tab.drop()
         dbutils.dbBase.metadata.create_all(engine)
 
-
     if args.orfs is not None:
-        serializer = orf.OrfSerializer(args.orfs, fasta_index=args.transcript_fasta, maxobjects=args.max_objects,
-                                       json_conf=args.json_conf)
-        serializer.serialize()
+        for orf_file in args.orfs.split(","):
+            serializer = orf.OrfSerializer(orf_file, fasta_index=args.transcript_fasta, maxobjects=args.max_objects,
+                                           json_conf=args.json_conf)
+            serializer.serialize()
 
     if args.junctions is not None:
-        serializer = junction.JunctionSerializer(args.junctions, args.db, fai=args.genome_fai, json_conf=args.json_conf,
-                                                 maxobjects=args.max_objects)
-        serializer()
+        for junction_file in args.junctions.split(","):
+            serializer = junction.JunctionSerializer(junction_file, args.db,
+                                                     fai=args.genome_fai, json_conf=args.json_conf,
+                                                     maxobjects=args.max_objects)
+            serializer()
 
     if args.xml is not None:
-
-        blast_utils.XmlSerializer(args.xml,
-                                  discard_definition=args.discard_definition,
-                                  max_target_seqs=args.max_target_seqs,
-                                  maxobjects=args.max_objects,
-                                  target_seqs=args.target_seqs,
-                                  query_seqs=args.transcript_fasta,
-                                  json_conf=args.json_conf
-                                  )()
+        for xml in args.xml.split(","):
+            blast_utils.XmlSerializer(xml,
+                                      discard_definition=args.discard_definition,
+                                      max_target_seqs=args.max_target_seqs,
+                                      maxobjects=args.max_objects,
+                                      target_seqs=args.target_seqs,
+                                      query_seqs=args.transcript_fasta,
+                                      json_conf=args.json_conf
+                                      )()
 
 
 def serialise_parser():
@@ -64,8 +66,25 @@ def serialise_parser():
 
     parser = argparse.ArgumentParser("Serialisation utility of the Mikado suite.")
     orfs = parser.add_argument_group()
-    orfs.add_argument("--orfs", type=str, default=None)
-    orfs.add_argument("--transcript_fasta", default=None)
+    orfs.add_argument("--orfs", type=str, default=None,
+                      help="ORF BED file(s), separated by commas")
+    orfs.add_argument("--transcript_fasta", default=None,
+                      help="""Transcript FASTA file(s) used for ORF calling and BLAST queries, separated by commas.
+                      If multiple files are given, they must be in the same order of the ORF files.
+                      E.g. valid command lines are:
+
+                      --transcript_fasta all_transcript1.fasta --orfs all_orfs.bed
+                      --transcript_fasta transcript1.fasta,transcript2.fasta --orfs orfs1.bed,orf2.bed
+                      --transcript_fasta all_transcript.fasta --orfs orfs1.bed,orf2.bed
+
+                      These are invalid instead:
+
+                      # Inverted order
+                      --transcript_fasta transcript1.fasta,transcript2.fasta --orfs orfs2.bed,orf1.bed
+                      #Two transcript files, one ORF file
+                      --transcript_fasta transcript1.fasta,transcript2.fasta --orfs all_orfs.bed
+
+                      """)
 
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=float("Inf"),
@@ -74,7 +93,7 @@ def serialise_parser():
     blast.add_argument("--discard-definition", action="store_true", default=False,
                        help="""Flag. If set, the sequences IDs instead of their definition
                        will be used for serialisation.""")
-    blast.add_argument("--xml", type=str, help="XML file to parse.")
+    blast.add_argument("--xml", type=str, help="XML file(s) to parse, separated by a comma.")
 
     junctions = parser.add_argument_group()
     junctions.add_argument("--genome_fai", default=None)

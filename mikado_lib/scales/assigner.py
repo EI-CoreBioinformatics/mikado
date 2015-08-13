@@ -110,6 +110,75 @@ class Assigner:
                     self.gene_matches[gid][tid].append(new_result)
         return
 
+    @classmethod
+    def find_neighbours(cls, keys, position, distance=2000):
+        """
+        This class method is used to find the possible matches of a given prediction key.
+        :param keys: the start
+        :type keys: [(int,int)]
+
+        :param position: the position of my prediction in the genome
+        :type position: (int, int)
+
+        :param distance: optional maximum distance of a prediction from reference before being called an unknown
+        :type distance: int
+
+        :return:
+        """
+
+        start, end = position
+
+        # This should happen only if we are analysing a prediction from a scaffold
+        # with no reference annotation on it
+        if len(keys) == 0:
+            return []
+
+        indexed = bisect.bisect(keys, position)
+
+        found = []
+
+        search_right = True
+        search_left = True
+
+        left_index = max(0, min(indexed, len(keys) - 1))  # Must be a valid list index
+        right_index = min(len(keys) - 1, left_index + 1)
+        if right_index == left_index:
+            search_right = False
+
+        while search_left is True:
+            if keys[left_index][1] + distance < start:
+                search_left = False
+                continue
+            found.append(keys[left_index])
+            left_index -= 1
+            if left_index < 0:
+                search_left = False
+
+        while search_right is True:
+            if keys[right_index][0] - distance > end:
+                search_right = False
+                continue
+            found.append(keys[right_index])
+            right_index += 1
+            if right_index >= len(keys):
+                search_right = False
+
+        distances = []
+        for key in found:
+            # Append the key (to be used later for retrieval) and the distance
+            distances.append(
+                (key,
+                 max(0,
+                     max(start, key[0]) - min(end, key[1])
+                     )
+                 )
+            )
+
+        # Sort by distance
+        distances = sorted(distances, key=operator.itemgetter(1))
+
+        return distances
+
     def get_best(self, prediction: Transcript):
 
         """
@@ -126,6 +195,7 @@ class Assigner:
 
         self.logger.debug("Started with {0}".format(prediction.id))
 
+        # Prepare the prediction to be analysed
         prediction.logger = self.logger
         try:
             prediction.finalize()
@@ -148,6 +218,7 @@ class Assigner:
             self.print_tmap(None)
             return None
 
+        # Ignore non-coding RNAs if we are interested in protein-coding transcripts only
         if self.args.protein_coding is True and prediction.combined_cds_length == 0:
             #         args.queue.put_nowait("mock")
             self.logger.debug("No CDS for {0}. Ignoring.".format(prediction.id))
@@ -159,50 +230,14 @@ class Assigner:
             keys = self.indexer[prediction.chrom]
         else:
             keys = []
-        indexed = bisect.bisect(keys, (prediction.start, prediction.end))
 
-        found = []
-
-        search_right = True
-        search_left = True
-
-        left_index = max(0, min(indexed, len(keys) - 1))  # Must be a valid list index
-        if len(keys) == 0:  # or left_index==0:
-            search_left = False
-
-        if len(keys) == 0:
-            search_right = False
-        else:
-            right_index = min(len(keys) - 1, left_index + 1)
-            if right_index == left_index:
-                search_right = False
-
-        while search_left is True:
-            if keys[left_index][1] + self.args.distance < prediction.start:
-                search_left = False
-                continue
-            found.append(keys[left_index])
-            left_index -= 1
-            if left_index < 0:
-                search_left = False
-
-        while search_right is True:
-            if keys[right_index][0] - self.args.distance > prediction.end:
-                search_right = False
-                continue
-            found.append(keys[right_index])
-            right_index += 1
-            if right_index >= len(keys):
-                search_right = False
-
-        distances = []
-        for key in found:
-            distances.append((key, max(0, max(prediction.start, key[0]) - min(prediction.end, key[1]))))
-
-        distances = sorted(distances, key=operator.itemgetter(1))
+        distances = self.find_neighbours(keys,
+                                         (prediction.start, prediction.end),
+                                         distance=self.args.distance
+                                         )
 
         # Unknown transcript
-        if len(found) == 0 or distances[0][1] > self.args.distance:
+        if len(distances) == 0 or distances[0][1] > self.args.distance:
             ccode = "u"
             best_result = RestultStorer("-", "-", ccode, prediction.id, ",".join(prediction.parent), *[0] * 6 + ["-"])
             self.stat_calculator.store(prediction, best_result, None)

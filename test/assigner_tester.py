@@ -745,4 +745,17 @@ class AssignerTester(unittest.TestCase):
         result, _ = mikado_lib.scales.assigner.Assigner.compare(reference, prediction)
         self.assertEqual(result.ccode, ("O",))
 
+    def test_neighbors(self):
+
+        """
+        Test for the assignment of transcripts inside the index. Still a stub
+        """
+        keys = [(10, 200), (350, 500)]
+        self.assertEqual(mikado_lib.scales.assigner.Assigner.find_neighbours(
+                         keys, (350,500)),
+                         [ ((350, 500), 0), ((10, 200), 150)]
+        )
+
+
+
 unittest.main()

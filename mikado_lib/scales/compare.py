@@ -167,6 +167,8 @@ def compare(args):
     queue_logger.debug("Gene names (first 20): {0}".format("\n\t".join(list(genes.keys())[:20])))
 
     accountant_instance = Accountant(genes, args)  # start the class which will manage the statistics
+    # genes: a dictionary with the reference annotation, indexed by GID
+    # positions: a dictionary of the form dict[chrom][(start,end)] = [gene object]
     assigner_instance = Assigner(genes, positions, args, accountant_instance)
 
     transcript = None

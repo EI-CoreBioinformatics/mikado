@@ -179,6 +179,28 @@ class Assigner:
 
         return distances
 
+    @staticmethod
+    def dubious_getter(dubious_result):
+        """
+        Function used to perform the sorting of the matches.
+        :param dubious_result: a result
+        :type dubious_result: ResultStorer
+        """
+        getter = operator.attrgetter("j_f1", "n_f1")
+        return getter(dubious_result[0])
+
+    @staticmethod
+    def get_f1(curr_result):
+        """
+        Simple getter for F1 statistics (N_F1 and J_F1)
+        :param curr_result: a result storer
+        :type curr_result: ResultStorer
+
+        :return: (J_F1, N_F1)
+        :rtype (float, float)
+        """
+        return curr_result.j_f1[0], curr_result.n_f1[0]
+
     def get_best(self, prediction: Transcript):
 
         """
@@ -235,6 +257,7 @@ class Assigner:
                                          (prediction.start, prediction.end),
                                          distance=self.args.distance
                                          )
+        self.logger.debug("Distances for {0}: {1}".format(prediction.id, distances))
 
         # Unknown transcript
         if len(distances) == 0 or distances[0][1] > self.args.distance:
@@ -251,13 +274,38 @@ class Assigner:
                 for reference in match:
                     results.append(self.calc_compare(prediction, reference))
 
-                best_result = sorted(results, key=operator.attrgetter("distance"))[0]
+                best_result = sorted(results,
+                                     key=operator.attrgetter("distance"))[0]
             else:
                 matches = list(filter(lambda x: x[1] == 0, distances))
+                self.logger.debug("Matches for {0}: {1}".format(prediction.id,
+                                                                matches))
 
                 if len(matches) > 1:
+                    self.logger.debug("More than on match for {0}: {1}".format(prediction.id,
+                                                                               matches))
+
                     # Possible fusion
-                    matches = [self.positions[prediction.chrom][x[0]][0] for x in matches]
+                    # Get the best match for each index
+                    new_matches = []
+
+                    for match in matches:
+                        gene_matches = self.positions[prediction.chrom][match[0]]
+                        temp_results = []
+                        # This will result in calculating the matches twice unfortunately
+                        for gm in gene_matches:
+                            best_res = sorted([self.calc_compare(prediction, tra) for tra in gm],
+                                              reverse=True,
+                                              key=self.get_f1)[0]
+
+                            temp_results.append((gm, best_res))
+                        self.logger.debug("Temp results: {0}".format(temp_results))
+                        best_res = sorted(temp_results, key=lambda x: self.get_f1(x[1]),
+                                          reverse=True)[0]
+                        self.logger.debug("Best result: {0}".format(best_res))
+                        new_matches.append(best_res[0])
+
+                    matches = sorted(new_matches)
 
                     strands = set(x.strand for x in matches)
                     if len(strands) > 1 and prediction.strand in strands:
@@ -269,19 +317,10 @@ class Assigner:
                     results = []  # Final results
                     dubious = []  # Necessary for a double check.
 
-                    def get_f1(curr_result):
-                        """
-                        Simple getter for F1 statistics (N_F1 and J_F1)
-                        :param curr_result: a result storer
-                        :type curr_result: ResultStorer
-
-                        :return: (J_F1, N_F1)
-                        :rtype (float, float)
-                        """
-                        return curr_result.j_f1[0], curr_result.n_f1[0]
-
                     for match in matches:
-                        m_res = sorted([self.calc_compare(prediction, tra) for tra in match], reverse=True, key=get_f1)
+                        m_res = sorted([self.calc_compare(prediction, tra) for tra in match],
+                                       reverse=True,
+                                       key=self.get_f1)
                         # A fusion is called only if I have one of the following conditions:
                         # the transcript gets one of the junctions of the other transcript
                         # the exonic overlap is >=10% (n_recall)_
@@ -292,18 +331,9 @@ class Assigner:
                         results.extend(m_res)
                         best_fusion_results.append(m_res[0])
 
-                    def dubious_getter(dubious_result):
-                        """
-                        Function used to perform the sorting of the matches.
-                        :param dubious_result: a result
-                        :type dubious_result: ResultStorer
-                        """
-                        getter = operator.attrgetter("j_f1", "n_f1")
-                        return getter(dubious_result[0])
-
                     if len(results) == 0:
                         # I have filtered out all the results, because I only match partially the reference genes
-                        dubious = sorted(dubious, key=dubious_getter)
+                        dubious = sorted(dubious, key=self.dubious_getter)
                         results = dubious[0]
                         best_fusion_results = [results[0]]
 
@@ -325,13 +355,18 @@ class Assigner:
 
                     best_result = RestultStorer(*values)
                 else:
-                    match = self.positions[prediction.chrom][matches[0][0]][0]
+                    matches = self.positions[prediction.chrom][matches[0][0]]
+                    self.logger.debug("")
+                    results = []
+                    for match in matches:
+                        self.logger.debug("{0}: type {1}".format(repr(match), type(match)))
+                        results.extend([self.calc_compare(prediction, tra) for tra in match])
 
-                    results = sorted([self.calc_compare(prediction, tra) for tra in match], reverse=True,
+                    results = sorted(results, reverse=True,
                                      key=operator.attrgetter("j_f1", "n_f1"))
 
-                    if not (len(results) == len(match.transcripts) and len(results) > 0):
-                        raise ValueError((match, str(prediction)))
+                    # if not (len(results) == len(match.transcripts) and len(results) > 0):
+                    #     raise ValueError((match, str(prediction)))
                     best_result = results[0]
                     #     args.queue.put_nowait(result)
                     #     args.refmap_queue.put_nowait(result)

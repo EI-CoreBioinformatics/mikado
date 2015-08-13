@@ -2,6 +2,7 @@ import argparse
 from mikado_lib.scales.compare import compare
 from mikado_lib.subprograms import to_gff
 
+
 def compare_parser():
     """
     The parser for the comparison function

@@ -131,7 +131,6 @@ class BED12:
         if len(self._fields) != 12:
             self.header = True
             return
-            # raise ValueError("Erroneous number of fields detected")
 
         self.transcriptomic = transcriptomic
         self.header = False
@@ -215,9 +214,12 @@ class BED12:
                             self.has_stop_codon = True
                             break
                     self.thickStart = num
-                assert self.invalid is False, ((tstart, tend), (self.strand, self.thickStart, self.thickEnd))
+                if self.invalid is True:
+                    self.invalid_reason = "Wrong CDS detection"
 
-        assert self.blockCount == len(self.blockStarts) == len(self.blockSizes)
+        if self.blockCount != len(self.blockStarts) == len(self.blockSizes):
+            self.invalid_reason = "wrong block count"
+            self.invalid = True
 
     def __str__(self):
 

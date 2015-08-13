@@ -217,10 +217,6 @@ class BED12:
                 if self.invalid is True:
                     self.invalid_reason = "Wrong CDS detection"
 
-        if self.blockCount != len(self.blockStarts) == len(self.blockSizes):
-            self.invalid_reason = "wrong block count"
-            self.invalid = True
-
     def __str__(self):
 
         line = [self.chrom, self.start - 1, self.end, self.name, self.score]

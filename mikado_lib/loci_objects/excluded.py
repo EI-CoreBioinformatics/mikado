@@ -67,6 +67,21 @@ class Excluded(Abstractlocus):
         message = 'This is a container used for computational purposes only,it should not be printed out directly!'
         raise NotImplementedError(message)
 
+    def print_scores(self):
+        """This method yields dictionary rows that are given to a csv.DictWriter class."""
+        self.calculate_scores()
+        score_keys = sorted(list(self.json_dict["scoring"].keys()))
+        keys = ["tid", "parent", "score"] + score_keys
+
+        for tid in self.scores:
+            row = dict().fromkeys(keys)
+            row["tid"] = tid
+            row["parent"] = self.id
+            row["score"] = round(self.transcripts[tid].score, 2)
+            for key in score_keys:
+                row[key] = round(self.scores[tid][key], 2)
+            yield row
+
     def print_metrics(self):
 
         """This class yields dictionary "rows" that will be given to a csv.DictWriter class.

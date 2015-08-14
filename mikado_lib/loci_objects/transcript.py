@@ -1113,6 +1113,7 @@ class Transcript:
         # ORF data
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
 
+        self.logger.debug("Retrieving ORF information from DB dictionary for {0}".format(self.id))
         if self.id in data_dict["orfs"]:
             candidate_orfs = data_dict["orfs"][self.id]
         else:

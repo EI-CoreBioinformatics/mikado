@@ -104,6 +104,53 @@ class MonoBaseTester(unittest.TestCase):
         self.assertEqual(len(splitted_transcripts), 2)
 
 
+class DrosoTester(unittest.TestCase):
+
+    def setUp(self):
+
+        ref_gtf = """2L\tprotein_coding\ttranscript\t523736\t540560\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "1"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:5"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t523736\t524059\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "1"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:5"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t525392\t525436\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "2"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:677"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t536023\t536966\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "3"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:7"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t537037\t537431\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "4"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:8"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t537549\t537749\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "5"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:9"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t537863\t539249\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "6"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:10"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t539310\t539452\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "7"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:11"; gene_biotype "protein_coding";
+2L\tprotein_coding\texon\t539518\t540560\t.\t+\t.\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "8"; gene_name "ush"; transcript_name "ush-RC"; exon_id "FBgn0003963:13"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t524038\t524059\t.\t+\t0\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "1"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t525392\t525436\t.\t+\t2\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "2"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t536023\t536966\t.\t+\t2\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "3"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t537037\t537431\t.\t+\t0\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "4"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t537549\t537749\t.\t+\t1\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "5"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t537863\t539249\t.\t+\t1\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "6"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t539310\t539452\t.\t+\t0\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "7"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+2L\tprotein_coding\tCDS\t539518\t540016\t.\t+\t1\tgene_id "FBgn0003963"; transcript_id "FBtr0329895"; exon_number "8"; gene_name "ush"; transcript_name "ush-RC"; protein_id "FBpp0302929"; gene_biotype "protein_coding";
+"""
+
+        pred_gtf = """2L\tStringTie\ttranscript\t476445\t479670\t1000\t-\t.\tgene_id "Stringtie.63"; transcript_id "Stringtie.63.1"; cov "141.769424"; FPKM "inf";
+2L\tStringTie\texon\t476445\t478204\t1000\t-\t.\tgene_id "Stringtie.63"; transcript_id "Stringtie.63.1"; exon_number "1"; cov "149.294586";
+2L\tStringTie\texon\t479407\t479670\t1000\t-\t.\tgene_id "Stringtie.63"; transcript_id "Stringtie.63.1"; exon_number "2"; cov "91.601692";"""
+
+        ref_lines = [mikado_lib.parsers.GTF.GtfLine(line)
+                     for line in filter(lambda x: x!='', ref_gtf.split("\n"))]
+        self.ref = mikado_lib.loci_objects.transcript.Transcript(ref_lines[0])
+        for l in ref_lines[1:]:
+            self.ref.add_exon(l)
+        self.ref.finalize()
+        
+        pred_lines = [mikado_lib.parsers.GTF.GtfLine(line)
+                      
+                      for line in filter(lambda x: x!='', pred_gtf.split("\n"))]
+        self.pred = mikado_lib.loci_objects.transcript.Transcript(pred_lines[0])
+        for l in pred_lines[1:]:
+            self.pred.add_exon(l)
+        self.pred.finalize()
+        
+    def test_code(self):
+
+        print( mikado_lib.scales.assigner.Assigner.compare(self.pred, self.ref) )
+
+
 class TranscriptTesterPositive(unittest.TestCase):
     tr_gff = """Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380
 Chr2    TAIR10    exon    626642    626780    .    +    .    Parent=AT2G02380.1

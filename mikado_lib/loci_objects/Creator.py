@@ -529,6 +529,9 @@ class Creator:
         # data_dict['orf'] = self.manager.dict(orfs, lock=False)
 
         self.main_logger.info("{0} ORFs loaded".format(len(data_dict["orfs"])))
+        self.main_logger.debug(",".join(
+            list(data_dict["orfs"].keys())[:10]
+        ))
 
         # Finally load BLAST
 

@@ -39,5 +39,5 @@ run_options:
   fragments_maximal_cds: 100
   subloci_from_cds_only: false #true
   threads: 5
-  preload: true
+  preload: false
 scoring_file: scoring.yaml

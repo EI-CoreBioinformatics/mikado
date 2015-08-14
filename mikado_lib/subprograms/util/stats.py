@@ -227,7 +227,9 @@ class Calculator:
 
             if record.is_derived is True and record.is_gene is False:
                 derived_features.add(record.id)
-            elif record.feature == "Locus" or record.is_gene is True or (
+            elif "locus" in record.feature and record.feature != "locus":
+                continue
+            elif "locus" == record.feature or record.is_gene is True or (
                     record.is_parent is True and record.is_transcript is False):
                 self.genes[record.id] = GeneObject(record, only_coding=self.only_coding)
             elif record.is_transcript is True:
@@ -242,7 +244,10 @@ class Calculator:
                 self.genes[record.parent[0]].transcripts[record.id] = TranscriptComputer(record)
             else:
                 for parent in filter(lambda pparent: pparent not in derived_features, record.parent):
-                    gid = transcript2gene[parent]
+                    try:
+                        gid = transcript2gene[parent]
+                    except KeyError as err:
+                        raise KeyError("{0}, line: {1}".format(err, record))
                     self.genes[gid].transcripts[parent].add_exon(record)
 
         for gid in self.genes:

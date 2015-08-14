@@ -7,16 +7,8 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 """
 
 # Core imports
-import sys
 import collections
 import sqlalchemy
-import asyncio
-# if sys.version_info.minor > 4 or (sys.version_info.minor == 4 and sys.version_info.micro >= 4):
-#     # Necessary for future compatibility
-#     from asyncio.events import ensure_future
-# else:
-#     from asyncio.tasks import async as ensure_future
-
 # SQLAlchemy imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
@@ -284,7 +276,7 @@ class Superlocus(Abstractlocus):
         self.sessionmaker.configure(bind=self.engine)
         self.session = self.sessionmaker()
 
-    @asyncio.coroutine
+    # @asyncio.coroutine
     def load_transcript_data(self, tid, data_dict):
         """
         :param tid: the name of the transcript to retrieve data for.
@@ -292,11 +284,12 @@ class Superlocus(Abstractlocus):
 
         This routine is used to load data for a single transcript."""
 
+        self.logger.debug("Retrieving data for {0}".format(tid))
         self.transcripts[tid].logger = self.logger
         self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
-                                                                  session=self.session,
-                                                                  data_dict=data_dict
-                                                                  )
+                                                       session=self.session,
+                                                       data_dict=data_dict
+                                                       )
 
         # yield from self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
         #                                                           session=self.session,

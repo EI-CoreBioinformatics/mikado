@@ -149,7 +149,7 @@ class GffLine(object):
         attrs = []
         if self.id is not None:
             attrs.append("ID={0}".format(self.id))
-        if self.parent is not None:
+        if len(self.parent) > 0:
             assert type(self.parent) is list, "{0}\n{1}\n{2}".format(self.parent, self.attributes, self._line)
             attrs.append("Parent={0}".format(",".join(self.parent)))
         if not self.attributeOrder:

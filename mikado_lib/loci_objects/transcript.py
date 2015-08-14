@@ -445,8 +445,9 @@ class Transcript:
 
         if hasattr(self, "session"):
             if state["session"] is not None:
+                state["session"] = None
                 state["session"].expunge_all()
-                # state["session"].close()
+                state["session"].close()
             del state["session"]
         if hasattr(self, "sessionmaker"):
             del state["sessionmaker"]

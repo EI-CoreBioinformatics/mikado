@@ -80,10 +80,10 @@ def connector(json_conf, logger):
     if json_conf["dbtype"] == "sqlite":
         if json_conf['run_options']['shm'] is False:
             logger.debug("Connecting to {0}".format(json_conf["db"]))
-            return sqlite3.connect(database=json_conf["db"])
+            return sqlite3.connect(database=json_conf["db"], check_same_thread=False)
         else:
             logger.debug("Connecting to {0}".format(json_conf["run_options"]["shm_db"]))
-            return sqlite3.connect(database=json_conf["run_options"]["shm_db"])
+            return sqlite3.connect(database=json_conf["run_options"]["shm_db"], check_same_thread=False)
     elif json_conf["dbtype"] == "mysql":
         import MySQLdb
         logger.debug("Connecting to MySQL {0}".format(json_conf["run_options"]["db"]))

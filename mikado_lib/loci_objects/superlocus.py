@@ -340,7 +340,8 @@ class Superlocus(Abstractlocus):
                 if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
                     self.locus_verified_introns.append(intron)
 
-        for tid in self.transcripts:
+        tid_keys = self.transcripts.keys()
+        for tid in tid_keys:
             self.load_transcript_data(tid, data_dict)
 
         # loop = asyncio.get_event_loop()

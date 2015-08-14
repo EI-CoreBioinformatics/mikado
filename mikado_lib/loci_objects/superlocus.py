@@ -223,6 +223,7 @@ class Superlocus(Abstractlocus):
             plus, minus, nones = [], [], []
             for cdna_id in self.transcripts:
                 cdna = self.transcripts[cdna_id]
+                self.logger.debug("{0}: strand {1}".format(cdna_id, cdna.strand))
                 if cdna.strand == "+":
                     plus.append(cdna)
                 elif cdna.strand == "-":
@@ -247,6 +248,7 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Defined {0} loci by splitting by strand at {1}.".format(len(new_loci), self.id))
             for new_locus in iter(sorted(new_loci)):
                 yield new_locus
+        raise StopIteration
 
     # @profile
     def connect_to_db(self, pool):
@@ -344,16 +346,18 @@ class Superlocus(Abstractlocus):
                 to_remove.add(tid)
                 to_add.update(new_transcripts)
 
-        for tid in to_remove:
-            self.remove_transcript_from_locus(tid)
+        if len(to_remove) > 0:
+            self.logger.debug("Removing from {0}: {1}".format(self.id,
+                                                              ",".join(list(to_remove))
+                                                              ))
+            for tid in to_remove:
+                self.remove_transcript_from_locus(tid)
+            self.logger.debug("Adding to {0}: {1}".format(self.id,
+                                                          ",".join([tr.id for tr in to_add])
+                                                          ))
+            for tr in to_add:
+                self.add_transcript_to_locus(tr, check_in_locus=False)
 
-        for tr in to_add:
-            self.add_transcript_to_locus(tr, check_in_locus=False)
-
-        # loop = asyncio.get_event_loop()
-        # tasks = [ensure_future(self.load_transcript_data(tid, data_dict)) for tid in self.transcripts]
-        # #
-        # loop.run_until_complete(asyncio.wait(tasks))
         if data_dict is None:
             self.session.close()
             self.sessionmaker.close_all()
@@ -665,3 +669,21 @@ class Superlocus(Abstractlocus):
                 return False
         else:
             return False
+
+    # ############## Properties ############
+    @property
+    def id(self) -> str:
+        """
+        This is a generic string generator for all inherited children.
+        :rtype : str
+        """
+        if self.stranded is True:
+            strand = self.strand
+        else:
+            strand = "mixed"
+        return "{0}:{1}{2}:{3}-{4}".format(
+            self.__name__,
+            self.chrom,
+            strand,
+            self.start,
+            self.end)

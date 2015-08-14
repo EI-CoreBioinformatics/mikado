@@ -9,7 +9,7 @@ import sys
 import re
 from collections import OrderedDict
 import inspect
-import asyncio
+# import asyncio
 from mikado_lib.exceptions import InvalidTranscript
 # SQLAlchemy imports
 from sqlalchemy.engine import create_engine
@@ -447,7 +447,7 @@ class Transcript:
             if state["session"] is not None:
                 state["session"].expunge_all()
                 state["session"].close()
-                
+
             del state["session"]
         if hasattr(self, "sessionmaker"):
             del state["sessionmaker"]
@@ -1210,7 +1210,7 @@ class Transcript:
         else:
             return [orf.as_bed12() for orf in candidate_orfs]
 
-    @asyncio.coroutine
+    # @asyncio.coroutine
 #    @profile
     def load_orfs_coroutine(self):
         """Asynchronous coroutine for loading orfs from the database"""
@@ -1262,6 +1262,7 @@ class Transcript:
         self.internal_orfs = []
         self.finalized = False
         primary_orf = True  # Token to be set to False after the first CDS is exhausted
+        primary_strand = None
         self.loaded_bed12 = []  # This will keep in memory the original BED12 objects
 
         for orf in candidate_orfs:
@@ -1269,6 +1270,9 @@ class Transcript:
             if primary_orf is True:
                 self.has_start_codon, self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
                 primary_orf = False
+                primary_strand = orf.strand
+            elif primary_orf is False and orf.strand != primary_strand:
+                continue
 
             if not (orf.thickStart >= 1 and orf.thickEnd <= self.cdna_length) or not (len(orf) == self.cdna_length):
                 message = "Wrong ORF for {0}: ".format(orf.id)
@@ -1278,7 +1282,7 @@ class Transcript:
                 self.logger.warning(message)
                 continue
 
-            if self.strand is None:
+            if self.strand is None or self.json_dict:
                 self.strand = orf.strand
 
             self.loaded_bed12.append(orf)

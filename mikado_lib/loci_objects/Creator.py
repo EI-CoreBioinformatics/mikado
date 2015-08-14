@@ -146,6 +146,10 @@ def analyse_locus(slocus: Superlocus,
     # We need to set this to the lowest possible level, otherwise we overwrite the global configuration
     logger.setLevel(json_conf["log_settings"]["log_level"])
     logger.propagate = False
+    if slocus.stranded is True:
+        logger.warn("{0} is stranded already! Resetting".format(slocus.id))
+        slocus.stranded = False
+
     logger.info("Started with {0}".format(slocus.id))
     slocus.logger = logger
 
@@ -155,7 +159,7 @@ def analyse_locus(slocus: Superlocus,
             db_connection = functools.partial(connector, json_conf, logger)
             connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
             slocus.load_all_transcript_data(pool=connection_pool)
-            # connection_pool.dispose()
+            connection_pool.dispose()
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -379,7 +383,8 @@ class Creator:
         # Create the shared DB if necessary
         self.setup_shm_db()
 
-        if self.json_conf["chimera_split"]["blast_check"] is True:
+        if self.json_conf["chimera_split"]["blast_check"] is True and \
+                        self.json_conf["log_settings"]["log_level"] == "DEBUG":
             db_connection = functools.partial(connector, self.json_conf, self.main_logger)
             engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
                                    creator=db_connection)
@@ -420,7 +425,8 @@ class Creator:
         locus_metrics_file = re.sub("$", ".metrics.tsv", re.sub(".gff.?$", "", self.locus_out))
         locus_scores_file = re.sub("$", ".scores.tsv", re.sub(".gff.?$", "", self.locus_out))
         locus_metrics = csv.DictWriter(open(locus_metrics_file, 'w'),
-                                       mikado_lib.loci_objects.superlocus.Superlocus.available_metrics, delimiter="\t")
+                                       mikado_lib.loci_objects.superlocus.Superlocus.available_metrics,
+                                       delimiter="\t")
         locus_metrics.writeheader()
         locus_scores = csv.DictWriter(open(locus_scores_file, 'w'), score_keys, delimiter="\t")
         locus_scores.writeheader()
@@ -609,7 +615,7 @@ class Creator:
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
 
-        self.printer_process = threading.Thread(target=self.printer)
+        self.printer_process = multiprocessing.Process(target=self.printer)
         self.printer_process.start()
 
         current_locus = None
@@ -640,14 +646,15 @@ class Creator:
                     if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(current_locus, current_transcript) \
                             is True:
                         current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
-                        assert current_transcript.id in current_locus.transcripts
+                        # assert current_transcript.id in current_locus.transcripts
                     else:
                         # Load data on the local thread before sending.
                         if current_locus is not None:
                             if data_dict is not None:
-                                self.main_logger.debug("Loading data for {0}".format(current_locus.id))
+                                self.main_logger.debug("Loading data from dict for {0}".format(current_locus.id))
                                 current_locus.load_all_transcript_data(pool=self.queue_pool,
                                                                        data_dict=data_dict)
+                            self.main_logger.info("Submitting {0}".format(current_locus.id))
                             if self.json_conf["single_thread"] is True:
                                 analyse_locus(current_locus,
                                               self.json_conf,
@@ -674,12 +681,13 @@ class Creator:
 
         if current_transcript is not None:
             if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(current_locus, current_transcript) is True:
-                current_locus.add_transcript_to_locus(current_transcript)
+                current_locus.add_transcript_to_locus(current_transcript, check_in_locus=False)
             else:
                 if current_locus is not None:
-                    if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
-                        self.main_logger.info("Loading data for {0}".format(current_locus.id))
+                    if data_dict is not None:
+                        self.main_logger.info("Loading data from cache for {0}".format(current_locus.id))
                         current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
+                    self.main_logger.info("Submitting {0}".format(current_locus.id))
                     if self.json_conf["single_thread"] is True:
                         analyse_locus(current_locus,
                                       self.json_conf,
@@ -694,14 +702,16 @@ class Creator:
                                                                           self.logging_queue,
                                                                           # data_dict
                                                                           )))
-
-                current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript, stranded=False,
+                current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript,
+                                                                              stranded=False,
                                                                               json_dict=self.json_conf)
+                self.logger.debug("Created last locus {0}".format(current_locus))
 
         if current_locus is not None:
-            if data_dict is not None or self.json_conf["dbtype"] == "sqlite":
-                self.main_logger.debug("Loading data for {0}".format(current_locus.id))
+            if data_dict is not None:
+                self.main_logger.debug("Loading data from cache for {0}".format(current_locus.id))
                 current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
+            self.main_logger.info("Submitting {0}".format(current_locus.id))
             if self.json_conf["single_thread"] is True:
                 analyse_locus(current_locus,
                               self.json_conf,

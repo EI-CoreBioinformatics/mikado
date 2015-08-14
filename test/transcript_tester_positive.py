@@ -139,7 +139,6 @@ class DrosoTester(unittest.TestCase):
         self.ref.finalize()
         
         pred_lines = [mikado_lib.parsers.GTF.GtfLine(line)
-                      
                       for line in filter(lambda x: x!='', pred_gtf.split("\n"))]
         self.pred = mikado_lib.loci_objects.transcript.Transcript(pred_lines[0])
         for l in pred_lines[1:]:

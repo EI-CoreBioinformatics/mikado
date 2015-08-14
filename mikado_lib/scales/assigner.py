@@ -77,7 +77,8 @@ class Assigner:
         self.indexer = collections.defaultdict(list).fromkeys(self.positions)
 
         for chrom in positions:
-            self.indexer[chrom] = sorted(self.positions[chrom].keys())
+            self.indexer[chrom] = sorted(self.positions[chrom].keys(),
+                                         key=operator.itemgetter(0,1))
 
         self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
         self.tmap_rower = csv.DictWriter(self.tmap_out, RestultStorer.__slots__, delimiter="\t")

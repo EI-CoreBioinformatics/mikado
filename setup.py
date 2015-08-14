@@ -47,7 +47,8 @@ setup(
                       "networkx",
                       "sqlalchemy>=1",
                       "biopython>=1.6",
-                      "pandas"
+                      "pandas",
+                      "intervaltree"
                       ],
 
     extras_require={

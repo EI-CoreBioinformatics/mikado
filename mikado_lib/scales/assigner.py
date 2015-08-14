@@ -6,6 +6,7 @@ This class is the main workhorse of the compare.py utility.
 
 import sys
 import csv
+from intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue
 import logging
@@ -77,8 +78,9 @@ class Assigner:
         self.indexer = collections.defaultdict(list).fromkeys(self.positions)
 
         for chrom in positions:
-            self.indexer[chrom] = sorted(self.positions[chrom].keys(),
-                                         key=operator.itemgetter(0,1))
+            # self.indexer[chrom] = sorted(self.positions[chrom].keys(),
+            #                              key=operator.itemgetter(0,1))
+            self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
         self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
         self.tmap_rower = csv.DictWriter(self.tmap_out, RestultStorer.__slots__, delimiter="\t")
@@ -116,7 +118,7 @@ class Assigner:
         """
         This class method is used to find the possible matches of a given prediction key.
         :param keys: the start
-        :type keys: [(int,int)]
+        :type keys: intervaltree.IntervalTree
 
         :param position: the position of my prediction in the genome
         :type position: (int, int)
@@ -134,43 +136,43 @@ class Assigner:
         if len(keys) == 0:
             return []
 
-        indexed = bisect.bisect(keys, position)
+        # indexed = bisect.bisect(keys, position)
 
-        found = []
+        found = keys.search(start-distance, end+distance)
 
-        search_right = True
-        search_left = True
-
-        left_index = max(0, min(indexed, len(keys) - 1))  # Must be a valid list index
-        right_index = min(len(keys) - 1, left_index + 1)
-        if right_index == left_index:
-            search_right = False
-
-        while search_left is True:
-            if keys[left_index][1] + distance < start:
-                search_left = False
-                continue
-            found.append(keys[left_index])
-            left_index -= 1
-            if left_index < 0:
-                search_left = False
-
-        while search_right is True:
-            if keys[right_index][0] - distance > end:
-                search_right = False
-                continue
-            found.append(keys[right_index])
-            right_index += 1
-            if right_index >= len(keys):
-                search_right = False
+        # search_right = True
+        # search_left = True
+        #
+        # left_index = max(0, min(indexed, len(keys) - 1))  # Must be a valid list index
+        # right_index = min(len(keys) - 1, left_index + 1)
+        # if right_index == left_index:
+        #     search_right = False
+        #
+        # while search_left is True:
+        #     if keys[left_index][1] + distance < start:
+        #         search_left = False
+        #         continue
+        #     found.append(keys[left_index])
+        #     left_index -= 1
+        #     if left_index < 0:
+        #         search_left = False
+        #
+        # while search_right is True:
+        #     if keys[right_index][0] - distance > end:
+        #         search_right = False
+        #         continue
+        #     found.append(keys[right_index])
+        #     right_index += 1
+        #     if right_index >= len(keys):
+        #         search_right = False
 
         distances = []
         for key in found:
             # Append the key (to be used later for retrieval) and the distance
             distances.append(
-                (key,
+                ((key.begin, key.end),
                  max(0,
-                     max(start, key[0]) - min(end, key[1])
+                     max(start, key.begin) - min(end, key.end)
                      )
                  )
             )
@@ -252,7 +254,7 @@ class Assigner:
         if prediction.chrom in self.indexer:
             keys = self.indexer[prediction.chrom]
         else:
-            keys = []
+            keys = IntervalTree()
 
         distances = self.find_neighbours(keys,
                                          (prediction.start, prediction.end),

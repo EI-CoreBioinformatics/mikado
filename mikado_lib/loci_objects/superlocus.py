@@ -481,9 +481,9 @@ class Superlocus(Abstractlocus):
         for slocus in self.subloci:
             for row in slocus.print_scores():
                 yield row
-        if self.excluded_transcripts is not None:
-            for row in self.excluded_transcripts.print_scores():
-                yield row
+        # if self.excluded_transcripts is not None:
+        #     for row in self.excluded_transcripts.print_scores():
+        #         yield row
 
     def print_monoholder_metrics(self):
 

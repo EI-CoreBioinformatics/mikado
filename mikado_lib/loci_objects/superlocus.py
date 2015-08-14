@@ -290,11 +290,8 @@ class Superlocus(Abstractlocus):
                                                        session=self.session,
                                                        data_dict=data_dict
                                                        )
+        to_remove, to_add = False, set()
 
-        # yield from self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
-        #                                                           session=self.session,
-        #                                                           data_dict=data_dict
-        #                                                           )
         if self.json_dict["chimera_split"]["execute"] is True and self.transcripts[tid].number_internal_orfs > 1:
             try:
                 new_tr = list(self.transcripts[tid].split_by_cds())
@@ -302,10 +299,9 @@ class Superlocus(Abstractlocus):
                 self.logger.exception(err)
                 raise
             if len(new_tr) > 1:
-                for tr in new_tr:
-                    self.add_transcript_to_locus(tr, check_in_locus=False)
-                self.remove_transcript_from_locus(tid)
-        return
+                to_add.update(new_tr)
+                to_remove = True
+        return to_remove, to_add
         # @profile
 
     def load_all_transcript_data(self, pool=None, data_dict = None):
@@ -341,8 +337,18 @@ class Superlocus(Abstractlocus):
                     self.locus_verified_introns.append(intron)
 
         tid_keys = self.transcripts.keys()
+        to_remove, to_add = set(), set()
         for tid in tid_keys:
-            self.load_transcript_data(tid, data_dict)
+            remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
+            if remove_flag is True:
+                to_remove.add(tid)
+                to_add.update(new_transcripts)
+
+        for tid in to_remove:
+            self.remove_transcript_from_locus(tid)
+
+        for tr in to_add:
+            self.add_transcript_to_locus(tr, check_in_locus=False)
 
         # loop = asyncio.get_event_loop()
         # tasks = [ensure_future(self.load_transcript_data(tid, data_dict)) for tid in self.transcripts]

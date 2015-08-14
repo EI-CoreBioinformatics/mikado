@@ -645,7 +645,7 @@ class Assigner:
                                           key=operator.attrgetter("j_f1", "n_f1"), reverse=True)[0]
                         else:
                             best = sorted(self.gene_matches[gid][tid],
-                                          key=operator.attrgetter("distance"), reverse=True)
+                                          key=operator.attrgetter("distance"), reverse=False)[0]
                         best_picks.append(best)
                         if len(best.ccode) == 1:
                             row = tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])

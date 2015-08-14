@@ -639,8 +639,13 @@ class Assigner:
                     if len(self.gene_matches[gid][tid]) == 0:
                         row = tuple([tid, gid, "NA", "NA", "NA"])
                     else:
-                        best = sorted(self.gene_matches[gid][tid],
-                                      key=operator.attrgetter("j_f1", "n_f1"), reverse=True)[0]
+                        if any(True if (x.j_f1[0] > 0 or x.n_f1[0] > 0) else False
+                               for x in self.gene_matches[gid][tid]):
+                            best = sorted(self.gene_matches[gid][tid],
+                                          key=operator.attrgetter("j_f1", "n_f1"), reverse=True)[0]
+                        else:
+                            best = sorted(self.gene_matches[gid][tid],
+                                          key=operator.attrgetter("distance"), reverse=True)
                         best_picks.append(best)
                         if len(best.ccode) == 1:
                             row = tuple([tid, gid, ",".join(best.ccode), best.TID, best.GID])

@@ -79,12 +79,6 @@ def compare(args):
     args.commandline = " ".join(sys.argv)
     queue_logger.info("Command line: {0}".format(args.commandline))
 
-    #     refmap_queue = manager.Queue(-1)
-
-    #     pp=threading.Thread(target=printer, args=(args,), name="printing_thread", daemon=True)
-    #     pp.start()
-    #     args.refmap_queue = refmap_queue
-
     queue_logger.info("Starting parsing the reference")
 
     genes = dict()
@@ -97,7 +91,6 @@ def compare(args):
         # Assume we are going to use GTF for the moment
         if row.header is True:
             continue
-        #         logger.debug(str(row))
         if row.is_transcript is True:
             queue_logger.debug("Transcript\n{0}".format(str(row)))
             tr = Transcript(row)
@@ -107,16 +100,11 @@ def compare(args):
             genes[row.gene].add(tr)
             assert tr.id in genes[row.gene].transcripts
         elif row.is_exon is True:
-            #             logger.debug(str(row))
-            #             assert type(row.transcript) is list
-            #             logger.debug("Exon found: {0}, {1}".format(row.transcript, row.parent))
             if ref_gff is True:
                 for tr in row.transcript:
-                    #                     logger.debug(tr)
                     gid = transcript2gene[tr]
                     genes[gid][tr].add_exon(row)
             else:
-                #                 logger.debug(row.transcript)
                 try:
                     genes[row.gene][row.transcript].add_exon(row)
                 except KeyError as exc:
@@ -126,7 +114,6 @@ def compare(args):
                     raise
         else:
             continue
-        #     logger.info("Finished parsing the reference")
     non_coding_to_remove = set()
     genes_to_remove = set()
     for gid in genes:
@@ -197,10 +184,6 @@ def compare(args):
                 transcript.add_exon(row)
             except Exception as err:
                 queue_logger.exception(err)
-                # In case of error, signal the threads to exit
-                #                 args.queue.put("EXIT")
-                #                 args.queue.all_tasks_done = True
-                #                 args.refmap_queue.put("EXIT")
                 break
         else:
             continue

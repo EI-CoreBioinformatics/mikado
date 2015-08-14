@@ -117,3 +117,21 @@ class Gene:
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.set_logger(None)
+
+    def __lt__(self, other):
+        if self.chrom != other.chrom:
+            return self.chrom < other.chrom
+        else:
+            if self.start != other.start:
+                return self.start < other.start
+            elif self.end != other.end:
+                return self.end < other.end
+            else:
+                return self.strand < other.strand
+
+    def __eq__(self, other):
+        if self.chrom == other.chrom and self.start == other.start and
+            self.end == other.end and self.strand == other.strand:
+            return True
+        return False
+

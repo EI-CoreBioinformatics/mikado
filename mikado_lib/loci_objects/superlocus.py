@@ -494,7 +494,7 @@ class Superlocus(Abstractlocus):
 
         # self.available_monolocus_metrics = set(self.monoholder.available_metrics)
         if len(self.monoholders) == 0:
-            yield ''
+            return
         for monoholder in self.monoholders:
             for row in monoholder.print_metrics():
                 yield row
@@ -508,7 +508,7 @@ class Superlocus(Abstractlocus):
 
         # self.available_monolocus_metrics = set(self.monoholder.available_metrics)
         if len(self.monoholders) == 0:
-            yield ''
+            return
         for monoholder in self.monoholders:
             for row in monoholder.print_scores():
                 yield row

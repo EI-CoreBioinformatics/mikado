@@ -105,9 +105,9 @@ def pick_parser():
     log_options.add_argument("-l", "--log", default=None,
                              help="File to write the log to. Default: decided by the configuration file.")
     verbosity = log_options.add_mutually_exclusive_group()
-    verbosity.add_argument("--verbose", action="store_true",
+    verbosity.add_argument("-v", "--verbose", action="store_true",
                            default=False, help="Flag. If set, the debug mode will be activated.")
-    verbosity.add_argument("--noverbose", action="store_true",
+    verbosity.add_argument("-nv", "--noverbose", action="store_true",
                            default=False, help="Flag. If set, the debug mode will be activated.")
     log_options.add_argument("-lv", "--log-level", dest="log_level",
                              choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,

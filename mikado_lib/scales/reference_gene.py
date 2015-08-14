@@ -130,8 +130,8 @@ class Gene:
                 return self.strand < other.strand
 
     def __eq__(self, other):
-        if self.chrom == other.chrom and self.start == other.start and
-            self.end == other.end and self.strand == other.strand:
+        if self.chrom == other.chrom and self.start == other.start and \
+                self.end == other.end and self.strand == other.strand:
             return True
         return False
 

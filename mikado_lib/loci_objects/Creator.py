@@ -652,6 +652,7 @@ class Creator:
                         if current_locus is not None:
                             if data_dict is not None:
                                 self.main_logger.debug("Loading data from dict for {0}".format(current_locus.id))
+                                current_locus.logger = self.queue_logger
                                 current_locus.load_all_transcript_data(pool=self.queue_pool,
                                                                        data_dict=data_dict)
                             self.main_logger.info("Submitting {0}".format(current_locus.id))
@@ -710,6 +711,7 @@ class Creator:
         if current_locus is not None:
             if data_dict is not None:
                 self.main_logger.debug("Loading data from cache for {0}".format(current_locus.id))
+                current_locus.logger = self.queue_logger
                 current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
             self.main_logger.info("Submitting {0}".format(current_locus.id))
             if self.json_conf["single_thread"] is True:

@@ -10,19 +10,17 @@ import csv
 import os
 import shutil
 import tempfile
-import threading
+# import threading
 import logging
 from logging import handlers as logging_handlers
 import collections
 import functools
-
 # SQLAlchemy/DB imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 import sqlalchemy.pool
 import sqlalchemy
 import sqlite3
-
 # Shanghai imports
 import mikado_lib.loci_objects
 import mikado_lib.parsers
@@ -384,7 +382,7 @@ class Creator:
         self.setup_shm_db()
 
         if self.json_conf["chimera_split"]["blast_check"] is True and \
-                        self.json_conf["log_settings"]["log_level"] == "DEBUG":
+                self.json_conf["log_settings"]["log_level"] == "DEBUG":
             db_connection = functools.partial(connector, self.json_conf, self.main_logger)
             engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
                                    creator=db_connection)
@@ -497,7 +495,6 @@ class Creator:
                 del state[not_pickable]
 
         return state
-
 
     def preload(self):
         """

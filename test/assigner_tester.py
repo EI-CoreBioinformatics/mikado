@@ -8,7 +8,7 @@ Unit tests for the scales library
 import unittest
 import mikado_lib.loci_objects
 import mikado_lib.scales
-
+import intervaltree
 
 class AssignerTester(unittest.TestCase):
     """
@@ -751,6 +751,7 @@ class AssignerTester(unittest.TestCase):
         Test for the assignment of transcripts inside the index. Still a stub
         """
         keys = [(10, 200), (350, 500)]
+        keys = intervaltree.IntervalTree.from_tuples(keys)
         self.assertEqual(mikado_lib.scales.assigner.Assigner.find_neighbours(
                          keys, (350,500)),
                          [ ((350, 500), 0), ((10, 200), 150)]

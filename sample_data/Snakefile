@@ -17,11 +17,11 @@ configname = "configuration.yaml"
 # 	# for f in filter(lamdba x: os.path.exists(x), DBs):
 # 	#    shell("gzip -f {f};")
 
-rule mock:
-    params:	prefix="mock"
-    input: DBs, gff="mock.gff3"
-    output: "mock.loci.gff3", "mock.loci.scores.tsv"
-    shell: "run_pipeline.py --source {params.prefix} --json_conf configuration_mock.json --subloci_out {params.prefix}.subloci.gff3 --monoloci_out {params.prefix}.monoloci.gff3 --loci_out {output[0]} {input.gff}"
+# rule mock:
+#     params:	prefix="mock"
+#     input: DBs, gff="mock.gff3"
+#     output: "mock.loci.gff3", "mock.loci.scores.tsv"
+#     shell: "run_pipeline.py --source {params.prefix} --json_conf configuration_mock.json --subloci_out {params.prefix}.subloci.gff3 --monoloci_out {params.prefix}.monoloci.gff3 --loci_out {output[0]} {input.gff}"
 
 rule decompress:
     input:  zipDBs
@@ -74,13 +74,13 @@ rule select:
     params: prefix="all"
     input: configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed", check="blast_serialized.ok"
     output: "all.loci.gff3", "all.loci.scores.tsv"
-    shell: """mikado_pick.py --source {params[prefix]} --json_conf {input[configuration]} \
+    shell: """mikado.py pick --source {params[prefix]} --json_conf {input[configuration]} \
 	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""  
 
 rule compare:
     input: reference="reference.gff3", prediction="all.loci.gff3"
     output: "compare.stats", "compare.tmap", "compare.refmap", "compare.log"
-    shell: """compare.py -r {input[reference]} -p {input[prediction]} -o compare -l compare.log"""
+    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare -l compare.log"""
 
 rule complete:
     input: "compare.stats"

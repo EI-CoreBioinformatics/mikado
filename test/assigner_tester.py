@@ -754,9 +754,16 @@ class AssignerTester(unittest.TestCase):
         keys = intervaltree.IntervalTree.from_tuples(keys)
         self.assertEqual(mikado_lib.scales.assigner.Assigner.find_neighbours(
                          keys, (350,500)),
-                         [ ((350, 500), 0), ((10, 200), 150)]
-        )
+                         [((350, 500), 0), ((10, 200), 150)]
+                         )
+        self.assertEqual(mikado_lib.scales.assigner.Assigner.find_neighbours(
+                         keys, (5350,5500), distance=1000),
+                         []
+                         )
 
-
+        self.assertEqual(mikado_lib.scales.assigner.Assigner.find_neighbours(
+                         keys, (5350,5500), distance=10000),
+                         [((350, 500), 4850), ((10, 200), 5150)]
+                         )
 
 unittest.main()

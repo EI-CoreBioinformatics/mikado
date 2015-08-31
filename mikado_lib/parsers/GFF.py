@@ -8,7 +8,6 @@ Module to serialize GFF files.
 
 from mikado_lib.parsers import Parser
 
-
 class GffLine(object):
     """Object which serializes a GFF line.
     Parameters:
@@ -68,6 +67,7 @@ class GffLine(object):
         self.parent = []
         self.__score = None
         self.__strand = None
+        self._line = "NA"
 
         self.attributeOrder = []
         if line is None:  # Empty constructor
@@ -118,7 +118,7 @@ class GffLine(object):
             itemized = item.split('=')
             try:
                 if itemized[0].lower() == "parent":
-                    self.parent = itemized[1]
+                    self.parent = itemized[1].split(",")
 
                 elif itemized[0].upper() == "ID":
                     self.id = itemized[1]
@@ -193,6 +193,7 @@ class GffLine(object):
 
         self.attributes["ID"] = newid
 
+
     @property
     def parent(self):
         """This property looks up the "Parent" field in the "attributes" dictionary. Contrary to other attributes,
@@ -216,16 +217,19 @@ class GffLine(object):
         :type parent: list
         """
 
-        if parent is None:
-            self.attributes["Parent"] = None
-        elif type(parent) is str:
-            new_parent = parent.split(",")
-            self.attributes["Parent"] = new_parent
-        elif type(parent) is list:
-            self.attributes["Parent"] = parent
-        else:
-            raise TypeError(parent, type(parent))
-        assert type(self.parent) is list or self.parent is None
+        if type(parent) is str:
+            parent = parent.split(",")
+        self.attributes["Parent"] = parent
+        # if parent is None:
+        #     self.attributes["Parent"] = None
+        # elif type(parent) is str:
+        #     new_parent = parent.split(",")
+        #     self.attributes["Parent"] = new_parent
+        # elif type(parent) is list:
+        #     self.attributes["Parent"] = parent
+        # else:
+        #     raise TypeError(parent, type(parent))
+        # assert type(self.parent) is list or self.parent is None
 
     @property
     def name(self):

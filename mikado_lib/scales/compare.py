@@ -102,8 +102,14 @@ def compare(args):
         elif row.is_exon is True:
             if ref_gff is True:
                 for tr in row.transcript:
-                    gid = transcript2gene[tr]
-                    genes[gid][tr].add_exon(row)
+                    if tr in transcript2gene:
+                        # We have to perform the check because there are some GFFs
+                        # e.g. TAIR
+                        # where CDSs are defined within a spurious "Protein" feature
+                        gid = transcript2gene[tr]
+                        genes[gid][tr].add_exon(row)
+                    else:
+                        continue
             else:
                 try:
                     genes[row.gene][row.transcript].add_exon(row)

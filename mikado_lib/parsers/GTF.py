@@ -357,15 +357,19 @@ class GtfLine(object):
         :param parent: the new parent value
         :type parent: list | str
         """
-        if type(parent) is list:
-            assert len(parent) == 1 and type(parent[0]) is str
-            parent = parent[0]
-        elif type(parent) is not str:
-            raise TypeError("Invalid type for GTF parent: {0}, {1}".format(parent, type(parent)))
-        if self.is_transcript is True:
-            self.gene = parent
-        else:
-            self.transcript = parent
+        if type(parent) is str:
+            parent = parent.split(",")
+        self.attributes["Parent"] = parent
+
+        # if type(parent) is list:
+        #     assert len(parent) == 1 and type(parent[0]) is str
+        #     parent = parent[0]
+        # elif type(parent) is not str:
+        #     raise TypeError("Invalid type for GTF parent: {0}, {1}".format(parent, type(parent)))
+        # if self.is_transcript is True:
+        #     self.gene = parent
+        # else:
+        #     self.transcript = parent
 
     @property
     def id(self):

@@ -26,7 +26,7 @@ from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.loci_objects.sublocus import Sublocus
 from mikado_lib.loci_objects.monosublocusholder import MonosublocusHolder
 from mikado_lib.parsers.GFF import GffLine
-from mikado_lib.exceptions import NoJsonConfigError
+import mikado_lib.exceptions
 
 
 class Superlocus(Abstractlocus):
@@ -84,7 +84,7 @@ class Superlocus(Abstractlocus):
         self.stranded = stranded
         self.feature = self.__name__
         if json_dict is None or type(json_dict) is not dict:
-            raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
+            raise mikado_lib.exceptions.NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.json_dict = json_dict
         self.purge = self.json_dict["run_options"]["purge"]
 
@@ -347,16 +347,16 @@ class Superlocus(Abstractlocus):
                 to_add.update(new_transcripts)
 
         if len(to_remove) > 0:
-            self.logger.debug("Removing from {0}: {1}".format(self.id,
-                                                              ",".join(list(to_remove))
-                                                              ))
-            for tid in to_remove:
-                self.remove_transcript_from_locus(tid)
             self.logger.debug("Adding to {0}: {1}".format(self.id,
                                                           ",".join([tr.id for tr in to_add])
                                                           ))
             for tr in to_add:
                 self.add_transcript_to_locus(tr, check_in_locus=False)
+            self.logger.debug("Removing from {0}: {1}".format(self.id,
+                                                              ",".join(list(to_remove))
+                                                              ))
+            for tid in to_remove:
+                self.remove_transcript_from_locus(tid)
 
         if data_dict is None:
             self.session.close()
@@ -367,6 +367,7 @@ class Superlocus(Abstractlocus):
 
         self.session = None
         self.sessionmaker = None
+        self.stranded = False
 
     # ##### Sublocus-related steps ######
 
@@ -426,7 +427,28 @@ class Superlocus(Abstractlocus):
             subl = sorted(subl)
             new_sublocus = Sublocus(subl[0], json_dict=self.json_dict, logger=self.logger)
             for ttt in subl[1:]:
-                new_sublocus.add_transcript_to_locus(ttt)
+                try:
+                    new_sublocus.add_transcript_to_locus(ttt)
+                except mikado_lib.exceptions.NotInLocusError as orig_exc:
+                    exc_text = """Sublocus: {0}
+                    Offending transcript:{1}
+                    In locus manual check: {2}
+                    Original exception: {3}""".format(
+                        "{0} {1}:{2}-{3} {4}".format(subl[0].id, subl[0].chrom, subl[0].start, subl[0].end, subl[0].exons),
+                        "{0} {1}:{2}-{3} {4}".format(ttt.id, ttt.chrom, ttt.start, ttt.end, ttt.exons),
+                        "Chrom {0} Strand {1} overlap {2}".format(
+                            new_sublocus.chrom == ttt.chrom,
+                            "{0}/{1}/{2}".format(
+                                new_sublocus.strand,
+                                ttt.strand,
+                                new_sublocus.strand == ttt.strand
+                            ),
+                            self.overlap((subl[0].start, subl[1].end), (ttt.start, ttt.end))>0
+                        ),
+                        orig_exc
+                    )
+                    raise mikado_lib.exceptions.NotInLocusError(exc_text)
+
             new_sublocus.parent = self.id
             self.subloci.append(new_sublocus)
         self.subloci = sorted(self.subloci)

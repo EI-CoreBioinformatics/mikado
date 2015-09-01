@@ -153,11 +153,18 @@ def analyse_locus(slocus: Superlocus,
 
     # Load the CDS information if necessary
     if json_conf["run_options"]["preload"] is False:
+            slocus_id = slocus.id
             logger.debug("Loading transcript data for {0}".format(slocus.id))
             db_connection = functools.partial(connector, json_conf, logger)
             connection_pool = sqlalchemy.pool.QueuePool(db_connection, pool_size=1, max_overflow=2)
             slocus.load_all_transcript_data(pool=connection_pool)
             connection_pool.dispose()
+            if slocus.initialized is False:
+                # This happens when all transcripts have been removed from the locus,
+                # due to errors that have been hopefully logged
+                logger.warning("{0} had all transcripts failing checks, ignoring it".format(slocus_id))
+                return
+
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -684,22 +691,30 @@ class Creator:
                 if current_locus is not None:
                     if data_dict is not None:
                         self.main_logger.info("Loading data from cache for {0}".format(current_locus.id))
+                        current_locus_id = current_locus.id
                         current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
-                    self.main_logger.info("Submitting {0}".format(current_locus.id))
-                    if self.json_conf["single_thread"] is True:
-                        analyse_locus(current_locus,
-                                      self.json_conf,
-                                      self.printer_queue,
-                                      self.logging_queue,
-                                      # data_dict
-                                      )
-                    else:
-                        jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                                          self.json_conf,
-                                                                          self.printer_queue,
-                                                                          self.logging_queue,
-                                                                          # data_dict
-                                                                          )))
+                        if current_locus.initialized is False:
+                            # This happens when we have removed all transcripts from the locus
+                            # due to errors which should have been caught and logged
+                            current_locus = None
+                            self.main_logger.warning("{0} had all transcripts failing checks, ignoring it".format(
+                                current_locus_id))
+                    if current_locus is not None:
+                        self.main_logger.info("Submitting {0}".format(current_locus.id))
+                        if self.json_conf["single_thread"] is True:
+                            analyse_locus(current_locus,
+                                          self.json_conf,
+                                          self.printer_queue,
+                                          self.logging_queue,
+                                          # data_dict
+                                          )
+                        else:
+                            jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                                              self.json_conf,
+                                                                              self.printer_queue,
+                                                                              self.logging_queue,
+                                                                              # data_dict
+                                                                              )))
                 current_locus = mikado_lib.loci_objects.superlocus.Superlocus(current_transcript,
                                                                               stranded=False,
                                                                               json_dict=self.json_conf)
@@ -709,22 +724,30 @@ class Creator:
             if data_dict is not None:
                 self.main_logger.debug("Loading data from cache for {0}".format(current_locus.id))
                 current_locus.logger = self.queue_logger
+                current_locus_id = current_locus.id
                 current_locus.load_all_transcript_data(pool=self.queue_pool, data_dict=data_dict)
-            self.main_logger.info("Submitting {0}".format(current_locus.id))
-            if self.json_conf["single_thread"] is True:
-                analyse_locus(current_locus,
-                              self.json_conf,
-                              self.printer_queue,
-                              self.logging_queue,
-                              # data_dict
-                              )
-            else:
-                jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                                  self.json_conf,
-                                                                  self.printer_queue,
-                                                                  self.logging_queue,
-                                                                  # data_dict
-                                                                  )))
+                if current_locus.initialized is False:
+                            # This happens when we have removed all transcripts from the locus
+                            # due to errors which should have been caught and logged
+                            current_locus = None
+                            self.main_logger.warning("{0} had all transcripts failing checks, ignoring it".format(
+                                current_locus_id))
+            if current_locus is not None:
+                self.main_logger.info("Submitting {0}".format(current_locus.id))
+                if self.json_conf["single_thread"] is True:
+                    analyse_locus(current_locus,
+                                  self.json_conf,
+                                  self.printer_queue,
+                                  self.logging_queue,
+                                  # data_dict
+                                  )
+                else:
+                    jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                                      self.json_conf,
+                                                                      self.printer_queue,
+                                                                      self.logging_queue,
+                                                                      # data_dict
+                                                                      )))
         for job in jobs:
             job.get()
 

@@ -519,21 +519,26 @@ class Transcript:
         """
         self.finalize()
 
+        # Establish the minimum overlap between an ORF and a BLAST hit to consider it
+        # to establish belongingness
         if self.json_dict is not None:
             minimal_overlap = self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
         else:
             minimal_overlap = 0
+
+        # List of the transcript that will be retained
         new_transcripts = []
         if self.number_internal_orfs < 2:
-            new_transcripts = [self]
+            new_transcripts = [self] # If we only have one ORF this is easy
         else:
 
             cds_boundaries = OrderedDict()
             for orf in sorted(self.loaded_bed12, key=operator.attrgetter("thickStart", "thickEnd")):
                 cds_boundaries[(orf.thickStart, orf.thickEnd)] = [orf]
 
+            # Check the BLAST to understand whether we have to split or not
             if self.json_dict is not None and self.json_dict["chimera_split"]["blast_check"] is True:
-
+                # {  # Start blast check
                 cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
                 for key in cds_hit_dict:
                     cds_hit_dict[key] = set()
@@ -583,6 +588,7 @@ class Transcript:
                             # We have hits in common
                             else:
                                 new_boundaries[-1].append(cds_boundary)
+                    # } # Finish BLAST check
 
                 final_boundaries = OrderedDict()
                 for boundary in new_boundaries:
@@ -599,6 +605,8 @@ class Transcript:
                 cds_boundaries = final_boundaries.copy()
 
             if len(cds_boundaries) == 1:
+                # Recheck how many boundaries we have - after the BLAST check
+                # we might have determined that the transcript has not to be split
                 new_transcripts = [self]
             else:
                 spans = []
@@ -833,6 +841,7 @@ class Transcript:
                                 self.id, span,
                                 nspan, overl
                             ))
+
                         if overl > 0:
                             err_message = "Invalid overlap for {0}! T1: {1}. T2: {2}".format(self.id, span, (
                                 new_transcript.start, new_transcript.end))
@@ -1094,8 +1103,6 @@ class Transcript:
                 self.query_id = self.query_id[0].query_id
                 self.load_orfs(list(self.retrieve_orfs()))
                 self.load_blast()
-                # yield from self.load_orfs_coroutine()
-                # yield from self.load_blast()
             self.logger.debug("Loaded {0}".format(self.id))
 
     # @asyncio.coroutine
@@ -1209,15 +1216,6 @@ class Transcript:
             return []
         else:
             return [orf.as_bed12() for orf in candidate_orfs]
-
-    # @asyncio.coroutine
-#    @profile
-    def load_orfs_coroutine(self):
-        """Asynchronous coroutine for loading orfs from the database"""
-        candidate_orfs = yield from self.retrieve_orfs()
-        self.logger.debug("Loading ORF for {0}".format(self.id))
-        self.load_orfs(candidate_orfs)
-        self.logger.debug("Loaded ORF for {0}".format(self.id))
 
     # @profile
     def load_orfs(self, candidate_orfs):
@@ -1487,8 +1485,20 @@ class Transcript:
 
         while len(graph) > 0:
             cliques, communities = Abstractlocus.find_communities(graph)
-            self.logger.debug("Communities for {0}: {1}".format(self.id, communities))
-            self.logger.debug("Cliques for {0}: {1}".format(self.id, cliques))
+            clique_str = []
+            for clique in cliques:
+                clique_str.append(str([(d[x].thickStart, d[x].thickEnd) for x in clique]))
+            comm_str = []
+            for comm in communities:
+                comm_str.append(str([(d[x].thickStart, d[x].thickEnd) for x in comm]))
+            self.logger.debug("{0} communities for {1}:\n\t{2}".format(len(communities),
+                                                                     self.id,
+                                                                     "\n\t".join(
+                                                                         comm_str
+                                                                     )))
+            self.logger.debug("{0} cliques for {1}:\n\t{2}".format(len(cliques),
+                                                                 self.id,
+                                                                 "\n\t".join(clique_str)))
             to_remove = set()
             for comm in communities:
                 comm = [d[x] for x in comm]
@@ -1528,7 +1538,7 @@ class Transcript:
         """
         if first == second or cls.overlap(
                 (first.thickStart, first.thickEnd),
-                (second.thickStart, second.thickEnd)) <= 0:
+                (second.thickStart, second.thickEnd)) < 0:
             return False
         return True
 

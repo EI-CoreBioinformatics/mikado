@@ -341,10 +341,15 @@ class Superlocus(Abstractlocus):
         tid_keys = self.transcripts.keys()
         to_remove, to_add = set(), set()
         for tid in tid_keys:
-            remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
-            if remove_flag is True:
+            try:
+                remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
+                if remove_flag is True:
+                    to_remove.add(tid)
+                    to_add.update(new_transcripts)
+            except Exception as exc:
+                self.logger.exception(exc)
+                self.logger.warning("Removing {0} as data loading failed".format(tid))
                 to_remove.add(tid)
-                to_add.update(new_transcripts)
 
         if len(to_remove) > 0:
             self.logger.debug("Adding to {0}: {1}".format(self.id,

@@ -55,7 +55,7 @@ def main(call_args=None):
     args = parser.parse_args(call_args)
     if hasattr(args, "func"):
         args.func(args)
-    elif call_args[0] == "util":
+    elif len(call_args)>0 and call_args[0] == "util":
         mikado_lib.subprograms.util.util_parser().print_help()
     else:
         parser.print_help()

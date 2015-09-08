@@ -5,13 +5,15 @@ This class defines the results of the Assigner.compare method.
 """
 
 
-class RestultStorer:
+class ResultStorer:
     """This class stores the results in pre-defined slots, to reduce memory usage."""
 
     __slots__ = ["RefId", "RefGene", "ccode",
-                 "TID", "GID", "n_prec",
-                 "n_recall", "n_f1", "j_prec",
-                 "j_recall", "j_f1", "distance"]
+                 "TID", "GID",
+                 "n_prec", "n_recall", "n_f1",
+                 "j_prec","j_recall", "j_f1",
+                 "e_prec", "e_recall", "e_f1",
+                 "distance"]
 
     def __init__(self, *args):
 
@@ -25,8 +27,10 @@ class RestultStorer:
             raise ValueError("Result_storer expected {0} but only received {1}".format(len(self.__slots__), len(args)))
 
         self.RefId, self.RefGene, self.ccode, self.TID, self.GID, \
-            self.n_prec, self.n_recall, self.n_f1, self.j_prec, self.j_recall, \
-            self.j_f1, self.distance = args
+            self.n_prec, self.n_recall, self.n_f1,\
+            self.j_prec, self.j_recall, self.j_f1, \
+            self.e_prec, self.e_recall, self.e_f1, \
+            self.distance = args
 
         for index, key in enumerate(self.__slots__):
             if index < 3:

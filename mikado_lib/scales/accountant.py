@@ -9,7 +9,7 @@ import argparse
 from logging import handlers as log_handlers
 import logging
 from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.scales.restultstorer import RestultStorer
+from mikado_lib.scales.resultstorer import ResultStorer
 import operator
 import collections
 
@@ -97,7 +97,7 @@ class Accountant:
                         else:
                             self.exons[tr.chrom][s][exon] |= 0b01000
 
-    def store(self, tr: Transcript, result: RestultStorer, other_exon):
+    def store(self, tr: Transcript, result: ResultStorer, other_exon):
 
         """Add exons introns intron chains etc. to the storage.
         :param tr: a "Transcript" instance

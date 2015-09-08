@@ -12,11 +12,10 @@ import queue
 import logging
 import collections
 import argparse
-import bisect
 import operator
 import itertools
 from collections import namedtuple
-from mikado_lib.scales.restultstorer import RestultStorer
+from mikado_lib.scales.resultstorer import ResultStorer
 from mikado_lib.loci_objects.transcript import Transcript
 import mikado_lib.exceptions
 from mikado_lib.scales.accountant import Accountant
@@ -83,12 +82,12 @@ class Assigner:
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
         self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
-        self.tmap_rower = csv.DictWriter(self.tmap_out, RestultStorer.__slots__, delimiter="\t")
+        self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
         self.tmap_rower.writeheader()
         self.done = 0
         self.stat_calculator = stat_calculator
 
-    def add_to_refmap(self, result: RestultStorer) -> None:
+    def add_to_refmap(self, result: ResultStorer) -> None:
         """
         :param result: the result of the compare function
 
@@ -105,11 +104,12 @@ class Assigner:
             else:  # Fusion gene
 
                 for index, (gid, tid) in enumerate(zip(result.RefGene, result.RefId)):
-                    new_result = RestultStorer(gid, tid, ["f", result.ccode[index + 1]], result.TID, result.GID,
-                                               result.n_prec[index], result.n_recall[index], result.n_f1[index],
-                                               result.j_prec[index], result.j_recall[index], result.j_f1[index],
-                                               0
-                                               )
+                    new_result = ResultStorer(gid, tid, ["f", result.ccode[index + 1]], result.TID, result.GID,
+                                              result.n_prec[index], result.n_recall[index], result.n_f1[index],
+                                              result.j_prec[index], result.j_recall[index], result.j_f1[index],
+                                              result.e_prec[index], result.e_recall[index], result.e_f1[index],
+                                              0
+                                              )
                     self.gene_matches[gid][tid].append(new_result)
         return
 
@@ -136,35 +136,7 @@ class Assigner:
         if len(keys) == 0:
             return []
 
-        # indexed = bisect.bisect(keys, position)
-
         found = keys.search(start-distance, end+distance)
-
-        # search_right = True
-        # search_left = True
-        #
-        # left_index = max(0, min(indexed, len(keys) - 1))  # Must be a valid list index
-        # right_index = min(len(keys) - 1, left_index + 1)
-        # if right_index == left_index:
-        #     search_right = False
-        #
-        # while search_left is True:
-        #     if keys[left_index][1] + distance < start:
-        #         search_left = False
-        #         continue
-        #     found.append(keys[left_index])
-        #     left_index -= 1
-        #     if left_index < 0:
-        #         search_left = False
-        #
-        # while search_right is True:
-        #     if keys[right_index][0] - distance > end:
-        #         search_right = False
-        #         continue
-        #     found.append(keys[right_index])
-        #     right_index += 1
-        #     if right_index >= len(keys):
-        #         search_right = False
 
         distances = []
         for key in found:
@@ -190,7 +162,7 @@ class Assigner:
         :type dubious_result: ResultStorer
         """
         getter = operator.attrgetter("j_f1", "n_f1")
-        return getter(dubious_result[0])
+        return getter(dubious_result)
 
     @staticmethod
     def get_f1(curr_result):
@@ -265,7 +237,7 @@ class Assigner:
         # Unknown transcript
         if len(distances) == 0 or distances[0][1] > self.args.distance:
             ccode = "u"
-            best_result = RestultStorer("-", "-", ccode, prediction.id, ",".join(prediction.parent), *[0] * 6 + ["-"])
+            best_result = ResultStorer("-", "-", ccode, prediction.id, ",".join(prediction.parent), *[0] * 9 + ["-"])
             self.stat_calculator.store(prediction, best_result, None)
             results = [best_result]
 
@@ -341,7 +313,7 @@ class Assigner:
                         best_fusion_results = [results[0]]
 
                     values = []
-                    for key in RestultStorer.__slots__:
+                    for key in ResultStorer.__slots__:
                         if key in ["GID", "TID", "distance"]:
                             values.append(getattr(best_fusion_results[0], key))
                         elif key == "ccode":
@@ -356,7 +328,7 @@ class Assigner:
                             assert type(val[0]) is not tuple, val
                             values.append(val)
 
-                    best_result = RestultStorer(*values)
+                    best_result = ResultStorer(*values)
                 else:
                     matches = self.positions[prediction.chrom][matches[0][0]]
                     self.logger.debug("")
@@ -392,7 +364,7 @@ class Assigner:
         self.refmap_printer()
         self.stat_calculator.print_stats()
 
-    def calc_compare(self, prediction: Transcript, reference: Transcript) -> RestultStorer:
+    def calc_compare(self, prediction: Transcript, reference: Transcript) -> ResultStorer:
         """Thin layer around the calc_compare class method.
 
         :param prediction: a Transcript instance.
@@ -411,7 +383,7 @@ class Assigner:
         return result
 
     @classmethod
-    def compare(cls, prediction: Transcript, reference: Transcript) -> (RestultStorer, tuple):
+    def compare(cls, prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
 
         """Function to compare two transcripts and determine a ccode.
 
@@ -469,6 +441,17 @@ class Assigner:
             nucl_f1 = 0
         else:
             nucl_f1 = 2 * (nucl_recall * nucl_precision) / (nucl_recall + nucl_precision)
+
+
+        #Exon statistics
+        recalled_exons = set.intersection(set(prediction.exons), set(reference.exons))
+        exon_recall = len(recalled_exons)/len(reference.exons)
+        exon_precision = len(recalled_exons)/len(prediction.exons)
+
+        if max(exon_recall,exon_precision) > 0:
+            exon_f1 = 2 * (exon_recall * exon_precision) / (exon_precision + exon_recall)
+        else:
+            exon_f1 = 0
 
         reference_exon = None
 
@@ -592,19 +575,20 @@ class Assigner:
         if prediction.strand != reference.strand:
             reference_exon = None
 
-        result = RestultStorer(reference.id, ",".join(reference.parent), ccode, prediction.id,
-                               ",".join(prediction.parent),
-                               round(nucl_precision * 100, 2), round(100 * nucl_recall, 2), round(100 * nucl_f1, 2),
-                               round(junction_precision * 100, 2), round(100 * junction_recall, 2),
-                               round(100 * junction_f1, 2),
-                               distance
-                               )
+        result = ResultStorer(reference.id, ",".join(reference.parent), ccode, prediction.id,
+                              ",".join(prediction.parent),
+                              round(nucl_precision * 100, 2), round(100 * nucl_recall, 2), round(100 * nucl_f1, 2),
+                              round(junction_precision * 100, 2), round(100 * junction_recall, 2),
+                              round(100 * junction_f1, 2),
+                              round(exon_precision * 100, 2), round(100 * exon_recall, 2), round(100 * exon_f1, 2),
+                              distance
+                              )
         if ccode is None:
             raise ValueError("Ccode is null;\n{0}".format(repr(result)))
 
         return result, reference_exon
 
-    def print_tmap(self, res: RestultStorer):
+    def print_tmap(self, res: ResultStorer):
         """
         This method will print a ResultStorer instance onto the TMAP file.
         :param res: result from compare
@@ -615,7 +599,7 @@ class Assigner:
         elif self.done % 1000 == 0 and self.done > 0:
             self.logger.debug("Done {0:,} transcripts".format(self.done))
         if res is not None:
-            if type(res) is not RestultStorer:
+            if type(res) is not ResultStorer:
                 self.logger.exception("Wrong type for res: {0}".format(type(res)))
                 self.logger.exception(repr(res))
                 raise ValueError

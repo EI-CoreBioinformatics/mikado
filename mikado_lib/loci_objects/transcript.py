@@ -1280,7 +1280,7 @@ class Transcript:
                 self.logger.warning(message)
                 continue
 
-            if self.strand is None or self.json_dict:
+            if self.strand is None:
                 self.strand = orf.strand
 
             self.loaded_bed12.append(orf)

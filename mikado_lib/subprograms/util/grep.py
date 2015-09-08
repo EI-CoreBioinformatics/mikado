@@ -11,6 +11,30 @@ from mikado_lib.subprograms import to_gff
 __author__ = 'Luca Venturini'
 
 
+def print_gff_gene(curr_gene, curr_transcripts, args):
+    """
+    :param curr_gene: gene record
+    :param curr_transcripts: dictionary of transcripts
+    :param args: argparse
+    :return: None
+    """
+
+    if curr_gene is not None and len(curr_transcripts) > 0:
+        starts, ends = [], []
+        lines = []
+        for tid in curr_transcripts:
+            lines.append(str(curr_transcripts[tid][0]))
+            starts.append(curr_transcripts[tid][0].start)
+            ends.append(curr_transcripts[tid][0].end)
+            for rec in curr_transcripts[tid][1:]:
+                rec.parent = [tid]
+                lines.append(str(rec))
+        curr_gene.start = min(starts)
+        curr_gene.end = max(ends)
+        print(curr_gene, file=args.out)
+        print(*lines, sep="\n", file=args.out)
+
+
 def grep_gff(args):
 
     gene_ids, mrna_ids = set(), set()
@@ -38,7 +62,9 @@ def grep_gff(args):
                 curr_transcripts[record.id] = [record]
         elif record.is_exon is True:
             for parent in record.parent:
-                if parent in mrna_ids:
+                if parent in mrna_ids and args.reverse is False:
+                    curr_transcripts[parent].append(record)
+                elif parent not in mrna_ids and args.reverse is True:
                     curr_transcripts[parent].append(record)
         elif record.is_derived is True:
             for derivation in record.derived_from:
@@ -47,31 +73,19 @@ def grep_gff(args):
                 elif args.reverse is False and derivation in mrna_ids:
                     curr_transcripts[derivation].append(record)
         else:
-            if curr_gene is not None and len(curr_transcripts) > 0:
-                print(curr_gene, file=args.out)
-                for tid in curr_transcripts:
-                    print(curr_transcripts[tid][0], file=args.out)
-                    for rec in curr_transcripts[tid][1:]:
-                        rec.parent = [tid]
-                        print(rec, file=args.out)
-
+            print_gff_gene(curr_gene, curr_transcripts, args)
             curr_gene = None
             curr_transcripts = dict()
 
             if record.id is None:
                 continue
-            elif args.reverse is True and record.id not in gene_ids:
-                curr_gene = record
-            elif args.reverse is False and record.id in gene_ids:
-                curr_gene = record
+            curr_gene = record
+            # elif args.reverse is True and record.id not in gene_ids:
+            #     curr_gene = record
+            # elif args.reverse is False and record.id in gene_ids:
+            #     curr_gene = record
 
-    if curr_gene is not None and len(curr_transcripts) > 0:
-        print(curr_gene, file=args.out)
-        for tid in curr_transcripts:
-            print(curr_transcripts[tid][0], file=args.out)
-            for rec in curr_transcripts[tid][1:]:
-                rec.parent = [tid]
-                print(rec, file=args.out)
+    print_gff_gene(curr_gene, curr_transcripts, args)
 
 
 def grep_gtf(args):
@@ -105,8 +119,10 @@ def grep_gtf(args):
 def launch(args):
     if type(args.gff) is GTF.GTF:
         grep_gtf(args)
-    else:
+    elif type(args.gff) is GFF.GFF3:
         grep_gff(args)
+    else:
+        raise TypeError(type(args.gff))
 
 
 def grep_parser():

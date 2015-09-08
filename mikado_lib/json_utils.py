@@ -442,6 +442,7 @@ def check_orf_loading(json_conf):
         json_conf["orf_loading"] = dict()
         json_conf["orf_loading"]["strand_specific"] = False
         json_conf["orf_loading"]["minimal_secondary_orf_length"] = 0
+        json_conf["orf_loading"]["minimal_orf_length"] = 0
     else:
         if "strand_specific" not in json_conf:
             json_conf["orf_loading"]["strand_specific"] = False
@@ -449,6 +450,13 @@ def check_orf_loading(json_conf):
             if not type(json_conf["orf_loading"]["strand_specific"]) is bool:
                 raise mikado_lib.exceptions.InvalidJson(
                     "Invalid strand_specific value: {0}".format(json_conf["orf_loading"]["strand_specific"]))
+        if "minimal_orf_length" not in json_conf["orf_loading"]:
+            json_conf["orf_loading"]["minimal_orf_length"] = 0
+        else:
+            if not type(json_conf["orf_loading"]["minimal_orf_length"]) is int:
+                raise mikado_lib.exceptions.InvalidJson("Invalid minimal_primary_orf_length value: {0}".format(
+                    json_conf["orf_loading"]["minimal_primary_orf_length"]))
+
         if "minimal_secondary_orf_length" not in json_conf["orf_loading"]:
             json_conf["orf_loading"]["minimal_secondary_orf_length"] = 0
         else:

@@ -104,6 +104,7 @@ class Transcript:
 
     orf_baked = bakery(lambda session: session.query(mikado_lib.serializers.orf.Orf))
     orf_baked += lambda q: q.filter(mikado_lib.serializers.orf.Orf.query_id == bindparam("query_id"))
+    orf_baked += lambda q: q.filter(mikado_lib.serializers.orf.Orf.cds_len >= bindparam("cds_len"))
     orf_baked += lambda q: q.order_by(desc(mikado_lib.serializers.orf.Orf.cds_len))
 
     # ######## Class special methods ####################
@@ -1120,10 +1121,11 @@ class Transcript:
 
         # ORF data
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
+        min_cds_len = self.json_dict["orf_loading"]["minimal_orf_length"]
 
         self.logger.debug("Retrieving ORF information from DB dictionary for {0}".format(self.id))
         if self.id in data_dict["orfs"]:
-            candidate_orfs = data_dict["orfs"][self.id]
+            candidate_orfs = list(filter(lambda orf: orf.cds_len >=min_cds_len, data_dict["orfs"][self.id]))
         else:
             candidate_orfs = []
 
@@ -1203,8 +1205,10 @@ class Transcript:
             return []
 
         trust_strand = self.json_dict["orf_loading"]["strand_specific"]
+        min_cds_len = self.json_dict["orf_loading"]["minimal_orf_length"]
 
-        orf_results = self.orf_baked(self.session).params(query_id=self.query_id)
+        orf_results = self.orf_baked(self.session).params(query_id=self.query_id,
+                                                          cds_len=min_cds_len)
 
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
             # Remove negative strand ORFs for multiexonic transcripts, or monoexonic strand-specific transcripts

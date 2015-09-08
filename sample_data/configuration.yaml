@@ -30,6 +30,7 @@ alternative_splicing:
   max_isoforms: 3
 orf_loading:
   minimal_secondary_orf_length: 200
+  minimal_orf_length: 50
   strand_specific: true
 run_options:
   shm: false

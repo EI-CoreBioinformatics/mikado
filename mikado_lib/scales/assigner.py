@@ -162,7 +162,7 @@ class Assigner:
         :type dubious_result: ResultStorer
         """
         getter = operator.attrgetter("j_f1", "n_f1")
-        return getter(dubious_result)
+        return getter(dubious_result[0])
 
     @staticmethod
     def get_f1(curr_result):

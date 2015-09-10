@@ -51,8 +51,12 @@ def serialise(args):
         for xml in args.xml.split(","):
             candidates = []
             if os.path.isdir(xml):
-                candidates = list(filter(lambda x: x.endswith(".xml") or x.endswith(".xml.gz"),
-                                       os.listdir(xml)))
+                candidates = list(
+                    filter(
+                        lambda x: x.endswith(".xml") or x.endswith(".xml.gz") or x.endswith(".asn.gz"),
+                        os.listdir(xml)
+                    )
+                )
             elif "*" in xml:
                 candidates = glob.glob(xml)
             else:

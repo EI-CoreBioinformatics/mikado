@@ -580,6 +580,14 @@ class XmlSerializer:
     """This class has the role of taking in input a blast XML file and (partially) serialise it into
     a database. We are using SQLalchemy, so the database type could be any of SQLite, MySQL, PSQL, etc."""
 
+    logger = logging.getLogger("blast_serialiser")
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
     def __init__(self, xml, max_target_seqs=float("Inf"),
                  db=None,
                  target_seqs=None,
@@ -613,13 +621,6 @@ class XmlSerializer:
 
         """
 
-        self.logger = logging.getLogger("main")
-        self.logger.setLevel(logging.INFO)
-        self.handler = logging.StreamHandler()
-        self.formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
-        self.handler.setFormatter(self.formatter)
-        self.logger.addHandler(self.handler)
-
         if xml is None:
             self.logger.warning("No BLAST XML provided. Exiting.")
             return
@@ -639,7 +640,7 @@ class XmlSerializer:
         if type(xml) is not xparser:
             if type(xml) is str:
                 if not os.path.exists(xml):
-                    raise OSError("Invalid file address.")
+                    raise OSError("Invalid file address: {0}.".format(xml))
                 if xml.endswith("xml"):
                     xml = open(xml)
                 elif xml.endswith(".xml.gz"):

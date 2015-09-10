@@ -640,7 +640,9 @@ class XmlSerializer:
         if type(xml) is not xparser:
             if type(xml) is str:
                 if not os.path.exists(xml):
-                    raise OSError("Invalid file address: {0}.".format(xml))
+                    exc = OSError("Invalid file address: {0}.".format(xml))
+                    self.logger.exception(exc)
+                    return
                 if xml.endswith("xml"):
                     xml = open(xml)
                 elif xml.endswith(".xml.gz"):

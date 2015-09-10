@@ -636,8 +636,9 @@ class XmlSerializer:
         session.configure(bind=self.engine)
         dbBase.metadata.create_all(self.engine)  # @UndefinedVariable
         self.session = session()
-        self.logger.info("Created the session")
+        self.logger.debug("Created the session")
         if type(xml) is not xparser:
+            self.logger.info("Starting with: {0}".format(xml))
             if type(xml) is str:
                 if not os.path.exists(xml):
                     exc = OSError("Invalid file address: {0}.".format(xml))

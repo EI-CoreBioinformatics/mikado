@@ -6,7 +6,7 @@ from mikado_lib.serializers import orf, blast_utils, junction, dbutils
 import os
 from Bio import SeqIO
 
-__author__ = 'luca'
+__author__ = 'Luca Venturini'
 
 
 def to_seqio(string):
@@ -49,14 +49,13 @@ def serialise(args):
 
     if args.xml is not None:
         for xml in args.xml.split(","):
-            candidates = []
             if os.path.isdir(xml):
-                candidates = list(
-                    filter(
-                        lambda x: x.endswith(".xml") or x.endswith(".xml.gz") or x.endswith(".asn.gz"),
-                        os.listdir(xml)
-                    )
-                )
+                candidates = [os.path.join(xml, x) for x in
+                              filter(
+                              lambda x: x.endswith(".xml") or x.endswith(".xml.gz") or x.endswith(".asn.gz"),
+                              os.listdir(xml)
+                              )
+                              ]
             elif "*" in xml:
                 candidates = glob.glob(xml)
             else:

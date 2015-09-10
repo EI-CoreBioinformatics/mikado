@@ -1,4 +1,5 @@
 import argparse
+import glob
 import sqlalchemy
 from mikado_lib import json_utils
 from mikado_lib.serializers import orf, blast_utils, junction, dbutils
@@ -48,14 +49,29 @@ def serialise(args):
 
     if args.xml is not None:
         for xml in args.xml.split(","):
-            blast_utils.XmlSerializer(xml,
-                                      discard_definition=args.discard_definition,
-                                      max_target_seqs=args.max_target_seqs,
-                                      maxobjects=args.max_objects,
-                                      target_seqs=args.target_seqs,
-                                      query_seqs=args.transcript_fasta,
-                                      json_conf=args.json_conf
-                                      )()
+            candidates = []
+            if os.path.isdir(xml):
+                candidates = list(filter(lambda x: x.endswith(".xml") or x.endswith(".xml.gz"),
+                                       os.listdir(xml)))
+            elif "*" in xml:
+                candidates = glob.glob(xml)
+            else:
+                candidates = [xml]
+
+            list(
+                map(
+                    lambda xml_candidate: blast_utils.XmlSerializer(
+                        xml_candidate,
+                        discard_definition=args.discard_definition,
+                        max_target_seqs=args.max_target_seqs,
+                        maxobjects=args.max_objects,
+                        target_seqs=args.target_seqs,
+                        query_seqs=args.transcript_fasta,
+                        json_conf=args.json_conf
+                    )(),
+                    candidates
+                )
+            )
 
 
 def serialise_parser():

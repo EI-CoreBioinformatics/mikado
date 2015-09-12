@@ -11,7 +11,7 @@ It consists of various different classes:
 The module also contains helper functions such as mean().
 """
 import collections
-
+import queue
 import os
 import sqlalchemy
 import gzip
@@ -30,6 +30,285 @@ from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.serializers.dbutils import dbBase
 from mikado_lib.serializers.dbutils import connect
 import logging
+import threading
+import time
+
+
+def create_opener(filename):
+
+    """
+    Function to create the appropriate opener for a BLAST file.
+
+    :param filename
+    :return:
+    """
+
+    if not os.path.exists(filename):
+        raise OSError("Non-existent file: {0}".format(filename))
+
+    if filename.endswith(".gz"):
+        if filename.endswith(".xml.gz"):
+            return gzip.open(filename, "rt")
+        elif filename.endswith(".asn.gz"):
+            zcat = subprocess.Popen(["zcat", filename], shell=False,
+                                    stdout=subprocess.PIPE)  # I cannot seem to make it work with gzip.open
+            blast_formatter = subprocess.Popen(['blast_formatter', '-outfmt', '5',
+                                                '-archive', '-'], shell=False,
+                                                stdin=zcat.stdout,
+                                                stdout=subprocess.PIPE)
+            return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+    elif filename.endswith(".xml"):
+        return open(filename)
+    else:
+        raise ValueError("Unrecognized file format: {0}".format(filename))
+
+
+def check_beginning(handle, filename, previous_header):
+
+    """
+    Static method to check that the beginning of the XML file is actually correct.
+
+    :return
+    """
+
+    exc = None
+    header = []
+    position = 0
+    try:
+        first_line = next(handle)
+        position += len(first_line)
+        first_line = first_line.strip()
+        if first_line != '<?xml version="1.0"?>':
+            exc = ValueError("Invalid header for {0}!\n\t{1}".format(
+                                                                    filename,
+                                                                    first_line))
+            raise exc
+        second_line = next(handle)
+        position += len(second_line)
+        second_line = second_line.strip()
+        valid_schemas = [
+            " ".join(['<!DOCTYPE BlastOutput PUBLIC "-//NCBI//NCBI BlastOutput/EN"',
+                     '"http://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd">']),
+            '<!DOCTYPE BlastOutput PUBLIC "-//NCBI//NCBI BlastOutput/EN" "NCBI_BlastOutput.dtd">'
+        ]
+
+        if second_line not in valid_schemas:
+            exc = ValueError("Invalid XML type for {0}!\n\t{1}".format(
+                                                                        filename,
+                                                                        second_line
+                                                                        ))
+            raise exc
+        header = [first_line, second_line]
+    except StopIteration:
+        exc = OSError("Empty file: {0}".format(filename))
+    except ValueError:
+        pass
+
+    if exc is not None:
+        return handle, header, exc
+
+    while True:
+        line = next(handle)
+
+        if "<Iteration>" in line:
+            # handle.seek(position)
+            break
+        position += len(line)
+        line = line.rstrip()
+        if not line:
+            exc = ValueError("Invalid header for {0}:\n\n{1}".format(
+                filename,
+                "\n".join(header)
+            ))
+            break
+        if len(header) > 10**3:
+            exc = ValueError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
+                len(header),
+                filename,
+                "\n".join(header)
+            ))
+            break
+        header.append(line)
+
+    if not any(iter(True if "BlastOutput" in x else False for x in header)):
+        exc = ValueError("Invalid header for {0}:\n\n{1}".format(filename,"\n".join(header)))
+
+    # if previous_header is not None:
+    #     checker = list(filter(lambda x: "BlastOutput_query" not in x, header))
+    #     if checker != previous_header:
+    #         exc = ValueError("BLAST XML header does not match for {0}".format(filename))
+
+    return handle, header, exc
+
+from multiprocessing import Process
+
+
+class _Merger(Process):
+
+    def __init__(self, filenames, header, other_queue, event, logger=None):
+        Process.__init__(self, daemon=True)
+        self.queue = other_queue
+        self.filenames = filenames
+        self.header = header
+        self.logger = logger
+        self.event = event
+        self.run()
+        # self.logger.info(header)
+
+    def run(self):
+        # self.logger.info("Merger running")
+        print_header = True
+        for filename in self.filenames:
+            self.logger.error("Begun {0}".format(filename))
+            if print_header is True:
+                # self.logger.info("Printing header")
+                self.queue.put_nowait(self.header)
+                print_header = False
+            try:
+                handle = create_opener(filename)
+            except Exception as exc:
+                self.logger.exception(exc)
+                continue
+            handle, header, exc = check_beginning(handle,
+                                                  filename,
+                                                  self.header)
+            if exc is not None:
+                self.logger.exception(exc)
+                self.logger.error("Skipped {0}".format(filename))
+
+                continue
+
+            lines = [line for line in handle]
+            bo_found = False
+            while True:
+                l = lines.pop()
+                if not l.strip():
+                    continue
+                elif "BlastOutput" in l:
+                    bo_found = True
+                    continue
+                lines.append(l)
+                break
+            if not bo_found:
+                exc = ValueError("Invalid XML file")
+                self.logger.exception(exc)
+                continue
+
+            lines = ["<Iteration>\n"] + lines
+            self.queue.put_nowait(lines)
+            # self.logger.info("Dispatched {0} lines".format(counter))
+
+        self.queue.put_nowait(["</BlastOutput_iterations>\n</BlastOutput>"])
+
+        self.queue.put("Finished")
+        return
+
+
+class XMLMerger(threading.Thread):
+
+    logger = logging.getLogger("blast_merger")
+    logger.propagate = False
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    def __init__(self, filenames):
+
+        threading.Thread.__init__(self)
+        self.filenames = collections.deque(filenames)
+        self.event = threading.Event()
+        self.queue = queue.Queue()
+        self.lines = collections.deque()
+        self.started = False
+        self.finished = False
+        if len(self.filenames) > 0:
+            while True:
+                handle, header, exc = check_beginning(
+                                                      create_opener(self.filenames[0]),
+                                                      self.filenames[0],
+                                                      None
+                                                      )
+                if exc is not None:
+                    self.logger.exception(exc)
+                    _ = self.filenames.popleft()
+                    continue
+                self.header = header
+                break
+        self.logger.info("Header is {0} long".format(len(self.header)))
+        if len(self.filenames) == 0:
+            raise IndexError("No files left!")
+
+        self.merger = _Merger(self.filenames, self.header, self.queue,
+                              self.event, logger=self.logger)
+        # self.merger.start()
+
+    def run(self):
+        self.started = True
+
+        # self.logger.info("Reader started")
+        while True:
+            lines = self.queue.get()
+            if not lines:
+                continue
+            # print(lines)
+            # self.logger.info("Received {0} lines".format(len(lines)))
+            if lines == "Finished":
+                # self.logger.info("Finished")
+                self.finished = True
+                self.queue.task_done()
+                break
+            self.lines.extend(lines)
+            assert len(self.lines) > 0
+        #self.merger.join()
+        return
+
+    def read(self, size=None):
+        if self.started is False:
+            # print("Starting")
+            self.start()
+        # self.logger.info("Requested {0} bytes".format(size))
+        if size is None:
+            if len(self.lines) == 0 and self.finished is True:
+                raise StopIteration
+            val = "".join(self.lines)
+            self.lines = collections.deque()
+            return val
+        else:
+            total = ""
+            # time.sleep(0.1)
+            while len(total) < size:
+                try:
+                    val = self.lines.popleft()
+                    total += val
+                except IndexError:
+                    break
+            # self.logger.info("Found {0} bytes".format(len(total)))
+            return total
+
+    def __next__(self):
+
+        try:
+            val = self.lines.popleft()
+        except IndexError:
+            raise StopIteration
+        return val
+
+    def __iter__(self):
+        if self.started is False:
+            self.start()
+
+        return self
+
+    def __exit__(self, *args):
+        self.merger.join()
+        self.join()
+
+    def __enter__(self):
+        if self.started is False:
+            self.start()
+        # self.run()
 
 
 def mean(l: list):
@@ -656,6 +935,9 @@ class XmlSerializer:
                                                        stdin=zcat.stdout,
                                                        stdout=subprocess.PIPE)
                     xml = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+            # elif type(xml) is list:
+
+
             assert type(xml) in (gzip.GzipFile, io.TextIOWrapper), type(xml)
             self.xml = xml
             self.xml_parser = xparser(xml)

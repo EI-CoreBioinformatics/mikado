@@ -1,9 +1,11 @@
 import argparse
+import functools.partial
 import glob
 import sqlalchemy
 from mikado_lib import json_utils
 from mikado_lib.serializers import orf, blast_utils, junction, dbutils
 import os
+import multiprocessing
 from Bio import SeqIO
 
 __author__ = 'Luca Venturini'
@@ -20,7 +22,38 @@ def to_seqio(string):
     return SeqIO.index(string, "fasta")
 
 
+def xml_launcher(xml_candidate=None,args=None):
+
+    """
+    Thin rapper around blast_utils.XmlSerializer. Its purpose is
+    to launch the
+
+    :param xml_candidate: An XML or ASN BLAST file name
+    :param args: namespace with the parameters
+    :return:
+    """
+
+    xml_serializer = blast_utils.XmlSerializer(
+                xml_candidate,
+                discard_definition=args.discard_definition,
+                max_target_seqs=args.max_target_seqs,
+                maxobjects=args.max_objects,
+                target_seqs=args.target_seqs,
+                query_seqs=args.transcript_fasta,
+                json_conf=args.json_conf
+            )
+    xml_serializer()
+
+
 def serialise(args):
+
+    """
+    Wrapper around the serializers objects. It uses the configuration supplied by command line to launch the
+    necessary tools.
+
+    :param args: namespace with the necessary information for the serialisation
+    :return:
+    """
 
     if args.db is not None:
         args.json_conf["db"] = args.db
@@ -48,34 +81,26 @@ def serialise(args):
             serializer()
 
     if args.xml is not None:
+
+        filenames = []
+
+        part_launcher = functools.partial(xml_launcher, **{"args": args})
+
         for xml in args.xml.split(","):
             if os.path.isdir(xml):
-                candidates = [os.path.join(xml, x) for x in
+                filenames.extend([os.path.join(xml, x) for x in
                               filter(
                               lambda x: x.endswith(".xml") or x.endswith(".xml.gz") or x.endswith(".asn.gz"),
                               os.listdir(xml)
                               )
-                              ]
-            elif "*" in xml:
-                candidates = glob.glob(xml)
+                              ])
             else:
-                candidates = [xml]
+                filenames.extend(glob.glob(xml))
 
-            list(
-                map(
-                    lambda xml_candidate: blast_utils.XmlSerializer(
-                        xml_candidate,
-                        discard_definition=args.discard_definition,
-                        max_target_seqs=args.max_target_seqs,
-                        maxobjects=args.max_objects,
-                        target_seqs=args.target_seqs,
-                        query_seqs=args.transcript_fasta,
-                        json_conf=args.json_conf
-                    )(),
-                    candidates
-                )
-            )
+        if len(filenames) == 0:
+            raise ValueError("No valid BLAST file specified!")
 
+        part_launcher(filenames)
 
 def serialise_parser():
     """
@@ -112,7 +137,14 @@ def serialise_parser():
     blast.add_argument("--discard-definition", action="store_true", default=False,
                        help="""Flag. If set, the sequences IDs instead of their definition
                        will be used for serialisation.""")
-    blast.add_argument("--xml", type=str, help="XML file(s) to parse, separated by a comma.")
+    blast.add_argument("--xml", type=str, help="""XML file(s) to parse. They can be provided in three ways:
+    - a comma-separated list
+    - as a base folder
+    - using bash-like name expansion (*,?, etc.). In this case, you have to
+    enclose the filename pattern in double quotes.
+
+    Multiple folders/file patterns can be given, separated by a comma.
+    """)
 
     junctions = parser.add_argument_group()
     junctions.add_argument("--genome_fai", default=None)

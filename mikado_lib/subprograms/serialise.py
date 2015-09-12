@@ -1,11 +1,10 @@
 import argparse
-import functools.partial
+import functools
 import glob
 import sqlalchemy
 from mikado_lib import json_utils
 from mikado_lib.serializers import orf, blast_utils, junction, dbutils
 import os
-import multiprocessing
 from Bio import SeqIO
 
 __author__ = 'Luca Venturini'

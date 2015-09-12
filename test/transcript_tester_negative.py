@@ -291,6 +291,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
         self.assertTrue(self.tr.is_complete)
         self.tr.finalize()
+        self.assertEqual(self.tr.start, 5928)
 
         self.assertEqual(self.tr.number_internal_orfs, 2, "\n".join([str(x) for x in self.tr.internal_orfs]))
 
@@ -301,13 +302,18 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
         self.assertEqual(len(new_transcripts), 2)
         self.assertEqual(new_transcripts[0].five_utr_length, 0)
-        self.assertEqual(new_transcripts[0].cdna_length, 624)
+        self.assertNotEqual(new_transcripts[0].three_utr_length, 0)
+        self.assertEqual(new_transcripts[0].cdna_length, 624, msg="{0}-{1}{2}".format(
+            new_transcripts[0].start,
+            new_transcripts[0].end,
+            new_transcripts[0].strand,
+        ))
         self.assertEqual(new_transcripts[0].start, self.tr.start)
         self.assertEqual(new_transcripts[0].end, 6724)
 
         self.assertEqual(new_transcripts[1].three_utr_length, 0)
         self.assertEqual(new_transcripts[1].end, 8737)
-        # self.assertEqual(new_transcripts[1].start, )
+
 
     # def testDoubleOrfSameExon(self):
     #     """

@@ -18,7 +18,7 @@ class Locus(Monosublocus, Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    __name__ = "locus"
+    __name__ = "gene"
 
     def __init__(self, transcript: Transcript, logger=None):
         """

@@ -158,6 +158,13 @@ class OrfSerializer:
     This class has the purpose of automating the loading of ORF information into the SQL database.
     """
 
+    logger = logging.getLogger("main")
+    logger.setLevel(logging.INFO)
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
     def __init__(self, handle, db=None, fasta_index=None, maxobjects=1000000, json_conf=None):
 
         """Constructor function. Arguments:
@@ -187,18 +194,14 @@ class OrfSerializer:
         :type json_conf: dict
 
         """
-        self.logger = logging.getLogger("main")
-        self.logger.setLevel(logging.INFO)
-        self.handler = logging.StreamHandler()
-        self.formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
-        self.handler.setFormatter(self.formatter)
-        self.logger.addHandler(self.handler)
 
         if type(fasta_index) is str:
             assert os.path.exists(fasta_index)
             self.fasta_index = SeqIO.index(fasta_index, "fasta")
         elif fasta_index is None:
-            raise ValueError("A fasta index is needed for the serialization!")
+            exc = ValueError("A fasta index is needed for the serialization!")
+            self.logger.exception(exc)
+            return
         else:
             assert "SeqIO.index" in repr(fasta_index)
             self.fasta_index = fasta_index

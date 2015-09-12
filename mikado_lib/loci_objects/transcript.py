@@ -215,163 +215,10 @@ class Transcript:
         """
 
         self.finalize()  # Necessary to sort the exons
-        lines = []
-        transcript_counter = 0
-
-        if self.strand is None:
-            strand = "."
-        else:
-            strand = self.strand
-
-        if to_gtf is True:
-            parent_line = GtfLine(None)
-        else:
-            parent_line = GffLine(None)
-
         if print_cds is True:
-
-            for index in range(len(self.internal_orfs)):
-
-                if self.number_internal_orfs > 1:
-                    transcript_counter += 1
-                    tid = "{0}.orf{1}".format(self.id, transcript_counter)
-
-                    if index == self.selected_internal_orf_index:
-                        self.attributes["maximal"] = True
-                    else:
-                        self.attributes["maximal"] = False
-                else:
-                    tid = self.id
-                cds_run = self.internal_orfs[index]
-
-                parent_line.chrom = self.chrom
-                parent_line.source = self.source
-                parent_line.feature = self.feature
-                parent_line.start, parent_line.end = self.start, self.end
-                parent_line.score = self.score
-                parent_line.strand = strand
-                parent_line.phase = '.'
-                parent_line.attributes = self.attributes
-
-                parent_line.parent = self.parent
-                parent_line.id = tid
-                parent_line.name = self.id
-
-                exon_lines = []
-
-                cds_begin = False
-
-                cds_count = 0
-                exon_count = 0
-                five_utr_count = 0
-                three_utr_count = 0
-
-                for segment in cds_run:
-                    if cds_begin is False and segment[0] == "CDS":
-                        cds_begin = True
-                    if segment[0] == "UTR":
-                        if cds_begin is True:
-                            if to_gtf is True:
-                                if self.strand == "-":
-                                    feature = "5UTR"
-                                else:
-                                    feature = "3UTR"
-                            else:
-                                if self.strand == "-":
-                                    feature = "five_prime_UTR"
-                                else:
-                                    feature = "three_prime_UTR"
-                        else:
-                            if to_gtf is True:
-                                if self.strand == "-":
-                                    feature = "3UTR"
-                                else:
-                                    feature = "5UTR"
-                            else:
-                                if self.strand == "-":
-                                    feature = "three_prime_UTR"
-                                else:
-                                    feature = "five_prime_UTR"
-                        if "five" in feature or "5" in feature:
-                            five_utr_count += 1
-                            index = five_utr_count
-                        else:
-                            three_utr_count += 1
-                            index = three_utr_count
-                    else:
-                        if segment[0] == "CDS":
-                            cds_count += 1
-                            index = cds_count
-                        else:
-                            exon_count += 1
-                            index = exon_count
-                        feature = segment[0]
-                    if to_gtf is True:
-                        exon_line = GtfLine(None)
-                    else:
-                        exon_line = GffLine(None)
-
-                    exon_line.chrom = self.chrom
-                    exon_line.source = self.source
-                    exon_line.feature = feature
-                    exon_line.start, exon_line.end = segment[1], segment[2]
-                    exon_line.strand = strand
-                    exon_line.phase = None
-                    exon_line.score = None
-                    if to_gtf is True:
-                        exon_line.gene = self.parent
-                        exon_line.transcript = tid
-                    else:
-                        exon_line.id = "{0}.{1}{2}".format(tid, feature, index)
-                        exon_line.parent = tid
-
-                    exon_lines.append(str(exon_line))
-
-                lines.append(str(parent_line))
-                lines.extend(exon_lines)
+            lines = self.create_lines_cds(to_gtf=to_gtf)
         else:
-            if to_gtf is True:
-                parent_line = GtfLine(None)
-            else:
-                parent_line = GffLine(None)
-
-            parent_line.chrom = self.chrom
-            parent_line.source = self.source
-            parent_line.feature = self.feature
-            parent_line.start, parent_line.end = self.start, self.end
-            parent_line.score = self.score
-            parent_line.strand = strand
-            parent_line.phase = '.'
-            parent_line.attributes = self.attributes
-
-            parent_line.parent = self.parent
-            parent_line.id = self.id
-            parent_line.name = self.id
-
-            lines = [str(parent_line)]
-            exon_lines = []
-
-            exon_count = 0
-            for exon in self.exons:
-                exon_count += 1
-                if to_gtf is True:
-                    exon_line = GtfLine(None)
-                else:
-                    exon_line = GffLine(None)
-                exon_line.chrom = self.chrom
-                exon_line.source = self.source
-                exon_line.feature = "exon"
-                exon_line.start, exon_line.end = exon[0], exon[1]
-                exon_line.score = None
-                exon_line.strand = strand
-                exon_line.phase = None
-                exon_line.attributes = self.attributes
-
-                exon_line.id = "{0}.{1}{2}".format(self.id, "exon", exon_count)
-                exon_line.parent = self.id
-                exon_lines.append(str(exon_line))
-
-            lines.extend(exon_lines)
+            lines = self.create_lines_no_cds(to_gtf=to_gtf)
 
         return "\n".join(lines)
 
@@ -483,6 +330,7 @@ class Transcript:
             {2}
             '''.format(self.id, gffline.parent, gffline))
         assert gffline.is_exon is True, str(gffline)
+        store = self.exons
 
         if gffline.feature.upper().endswith("CDS"):
             store = self.combined_cds
@@ -496,13 +344,558 @@ class Transcript:
         elif gffline.feature == "stop_codon":
             self.has_stop_codon = True
             return
+        elif gffline.feature == "intron":
+            store = self.introns
         else:
             raise mikado_lib.exceptions.InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
 
         start, end = sorted([gffline.start, gffline.end])
         store.append((start, end))
 
-    # @profile
+    def create_lines_cds(self, to_gtf=False):
+
+        """
+        Method to create the GTF/GFF lines for printing in the presence of CDS information.
+        WARNING: at the moment, the phase support is disabled.
+
+        :param to_gtf:
+        :return:
+        """
+
+        if to_gtf is False:
+            constructor = GffLine
+            utr3_feature = "three_prime_UTR"
+            utr5_feature = "five_prime_UTR"
+        else:
+            constructor = GtfLine
+            utr3_feature = "3UTR"
+            utr5_feature = "5UTR"
+
+        lines = []
+        transcript_counter = 0
+
+        parent_line = constructor(None)
+        for index in range(len(self.internal_orfs)):
+            if self.number_internal_orfs > 1:
+                transcript_counter += 1
+                tid = "{0}.orf{1}".format(self.id, transcript_counter)
+
+                if index == self.selected_internal_orf_index:
+                    self.attributes["maximal"] = True
+                else:
+                    self.attributes["maximal"] = False
+            else:
+                tid = self.id
+            cds_run = self.internal_orfs[index]
+
+            for attr in ["chrom", "source", "feature", "start", "end",
+                         "score", "strand", "attributes", "parent"]:
+                setattr(parent_line, attr, getattr(self, attr))
+
+            parent_line.phase = '.'
+
+            parent_line.id = tid
+            parent_line.name = self.id
+
+            exon_lines = []
+
+            cds_begin = False
+
+            cds_count = 0
+            exon_count = 0
+            five_utr_count = 0
+            three_utr_count = 0
+
+            for segment in cds_run:
+                if cds_begin is False and segment[0] == "CDS":
+                    cds_begin = True
+                if segment[0] == "UTR":
+                    if cds_begin is True:
+                        if self.strand == "-":
+                            feature = utr5_feature
+                        else:
+                            feature = utr3_feature
+                    else:
+                        if self.strand == "-":
+                            feature = utr3_feature
+                        else:
+                            feature = utr5_feature
+                    if "five" in feature or "5" in feature:
+                        five_utr_count += 1
+                        index = five_utr_count
+                    else:
+                        three_utr_count += 1
+                        index = three_utr_count
+                else:
+                    if segment[0] == "CDS":
+                        cds_count += 1
+                        index = cds_count
+                    else:
+                        exon_count += 1
+                        index = exon_count
+                    feature = segment[0]
+                exon_line = constructor(None)
+
+                for attr in ["chrom", "source", "strand"]:
+                    setattr(exon_line, attr, getattr(self, attr))
+
+                exon_line.feature = feature
+                exon_line.start, exon_line.end = segment[1], segment[2]
+                exon_line.phase = None
+                exon_line.score = None
+                if to_gtf is True:
+                    exon_line.gene = self.parent
+                    exon_line.transcript = tid
+                else:
+                    exon_line.id = "{0}.{1}{2}".format(tid, feature, index)
+                    exon_line.parent = tid
+
+                exon_lines.append(str(exon_line))
+
+            lines.append(str(parent_line))
+            lines.extend(exon_lines)
+        return lines
+
+    def create_lines_no_cds(self, to_gtf=False):
+
+        """
+        Method to create the GTF/GFF lines for printing in the absence of CDS information.
+        """
+
+        if to_gtf is True:
+            constructor = GtfLine
+        else:
+            constructor = GffLine
+
+        parent_line = constructor(None)
+
+        for attr in ["chrom", "source", "feature", "start", "end",
+                     "score", "strand", "attributes", "parent"]:
+            setattr(parent_line, attr, getattr(self, attr))
+
+        parent_line.phase = '.'
+        parent_line.id = self.id
+        parent_line.name = self.id
+
+        lines = [str(parent_line)]
+        exon_lines = []
+
+        exon_count = 0
+        for exon in self.exons:
+            exon_count += 1
+            exon_line = constructor(None)
+            for attr in ["chrom", "source", "strand", "attributes"]:
+                setattr(exon_line, attr, getattr(self, attr))
+            exon_line.feature = "exon"
+            exon_line.start, exon_line.end = exon[0], exon[1]
+            exon_line.score = None
+            exon_line.phase = None
+
+            exon_line.id = "{0}.{1}{2}".format(self.id, "exon", exon_count)
+            exon_line.parent = self.id
+            exon_lines.append(str(exon_line))
+
+        lines.extend(exon_lines)
+        return lines
+
+
+    @staticmethod
+    def orf_sorter(orf):
+        """Sorting function for the ORFs."""
+        return ((orf.has_start_codon and orf.has_stop_codon),
+                (orf.has_start_codon or orf.has_stop_codon),
+                orf.cds_len)
+
+    def find_candidate_orfs(self, graph, orf_dictionary) -> list:
+
+        """
+        Function that returns the best non-overlapping ORFs
+        :param graph: The NetworkX graph to be analysed
+        :return:
+        """
+
+        candidate_orfs = []
+
+        while len(graph) > 0:
+            cliques, communities = Abstractlocus.find_communities(graph)
+            clique_str = []
+            for clique in cliques:
+                clique_str.append(str([(orf_dictionary[x].thickStart,
+                                        orf_dictionary[x].thickEnd) for x in clique]))
+            comm_str = []
+            for comm in communities:
+                comm_str.append(str([(orf_dictionary[x].thickStart,
+                                      orf_dictionary[x].thickEnd) for x in comm]))
+            self.logger.debug("{0} communities for {1}:\n\t{2}".format(len(communities),
+                                                                       self.id,
+                                                                       "\n\t".join(
+                                                                           comm_str
+                                                                       )))
+            self.logger.debug("{0} cliques for {1}:\n\t{2}".format(len(cliques),
+                                                                   self.id,
+                                                                   "\n\t".join(clique_str)))
+            to_remove = set()
+            for comm in communities:
+                comm = [orf_dictionary[x] for x in comm]
+                best_orf = sorted(comm, key=lambda x: self.orf_sorter(x), reverse=True)[0]
+                candidate_orfs.append(best_orf)
+                for clique in filter(lambda cl: best_orf.name in cl, cliques):
+                    to_remove.update(clique)
+            graph.remove_nodes_from(to_remove)
+
+        candidate_orfs = sorted(candidate_orfs, key=lambda x: self.orf_sorter(x), reverse=True)
+        return candidate_orfs
+
+    def find_overlapping_cds(self, candidates: list) -> list:
+        """
+        :param candidates: candidate ORFs to analyse
+        :type candidates: list(mikado_lib.serializers.orf.Orf)
+
+        Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
+        It will pass to the function the class's "is_overlapping_cds" method
+        (which would be otherwise be inaccessible from the Abstractlocus class method).
+        As we are interested only in the communities, not the cliques, this wrapper discards the cliques
+        (first element of the Abstractlocus.find_communities results)
+        """
+
+        # If we are looking at a multiexonic transcript
+        if not (self.monoexonic is True and self.strand is None):
+            candidates = list(filter(lambda co: co.strand == "+", candidates))
+
+        # Prepare the minimal secondary length parameter
+        if self.json_dict is not None:
+            minimal_secondary_orf_length = self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
+        else:
+            minimal_secondary_orf_length = 0
+
+        self.logger.debug("{0} input ORFs for {1}".format(len(candidates), self.id))
+        candidates = list(filter(lambda x: x.invalid is False, candidates))
+        self.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), self.id))
+        if len(candidates) == 0:
+            return []
+
+        orf_dictionary = dict((x.name, x) for x in candidates)
+
+        # First define the graph
+        graph = Abstractlocus.define_graph(orf_dictionary, inters=self.is_overlapping_cds)
+        candidate_orfs = self.find_candidate_orfs(graph, orf_dictionary)
+
+        self.logger.debug("{0} candidate retained ORFs for {1}: {2}".format(
+            len(candidate_orfs),
+            self.id,
+            [x.name for x in candidate_orfs]))
+        final_orfs = [candidate_orfs[0]]
+        if len(candidate_orfs) > 1:
+            others = list(filter(lambda o: o.cds_len >= minimal_secondary_orf_length,
+                                 candidate_orfs[1:]))
+            self.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
+                len(others), self.id,
+                minimal_secondary_orf_length
+            ))
+            final_orfs.extend(others)
+
+        self.logger.debug("Retained {0} ORFs for {1}: {2}".format(len(final_orfs),
+                                                                  self.id,
+                                                                  [x.name for x in final_orfs]
+                                                                  ))
+        return final_orfs
+
+    def check_split_by_blast(self, cds_boundaries):
+
+        """
+        This method verifies if a transcript with multiple ORFs has support by BLAST to
+        NOT split it into its different components.
+        :param cds_boundaries:
+        :return:
+        """
+
+        # Establish the minimum overlap between an ORF and a BLAST hit to consider it
+        # to establish belongingness
+
+        minimal_overlap = self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+
+        cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
+        for key in cds_hit_dict:
+            cds_hit_dict[key] = set()
+
+        if not hasattr(self, "blast_hits"):  # BUG, this is a hacky fix
+            self.logger.warning("BLAST hits store lost for {0}! Creating a mock one to avoid a crash".format(
+                self.id)
+            )
+            self.blast_hits = []
+
+        for hit in self.blast_hits:  # Determine for each CDS which are the hits available
+            for hsp in filter(lambda lambda_hsp:
+                              lambda_hsp["hsp_evalue"] <=
+                              self.json_dict['chimera_split']['blast_params']['hsp_evalue'],
+                              hit["hsps"]):
+                # If I have a valid hit b/w the CDS region and the hit, add the name to the set
+                for cds_run in cds_boundaries:
+                    if Abstractlocus.overlap(cds_run, (
+                            hsp['query_hsp_start'],
+                            hsp['query_hsp_end'])) >= minimal_overlap * (cds_run[1] + 1 - cds_run[0]):
+                        cds_hit_dict[cds_run].add(hit["target"])
+
+        new_boundaries = []
+        for cds_boundary in cds_boundaries:
+            if not new_boundaries:
+                new_boundaries.append([cds_boundary])
+            else:
+                old_boundary = new_boundaries[-1][-1]
+                cds_hits = cds_hit_dict[cds_boundary]
+                old_hits = cds_hit_dict[old_boundary]
+                if cds_hits == set() and old_hits == set():  # No hit found for either CDS
+                    # If we are stringent, we DO NOT split
+                    if self.json_dict['chimera_split']['blast_params']['leniency'] == "STRINGENT":
+                        new_boundaries[-1].append(cds_boundary)
+                    else:  # Otherwise, we do split
+                        new_boundaries.append([cds_boundary])
+                elif cds_hits == set() or old_hits == set():  # We have hits for only one
+                    # If we are permissive, we split
+                    if self.json_dict["chimera_split"]["blast_params"]["leniency"] == "PERMISSIVE":
+                        new_boundaries.append([cds_boundary])
+                    else:
+                        new_boundaries[-1].append(cds_boundary)
+                else:
+                    # We do not have any hit in common
+                    if set.intersection(cds_hits, old_hits) == set():
+                        new_boundaries.append([cds_boundary])
+                    # We have hits in common
+                    else:
+                        new_boundaries[-1].append(cds_boundary)
+            # } # Finish BLAST check
+
+        final_boundaries = OrderedDict()
+        for boundary in new_boundaries:
+            if len(boundary) == 1:
+                assert len(boundary[0]) == 2
+                boundary = boundary[0]
+                final_boundaries[boundary] = cds_boundaries[boundary]
+            else:
+                nb = (boundary[0][0], boundary[-1][1])
+                final_boundaries[nb] = []
+                for boun in boundary:
+                    final_boundaries[nb].extend(cds_boundaries[boun])
+
+        cds_boundaries = final_boundaries.copy()
+        return cds_boundaries
+
+    def create_splitted_exons(self, boundary, left, right):
+
+        """
+        Given a boundary in transcriptomic coordinates, this method will extract the
+        exons retained in the splitted part of the model.
+
+        :param boundary: (int,int)
+        :return: my_exons, discarded_exons, tstart, tend
+        :rtype: (list,list,int,int)
+        """
+
+        my_exons = []
+
+        discarded_exons = []
+        tlength = 0
+        tstart = float("Inf")
+        tend = float("-Inf")
+
+        if self.strand == "-":
+            reversal = True
+        else:
+            reversal = False
+
+        for exon in sorted(self.exons, key=operator.itemgetter(0), reverse=reversal):
+            # Translate into transcript coordinates
+            elength = exon[1] - exon[0] + 1
+            texon = [tlength + 1, tlength + elength]
+            tlength += elength
+            self.logger.debug("Analysing exon {0} [{1}] for {2}".format(exon, texon, self.id))
+
+            # Exon completely contained in the ORF
+            if boundary[0] <= texon[0] < texon[1] <= boundary[1]:
+                self.logger.debug("Appending CDS exon {0}".format(exon))
+                my_exons.append(exon)
+            # Exon on the left of the CDS
+            elif texon[1] < boundary[0]:
+                if left is False:
+                    self.logger.debug("Appending 5'UTR exon {0}".format(
+                        exon))
+                    my_exons.append(exon)
+                else:
+                    self.logger.debug("Discarding 5'UTR exon {0}".format(exon))
+                    discarded_exons.append(exon)
+                    continue
+            elif texon[0] > boundary[1]:
+                if right is False:
+                    self.logger.debug("Appending 3'UTR exon {0}".format(exon))
+                    my_exons.append(exon)
+                else:
+                    self.logger.debug("Discarding 3'UTR exon {0}".format(exon))
+                    discarded_exons.append(exon)
+                    continue
+            # exon with partial UTR
+            else:
+                new_exon = list(exon)
+                if texon[1] == boundary[0]:
+                    # In this case we have that the exon ends exactly at the end of the
+                    # UTR, so we have to keep a one-base exon
+                    if left is False:
+                        self.logger.debug("Appending mixed UTR/CDS 5' exon {0}".format(exon))
+                    else:
+                        if self.strand == "+":
+                            # Keep only the LAST base
+                            discarded_exons.append((exon[0], exon[1]-1))
+                            new_exon = (exon[1]-1, exon[1])
+                            texon = (texon[1]-1, texon[1])
+                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                new_exon,
+                                texon))
+                        else:
+                            # Keep only the FIRST base
+                            discarded_exons.append((exon[0]+1, exon[1]))
+                            new_exon = (exon[0], exon[0]+1)
+                            texon = (texon[1]-1, texon[1])
+                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                new_exon,
+                                texon))
+
+                elif texon[0] == boundary[1]:
+                    # In this case we have that the exon ends exactly at the end of the
+                    # CDS, so we have to keep a one-base exon
+                    if right is False:
+                        self.logger.debug("Appending mixed UTR/CDS right exon {0}".format(exon))
+                    else:
+                        if self.strand == "+":
+                            # In this case we have to keep only the FIRST base
+                            discarded_exons.append((exon[0]+1, exon[1]))
+                            new_exon = (exon[0], exon[0]+1)
+                            texon = (texon[0], texon[0]+1)
+                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                new_exon,
+                                texon))
+                        else:
+                            # In this case we have to keep only the LAST base
+                            discarded_exons.append((exon[0], exon[1]-1))
+                            new_exon = (exon[1]-1, exon[1])
+                            texon = (texon[0], texon[0]+1)
+                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                                new_exon,
+                                texon))
+
+                # Case 3
+                elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic
+                    self.logger.debug("Exon {0}, case 3.1".format(exon))
+                    if self.strand == "-":
+                        if left is True:
+                            new_exon[1] = exon[0] + (texon[1] - boundary[0])
+                        if right is True:
+                            new_exon[0] = exon[1] - (boundary[1] - texon[0])
+                    else:
+                        if left is True:
+                            new_exon[0] = exon[1] - (texon[1] - boundary[0])
+                        if right is True:
+                            new_exon[1] = exon[0] + (boundary[1] - texon[0])
+                    self.logger.debug(
+                        "[Monoexonic] Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0],
+                                                                                 boundary[0]))
+                    self.logger.debug(
+                        "[Monoexonic] GStart shifted for {0}, {1} to {2}".format(self.id, exon[0],
+                                                                                 new_exon[1]))
+                    self.logger.debug(
+                        "[Monoexonic] Tend shifted for {0}, {1} to {2}".format(self.id, texon[1],
+                                                                               boundary[1]))
+                    self.logger.debug(
+                        "[Monoexonic] Gend shifted for {0}, {1} to {2}".format(self.id, exon[1],
+                                                                               new_exon[1]))
+
+                    if left is True:
+                        texon[0] = boundary[0]
+                    if right is True:
+                        texon[1] = boundary[1]
+
+                elif texon[0] <= boundary[0] <= texon[1] <= boundary[1]:
+                    if left is True:
+                        if self.strand == "-":
+                            new_exon[1] = exon[0] + (texon[1] - boundary[0])
+                        else:
+                            new_exon[0] = exon[1] - (texon[1] - boundary[0])
+                        self.logger.debug(
+                            "Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
+                        self.logger.debug(
+                            "GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
+                        texon[0] = boundary[0]
+
+                elif texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
+                    if right is True:
+                        if self.strand == "-":
+                            new_exon[0] = exon[1] - (boundary[1] - texon[0])
+                        else:
+                            new_exon[1] = exon[0] + (boundary[1] - texon[0])
+                        self.logger.debug(
+                            "Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
+                        self.logger.debug(
+                            "Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
+                        texon[1] = boundary[1]
+                    else:
+                        self.logger.debug("New exon: {0}".format(new_exon))
+                        self.logger.debug("New texon: {0}".format(texon))
+
+                my_exons.append(tuple(sorted(new_exon)))
+
+            tstart = min(tstart, texon[0])
+            tend = max(tend, texon[1])
+
+        return my_exons, discarded_exons, tstart, tend
+
+    @staticmethod
+    def relocate_orfs(bed12_objects, tstart, tend):
+        """
+        Function to recalculate the coordinates of BED12 objects based on the new transcriptomic start/end
+        :param bed12_objects: list of the BED12 ORFs to relocate
+        :param tstart: New transcriptomic start
+        :param tend: New transcriptomic end
+        :return:
+        """
+        new_bed12s = []
+        for obj in bed12_objects:
+            assert type(obj) is bed12.BED12, (obj, bed12_objects)
+
+            obj.start = 1
+            obj.end = min(obj.end, tend) - tstart + 1
+            obj.fasta_length = obj.end
+            obj.thickStart = min(obj.thickStart, tend) - tstart + 1
+            obj.thickEnd = min(obj.thickEnd, tend) - tstart + 1
+            obj.blockSizes = [obj.end]
+            assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length,
+                                          obj.invalid_reason,
+                                          str(obj))
+            new_bed12s.append(obj)
+        return new_bed12s
+
+    def check_collisions(self, nspan, spans):
+
+        """
+        This method checks whether a new transcript collides with a previously defined transcript.
+        :param nspan:
+        :param spans:
+        :return:
+        """
+
+        if len(spans) == 0:
+            return
+        for span in spans:
+            overl = Abstractlocus.overlap(span, nspan)
+
+            self.logger.debug(
+                "Comparing start-ends for split of {0}. SpanA: {1} SpanB: {2} Overlap: {3}".format(
+                    self.id, span,
+                    nspan, overl
+                ))
+
+            if overl > 0:
+                err_message = "Invalid overlap for {0}! T1: {1}. T2: {2}".format(self.id, span, nspan)
+                self.logger.error(err_message)
+                raise InvalidTranscript(err_message)
+
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
@@ -520,90 +913,19 @@ class Transcript:
         """
         self.finalize()
 
-        # Establish the minimum overlap between an ORF and a BLAST hit to consider it
-        # to establish belongingness
-        if self.json_dict is not None:
-            minimal_overlap = self.json_dict["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-        else:
-            minimal_overlap = 0
-
         # List of the transcript that will be retained
         new_transcripts = []
         if self.number_internal_orfs < 2:
-            new_transcripts = [self] # If we only have one ORF this is easy
+            new_transcripts = [self]  # If we only have one ORF this is easy
         else:
 
             cds_boundaries = OrderedDict()
             for orf in sorted(self.loaded_bed12, key=operator.attrgetter("thickStart", "thickEnd")):
                 cds_boundaries[(orf.thickStart, orf.thickEnd)] = [orf]
 
-            # Check the BLAST to understand whether we have to split or not
+            # Check whether we have to split or not based on BLAST data
             if self.json_dict is not None and self.json_dict["chimera_split"]["blast_check"] is True:
-                # {  # Start blast check
-                cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
-                for key in cds_hit_dict:
-                    cds_hit_dict[key] = set()
-
-                if not hasattr(self, "blast_hits"): # BUG, this is a hacky fix
-                    self.logger.warning("BLAST hits store lost for {0}! Creating a mock one to avoid a crash".format(
-                        self.id)
-                    )
-                    self.blast_hits = []
-
-                for hit in self.blast_hits:  # Determine for each CDS which are the hits available
-                    for hsp in filter(lambda lambda_hsp:
-                                      lambda_hsp["hsp_evalue"] <=
-                                      self.json_dict['chimera_split']['blast_params']['hsp_evalue'],
-                                      hit["hsps"]):
-                        # If I have a valid hit b/w the CDS region and the hit, add the name to the set
-                        for cds_run in cds_boundaries:
-                            if Abstractlocus.overlap(cds_run, (
-                                    hsp['query_hsp_start'],
-                                    hsp['query_hsp_end'])) >= minimal_overlap * (cds_run[1] + 1 - cds_run[0]):
-                                cds_hit_dict[cds_run].add(hit["target"])
-
-                new_boundaries = []
-                for cds_boundary in cds_boundaries:
-                    if not new_boundaries:
-                        new_boundaries.append([cds_boundary])
-                    else:
-                        old_boundary = new_boundaries[-1][-1]
-                        cds_hits = cds_hit_dict[cds_boundary]
-                        old_hits = cds_hit_dict[old_boundary]
-                        if cds_hits == set() and old_hits == set():  # No hit found for either CDS
-                            # If we are stringent, we DO NOT split
-                            if self.json_dict['chimera_split']['blast_params']['leniency'] == "STRINGENT":
-                                new_boundaries[-1].append(cds_boundary)
-                            else:  # Otherwise, we do split
-                                new_boundaries.append([cds_boundary])
-                        elif cds_hits == set() or old_hits == set():  # We have hits for only one
-                            # If we are permissive, we split
-                            if self.json_dict["chimera_split"]["blast_params"]["leniency"] == "PERMISSIVE":
-                                new_boundaries.append([cds_boundary])
-                            else:
-                                new_boundaries[-1].append(cds_boundary)
-                        else:
-                            # We do not have any hit in common
-                            if set.intersection(cds_hits, old_hits) == set():
-                                new_boundaries.append([cds_boundary])
-                            # We have hits in common
-                            else:
-                                new_boundaries[-1].append(cds_boundary)
-                    # } # Finish BLAST check
-
-                final_boundaries = OrderedDict()
-                for boundary in new_boundaries:
-                    if len(boundary) == 1:
-                        assert len(boundary[0]) == 2
-                        boundary = boundary[0]
-                        final_boundaries[boundary] = cds_boundaries[boundary]
-                    else:
-                        nb = (boundary[0][0], boundary[-1][1])
-                        final_boundaries[nb] = []
-                        for boun in boundary:
-                            final_boundaries[nb].extend(cds_boundaries[boun])
-
-                cds_boundaries = final_boundaries.copy()
+                cds_boundaries = self.check_split_by_blast(cds_boundaries)
 
             if len(cds_boundaries) == 1:
                 # Recheck how many boundaries we have - after the BLAST check
@@ -611,11 +933,6 @@ class Transcript:
                 new_transcripts = [self]
             else:
                 spans = []
-
-                if self.strand == "-":
-                    reversal = True
-                else:
-                    reversal = False
 
                 for counter, (boundary, bed12_objects) in enumerate(sorted(cds_boundaries.items(),
                                                                            key=operator.itemgetter(0))
@@ -635,12 +952,9 @@ class Transcript:
                     counter += 1  # Otherwise they start from 0
                     new_transcript.id = "{0}.split{1}".format(self.id, counter)
                     new_transcript.logger = self.logger
-                    my_exons = []
 
-                    discarded_exons = []
-                    tlength = 0
-                    tstart = float("Inf")
-                    tend = float("-Inf")
+                    my_exons, discarded_exons, tstart, tend = self.create_splitted_exons(
+                        boundary, left, right)
 
                     self.logger.debug("""TID {0} counter {1}, boundary {2},
                                         left {3} right {4}""".format(self.id,
@@ -649,147 +963,6 @@ class Transcript:
                                                                      boundary,
                                                                      left,
                                                                      right))
-
-                    for exon in sorted(self.exons, key=operator.itemgetter(0), reverse=reversal):
-                        # Translate into transcript coordinates
-                        elength = exon[1] - exon[0] + 1
-                        texon = [tlength + 1, tlength + elength]
-                        tlength += elength
-                        self.logger.debug("Analysing exon {0} [{1}] for {2}".format(exon, texon, self.id))
-
-                        # Exon completely contained in the ORF
-                        if boundary[0] <= texon[0] < texon[1] <= boundary[1]:
-                            self.logger.debug("Appending CDS exon {0}".format(exon))
-                            my_exons.append(exon)
-                        # Exon on the left of the CDS
-                        elif texon[1] < boundary[0]:
-                            if left is False:
-                                self.logger.debug("Appending 5'UTR exon {0}".format(
-                                    exon))
-                                my_exons.append(exon)
-                            else:
-                                self.logger.debug("Discarding 5'UTR exon {0}".format(exon))
-                                discarded_exons.append(exon)
-                                continue
-                        elif texon[0] > boundary[1]:
-                            if right is False:
-                                self.logger.debug("Appending 3'UTR exon {0}".format(exon))
-                                my_exons.append(exon)
-                            else:
-                                self.logger.debug("Discarding 3'UTR exon {0}".format(exon))
-                                discarded_exons.append(exon)
-                                continue
-                        # exon with partial UTR
-                        else:
-                            new_exon = list(exon)
-                            if texon[1] == boundary[0]:
-                                # In this case we have that the exon ends exactly at the end of the
-                                # UTR, so we have to keep a one-base exon
-                                if left is False:
-                                    self.logger.debug("Appending mixed UTR/CDS 5' exon {0}".format(exon))
-                                else:
-                                    if self.strand == "+":
-                                        # Keep only the LAST base
-                                        discarded_exons.append((exon[0], exon[1]-1))
-                                        new_exon = (exon[1]-1, exon[1])
-                                        texon = (texon[1]-1, texon[1])
-                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                            new_exon,
-                                            texon))
-                                    else:
-                                        # Keep only the FIRST base
-                                        discarded_exons.append((exon[0]+1, exon[1]))
-                                        new_exon = (exon[0], exon[0]+1)
-                                        texon = (texon[1]-1, texon[1])
-                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                            new_exon,
-                                            texon))
-
-                            elif texon[0] == boundary[1]:
-                                # In this case we have that the exon ends exactly at the end of the
-                                # CDS, so we have to keep a one-base exon
-                                if right is False:
-                                    self.logger.debug("Appending mixed UTR/CDS right exon {0}".format(exon))
-                                else:
-                                    if self.strand == "+":
-                                        # In this case we have to keep only the FIRST base
-                                        discarded_exons.append((exon[0]+1, exon[1]))
-                                        new_exon = (exon[0], exon[0]+1)
-                                        texon = (texon[0], texon[0]+1)
-                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                            new_exon,
-                                            texon))
-                                    else:
-                                        # In this case we have to keep only the LAST base
-                                        discarded_exons.append((exon[0], exon[1]-1))
-                                        new_exon = (exon[1]-1, exon[1])
-                                        texon = (texon[0], texon[0]+1)
-                                        self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                            new_exon,
-                                            texon))
-
-                            # Case 3
-                            elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic
-                                self.logger.debug("Exon {0}, case 3.1".format(exon))
-                                if self.strand == "-":
-                                    if left is True:
-                                        new_exon[1] = exon[0] + (texon[1] - boundary[0])
-                                    if right is True:
-                                        new_exon[0] = exon[1] - (boundary[1] - texon[0])
-                                else:
-                                    if left is True:
-                                        new_exon[0] = exon[1] - (texon[1] - boundary[0])
-                                    if right is True:
-                                        new_exon[1] = exon[0] + (boundary[1] - texon[0])
-                                self.logger.debug(
-                                    "[Monoexonic] Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0],
-                                                                                             boundary[0]))
-                                self.logger.debug(
-                                    "[Monoexonic] GStart shifted for {0}, {1} to {2}".format(self.id, exon[0],
-                                                                                             new_exon[1]))
-                                self.logger.debug(
-                                    "[Monoexonic] Tend shifted for {0}, {1} to {2}".format(self.id, texon[1],
-                                                                                           boundary[1]))
-                                self.logger.debug(
-                                    "[Monoexonic] Gend shifted for {0}, {1} to {2}".format(self.id, exon[1],
-                                                                                           new_exon[1]))
-
-                                if left is True:
-                                    texon[0] = boundary[0]
-                                if right is True:
-                                    texon[1] = boundary[1]
-
-                            elif texon[0] <= boundary[0] <= texon[1] <= boundary[1]:
-                                if left is True:
-                                    if self.strand == "-":
-                                        new_exon[1] = exon[0] + (texon[1] - boundary[0])
-                                    else:
-                                        new_exon[0] = exon[1] - (texon[1] - boundary[0])
-                                    self.logger.debug(
-                                        "Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
-                                    self.logger.debug(
-                                        "GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
-                                    texon[0] = boundary[0]
-
-                            elif texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
-                                if right is True:
-                                    if self.strand == "-":
-                                        new_exon[0] = exon[1] - (boundary[1] - texon[0])
-                                    else:
-                                        new_exon[1] = exon[0] + (boundary[1] - texon[0])
-                                    self.logger.debug(
-                                        "Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
-                                    self.logger.debug(
-                                        "Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
-                                    texon[1] = boundary[1]
-                                else:
-                                    self.logger.debug("New exon: {0}".format(new_exon))
-                                    self.logger.debug("New texon: {0}".format(texon))
-
-                            my_exons.append(tuple(sorted(new_exon)))
-
-                        tstart = min(tstart, texon[0])
-                        tend = max(tend, texon[1])
 
                     if right is True:
                         self.logger.debug("TID {0} TEND {1} Boun[1] {2}".format(self.id, tend, boundary[1]))
@@ -804,24 +977,11 @@ class Transcript:
                     new_transcript.end = max(exon[1] for exon in new_transcript.exons)
                     new_transcript.json_dict = self.json_dict
                     # Now we have to modify the BED12s to reflect the fact that we are starting/ending earlier
-                    new_bed12s = []
-                    for obj in bed12_objects:
-                        assert type(obj) is bed12.BED12, (obj, bed12_objects)
-
-                        obj.start = 1
-                        obj.end = min(obj.end, tend) - tstart + 1
-                        obj.fasta_length = obj.end
-                        obj.thickStart = min(obj.thickStart, tend) - tstart + 1
-                        obj.thickEnd = min(obj.thickEnd, tend) - tstart + 1
-                        obj.blockSizes = [obj.end]
-                        assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length,
-                                                      obj.invalid_reason,
-                                                      str(obj))
-                        new_bed12s.append(obj)
-
                     new_transcript.finalize()
                     if new_transcript.monoexonic is True:
                         new_transcript.strand = None
+
+                    new_bed12s = self.relocate_orfs(bed12_objects, tstart, tend)
                     self.logger.debug("Loading {0} ORFs into the new transcript".format(len(new_bed12s)))
                     new_transcript.load_orfs(new_bed12s)
 
@@ -834,21 +994,7 @@ class Transcript:
                     nspan = (new_transcript.start, new_transcript.end)
                     self.logger.debug(
                         "Transcript {0} split {1}, discarded exons: {2}".format(self.id, counter, discarded_exons))
-                    for span in spans:
-                        overl = Abstractlocus.overlap(span, nspan)
-
-                        self.logger.debug(
-                            "Comparing start-ends for split of {0}. SpanA: {1} SpanB: {2} Overlap: {3}".format(
-                                self.id, span,
-                                nspan, overl
-                            ))
-
-                        if overl > 0:
-                            err_message = "Invalid overlap for {0}! T1: {1}. T2: {2}".format(self.id, span, (
-                                new_transcript.start, new_transcript.end))
-                            self.logger.error(err_message)
-                            raise InvalidTranscript(err_message)
-
+                    self.check_collisions(nspan, spans)
                     spans.append([new_transcript.start, new_transcript.end])
 
         assert len(new_transcripts) > 0, str(self)
@@ -913,27 +1059,7 @@ class Transcript:
         self.combined_utr = []
         self.finalize()
 
-    def finalize(self):
-        """Function to calculate the internal introns from the exons.
-        In the first step, it will sort the exons by their internal coordinates.
-        """
-
-        if self.finalized is True:
-            return
-
-        if len(self.exons) == 0:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                "No exon defined for the transcript {0}. Aborting".format(self.id))
-
-        if len(self.exons) > 1 and self.strand is None:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                "Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
-
-        if self.combined_utr != [] and self.combined_cds == []:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                "Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
-
-        self.exons = sorted(self.exons, key=operator.itemgetter(0, 1))  # Sort the exons by start then stop
+    def check_cdna_vs_utr(self):
 
         if self.cdna_length > self.combined_utr_length + self.combined_cds_length:
             if self.combined_utr == [] and self.combined_cds != []:
@@ -961,6 +1087,68 @@ class Transcript:
                                                            self.combined_cds, self.combined_utr)
             else:
                 pass
+
+    def basic_final_checks(self):
+
+        """
+        Function that verifies minimal criteria of a transcript before finalising.
+        :return:
+        """
+
+        if len(self.exons) == 0:
+            raise mikado_lib.exceptions.InvalidTranscript(
+                "No exon defined for the transcript {0}. Aborting".format(self.id))
+
+        if len(self.exons) > 1 and self.strand is None:
+            raise mikado_lib.exceptions.InvalidTranscript(
+                "Multiexonic transcripts must have a defined strand! Error for {0}".format(self.id))
+
+        if self.combined_utr != [] and self.combined_cds == []:
+            raise mikado_lib.exceptions.InvalidTranscript(
+                "Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
+
+    def verify_boundaries(self):
+
+        """
+        Method to verify that the start/end of the transcripts are exactly where they should.
+        Called from finalise.
+        :return:
+        """
+
+        try:
+            if self.exons[0][0] != self.start or self.exons[-1][1] != self.end:
+                if self.exons[0][0] > self.start and self.selected_cds[0][0] == self.start:
+                    self.exons[0] = (self.start, self.exons[0][0])
+                if self.exons[-1][1] < self.end and self.selected_cds[-1][1] == self.end:
+                    self.exons[-1] = (self.exons[-1][0], self.end)
+
+                if self.exons[0][0] != self.start or self.exons[-1][1] != self.end:
+                    raise mikado_lib.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
+                    but its first and last exons define it up until {estart}:{eend}!
+                    Exons: {exons}
+                    """.format(
+                        id=self.id,
+                        tstart=self.start,
+                        tend=self.end,
+                        estart=self.exons[0][0],
+                        eend=self.exons[-1][1],
+                        exons=self.exons
+                    ))
+        except IndexError as err:
+            raise mikado_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
+
+    def finalize(self):
+        """Function to calculate the internal introns from the exons.
+        In the first step, it will sort the exons by their internal coordinates.
+        """
+
+        if self.finalized is True:
+            return
+
+        self.basic_final_checks()
+        self.exons = sorted(self.exons, key=operator.itemgetter(0, 1))  # Sort the exons by start then stop
+
+        self.check_cdna_vs_utr()
 
         self.internal_orfs = []
         introns = []
@@ -1000,32 +1188,12 @@ class Transcript:
 
         self.introns = set(introns)
         self.splices = set(splices)
-        _ = self.selected_internal_orf
+        _ = self.selected_internal_orf  # Necessary to set it to the default value
 
         if len(self.combined_cds) > 0:
             self.feature = "mRNA"
 
-        try:
-            if self.exons[0][0] != self.start or self.exons[-1][1] != self.end:
-                if self.exons[0][0] > self.start and self.selected_cds[0][0] == self.start:
-                    self.exons[0] = (self.start, self.exons[0][0])
-                if self.exons[-1][1] < self.end and self.selected_cds[-1][1] == self.end:
-                    self.exons[-1] = (self.exons[-1][0], self.end)
-
-                if self.exons[0][0] != self.start or self.exons[-1][1] != self.end:
-                    raise mikado_lib.exceptions.InvalidTranscript("""The transcript {id} has coordinates {tstart}:{tend},
-                    but its first and last exons define it up until {estart}:{eend}!
-                    Exons: {exons}
-                    """.format(
-                        id=self.id,
-                        tstart=self.start,
-                        tend=self.end,
-                        estart=self.exons[0][0],
-                        eend=self.exons[-1][1],
-                        exons=self.exons
-                    ))
-        except IndexError as err:
-            raise mikado_lib.exceptions.InvalidTranscript(err, self.id, str(self.exons))
+        self.verify_boundaries()
 
         if len(self.combined_cds) == 0:
             self.selected_internal_orf_cds = tuple([])
@@ -1063,7 +1231,6 @@ class Transcript:
         self.sessionmaker.configure(bind=self.engine)
         self.session = self.sessionmaker()
 
-    # @asyncio.coroutine
     def load_information_from_db(self, json_dict, introns=None, session=None,
                                  data_dict=None):
         """This method will invoke the check for:
@@ -1106,7 +1273,6 @@ class Transcript:
                 self.load_blast()
             self.logger.debug("Loaded {0}".format(self.id))
 
-    # @asyncio.coroutine
     def retrieve_from_dict(self, data_dict):
         """
         Method to retrieve transcript data directly from a dictionary.
@@ -1156,7 +1322,6 @@ class Transcript:
 
         self.logger.debug("Retrieved information from DB dictionary for {0}".format(self.id))
 
-    # @profile
     def load_json(self, json_dict):
         """
         Setter for the json configuration dictionary.
@@ -1165,8 +1330,6 @@ class Transcript:
         """
         self.json_dict = json_dict
 
-    # @asyncio.coroutine
-#    @profile
     def load_verified_introns(self, introns=None):
 
         """This method will load verified junctions from the external (usually the superlocus class).
@@ -1191,10 +1354,6 @@ class Transcript:
 
         return
 
-        # @profile
-
-    # @asyncio.coroutine
-#    @profile
     def retrieve_orfs(self):
 
         """This method will look up the ORFs loaded inside the database.
@@ -1221,7 +1380,6 @@ class Transcript:
         else:
             return [orf.as_bed12() for orf in candidate_orfs]
 
-    # @profile
     def load_orfs(self, candidate_orfs):
 
         """
@@ -1329,6 +1487,16 @@ class Transcript:
 
             self.internal_orfs.append(sorted(cds_exons, key=operator.itemgetter(1, 2)))
 
+        # Now verify the loaded content
+        self.check_loaded_orfs()
+
+    def check_loaded_orfs(self):
+
+        """
+        This function verifies the ORF status after loading from an external data structure/database.
+        :return:
+        """
+
         if len(self.internal_orf_lengths) == 0:
             self.logger.warning("No candidate ORF retained for {0}".format(self.id))
 
@@ -1391,8 +1559,6 @@ class Transcript:
             self.finalized = True
         return
 
-    # @asyncio.coroutine
-    # @profile
     def load_blast(self):
 
         """This method looks into the DB for hits corresponding to the desired requirements.
@@ -1445,93 +1611,6 @@ class Transcript:
         self.__logger = None
 
     # ###################Class methods#####################################
-
-    # @classmethod
-    def find_overlapping_cds(self, candidates: list) -> list:
-        """
-        :param candidates: candidate ORFs to analyse
-        :type candidates: list(mikado_lib.serializers.orf.Orf)
-
-        Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
-        It will pass to the function the class's "is_overlapping_cds" method
-        (which would be otherwise be inaccessible from the Abstractlocus class method).
-        As we are interested only in the communities, not the cliques, this wrapper discards the cliques
-        (first element of the Abstractlocus.find_communities results)
-        """
-
-        # If we are looking at a multiexonic transcript
-        if not (self.monoexonic is True and self.strand is None):
-            candidates = list(filter(lambda co: co.strand == "+", candidates))
-
-        # Prepare the minimal secondary length parameter
-        if self.json_dict is not None:
-            minimal_secondary_orf_length = self.json_dict["orf_loading"]["minimal_secondary_orf_length"]
-        else:
-            minimal_secondary_orf_length = 0
-
-        self.logger.debug("{0} input ORFs for {1}".format(len(candidates), self.id))
-        candidates = list(filter(lambda x: x.invalid is False, candidates))
-        self.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), self.id))
-        if len(candidates) == 0:
-            return []
-
-        d = dict((x.name, x) for x in candidates)
-
-        # First define the graph
-        graph = Abstractlocus.define_graph(d, inters=self.is_overlapping_cds)
-        candidate_orfs = []
-
-        def sorter(orf):
-            """Sorting function for the ORFs."""
-            return ((orf.has_start_codon and orf.has_stop_codon),
-                    (orf.has_start_codon or orf.has_stop_codon),
-                    orf.cds_len)
-
-        while len(graph) > 0:
-            cliques, communities = Abstractlocus.find_communities(graph)
-            clique_str = []
-            for clique in cliques:
-                clique_str.append(str([(d[x].thickStart, d[x].thickEnd) for x in clique]))
-            comm_str = []
-            for comm in communities:
-                comm_str.append(str([(d[x].thickStart, d[x].thickEnd) for x in comm]))
-            self.logger.debug("{0} communities for {1}:\n\t{2}".format(len(communities),
-                                                                     self.id,
-                                                                     "\n\t".join(
-                                                                         comm_str
-                                                                     )))
-            self.logger.debug("{0} cliques for {1}:\n\t{2}".format(len(cliques),
-                                                                 self.id,
-                                                                 "\n\t".join(clique_str)))
-            to_remove = set()
-            for comm in communities:
-                comm = [d[x] for x in comm]
-                best_orf = sorted(comm, key=lambda x: sorter(x), reverse=True)[0]
-                candidate_orfs.append(best_orf)
-                for clique in filter(lambda cl: best_orf.name in cl, cliques):
-                    to_remove.update(clique)
-            graph.remove_nodes_from(to_remove)
-
-        candidate_orfs = sorted(candidate_orfs, key=sorter, reverse=True)
-        self.logger.debug("{0} candidate retained ORFs for {1}: {2}".format(
-            len(candidate_orfs),
-            self.id,
-            [x.name for x in candidate_orfs]))
-        final_orfs = [candidate_orfs[0]]
-        if len(candidate_orfs) > 1:
-            others = list(filter(lambda o: o.cds_len >= minimal_secondary_orf_length,
-                                 candidate_orfs[1:]))
-            self.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
-                len(others), self.id,
-                minimal_secondary_orf_length
-            ))
-            final_orfs.extend(others)
-
-        self.logger.debug("Retained {0} ORFs for {1}: {2}".format(len(final_orfs),
-                                                                  self.id,
-                                                                  [x.name for x in final_orfs]
-                                                                  ))
-        return final_orfs
 
     @classmethod
     def is_overlapping_cds(cls, first, second):

@@ -87,7 +87,7 @@ class GtfLine(object):
                 except:
                     raise
 
-            for info in filter(lambda x: x !='', self.fields[8].split(';')):
+            for info in filter(lambda x: x != '', self.fields[8].split(';')):
                 self._info.append(info)
                 info = info.lstrip().split(' ')
                 try:
@@ -334,7 +334,7 @@ class GtfLine(object):
 
     @property
     def parent(self):
-        """This property looks up the "Parent" field in the "attributes" dictionary. 
+        """This property looks up the "Parent" field in the "attributes" dictionary.
         If the line is a transcript line, it returns the gene field.
         Otherwise, it returns the transcript field.
         In order to maintain interface consistency with the GFF objects and contrary to other attributes,

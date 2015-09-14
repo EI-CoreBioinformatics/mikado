@@ -488,6 +488,8 @@ class Hsp(dbBase):
     pk_constraint = PrimaryKeyConstraint("counter", "query_id", "target_id", name="hsp_constraint")
     query_index = Index("hsp_query_idx", "query_id", unique=False)
     target_index = Index("hsp_target_idx", "target_id", unique=False)
+    combined_index = Index("hsp_combined_idx", "query_id", "target_id", unique=False)
+    full_index = Index("hsp_full_idx", "counter", "query_id", "target_id", unique=True)
     query_hsp_start = Column(Integer)
     query_hsp_end = Column(Integer)
     target_hsp_start = Column(Integer)
@@ -502,7 +504,7 @@ class Hsp(dbBase):
     query_object = relationship(Query, uselist=False)
     target_object = relationship(Target, uselist=False)
 
-    __table_args__ = (pk_constraint,)
+    __table_args__ = (pk_constraint, query_index, target_index, combined_index)
 
     def __init__(self, hsp, counter, query_id, target_id):
 
@@ -621,8 +623,9 @@ class Hit(dbBase):
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     target_id = Column(Integer, ForeignKey(Target.target_id), unique=False)
     qt_constraint = PrimaryKeyConstraint("query_id", "target_id", name="hit_id")
+    qt_index = Index("qt_index", "query_id", "target_id", unique=True)
     query_index = Index("hit_query_idx", "query_id", unique=False)
-    target_index = Index("hit_target_idx", "query_id", unique=False)
+    target_index = Index("hit_target_idx", "target_id", unique=False)
     evalue = Column(Float)
     bits = Column(Float)
     global_identity = Column(Float)
@@ -650,7 +653,7 @@ class Hit(dbBase):
                         foreign_keys=[query_id, target_id],
                         primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
 
-    __table_args__ = (qt_constraint,)
+    __table_args__ = (qt_constraint,qt_index,query_index,target_index)
 
     def __init__(self, query_id, target_id, alignment, evalue, bits, hit_number=1, query_multiplier=1,
                  target_multiplier=1):

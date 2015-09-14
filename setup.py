@@ -56,6 +56,6 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
     },
 
-    data_files=[("sample_data", glob.glob("sample_data/*"))],
+    #data_files=[("sample_data", glob.glob("sample_data/*"))],
 
 )

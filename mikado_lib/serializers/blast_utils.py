@@ -195,11 +195,11 @@ class _Merger(multiprocessing.Process):
             # self.logger.info("Dispatched {0} lines".format(counter))
             self.logger.debug("Sent {0} lines for {1}".format(len(lines), filename))
             # We HAVE  to wait some seconds, otherwise the XML parser might miss the end of the file.
-            time.sleep(2)
+            #time.sleep(2)
 
         # We HAVE  to wait some seconds, otherwise the XML parser might miss the end of the file.
-        time.sleep(1)
-        self.queue.put_nowait(["</BlastOutput_iterations>\n</BlastOutput>"])
+        time.sleep(5)
+        self.queue.put(["</BlastOutput_iterations>\n</BlastOutput>"])
 
         self.queue.put("Finished")
         return
@@ -488,6 +488,8 @@ class Hsp(dbBase):
     pk_constraint = PrimaryKeyConstraint("counter", "query_id", "target_id", name="hsp_constraint")
     query_index = Index("hsp_query_idx", "query_id", unique=False)
     target_index = Index("hsp_target_idx", "target_id", unique=False)
+    combined_index = Index("hsp_combined_idx", "query_id", "target_id", unique=False)
+    full_index = Index("hsp_full_idx", "counter", "query_id", "target_id", unique=True)
     query_hsp_start = Column(Integer)
     query_hsp_end = Column(Integer)
     target_hsp_start = Column(Integer)
@@ -502,7 +504,7 @@ class Hsp(dbBase):
     query_object = relationship(Query, uselist=False)
     target_object = relationship(Target, uselist=False)
 
-    __table_args__ = (pk_constraint,)
+    __table_args__ = (pk_constraint, query_index, target_index, combined_index)
 
     def __init__(self, hsp, counter, query_id, target_id):
 
@@ -621,8 +623,9 @@ class Hit(dbBase):
     query_id = Column(Integer, ForeignKey(Query.query_id), unique=False)
     target_id = Column(Integer, ForeignKey(Target.target_id), unique=False)
     qt_constraint = PrimaryKeyConstraint("query_id", "target_id", name="hit_id")
+    qt_index = Index("qt_index", "query_id", "target_id", unique=True)
     query_index = Index("hit_query_idx", "query_id", unique=False)
-    target_index = Index("hit_target_idx", "query_id", unique=False)
+    target_index = Index("hit_target_idx", "target_id", unique=False)
     evalue = Column(Float)
     bits = Column(Float)
     global_identity = Column(Float)
@@ -650,7 +653,7 @@ class Hit(dbBase):
                         foreign_keys=[query_id, target_id],
                         primaryjoin="and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)")
 
-    __table_args__ = (qt_constraint,)
+    __table_args__ = (qt_constraint,qt_index,query_index,target_index)
 
     def __init__(self, query_id, target_id, alignment, evalue, bits, hit_number=1, query_multiplier=1,
                  target_multiplier=1):
@@ -876,8 +879,8 @@ class XmlSerializer:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    def __init__(self, xml, max_target_seqs=float("Inf"),
-                 db=None,
+    def __init__(self, xml,
+                 max_target_seqs=float("Inf"),
                  target_seqs=None,
                  query_seqs=None,
                  discard_definition=True, maxobjects=10000,
@@ -913,12 +916,7 @@ class XmlSerializer:
             self.logger.warning("No BLAST XML provided. Exiting.")
             return
 
-        if json_conf is not None:
-            self.engine = connect(json_conf)
-        else:
-            if db is None:
-                db = ":memory:"
-            self.engine = create_engine("sqlite:///{0}".format(db))
+        self.engine = connect(json_conf)
 
         session = sessionmaker()
         session.configure(bind=self.engine)
@@ -929,7 +927,12 @@ class XmlSerializer:
             self.xml_parser = xparser(create_opener(xml))
         else:
             assert type(xml) in (list, set)
-            self.xml_parser = XMLMerger(xml)  # Merge in memory
+            if len(xml) < 1:
+                raise ValueError("No input file provided!")
+            elif len(xml) == 1:
+                self.xml_parser = xparser(create_opener(list(xml)[0]))
+            else:
+                self.xml_parser = xparser(XMLMerger(xml))  # Merge in memory
 
         # Runtime arguments
         self.discard_definition = discard_definition

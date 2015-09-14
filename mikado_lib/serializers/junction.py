@@ -166,7 +166,7 @@ class JunctionSerializer:
     This class is used to serialize a junction BED12 file into an SQL database.
     """
 
-    def __init__(self, handle, db=":memory:", fai=None, maxobjects=10000, json_conf=None):
+    def __init__(self, handle, fai=None, maxobjects=10000, json_conf=None, logger=None):
 
         """
         :param handle: the file to be serialized.
@@ -189,10 +189,7 @@ class JunctionSerializer:
             return
 
         self.BED12 = bed12.Bed12Parser(handle)
-        if json_conf is not None:
-            self.engine = connect(json_conf)
-        else:
-            self.engine = create_engine("sqlite:///{0}".format(db))
+        self.engine = connect(json_conf, logger=logger)
 
         session = sessionmaker()
         session.configure(bind=self.engine)

@@ -393,6 +393,8 @@ def check_blast(json_conf, json_file):
             raise mikado_lib.exceptions.InvalidJson("Invalid evalue: {0}".format(json_conf["blast"]["evalue"]))
     if "max_target_seqs" in json_conf["blast"]:
         assert type(json_conf["blast"]["max_target_seqs"]) is int
+    else:
+        json_conf["blast"]["max_target_seqs"] = sys.maxsize
     if "database" not in json_conf["blast"]:
         raise mikado_lib.exceptions.InvalidJson("No BLAST database provided!")
     json_conf["blast"]["database"] = os.path.abspath(json_conf["blast"]["database"])

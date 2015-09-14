@@ -165,7 +165,7 @@ class OrfSerializer:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    def __init__(self, handle, db=None, fasta_index=None, maxobjects=1000000, json_conf=None):
+    def __init__(self, handle, fasta_index=None, maxobjects=1000000, json_conf=None, logger=None):
 
         """Constructor function. Arguments:
         - handle         the BED12 file
@@ -207,10 +207,7 @@ class OrfSerializer:
             self.fasta_index = fasta_index
 
         self.BED12 = bed12.Bed12Parser(handle, fasta_index=fasta_index, transcriptomic=True)
-        if json_conf is not None:
-            self.engine = connect(json_conf)
-        else:
-            self.engine = create_engine("sqlite:///{0}".format(db))
+        self.engine = connect(json_conf, logger)
 
         session = sessionmaker()
         session.configure(bind=self.engine)

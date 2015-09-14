@@ -195,11 +195,11 @@ class _Merger(multiprocessing.Process):
             # self.logger.info("Dispatched {0} lines".format(counter))
             self.logger.debug("Sent {0} lines for {1}".format(len(lines), filename))
             # We HAVE  to wait some seconds, otherwise the XML parser might miss the end of the file.
-            time.sleep(2)
+            #time.sleep(2)
 
         # We HAVE  to wait some seconds, otherwise the XML parser might miss the end of the file.
-        time.sleep(1)
-        self.queue.put_nowait(["</BlastOutput_iterations>\n</BlastOutput>"])
+        time.sleep(5)
+        self.queue.put(["</BlastOutput_iterations>\n</BlastOutput>"])
 
         self.queue.put("Finished")
         return
@@ -879,8 +879,8 @@ class XmlSerializer:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    def __init__(self, xml, max_target_seqs=float("Inf"),
-                 db=None,
+    def __init__(self, xml,
+                 max_target_seqs=float("Inf"),
                  target_seqs=None,
                  query_seqs=None,
                  discard_definition=True, maxobjects=10000,
@@ -916,12 +916,7 @@ class XmlSerializer:
             self.logger.warning("No BLAST XML provided. Exiting.")
             return
 
-        if json_conf is not None:
-            self.engine = connect(json_conf)
-        else:
-            if db is None:
-                db = ":memory:"
-            self.engine = create_engine("sqlite:///{0}".format(db))
+        self.engine = connect(json_conf)
 
         session = sessionmaker()
         session.configure(bind=self.engine)
@@ -932,7 +927,12 @@ class XmlSerializer:
             self.xml_parser = xparser(create_opener(xml))
         else:
             assert type(xml) in (list, set)
-            self.xml_parser = XMLMerger(xml)  # Merge in memory
+            if len(xml) < 1:
+                raise ValueError("No input file provided!")
+            elif len(xml) == 1:
+                self.xml_parser = xparser(create_opener(list(xml)[0]))
+            else:
+                self.xml_parser = xparser(XMLMerger(xml))  # Merge in memory
 
         # Runtime arguments
         self.discard_definition = discard_definition

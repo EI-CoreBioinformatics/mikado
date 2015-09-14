@@ -5,6 +5,9 @@ import sqlalchemy
 from mikado_lib import json_utils
 from mikado_lib.serializers import orf, blast_utils, junction, dbutils
 import os
+import sys
+import logging
+import logging.handlers
 from Bio import SeqIO
 
 __author__ = 'Luca Venturini'
@@ -21,7 +24,7 @@ def to_seqio(string):
     return SeqIO.index(string, "fasta")
 
 
-def xml_launcher(xml_candidate=None,args=None):
+def xml_launcher(xml_candidate=None, args=None):
 
     """
     Thin rapper around blast_utils.XmlSerializer. Its purpose is
@@ -31,6 +34,8 @@ def xml_launcher(xml_candidate=None,args=None):
     :param args: namespace with the parameters
     :return:
     """
+
+    args.max_target_seqs = min(args.max_target_seqs, args.json_conf["blast"]["max_target_seqs"])
 
     xml_serializer = blast_utils.XmlSerializer(
                 xml_candidate,
@@ -54,9 +59,11 @@ def serialise(args):
     :return:
     """
 
-    if args.db is not None:
-        args.json_conf["db"] = args.db
-        args.json_conf["dbtype"] = "sqlite"
+    # Provisional logging. To be improved
+    logger = logging.Logger("serialiser")
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
     if args.force is True:
         engine = dbutils.connect(args.json_conf)
@@ -68,15 +75,20 @@ def serialise(args):
 
     if args.orfs is not None:
         for orf_file in args.orfs.split(","):
-            serializer = orf.OrfSerializer(orf_file, fasta_index=args.transcript_fasta, maxobjects=args.max_objects,
-                                           json_conf=args.json_conf)
+            serializer = orf.OrfSerializer(orf_file,
+                                           fasta_index=args.transcript_fasta,
+                                           maxobjects=args.max_objects,
+                                           json_conf=args.json_conf,
+                                           logger=logger)
             serializer.serialize()
 
     if args.junctions is not None:
         for junction_file in args.junctions.split(","):
-            serializer = junction.JunctionSerializer(junction_file, args.db,
-                                                     fai=args.genome_fai, json_conf=args.json_conf,
-                                                     maxobjects=args.max_objects)
+            serializer = junction.JunctionSerializer(junction_file,
+                                                     fai=args.genome_fai,
+                                                     json_conf=args.json_conf,
+                                                     maxobjects=args.max_objects,
+                                                     logger=logger)
             serializer()
 
     if args.xml is not None:
@@ -88,11 +100,13 @@ def serialise(args):
         for xml in args.xml.split(","):
             if os.path.isdir(xml):
                 filenames.extend([os.path.join(xml, x) for x in
-                              filter(
-                              lambda x: x.endswith(".xml") or x.endswith(".xml.gz") or x.endswith(".asn.gz"),
-                              os.listdir(xml)
-                              )
-                              ])
+                                  filter(
+                                         lambda x: x.endswith(".xml") or
+                                         x.endswith(".xml.gz") or
+                                         x.endswith(".asn.gz"),
+                                         os.listdir(xml)
+                                         )
+                                  ])
             else:
                 filenames.extend(glob.glob(xml))
 
@@ -100,6 +114,7 @@ def serialise(args):
             raise ValueError("No valid BLAST file specified!")
 
         part_launcher(filenames)
+
 
 def serialise_parser():
     """
@@ -130,7 +145,7 @@ def serialise_parser():
                       """)
 
     blast = parser.add_argument_group()
-    blast.add_argument("--max_target_seqs", type=int, default=float("Inf"),
+    blast.add_argument("--max_target_seqs", type=int, default=sys.maxsize,
                        help="Maximum number of target sequences.")
     blast.add_argument("--target_seqs", default=None, type=to_seqio, help="Target sequences")
     blast.add_argument("--discard-definition", action="store_true", default=False,

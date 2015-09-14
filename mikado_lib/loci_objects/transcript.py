@@ -680,15 +680,153 @@ class Transcript:
         cds_boundaries = final_boundaries.copy()
         return cds_boundaries
 
-    def create_splitted_exons(self, boundary, left, right):
+    def __split_complex_exon(self, exon, texon, left, right, boundary):
+
+        """
+        Private method used to split an exon when it is only partially coding,
+        :param exon: Exon to be analysed
+        :param texon: Transcriptomic coordinates of the exon
+        :param left: boolean flag, it indicates wheter there is another transcript on the left of the
+        current one.
+        :param right: boolean flag, it indicates wheter there is another transcript on the left of the
+        current one.
+        :param boundary: Transcriptomic coordinates of the ORF boundary.
+        :return:
+        """
+
+        to_discard = None
+        new_exon = list(exon)
+
+        if texon[1] == boundary[0]:
+            # In this case we have that the exon ends exactly at the end of the
+            # UTR, so we have to keep a one-base exon
+            if left is False:
+                self.logger.debug("Appending mixed UTR/CDS 5' exon {0}".format(exon))
+            else:
+                if self.strand == "+":
+                    # Keep only the LAST base
+                    to_discard = (exon[0], exon[1]-1)
+                    new_exon = (exon[1]-1, exon[1])
+                    texon = (texon[1]-1, texon[1])
+                    self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                        new_exon,
+                        texon))
+                else:
+                    # Keep only the FIRST base
+                    to_discard = (exon[0]+1, exon[1])
+                    new_exon = (exon[0], exon[0]+1)
+                    texon = (texon[1]-1, texon[1])
+                    self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                        new_exon,
+                        texon))
+
+        elif texon[0] == boundary[1]:
+            # In this case we have that the exon ends exactly at the end of the
+            # CDS, so we have to keep a one-base exon
+            if right is False:
+                self.logger.debug("Appending mixed UTR/CDS right exon {0}".format(exon))
+            else:
+                if self.strand == "+":
+                    # In this case we have to keep only the FIRST base
+                    to_discard = (exon[0]+1, exon[1])
+                    new_exon = (exon[0], exon[0]+1)
+                    texon = (texon[0], texon[0]+1)
+                    self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                        new_exon,
+                        texon))
+                else:
+                    # In this case we have to keep only the LAST base
+                    to_discard = (exon[0], exon[1]-1)
+                    new_exon = (exon[1]-1, exon[1])
+                    texon = (texon[0], texon[0]+1)
+                    self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
+                        new_exon,
+                        texon))
+
+        elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:
+            # Monoexonic
+            self.logger.debug("Exon {0}, case 3.1".format(exon))
+            if self.strand == "-":
+                if left is True:
+                    new_exon[1] = exon[0] + (texon[1] - boundary[0])
+                if right is True:
+                    new_exon[0] = exon[1] - (boundary[1] - texon[0])
+            else:
+                if left is True:
+                    new_exon[0] = exon[1] - (texon[1] - boundary[0])
+                if right is True:
+                    new_exon[1] = exon[0] + (boundary[1] - texon[0])
+            self.logger.debug(
+                "[Monoexonic] Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0],
+                                                                         boundary[0]))
+            self.logger.debug(
+                "[Monoexonic] GStart shifted for {0}, {1} to {2}".format(self.id, exon[0],
+                                                                         new_exon[1]))
+            self.logger.debug(
+                "[Monoexonic] Tend shifted for {0}, {1} to {2}".format(self.id, texon[1],
+                                                                       boundary[1]))
+            self.logger.debug(
+                "[Monoexonic] Gend shifted for {0}, {1} to {2}".format(self.id, exon[1],
+                                                                       new_exon[1]))
+
+            if left is True:
+                texon[0] = boundary[0]
+            if right is True:
+                texon[1] = boundary[1]
+
+        elif texon[0] <= boundary[0] <= texon[1] <= boundary[1]:
+            # In this case we have that exon is sitting halfway - i.e. there is a partial 5'UTR
+            if left is True:
+                if self.strand == "-":
+                    new_exon[1] = exon[0] + (texon[1] - boundary[0])
+                else:
+                    new_exon[0] = exon[1] - (texon[1] - boundary[0])
+                self.logger.debug(
+                    "Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
+                self.logger.debug(
+                    "GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
+                texon[0] = boundary[0]
+
+        elif texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
+            # In this case we have that exon is sitting halfway - i.e. there is a partial 3'UTR
+            if right is True:
+                if self.strand == "-":
+                    new_exon[0] = exon[1] - (boundary[1] - texon[0])
+                else:
+                    new_exon[1] = exon[0] + (boundary[1] - texon[0])
+                self.logger.debug(
+                    "Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
+                self.logger.debug(
+                    "Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
+                texon[1] = boundary[1]
+            else:
+                self.logger.debug("New exon: {0}".format(new_exon))
+                self.logger.debug("New texon: {0}".format(texon))
+
+        return new_exon, texon, to_discard
+
+    def __create_splitted_exons(self, boundary, left, right):
 
         """
         Given a boundary in transcriptomic coordinates, this method will extract the
         exons retained in the splitted part of the model.
 
-        :param boundary: (int,int)
-        :return: my_exons, discarded_exons, tstart, tend
-        :rtype: (list,list,int,int)
+        :param boundary: the *transcriptomic* coordinates of start/end of the ORF(s) to be included
+         in the new transcript
+        :type boundary: (int,int)
+
+        :param left: boolean flag indicating whether there is another sub-transcript to the left
+        of the one we mean to create, irrespective of *genomic* strand
+        :type left: bool
+
+        :param left: boolean flag indicating whether there is another sub-transcript to the right of the one we mean
+        to create, irrespective of *genomic* strand
+        :type right: bool
+
+
+        :return: my_exons (final exons), discarded_exons (eventual discarded exons), tstart (new transcript start),
+        tend (new transcript end)
+        :rtype: (list(int,int),list(int,int),int,int)
         """
 
         my_exons = []
@@ -710,6 +848,7 @@ class Transcript:
             tlength += elength
             self.logger.debug("Analysing exon {0} [{1}] for {2}".format(exon, texon, self.id))
 
+            # SIMPLE CASES
             # Exon completely contained in the ORF
             if boundary[0] <= texon[0] < texon[1] <= boundary[1]:
                 self.logger.debug("Appending CDS exon {0}".format(exon))
@@ -732,114 +871,13 @@ class Transcript:
                     self.logger.debug("Discarding 3'UTR exon {0}".format(exon))
                     discarded_exons.append(exon)
                     continue
-            # exon with partial UTR
             else:
-                new_exon = list(exon)
-                if texon[1] == boundary[0]:
-                    # In this case we have that the exon ends exactly at the end of the
-                    # UTR, so we have to keep a one-base exon
-                    if left is False:
-                        self.logger.debug("Appending mixed UTR/CDS 5' exon {0}".format(exon))
-                    else:
-                        if self.strand == "+":
-                            # Keep only the LAST base
-                            discarded_exons.append((exon[0], exon[1]-1))
-                            new_exon = (exon[1]-1, exon[1])
-                            texon = (texon[1]-1, texon[1])
-                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                new_exon,
-                                texon))
-                        else:
-                            # Keep only the FIRST base
-                            discarded_exons.append((exon[0]+1, exon[1]))
-                            new_exon = (exon[0], exon[0]+1)
-                            texon = (texon[1]-1, texon[1])
-                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                new_exon,
-                                texon))
-
-                elif texon[0] == boundary[1]:
-                    # In this case we have that the exon ends exactly at the end of the
-                    # CDS, so we have to keep a one-base exon
-                    if right is False:
-                        self.logger.debug("Appending mixed UTR/CDS right exon {0}".format(exon))
-                    else:
-                        if self.strand == "+":
-                            # In this case we have to keep only the FIRST base
-                            discarded_exons.append((exon[0]+1, exon[1]))
-                            new_exon = (exon[0], exon[0]+1)
-                            texon = (texon[0], texon[0]+1)
-                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                new_exon,
-                                texon))
-                        else:
-                            # In this case we have to keep only the LAST base
-                            discarded_exons.append((exon[0], exon[1]-1))
-                            new_exon = (exon[1]-1, exon[1])
-                            texon = (texon[0], texon[0]+1)
-                            self.logger.debug("Appending monobase CDS exon {0} (Texon {1})".format(
-                                new_exon,
-                                texon))
-
-                # Case 3
-                elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:  # Monoexonic
-                    self.logger.debug("Exon {0}, case 3.1".format(exon))
-                    if self.strand == "-":
-                        if left is True:
-                            new_exon[1] = exon[0] + (texon[1] - boundary[0])
-                        if right is True:
-                            new_exon[0] = exon[1] - (boundary[1] - texon[0])
-                    else:
-                        if left is True:
-                            new_exon[0] = exon[1] - (texon[1] - boundary[0])
-                        if right is True:
-                            new_exon[1] = exon[0] + (boundary[1] - texon[0])
-                    self.logger.debug(
-                        "[Monoexonic] Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0],
-                                                                                 boundary[0]))
-                    self.logger.debug(
-                        "[Monoexonic] GStart shifted for {0}, {1} to {2}".format(self.id, exon[0],
-                                                                                 new_exon[1]))
-                    self.logger.debug(
-                        "[Monoexonic] Tend shifted for {0}, {1} to {2}".format(self.id, texon[1],
-                                                                               boundary[1]))
-                    self.logger.debug(
-                        "[Monoexonic] Gend shifted for {0}, {1} to {2}".format(self.id, exon[1],
-                                                                               new_exon[1]))
-
-                    if left is True:
-                        texon[0] = boundary[0]
-                    if right is True:
-                        texon[1] = boundary[1]
-
-                elif texon[0] <= boundary[0] <= texon[1] <= boundary[1]:
-                    if left is True:
-                        if self.strand == "-":
-                            new_exon[1] = exon[0] + (texon[1] - boundary[0])
-                        else:
-                            new_exon[0] = exon[1] - (texon[1] - boundary[0])
-                        self.logger.debug(
-                            "Tstart shifted for {0}, {1} to {2}".format(self.id, texon[0], boundary[0]))
-                        self.logger.debug(
-                            "GStart shifted for {0}, {1} to {2}".format(self.id, exon[0], new_exon[1]))
-                        texon[0] = boundary[0]
-
-                elif texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
-                    if right is True:
-                        if self.strand == "-":
-                            new_exon[0] = exon[1] - (boundary[1] - texon[0])
-                        else:
-                            new_exon[1] = exon[0] + (boundary[1] - texon[0])
-                        self.logger.debug(
-                            "Tend shifted for {0}, {1} to {2}".format(self.id, texon[1], boundary[1]))
-                        self.logger.debug(
-                            "Gend shifted for {0}, {1} to {2}".format(self.id, exon[1], new_exon[1]))
-                        texon[1] = boundary[1]
-                    else:
-                        self.logger.debug("New exon: {0}".format(new_exon))
-                        self.logger.debug("New texon: {0}".format(texon))
-
-                my_exons.append(tuple(sorted(new_exon)))
+                # exon with partial UTR, go to the relative function
+                # to handle these complex cases
+                exon, texon, to_discard = self.__split_complex_exon(exon,texon, left, right, boundary)
+                my_exons.append(tuple(sorted(exon)))
+                if to_discard is not None:
+                    discarded_exons.append(to_discard)
 
             tstart = min(tstart, texon[0])
             tend = max(tend, texon[1])
@@ -871,7 +909,7 @@ class Transcript:
             new_bed12s.append(obj)
         return new_bed12s
 
-    def check_collisions(self, nspan, spans):
+    def __check_collisions(self, nspan, spans):
 
         """
         This method checks whether a new transcript collides with a previously defined transcript.
@@ -953,7 +991,7 @@ class Transcript:
                     new_transcript.id = "{0}.split{1}".format(self.id, counter)
                     new_transcript.logger = self.logger
 
-                    my_exons, discarded_exons, tstart, tend = self.create_splitted_exons(
+                    my_exons, discarded_exons, tstart, tend = self.__create_splitted_exons(
                         boundary, left, right)
 
                     self.logger.debug("""TID {0} counter {1}, boundary {2},
@@ -994,7 +1032,7 @@ class Transcript:
                     nspan = (new_transcript.start, new_transcript.end)
                     self.logger.debug(
                         "Transcript {0} split {1}, discarded exons: {2}".format(self.id, counter, discarded_exons))
-                    self.check_collisions(nspan, spans)
+                    self.__check_collisions(nspan, spans)
                     spans.append([new_transcript.start, new_transcript.end])
 
         assert len(new_transcripts) > 0, str(self)
@@ -1059,7 +1097,12 @@ class Transcript:
         self.combined_utr = []
         self.finalize()
 
-    def check_cdna_vs_utr(self):
+    def __check_cdna_vs_utr(self):
+
+        """
+        Verify that cDNA + UTR in the transcript add up.
+        :return:
+        """
 
         if self.cdna_length > self.combined_utr_length + self.combined_cds_length:
             if self.combined_utr == [] and self.combined_cds != []:
@@ -1088,7 +1131,7 @@ class Transcript:
             else:
                 pass
 
-    def basic_final_checks(self):
+    def __basic_final_checks(self):
 
         """
         Function that verifies minimal criteria of a transcript before finalising.
@@ -1107,7 +1150,7 @@ class Transcript:
             raise mikado_lib.exceptions.InvalidTranscript(
                 "Transcript {tid} has defined UTRs but no CDS feature!".format(tid=self.id))
 
-    def verify_boundaries(self):
+    def __verify_boundaries(self):
 
         """
         Method to verify that the start/end of the transcripts are exactly where they should.
@@ -1145,10 +1188,10 @@ class Transcript:
         if self.finalized is True:
             return
 
-        self.basic_final_checks()
+        self.__basic_final_checks()
         self.exons = sorted(self.exons, key=operator.itemgetter(0, 1))  # Sort the exons by start then stop
 
-        self.check_cdna_vs_utr()
+        self.__check_cdna_vs_utr()
 
         self.internal_orfs = []
         introns = []
@@ -1193,7 +1236,7 @@ class Transcript:
         if len(self.combined_cds) > 0:
             self.feature = "mRNA"
 
-        self.verify_boundaries()
+        self.__verify_boundaries()
 
         if len(self.combined_cds) == 0:
             self.selected_internal_orf_cds = tuple([])
@@ -1215,7 +1258,7 @@ class Transcript:
             pass
         return
 
-    def connect_to_db(self):
+    def __connect_to_db(self):
 
         """This method will connect to the database using the information contained in the JSON configuration."""
 
@@ -1259,10 +1302,10 @@ class Transcript:
             # yield from self.retrieve_from_dict(data_dict)
         else:
             if session is None:
-                self.connect_to_db()
+                self.__connect_to_db()
             else:
                 self.session = session
-            self.load_verified_introns(introns)
+            self.__load_verified_introns(introns)
             # yield from self.load_verified_introns(introns)
             self.query_id = self.query_baked(self.session).params(query_name=self.id).all()
             if len(self.query_id) == 0:
@@ -1270,7 +1313,7 @@ class Transcript:
             else:
                 self.query_id = self.query_id[0].query_id
                 self.load_orfs(list(self.retrieve_orfs()))
-                self.load_blast()
+                self.__load_blast()
             self.logger.debug("Loaded {0}".format(self.id))
 
     def retrieve_from_dict(self, data_dict):
@@ -1330,7 +1373,7 @@ class Transcript:
         """
         self.json_dict = json_dict
 
-    def load_verified_introns(self, introns=None):
+    def __load_verified_introns(self, introns=None):
 
         """This method will load verified junctions from the external (usually the superlocus class).
 
@@ -1559,7 +1602,7 @@ class Transcript:
             self.finalized = True
         return
 
-    def load_blast(self):
+    def __load_blast(self):
 
         """This method looks into the DB for hits corresponding to the desired requirements.
         Hits will be loaded into the "blast_hits" list; we will not store the SQLAlchemy query object,

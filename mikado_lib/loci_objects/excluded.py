@@ -2,7 +2,8 @@
 
 """
 This module defines a containers that hold transcripts excluded from further consideration.
-It is invoked when all transcripts in a locus have a score of 0 and the "purge" option has been enabled.
+It is invoked when all transcripts in a locus have a score of 0 and the "purge"
+option has been enabled.
 """
 
 from mikado_lib.loci_objects.transcript import Transcript
@@ -20,15 +21,15 @@ class Excluded(Abstractlocus):
     if not available_metrics:
         available_metrics = Transcript.get_available_metrics()
 
-    def __init__(self, monosublocus_instance, json_dict=None, logger=None):
+    def __init__(self, monosublocus_instance, json_conf=None, logger=None):
         """
         Constructor method
 
         :param monosublocus_instance:
         :type monosublocus_instance: mikado_lib.loci_objects.monosublocus.Monosublocus
 
-        :param json_dict: configuration file
-        :type json_dict: dict
+        :param json_conf: configuration file
+        :type json_conf: dict
 
         :param logger: logger instance
         :type logger: logging.Logger | None
@@ -36,13 +37,14 @@ class Excluded(Abstractlocus):
         Abstractlocus.__init__(self)
         self.splitted = False
         self.metrics_calculated = False
-        self.json_dict = json_dict
+        self.json_conf = json_conf
         # Add the transcript to the Locus
         self.add_monosublocus(monosublocus_instance)
         self.logger = logger
 
     def add_transcript_to_locus(self, transcript, **kwargs):
-        """Override of the sublocus method, and reversal to the original method in the Abstractlocus class.
+        """Override of the sublocus method, and reversal to the original
+        method in the Abstractlocus class.
         :param transcript: a transcript to add
         :type transcript: Transcript
 
@@ -50,10 +52,13 @@ class Excluded(Abstractlocus):
         """
 
         # Notice that check_in_locus is always set to False.
+        _ = kwargs
+
         Abstractlocus.add_transcript_to_locus(self, transcript, check_in_locus=False)
 
     def add_monosublocus(self, monosublocus_instance):
-        """Wrapper to extract the transcript from the monosubloci and pass it to the constructor.
+        """Wrapper to extract the transcript from the monosubloci and pass it
+        to the constructor.
         :param monosublocus_instance
         :type monosublocus_instance: mikado_lib.loci_objects.monosublocus.Monosublocus
         """
@@ -64,7 +69,8 @@ class Excluded(Abstractlocus):
     def __str__(self):
         """This special method is explicitly *not* implemented;
         this Locus object is not meant for printing, only for computation!"""
-        message = 'This is a container used for computational purposes only,it should not be printed out directly!'
+        message = """This is a container used for computational purposes only,
+        it should not be printed out directly!"""
         raise NotImplementedError(message)
 
     def print_metrics(self):
@@ -83,7 +89,7 @@ class Excluded(Abstractlocus):
                     row[key] = self.id
                 else:
                     row[key] = getattr(self.transcripts[tid], key, "NA")
-                if type(row[key]) is float:
+                if isinstance(row[key], float):
                     row[key] = round(row[key], 2)
                 elif row[key] is None or row[key] == "":
                     row[key] = "NA"

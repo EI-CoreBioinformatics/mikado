@@ -30,8 +30,8 @@ import mikado_lib.exceptions
 
 
 class Superlocus(Abstractlocus):
-    """The superlocus class is used to define overlapping regions on the genome, and it receives as input
-    transcript class instances.
+    """The superlocus class is used to define overlapping regions
+    on the genome, and it receives as input transcript class instances.
     """
 
     __name__ = "superlocus"
@@ -44,49 +44,55 @@ class Superlocus(Abstractlocus):
     junction_baked = bakery(lambda session: session.query(Junction))
     junction_baked += lambda q: q.filter(and_(
         Junction.chrom_id == bindparam("chrom_id"),
-        Junction.junctionStart == bindparam("junctionStart"),
-        Junction.junctionEnd == bindparam("junctionEnd"),
-        Junction.strand == bindparam("strand"))
-    )
+        Junction.junction_start == bindparam("junctionStart"),
+        Junction.junction_end == bindparam("junctionEnd"),
+        Junction.strand == bindparam("strand")))
 
     # ###### Special methods ############
 
-    def __init__(self, transcript_instance, stranded=True, json_dict=None, logger=None):
+    def __init__(self, transcript_instance, stranded=True, json_conf=None, logger=None):
 
         """
 
         :param transcript_instance: an instance of the Transcript class
         :type transcript_instance: Transcript
-        :param stranded: boolean flag that indicates whether the Locus should use or ignore strand information
+        :param stranded: boolean flag that indicates whether
+        the Locus should use or ignore strand information
         :type stranded: bool
-        :param json_dict: a configuration dictionary derived from JSON/YAML config files
-        :type json_dict: dict
+        :param json_conf: a configuration dictionary derived from JSON/YAML config files
+        :type json_conf: dict
         :param logger: the logger for the class
         :type logger: logging.Logger
 
-        The superlocus class is instantiated from a transcript_instance class, which it copies in its entirety.
-        
+        The superlocus class is instantiated from a transcript_instance class,
+        which it copies in its entirety.
+
         It will therefore have the following attributes:
         - chrom, strand, start, end
         - splices - a *set* which contains the position of each splice site
-        - introns - a *set* which contains the positions of each *splice junction* (registered as 2-tuples)
+        - introns - a *set* which contains the positions of each
+        *splice junction* (registered as 2-tuples)
         - transcripts - a *set* which holds the transcripts added to the superlocus
-        
+
         The constructor method takes the following keyword arguments:
-        - stranded    True if all transcripts inside the superlocus are required to be on the same strand
-        - json_dict    Required. A dictionary with the coniguration necessary for scoring transcripts.
-        - purge        Flag. If True, all loci holding only transcripts with a 0 score will be deleted
+        - stranded    True if all transcripts inside the superlocus are required
+        to be on the same strand
+        - json_conf    Required. A dictionary with the coniguration necessary
+        for scoring transcripts.
+        - purge        Flag. If True, all loci holding only transcripts with a 0
+        score will be deleted
         from further consideration.
-        
         """
 
         super().__init__()
         self.stranded = stranded
         self.feature = self.__name__
-        if json_dict is None or type(json_dict) is not dict:
-            raise mikado_lib.exceptions.NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
-        self.json_dict = json_dict
-        self.purge = self.json_dict["run_options"]["purge"]
+        if json_conf is None or not isinstance(json_conf, dict):
+            raise mikado_lib.exceptions.NoJsonConfigError(
+                "I am missing the configuration for prioritizing transcripts!"
+            )
+        self.json_conf = json_conf
+        self.purge = self.json_conf["run_options"]["purge"]
 
         self.splices = set(self.splices)
         self.introns = set(self.introns)
@@ -114,6 +120,83 @@ class Superlocus(Abstractlocus):
         # Excluded object
         self.excluded_transcripts = None
 
+    def __create_locus_lines(self, superlocus_line, new_id, print_cds=True):
+
+        """
+        Private method to prepare the lines for printing out loci
+        into GFF/GTF files.
+        """
+
+        lines = []
+        self.define_loci()
+        if self.json_conf["alternative_splicing"]["report"] is True:
+            self.define_alternative_splicing()
+        if len(self.loci) > 0:
+            source = "{0}_loci".format(self.source)
+            superlocus_line.source = source
+            lines.append(str(superlocus_line))
+            found = dict()
+
+            for _, locus_instance in self.loci.items():
+                locus_instance.source = source
+                locus_instance.parent = new_id
+                if locus_instance.id in found:
+                    found[locus_instance.id] += 1
+                    locus_instance.counter = found[locus_instance.id]
+                else:
+                    found[locus_instance.id] = 0
+                lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
+        return lines
+
+    def __create_monolocus_lines(self, superlocus_line, new_id, print_cds=True):
+
+        """
+        Private method to prepare the lines for printing out monosubloci
+        into GFF/GTF files.
+        """
+
+        lines = []
+        self.define_monosubloci()
+        if len(self.monosubloci) > 0:
+            source = "{0}_monosubloci".format(self.source)
+            superlocus_line.source = source
+            lines.append(str(superlocus_line))
+            found = dict()
+            for monosublocus_instance in self.monosubloci:
+                monosublocus_instance.source = source
+                monosublocus_instance.parent = new_id
+                if monosublocus_instance.id in found:
+                    found[monosublocus_instance.id] += 1
+                    monosublocus_instance.counter = found[monosublocus_instance.id]
+                else:
+                    found[monosublocus_instance.id] = 0
+
+                lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
+
+        return lines
+
+    def __create_sublocus_lines(self, superlocus_line, new_id, print_cds=True):
+        """
+        Private method to prepare the lines for printing out subloci
+        into GFF/GTF files.
+        """
+
+        source = "{0}_subloci".format(self.source)
+        superlocus_line.source = source
+        lines = [str(superlocus_line)]
+        self.define_subloci()
+        found = dict()
+        for sublocus_instance in self.subloci:
+            sublocus_instance.source = source
+            sublocus_instance.parent = new_id
+            if sublocus_instance.id in found:
+                found[sublocus_instance.id] += 1
+                sublocus_instance.counter = found[sublocus_instance.id]
+            else:
+                found[sublocus_instance.id] = 0
+            lines.append(sublocus_instance.__str__(print_cds=print_cds).rstrip())
+        return lines
+
     def __str__(self, level=None, print_cds=True):
 
         """
@@ -128,8 +211,8 @@ class Superlocus(Abstractlocus):
         - "loci" - print the final loci
         - "monosubloci" - print the monosubloci
         - "subloci" - print the subloci.
-        
-        The function will then return the desired location in GFF3-compliant format. 
+
+        The function will then return the desired location in GFF3-compliant format.
         """
 
         if abs(self.start) == float("inf"):
@@ -138,7 +221,9 @@ class Superlocus(Abstractlocus):
         superlocus_line = GffLine('')
         superlocus_line.chrom = self.chrom
         superlocus_line.feature = self.__name__
-        superlocus_line.start, superlocus_line.end, superlocus_line.score = self.start, self.end, "."
+        superlocus_line.start, \
+            superlocus_line.end, \
+            superlocus_line.score = self.start, self.end, "."
         superlocus_line.strand = self.strand
         superlocus_line.phase, superlocus_line.score = None, None
         new_id = "{0}_{1}".format(self.source, self.id)
@@ -148,58 +233,20 @@ class Superlocus(Abstractlocus):
         if level not in (None, "loci", "subloci", "monosubloci"):
             raise ValueError("Unrecognized level: {0}".format(level))
 
-        if level == "loci" or (level is None and self.loci_defined is True):
-            self.define_loci()
-            if self.json_dict["alternative_splicing"]["report"] is True:
-                self.define_alternative_splicing()
-            if len(self.loci) > 0:
-                source = "{0}_loci".format(self.source)
-                superlocus_line.source = source
-                lines.append(str(superlocus_line))
-                found = dict()
-
-                for _, locus_instance in self.loci.items():
-                    locus_instance.source = source
-                    locus_instance.parent = new_id
-                    if locus_instance.id in found:
-                        found[locus_instance.id] += 1
-                        locus_instance.counter = found[locus_instance.id]
-                    else:
-                        found[locus_instance.id] = 0
-                    lines.append(locus_instance.__str__(print_cds=print_cds).rstrip())
+        elif level == "loci" or (level is None and self.loci_defined is True):
+            lines = self.__create_locus_lines(
+                superlocus_line,
+                new_id,
+                print_cds=print_cds
+            )
         elif level == "monosubloci" or (level is None and self.monosubloci_defined is True):
-            self.define_monosubloci()
-            if len(self.monosubloci) > 0:
-                source = "{0}_monosubloci".format(self.source)
-                superlocus_line.source = source
-                lines.append(str(superlocus_line))
-                found = dict()
-                for monosublocus_instance in self.monosubloci:
-                    monosublocus_instance.source = source
-                    monosublocus_instance.parent = new_id
-                    if monosublocus_instance.id in found:
-                        found[monosublocus_instance.id] += 1
-                        monosublocus_instance.counter = found[monosublocus_instance.id]
-                    else:
-                        found[monosublocus_instance.id] = 0
-
-                    lines.append(monosublocus_instance.__str__(print_cds=print_cds).rstrip())
+            lines = self.__create_monolocus_lines(superlocus_line,
+                                                  new_id,
+                                                  print_cds=print_cds)
         elif level == "subloci" or (level is None and self.monosubloci_defined is False):
-            source = "{0}_subloci".format(self.source)
-            superlocus_line.source = source
-            lines = [str(superlocus_line)]
-            self.define_subloci()
-            found = dict()
-            for sublocus_instance in self.subloci:
-                sublocus_instance.source = source
-                sublocus_instance.parent = new_id
-                if sublocus_instance.id in found:
-                    found[sublocus_instance.id] += 1
-                    sublocus_instance.counter = found[sublocus_instance.id]
-                else:
-                    found[sublocus_instance.id] = 0
-                lines.append(sublocus_instance.__str__(print_cds=print_cds).rstrip())
-
+            lines = self.__create_sublocus_lines(superlocus_line,
+                                                 new_id,
+                                                 print_cds=print_cds)
         if len(lines) > 0:
             lines.append("###")
         return "\n".join(lines)
@@ -208,9 +255,11 @@ class Superlocus(Abstractlocus):
 
     def split_strands(self):
         """This method will divide the superlocus on the basis of the strand.
-        The rationale is to parse a GFF file without regard for the strand, in order to find all intersecting loci;
+        The rationale is to parse a GFF file without regard for the
+        strand, in order to find all intersecting loci;
         and subsequently break the superlocus into the different components.
-        Notice that each strand might generate more than one superlocus, if genes on a different strand link what are
+        Notice that each strand might generate more than one superlocus,
+        if genes on a different strand link what are
         two different superloci.
         """
 
@@ -235,17 +284,24 @@ class Superlocus(Abstractlocus):
             for strand in plus, minus, nones:
                 if len(strand) > 0:
                     strand = sorted(strand)
-                    new_locus = Superlocus(strand[0], stranded=True, json_dict=self.json_dict, logger=self.logger)
+                    new_locus = Superlocus(strand[0],
+                                           stranded=True,
+                                           json_conf=self.json_conf,
+                                           logger=self.logger)
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
                             new_locus.add_transcript_to_locus(cdna)
                         else:
                             new_loci.append(new_locus)
-                            new_locus = Superlocus(cdna, stranded=True, json_dict=self.json_dict, logger=self.logger)
-
+                            new_locus = Superlocus(cdna,
+                                                   stranded=True,
+                                                   json_conf=self.json_conf,
+                                                   logger=self.logger)
                     new_loci.append(new_locus)
 
-            self.logger.debug("Defined {0} loci by splitting by strand at {1}.".format(len(new_loci), self.id))
+            self.logger.debug(
+                "Defined %d loci by splitting by strand at %s.",
+                len(new_loci), self.id)
             for new_locus in iter(sorted(new_loci)):
                 yield new_locus
         raise StopIteration
@@ -257,22 +313,20 @@ class Superlocus(Abstractlocus):
         :param pool: the connection pool
         :type pool: sqlalchemy.pool.QueuePool
 
-        This method will connect to the database using the information contained in the JSON configuration.
+        This method will connect to the database using the information
+        contained in the JSON configuration.
         """
 
-        db = self.json_dict["db"]
-        dbtype = self.json_dict["dbtype"]
+        database = self.json_conf["db"]
+        dbtype = self.json_conf["dbtype"]
 
         if pool is None:
             self.engine = create_engine("{dbtype}:///{db}".format(
-                db=db,
-                dbtype=dbtype),
-                poolclass=sqlalchemy.pool.StaticPool,
-            )  # create_engine("sqlite:///{0}".format(args.db))
+                db=database,
+                dbtype=dbtype), poolclass=sqlalchemy.pool.StaticPool)
         else:
             self.engine = create_engine("{dbtype}://".format(dbtype=dbtype),
-                                        pool=pool
-                                        )
+                                        pool=pool)
 
         self.sessionmaker = sessionmaker()
         self.sessionmaker.configure(bind=self.engine)
@@ -288,27 +342,29 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Retrieving data for {0}".format(tid))
         self.transcripts[tid].logger = self.logger
-        self.transcripts[tid].load_information_from_db(self.json_dict, introns=self.locus_verified_introns,
+        self.transcripts[tid].load_information_from_db(self.json_conf,
+                                                       introns=self.locus_verified_introns,
                                                        session=self.session,
-                                                       data_dict=data_dict
-                                                       )
+                                                       data_dict=data_dict)
         to_remove, to_add = False, set()
 
-        if self.json_dict["chimera_split"]["execute"] is True and self.transcripts[tid].number_internal_orfs > 1:
-            try:
-                new_tr = list(self.transcripts[tid].split_by_cds())
-            except Exception as err:
-                self.logger.exception(err)
-                raise
-            if len(new_tr) > 1:
-                to_add.update(new_tr)
-                to_remove = True
+        if self.json_conf["chimera_split"]["execute"] is True:
+            if self.transcripts[tid].number_internal_orfs > 1:
+                try:
+                    new_tr = list(self.transcripts[tid].split_by_cds())
+                except Exception as err:
+                    self.logger.exception(err)
+                    raise
+                if len(new_tr) > 1:
+                    to_add.update(new_tr)
+                    to_remove = True
         return to_remove, to_add
         # @profile
 
-    def load_all_transcript_data(self, pool=None, data_dict = None):
+    def load_all_transcript_data(self, pool=None, data_dict=None):
 
-        """This method will load data into the transcripts instances, and perform the split_by_cds if required
+        """This method will load data into the transcripts instances,
+        and perform the split_by_cds if required
         by the configuration.
         Asyncio coroutines are used to decrease runtime.
 
@@ -319,7 +375,7 @@ class Superlocus(Abstractlocus):
 
         self.locus_verified_introns = []
         if data_dict is None:
-            if "db" not in self.json_dict or self.json_dict["db"] is None:
+            if "db" not in self.json_conf or self.json_conf["db"] is None:
                 return  # No data to load
             self.connect_to_db(pool)
             dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
@@ -348,27 +404,31 @@ class Superlocus(Abstractlocus):
                     to_add.update(new_transcripts)
             except Exception as exc:
                 self.logger.exception(exc)
-                self.logger.warning("Removing {0} as data loading failed".format(tid))
+                self.logger.warning("Removing %s as data loading failed", tid)
                 to_remove.add(tid)
 
         if len(to_remove) > 0:
-            self.logger.debug("Adding to {0}: {1}".format(self.id,
-                                                          ",".join([tr.id for tr in to_add])
-                                                          ))
-            for tr in to_add:
-                self.add_transcript_to_locus(tr, check_in_locus=False)
-            self.logger.debug("Removing from {0}: {1}".format(self.id,
-                                                              ",".join(list(to_remove))
-                                                              ))
+            self.logger.debug("Adding to %s: %s",
+                              self.id,
+                              ",".join([tr.id for tr in to_add]))
+            for transcr in to_add:
+                self.add_transcript_to_locus(transcr, check_in_locus=False)
+            self.logger.debug("Removing from %s: %s",
+                              self.id,
+                              ",".join(list(to_remove)))
             for tid in to_remove:
                 self.remove_transcript_from_locus(tid)
 
         if data_dict is None:
             self.session.close()
             self.sessionmaker.close_all()
-        num_coding = sum(1 for x in self.transcripts if self.transcripts[x].selected_cds_length > 0)
+        num_coding = sum(1 for x in self.transcripts
+                         if self.transcripts[x].selected_cds_length > 0)
         self.logger.debug(
-            "Found {0} coding transcripts out of {1} in {2}".format(num_coding, len(self.transcripts), self.id))
+            "Found %d coding transcripts out of %d in %s",
+            num_coding,
+            len(self.transcripts),
+            self.id)
 
         self.session = None
         self.sessionmaker = None
@@ -381,7 +441,8 @@ class Superlocus(Abstractlocus):
         Steps:
             - Call the BronKerbosch algorithm to define cliques
             - Call the "merge_cliques" algorithm the merge the cliques.
-            - Create "sublocus" objects from the merged cliques and store them inside the instance store "subloci"       
+            - Create "sublocus" objects from the merged cliques
+            and store them inside the instance store "subloci"
         """
 
         self.compile_requirements()
@@ -391,15 +452,17 @@ class Superlocus(Abstractlocus):
         not_passing = set()
         self.excluded_transcripts = None
 
-        if "requirements" in self.json_dict:
+        if "requirements" in self.json_conf:
             for tid in self.transcripts:
                 evaluated = dict()
-                for key in self.json_dict["requirements"]["parameters"]:
-                    name = self.json_dict["requirements"]["parameters"][key]["name"]
+                for key in self.json_conf["requirements"]["parameters"]:
+                    name = self.json_conf["requirements"]["parameters"][key]["name"]
                     value = getattr(self.transcripts[tid], name)
-                    evaluated[key] = self.evaluate(value, self.json_dict["requirements"]["parameters"][key])
+                    evaluated[key] = self.evaluate(
+                        value,
+                        self.json_conf["requirements"]["parameters"][key])
 
-                if eval(self.json_dict["requirements"]["compiled"]) is False:
+                if eval(self.json_conf["requirements"]["compiled"]) is False:
                     not_passing.add(tid)
                     self.transcripts[tid].score = 0
 
@@ -407,12 +470,15 @@ class Superlocus(Abstractlocus):
             tid = not_passing.pop()
             self.transcripts[tid].score = 0
             monosub = Monosublocus(self.transcripts[tid], logger=self.logger)
-            self.excluded_transcripts = Excluded(monosub, json_dict=self.json_dict, logger=self.logger)
+            self.excluded_transcripts = Excluded(monosub,
+                                                 json_conf=self.json_conf,
+                                                 logger=self.logger)
             self.excluded_transcripts.__name__ = "Excluded"
             self.remove_transcript_from_locus(tid)
             for tid in not_passing:
                 self.transcripts[tid].score = 0
-                self.excluded_transcripts.add_transcript_to_locus(self.transcripts[tid])
+                self.excluded_transcripts.add_transcript_to_locus(
+                    self.transcripts[tid])
                 self.remove_transcript_from_locus(tid)
 
         if len(self.transcripts) == 0:
@@ -420,8 +486,10 @@ class Superlocus(Abstractlocus):
             self.subloci_defined = True
             return
 
-        transcript_graph = self.define_graph(self.transcripts, inters=self.is_intersecting,
-                                             cds_only=self.json_dict["run_options"]["subloci_from_cds_only"])
+        cds_only = self.json_conf["run_options"]["subloci_from_cds_only"]
+        transcript_graph = self.define_graph(self.transcripts,
+                                             inters=self.is_intersecting,
+                                             cds_only=cds_only)
         _, subloci = self.find_communities(transcript_graph)
 
         # Now we should define each sublocus and store it in a permanent structure of the class
@@ -430,7 +498,7 @@ class Superlocus(Abstractlocus):
                 continue
             subl = [self.transcripts[x] for x in subl]
             subl = sorted(subl)
-            new_sublocus = Sublocus(subl[0], json_dict=self.json_dict, logger=self.logger)
+            new_sublocus = Sublocus(subl[0], json_conf=self.json_conf, logger=self.logger)
             for ttt in subl[1:]:
                 try:
                     new_sublocus.add_transcript_to_locus(ttt)
@@ -439,8 +507,11 @@ class Superlocus(Abstractlocus):
                     Offending transcript:{1}
                     In locus manual check: {2}
                     Original exception: {3}""".format(
-                        "{0} {1}:{2}-{3} {4}".format(subl[0].id, subl[0].chrom, subl[0].start, subl[0].end, subl[0].exons),
-                        "{0} {1}:{2}-{3} {4}".format(ttt.id, ttt.chrom, ttt.start, ttt.end, ttt.exons),
+                        "{0} {1}:{2}-{3} {4}".format(
+                            subl[0].id, subl[0].chrom, subl[0].start,
+                            subl[0].end, subl[0].exons),
+                        "{0} {1}:{2}-{3} {4}".format(ttt.id, ttt.chrom,
+                                                     ttt.start, ttt.end, ttt.exons),
                         "Chrom {0} Strand {1} overlap {2}".format(
                             new_sublocus.chrom == ttt.chrom,
                             "{0}/{1}/{2}".format(
@@ -448,7 +519,8 @@ class Superlocus(Abstractlocus):
                                 ttt.strand,
                                 new_sublocus.strand == ttt.strand
                             ),
-                            self.overlap((subl[0].start, subl[1].end), (ttt.start, ttt.end))>0
+                            self.overlap((subl[0].start, subl[1].end),
+                                         (ttt.start, ttt.end)) > 0
                         ),
                         orig_exc
                     )
@@ -479,19 +551,21 @@ class Superlocus(Abstractlocus):
         self.monosubloci = []
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
-            self.excluded_transcripts = sublocus_instance.define_monosubloci(purge=self.purge,
-                                                                             excluded=self.excluded_transcripts)
+            self.excluded_transcripts = sublocus_instance.define_monosubloci(
+                purge=self.purge,
+                excluded=self.excluded_transcripts)
             for tid in sublocus_instance.transcripts:
                 # Update the score
                 self.transcripts[tid].score = sublocus_instance.transcripts[tid].score
-            for ml in sublocus_instance.monosubloci:
-                ml.parent = self.id
-                self.monosubloci.append(ml)
+            for monosubl in sublocus_instance.monosubloci:
+                monosubl.parent = self.id
+                self.monosubloci.append(monosubl)
         self.monosubloci = sorted(self.monosubloci)
         self.monosubloci_defined = True
 
     def print_subloci_metrics(self):
-        """Wrapper method to create a csv.DictWriter instance and call the sublocus.print_metrics method
+        """Wrapper method to create a csv.DictWriter instance and call
+        the sublocus.print_metrics method
         on it for each sublocus."""
 
         self.get_sublocus_metrics()
@@ -504,7 +578,8 @@ class Superlocus(Abstractlocus):
                 yield row
 
     def print_subloci_scores(self):
-        """Wrapper method to create a csv.DictWriter instance and call the sublocus.print_metrics method
+        """Wrapper method to create a csv.DictWriter instance and call the
+        sublocus.print_metrics method
         on it for each sublocus."""
 
         self.get_sublocus_metrics()
@@ -518,7 +593,8 @@ class Superlocus(Abstractlocus):
 
     def print_monoholder_metrics(self):
 
-        """Wrapper method to create a csv.DictWriter instance and call the MonosublocusHolder.print_metrics method
+        """Wrapper method to create a csv.DictWriter instance and call the
+        MonosublocusHolder.print_metrics method
         on it."""
 
         self.define_loci()
@@ -532,8 +608,8 @@ class Superlocus(Abstractlocus):
 
     def print_monoholder_scores(self):
 
-        """Wrapper method to create a csv.DictWriter instance and call the MonosublocusHolder.print_scores method
-        on it."""
+        """Wrapper method to create a csv.DictWriter instance and call
+        the MonosublocusHolder.print_scores method on it."""
 
         self.define_loci()
 
@@ -545,8 +621,9 @@ class Superlocus(Abstractlocus):
                 yield row
 
     def define_loci(self):
-        """This is the final method in the pipeline. It creates a container for all the monosubloci
-        (an instance of the class MonosublocusHolder) and retrieves the loci it calculates internally."""
+        """This is the final method in the pipeline. It creates a container
+        for all the monosubloci (an instance of the class MonosublocusHolder)
+        and retrieves the loci it calculates internally."""
 
         if self.loci_defined is True:
             return
@@ -566,8 +643,8 @@ class Superlocus(Abstractlocus):
                 monoholder.loci[locus_instance].parent = self.id
                 loci.append(monoholder.loci[locus_instance])
 
-        for l in sorted(loci):
-            self.loci[l.id] = l
+        for locus in sorted(loci):
+            self.loci[locus.id] = locus
 
         self.loci_defined = True
 
@@ -577,10 +654,10 @@ class Superlocus(Abstractlocus):
 
         """
          This method will consider all possible candidates for alternative splicing
-         for each of the final loci, after excluding transcripts which potentially map to more
-         than one Locus (in order to remove chimeras).
-         It will then call the add_transcript_to_locus method to try to add the transcript to the relevant
-         Locus container.
+         for each of the final loci, after excluding transcripts which potentially map
+         to more than one Locus (in order to remove chimeras).
+         It will then call the add_transcript_to_locus method to try to add
+         the transcript to the relevant Locus container.
         """
 
         # First off, define genes
@@ -589,26 +666,31 @@ class Superlocus(Abstractlocus):
 
         candidates = collections.defaultdict(set)
 
-        t_graph = self.define_graph(self.transcripts, inters=MonosublocusHolder.is_intersecting,
-                                    cds_only=self.json_dict["run_options"]["subloci_from_cds_only"])
+        cds_only = self.json_conf["run_options"]["subloci_from_cds_only"]
+        t_graph = self.define_graph(self.transcripts,
+                                    inters=MonosublocusHolder.is_intersecting,
+                                    cds_only=cds_only)
         cliques, _ = self.find_communities(t_graph)
 
         loci_cliques = dict()
         for lid, locus_instance in self.loci.items():
             self.loci[lid].logger = self.logger
-            self.loci[lid].set_json_conf(self.json_dict)
+            self.loci[lid].set_json_conf(self.json_conf)
             loci_cliques[lid] = set()
             for clique in cliques:
                 if locus_instance.primary_transcript_id in clique:
                     loci_cliques[locus_instance.id].update(clique)
 
         for tid in self.transcripts:
-            loci_in = list(filter(lambda llid: tid in loci_cliques[llid], loci_cliques))
+            loci_in = list(filter(lambda llid: tid in loci_cliques[llid],
+                                  loci_cliques))
             if len(loci_in) == 1:
                 candidates[loci_in[0]].add(tid)
 
         for lid in candidates:
-            for tid in sorted(candidates[lid], key=lambda ttid: self.transcripts[ttid].score, reverse=True):
+            for tid in sorted(candidates[lid],
+                              key=lambda ttid: self.transcripts[ttid].score,
+                              reverse=True):
                 self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
 
     def calculate_mono_metrics(self):
@@ -623,7 +705,10 @@ class Superlocus(Abstractlocus):
                     found_holder = True
                     break
             if found_holder is False:
-                holder = MonosublocusHolder(monosublocus_instance, json_dict=self.json_dict, logger=self.logger)
+                holder = MonosublocusHolder(
+                    monosublocus_instance,
+                    json_conf=self.json_conf,
+                    logger=self.logger)
                 self.monoholders.append(holder)
 
         for monoholder in self.monoholders:
@@ -632,12 +717,13 @@ class Superlocus(Abstractlocus):
     def compile_requirements(self):
         """Quick function to evaluate the filtering expression, if it is present."""
 
-        if "requirements" in self.json_dict:
-            if "compiled" in self.json_dict["requirements"]:
+        if "requirements" in self.json_conf:
+            if "compiled" in self.json_conf["requirements"]:
                 return
             else:
-                self.json_dict["requirements"]["compiled"] = compile(self.json_dict["requirements"]["expression"],
-                                                                     "<json>", "eval")
+                self.json_conf["requirements"]["compiled"] = compile(
+                    self.json_conf["requirements"]["expression"],
+                    "<json>", "eval")
                 return
         else:
             return
@@ -648,21 +734,25 @@ class Superlocus(Abstractlocus):
     def is_intersecting(cls, transcript, other, cds_only=False):
         """
         :rtype : bool
-        :param transcript: a transcript for which we wish to verify whether it is intersecting with another
-        transcript or not.
+        :param transcript: a transcript for which we wish to verify
+        whether it is intersecting with another transcript or not.
         :type transcript: mikado_lib.loci_objects.transcript.Transcript
         :param other: the transcript which will be used for the comparison.
         :type other: mikado_lib.loci_objects.transcript.Transcript
 
-        :param cds_only: boolean flag. If enabled, only CDS exons/intron will be considered when deciding whether two
-        transcripts are part of the same Locus or not.
+        :param cds_only: boolean flag. If enabled, only CDS exons/intron
+        will be considered when deciding whether two transcripts are part
+        of the same Locus or not.
         :type cds_only: bool
 
 
-        When comparing two transcripts, for the definition of subloci inside superloci we follow these rules:
-        If both are multiexonic, the function verifies whether there is at least one intron in common.
+        When comparing two transcripts, for the definition of subloci inside
+        superloci we follow these rules:
+
+        If both are multiexonic, the function verifies whether there is at
+        least one intron in common.
         If both are monoexonic, the function verifies whether there is some overlap between them.
-        If one is monoexonic and the other is not,  the function will return False by definition.        
+        If one is monoexonic and the other is not, the function will return False by definition.
         """
 
         transcript.finalize()
@@ -677,25 +767,23 @@ class Superlocus(Abstractlocus):
                 intersection = set.intersection(transcript.combined_cds_introns,
                                                 other.combined_cds_introns)
             if len(intersection) > 0:
-                return True
+                intersecting = True
             else:
-                return False
+                intersecting = False
 
         elif transcript.monoexonic is True and other.monoexonic is True:
-            if transcript.start == other.start:
-                return True
-            if transcript.end == other.end:
-                return True
-            test_result = cls.overlap(
-                (transcript.start, transcript.end),
-                (other.start, other.end)
-            )
-            if test_result > 0:  # A simple overlap analysis will suffice
-                return True
+            if transcript.start == other.start or transcript.end == other.end:
+                intersecting = True
             else:
-                return False
+                test_result = cls.overlap(
+                    (transcript.start, transcript.end),
+                    (other.start, other.end)
+                )
+                intersecting = test_result > 0
         else:
-            return False
+            intersecting = False
+
+        return intersecting
 
     # ############## Properties ############
     @property

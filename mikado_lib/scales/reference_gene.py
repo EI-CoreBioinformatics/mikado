@@ -6,28 +6,33 @@ Minimal checks.
 """
 
 import logging
-from mikado_lib.loci_objects import transcript
+from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.exceptions import InvalidTranscript, InvalidCDS
 
 
 class Gene:
-    
+
     """
     :param tr: a transcript used to initialize the container.
     :param gid:Id of the gene.
     :param logger: an optional Logger from the logging module.
     """
 
-    def __init__(self, tr: transcript, gid=None, logger=None):
+    def __init__(self, transcr: Transcript, gid=None, logger=None):
 
-        self.chrom, self.start, self.end, self.strand = tr.chrom, tr.start, tr.end, tr.strand
+        self.chrom, self.start, self.end, self.strand = transcr.chrom,\
+                                                        transcr.start,\
+                                                        transcr.end,\
+                                                        transcr.strand
         self.id = gid
         self.transcripts = dict()
-        self.transcripts[tr.id] = tr
-        self.logger = logging.NullHandler()
+        self.transcripts[transcr.id] = transcr
+        self.logger = logging.getLogger("null_logger").addHandler(
+            logging.NullHandler()
+        )
         self.set_logger(logger)
         self.exception_message = ''
-    
+
     def set_logger(self, logger):
         """
         :param logger: a Logger instance.
@@ -35,28 +40,29 @@ class Gene:
 
         """
         if logger is None:
-            self.logger = logging.getLogger("null_logger")
-            handler = logging.NullHandler
-            self.logger.addHandler(handler)
+            logger = logging.getLogger("null_logger")
+            handler = logging.NullHandler()
+            logger.addHandler(handler)
+            self.logger = logger
         else:
             self.logger = logger
         for tid in self.transcripts:
             self.transcripts[tid].logger = logger
 
-    def add(self, tr: transcript):
+    def add(self, transcr: Transcript):
         """
         :param tr:
 
         This method adds a transcript to the Locus.
         """
-        self.start = min(self.start, tr.start)
-        self.end = max(self.end, tr.end)
-        self.transcripts[tr.id] = tr
-        assert self.strand == tr.strand
-        
-    def __getitem__(self, tid: str) -> transcript:
+        self.start = min(self.start, transcr.start)
+        self.end = max(self.end, transcr.end)
+        self.transcripts[transcr.id] = transcr
+        assert self.strand == transcr.strand
+
+    def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]
-    
+
     def finalize(self, exclude_utr=False):
         """
         This method will finalize the container by checking the consistency of all the
@@ -82,7 +88,7 @@ class Gene:
                 raise
         for k in to_remove:
             del self.transcripts[k]
-    
+
     def remove(self, tid: str):
         """
 
@@ -100,20 +106,20 @@ class Gene:
             self.chrom = None
         self.start = min(self.transcripts[tid].start for tid in self.transcripts)
         self.end = max(self.transcripts[tid].end for tid in self.transcripts)
-    
+
     def __str__(self):
         return " ".join(self.transcripts.keys())
-    
-    def __iter__(self) -> transcript:
+
+    def __iter__(self) -> Transcript:
         """Iterate over the transcripts attached to the gene."""
         return iter(self.transcripts.values())
-    
+
     def __len__(self) -> int:
         return len(self.transcripts)
-    
+
     def __getstate__(self):
         self.logger = logging.NullHandler()
-        
+
     def __setstate__(self, state):
         self.__dict__.update(state)
         self.set_logger(None)

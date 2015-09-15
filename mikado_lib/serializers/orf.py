@@ -42,11 +42,11 @@ class Orf(dbBase):
     :param strand: Strand of the ORF. One of "+","-"
     :type strand: str
 
-    :param thickStart: ORF start position on the transcript.
-    :type thickStart: int
+    :param thick_start: ORF start position on the transcript.
+    :type thick_start: int
 
-    :param thickEnd: ORF end position on the transcript.
-    :type thickEnd: int
+    :param thick_end: ORF end position on the transcript.
+    :type thick_end: int
 
     :param score: Score assigned to this ORF
     :type score: float
@@ -73,14 +73,14 @@ class Orf(dbBase):
     end = Column(Integer, nullable=False)
     orf_name = Column(String(200))
     strand = Column(CHAR)
-    thickStart = Column(Integer, nullable=False)
-    thickEnd = Column(Integer, nullable=False)
+    thick_start = Column(Integer, nullable=False)
+    thick_end = Column(Integer, nullable=False)
     score = Column(Float)
     has_start_codon = Column(Boolean, nullable=True)
     has_stop_codon = Column(Boolean, nullable=True)
     cds_len = Column(Integer)
 
-    __table_args__ = (Index("orf_index", "query_id", "thickStart", "thickEnd"), Index("query_index", "query_id"))
+    __table_args__ = (Index("orf_index", "query_id", "thick_start", "thick_end"), Index("query_index", "query_id"))
 
     query_object = relationship(Query, uselist=False, backref=backref("orfs"), lazy="immediate")
 
@@ -90,8 +90,8 @@ class Orf(dbBase):
         self.query_id = query_id
         self.start = bed12_object.start
         self.end = bed12_object.end
-        self.thickStart = bed12_object.thickStart
-        self.thickEnd = bed12_object.thickEnd
+        self.thick_start = bed12_object.thick_start
+        self.thick_end = bed12_object.thick_end
         self.orf_name = bed12_object.name
         self.strand = bed12_object.strand
         self.score = bed12_object.score
@@ -119,12 +119,12 @@ class Orf(dbBase):
         b.name = state.orf_name
         b.score = state.score
         b.strand = state.strand
-        b.thickStart = state.thickStart
-        b.thickEnd = state.thickEnd
+        b.thick_start = state.thick_start
+        b.thick_end = state.thick_end
         b.rgb = 0
-        b.blockCount = 1
-        b.blockSizes = [state.end]
-        b.blockStarts = [0]
+        b.block_count = 1
+        b.block_sizes = [state.end]
+        b.block_starts = [0]
 
         # Verbose block, but it is necessary as raw extraction from SQL
         # yields 0/1 instead of True/False

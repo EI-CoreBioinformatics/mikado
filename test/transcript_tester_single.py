@@ -43,15 +43,15 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.orf.name = self.tr.id
         self.orf.strand = "+"
         self.orf.score = 0
-        self.orf.thickStart = self.tr.selected_start_distance_from_tss + 1
-        self.orf.thickEnd = self.tr.cdna_length - self.tr.selected_end_distance_from_tes
-        self.orf.blockCount = 1
+        self.orf.thick_start = self.tr.selected_start_distance_from_tss + 1
+        self.orf.thick_end = self.tr.cdna_length - self.tr.selected_end_distance_from_tes
+        self.orf.block_count = 1
         self.orf.blockSize = self.tr.cdna_length
-        self.orf.blockStarts = 0
+        self.orf.block_starts = 0
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
         self.orf.transcriptomic = True
-        self.assertFalse(self.orf.invalid)
+        self.assertFalse(self.orf.invalid, self.orf.invalid_reason)
 
     def test_basics(self):
 
@@ -182,12 +182,12 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         first_orf.name = self.tr.id
         first_orf.strand = "+"
         first_orf.score = 0
-        first_orf.thickStart = 51
-        first_orf.thickEnd = 398
-        first_orf.blockCount = 1
+        first_orf.thick_start = 51
+        first_orf.thick_end = 398
+        first_orf.block_count = 1
         first_orf.blockSize = self.tr.cdna_length
-        first_orf.blockSizes = [self.tr.cdna_length]
-        first_orf.blockStarts = [0]
+        first_orf.block_sizes = [self.tr.cdna_length]
+        first_orf.block_starts = [0]
         first_orf.rgb = 0
         first_orf.has_start_codon = True
         first_orf.has_stop_codon = True
@@ -201,12 +201,12 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         second_orf.name = "second"
         second_orf.strand = "+"
         second_orf.score = 0
-        second_orf.thickStart = 201
-        second_orf.thickEnd = 410
-        second_orf.blockCount = 1
+        second_orf.thick_start = 201
+        second_orf.thick_end = 410
+        second_orf.block_count = 1
         second_orf.blockSize = self.tr.cdna_length
-        second_orf.blockSizes = [self.tr.cdna_length]
-        second_orf.blockStarts = [0]
+        second_orf.block_sizes = [self.tr.cdna_length]
+        second_orf.block_starts = [0]
         second_orf.rgb = 0
         second_orf.has_start_codon = True
         second_orf.has_stop_codon = True
@@ -223,12 +223,12 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         third_orf.name = "third"
         third_orf.strand = "+"
         third_orf.score = 0
-        third_orf.thickStart = 501
-        third_orf.thickEnd = 800
-        third_orf.blockCount = 1
+        third_orf.thick_start = 501
+        third_orf.thick_end = 800
+        third_orf.block_count = 1
         third_orf.blockSize = self.tr.cdna_length
-        third_orf.blockSizes = [self.tr.cdna_length]
-        third_orf.blockStarts = [0]
+        third_orf.block_sizes = [self.tr.cdna_length]
+        third_orf.block_starts = [0]
         third_orf.rgb = 0
         third_orf.has_start_codon = True
         third_orf.has_stop_codon = True
@@ -287,12 +287,12 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         first_orf.name = self.tr.id
         first_orf.strand = "-"
         first_orf.score = 0
-        first_orf.thickStart = 51
-        first_orf.thickEnd = 398
-        first_orf.blockCount = 1
+        first_orf.thick_start = 51
+        first_orf.thick_end = 398
+        first_orf.block_count = 1
         first_orf.blockSize = self.tr.cdna_length
-        first_orf.blockSizes = [self.tr.cdna_length]
-        first_orf.blockStarts = [0]
+        first_orf.block_sizes = [self.tr.cdna_length]
+        first_orf.block_starts = [0]
         first_orf.rgb = 0
         first_orf.has_start_codon = True
         first_orf.has_stop_codon = True
@@ -306,12 +306,12 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         second_orf.name = "second"
         second_orf.strand = "-"
         second_orf.score = 0
-        second_orf.thickStart = 201
-        second_orf.thickEnd = 410
-        second_orf.blockCount = 1
+        second_orf.thick_start = 201
+        second_orf.thick_end = 410
+        second_orf.block_count = 1
         second_orf.blockSize = self.tr.cdna_length
-        second_orf.blockSizes = [self.tr.cdna_length]
-        second_orf.blockStarts = [0]
+        second_orf.block_sizes = [self.tr.cdna_length]
+        second_orf.block_starts = [0]
         second_orf.rgb = 0
         second_orf.has_start_codon = True
         second_orf.has_stop_codon = True
@@ -328,20 +328,24 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         third_orf.name = "third"
         third_orf.strand = "-"
         third_orf.score = 0
-        third_orf.thickStart = 501
-        third_orf.thickEnd = 800
-        third_orf.blockCount = 1
+        third_orf.thick_start = 501
+        third_orf.thick_end = 800
+        third_orf.block_count = 1
         third_orf.blockSize = self.tr.cdna_length
-        third_orf.blockSizes = [self.tr.cdna_length]
-        third_orf.blockStarts = [0]
+        third_orf.block_sizes = [self.tr.cdna_length]
+        third_orf.block_starts = [0]
         third_orf.rgb = 0
         third_orf.has_start_codon = True
         third_orf.has_stop_codon = True
         third_orf.transcriptomic = True
         self.assertFalse(third_orf.invalid)
 
-        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, third_orf))
-        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(second_orf, third_orf))
+        self.assertFalse(
+            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
+                first_orf, third_orf))
+        self.assertFalse(
+            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
+                second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
         self.assertFalse(first_orf == second_orf)

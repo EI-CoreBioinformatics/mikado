@@ -16,11 +16,13 @@ class TranscriptChecker(Transcript):
     the information of the transcript instance with the information contained in a
     genomic FASTA file, to verify some of the information.
     At the moment, the class implements only a check on the strandedness made by extracting
-    the FASTA sequence of the splice sites and verifying that they are concordant with the annotated strand.
+    the FASTA sequence of the splice sites and verifying that they are concordant
+    with the annotated strand.
     Keyword arguments:
         - strand_specific: if set, monoexonic transcripts are not set to "unknown" strand.
-        - lenient: boolean. If set to True, a transcript with mixed splices will not throw an exception
-        but rather will just report the number of splices supporting each strand.
+        - lenient: boolean. If set to True, a transcript with mixed splices will
+        not throw an exception but rather will just report the number
+        of splices supporting each strand.
     """
 
     __translation_table = str.maketrans("ACGT", "TGCA")
@@ -38,7 +40,8 @@ class TranscriptChecker(Transcript):
         :param strand_specific: flag. If set, transcripts will not have their strand changed.
         :type strand_specific: bool
 
-        :param lenient: boolean flag. If set, incorrect transcripts will be flagged rather than be discarded.
+        :param lenient: boolean flag. If set, incorrect transcripts will be
+        flagged rather than discarded.
         :type lenient: bool
         """
         self.__strand_specific = False
@@ -64,7 +67,12 @@ class TranscriptChecker(Transcript):
         """
         return self.__translation_table
 
-    def rev_complement(self,string):
+    def rev_complement(self, string):
+
+        """
+        Quick method to perform the reverse complement of a given string,
+        using the class translation table.
+        """
 
         return "".join(x for x in reversed(
             string.translate(self.translation_table)
@@ -86,7 +94,7 @@ class TranscriptChecker(Transcript):
         :type value: bool
 
         """
-        if type(value) is not bool:
+        if not isinstance(value, bool):
             raise TypeError("Invalid value for boolean property: {0}".format(value))
         self.__strand_specific = value
 
@@ -100,10 +108,10 @@ class TranscriptChecker(Transcript):
 
     def check_strand(self):
         """
-        This method will check that the transcript instance has all the splice sites on one strand,
-        or at most with non-canonical (therefore unknowable) splice junctions.
-        If the transcript is monoexonic and strand_specific is set to False, the strand of the transcript
-        will be set to None.
+        This method will check that the transcript instance has all the splice sites
+        on one strand,or at most with non-canonical (therefore unknowable) splice junctions.
+        If the transcript is monoexonic and strand_specific is set to False,
+        the strand of the transcript will be set to None.
 
         The finalize method is called preliminarly before any operation.
         """
@@ -127,21 +135,19 @@ class TranscriptChecker(Transcript):
                 canonical_counter[strand] = 0
 
             for intron in self.introns:
-                splice_donor = self.fasta_seq[intron[0]-self.start - 1:intron[0]-self.start + 1]
-                splice_acceptor = self.fasta_seq[intron[1] - 2 -self.start:intron[1] -self.start ]
+                splice_donor = self.fasta_seq[intron[0] - self.start - 1:intron[0]-self.start + 1]
+                splice_acceptor = self.fasta_seq[intron[1] - 2 -self.start:intron[1] - self.start]
 
                 # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
                 # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
                 if self.strand == "-":
                     splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
-                                                     self.rev_complement(splice_donor)
-                                                     )
+                                                     self.rev_complement(splice_donor))
                 if (splice_donor, splice_acceptor) in canonical_splices:
                     canonical_counter["+"] += 1
                 else:
                     splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
-                                                     self.rev_complement(splice_donor)
-                                                     )
+                                                     self.rev_complement(splice_donor))
                     if (splice_donor, splice_acceptor) in canonical_splices:
                         canonical_counter["-"] += 1
                     else:
@@ -153,23 +159,24 @@ class TranscriptChecker(Transcript):
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
                 if self.lenient is False:
-                    raise IncorrectStrandError(
-                        "Transcript {0} has {1} positive and {2} negative splice junctions. Aborting.".format(
-                            self.id,
-                            canonical_counter["+"],
-                            canonical_counter["-"]
-                        )
-                    )
+                    err_messg = """Transcript {0} has {1} positive and {2} negative
+                    splice junctions. Aborting.""".format(
+                        self.id,
+                        canonical_counter["+"],
+                        canonical_counter["-"])
+                    raise IncorrectStrandError(err_messg)
                 else:
                     self.mixed_splices = True
 
                 if canonical_counter["+"] >= canonical_counter["-"]:
-                    self.mixed_attribute = "{0}concordant,{1}discordant".format(canonical_counter["+"],
-                                                                                canonical_counter["-"])
+                    self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                        canonical_counter["+"],
+                        canonical_counter["-"])
                 else:
                     self.reverse_strand()
-                    self.mixed_attribute = "{0}concordant,{1}discordant".format(canonical_counter["-"],
-                                                                                canonical_counter["+"])
+                    self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                        canonical_counter["-"],
+                        canonical_counter["+"])
 
             elif canonical_counter["-"] > 0:
                 self.reverse_strand()

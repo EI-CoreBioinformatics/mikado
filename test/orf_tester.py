@@ -191,15 +191,15 @@ CAGA"""
         b1 = bed12.BED12(self.bed1, transcriptomic=True)
         self.assertEqual(b1.start, 1)
         self.assertEqual(len(b1), 784)
-        self.assertEqual(b1.thickStart, 30)
-        self.assertEqual(b1.thickEnd, 386)
+        self.assertEqual(b1.thick_start, 30)
+        self.assertEqual(b1.thick_end, 386)
 
     def test_b2(self):
         b2 = bed12.BED12(self.bed2, transcriptomic=True)
         self.assertEqual(b2.start, 1)
         self.assertEqual(len(b2), 809)
-        self.assertEqual(b2.thickStart, 2)
-        self.assertEqual(b2.thickEnd, 766)
+        self.assertEqual(b2.thick_start, 2)
+        self.assertEqual(b2.thick_end, 766)
 
     def test_b3(self):
         b3 = bed12.BED12(self.bed3, transcriptomic=True)
@@ -220,12 +220,12 @@ CAGA"""
 
         self.assertEqual(b1.start, 1)
         self.assertEqual(len(b1), 784)
-        self.assertEqual("ATG", str(self.index[b1.chrom][b1.thickStart - 1:b1.thickStart + 2].seq),
-                         str(self.index[b1.chrom][b1.thickStart - 1:b1.thickStart + 2].seq))
+        self.assertEqual("ATG", str(self.index[b1.chrom][b1.thick_start - 1:b1.thick_start + 2].seq),
+                         str(self.index[b1.chrom][b1.thick_start - 1:b1.thick_start + 2].seq))
 
         self.assertEqual("ATG", b1.start_codon, b1.start_codon)
-        self.assertEqual(b1.thickStart, 30)
-        self.assertEqual(b1.thickEnd, 386)
+        self.assertEqual(b1.thick_start, 30)
+        self.assertEqual(b1.thick_end, 386)
 
         self.assertTrue(b1.has_stop_codon)
 
@@ -239,15 +239,15 @@ CAGA"""
     def test_b3_seq(self):
         b3 = bed12.BED12(self.bed3, transcriptomic=True, fasta_index=self.index)
         self.assertFalse(b3.invalid, (len(b3), len(self.index[b3.id]),
-                                      (b3.thickEnd, b3.thickStart), (b3.thickEnd - b3.thickStart + 1) % 3))
+                                      (b3.thick_end, b3.thick_start), (b3.thick_end - b3.thick_start + 1) % 3))
 
     def test_b4_seq(self):
         b4 = bed12.BED12(self.bed4, transcriptomic=True, fasta_index=self.index)
         self.assertFalse(b4.invalid, (len(b4), len(self.index[b4.id])))
         self.assertTrue(b4.has_start_codon)
         self.assertTrue(b4.has_stop_codon)
-        self.assertTrue(b4.thickStart, 641)
-        self.assertTrue(b4.thickEnd, 1112)
+        self.assertTrue(b4.thick_start, 641)
+        self.assertTrue(b4.thick_end, 1112)
         self.assertTrue(b4.cds_len, 1112 - 641)
 
 unittest.main()

@@ -67,9 +67,10 @@ class GffLine(object):
         self.parent = []
         self.__score = None
         self.__strand = None
+        self.__phase = None
         self._line = "NA"
 
-        self.attributeOrder = []
+        self.attribute_order = []
         if line is None:  # Empty constructor
             return
         if line == '' and my_line == '':
@@ -88,33 +89,27 @@ class GffLine(object):
             self.header = True
             return
 
-        if len(self._fields) != 9:
-            self.header = True
-            return
         self.chrom, self.source, self.feature = self._fields[0:3]
         self.start, self.end = tuple(int(i) for i in self._fields[3:5])
 
-        if self._fields[5] == '.':
-            self.score = None
-        else:
-            self.score = float(self._fields[5])
-
+        self.score = self._fields[5]
         self.strand = self._fields[6]
+        self.phase = self._fields[7]
 
-        if self._fields[7] == '.':
-            self.phase = None
-        else:
-            try:
-                self.phase = int(self._fields[7])
-                assert self.phase in (0, 1, 2)
-            except:
-                raise
+        self._attr = self._fields[8]
+        self.__parse_attributes()
+        _ = self.name  # Set the name
 
-        self._Attr = self._fields[8]
+    def __parse_attributes(self):
 
-        self.attributeOrder = []
+        """
+        Private method that parses the last field of the GFF line.
+        :return:
+        """
 
-        for item in [x for x in self._Attr.rstrip().split(';') if x != '']:
+        self.attribute_order = []
+
+        for item in [x for x in self._attr.rstrip().split(';') if x != '']:
             itemized = item.split('=')
             try:
                 if itemized[0].lower() == "parent":
@@ -124,15 +119,17 @@ class GffLine(object):
                     self.id = itemized[1]
                 else:
                     self.attributes[itemized[0]] = itemized[1]
-                    self.attributeOrder.append(itemized[0])
+                    self.attribute_order.append(itemized[0])
             except IndexError:
                 pass
 
-        _ = self.name  # Set the name
-
-    def __str__(self):
-        if not self.feature:
-            return self._line.rstrip()
+    def __format_middle(self):
+        """
+        Private method to format the middle fields (score, strand, phase)
+        for printing.
+        :return: score, strand, phase
+        :rtype: str, str, str
+        """
 
         if self.score is not None:
             score = str(int(round(self.score, 0)))
@@ -146,15 +143,25 @@ class GffLine(object):
             phase = str(self.phase)
         else:
             phase = "."
+        return score, strand, phase
+
+    def __str__(self):
+        if not self.feature:
+            return self._line.rstrip()
+        score, strand, phase = self.__format_middle()
         attrs = []
         if self.id is not None:
             attrs.append("ID={0}".format(self.id))
         if len(self.parent) > 0:
-            assert type(self.parent) is list, "{0}\n{1}\n{2}".format(self.parent, self.attributes, self._line)
             attrs.append("Parent={0}".format(",".join(self.parent)))
-        if not self.attributeOrder:
-            self.attributeOrder = sorted(list(filter(lambda x: x not in ["ID", "Parent"], self.attributes.keys())))
-        for att in filter(lambda x: x not in ["ID", "Parent"], self.attributeOrder):
+        if not self.attribute_order:
+            self.attribute_order = sorted(
+                list(
+                    filter(lambda x: x not in ["ID", "Parent"], self.attributes.keys())
+                ))
+        for att in filter(lambda x: x not in ["ID", "Parent"], self.attribute_order):
+            if att in ("gene_id", "transcript_id"):
+                continue  # These are carryovers from GTF files
             if self.attributes[att] is not None:
                 try:
                     attrs.append("{0}={1}".format(att, self.attributes[att]))
@@ -196,8 +203,9 @@ class GffLine(object):
 
     @property
     def parent(self):
-        """This property looks up the "Parent" field in the "attributes" dictionary. Contrary to other attributes,
-        this property returns a *list*, not a string. This is due to the fact that GFF files support
+        """This property looks up the "Parent" field in the "attributes" dictionary.
+        Contrary to other attributes, this property returns a *list*, not a string.
+        This is due to the fact that GFF files support
         multiple inheritance by separating the parent entries with a comma.
 
         :rtype list
@@ -217,7 +225,7 @@ class GffLine(object):
         :type parent: list
         """
 
-        if type(parent) is str:
+        if isinstance(parent, str):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
         # if parent is None:
@@ -300,14 +308,42 @@ class GffLine(object):
         :type args: float
         """
 
-        if type(args[0]) in (float, int):
+        if isinstance(args[0], (float, int)):
             self.__score = args[0]
         elif args[0] is None or args[0] == '.':
             self.__score = None
-        elif type(args[0]) is str:
+        elif isinstance(args[0], str):
             self.__score = float(args[0])
         else:
             raise TypeError(args[0])
+
+    @property
+    def phase(self):
+        """
+        Property. Stores the phase of the feature.
+        Valid values: None, 0, 1 ,2
+        :return:
+        """
+
+        return self.__phase
+
+    @phase.setter
+    def phase(self, value):
+        """
+        Setter for the phase attribute.
+        :param value:
+        :return:
+        """
+
+        if value in (None, '.', '?'):
+            self.__phase = None
+        elif isinstance(value, (str, int, float)):
+            value = int(value)
+            if value not in range(3):
+                raise ValueError("Invalid value for phase: {0}".format(value))
+            self.__phase = value
+        else:
+            raise ValueError("Invalid phase: {0}".format(value))
 
     @property
     def is_exon(self):
@@ -318,8 +354,8 @@ class GffLine(object):
 
         if self.feature is None:
             return False
-        f = self.feature.lower()
-        if f.endswith("cds") or f.endswith("exon") or "utr" in f or "codon" in f:
+        _ = self.feature.lower()
+        if _.endswith("cds") or _.endswith("exon") or "utr" in _ or "codon" in _:
             return True
         return False
 
@@ -362,7 +398,8 @@ class GffLine(object):
     def gene(self):
         """
         Property. If the feature is a transcript,
-        returns the parent; else, it returns None (as only transcript lines have the gene among the attributes)
+        returns the parent; else, it returns None
+        (as only transcript lines have the gene among the attributes)
         :rtype str
         """
 
@@ -398,6 +435,11 @@ class GffLine(object):
 
     @property
     def derived_from(self):
+        """
+        Property, Set to True if the key "Derives_from" is present among the
+        instance attributes.
+        """
+
         if self.is_derived is False:
             return None
         else:

@@ -16,7 +16,8 @@ from sys import maxsize
 class Abstractlocus(metaclass=abc.ABCMeta):
     """This abstract class defines the basic features of any Locus-like object.
     It also defines methods/properties that are needed throughout the program,
-    e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method."""
+    e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method.
+    """
 
     __name__ = "Abstractlocus"
 
@@ -43,24 +44,32 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.source = None
         self.cds_introns = set()
         self.json_conf = dict()
+        self.session = None
 
     @abc.abstractmethod
-    def __str__(self):
+    def __str__(self, *args, **kwargs):
         raise NotImplementedError("This is an abstract class and it cannot be printed directly!")
 
     def __repr__(self):
+
+        if len(self.transcripts) > 0:
+            transcript_list = ",".join(list(self.transcripts.keys()))
+        else:
+            transcript_list = "NA"
 
         return "\t".join([self.__name__,
                           self.chrom,
                           str(self.start),
                           str(self.end),
                           self.strand,
-                          ",".join(list(self.transcripts.keys())) if len(self.transcripts) > 0 else "NA"])
+                          transcript_list])
 
     def __eq__(self, other):
-        if type(self) != type(other):
+        if not isinstance(self, type(other)):
             return False
-        for feature in ["chrom", "strand", "start", "end", "exons", "introns", "splices", "stranded"]:
+        for feature in ["chrom", "strand", "start",
+                        "end", "exons", "introns",
+                        "splices", "stranded"]:
             if getattr(self, feature) != getattr(other, feature):
                 return False
         return True
@@ -101,9 +110,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         state = self.__dict__.copy()
         self.logger = logger
 
-        if hasattr(self, "json_dict"):
-            if "requirements" in self.json_dict and "compiled" in self.json_dict["requirements"]:
-                del state["json_dict"]["requirements"]["compiled"]
+        if hasattr(self, "json_conf"):
+            if "requirements" in self.json_conf and "compiled" in self.json_conf["requirements"]:
+                del state["json_conf"]["requirements"]["compiled"]
 
         if hasattr(self, "session"):
             if self.session is not None:
@@ -120,16 +129,18 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def __setstate__(self, state):
         """Method to recreate the object after serialisation."""
         self.__dict__.update(state)
-        if hasattr(self, "json_dict"):
-            if "requirements" in self.json_dict and "expression" in self.json_dict["requirements"]:
-                self.json_dict["requirements"]["compiled"] = compile(self.json_dict["requirements"]["expression"],
-                                                                     "<json>", "eval")
+        if hasattr(self, "json_conf"):
+            if "requirements" in self.json_conf and "expression" in self.json_conf["requirements"]:
+                self.json_conf["requirements"]["compiled"] = compile(
+                    self.json_conf["requirements"]["expression"],
+                    "<json>", "eval")
         # Set the logger to NullHandler
         self.logger = self.create_default_logger()
 
     # #### Static methods #######
     @staticmethod
-    def overlap(a: tuple([int, int]), b: tuple([int, int]), flank=0) -> int:
+    def overlap(first_interval: tuple([int, int]),
+                second_interval: tuple([int, int]), flank=0) -> int:
         """
 
         :param a: a tuple of integers
@@ -141,16 +152,21 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int
 
-        This static method returns the overlap between two intervals. Values<=0 indicate no overlap.
-        The optional "flank" argument (default 0) allows to expand a superlocus upstream and downstream.
-        As a static method, it can be used also outside of any instance - "superlocus.overlap()" will function.
+        This static method returns the overlap between two intervals.
+
+        Values<=0 indicate no overlap.
+
+        The optional "flank" argument (default 0) allows to expand a locus
+        upstream and downstream.
+        As a static method, it can be used also outside of any instance -
+        "abstractlocus.overlap()" will function.
         Input: two 2-tuples of integers.
         """
-        a = sorted(a)
-        b = sorted(b)
+        first_interval = sorted(first_interval)
+        second_interval = sorted(second_interval)
 
-        left_boundary = max(a[0] - flank, b[0] - flank)
-        right_boundary = min(a[1] + flank, b[1] + flank)
+        left_boundary = max(first_interval[0] - flank, second_interval[0] - flank)
+        right_boundary = min(first_interval[1] + flank, second_interval[1] + flank)
 
         return right_boundary - left_boundary
 
@@ -164,25 +180,29 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param conf: a dictionary containing the expressions to evaluate
         :type conf: dict
 
-        This static method evaluates a single parameter using the requested operation from the JSON dict file.
+        This static method evaluates a single parameter using the requested
+        operation from the JSON dict file.
         """
 
         if conf["operator"] == "eq":
-            return float(param) == float(conf["value"])
+            comparison = (float(param) == float(conf["value"]))
         elif conf["operator"] == "ne":
-            return float(param) != float(conf["value"])
+            comparison = (float(param) != float(conf["value"]))
         elif conf["operator"] == "gt":
-            return float(param) > float(conf["value"])
+            comparison = (float(param) > float(conf["value"]))
         elif conf["operator"] == "lt":
-            return float(param) < float(conf["value"])
+            comparison = (float(param) < float(conf["value"]))
         elif conf["operator"] == "ge":
-            return float(param) >= float(conf["value"])
+            comparison = (float(param) >= float(conf["value"]))
         elif conf["operator"] == "le":
-            return float(param) <= float(conf["value"])
+            comparison = (float(param) <= float(conf["value"]))
         elif conf["operator"] == "in":
-            return param in conf["value"]
+            comparison = (param in conf["value"])
         elif conf["operator"] == "not in":
-            return param not in conf["value"]
+            comparison = (param not in conf["value"])
+        else:
+            raise ValueError("Unknown operator: {0}".format(conf["operator"]))
+        return comparison
 
     # #### Class methods ########
 
@@ -192,15 +212,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         The default is a null handler (no log)
         """
 
-        formatter = logging.Formatter("{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
-                                      style="{"
-                                      )
+        formatter = logging.Formatter(
+            "{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
+            style="{"
+            )
 
         logger = logging.getLogger("{0}_logger".format(cls.__name__))
-        # handler = logging.NullHandler()
-        # handler.setFormatter(formatter)
+        handler = logging.NullHandler()
+        handler.setFormatter(formatter)
         logger.setLevel(logging.WARN)
-        # logger.addHandler(handler)
+        logger.addHandler(handler)
         return logger
 
     @classmethod
@@ -216,9 +237,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type flank: int
 
         Function to determine whether a transcript should be added or not to the locus_instance.
-        This is a class method, i.e. it can be used also unbound from any specific instance of the class.
+        This is a class method, i.e. it can be used also unbound from any
+        specific instance of the class.
         It will be possible therefore to use it to compare any locus_instance to any transcript.
-        Arguments: 
+        Arguments:
         - a "locus_instance" object
         - a "transcript" object (it must possess the "finalize" method)
         - flank - optional keyword"""
@@ -227,13 +249,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # We want to check for the strand only if we are considering the strand
         if locus_instance is None:
             return False
-        if locus_instance.chrom == transcript.chrom and \
-                (locus_instance.stranded is False or locus_instance.strand == transcript.strand) and \
-                cls.overlap(
-                    (locus_instance.start, locus_instance.end),
-                    (transcript.start, transcript.end),
-                    flank=flank) > 0:
-            return True
+
+        if locus_instance.chrom == transcript.chrom:
+            if locus_instance.stranded is False or locus_instance.strand == transcript.strand:
+                lbound = (locus_instance.start, locus_instance.end)
+                tbound = (transcript.start, transcript.end)
+                if cls.overlap(lbound, tbound, flank=flank) > 0:
+                    return True
         return False
 
     @classmethod
@@ -255,7 +277,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         It will then return a graph.
         The method accepts also kwargs that can be passed to the inters function.
-        WARNING: the kwargs option is really stupid and does not check for correctness of the arguments!        
+        WARNING: the kwargs option is really stupid and does not check
+        for correctness of the arguments!
         """
 
         if inters is None:
@@ -263,13 +286,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         graph = networkx.Graph()
 
-        # As we are using intern for transcripts, this should prevent memory usage to increase too much
+        # As we are using intern for transcripts, this should prevent
+        # memory usage to increase too much
         graph.add_nodes_from(objects.keys())
 
         for obj in objects:
             for other_obj in filter(lambda x: x != obj, objects):
                 if inters(objects[obj], objects[other_obj], **kwargs):
-                    graph.add_edge(*tuple(sorted([obj, other_obj])))  # Connections are not directional
+                    # Connections are not directional
+                    graph.add_edge(*tuple(sorted([obj, other_obj])))
 
         return graph
 
@@ -288,8 +313,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             - communities
         """
         cliques = [frozenset(x) for x in networkx.find_cliques(graph)]
-        communities = list(networkx.k_clique_communities(graph, 2, cliques)) + [frozenset(x) for x in cliques if
-                                                                                len(x) == 1]
+        communities = list(networkx.k_clique_communities(graph, 2, cliques))
+        communities += [frozenset(x) for x in cliques if len(x) == 1]
         return cliques, communities
 
     @classmethod
@@ -313,7 +338,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         graph = dict()
         for obj in objects:
-            graph[obj] = [other_obj for other_obj in objects if (obj != other_obj) and inters(obj, other_obj) is True]
+            graph[obj] = [other_obj for other_obj in objects
+                          if (obj != other_obj) and inters(obj, other_obj) is True]
 
         ngraph = networkx.Graph()
         ngraph.add_nodes_from(list(graph.keys()))
@@ -340,9 +366,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         # Choose one transcript randomly between those that have the maximum score
+        max_score = max(transcripts.values(),
+                        key=operator.attrgetter("score")).score
         return random.choice(
-            list(filter(lambda t: t.score == max(transcripts.values(), key=operator.attrgetter("score")).score,
-                        transcripts.values()))).id
+            [transc for transc in transcripts if transcripts[transc].score == max_score])
 
     # ###### Class instance methods  #######
 
@@ -351,11 +378,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param transcript
         :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
-        :param check_in_locus: flag to indicate whether the function should check the transcript before adding it
+        :param check_in_locus: flag to indicate whether the function
+        should check the transcript before adding it
         or instead whether to trust the assignment to be correct
         :type check_in_locus: bool
 
-        This method checks that a transcript is contained within the superlocus (using the "in_superlocus" class method)
+        This method checks that a transcript is contained within the superlocus
+        (using the "in_superlocus" class method)
         and upon a successful check extends the superlocus with the new transcript.
         More precisely, it updates the boundaries (start and end) it adds the transcript
         to the internal "transcripts" store, and finally it extends
@@ -392,7 +421,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.splices.update(transcript.splices)
         self.introns.update(transcript.introns)
 
-        self.combined_cds_introns = set.union(self.combined_cds_introns, transcript.combined_cds_introns)
+        self.combined_cds_introns = set.union(
+            self.combined_cds_introns, transcript.combined_cds_introns)
         self.selected_cds_introns.update(transcript.selected_cds_introns)
 
         self.exons.update(set(transcript.exons))
@@ -408,8 +438,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param tid: name of the transcript to remove
         :type tid: str
 
-         This method will remove a transcript from an Abstractlocus-like instance and reset all derived
-         attributes (e.g. introns, start, end, etc.) appropriately.
+         This method will remove a transcript from an Abstractlocus-like
+         instance and reset appropriately all derived attributes
+         (e.g. introns, start, end, etc.).
         """
 
         if tid not in self.transcripts:
@@ -429,39 +460,49 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.start = min(self.transcripts[t].start for t in self.transcripts if t != tid)
 
             # Remove excess exons
-            other_exons = [set(self.transcripts[otid].exons if otid in self.transcripts else []) for otid in keys]
+            other_exons = [set(
+                self.transcripts[otid].exons if otid in self.transcripts else [])
+                           for otid in keys]
             other_exons = set.union(*other_exons)
             exons_to_remove = set.difference(set(self.transcripts[tid].exons), other_exons)
             self.exons.difference_update(exons_to_remove)
 
             # Remove excess introns
             other_introns = set.union(
-                *[set(self.transcripts[otid].introns if otid in self.transcripts else []) for otid in keys])
+                *[set(self.transcripts[otid].introns if otid in self.transcripts else [])
+                  for otid in keys])
             introns_to_remove = set.difference(set(self.transcripts[tid].introns), other_introns)
             self.introns.difference_update(introns_to_remove)
 
             # Remove excess cds introns
             other_cds_introns = set.union(
-                *[set(self.transcripts[otid].combined_cds_introns if otid in self.transcripts else []) for otid in
-                  keys])
+                *[set(
+                    self.transcripts[otid].combined_cds_introns
+                    if otid in self.transcripts else [])
+                  for otid in keys])
             for otid in keys:
                 if otid in self.transcripts:
                     other_cds_introns.update(set(self.transcripts[otid].combined_cds_introns))
 
-            cds_introns_to_remove = set.difference(set(self.transcripts[tid].combined_cds_introns), other_cds_introns)
+            cds_introns_to_remove = set.difference(
+                set(self.transcripts[tid].combined_cds_introns),
+                other_cds_introns)
             self.combined_cds_introns.difference_update(cds_introns_to_remove)
 
             # Remove excess selected_cds_introns
             other_selected_cds_introns = set.union(
-                *[set(self.transcripts[otid].selected_cds_introns if otid in self.transcripts else []) for otid in
-                  keys])
-            selected_cds_introns_to_remove = set.difference(set(self.transcripts[tid].selected_cds_introns),
-                                                            other_selected_cds_introns)
+                *[set(
+                    self.transcripts[otid].selected_cds_introns if otid in self.transcripts else []
+                ) for otid in keys])
+            selected_cds_introns_to_remove = set.difference(
+                set(self.transcripts[tid].selected_cds_introns),
+                other_selected_cds_introns)
             self.selected_cds_introns.difference_update(selected_cds_introns_to_remove)
 
             # Remove excess splices
             other_splices = set.union(
-                *[self.transcripts[otid].splices if otid in self.transcripts else set() for otid in keys])
+                *[self.transcripts[otid].splices
+                  if otid in self.transcripts else set() for otid in keys])
             splices_to_remove = set.difference(self.transcripts[tid].splices, other_splices)
             self.splices.difference_update(splices_to_remove)
 
@@ -475,16 +516,20 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param transcript_instance: the transcript to be searched for retained introns.
         :type transcript_instance: mikado_lib.loci_objects.transcript.Transcript
 
-        This method checks the number of exons that are possibly retained introns for a given transcript.
-        To perform this operation, it checks for each non-CDS exon whether it exists a sublocus intron that
-        is *completely* contained within a transcript exon.
+        This method checks the number of exons that are possibly
+        retained introns for a given transcript.
+        To perform this operation, it checks for each non-CDS exon whether
+        it exists a sublocus intron that is *completely* contained within a transcript exon.
         CDS exons are ignored because their retention might be perfectly valid.
-        The results are stored inside the transcript instance, in the "retained_introns" tuple.
+        The results are stored inside the transcript instance, in the
+        "retained_introns" tuple.
         """
 
         transcript_instance.retained_introns = []
-        for exon in filter(lambda e: e not in transcript_instance.combined_cds, transcript_instance.exons):
-            # Check that the overlap is at least as long as the minimum between the exon and the intron.
+        for exon in filter(lambda e: e not in transcript_instance.combined_cds,
+                           transcript_instance.exons):
+            # Check that the overlap is at least as long as
+            # the minimum between the exon and the intron.
             if any(filter(
                     lambda junction: self.overlap(exon, junction) >= junction[1] - junction[0],
                     self.introns
@@ -501,7 +546,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param kwargs: keyword arguments
 
         This class method defines how two transcript objects will be considered as overlapping.
-        It is used by the BronKerbosch method, and must be implemented at the class level for each child object.
+        It is used by the BronKerbosch method, and must be implemented
+        at the class level for each child object.
         """
         raise NotImplementedError("The is_intersecting method should be defined for each child!")
 
@@ -509,7 +555,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     @property
     def stranded(self):
-        """This property determines whether a Monosublocus will consider the strand for e.g. the in_locus method.
+        """This property determines whether a Monosublocus will consider
+        the strand for e.g. the in_locus method.
         By default, the parameter is set to True (i.e. the loci are strand-specific).
         At the moment, the only class which modifies the parameter is the superlocus class."""
         return self.__stranded
@@ -521,7 +568,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type flag: bool
         """
 
-        if type(flag) is not bool:
+        if not isinstance(flag, bool):
             raise ValueError("The stranded attribute must be boolean!")
         self.__stranded = flag
 
@@ -562,7 +609,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
         if logger is None:
             logger = self.create_default_logger()
-        elif type(logger) is not logging.Logger:
+        elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
         self.__logger = logger
 
@@ -591,5 +638,5 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
         if not value:
             value = "Mikado"
-        assert type(value) is str
+        assert isinstance(value, str)
         self.__source = value

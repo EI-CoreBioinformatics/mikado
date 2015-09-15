@@ -22,16 +22,14 @@ class Monosublocus(Abstractlocus):
     def __init__(self, transcript_instance, logger=None):
 
         self.counter = 0  # simple tag to avoid collisions
-        super().__init__()
-        self.monoexonic = transcript_instance.monoexonic  # this must be defined straight away
-        super().add_transcript_to_locus(transcript_instance)
+        Abstractlocus.__init__(self)
+        # this must be defined straight away
+        self.monoexonic = transcript_instance.monoexonic
+        Abstractlocus.add_transcript_to_locus(self, transcript_instance)
         self.score = transcript_instance.score
-        #         self.__dict__.update(transcript_instance.__dict__)
         self.feature = "Monosublocus"
         self.parent = None
         self.score = transcript_instance.score
-
-        #         self.source = "locus_pipeline"
         self.tid = transcript_instance.id
         self.logger = logger
         self.attributes = dict()
@@ -83,7 +81,8 @@ class Monosublocus(Abstractlocus):
 
     def is_intersecting(self):
         """Not implemented: this function makes no sense for a single-transcript container."""
-        raise NotImplementedError("Monosubloci hold a single transcript, so intersections are not calculated.")
+        raise NotImplementedError(
+            "Monosubloci hold a single transcript, so intersections are not calculated.")
 
     # ######### Properties ############
 

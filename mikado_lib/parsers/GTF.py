@@ -9,8 +9,9 @@ from mikado_lib.parsers import Parser
 
 
 class GtfLine(object):
-    """This class defines a typical GTF line, with some added functionality to make it useful in e.g.
-    parsing cufflinks GTF files or creating GTF lines from scratch.
+    """This class defines a typical GTF line, with some added functionality
+    to make it useful in e.g. parsing cufflinks GTF files or
+    creating GTF lines from scratch.
     Fields:
     - chrom
     - source
@@ -34,16 +35,17 @@ class GtfLine(object):
 
     def __init__(self, *args):
 
-        self.__score = None
-        self.__strand = None
-        self.__gene = ""
-        self.__transcript = ""
-
+        self.__score, self.__phase, self.__strand = None, None, None
+        self.start, self.end = None, None
+        self.__gene = None
+        self.__transcript = None
+        self.chrom = None
+        self.feature = None
         self.header = False
         self.attributes = {}
         self._info = []
+        self._fields = []
 
-        self.feature = None
         if len(args) > 0:
             line = args[0]
         else:
@@ -51,202 +53,118 @@ class GtfLine(object):
         if line == '':
             raise StopIteration
 
+        assert isinstance(line, (str, type(None)))
         if line is None or line[0] == "#" or line.rstrip() == '':
-            self.fields = []
-            self.attributes = dict()
-            self.transcript = None
-            self.gene = None
             if line is None:
                 self.header = False
             else:
                 self.header = True
             return
-        else:
-            assert isinstance(line, str)
-            self.fields = line.rstrip().split('\t')
-            if len(self.fields) != 9:
-                raise ValueError(line)
-            self.chrom, self.source, self.feature = self.fields[0:3]
-            self.start, self.end = int(self.fields[3]), int(self.fields[4])
-            self.end = self.end
+
+        self._fields = line.rstrip().split('\t')
+        if len(self._fields) != 9:
+            raise ValueError(line)
+        self.chrom, self.source, self.feature = self._fields[0:3]
+        self.start, self.end = int(self._fields[3]), int(self._fields[4])
+        self.score = self._fields[5]
+        self.strand, self.phase = self._fields[6:8]
+        self.__retrieve_attributes()
+
+    def __retrieve_attributes(self):
+        """
+        Method to retrieve the attributes from the last field
+        of the GTF line.
+        :return:
+        """
+
+        for info in filter(lambda x: x != '', self._fields[8].split(';')):
+            self._info.append(info)
+            info = info.lstrip().split(' ')
             try:
-                self.score = float(self.fields[5])
-            except ValueError:
-                if self.fields[5] == '.':
-                    self.score = None
-            self.strand, self.phase = self.fields[6:8]
-            if self.strand in ('.', '\x00'):
-                self.strand = None
-            assert self.strand in ('+', None, '-'), (self.strand, line)
-            if self.phase == '.':
-                self.phase = None
+                self.attributes[info[0]] = info[1].replace('"', '')
+            except IndexError:
+                raise IndexError(self._info, info)
+
+        if 'exon_number' in self.attributes:
+            self.attributes['exon_number'] = int(self.attributes['exon_number'])
+        assert 'gene_id', 'transcript_id' in self.attributes
+
+        if 'nearest_ref' in self.attributes:
+            self.nearest_ref = self.attributes['nearest_ref']
+        if 'tss_id' in self.attributes:
+            self.tss_id = self.attributes['tss_id']
+
+        for tag in filter(lambda att: att not in
+                          ('gene_id', 'transcript_id', 'nearest_ref', 'tss_id', 'class_code'),
+                          self.attributes.keys()):
+            self.__dict__[tag.lower()] = self.attributes[tag]
+
+    def __format_info(self):
+
+        """
+        Private method to format the last field of the GTF line
+        prior to printing.
+        :return:
+        """
+
+        info_list = []
+        assert 'gene_id', 'transcript_id' in self.attributes
+        if isinstance(self.gene, list):
+            gene = ",".join(self.gene)
+        else:
+            gene = self.gene
+        self.attributes['gene_id'] = gene
+        if self.attributes['transcript_id'] is None:
+            self.attributes['transcript_id'] = self.transcript
+
+        order = ['gene_id', 'transcript_id', 'exon_number', 'gene_name', 'transcript_name']
+
+        for tag in order:
+            if tag in self.attributes:
+                if isinstance(self.attributes[tag], list):
+                    val = ",".join(self.attributes[tag])
+                else:
+                    val = self.attributes[tag]
+                info_list.append("{0} \"{1}\"".format(tag, val))
+
+        for info in filter(lambda x: x not in order, self.attributes.keys()):
+            if info == "Parent" and \
+                            self.attributes[info] in (self.gene,
+                                                      self.transcript,
+                                                      self.parent):
+                continue
+            if info == "ID" and self.attributes[info] in (self.gene, self.transcript):
+                continue
+
+            if isinstance(self.attributes[info], list):
+                val = ",".join(self.attributes[info])
             else:
-                try:
-                    self.phase = int(self.phase)
-                    assert self.phase in (0, 1, 2)
-                except:
-                    raise
-
-            for info in filter(lambda x: x != '', self.fields[8].split(';')):
-                self._info.append(info)
-                info = info.lstrip().split(' ')
-                try:
-                    self.attributes[info[0]] = info[1].replace('"', '')
-                except IndexError:
-                    raise IndexError(self._info, info)
-
-            if 'exon_number' in self.attributes:
-                self.attributes['exon_number'] = int(self.attributes['exon_number'])
-            assert 'gene_id', 'transcript_id' in self.attributes
-
-            if 'nearest_ref' in self.attributes:
-                self.nearest_ref = self.attributes['nearest_ref']
-            if 'tss_id' in self.attributes:
-                self.tss_id = self.attributes['tss_id']
-
-            for tag in filter(lambda att: att not in
-                              ('gene_id', 'transcript_id', 'nearest_ref', 'tss_id', 'class_code'),
-                              self.attributes.keys()):
-                self.__dict__[tag.lower()] = self.attributes[tag]
+                val = self.attributes[info]
+            info_list.append("{0} \"{1}\"".format(info, val))
+        return info_list
 
     def __str__(self):
         """Returns the GTF string."""
-        self.fields = []
-        if not self.fields:
-            self.fields = [self.chrom, self.source, self.feature,
-                           self.start, self.end, self.score,
-                           self.strand, self.phase]
-            for i in range(len(self.fields)):
-                if self.fields[i] is None:
-                    self.fields[i] = '.'
-                self.fields[i] = str(self.fields[i])
-            self._info = []
-            assert 'gene_id', 'transcript_id' in self.attributes
-            if type(self.gene) is list:
-                gene = ",".join(self.gene)
-            else:
-                gene = self.gene
-            self.attributes['gene_id'] = gene
-            if self.attributes['transcript_id'] is None:
-                self.attributes['transcript_id'] = self.transcript
+        self._fields = [self.chrom, self.source, self.feature,
+                        self.start, self.end, self.score,
+                        self.strand, self.phase]
+        for i in range(len(self._fields)):
+            if self._fields[i] is None:
+                self._fields[i] = '.'
+            self._fields[i] = str(self._fields[i])
+        info = self.__format_info()
 
-            order = ['gene_id', 'transcript_id', 'exon_number', 'gene_name', 'transcript_name']
+        self._fields.append('; '.join(info))
+        self._fields[-1] += ';'  # Fields finito, si può stampare.
 
-            for tag in order:
-                if tag in self.attributes:
-                    if type(self.attributes[tag]) is list:
-                        val = ",".join(self.attributes[tag])
-                    else:
-                        val = self.attributes[tag]
-                    self._info.append("{0} \"{1}\"".format(tag, val))
-
-            for info in filter(lambda x: x not in order, self.attributes.keys()):
-                if info == "Parent" and self.attributes[info] in (self.gene, self.transcript, self.parent):
-                    continue
-                if info == "ID" and self.attributes[info] in (self.gene, self.transcript):
-                    continue
-
-                if type(self.attributes[info]) is list:
-                    val = ",".join(self.attributes[info])
-                else:
-                    val = self.attributes[info]
-                self._info.append("{0} \"{1}\"".format(info, val))
-
-            self.fields.append('; '.join(self._info))
-            self.fields[-1] += ';'  # Fields finito, si può stampare.
-
-        assert self.fields[0] != "", self.fields
-        return '\t'.join(self.fields)
+        assert self._fields[0] != "", self._fields
+        return '\t'.join(self._fields)
 
     def copy(self):
         """
         Wrapper around the copy.copy function.
         """
         return copy.copy(self)
-
-    def to_gff3(self, feature_type="gene", source=None):
-        """Converts the GTF line into a GFF3 one.
-        :param feature_type: the type of feature to be converted to. Default: gene
-        :type feature_type: str
-
-        :param source: optional reassignment of the source field. Default: None
-        :type source: None
-        :type source: str
-        """
-        attributes = []
-
-        # Redefine source variable if asked
-        if source is not None:
-            self.source = source
-
-        if self.feature == 'gene':
-            if feature_type == "match":
-                return
-            if 'gene_name' not in self.attributes:
-                self.attributes['gene_name'] = self.attributes['gene_id']
-            if 'description' not in self.attributes:
-                self.attributes['description'] = 'NA'
-            attributes = ['ID=' + self.attributes['gene_id'], 'Name=' + self.attributes['gene_name']]
-
-        elif self.feature == 'mRNA' or self.feature == "transcript":
-            if feature_type == "gene":
-                if 'transcript_name' not in self.attributes:
-                    self.attributes['transcript_name'] = self.attributes['transcript_id']
-                attributes = ['ID=' + self.attributes['transcript_id'],
-                              'Parent=' + self.attributes['gene_id'],
-                              'Name=' + self.attributes['transcript_name']]
-            elif feature_type == "match":
-                self.feature = "match"
-                attributes = ["ID={0}".format(self.attributes["transcript_id"]),
-                              "Name={0}".format(self.attributes["transcript_id"])]
-
-        elif self.feature in ('exon', 'CDS'):
-
-            if feature_type == "match":
-                self.feature = "match_part"
-
-            if "exon_number" in self.attributes:
-                attributes = ['ID={0}:exon-{1}'.format(self.transcript, self.attributes["exon_number"]),
-                              'Parent={0}'.format(self.attributes['transcript_id'])]
-            else:
-                attributes = ['Parent={0}'.format(self.attributes['transcript_id'])]
-
-        elif self.feature in ('UTR', 'five prime UTR', 'three prime UTR'):
-            if self.feature == 'UTR':
-                # I have to think about a smart way of doing this..
-                raise ValueError('I cannot work with "UTR" only currently! Error in: {0}'.format(self.transcript))
-            if self.feature == 'five prime UTR':
-                ut = '5'
-            else:
-                ut = '3'
-            attributes = ['ID=utr.' + ut,
-                          'Parent=' + self.attributes['transcript_id']]
-
-        elif self.feature in ('start_codon', 'stop_codon'):
-            attributes = ['ID=' + self.feature,
-                          'Parent=' + self.attributes['transcript_id']]
-
-        if self.score is None:
-            score = '.'
-        else:
-            score = str(self.score)
-
-        if self.phase is None:
-            phase = '.'
-        else:
-            phase = str(self.phase)
-
-        if self.strand is None:
-            strand = '.'
-        else:
-            strand = self.strand
-
-        start = min(self.start, self.end)
-        stop = max(self.start, self.end)
-
-        line = [self.chrom, self.source, self.feature, str(start), str(stop), score, strand, phase]
-        line += [';'.join(attributes)]
-        return '\t'.join(line)
 
     @property
     def name(self):
@@ -263,7 +181,7 @@ class GtfLine(object):
         :param args:
         :type args: list[(str)] | str
         """
-        if type(args[0]) is not str:
+        if isinstance(args[0], str):
             raise TypeError("Invalid value for name: {0}".format(args[0]))
         self.id = args[0]
 
@@ -297,14 +215,42 @@ class GtfLine(object):
         :type args: list[(float)] | None | float
         """
 
-        if type(args[0]) in (float, int):
+        if isinstance(args[0], (float, int)):
             self.__score = args[0]
         elif args[0] is None or args[0] == '.':
             self.__score = None
-        elif type(args[0]) is str:
+        elif isinstance(args[0], str):
             self.__score = float(args[0])
         else:
             raise TypeError(args[0])
+
+    @property
+    def phase(self):
+        """
+        Property. Stores the phase of the feature.
+        Valid values: None, 0, 1 ,2
+        :return:
+        """
+
+        return self.__phase
+
+    @phase.setter
+    def phase(self, value):
+        """
+        Setter for the phase attribute.
+        :param value:
+        :return:
+        """
+
+        if value in (None, '.', '?'):
+            self.__phase = None
+        elif isinstance(value, (str, int, float)):
+            value = int(value)
+            if value not in range(3):
+                raise ValueError("Invalid value for phase: {0}".format(value))
+            self.__phase = value
+        else:
+            raise ValueError("Invalid phase: {0}".format(value))
 
     @property
     def strand(self):
@@ -337,8 +283,10 @@ class GtfLine(object):
         """This property looks up the "Parent" field in the "attributes" dictionary.
         If the line is a transcript line, it returns the gene field.
         Otherwise, it returns the transcript field.
-        In order to maintain interface consistency with the GFF objects and contrary to other attributes,
-        this property returns a *list*, not a string. This is due to the fact that GFF files support
+        In order to maintain interface consistency with
+        the GFF objects and contrary to other attributes,
+        this property returns a *list*, not a string. This is due
+        to the fact that GFF files support
         multiple inheritance by separating the parent entries with a comma.
 
         :rtype : list
@@ -357,7 +305,7 @@ class GtfLine(object):
         :param parent: the new parent value
         :type parent: list | str
         """
-        if type(parent) is str:
+        if isinstance(parent, str):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
 
@@ -455,8 +403,8 @@ class GtfLine(object):
 
         if self.feature is None:
             return False
-        f = self.feature.upper()
-        if f in ("EXON", "CDS") or "UTR" in f or "CODON" in f:
+        _ = self.feature.upper()
+        if _ in ("EXON", "CDS") or "UTR" in _ or "CODON" in _:
             return True
         return False
 
@@ -470,6 +418,10 @@ class GtfLine(object):
 
     @property
     def derived_from(self):
+        """
+        Boolean property. True if the GTF line has a "derives_from" tag,
+        False otherwise.
+        """
         if self.is_derived is False:
             return None
         else:

@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+"""
+Launcher for the mikado compare utility.
+"""
+
 import sys
-import argparse
 import os
 import re
 import collections
@@ -18,30 +21,14 @@ from mikado_lib.scales.accountant import Accountant
 __author__ = 'Luca Venturini'
 
 
-def compare(args):
-    """
-    This function performs the comparison between two different files.
-
-    :param args: the argparse Namespace
-    :type args: argparse.Namespace
+def setup_logger(args, manager):
 
     """
-
-    # Flags for the parsing
-    if type(args.reference) is GFF3:
-        ref_gff = True
-    else:
-        ref_gff = False
-
-    if os.path.dirname(args.out) != '' and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
-        dirname = os.path.dirname(args.out)
-        if os.path.exists(dirname):
-            assert os.path.isdir(dirname)
-        else:
-            os.makedirs(dirname)
-
-    context = multiprocessing.get_context()  # @UndefinedVariable
-    manager = context.Manager()
+    Function to setup the logger for the compare function.
+    :param args:
+    :param manager:
+    :return:
+    """
 
     logger = logging.getLogger("main")
     formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}", style="{")
@@ -73,53 +60,19 @@ def compare(args):
         queue_logger.setLevel(logging.DEBUG)
     main_queue_handler = log_handlers.QueueHandler(args.log_queue)
     queue_logger.addHandler(main_queue_handler)
+    return args, handler, logger, log_queue_listener, queue_logger
 
-    queue_logger.propagate = False
-    queue_logger.info("Start")
-    args.commandline = " ".join(sys.argv)
-    queue_logger.info("Command line: {0}".format(args.commandline))
 
-    queue_logger.info("Starting parsing the reference")
+def finalize_reference(genes, positions, queue_logger, args):
 
-    genes = dict()
-    positions = collections.defaultdict(dict)
+    """
+:param genes:
+:param positions:
+:param queue_logger:
+:param args:
+:return:
+"""
 
-    transcript2gene = dict()
-    logger.handlers[0].flush()
-
-    for row in args.reference:
-        # Assume we are going to use GTF for the moment
-        if row.header is True:
-            continue
-        if row.is_transcript is True:
-            queue_logger.debug("Transcript\n{0}".format(str(row)))
-            tr = Transcript(row)
-            transcript2gene[row.id] = row.gene
-            if row.gene not in genes:
-                genes[row.gene] = Gene(tr, gid=row.gene)
-            genes[row.gene].add(tr)
-            assert tr.id in genes[row.gene].transcripts
-        elif row.is_exon is True:
-            if ref_gff is True:
-                for tr in row.transcript:
-                    if tr in transcript2gene:
-                        # We have to perform the check because there are some GFFs
-                        # e.g. TAIR
-                        # where CDSs are defined within a spurious "Protein" feature
-                        gid = transcript2gene[tr]
-                        genes[gid][tr].add_exon(row)
-                    else:
-                        continue
-            else:
-                try:
-                    genes[row.gene][row.transcript].add_exon(row)
-                except KeyError as exc:
-                    assert row.gene in genes
-                    queue_logger.exception(exc)
-                    queue_logger.exception("Keys for {0}: {1}".format(row.gene, genes[row.gene].transcripts.keys()))
-                    raise
-        else:
-            continue
     non_coding_to_remove = set()
     genes_to_remove = set()
     for gid in genes:
@@ -133,10 +86,10 @@ def compare(args):
             for tid in genes[gid].transcripts:
                 if genes[gid].transcripts[tid].combined_cds_length == 0:
                     to_remove.append(tid)
-                    logger.debug("No CDS for {0}".format(tid))
+                    queue_logger.debug("No CDS for %s", tid)
             if len(to_remove) == len(genes[gid].transcripts):
                 non_coding_to_remove.add(gid)
-                logger.debug("Noncoding gene: {0}".format(gid))
+                queue_logger.debug("Noncoding gene: %s", gid)
                 continue
             elif len(to_remove) > 0:
                 for tid in to_remove:
@@ -147,19 +100,85 @@ def compare(args):
         positions[genes[gid].chrom][key].append(genes[gid])
 
     for gid in genes_to_remove:
-        queue_logger.warn("Removed from reference: {0}; error: {1}".format(gid, genes[gid].exception_message))
+        queue_logger.warn("Removed from reference: %s; error: %s",
+                          gid, genes[gid].exception_message)
         del genes[gid]
     for gid in non_coding_to_remove:
         del genes[gid]
+    return genes, positions
+
+
+def prepare_reference(args, queue_logger, ref_gff=False):
+
+    """
+    Method to prepare the data structures that hold the reference
+    information for the parsing.
+    :param args:
+    :param queue_logger:
+    :param ref_gff:
+    :return:
+    """
+
+    genes = dict()
+    positions = collections.defaultdict(dict)
+    transcript2gene = dict()
+
+    for row in args.reference:
+        # Assume we are going to use GTF for the moment
+        if row.is_transcript is True:
+            queue_logger.debug("Transcript\n%s", str(row))
+            transcr = Transcript(row)
+            transcript2gene[row.id] = row.gene
+            if row.gene not in genes:
+                genes[row.gene] = Gene(transcr, gid=row.gene)
+            genes[row.gene].add(transcr)
+            assert transcr.id in genes[row.gene].transcripts
+        elif row.is_exon is True:
+            if ref_gff is True:
+                for transcr in row.transcript:
+                    if transcr in transcript2gene:
+                        # We have to perform the check because there are some GFFs
+                        # e.g. TAIR
+                        # where CDSs are defined within a spurious "Protein" feature
+                        gid = transcript2gene[transcr]
+                        genes[gid][transcr].add_exon(row)
+            else:
+                if row.gene in genes and row.transcript in genes[row.gene]:
+                    genes[row.gene][row.transcript].add_exon(row)
+                else:
+                    if row.gene not in genes:
+                        exc = KeyError("Gene {0} not encountered yet, line: {1}".format(
+                            row.gene, str(row)
+                        ))
+                    else:
+                        exc = KeyError("TID {0} not found for {1}; found tids: {2}".format(
+                            row.transcript, row.gene,
+                            ",".join(genes[row.gene].transcripts.keys())
+                        ))
+                    queue_logger.exception(exc)
+                    raise exc
+
+    genes, positions = finalize_reference(genes, positions, queue_logger, args)
 
     if len(genes) == 0:
         raise KeyError("No genes remained for the reference!")
+    return genes, positions
 
-    # Needed for refmap
-    queue_logger.info("Finished preparation; found {0} reference genes".format(len(genes)))
-    queue_logger.debug("Gene names (first 20): {0}".format("\n\t".join(list(genes.keys())[:20])))
 
-    accountant_instance = Accountant(genes, args)  # start the class which will manage the statistics
+def parse_prediction(args, genes, positions, queue_logger):
+
+    """
+    This function performs the real comparison between the reference and the prediction.
+     It needs the following inputs:
+    :param args: the Namespace with the necessary parameters
+    :param genes: Dictionary with the reference genes
+    :param positions: Dictionary with the positions of the reference genes
+    :param queue_logger: Logger
+    :return:
+    """
+
+    # start the class which will manage the statistics
+    accountant_instance = Accountant(genes, args)
     # genes: a dictionary with the reference annotation, indexed by GID
     # positions: a dictionary of the form dict[chrom][(start,end)] = [gene object]
     assigner_instance = Assigner(genes, positions, args, accountant_instance)
@@ -170,45 +189,82 @@ def compare(args):
             continue
         #         queue_logger.debug("Row:\n{0:>20}".format(str(row)))
         if row.is_transcript is True:
-            queue_logger.debug("Transcript row:\n{0}".format(str(row)))
+            queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
-                if re.search("\.orf[0-9]+$", transcript.id) and not transcript.id.endswith("orf1"):
+                if re.search(r"\.orf[0-9]+$", transcript.id) and \
+                        (not transcript.id.endswith("orf1")):
                     pass
                 else:
-                    try:
-                        assigner_instance.get_best(transcript)
-                    except Exception as err:
-                        queue_logger.exception(err)
-                        log_queue_listener.enqueue_sentinel()
-                        handler.close()
-                        log_queue_listener.stop()
-                        args.queue_handler.close()
-                        raise
+                    assigner_instance.get_best(transcript)
             transcript = Transcript(row)
         elif row.is_exon is True:
-            try:
-                transcript.add_exon(row)
-            except Exception as err:
-                queue_logger.exception(err)
-                break
+            transcript.add_exon(row)
         else:
             continue
 
     if transcript is not None:
-        if re.search("\.orf[0-9]+$", transcript.id) and not transcript.id.endswith("orf1"):
+        if re.search(r"\.orf[0-9]+$", transcript.id) and not transcript.id.endswith("orf1"):
             pass
         else:
-            try:
-                assigner_instance.get_best(transcript)
-            except Exception as err:
-                queue_logger.exception(err)
-                log_queue_listener.enqueue_sentinel()
-                handler.close()
-                log_queue_listener.stop()
-                args.queue_handler.close()
-                raise
+            assigner_instance.get_best(transcript)
 
+    # Finish everything, including printing refmap and stats
     assigner_instance.finish()
+
+
+def compare(args):
+    """
+    This function performs the comparison between two different files.
+
+    :param args: the argparse Namespace
+    """
+
+    # Flags for the parsing
+    ref_gff = isinstance(args.reference, GFF3)
+
+    if os.path.dirname(args.out) != ''\
+            and os.path.dirname(args.out) != os.path.dirname(os.path.abspath(".")):
+        dirname = os.path.dirname(args.out)
+        if os.path.exists(dirname):
+            assert os.path.isdir(dirname)
+        else:
+            os.makedirs(dirname)
+
+    context = multiprocessing.get_context()
+    manager = context.Manager()
+
+    args, handler,\
+        logger,\
+        log_queue_listener, queue_logger = setup_logger(args, manager)
+
+    queue_logger.propagate = False
+    queue_logger.info("Start")
+    args.commandline = " ".join(sys.argv)
+    queue_logger.info("Command line: %s", args.commandline)
+
+    queue_logger.info("Starting parsing the reference")
+
+    logger.handlers[0].flush()
+
+    genes, positions, = prepare_reference(args,
+                                          queue_logger,
+                                          ref_gff=ref_gff)
+
+    # Needed for refmap
+    queue_logger.info("Finished preparation; found %d reference genes", len(genes))
+    queue_logger.debug("Gene names (first 20): %s",
+                       "\n\t".join(list(genes.keys())[:20]))
+
+    try:
+        parse_prediction(args, genes, positions, queue_logger)
+    except Exception as err:
+        queue_logger.exception(err)
+        log_queue_listener.enqueue_sentinel()
+        handler.close()
+        log_queue_listener.stop()
+        args.queue_handler.close()
+        raise
+
     queue_logger.info("Finished")
     log_queue_listener.enqueue_sentinel()
     handler.close()

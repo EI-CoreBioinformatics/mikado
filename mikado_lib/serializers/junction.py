@@ -76,10 +76,10 @@ class Junction(dbBase):
     :type strand: str
 
     :param junctionStart: Start internal position of the junction i.e. intron start (1-based)
-    :type junctionStart: int
+    :type junction_start: int
 
     :param junctionEnd: End internal position of the junction i.e. intron end (1-based)
-    :type junctionEnd: int
+    :type junction_end: int
 
     :param score: Score of the junction.
     :type score: Float
@@ -97,12 +97,15 @@ class Junction(dbBase):
     end = Column(Integer, nullable=False)
     name = Column(String(200))
     strand = Column(CHAR)
-    junctionStart = Column(Integer, nullable=False)
-    junctionEnd = Column(Integer, nullable=False)
+    junction_start = Column(Integer, nullable=False)
+    junction_end = Column(Integer, nullable=False)
     score = Column(Float)
-    __table_args__ = (Index("junction_index", "chrom_id", "junctionStart", "junctionEnd"), {"extend_existing": True})
+    __table_args__ = (Index(
+        "junction_index", "chrom_id", "junction_start", "junction_end"),
+                      {"extend_existing": True})
 
-    chrom_object = relationship(Chrom, uselist=False, backref=backref("junctions"), lazy="immediate")
+    chrom_object = relationship(Chrom, uselist=False,
+                                backref=backref("junctions"), lazy="immediate")
 
     def __init__(self, bed12_object, chrom_id):
         """
@@ -119,8 +122,8 @@ class Junction(dbBase):
         self.chrom_id = chrom_id
         self.start = bed12_object.start
         self.end = bed12_object.end
-        self.junctionStart = bed12_object.thickStart
-        self.junctionEnd = bed12_object.thickEnd
+        self.junction_start = bed12_object.thick_start
+        self.junction_end = bed12_object.thick_end
         self.name = bed12_object.name
         self.strand = bed12_object.strand
         self.score = bed12_object.score
@@ -178,7 +181,8 @@ class JunctionSerializer:
         :param fai: an optional FAI file to be used for generating the database.
         :type fai: str | io.IOBase
 
-        :param maxobjects: maximal number of objects to cache in memory before bulk loading. Default 10^4
+        :param maxobjects: maximal number of objects to cache in memory before bulk loading.
+        Default 10^4
         :type maxobjects: int
 
         :param json_conf: Optional configuration dictionary with db connection parameters.

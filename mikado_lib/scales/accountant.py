@@ -10,36 +10,29 @@ from logging import handlers as log_handlers
 import logging
 from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.scales.resultstorer import ResultStorer
+from mikado_lib.scales import calc_f1
 import operator
 import collections
 
 
 class Accountant:
-    """This class stores the data necessary to calculate the final statistics - base and exon Sn/Sp/F1 etc."""
+    """This class stores the data necessary to calculate the final statistics
+     - base and exon Sn/Sp/F1 etc."""
 
     def __init__(self, genes: dict, args: argparse.Namespace):
 
         """Class constructor. It requires:
         :param genes: a dictionary
         :type genes: dict
-        :param args: A namespace (like those provided by argparse) containing the parameters for the run.
-        :type args: argparse.Namespace
+        :param args: A namespace (like those provided by argparse)
+        containing the parameters for the run.
         """
 
-        if hasattr(args, "log_queue"):
-            self.queue_handler = log_handlers.QueueHandler(args.log_queue)
-        else:
-            self.queue_handler = logging.NullHandler
-        self.logger = logging.getLogger("stat_logger")
-        self.logger.addHandler(self.queue_handler)
-        if args.verbose:
-            self.logger.setLevel(logging.DEBUG)
-        else:
-            self.logger.setLevel(logging.INFO)
-        self.logger.propagate = False
-        self.logger.debug("Started with stat printing")
-
         self.args = args
+        self.queue_handler = None
+        self.logger = None
+        self.__setup_logger()
+        self.logger.debug("Started with stat printing")
 
         self.introns = dict()
         self.exons = dict()
@@ -48,23 +41,31 @@ class Accountant:
         self.intron_chains = collections.Counter()
         self.ref_genes = dict()
         self.pred_genes = dict()
+        self.__setup_reference_data(genes)
+
+    def __setup_reference_data(self, genes):
+
+        """
+        Private method that prepares the reference data into the data structure
+        that will be used to compare each prediction with a reference transcript.
+        """
 
         for gene in genes:
             self.ref_genes[gene] = dict()
-            for tr in genes[gene]:
-                self.ref_genes[gene][tr.id] = 0b00
+            for transcr in genes[gene]:
+                self.ref_genes[gene][transcr.id] = 0b00
                 #                 self.ref_transcript_num+=1
-                if tr.chrom not in self.introns:
-                    self.exons[tr.chrom] = dict([("+", dict()), ("-", dict())])
-                    self.starts[tr.chrom] = dict([("+", dict()), ("-", dict())])
-                    self.ends[tr.chrom] = dict([("+", dict()), ("-", dict())])
+                if transcr.chrom not in self.introns:
+                    self.exons[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+                    self.starts[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+                    self.ends[transcr.chrom] = dict([("+", dict()), ("-", dict())])
 
-                    self.introns[tr.chrom] = dict([("+", dict()), ("-", dict())])
-                    self.intron_chains[tr.chrom] = dict([("+", dict()), ("-", dict())])
-                if tr.strand is None:
-                    s = "+"
+                    self.introns[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+                    self.intron_chains[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+                if transcr.strand is None:
+                    strand = "+"
                 else:
-                    s = tr.strand
+                    strand = transcr.strand
 
                 # 0b000001: in reference
                 # 0b000010: in prediction
@@ -73,176 +74,144 @@ class Accountant:
                 # 0b010000: border
                 # 0b100000: single match lenient
 
-                if tr.exon_num == 1:
-                    self.exons[tr.chrom][s][tr.exons[0]] = 0b00000
-                    self.exons[tr.chrom][s][tr.exons[0]] |= 0b1
-                    self.exons[tr.chrom][s][tr.exons[0]] |= 0b100
+                if transcr.exon_num == 1:
+                    self.exons[transcr.chrom][strand][transcr.exons[0]] = 0b00000
+                    self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b1
+                    self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b100
                 else:
-                    for intron in tr.introns:
-                        self.introns[tr.chrom][s][intron] = 0b01
-                    if tuple(tr.introns) not in self.intron_chains[tr.chrom][s]:
-                        self.intron_chains[tr.chrom][s][tuple(tr.introns)] = [set(), set()]
-                    self.intron_chains[tr.chrom][s][tuple(tr.introns)][0].add(tr.id)
+                    for intron in transcr.introns:
+                        self.introns[transcr.chrom][strand][intron] = 0b01
+                    if tuple(transcr.introns) not in self.intron_chains[transcr.chrom][strand]:
+                        self.intron_chains[transcr.chrom][
+                            strand][tuple(transcr.introns)] = [set(), set()]
+                    self.intron_chains[transcr.chrom][
+                        strand][tuple(transcr.introns)][0].add(transcr.id)
 
-                    for index, exon in enumerate(tr.exons):
-                        if exon not in self.exons[tr.chrom][s]:
-                            self.exons[tr.chrom][s][exon] = 0b00000
-                        self.exons[tr.chrom][s][exon] |= 0b01
+                    for index, exon in enumerate(transcr.exons):
+                        if exon not in self.exons[transcr.chrom][strand]:
+                            self.exons[transcr.chrom][strand][exon] = 0b00000
+                        self.exons[transcr.chrom][strand][exon] |= 0b01
                         if index == 0:
-                            self.exons[tr.chrom][s][exon] |= 0b010000
-                            self.starts[tr.chrom][s][exon[1]] = 0b01
-                        elif index == tr.exon_num - 1:
-                            self.exons[tr.chrom][s][exon] |= 0b010000
-                            self.ends[tr.chrom][s][exon[0]] = 0b01
+                            self.exons[transcr.chrom][strand][exon] |= 0b010000
+                            self.starts[transcr.chrom][strand][exon[1]] = 0b01
+                        elif index == transcr.exon_num - 1:
+                            self.exons[transcr.chrom][strand][exon] |= 0b010000
+                            self.ends[transcr.chrom][strand][exon[0]] = 0b01
                         else:
-                            self.exons[tr.chrom][s][exon] |= 0b01000
+                            self.exons[transcr.chrom][strand][exon] |= 0b01000
 
-    def store(self, tr: Transcript, result: ResultStorer, other_exon):
+        return
 
-        """Add exons introns intron chains etc. to the storage.
-        :param tr: a "Transcript" instance
-        :param result: Instance of "result_storer"
-        :param other_exon: either None or an integer duplex
-        :type other_exon: None | (int,int)
+    def __setup_logger(self):
 
-        A transcript is considered a perfect match if it has junction_f1==100 and nucleotide_f1==100;
-        a lenient match if it has junction_f1==100 and nucleotide_f1>95,
-        i.e. min(nucleotide_precision, nucleotide_recall)>90.4 
+        """
+        Private method to set up the logger using indications in the
+        args namespace.
         """
 
-        for parent in tr.parent:
-            if parent not in self.pred_genes:
-                self.pred_genes[parent] = dict()
-            if tr.id not in self.pred_genes[parent]:
-                self.pred_genes[parent][tr.id] = 0b00
-
-        if tr.strand is None:
-            s = "+"
+        if hasattr(self.args, "log_queue"):
+            self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
         else:
-            s = tr.strand
-
-        if result.ccode != ("u",):
-            self.pred_genes[parent][tr.id] |= 0b100
-            for refid, refgene in zip(result.RefId, result.RefGene):
-                self.ref_genes[refgene][refid] |= 0b100
-
-            if len(result.j_f1) == 1:
-                for refid, refgene, junc_f1, nucl_f1 in zip(result.RefId, result.RefGene, result.j_f1, result.n_f1):
-                    if junc_f1 == 100 and nucl_f1 >= 95:
-                        for parent in tr.parent:
-                            if nucl_f1 == 100:
-                                self.pred_genes[parent][tr.id] |= 0b01
-                            self.pred_genes[parent][tr.id] |= 0b10
-                        self.ref_genes[refgene][refid] |= 0b10
-                        if nucl_f1 == 100:
-                            self.ref_genes[refgene][refid] |= 0b01
-
-        if tr.chrom not in self.exons:
-            self.exons[tr.chrom] = dict([("+", dict()), ("-", dict())])
-            self.starts[tr.chrom] = dict([("+", dict()), ("-", dict())])
-            self.ends[tr.chrom] = dict([("+", dict()), ("-", dict())])
-            self.introns[tr.chrom] = dict([("+", dict()), ("-", dict())])
-            self.intron_chains[tr.chrom] = dict([("+", dict()), ("-", dict())])
-
-        if tr.exon_num > 1:
-            ic_key = tuple(tr.introns)
-            if result.ccode == ("=",):
-                assert ic_key in self.intron_chains[tr.chrom][s]
-                assert result.RefId[0] in self.intron_chains[tr.chrom][s][ic_key][0]
-
-            if ic_key not in self.intron_chains[tr.chrom][s]:
-                self.intron_chains[tr.chrom][s][ic_key] = [set(), set()]
-            self.intron_chains[tr.chrom][s][ic_key][1].add(tr.id)
-
-            for intron in tr.introns:
-                if intron not in self.introns[tr.chrom][s]:
-                    self.introns[tr.chrom][s][intron] = 0b0
-                self.introns[tr.chrom][s][intron] |= 0b10
-
-            for index, exon in enumerate(tr.exons):
-                if exon not in self.exons[tr.chrom][s]:
-                    self.exons[tr.chrom][s][exon] = 0b0
-                self.exons[tr.chrom][s][exon] |= 0b10  # set it as "in prediction"
-                if index == 0:
-                    self.exons[tr.chrom][s][exon] |= 0b010000
-                    if exon[1] not in self.starts[tr.chrom][s]:
-                        self.starts[tr.chrom][s][exon[1]] = 0b0
-                    self.starts[tr.chrom][s][exon[1]] |= 0b10
-                elif index == tr.exon_num - 1:
-                    self.exons[tr.chrom][s][exon] |= 0b010000
-                    if exon[0] not in self.ends[tr.chrom][s]:
-                        self.ends[tr.chrom][s][exon[0]] = 0b00
-                    self.ends[tr.chrom][s][exon[0]] |= 0b10
-                else:
-                    self.exons[tr.chrom][s][exon] |= 0b01000
+            self.queue_handler = logging.NullHandler
+        self.logger = logging.getLogger("stat_logger")
+        self.logger.addHandler(self.queue_handler)
+        if self.args.verbose:
+            self.logger.setLevel(logging.DEBUG)
         else:
-            exon = tr.exons[0]
-            if exon not in self.exons[tr.chrom][s]:
-                self.exons[tr.chrom][s][exon] = 0b0
-            self.exons[tr.chrom][s][exon] |= 0b10
-            self.exons[tr.chrom][s][exon] |= 0b100
-            if other_exon is not None:
-                assert type(other_exon) is tuple
-                assert other_exon in self.exons[tr.chrom][s], (tr.id, tr.exons, other_exon)
-                if not 0b100 & self.exons[tr.chrom][s][other_exon]:
-                    self.exons[tr.chrom][s][other_exon] |= 0b100  # Check the other exon is marked as single
-                # self.exons[tr.chrom][s][exon] |= 0b100000
-                self.exons[tr.chrom][s][other_exon] |= 0b100000
+            self.logger.setLevel(logging.INFO)
+        self.logger.propagate = False
+        return
 
-    def print_stats(self):
+    def __retrieve_gene_stats(self, store_name="ref"):
 
         """
-        This method calculates and prints the final stats file. It is called when the prediction file
-        parsing has been terminated correctly.
+        This private method recovers from the pred/ref store the statistics regarding the
+        number of genes and transcripts found and missed,
+        both stringently and leniently.
+        The keyword store_name, which must evaluate to either
+        "ref"
+        or
+        "pred",
+        indicates whether we are intersted in prediction of reference data.
+        :param store_name: str
+        :return: { "stringent": (transcript_stringent, gene_stringent),
+                   "lenient": (transcript_lenient, gene_lenient),
+                   "total": total_transcripts,
+                   "private": (private_transcripts, private_genes)
+                   }
         """
 
-        num_ref_transcripts = sum(len(self.ref_genes[gid]) for gid in self.ref_genes)
-        num_pred_transcripts = sum(len(self.pred_genes[gid]) for gid in self.pred_genes)
+        found_transcripts_stringent = 0
+        found_transcripts_lenient = 0
+        found_genes_stringent = 0
+        found_genes_lenient = 0
+        private_genes = 0
+        private_transcripts = 0
+        total_transcripts = 0
 
-        bases_common = 0
-        bases_reference = 0
-        bases_prediction = 0
+        if store_name == "ref":
+            store = self.ref_genes
+        elif store_name == "pred":
+            store = self.pred_genes
+        else:
+            raise ValueError("Invalid store selected: {0}".format(store_name))
 
-        exon_pred_stringent = 0
-        exon_ref_stringent = 0
-        exon_common_stringent = 0
+        for gene in store:
+            gene_match = 0b00
+            gene_not_found = 0b0
+            for _, val in store[gene].items():
+                total_transcripts += 1
+                found_transcripts_lenient += (0b10 & val) >> 1
+                found_transcripts_stringent += 0b1 & val
+                # Will evaluate to 1 if the transcript has at least one match
+                private_transcripts += (0b100 & val) >> 2 ^ 0b1
+                gene_not_found ^= (0b100 & val) >> 2 ^ 0b1
+                gene_match |= val
+            found_genes_stringent += gene_match & 0b1
+            found_genes_lenient += (gene_match & 0b10) >> 1
+            private_genes += gene_not_found
 
-        exon_ref_lenient = 0
-        exon_pred_lenient = 0
-        exon_common_lenient = 0
-        missed_lenient = []
+        self.logger.debug("""Found %s transcripts:
+        \tstringent\t%s
+        \tlenient\t%s
+        \ttotal\t%s""",
+                          store_name,
+                          found_transcripts_stringent,
+                          found_transcripts_lenient,
+                          total_transcripts)
 
-        for chrom in self.starts:
-            for strand in self.starts[chrom]:
-                for start in self.starts[chrom][strand]:
-                    exon_common_lenient += (0b1 & self.starts[chrom][strand][start]) & \
-                                           ((0b10 & self.starts[chrom][strand][start]) >> 1)
-                    exon_ref_lenient += 0b01 & self.starts[chrom][strand][start]
-                    exon_pred_lenient += (0b10 & self.starts[chrom][strand][start]) >> 1
-                    if not (0b10 & self.starts[chrom][strand][start]) >> 1:
-                        missed_lenient.append(("{0}{1}".format(chrom, strand), "start", start))
+        result = dict()
+        result["stringent"] = (found_transcripts_stringent, found_genes_stringent)
+        result["lenient"] = (found_transcripts_lenient, found_genes_lenient)
+        result["total"] = total_transcripts
+        result["private"] = (private_transcripts, private_genes)
 
-        starts_common = exon_common_lenient
-        starts_ref = exon_ref_lenient
-        starts_pred = exon_pred_lenient
-        self.logger.debug("Starts {0}".format([starts_common, starts_ref, starts_pred]))
+        return result
 
-        for chrom in self.ends:
-            for strand in self.ends[chrom]:
-                for end in self.ends[chrom][strand]:
-                    exon_common_lenient += (0b01 & self.ends[chrom][strand][end]) & \
-                                           ((0b10 & self.ends[chrom][strand][end]) >> 1)
-                    exon_ref_lenient += 0b01 & self.ends[chrom][strand][end]
-                    exon_pred_lenient += (0b10 & self.ends[chrom][strand][end]) >> 1
-                    if not (0b10 & self.ends[chrom][strand][end]) >> 1:
-                        missed_lenient.append(("{0}{1}".format(chrom, strand), "end", end))
+    def __calculate_gene_stats(self):
 
-        ends_common = exon_common_lenient - starts_common
-        ends_ref = exon_ref_lenient - starts_ref
-        ends_pred = exon_pred_lenient - starts_pred
+        """
+         Private method that calculates the number of found transcripts
+         in the reference and prediction sets. Wrapper around a double
+         call to __retrieve_gene_stats
+         :return: double the result of __retrieve_gene_stats
+         """
 
-        self.logger.debug("Ends {0}".format([ends_common, ends_ref, ends_pred]))
+        ref_results = self.__retrieve_gene_stats(store_name="ref")
 
+        pred_results = self.__retrieve_gene_stats(store_name="pred")
+
+        result = {"ref": ref_results,
+                  "pred": pred_results}
+
+        return result
+
+    def __calculate_intron_stats(self):
+
+        """
+        This private method calculates the raw numbers regarding intron and intron chain statistics.
+        :return:
+        """
         intron_common = 0
         intron_ref = 0
         intron_pred = 0
@@ -254,19 +223,6 @@ class Accountant:
                                      ((0b10 & self.introns[chrom][strand][intron]) >> 1)
                     intron_ref += 0b01 & self.introns[chrom][strand][intron]
                     intron_pred += (0b10 & self.introns[chrom][strand][intron]) >> 1
-
-        if intron_ref > 0:
-            intron_recall = intron_common / intron_ref
-        else:
-            intron_recall = 0
-        if intron_pred > 0:
-            intron_precision = intron_common / intron_pred
-        else:
-            intron_precision = 0
-        if max(intron_precision, intron_recall) > 0:
-            intron_f1 = 2 * (intron_recall * intron_precision) / (intron_recall + intron_precision)
-        else:
-            intron_f1 = 0
 
         intron_chains_common_nonred = 0
         intron_chains_common_ref = set()
@@ -292,34 +248,80 @@ class Accountant:
         intron_chains_common_ref = len(intron_chains_common_ref)
         intron_chains_common_pred = len(intron_chains_common_pred)
 
-        self.logger.debug("Intron chains:\n\treference\t{0}\t{1}\n\tprediction\t{2}\t{3}\n\tcommon\t{4} {5} {6}".format(
-            intron_chains_ref,
-            intron_chains_ref_nonred,
-            intron_chains_pred,
-            intron_chains_pred_nonred,
-            intron_chains_common_nonred,
-            intron_chains_common_ref,
-            intron_chains_common_pred,
-        ))
+        self.logger.debug("""Intron chains:\
+        \treference %d\t%d
+        \tprediction\t%d
+        \t%d
+        \tcommon\t%d %d %d""",
+                          intron_chains_ref,
+                          intron_chains_ref_nonred,
+                          intron_chains_pred,
+                          intron_chains_pred_nonred,
+                          intron_chains_common_nonred,
+                          intron_chains_common_ref,
+                          intron_chains_common_pred)
 
-        if intron_chains_ref_nonred > 0:
-            intron_chains_recall = intron_chains_common_nonred / intron_chains_ref_nonred
-        else:
-            intron_chains_recall = 0
-        if intron_chains_pred_nonred > 0:
-            intron_chains_precision = intron_chains_common_nonred / intron_chains_pred_nonred
-        else:
-            intron_chains_precision = 0
-        if max(intron_chains_precision, intron_chains_recall) > 0:
-            intron_chains_f1 = 2 * (intron_chains_recall * intron_chains_precision) / \
-                (intron_chains_recall + intron_chains_precision)
-        else:
-            intron_chains_f1 = 0
+        result = dict()
+        result["introns"] = [intron_common, intron_pred, intron_ref]
+        result["intron_chains"] = dict()
+        result["intron_chains"]["non_redundant"] = [intron_chains_common_nonred,
+                                                    intron_chains_pred_nonred,
+                                                    intron_chains_ref_nonred]
 
-        self.logger.debug(
-            "Intron chain: {0}\t{1}\t{2}".format(intron_chains_recall, intron_chains_precision, intron_chains_f1))
+        result["intron_chains"]["redundant"] = [intron_chains_common_pred,
+                                                intron_chains_common_ref]
+        return result
 
-        #         missed_lenient = []
+    def __calculate_exon_stats(self):
+
+        """
+        This private method calculates the raw numbers regarding base and exon statistics.
+        :return:
+        """
+
+        bases_common = 0
+        bases_reference = 0
+        bases_prediction = 0
+
+        exon_pred_stringent = 0
+        exon_ref_stringent = 0
+        exon_common_stringent = 0
+
+        exon_ref_lenient = 0
+        exon_pred_lenient = 0
+        exon_common_lenient = 0
+        # missed_lenient = []
+
+        for chrom in self.starts:
+            for strand in self.starts[chrom]:
+                for start in self.starts[chrom][strand]:
+                    exon_common_lenient += (0b1 & self.starts[chrom][strand][start]) & \
+                                           ((0b10 & self.starts[chrom][strand][start]) >> 1)
+                    exon_ref_lenient += 0b01 & self.starts[chrom][strand][start]
+                    exon_pred_lenient += (0b10 & self.starts[chrom][strand][start]) >> 1
+                    # if not (0b10 & self.starts[chrom][strand][start]) >> 1:
+                    #     missed_lenient.append(("{0}{1}".format(chrom, strand), "start", start))
+
+        starts_common = exon_common_lenient
+        starts_ref = exon_ref_lenient
+        starts_pred = exon_pred_lenient
+        self.logger.debug("Starts %s", [starts_common, starts_ref, starts_pred])
+
+        for chrom in self.ends:
+            for strand in self.ends[chrom]:
+                for end in self.ends[chrom][strand]:
+                    exon_common_lenient += (0b01 & self.ends[chrom][strand][end]) & \
+                                           ((0b10 & self.ends[chrom][strand][end]) >> 1)
+                    exon_ref_lenient += 0b01 & self.ends[chrom][strand][end]
+                    exon_pred_lenient += (0b10 & self.ends[chrom][strand][end]) >> 1
+                    # if not (0b10 & self.ends[chrom][strand][end]) >> 1:
+                    #     missed_lenient.append(("{0}{1}".format(chrom, strand), "end", end))
+
+        ends_common = exon_common_lenient - starts_common
+        ends_ref = exon_ref_lenient - starts_ref
+        ends_pred = exon_pred_lenient - starts_pred
+        self.logger.debug("Ends %s", [ends_common, ends_ref, ends_pred])
+
         for chrom in self.exons:
             for strand in self.exons[chrom]:
                 # 0b000001: in reference
@@ -376,317 +378,389 @@ class Accountant:
                 bases_reference += len(curr_ref_bases)
                 bases_prediction += len(curr_pred_bases)
 
-        self.logger.debug("Missed lenient: {0}".format(missed_lenient))
-        self.logger.debug("Exon stringent {0}".format([exon_common_stringent, exon_ref_stringent, exon_pred_stringent]))
-        self.logger.debug("Exon lenient {0}".format([exon_common_lenient, exon_ref_lenient, exon_pred_lenient]))
+        result = dict()
+        result["bases"] = dict()
+        result["bases"] = [bases_common, bases_prediction, bases_reference]
+
+        result["exons"] = dict()
+        result["exons"]["stringent"] = [exon_common_stringent,
+                                        exon_pred_stringent,
+                                        exon_ref_stringent]
+
+        result["exons"]["lenient"] = [exon_common_lenient,
+                                      exon_pred_lenient,
+                                      exon_ref_lenient]
+        result["ends"] = [ends_common, ends_pred, ends_ref]
+        result["starts"] = [starts_common, starts_pred, starts_ref]
+
+        return result
+
+    def store(self, transcr: Transcript, result: ResultStorer, other_exon):
+
+        """Add exons introns intron chains etc. to the storage.
+        :param transcr: a "Transcript" instance
+        :param result: Instance of "result_storer"
+        :param other_exon: either None or an integer duplex
+        :type other_exon: None | (int,int)
+
+        A transcript is considered a perfect match if it has:
+            junction_f1==100 and nucleotide_f1==100;
+        a lenient match if it has junction_f1==100 and nucleotide_f1>95,
+        i.e. min(nucleotide_precision, nucleotide_recall)>90.4
+        """
+
+        for parent in transcr.parent:
+            if parent not in self.pred_genes:
+                self.pred_genes[parent] = dict()
+            if transcr.id not in self.pred_genes[parent]:
+                self.pred_genes[parent][transcr.id] = 0b00
+
+        if transcr.strand is None:
+            strand = "+"
+        else:
+            strand = transcr.strand
+
+        if result.ccode != ("u",):
+            for parent in transcr.parent:
+                self.pred_genes[parent][transcr.id] |= 0b100
+            for refid, refgene in zip(result.ref_id, result.ref_gene):
+                self.ref_genes[refgene][refid] |= 0b100
+
+            if len(result.j_f1) == 1:
+                zipper = zip(result.ref_id, result.ref_gene, result.j_f1, result.n_f1)
+                for refid, refgene, junc_f1, nucl_f1 in zipper:
+                    if junc_f1 == 100 and nucl_f1 >= 95:
+                        for parent in transcr.parent:
+                            if nucl_f1 == 100:
+                                self.pred_genes[parent][transcr.id] |= 0b01
+                            self.pred_genes[parent][transcr.id] |= 0b10
+                        self.ref_genes[refgene][refid] |= 0b10
+                        if nucl_f1 == 100:
+                            self.ref_genes[refgene][refid] |= 0b01
+
+        if transcr.chrom not in self.exons:
+            self.exons[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+            self.starts[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+            self.ends[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+            self.introns[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+            self.intron_chains[transcr.chrom] = dict([("+", dict()), ("-", dict())])
+
+        if transcr.exon_num > 1:
+            ic_key = tuple(transcr.introns)
+            if result.ccode == ("=",):
+                assert ic_key in self.intron_chains[transcr.chrom][strand]
+                assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
+
+            if ic_key not in self.intron_chains[transcr.chrom][strand]:
+                self.intron_chains[transcr.chrom][strand][ic_key] = [set(), set()]
+            self.intron_chains[transcr.chrom][strand][ic_key][1].add(transcr.id)
+
+            for intron in transcr.introns:
+                if intron not in self.introns[transcr.chrom][strand]:
+                    self.introns[transcr.chrom][strand][intron] = 0b0
+                self.introns[transcr.chrom][strand][intron] |= 0b10
+
+            for index, exon in enumerate(transcr.exons):
+                if exon not in self.exons[transcr.chrom][strand]:
+                    self.exons[transcr.chrom][strand][exon] = 0b0
+                self.exons[transcr.chrom][strand][exon] |= 0b10  # set it as "in prediction"
+                if index == 0:
+                    self.exons[transcr.chrom][strand][exon] |= 0b010000
+                    if exon[1] not in self.starts[transcr.chrom][strand]:
+                        self.starts[transcr.chrom][strand][exon[1]] = 0b0
+                    self.starts[transcr.chrom][strand][exon[1]] |= 0b10
+                elif index == transcr.exon_num - 1:
+                    self.exons[transcr.chrom][strand][exon] |= 0b010000
+                    if exon[0] not in self.ends[transcr.chrom][strand]:
+                        self.ends[transcr.chrom][strand][exon[0]] = 0b00
+                    self.ends[transcr.chrom][strand][exon[0]] |= 0b10
+                else:
+                    self.exons[transcr.chrom][strand][exon] |= 0b01000
+        else:
+            exon = transcr.exons[0]
+            if exon not in self.exons[transcr.chrom][strand]:
+                self.exons[transcr.chrom][strand][exon] = 0b0
+            self.exons[transcr.chrom][strand][exon] |= 0b10
+            self.exons[transcr.chrom][strand][exon] |= 0b100
+            if other_exon is not None:
+                assert isinstance(other_exon, tuple)
+                assert other_exon in self.exons[transcr.chrom][strand],\
+                    (transcr.id, transcr.exons, other_exon)
+                if not 0b100 & self.exons[transcr.chrom][strand][other_exon]:
+                    # Check the other exon is marked as single
+                    self.exons[transcr.chrom][strand][other_exon] |= 0b100
+
+                # self.exons[transcr.chrom][strand][exon] |= 0b100000
+                self.exons[transcr.chrom][strand][other_exon] |= 0b100000
+
+    @staticmethod
+    def __calculate_statistics(common, pred, ref):
+        """
+        Function to calculate precision, recall and F1 given
+        the numbers in common, of the prediction, and of the reference
+        :param common:
+        :param pred:
+        :param ref:
+        :return:
+        """
+
+        if ref > 0:
+            recall = common / ref
+        else:
+            recall = 0
+        if pred > 0:
+            precision = common / pred
+        else:
+            precision = 0
+        f1stat = calc_f1(recall, precision)
+
+        return recall, precision, f1stat
+
+
+    @staticmethod
+    def __format_rowname(stru):
+        """
+        Private method to format the name of the rows in the stats table
+        :param stru:
+        :return:
+        """
+
+        total_length = 32
+        return " " * (total_length-len(stru)-1) + "{}:".format(stru.rstrip(":"))
+
+    @classmethod
+    def __format_comparison_line(cls, name, private, total):
+        """
+        Method to create the string that will be printed out to screen for the stats file.
+        :return:
+        """
+
+        if total > 0:
+            perc = 100 * private / total
+        else:
+            perc = 0
+
+        string = "{0} {1}/{2}  ({3:.2f}%)".format(cls.__format_rowname(name),
+                                                  private,
+                                                  total,
+                                                  perc)
+        return string
+
+    @classmethod
+    def __format_comparison_segments(cls, name, private, common):
+        """
+        Method to create the string that will be printed out to screen for the stats file.
+        :return:
+        """
+
+        if common > 0:
+            perc = 100 * (private - common) / private
+        else:
+            perc = 0
+
+        string = "{0} {1}/{2}  ({3:.2f}%)".format(cls.__format_rowname(name),
+                                                  private-common,
+                                                  private,
+                                                  perc)
+        return string
+
+
+    def print_stats(self):
+
+        """
+        This method calculates and prints the final stats file.
+        It is called when the prediction file
+        parsing has been terminated correctly.
+        """
+
+        # num_ref_transcripts = sum(len(self.ref_genes[gid]) for gid in self.ref_genes)
+        # num_pred_transcripts = sum(len(self.pred_genes[gid]) for gid in self.pred_genes)
+
+
+        # Dictionary with the necessary data
+        bases_exon_result = self.__calculate_exon_stats()
+        intron_results = self.__calculate_intron_stats()
+        gene_transcript_results = self.__calculate_gene_stats()
+
+        # self.logger.debug("Missed exons lenient: %s", bases_exon_result["missed"])
+        self.logger.debug("Exon stringent %s", bases_exon_result["exons"]["stringent"])
+        self.logger.debug("Exon lenient %s", bases_exon_result["exons"]["lenient"])
 
         self.logger.debug(
-            "Bases:\n\treference\t{0}\n\tprediction\t{1}\n\tcommon\t{2}".format(bases_reference, bases_prediction,
-                                                                                bases_common))
-        if bases_reference > 0:
-            bases_recall = bases_common / bases_reference
-        else:
-            bases_recall = 0
-        if bases_prediction > 0:
-            bases_prec = bases_common / bases_prediction
-        else:
-            bases_prec = 0
-        if max(bases_prec, bases_recall) > 0:
-            bases_f1 = 2 * (bases_prec * bases_recall) / (bases_prec + bases_recall)
-        else:
-            bases_f1 = 0
+            """Bases:
+            \treference\t%d
+            \tprediction\t%d
+            \tcommon\t%d""",
+            *bases_exon_result["bases"])
 
-        if exon_ref_stringent > 0:
-            exon_stringent_recall = exon_common_stringent / exon_ref_stringent
-        else:
-            exon_stringent_recall = 0
-        if exon_pred_stringent > 0:
-            exon_stringent_precision = exon_common_stringent / exon_pred_stringent
-        else:
-            exon_stringent_precision = 0
-        if max(exon_stringent_precision, exon_stringent_recall) > 0:
-            exon_stringent_f1 = 2 * (exon_stringent_precision * exon_stringent_recall) / \
-                (exon_stringent_precision + exon_stringent_recall)
-        else:
-            exon_stringent_f1 = 0
+        bases_prec, bases_recall, bases_f1 = self.__calculate_statistics(
+            *bases_exon_result["bases"])
 
-        if exon_ref_lenient > 0:
-            exon_lenient_recall = exon_common_lenient / exon_ref_lenient
-        else:
-            exon_lenient_recall = 0
-        if exon_pred_lenient > 0:
-            exon_lenient_precision = exon_common_lenient / exon_pred_lenient
-        else:
-            exon_lenient_precision = 0
-        if max(exon_lenient_precision, exon_lenient_recall) > 0:
-            exon_lenient_f1 = 2 * (exon_lenient_precision * exon_lenient_recall) / \
-                (exon_lenient_precision + exon_lenient_recall)
-        else:
-            exon_lenient_f1 = 0
+        exon_stringent_precision,\
+        exon_stringent_recall,\
+        exon_stringent_f1 = self.__calculate_statistics(
+            *bases_exon_result["exons"]["stringent"]
+        )
 
-        found_ref_transcripts_stringent = 0
-        found_ref_transcripts_lenient = 0
-        found_ref_genes_stringent = 0
-        found_ref_genes_lenient = 0
+        exon_lenient_precision,\
+        exon_lenient_recall,\
+        exon_lenient_f1 = self.__calculate_statistics(
+            *bases_exon_result["exons"]["lenient"]
+        )
 
-        missed_genes = 0
-        missed_transcripts = 0
+        intron_precision, intron_recall, intron_f1 = self.__calculate_statistics(
+            *intron_results["introns"]
+        )
 
-        ref_transcripts = 0
-        for ref_gene in self.ref_genes:
-            gene_match = 0b00
-            gene_not_found = 0b0
-            for _, val in self.ref_genes[ref_gene].items():
-                ref_transcripts += 1
-                found_ref_transcripts_lenient += (0b10 & val) >> 1
-                found_ref_transcripts_stringent += 0b1 & val
-                # Will evaluate to 1 if the transcript has at least one match
-                missed_transcripts += (0b100 & val) >> 2 ^ 0b1
-                gene_not_found ^= (0b100 & val) >> 2 ^ 0b1
-                gene_match |= val
-            found_ref_genes_stringent += gene_match & 0b1
-            found_ref_genes_lenient += (gene_match & 0b10) >> 1
-            missed_genes += gene_not_found
+        intron_stats = self.__calculate_statistics(
+            *intron_results["intron_chains"]["non_redundant"])
 
-        self.logger.debug("Found ref transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(
-            found_ref_transcripts_stringent, found_ref_transcripts_lenient, ref_transcripts))
-
-        found_pred_transcripts_stringent = 0
-        found_pred_transcripts_lenient = 0
-        found_pred_genes_stringent = 0
-        found_pred_genes_lenient = 0
-        pred_transcripts = 0
-
-        novel_genes = 0
-        novel_transcripts = 0
-
-        for pred_gene in self.pred_genes:
-            gene_match = 0b000
-            gene_not_found = 0b0
-            for _, val in self.pred_genes[pred_gene].items():
-                pred_transcripts += 1
-                found_pred_transcripts_lenient += (0b10 & val) >> 1
-                found_pred_transcripts_stringent += 0b1 & val
-                # Will evaluate to 1 if the transcript has at least one match
-                novel_transcripts += (0b100 & val) >> 2 ^ 0b1
-                gene_not_found ^= (0b100 & val) >> 2 ^ 0b1
-                gene_match |= val
-            found_pred_genes_stringent += gene_match & 0b1
-            found_pred_genes_lenient += (gene_match & 0b10) >> 1
-            novel_genes += gene_not_found
-
-        self.logger.debug("Found pred transcripts:\n\tstringent\t{0}\n\tlenient\t{1}\n\ttotal\t{2}".format(
-            found_pred_transcripts_stringent, found_pred_transcripts_lenient, pred_transcripts))
+        intron_chains_precision, intron_chains_recall, intron_chains_f1 = intron_stats
 
         # Transcript level
-        if ref_transcripts > 0:
-            transcript_recall_stringent = found_ref_transcripts_stringent / ref_transcripts
-            transcript_recall_lenient = found_ref_transcripts_lenient / ref_transcripts
-        else:
-            transcript_recall_stringent = transcript_recall_lenient = 0
-        if pred_transcripts > 0:
-            transcript_precision_stringent = found_pred_transcripts_stringent / pred_transcripts
-            transcript_precision_lenient = found_pred_transcripts_lenient / pred_transcripts
-        else:
-            transcript_precision_stringent = transcript_precision_lenient = 0
+        transcript_precision_stringent,\
+        transcript_recall_stringent,\
+        transcript_f1_stringent = self.__calculate_statistics(
+            gene_transcript_results["ref"]["stringent"][0],
+            gene_transcript_results["pred"]["total"],
+            gene_transcript_results["ref"]["total"]
+        )
 
-        if max(transcript_precision_stringent, transcript_recall_stringent) > 0:
-            transcript_f1_stringent = 2 * (transcript_precision_stringent * transcript_recall_stringent) / \
-                (transcript_precision_stringent + transcript_recall_stringent)
-        else:
-            transcript_f1_stringent = 0
-
-        if max(transcript_precision_lenient, transcript_recall_lenient) > 0:
-            transcript_f1_lenient = 2 * (transcript_precision_lenient * transcript_recall_lenient) / \
-                (transcript_precision_lenient + transcript_recall_lenient)
-        else:
-            transcript_f1_lenient = 0
+        transcript_precision_lenient,\
+        transcript_recall_lenient,\
+        transcript_f1_lenient = self.__calculate_statistics(
+            gene_transcript_results["ref"]["lenient"][0],
+            gene_transcript_results["pred"]["total"],
+            gene_transcript_results["ref"]["total"])
 
         # Gene level
         ref_genes = len(self.ref_genes)
         pred_genes = len(self.pred_genes)
-        if ref_genes > 0:
-            gene_recall_stringent = found_ref_genes_stringent / ref_genes
-            gene_recall_lenient = found_ref_genes_lenient / ref_genes
-        else:
-            gene_recall_stringent = gene_recall_lenient = 0
-        if pred_genes > 0:
-            gene_precision_stringent = found_pred_genes_stringent / pred_genes
-            gene_precision_lenient = found_pred_genes_lenient / pred_genes
-        else:
-            gene_precision_stringent = gene_precision_lenient = 0
+        gene_precision_stringent,\
+        gene_recall_stringent,\
+        gene_f1_stringent = self.__calculate_statistics(
+            gene_transcript_results["ref"]["stringent"][1],
+            pred_genes,
+            ref_genes
+        )
 
-        if max(gene_precision_stringent, gene_recall_stringent) > 0:
-            gene_f1_stringent = 2 * (gene_precision_stringent * gene_recall_stringent) / (
-                gene_precision_stringent + gene_recall_stringent)
-        else:
-            gene_f1_stringent = 0
-
-        if max(gene_precision_lenient, gene_recall_lenient) > 0:
-            gene_f1_lenient = 2 * (gene_precision_lenient * gene_recall_lenient) / (
-                gene_precision_lenient + gene_recall_lenient)
-        else:
-            gene_f1_lenient = 0
+        gene_precision_lenient,\
+        gene_recall_lenient,\
+        gene_f1_lenient = self.__calculate_statistics(
+            gene_transcript_results["ref"]["lenient"][1],
+            pred_genes,
+            ref_genes
+        )
 
         with open("{0}.stats".format(self.args.out), 'wt') as out:
 
             print("Command line:\n{0:>10}".format(self.args.commandline), file=out)
-            print(num_ref_transcripts, "reference RNAs in", len(self.ref_genes), "genes", file=out)
-            print(num_pred_transcripts, "predicted RNAs in ", len(self.pred_genes), "genes", file=out)
+            print(gene_transcript_results["ref"]["total"], "reference RNAs in",
+                  len(self.ref_genes), "genes", file=out)
+            print(gene_transcript_results["pred"]["total"], "predicted RNAs in ",
+                  len(self.pred_genes), "genes", file=out)
 
             print("-" * 30, "|   Sn |   Sp |   F1 |", file=out)
-            print("                     {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Base level:", bases_recall * 100,
-                                                                              bases_prec * 100, bases_f1 * 100),
-                  file=out)
-            print(
-                "         {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Exon level (stringent):", exon_stringent_recall * 100,
-                                                                exon_stringent_precision * 100,
-                                                                exon_stringent_f1 * 100), file=out)
-            print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Exon level (lenient):", exon_lenient_recall * 100,
-                                                                    exon_lenient_precision * 100,
-                                                                    exon_lenient_f1 * 100), file=out)
-            print("                   {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Intron level:", intron_recall * 100,
-                                                                            intron_precision * 100, intron_f1 * 100),
-                  file=out)
-            print("             {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Intron chain level:", intron_chains_recall * 100,
-                                                                      intron_chains_precision * 100,
-                                                                      intron_chains_f1 * 100), file=out)
-            print("   {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Transcript level (stringent):",
-                                                            transcript_recall_stringent * 100,
-                                                            transcript_precision_stringent * 100,
-                                                            transcript_f1_stringent * 100), file=out)
-            print("     {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Transcript level (lenient):",
-                                                              transcript_recall_lenient * 100,
-                                                              transcript_precision_lenient * 100,
-                                                              transcript_f1_lenient * 100), file=out)
-            print(
-                "         {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level (stringent):", gene_recall_stringent * 100,
-                                                                gene_precision_stringent * 100,
-                                                                gene_f1_stringent * 100), file=out)
-            print("           {0} {1:.2f}  {2:.2f}  {3:.2f}".format("Gene level (lenient):", gene_recall_lenient * 100,
-                                                                    gene_precision_lenient * 100,
-                                                                    gene_f1_lenient * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Base level"),
+                bases_recall * 100,
+                bases_prec * 100, bases_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Exon level (stringent)"),
+                exon_stringent_recall * 100,
+                exon_stringent_precision * 100,
+                exon_stringent_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Exon level (lenient)"),
+                exon_lenient_recall * 100,
+                exon_lenient_precision * 100,
+                exon_lenient_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Intron level"),
+                intron_recall * 100,
+                intron_precision * 100, intron_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Intron chain level"),
+                intron_chains_recall * 100,
+                intron_chains_precision * 100,
+                intron_chains_f1 * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Transcript level (stringent)"),
+                transcript_recall_stringent * 100,
+                transcript_precision_stringent * 100,
+                transcript_f1_stringent * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Transcript level (lenient)"),
+                transcript_recall_lenient * 100,
+                transcript_precision_lenient * 100,
+                transcript_f1_lenient * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Gene level (stringent)"),
+                gene_recall_stringent * 100,
+                gene_precision_stringent * 100,
+                gene_f1_stringent * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Gene level (lenient)"),
+                gene_recall_lenient * 100,
+                gene_precision_lenient * 100,
+                gene_f1_lenient * 100), file=out)
             print(file=out)
-            print("         Matching intron chains: {0}".format(intron_chains_common_pred), file=out)
-            print("          Matched intron chains: {0}".format(intron_chains_common_ref), file=out)
+            print("{0} {1}".format(
+                self.__format_rowname("Matching intron chains"),
+                intron_results["intron_chains"]["redundant"][0]), file=out)
+            print("{0} {1}".format(
+                self.__format_rowname("Matched intron chains"),
+                intron_results["intron_chains"]["redundant"][1]), file=out)
 
             print("", file=out)
-            #             print(" Matched intron chains: {0}".format(len(self.matching_chains)), file=out)
 
-            if exon_ref_stringent > 0:
-                perc = 100 * (exon_ref_stringent - exon_common_stringent) / exon_ref_stringent
-            else:
-                perc = 0
-
-            print("       {0} {1}/{2}  ({3:.2f}%)".format("Missed exons (stringent):",
-                                                          exon_ref_stringent - exon_common_stringent,
-                                                          exon_ref_stringent,
-                                                          perc),
+            print(self.__format_comparison_segments("Missed exons (stringent)",
+                                                    bases_exon_result["exons"]["stringent"][2],
+                                                    bases_exon_result["exons"]["stringent"][0]),
                   file=out)
-            if exon_pred_stringent > 0:
-                perc = 100 * (exon_pred_stringent - exon_common_stringent) / exon_pred_stringent
-            else:
-                perc = 0
-
-            print("        {0} {1}/{2}  ({3:.2f}%)".format("Novel exons (stringent):",
-                                                           exon_pred_stringent - exon_common_stringent,
-                                                           exon_pred_stringent,
-                                                           perc
-                                                           ),
+            print(self.__format_comparison_segments("Novel exons (stringent)",
+                                                    bases_exon_result["exons"]["stringent"][1],
+                                                    bases_exon_result["exons"]["stringent"][0]),
                   file=out)
 
-            if exon_ref_lenient > 0:
-                perc = 100 * (exon_ref_lenient - exon_common_lenient) / exon_ref_lenient
-            else:
-                perc = 0
-
-            print("         {0} {1}/{2}  ({3:.2f}%)".format("Missed exons (lenient):",
-                                                            exon_ref_lenient - exon_common_lenient,
-                                                            exon_ref_lenient, perc
-                                                            ),
+            print(self.__format_comparison_segments("Missed exons (lenient)",
+                                                    bases_exon_result["exons"]["lenient"][2],
+                                                    bases_exon_result["exons"]["lenient"][0]),
+                  file=out)
+            print(self.__format_comparison_segments("Novel exons (lenient)",
+                                                    bases_exon_result["exons"]["lenient"][1],
+                                                    bases_exon_result["exons"]["lenient"][0]),
                   file=out)
 
-            if exon_pred_lenient > 0:
-                perc = 100 * (exon_pred_lenient - exon_common_lenient) / exon_pred_lenient
-            else:
-                perc = 0
+            print(self.__format_comparison_segments("Missed introns",
+                                                    intron_results["introns"][2],
+                                                    intron_results["introns"][0]),
+                  file=out)
+            print(self.__format_comparison_segments("Novel introns",
+                                                    intron_results["introns"][1],
+                                                    intron_results["introns"][0]),
+                  file=out)
+            print("")
 
-            print("          {0} {1}/{2}  ({3:.2f}%)".format("Novel exons (lenient):",
-                                                             exon_pred_lenient - exon_common_lenient,
-                                                             exon_pred_lenient,
-                                                             perc
-                                                             ),
+            print(self.__format_comparison_line("Missed transcripts",
+                                                    gene_transcript_results["ref"]["private"][0],
+                                                    gene_transcript_results["ref"]["total"]),
                   file=out)
 
-            if intron_ref > 0:
-                perc = 100 * (intron_ref - intron_common) / intron_ref
-            else:
-                perc = 0
-
-            print("                 {0} {1}/{2}  ({3:.2f}%)".format("Missed introns:",
-                                                                    intron_ref - intron_common,
-                                                                    intron_ref,
-                                                                    perc
-                                                                    ),
+            print(self.__format_comparison_line("Novel transcripts",
+                                                    gene_transcript_results["pred"]["private"][0],
+                                                    gene_transcript_results["pred"]["total"]),
                   file=out)
 
-            if intron_pred > 0:
-                perc = 100 * (intron_pred - intron_common) / intron_pred
-            else:
-                perc = 0
+            print(self.__format_comparison_line("Missed genes",
+                                                    gene_transcript_results["ref"]["private"][1],
+                                                    len(self.ref_genes)), file=out)
 
-            print("                  {0} {1}/{2}  ({3:.2f}%)".format("Novel introns:",
-                                                                     intron_pred - intron_common,
-                                                                     intron_pred,
-                                                                     perc
-                                                                     ),
-                  file=out)
-            print("", file=out)
+            print(self.__format_comparison_line("Novel genes",
+                                                gene_transcript_results["pred"]["private"][1],
+                                                len(self.pred_genes)), file=out)
 
-            if num_ref_transcripts > 0:
-                perc = 100 * missed_transcripts / num_ref_transcripts
-            else:
-                perc = 0
-
-            print("             {0} {1}/{2} ({3:.2f}%)".format("Missed transcripts:",
-                                                               missed_transcripts,
-                                                               num_ref_transcripts,
-                                                               perc
-                                                               ), file=out)
-
-            if num_pred_transcripts > 0:
-                perc = 100 * novel_transcripts / num_pred_transcripts
-            else:
-                perc = 0
-
-            print("              {0} {1}/{2} ({3:.2f}%)".format("Novel transcripts:",
-                                                                novel_transcripts,
-                                                                num_pred_transcripts,
-                                                                perc
-                                                                ), file=out)
-
-            if len(self.ref_genes) > 0:
-                perc = 100 * missed_genes / len(self.ref_genes)
-            else:
-                perc = 0
-
-            print("                   {0} {1}/{2} ({3:.2f}%)".format("Missed genes:",
-                                                                     missed_genes,
-                                                                     len(self.ref_genes),
-                                                                     perc
-                                                                     ), file=out)
-
-            if len(self.pred_genes) > 0:
-                perc = 100 * novel_genes / len(self.pred_genes)
-            else:
-                perc = 0
-
-            print("                    {0} {1}/{2} ({3:.2f}%)".format("Novel genes:",
-                                                                      novel_genes,
-                                                                      len(self.pred_genes),
-                                                                      perc
-                                                                      ), file=out)
 
         self.logger.removeHandler(self.queue_handler)
-        self.queue_handler.close()
+        # self.queue_handler.close()
         return

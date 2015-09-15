@@ -8,10 +8,10 @@ This class defines the results of the Assigner.compare method.
 class ResultStorer:
     """This class stores the results in pre-defined slots, to reduce memory usage."""
 
-    __slots__ = ["RefId", "RefGene", "ccode",
-                 "TID", "GID",
+    __slots__ = ["ref_id", "ref_gene", "ccode",
+                 "tid", "gid",
                  "n_prec", "n_recall", "n_f1",
-                 "j_prec","j_recall", "j_f1",
+                 "j_prec", "j_recall", "j_f1",
                  "e_prec", "e_recall", "e_f1",
                  "distance"]
 
@@ -24,9 +24,11 @@ class ResultStorer:
         """
 
         if len(args) != len(self.__slots__):
-            raise ValueError("Result_storer expected {0} but only received {1}".format(len(self.__slots__), len(args)))
+            err_msg = "Result_storer expected {0} but only received {1}".format(
+                len(self.__slots__), len(args))
+            raise ValueError(err_msg)
 
-        self.RefId, self.RefGene, self.ccode, self.TID, self.GID, \
+        self.ref_id, self.ref_gene, self.ccode, self.tid, self.gid, \
             self.n_prec, self.n_recall, self.n_f1,\
             self.j_prec, self.j_recall, self.j_f1, \
             self.e_prec, self.e_recall, self.e_f1, \
@@ -34,10 +36,10 @@ class ResultStorer:
 
         for index, key in enumerate(self.__slots__):
             if index < 3:
-                if type(getattr(self, self.__slots__[index])) is str:
+                if isinstance(getattr(self, self.__slots__[index]), str):
                     setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
             elif 4 < index < len(self.__slots__):
-                if type(getattr(self, self.__slots__[index])) in (float, int):
+                if isinstance(getattr(self, self.__slots__[index]), (float, int)):
                     setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
 
     def _asdict(self):
@@ -46,32 +48,40 @@ class ResultStorer:
         :return: a dictionary containing the items of the class
         :rtype : dict
         """
-        d = dict().fromkeys(self.__slots__)
+        result_dict = dict().fromkeys(self.__slots__)
 
         for attr in self.__slots__[:3]:
             try:
-                d[attr] = ",".join(list(getattr(self, attr)))
+                result_dict[attr] = ",".join(list(getattr(self, attr)))
             except TypeError as exc:
                 raise TypeError("{0}; {1}".format(exc, getattr(self, attr)))
         for attr in self.__slots__[3:5]:
-            d[attr] = getattr(self, attr)
+            result_dict[attr] = getattr(self, attr)
         for attr in self.__slots__[5:-1]:
-            d[attr] = ",".join("{0:,.2f}".format(x) for x in getattr(self, attr))
-        d["distance"] = self.distance[0]  # Last attribute
-        return d
+            result_dict[attr] = ",".join("{0:,.2f}".format(x) for x in getattr(self, attr))
+        result_dict["distance"] = self.distance[0]  # Last attribute
+        return result_dict
+
+    def as_dict(self):
+        """
+        Wrapper for the protected method _asdict
+        :return: dictionary
+        """
+
+        return self._asdict()
 
     def __str__(self):
 
-        r = self._asdict()
+        result_dict = self._asdict()
         line = []
         for key in self.__slots__:
-            line.append(str(r[key]))
+            line.append(str(result_dict[key]))
         return "\t".join(line)
 
     def __repr__(self):
 
-        t = "result( "
+        represent = "result( "
         for key in self.__slots__:
-            t += "{0}={1}, ".format(key, getattr(self, key))
-        t += ")"
-        return t
+            represent += "{0}={1}, ".format(key, getattr(self, key))
+        represent += ")"
+        return represent

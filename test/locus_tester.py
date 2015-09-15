@@ -71,7 +71,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
 
         my_json = os.path.join(os.path.dirname(__file__), "../sample_data/configuration.yaml")
         my_json = json_utils.to_json(my_json)
-        slocus = superlocus.Superlocus(self.transcript1, json_dict=my_json)
+        slocus = superlocus.Superlocus(self.transcript1, json_conf=my_json)
         slocus.add_transcript_to_locus(self.transcript2)
         self.assertEqual(slocus.strand, self.transcript1.strand)
         self.assertEqual(slocus.start, min(self.transcript1.start, self.transcript2.start))
@@ -90,7 +90,7 @@ Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
         for exon in gff_transcript3[1:]:
                 transcript3.add_exon(exon)
         transcript3.finalize()
-        minusuperlocus = superlocus.Superlocus(transcript3, json_dict=my_json)
+        minusuperlocus = superlocus.Superlocus(transcript3, json_conf=my_json)
         minusuperlocus.define_loci()
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)

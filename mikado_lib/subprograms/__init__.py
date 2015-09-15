@@ -2,8 +2,7 @@
 
 """This module contains the ORM modules necessary to create the starting DB from the input data."""
 
-from mikado_lib.parsers import GTF,GFF
-
+from mikado_lib.parsers import GTF, GFF
 
 def to_gff(string):
     """
@@ -18,7 +17,6 @@ def to_gff(string):
         return GFF.GFF3(f)
     else:
         raise ValueError('Unrecognized format')
-
 
 import mikado_lib.subprograms.compare
 import mikado_lib.subprograms.pick

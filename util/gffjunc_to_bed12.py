@@ -35,14 +35,14 @@ def main():
                 bed12.score = transcript.score
                 bed12.start = transcript.start
                 bed12.end = transcript.end
-                bed12.thickStart = introns[0][0]
-                bed12.thickEnd = introns[0][1]
+                bed12.thick_start = introns[0][0]
+                bed12.thick_end = introns[0][1]
                 bed12.name = transcript.id
                 bed12.rgb = "255,0,0"
-                bed12.blockCount = 2
-                bed12.blockSizes = [(e[1] - e[0]) for e in transcript.exons]
-                bed12.blockStarts = []
-                bed12.blockStarts = [0, bed12.blockSizes[0] + introns[0][1] - introns[0][0]]
+                bed12.block_count = 2
+                bed12.block_sizes = [(e[1] - e[0]) for e in transcript.exons]
+                bed12.block_starts = []
+                bed12.block_starts = [0, bed12.block_sizes[0] + introns[0][1] - introns[0][0]]
                 print(bed12, file=args.out)
 
             transcript = mikado_lib.loci_objects.transcript.Transcript(row)
@@ -57,14 +57,14 @@ def main():
         bed12.start = transcript.start
         bed12.score = transcript.score
         bed12.end = transcript.end
-        bed12.thickStart = introns[0][0]
-        bed12.thickEnd = introns[0][1]
+        bed12.thick_start = introns[0][0]
+        bed12.thick_end = introns[0][1]
         bed12.name = transcript.id
         bed12.rgb = "255,0,0"
-        bed12.blockCount = 2
-        bed12.blockSizes = [(e[1] - e[0]) for e in transcript.exons]
-        bed12.blockStarts = []
-        bed12.blockStarts = [0, bed12.blockSizes[0] + introns[0][1] - introns[0][0]]
+        bed12.block_count = 2
+        bed12.block_sizes = [(e[1] - e[0]) for e in transcript.exons]
+        bed12.block_starts = []
+        bed12.block_starts = [0, bed12.block_sizes[0] + introns[0][1] - introns[0][0]]
         print(bed12, file=args.out)
 
 

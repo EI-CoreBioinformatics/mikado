@@ -60,27 +60,27 @@ class MonoBaseTester(unittest.TestCase):
         self.bed1.name = "{0}.1".format(self.tr.id)
         self.bed1.strand = "+"
         self.bed1.score = 0
-        self.bed1.thickStart = 434
-        self.bed1.thickEnd = 3736
+        self.bed1.thick_start = 434
+        self.bed1.thick_end = 3736
         self.bed1.has_start_codon = True
         self.bed1.transcriptomic = True
         self.bed1.has_stop_codon = True
-        self.bed1.blockCount = 1
-        self.bed1.blockSizes = [len(self.bed1)]
-        self.bed1.blockStarts = [0]
+        self.bed1.block_count = 1
+        self.bed1.block_sizes = [len(self.bed1)]
+        self.bed1.block_starts = [0]
 
         # Second ORF
         self.bed2 = copy.deepcopy(self.bed1)
         self.bed2.name = "{0}.2".format(self.tr.id)
-        self.bed2.thickStart = 2
-        self.bed2.thickEnd = 388
+        self.bed2.thick_start = 2
+        self.bed2.thick_end = 388
         self.bed2.has_start_codon = False
 
         # Third ORF
         self.bed3 = copy.deepcopy(self.bed1)
         self.bed3.name = "{0}.3".format(self.tr.id)
-        self.bed3.thickStart = 3914
-        self.bed3.thickEnd = 4393
+        self.bed3.thick_start = 3914
+        self.bed3.thick_end = 4393
 
     def test_finalise(self):
         self.tr.finalize()
@@ -91,7 +91,7 @@ class MonoBaseTester(unittest.TestCase):
         self.assertFalse(self.bed2.invalid)
         self.assertFalse(self.bed3.invalid)
         print(self.bed3.cds_len)
-        self.assertEqual(self.bed3.cds_len, self.bed3.thickEnd-self.bed3.thickStart+1 )
+        self.assertEqual(self.bed3.cds_len, self.bed3.thick_end-self.bed3.thick_start+1 )
 
         self.tr.load_orfs([self.bed1, self.bed2, self.bed3])
         self.assertEqual(self.tr.number_internal_orfs, 3)
@@ -205,11 +205,11 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.orf.name = self.tr.id
         self.orf.strand = "+"
         self.orf.score = 0
-        self.orf.thickStart = self.tr.selected_start_distance_from_tss + 1
-        self.orf.thickEnd = self.tr.cdna_length - self.tr.selected_end_distance_from_tes
-        self.orf.blockCount = 1
+        self.orf.thick_start = self.tr.selected_start_distance_from_tss + 1
+        self.orf.thick_end = self.tr.cdna_length - self.tr.selected_end_distance_from_tes
+        self.orf.block_count = 1
         self.orf.blockSize = self.tr.cdna_length
-        self.orf.blockStarts = 0
+        self.orf.block_starts = 0
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
 
@@ -405,12 +405,12 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         first_orf.name = "first"
         first_orf.strand = "+"
         first_orf.score = 0
-        first_orf.thickStart = 51
-        first_orf.thickEnd = 398
-        first_orf.blockCount = 1
+        first_orf.thick_start = 51
+        first_orf.thick_end = 398
+        first_orf.block_count = 1
         first_orf.blockSize = self.tr.cdna_length
-        first_orf.blockSizes = [self.tr.cdna_length]
-        first_orf.blockStarts = [0]
+        first_orf.block_sizes = [self.tr.cdna_length]
+        first_orf.block_starts = [0]
         first_orf.rgb = 0
         first_orf.has_start_codon = True
         first_orf.has_stop_codon = True
@@ -424,12 +424,12 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         second_orf.name = "second"
         second_orf.strand = "+"
         second_orf.score = 0
-        second_orf.thickStart = 201
-        second_orf.thickEnd = 410
-        second_orf.blockCount = 1
+        second_orf.thick_start = 201
+        second_orf.thick_end = 410
+        second_orf.block_count = 1
         second_orf.blockSize = self.tr.cdna_length
-        second_orf.blockSizes = [self.tr.cdna_length]
-        second_orf.blockStarts = [0]
+        second_orf.block_sizes = [self.tr.cdna_length]
+        second_orf.block_starts = [0]
         second_orf.rgb = 0
         second_orf.has_start_codon = True
         second_orf.has_stop_codon = True
@@ -446,12 +446,12 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         third_orf.name = "third"
         third_orf.strand = "+"
         third_orf.score = 0
-        third_orf.thickStart = 501
-        third_orf.thickEnd = 800
-        third_orf.blockCount = 1
+        third_orf.thick_start = 501
+        third_orf.thick_end = 800
+        third_orf.block_count = 1
         third_orf.blockSize = self.tr.cdna_length
-        third_orf.blockSizes = [self.tr.cdna_length]
-        third_orf.blockStarts = [0]
+        third_orf.block_sizes = [self.tr.cdna_length]
+        third_orf.block_starts = [0]
         third_orf.rgb = 0
         third_orf.has_start_codon = True
         third_orf.has_stop_codon = True

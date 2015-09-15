@@ -112,13 +112,13 @@ def main():
         newrecord.strand = key[1]
         newrecord.name = args.delim.join(x.name for x in juncs[key])
         newrecord.score = sum(x.score if x.score is not None else 0 for x in juncs[key])
-        newrecord.thickStart = key[2]+1
-        newrecord.thickEnd = key[3]
+        newrecord.thick_start = key[2]+1
+        newrecord.thick_end = key[3]
         newrecord.rgb = "255,0,0"
-        newrecord.blockCount = 2
-        newrecord.blockSizes = [newrecord.thickStart-newrecord.start+1,
-                                newrecord.end-newrecord.thickEnd+1]
-        newrecord.blockStarts = [0, newrecord.thickEnd - newrecord.start+1]
+        newrecord.block_count = 2
+        newrecord.block_sizes = [newrecord.thick_start-newrecord.start+1,
+                                newrecord.end-newrecord.thick_end+1]
+        newrecord.block_starts = [0, newrecord.thick_end - newrecord.start+1]
         print(newrecord, file=args.output)
 
 if __name__ == "__main__":

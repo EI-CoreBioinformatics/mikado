@@ -6,6 +6,7 @@
 """
 
 import io
+import abc
 
 
 class HeaderError(Exception):
@@ -21,12 +22,13 @@ class SizeError(Exception):
     """
     def __init__(self, value=None):
         self.value = value
+        Exception.__init__(self)
 
     def __str__(self):
         return str(self.value)
 
 
-class Parser(object):
+class Parser(metaclass=abc.ABCMeta):
     """Generic parser iterator. Base parser class."""
 
     def __init__(self, handle):
@@ -41,6 +43,10 @@ class Parser(object):
 
     def __iter__(self):
         return self
+
+    def __next__(self):
+        line = self._handle.readline()
+        return line
 
     def __enter__(self):
         if self.closed is True:
@@ -80,26 +86,11 @@ class Parser(object):
         This sets the closed flag of the file.
 
         """
-        if type(args[0]) is not bool:
+        if not isinstance(args[0], bool):
             raise TypeError("Invalid value: {0}".format(args[0]))
 
         self.__closed = args[0]
 
-
-class TabParser(object):
-    """Base class for iterating over tabular file formats."""
-
-    def __init__(self, line: str):
-        if not isinstance(line, str):
-            raise TypeError
-        if line == '':
-            raise StopIteration
-
-        self.line = line.rstrip()
-        self._fields = self.line.split('\t')
-
-    def __str__(self):
-        return self.line
 
 import mikado_lib.parsers.GFF
 import mikado_lib.parsers.GTF

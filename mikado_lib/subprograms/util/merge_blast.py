@@ -7,7 +7,7 @@ Script to extract features from a GTF with certain coordinates.
 
 import sys
 import argparse
-from mikado_lib.serializers.blast_utils import XMLMerger, create_opener
+from mikado_lib.parsers.blast_utils import XMLMerger, create_opener
 import logging
 
 __author__ = 'Luca Venturini'
@@ -29,7 +29,7 @@ def launch(args):
         parser = XMLMerger(args.xml, log=args.log, log_level=level)
 
     for line in parser:
-        print(line, file=args.out, end='')
+        print(line, file=args.out)
 
 
 def merger_parser():
@@ -38,7 +38,8 @@ def merger_parser():
     :return:
     """
 
-    parser = argparse.ArgumentParser("Quick utility to extract features from a GTF with certain coordinates.")
+    parser = argparse.ArgumentParser(
+        "Quick utility to extract features from a GTF with certain coordinates.")
     parser.add_argument("-v", "--verbose", action="store_true", default=False)
     parser.add_argument("-l", "--log", default=None)
     parser.add_argument("--out", type=argparse.FileType("w"), nargs="?", default=sys.stdout)

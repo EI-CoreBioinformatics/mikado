@@ -49,7 +49,8 @@ def awk_parser():
     :return:
     """
 
-    parser = argparse.ArgumentParser("Quick utility to extract features from a GTF with certain coordinates.")
+    parser = argparse.ArgumentParser(
+        "Utility to extract features from a GTF within given coordinates.")
     parser.add_argument("--chrom", required=True)
     parser.add_argument("-as", "--assume-sorted", dest="assume_sorted",
                         default=False, action="store_true")

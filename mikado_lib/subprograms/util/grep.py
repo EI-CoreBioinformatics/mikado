@@ -5,6 +5,7 @@
 
 import sys
 import argparse
+import functools
 from mikado_lib.parsers import GFF, GTF
 from mikado_lib.subprograms import to_gff
 
@@ -33,32 +34,58 @@ def print_gff_gene(curr_gene, curr_transcripts, args):
         curr_gene.end = max(ends)
         print(curr_gene, file=args.out)
         print(*lines, sep="\n", file=args.out)
+        print("###", file=args.out)
 
 
-def grep_gff(args):
+def verify_storability(record, mrna_ids, gene_ids, args):
+    """
+    This function verifies whether a GFF transcript has to be kept
+    or not.
+    :param record: the record to be evaluated
+    :param gene_ids: a set of gene IDs
+    :param mrna_ids: a set of mRNA IDs
+    :param args: the namespace args
+    :return:
+    """
 
-    gene_ids, mrna_ids = set(), set()
-    for line in args.ids:
-        if args.genes is False:
-            mrna_id, gene_id = line.rstrip().split()[:2]
-            mrna_ids.add(mrna_id)
-            gene_ids.add(gene_id)
-        else:
-            gene_id = line.rstrip()
-            gene_ids.add(gene_id)
+    bool_flag = False
+
+    if args.reverse is False:
+        if record.id in mrna_ids:
+            bool_flag = True
+        elif args.genes is True and any([p in gene_ids for p in record.parent]):
+            bool_flag = True
+            mrna_ids.add(record.id)
+    elif args.reverse is True:
+        if args.genes is False and record.id not in mrna_ids:
+            bool_flag = True
+        elif args.genes is True and not any([p in gene_ids for p in record.parent]):
+            bool_flag = True
+            mrna_ids.add(record.id)
+
+    return bool_flag, mrna_ids
+
+
+def grep_gff(args, gene_ids, mrna_ids):
+    """
+    Grep-like main function for *GFF3* files.
+    :param args:
+    :return:
+    """
 
     curr_gene = None
     curr_transcripts = dict()
 
     print("##gff-version 3", file=args.out)
 
+    evaluator = functools.partial(verify_storability,
+                                  **{"gene_ids": gene_ids,
+                                     "args": args})
+
     for record in args.gff:
-        if record.is_transcript is True:  # Potential gene line
-            if args.reverse is False and (
-                    record.id in mrna_ids or (args.genes is True and any([p in gene_ids for p in record.parent]))):
-                curr_transcripts[record.id] = [record]
-            elif args.reverse is True and ((args.genes is False and record.id not in mrna_ids) or (
-                    args.genes is True and not any([p in gene_ids for p in record.parent]))):
+        if record.is_transcript is True:
+            evaluated, mrna_ids = evaluator(record, mrna_ids)
+            if evaluated is True:
                 curr_transcripts[record.id] = [record]
         elif record.is_exon is True:
             for parent in record.parent:
@@ -80,24 +107,16 @@ def grep_gff(args):
             if record.id is None:
                 continue
             curr_gene = record
-            # elif args.reverse is True and record.id not in gene_ids:
-            #     curr_gene = record
-            # elif args.reverse is False and record.id in gene_ids:
-            #     curr_gene = record
 
     print_gff_gene(curr_gene, curr_transcripts, args)
 
 
-def grep_gtf(args):
-    gene_ids, mrna_ids = set(), set()
-    for line in args.ids:
-        if args.genes is False:
-            mrna_id, gene_id = line.rstrip().split()[:2]
-            mrna_ids.add(mrna_id)
-            gene_ids.add(gene_id)
-        else:
-            gene_id = line.rstrip()
-            gene_ids.add(gene_id)
+def grep_gtf(args, gene_ids, mrna_ids):
+    """
+    Grep-like main function for *GTF* files.
+    :param args:
+    :return:
+    """
 
     for record in args.gtf:
         if not record:
@@ -117,23 +136,50 @@ def grep_gtf(args):
 
 
 def launch(args):
-    if type(args.gff) is GTF.GTF:
-        grep_gtf(args)
-    elif type(args.gff) is GFF.GFF3:
-        grep_gff(args)
+    """
+    Function which chooses whether to use the grep_gtf
+    or the grep_gff function for the analysis.
+    :param args:
+    :return:
+    """
+
+    gene_ids, mrna_ids = set(), set()
+    for line in args.ids:
+        if args.genes is False:
+            mrna_id, gene_id = line.rstrip().split()[:2]
+            mrna_ids.add(mrna_id)
+            gene_ids.add(gene_id)
+        else:
+            gene_id = line.rstrip()
+            gene_ids.add(gene_id)
+
+    if isinstance(args.gff, GTF.GTF):
+        grep_gtf(args, gene_ids, mrna_ids)
+    elif isinstance(args.gff, GFF.GFF3):
+        grep_gff(args, gene_ids, mrna_ids)
     else:
         raise TypeError(type(args.gff))
 
 
 def grep_parser():
-    parser = argparse.ArgumentParser('Script to parse and retrieve given features from a GFF file.')
+    """
+    Simple command line parser for the utility.
+    :return: args
+    """
+
+    parser = argparse.ArgumentParser(
+        'Script to parse and retrieve given features from a GFF file.')
     parser.add_argument('-v', action='store_true', dest='reverse',
                         help="Exclude from the gff all the records in the id file.")
     parser.add_argument("--genes", action="store_true",
-                        help="""Flag. If set, the program expects as ids only a list of genes,
-                        and will exclude/include all the transcripts children of the selected genes.""")
-    parser.add_argument('ids', type=argparse.FileType(), help="ID file (format: mrna_id, gene_id - tab separated)")
+                        help="""Flag. If set, the program expects as ids
+                        only a list of genes, and will exclude/include all the transcripts
+                        children of the selected genes.""")
+    parser.add_argument('ids', type=argparse.FileType(),
+                        help="ID file (format: mrna_id, gene_id - tab separated)")
     parser.add_argument('gff', type=to_gff, help="The GFF file to parse.")
-    parser.add_argument('out', nargs='?', type=argparse.FileType('w'), default=sys.stdout, help="Optional output file")
+    parser.add_argument('out', nargs='?',
+                        type=argparse.FileType('w'), default=sys.stdout,
+                        help="Optional output file")
     parser.set_defaults(func=launch)
     return parser

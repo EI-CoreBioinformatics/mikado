@@ -12,57 +12,15 @@ from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, 
 from sqlalchemy.ext.hybrid import hybrid_property
 from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from mikado_lib.serializers.dbutils import dbBase, Inspector, connect
-from mikado_lib.serializers.blast_utils import Query
+from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
+from mikado_lib.serializers.blast_serializer import Query
 
 
-class Orf(dbBase):
+class Orf(DBBASE):
 
     """
     Serialization class for ORFs derived from BED12 files.
-
-
-    :param id: numerical key index
-    :type orf_id: int
-
-    :param query_id: foreign key id for the blast Query table
-    :type query_id: int
-
-    :param start: start position of the ORF. It should always be 1
-    :type start: int
-
-    :param end: end position of the ORF. It is equivalent to the transcript length.
-    :type end: int
-
-    :param name: Name of the ORF.
-    :type name: str
-
-    :param strand: Strand of the ORF. One of "+","-"
-    :type strand: str
-
-    :param thick_start: ORF start position on the transcript.
-    :type thick_start: int
-
-    :param thick_end: ORF end position on the transcript.
-    :type thick_end: int
-
-    :param score: Score assigned to this ORF
-    :type score: float
-
-    :param has_start_codon: boolean flag that indicates whether a start codon is present at the beginning of the ORF.
-    :type has_start_codon: bool
-
-    :param has_stop_codon: boolean flag that indicates whether a termination codon is present at the end of the ORF.
-    :type has_stop_codon: bool
-
-    :param cds_len: length of the ORF
-    :type cds_len: int
-
-    :param query_object: a Query object which is referenced inside the BLAST tables.
-    :type query_object: mikado_lib.serializers.blast_utils.Query
-
     """
 
     __tablename__ = "orf"
@@ -80,12 +38,14 @@ class Orf(dbBase):
     has_stop_codon = Column(Boolean, nullable=True)
     cds_len = Column(Integer)
 
-    __table_args__ = (Index("orf_index", "query_id", "thick_start", "thick_end"), Index("query_index", "query_id"))
+    __table_args__ = (Index("orf_index", "query_id", "thick_start", "thick_end"),
+                      Index("query_index", "query_id"))
 
-    query_object = relationship(Query, uselist=False, backref=backref("orfs"), lazy="immediate")
+    query_object = relationship(Query, uselist=False,
+                                backref=backref("orfs"), lazy="immediate")
 
     def __init__(self, bed12_object, query_id):
-        if type(bed12_object) is not bed12.BED12:
+        if not isinstance(bed12_object, bed12.BED12):
             raise TypeError("Invalid data type!")
         self.query_id = query_id
         self.start = bed12_object.start
@@ -110,34 +70,34 @@ class Orf(dbBase):
     def as_bed12_static(cls, state, query_name):
         """Class method to transform the mapper into a BED12 object.
         Usable from outside the class."""
-        b = bed12.BED12()
+        __bed12 = bed12.BED12()
 
-        b.header = False
-        b.query = b.chrom = query_name
-        b.start = state.start
-        b.end = state.end
-        b.name = state.orf_name
-        b.score = state.score
-        b.strand = state.strand
-        b.thick_start = state.thick_start
-        b.thick_end = state.thick_end
-        b.rgb = 0
-        b.block_count = 1
-        b.block_sizes = [state.end]
-        b.block_starts = [0]
+        __bed12.header = False
+        __bed12.query = __bed12.chrom = query_name
+        __bed12.start = state.start
+        __bed12.end = state.end
+        __bed12.name = state.orf_name
+        __bed12.score = state.score
+        __bed12.strand = state.strand
+        __bed12.thick_start = state.thick_start
+        __bed12.thick_end = state.thick_end
+        __bed12.rgb = 0
+        __bed12.block_count = 1
+        __bed12.block_sizes = [state.end]
+        __bed12.block_starts = [0]
 
         # Verbose block, but it is necessary as raw extraction from SQL
         # yields 0/1 instead of True/False
         if state.has_start_codon:
-            b.has_start_codon = True
+            __bed12.has_start_codon = True
         else:
-            b.has_start_codon = False
+            __bed12.has_start_codon = False
         if state.has_stop_codon:
-            b.has_stop_codon = True
+            __bed12.has_stop_codon = True
         else:
-            b.has_stop_codon = False
+            __bed12.has_stop_codon = False
 
-        return b
+        return __bed12
 
     def as_bed12(self):
         """Method to transform the mapper into a BED12 object."""
@@ -165,24 +125,23 @@ class OrfSerializer:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-    def __init__(self, handle, fasta_index=None, maxobjects=1000000, json_conf=None, logger=None):
+    def __init__(self, handle, fasta_index=None,
+                 maxobjects=1000000, json_conf=None, logger=None):
 
         """Constructor function. Arguments:
         - handle         the BED12 file
         - db             Output DB
-        - fasta_index    A SeqIO-like index of sequence records. Alternatively, the path to the FASTA file. REQUIRED.
-        - maxobjects    Integer. Indicates how big should the cache be for objects to be loaded inside the DB
-        
-        It is HIGHLY RECOMMENDED to provide the fasta index, as it will make the population of the Query
-        table much faster.
+        - fasta_index    A SeqIO-like index of sequence records.
+        Alternatively, the path to the FASTA file. REQUIRED.
+        - maxobjects    Integer. Indicates how big should the cache be
+        for objects to be loaded inside the DB
+
+        It is HIGHLY RECOMMENDED to provide the fasta index,
+        as it will make the population of the Query table much faster.
 
         :param handle: the input BED12 file
         :type handle: io.IOBase
         :type handle: str
-
-        :param db: the database to be used as output
-        :type db: str
-        :type db: None
 
         :param fasta_index: a dictionary-like BioPython index object
         :type fasta_index: Bio.File._IndexedSeqFileDict
@@ -195,7 +154,7 @@ class OrfSerializer:
 
         """
 
-        if type(fasta_index) is str:
+        if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
             self.fasta_index = SeqIO.index(fasta_index, "fasta")
         elif fasta_index is None:
@@ -206,7 +165,9 @@ class OrfSerializer:
             assert "SeqIO.index" in repr(fasta_index)
             self.fasta_index = fasta_index
 
-        self.BED12 = bed12.Bed12Parser(handle, fasta_index=fasta_index, transcriptomic=True)
+        self.bed12_parser = bed12.Bed12Parser(handle,
+                                              fasta_index=fasta_index,
+                                              transcriptomic=True)
         self.engine = connect(json_conf, logger)
 
         session = sessionmaker()
@@ -214,43 +175,47 @@ class OrfSerializer:
 
         inspector = Inspector.from_engine(self.engine)
         if Orf.__tablename__ not in inspector.get_table_names():
-            dbBase.metadata.create_all(self.engine)  # @UndefinedVariable
+            DBBASE.metadata.create_all(self.engine)
         self.session = session()
         self.maxobjects = maxobjects
 
     def serialize(self):
         """
-        This method performs the parsing of the ORF file and the loading into the SQL database.
+        This method performs the parsing of the ORF file and the
+        loading into the SQL database.
         """
 
         objects = []
-        cache = dict()  # Dictionary to hold the data before bulk loading into the database
+        # Dictionary to hold the data before bulk loading into the database
+        cache = dict()
 
         for record in self.session.query(Query):
             cache[record.query_name] = record.query_id
 
         done = 0
         if self.fasta_index is not None:
-            self.logger.info("{0} entries to load".format(len(self.fasta_index)))
-            self.logger.info("{0} entries already present in db".format(
-                len(list(filter(lambda rr: rr not in cache, self.fasta_index.keys())))
-            ))
+            self.logger.info("%d entries to load", len(self.fasta_index))
+            self.logger.info("%d entries already present in db",
+                             len([fasta_key for fasta_key in self.fasta_index if
+                                  fasta_key not in cache]))
             found = set()
             for record in self.fasta_index:
                 objects.append(Query(record, len(self.fasta_index[record])))
-                self.logger.debug("Appended {0}".format(record))
+                self.logger.debug("Appended %s", record)
                 assert record not in found, record
                 found.add(record)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)
-                    self.logger.info("Loaded {0} transcripts into query table".format(done))
                     self.session.bulk_save_objects(objects)
+                    self.logger.info(
+                        "Loaded %d transcripts into query table", done)
                     objects = []
 
             done += len(objects)
-            self.logger.info("Finished loading {0} transcripts into query table".format(done))
             self.session.bulk_save_objects(objects)
             self.session.commit()
+            self.logger.info(
+                "Finished loading %d transcripts into query table", done)
             objects = []
             done = 0
 
@@ -259,11 +224,11 @@ class OrfSerializer:
             cache[record.query_name] = record.query_id
         self.logger.info("Finished loading IDs into the cache")
 
-        for row in self.BED12:
+        for row in self.bed12_parser:
             if row.header is True:
                 continue
             if row.invalid is True:
-                self.logger.warn("Invalid entry: {0}".format(row))
+                self.logger.warn("Invalid entry: %s", row)
                 continue
             if row.id in cache:
                 current_query = cache[row.id]
@@ -278,14 +243,13 @@ class OrfSerializer:
             objects.append(current_junction)
             if len(objects) >= self.maxobjects:
                 done += len(objects)
-                self.logger.info("Loaded {0} ORFs into the database".format(done))
                 self.session.bulk_save_objects(objects)
+                self.logger.info("Loaded %d ORFs into the database", done)
                 objects = []
 
         done += len(objects)
-        self.logger.info("Finished loading {0} ORFs into the database".format(done))
-
         self.session.bulk_save_objects(objects)
+        self.logger.info("Finished loading %d ORFs into the database", done)
         self.session.commit()
 
     def __call__(self):

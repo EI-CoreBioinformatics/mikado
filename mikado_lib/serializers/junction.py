@@ -10,7 +10,7 @@ before loading.
 import io
 import os
 from mikado_lib.parsers import bed12
-from mikado_lib.serializers.dbutils import dbBase, Inspector, connect
+from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -19,12 +19,11 @@ from sqlalchemy import CHAR
 from sqlalchemy import Index
 from sqlalchemy import Float
 from sqlalchemy.orm import relationship, backref
-from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.ext.hybrid import hybrid_method,hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 
 
-class Chrom(dbBase):
+class Chrom(DBBASE):
     """
     Simple serialization class for chromosomes.
 
@@ -49,11 +48,11 @@ class Chrom(dbBase):
     def __init__(self, name, length=None):
         self.name = name
         if length is not None:
-            assert type(length) is int
+            assert isinstance(length, int)
         self.length = length
 
 
-class Junction(dbBase):
+class Junction(DBBASE):
     """
     Class that describes the junction table in the database.
 
@@ -117,7 +116,7 @@ class Junction(dbBase):
         :type chrom_id: int
         """
 
-        if type(bed12_object) is not bed12.BED12:
+        if not isinstance(bed12_object, bed12.BED12):
             raise TypeError("Invalid data type!")
         self.chrom_id = chrom_id
         self.start = bed12_object.start
@@ -165,11 +164,15 @@ class Junction(dbBase):
 
 
 class JunctionSerializer:
+
     """
     This class is used to serialize a junction BED12 file into an SQL database.
     """
 
-    def __init__(self, handle, fai=None, maxobjects=10000, json_conf=None, logger=None):
+    def __init__(self, handle, fai=None,
+                 maxobjects=10000,
+                 json_conf=None,
+                 logger=None):
 
         """
         :param handle: the file to be serialized.
@@ -192,7 +195,7 @@ class JunctionSerializer:
         if handle is None:
             return
 
-        self.BED12 = bed12.Bed12Parser(handle)
+        self.bed12_parser = bed12.Bed12Parser(handle)
         self.engine = connect(json_conf, logger=logger)
 
         session = sessionmaker()
@@ -200,18 +203,18 @@ class JunctionSerializer:
 
         inspector = Inspector.from_engine(self.engine)
         if Junction.__tablename__ not in inspector.get_table_names():
-            dbBase.metadata.create_all(self.engine)  # @UndefinedVariable
+            DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session()
         self.maxobjects = maxobjects
 
         self.fai = fai
-        if type(fai) is str:
+        if isinstance(fai, str):
             assert os.path.exists(fai)
             self.fai = open(self.fai)
         else:
             if fai is not None:
-                assert type(fai) is io.TextIOWrapper
+                assert isinstance(fai, io.TextIOWrapper)
             self.fai = fai
 
     def serialize(self):
@@ -232,7 +235,7 @@ class JunctionSerializer:
 
         objects = []
 
-        for row in self.BED12:
+        for row in self.bed12_parser:
             if row.header is True:
                 continue
             if row.chrom in sequences:

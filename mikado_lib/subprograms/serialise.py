@@ -1,9 +1,17 @@
+#!/usr/bin/env python3
+
+"""
+This subprogram is the second step in the pipeline. Its purpose is to
+create the database that is needed by pick for fast access to the data
+necessary during the analysis.
+"""
+
 import argparse
 import functools
 import glob
 import sqlalchemy
 from mikado_lib import json_utils
-from mikado_lib.serializers import orf, blast_utils, junction, dbutils
+from mikado_lib.serializers import orf, blast_serializer, junction, dbutils
 import os
 import sys
 import logging
@@ -20,7 +28,9 @@ def to_seqio(string):
     :param string
     :type string: str
     """
-    assert os.path.exists(string) and os.path.isfile(string) and os.stat(string).st_size > 0
+    assert os.path.exists(string)
+    assert os.path.isfile(string)
+    assert os.stat(string).st_size > 0
     return SeqIO.index(string, "fasta")
 
 
@@ -37,23 +47,22 @@ def xml_launcher(xml_candidate=None, args=None):
 
     args.max_target_seqs = min(args.max_target_seqs, args.json_conf["blast"]["max_target_seqs"])
 
-    xml_serializer = blast_utils.XmlSerializer(
-                xml_candidate,
-                discard_definition=args.discard_definition,
-                max_target_seqs=args.max_target_seqs,
-                maxobjects=args.max_objects,
-                target_seqs=args.target_seqs,
-                query_seqs=args.transcript_fasta,
-                json_conf=args.json_conf
-            )
+    xml_serializer = blast_serializer.XmlSerializer(
+        xml_candidate,
+        discard_definition=args.discard_definition,
+        max_target_seqs=args.max_target_seqs,
+        maxobjects=args.max_objects,
+        target_seqs=args.target_seqs,
+        query_seqs=args.transcript_fasta,
+        json_conf=args.json_conf)
     xml_serializer()
 
 
 def serialise(args):
 
     """
-    Wrapper around the serializers objects. It uses the configuration supplied by command line to launch the
-    necessary tools.
+    Wrapper around the serializers objects. It uses the configuration
+    supplied through the command line to launch the necessary tools.
 
     :param args: namespace with the necessary information for the serialisation
     :return:
@@ -71,7 +80,7 @@ def serialise(args):
         meta.reflect(engine)
         for tab in reversed(meta.sorted_tables):
             tab.drop()
-        dbutils.dbBase.metadata.create_all(engine)
+        dbutils.DBBASE.metadata.create_all(engine)
 
     if args.orfs is not None:
         for orf_file in args.orfs.split(","):
@@ -99,14 +108,10 @@ def serialise(args):
 
         for xml in args.xml.split(","):
             if os.path.isdir(xml):
-                filenames.extend([os.path.join(xml, x) for x in
-                                  filter(
-                                         lambda x: x.endswith(".xml") or
-                                         x.endswith(".xml.gz") or
-                                         x.endswith(".asn.gz"),
-                                         os.listdir(xml)
-                                         )
-                                  ])
+                filenames.extend([os.path.join(xml, _xml) for _xml in
+                                  os.listdir(xml) if (_xml.endswith(".xml") or
+                                                      _xml.endswith(".xml.gz") or
+                                                      _xml.endswith(".asn.gz")) is True])
             else:
                 filenames.extend(glob.glob(xml))
 
@@ -127,21 +132,22 @@ def serialise_parser():
     orfs.add_argument("--orfs", type=str, default=None,
                       help="ORF BED file(s), separated by commas")
     orfs.add_argument("--transcript_fasta", default=None,
-                      help="""Transcript FASTA file(s) used for ORF calling and BLAST queries, separated by commas.
-                      If multiple files are given, they must be in the same order of the ORF files.
+                      help="""Transcript FASTA file(s) used for ORF calling and BLAST queries,
+                      separated by commas.
+                      If multiple files are given, they must be in the same order of the
+                      ORF files.
                       E.g. valid command lines are:
 
-                      --transcript_fasta all_transcript1.fasta --orfs all_orfs.bed
-                      --transcript_fasta transcript1.fasta,transcript2.fasta --orfs orfs1.bed,orf2.bed
-                      --transcript_fasta all_transcript.fasta --orfs orfs1.bed,orf2.bed
+                      --transcript_fasta all_seqs1.fasta --orfs all_orfs.bed
+                      --transcript_fasta seq1.fasta,seq2.fasta --orfs orfs1.bed,orf2.bed
+                      --transcript_fasta all_seqs.fasta --orfs orfs1.bed,orf2.bed
 
                       These are invalid instead:
 
                       # Inverted order
-                      --transcript_fasta transcript1.fasta,transcript2.fasta --orfs orfs2.bed,orf1.bed
+                      --transcript_fasta seq1.fasta,seq2.fasta --orfs orfs2.bed,orf1.bed
                       #Two transcript files, one ORF file
-                      --transcript_fasta transcript1.fasta,transcript2.fasta --orfs all_orfs.bed
-
+                      --transcript_fasta seq1.fasta,seq2.fasta --orfs all_orfs.bed
                       """)
 
     blast = parser.add_argument_group()
@@ -151,7 +157,8 @@ def serialise_parser():
     blast.add_argument("--discard-definition", action="store_true", default=False,
                        help="""Flag. If set, the sequences IDs instead of their definition
                        will be used for serialisation.""")
-    blast.add_argument("--xml", type=str, help="""XML file(s) to parse. They can be provided in three ways:
+    blast.add_argument("--xml", type=str, help="""XML file(s) to parse.
+    They can be provided in three ways:
     - a comma-separated list
     - as a base folder
     - using bash-like name expansion (*,?, etc.). In this case, you have to
@@ -164,13 +171,17 @@ def serialise_parser():
     junctions.add_argument("--genome_fai", default=None)
     junctions.add_argument("--junctions", type=str)
     generic = parser.add_argument_group()
-    generic.add_argument("-mo", "--max-objects", dest="max_objects", type=int, default=10 ** 5,
+    generic.add_argument("-mo", "--max-objects", dest="max_objects",
+                         type=int, default=10 ** 5,
                          help="Maximum number of objects to cache in memory.")
     generic.add_argument("-f", "--force", action="store_true", default=False,
-                         help="Flag. If set, an existing databse will be dropped/deleted before serialisation.")
-    generic.add_argument("--json-conf", default=None, dest="json_conf", type=json_utils.to_json,
+                         help="""Flag. If set, an existing databse will be deleted (sqlite)
+                         or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
+    generic.add_argument("--json-conf", default=None,
+                         dest="json_conf", type=json_utils.to_json,
                          required=True)
     generic.add_argument("db", type=str, default=None,
-                         nargs='?', help="Optional output database. Default: derived from json_conf")
+                         nargs='?',
+                         help="Optional output database. Default: derived from json_conf")
     parser.set_defaults(func=serialise)
     return parser

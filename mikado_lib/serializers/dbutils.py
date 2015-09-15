@@ -10,7 +10,7 @@ import logging
 import functools
 
 Inspector = Inspector
-dbBase = declarative_base()
+DBBASE = declarative_base()
 
 
 def create_connector(json_conf, logger=None):
@@ -46,23 +46,23 @@ def create_connector(json_conf, logger=None):
 
     if json_conf["dbtype"] == "sqlite":
         if json_conf['run_options']['shm'] is False:
-            logger.debug("Connecting to {0}".format(json_conf["db"]))
+            logger.debug("Connecting to %s", json_conf["db"])
             func = sqlite3.connect(database=json_conf["db"], check_same_thread=False)
         else:
-            logger.debug("Connecting to {0}".format(json_conf["run_options"]["shm_db"]))
-            func = sqlite3.connect(database=json_conf["run_options"]["shm_db"], check_same_thread=False)
+            logger.debug("Connecting to %s", json_conf["run_options"]["shm_db"])
+            func = sqlite3.connect(database=json_conf["run_options"]["shm_db"],
+                                   check_same_thread=False)
     elif json_conf["dbtype"] == "mysql":
         import MySQLdb
-        logger.debug("Connecting to MySQL {0}".format(json_conf["run_options"]["db"]))
+        logger.debug("Connecting to MySQL %s", json_conf["run_options"]["db"])
         func = MySQLdb.connect(host=json_conf["dbhost"],
                                user=json_conf["dbuser"],
                                passwd=json_conf["dbpasswd"],
                                db=json_conf["db"],
-                               port=json_conf["dbport"]
-                               )
+                               port=json_conf["dbport"])
     elif json_conf["dbtype"] == "postgresql":
         import psycopg2
-        logger.debug("Connecting to PSQL {0}".format(json_conf["run_options"]["db"]))
+        logger.debug("Connecting to PSQL %s", json_conf["run_options"]["db"])
         func = psycopg2.connect(
             host=json_conf["dbhost"],
             user=json_conf["dbuser"],
@@ -78,7 +78,8 @@ def create_connector(json_conf, logger=None):
 def connect(json_conf, logger=None):
 
     """
-    Function to create an engine to connect to a DB with, using the configuration inside the json_conf.
+    Function to create an engine to connect to a DB with, using the
+    configuration inside the provided json_conf.
     :param json_conf:
     :param logger:
     :return:

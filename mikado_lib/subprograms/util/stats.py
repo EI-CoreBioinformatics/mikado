@@ -1,21 +1,33 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-""" Script to calculate statistics about an annotation file. It can take both GTF and GFF files as input."""
+""" Script to calculate statistics about an annotation file.
+It can take both GTF and GFF files as input."""
 
-import sys, argparse
+import sys
+import argparse
+import re
+import csv
 from mikado_lib.exceptions import InvalidCDS
 from mikado_lib.subprograms import to_gff
 from mikado_lib.loci_objects import transcript
 from mikado_lib.parsers import GFF
+# pylint: disable=E1101
+from numpy import array as num_array
+from numpy import mean, percentile
 import numpy
+# pylint: enable=E1101
+# import numpy
 import mikado_lib
 from collections import namedtuple, Counter
-from array import array as cArray
+from array import array as c_array
 
+__author__ = "Luca Venturini"
+
+# pylint: disable=E1101
 numpy.seterr(all="ignore")  # Suppress warnings
 numpy.warnings.filterwarnings("ignore")
-
+# pylint: enable=E1101
 
 class TranscriptComputer(transcript.Transcript):
     """
@@ -30,8 +42,7 @@ class TranscriptComputer(transcript.Transcript):
                    'cds_intron_lengths', 'cds_exon_lengths',
                    "five_utr_length", "three_utr_length",
                    "five_utr_num", "three_utr_num",
-                   "selected_end_distance_from_junction"
-                   ]
+                   "selected_end_distance_from_junction"]
     data_tuple = namedtuple("transcript_data", data_fields, verbose=False)
 
     def __init__(self, *args, **kwargs):
@@ -46,8 +57,9 @@ class TranscriptComputer(transcript.Transcript):
 
     def finalize(self):
         """
-        Method to be called when all exons/features have been added to the transcript.
-        It will call the parent's finalize method, followed by calculation of the necessary statistics.
+        Method to be called when all exons/features have been
+        added to the transcript. It will call the parent's finalize method,
+        followed by calculation of the necessary statistics.
         """
         try:
             super().finalize()
@@ -60,8 +72,8 @@ class TranscriptComputer(transcript.Transcript):
 
         self.intron_lengths = [i[1] - i[0] + 1 for i in self.introns]
         self.cds_intron_lengths = [i[1] - i[0] for i in self.selected_cds_introns]
-        self.utr_intron_lengths = [i[1] - i[0] for i in
-                                   filter(lambda j: j not in self.selected_cds_introns, self.introns)]
+        self.utr_intron_lengths = [i[1] - i[0] for i in self.introns if
+                                   i not in self.selected_cds_introns]
 
     def as_tuple(self):
         """Method to build a namedtuple containing only the basic information for stat building.
@@ -133,8 +145,8 @@ class GeneObject:
         if len(to_remove) == len(self.transcripts):
             self.transcripts = dict()
         else:
-            for x in to_remove:
-                del self.transcripts[x]
+            for tid_to_remove in to_remove:
+                del self.transcripts[tid_to_remove]
 
     def __lt__(self, other):
         if self.chrom != other.chrom:
@@ -146,11 +158,12 @@ class GeneObject:
                 return self.end < other.end
 
     def __eq__(self, other):
-        if type(self) != type(other):
+        if not isinstance(self, type(other)):
             return False
-        if self.chrom == other.chrom and self.strand == other.strand and \
-                self.start == other.start and self.end == other.end:
-            return True
+        if self.chrom == other.chrom:
+            if self.strand == other.strand:
+                if self.start == other.start and self.end == other.end:
+                    return True
         return False
 
     @property
@@ -197,21 +210,45 @@ class GeneObject:
 class Calculator:
 
     """
-    This class has the purpose of parsing a reference file, calculating the statistics, and printing them out.
+    This class has the purpose of parsing a reference file,
+    calculating the statistics, and printing them out.
     """
 
-    def __init__(self, parsed_args: argparse.Namespace):
+    def __init__(self, parsed_args):
 
         """Constructor function"""
 
         self.gff = parsed_args.gff
-        if type(self.gff) is GFF.GFF3:
+        if isinstance(self.gff, GFF.GFF3):
             self.is_gff = True
         else:
             self.is_gff = False
         self.only_coding = parsed_args.only_coding
         self.out = parsed_args.out
         self.genes = dict()
+        self.coding_genes = []
+        self.__distances = num_array([])
+        self.__coding_distances = num_array([])
+        self.__fieldnames = ['Stat', 'Total', 'Average', 'Mode', 'Min',
+                             '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max']
+        self.__rower = csv.DictWriter(self.out,
+                                      self.__fieldnames,
+                                      delimiter="\t")
+        self.__arrays = dict()
+
+    @staticmethod
+    def __is_gene(record):
+        """
+        Private method to estimate whether a record is a gene or not
+        :param record:
+        :return: bool
+        """
+
+        if "locus" == record.feature or record.is_gene is True:
+            return True
+        elif record.is_parent is True and record.is_transcript is False:
+            return True
+        return False
 
     def parse_input(self):
         """
@@ -222,16 +259,8 @@ class Calculator:
         derived_features = set()
 
         for record in self.gff:
-            if record.header is True:
+            if record.header is True or re.search(r"[^^]locus", record.feature):
                 continue
-
-            if record.is_derived is True and record.is_gene is False:
-                derived_features.add(record.id)
-            elif "locus" in record.feature and record.feature != "locus":
-                continue
-            elif "locus" == record.feature or record.is_gene is True or (
-                    record.is_parent is True and record.is_transcript is False):
-                self.genes[record.id] = GeneObject(record, only_coding=self.only_coding)
             elif record.is_transcript is True:
                 if record.parent is None:
                     raise TypeError("No parent found for:\n{0}".format(str(record)))
@@ -240,10 +269,18 @@ class Calculator:
                     new_record = record.copy()
                     new_record.feature = "gene"
                     if new_record.gene not in self.genes:
-                        self.genes[new_record.gene] = GeneObject(new_record, only_coding=self.only_coding)
+                        self.genes[new_record.gene] = GeneObject(
+                            new_record,
+                            only_coding=self.only_coding)
                 self.genes[record.parent[0]].transcripts[record.id] = TranscriptComputer(record)
+            elif record.is_derived is True and record.is_gene is False:
+                derived_features.add(record.id)
+            elif self.__is_gene(record) is True:
+                self.genes[record.id] = GeneObject(
+                    record, only_coding=self.only_coding)
             else:
-                for parent in filter(lambda pparent: pparent not in derived_features, record.parent):
+                for parent in filter(lambda pparent: pparent not in derived_features,
+                                     record.parent):
                     try:
                         gid = transcript2gene[parent]
                     except KeyError as err:
@@ -265,7 +302,7 @@ class Calculator:
                 continue
             distances.append(next_gene.start + 1 - gene.end)
 
-        self.distances = numpy.array(distances)
+        self.__distances = num_array(distances)
 
         distances = []
         for index, gene in enumerate(self.coding_genes[:-1]):
@@ -274,12 +311,12 @@ class Calculator:
                 continue
             distances.append(next_gene.start + 1 - gene.end)
 
-        self.coding_distances = numpy.array(distances)
+        self.__coding_distances = num_array(distances)
 
         self.writer()
 
     @staticmethod
-    def get_stats(row: dict, array: numpy.array) -> dict:
+    def get_stats(row: dict, array: num_array) -> dict:
         """
         Method to calculate the necessary statistic from a row of values.
         :param row: the output dictionary row.
@@ -290,16 +327,20 @@ class Calculator:
         :rtype : dict
         """
 
-        row["Average"] = "{0:,.2f}".format(round(numpy.mean(array), 2))  # Decimal to second digit precision
+        # Decimal to second digit precision
+        if array is None:
+            return row
+        row["Average"] = "{0:,.2f}".format(round(mean(array), 2))
 
         counter_object = Counter(array)
-        moder = [x for x in counter_object if counter_object[x] == counter_object.most_common(1)[0][1]]
+        moder = [x for x in counter_object if
+                 counter_object[x] == counter_object.most_common(1)[0][1]]
         row["Mode"] = ";".join(str(x) for x in moder)
         keys = ['Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max']
         if len(array) == 0:
             quantiles = ["NA"]*len(keys)
         else:
-            quantiles = [numpy.percentile(array, x) for x in [0, 5, 10, 25, 50, 75, 90, 95, 100]]
+            quantiles = [percentile(array, x) for x in [0, 5, 10, 25, 50, 75, 90, 95, 100]]
         for key, val in zip(keys, quantiles):
             try:
                 row[key] = "{0:,.0f}".format(val)  # No decimal
@@ -313,70 +354,36 @@ class Calculator:
                 raise
         return row
 
-    def writer(self):
-        """Method which creates the final output"""
+    def __prepare_arrays(self):
+        """
 
-        import csv
-        fieldnames = ['Stat', 'Total', 'Average', 'Mode', 'Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%',
-                      'Max']
-        rower = csv.DictWriter(self.out,
-                               fieldnames,
-                               delimiter="\t")
+        :return:
+        """
 
-        rower.writeheader()
-        row = dict()
-        for key in fieldnames:
-            row[key] = "NA"
-        row["Stat"] = 'Number of genes'
-        row['Total'] = len(self.genes)
-        rower.writerow(row)
+        self.__arrays["Transcripts per gene"] = num_array(
+            self.genes[_].num_transcripts for _ in self.genes)
+        self.__arrays["Coding transcripts per gene"] = num_array(
+            self.genes[_].num_transcripts for _ in self.genes)
+        self.__arrays["Intergenic distances"] = self.__distances
+        self.__arrays["Intergenic distances (coding)"] = self.__coding_distances
 
-        row["Stat"] = "Number of genes (coding)"
-        row["Total"] = len(self.coding_genes)
-        rower.writerow(row)
+        exons, exons_coding = c_array('i'), c_array('i')
+        exon_num, exon_num_coding = c_array('i'), c_array('i')
+        introns, introns_coding = c_array('i'), c_array('i')
+        cds_introns = c_array('i')
+        cds_exons = c_array('i')
+        cds_exon_num = c_array('i')
+        cds_exon_num_coding = c_array('i')
+        cdna_lengths = c_array('i')  # Done
+        cdna_lengths_coding = c_array('i')
+        cds_lengths = c_array('i')  # Done
+        monoexonic_lengths, multiexonic_lengths = c_array('i'), c_array('i')
+        monocds_lengths = c_array('i')
 
-        row["Stat"] = 'Number of transcripts'
-        row['Total'] = sum(self.genes[x].num_transcripts for x in self.genes)
-        rower.writerow(row)
+        five_utr_lengths, five_utr_nums = c_array('i'), c_array('i')
+        three_utr_lengths, three_utr_nums = c_array('i'), c_array('i')
 
-        row["Stat"] = 'Transcripts per gene'
-        t_per_g = numpy.array(list(self.genes[x].num_transcripts for x in self.genes))
-        row = self.get_stats(row, t_per_g)
-        rower.writerow(row)
-
-        row["Stat"] = "Number of coding transcripts"
-        row["Total"] = sum(len(x.coding_transcripts) for x in self.coding_genes)
-        rower.writerow(row)
-
-        row["Stat"] = "Coding transcripts per gene"
-        t_per_g = numpy.array(list(len(x.coding_transcripts) for x in self.coding_genes))
-        row = self.get_stats(row, t_per_g)
-        rower.writerow(row)
-
-        exons = cArray('i')  # Done
-        exons_coding = cArray('i')
-        exon_num = cArray('i')  # Done
-        exon_num_coding = cArray('i')
-        introns = cArray('i')  # Done
-        introns_coding = cArray('i')
-        cds_introns = cArray('i')  # Done
-        cds_exons = cArray('i')  # Done
-        cds_exon_num = cArray('i')  # Done
-        cds_exon_num_coding = cArray('i')
-        cdna_lengths = cArray('i')  # Done
-        cdna_lengths_coding = cArray('i')
-        cds_lengths = cArray('i')  # Done
-        monoexonic_lengths = cArray('i')
-        multiexonic_lengths = cArray('i')
-        monocds_lengths = cArray('i')
-
-        five_utr_lengths = cArray('i')
-        five_utr_nums = cArray('i')
-
-        three_utr_lengths = cArray('i')
-        three_utr_nums = cArray('i')
-
-        end_distance_from_junction = cArray('i')
+        end_distance_from_junction = c_array('i')
 
         for gene in self.genes:
             for tid in self.genes[gene].transcripts:
@@ -391,168 +398,155 @@ class Calculator:
                 cds_introns.extend(self.genes[gene].transcripts[tid].cds_intron_lengths)
                 cds_exons.extend(self.genes[gene].transcripts[tid].cds_exon_lengths)
                 cds_num = len(self.genes[gene].transcripts[tid].cds_exon_lengths)
-                if cds_num == 1 or (exon_num == 1 and self.genes[gene].transcripts[tid].selected_cds_length > 0):
-                    monocds_lengths.append(self.genes[gene].transcripts[tid].selected_cds_length)
+                if cds_num == 1:
+                    monocds_lengths.append(
+                        self.genes[gene].transcripts[tid].selected_cds_length)
+                elif exon_num == 1:
+                    if self.genes[gene].transcripts[tid].selected_cds_length > 0:
+                        monocds_lengths.append(
+                            self.genes[gene].transcripts[tid].selected_cds_length)
+
                 cds_exon_num.append(cds_num)
                 cdna_lengths.append(self.genes[gene].transcripts[tid].cdna_length)
                 cds_lengths.append(self.genes[gene].transcripts[tid].selected_cds_length)
                 if self.genes[gene].transcripts[tid].selected_cds_length > 0:
-                    five_utr_lengths.append(self.genes[gene].transcripts[tid].five_utr_length)
-                    three_utr_lengths.append(self.genes[gene].transcripts[tid].three_utr_length)
-                    five_utr_nums.append(self.genes[gene].transcripts[tid].five_utr_num)
-                    three_utr_nums.append(self.genes[gene].transcripts[tid].three_utr_num)
+                    five_utr_lengths.append(
+                        self.genes[gene].transcripts[tid].five_utr_length)
+                    three_utr_lengths.append(
+                        self.genes[gene].transcripts[tid].three_utr_length)
+                    five_utr_nums.append(
+                        self.genes[gene].transcripts[tid].five_utr_num)
+                    three_utr_nums.append(
+                        self.genes[gene].transcripts[tid].three_utr_num)
                     end_distance_from_junction.append(
                         self.genes[gene].transcripts[tid].selected_end_distance_from_junction)
 
-                if self.only_coding is False and self.genes[gene].transcripts[tid].selected_cds_length > 0:
-                    cdna_lengths_coding.append(self.genes[gene].transcripts[tid].cdna_length)
-                    exons_coding.extend(self.genes[gene].transcripts[tid].exon_lengths)
-                    exon_num_coding.append(len(self.genes[gene].transcripts[tid].exon_lengths))
-                    cds_exon_num_coding.append(len(self.genes[gene].transcripts[tid].cds_exon_lengths))
-                    introns_coding.extend(self.genes[gene].transcripts[tid].intron_lengths)
+                if self.only_coding is False:
+                    if self.genes[gene].transcripts[tid].selected_cds_length > 0:
+                        cdna_lengths_coding.append(
+                            self.genes[gene].transcripts[tid].cdna_length)
+                        exons_coding.extend(self.genes[gene].transcripts[tid].exon_lengths)
+                        exon_num_coding.append(
+                            len(self.genes[gene].transcripts[tid].exon_lengths))
+                        cds_exon_num_coding.append(
+                            len(self.genes[gene].transcripts[tid].cds_exon_lengths))
+                        introns_coding.extend(
+                            self.genes[gene].transcripts[tid].intron_lengths)
 
-        row["Stat"] = 'CDNA lengths'
-        row["Total"] = 'NA'
-        ar = cdna_lengths
-        row = self.get_stats(row, ar)
-        rower.writerow(row)
+        self.__arrays['CDNA lengths'] = cdna_lengths
+        self.__arrays["CDNA lengths (mRNAs)"] = cdna_lengths_coding
+        self.__arrays['CDS lengths'] = cds_lengths
+        if self.only_coding is False:
+            self.__arrays["CDS lengths (mRNAs)"] = c_array('i',
+                                                           [_ for _ in cds_lengths if _ > 0])
+            self.__arrays['Exons per transcript (mRNAs)'] = exon_num_coding
+            self.__arrays['Exon lengths (mRNAs)'] = exons_coding
+            self.__arrays["CDS exons per transcript (mRNAs)"] = cds_exon_num_coding
 
-        row["Stat"] = 'CDNA lengths (mRNAs)'
-        row["Total"] = 'NA'
-        ar = cdna_lengths_coding
-        row = self.get_stats(row, ar)
-        rower.writerow(row)
+        self.__arrays['Monoexonic transcripts'] = monoexonic_lengths
+        self.__arrays['MonoCDS transcripts'] = monocds_lengths
+        self.__arrays['Exons per transcript'] = exon_num
+        self.__arrays['Exon lengths'] = exons
+        self.__arrays["Intron lengths"] = introns
+        self.__arrays["Intron lengths (mRNAs)"] = introns_coding
+        self.__arrays["CDS exons per transcript"] = cds_exon_num
+        self.__arrays["CDS exon lengths"] = cds_exons
+        self.__arrays["CDS Intron lengths"] = cds_introns
+        self.__arrays["5'UTR exon number"] = five_utr_nums
+        self.__arrays["3'UTR exon number"] = three_utr_nums
+        self.__arrays["5'UTR length"] = five_utr_lengths
+        self.__arrays["3'UTR length"] = three_utr_lengths
+        self.__arrays["Stop distance from junction"] = end_distance_from_junction
 
-        row["Stat"] = 'CDS lengths'
-        row["Total"] = 'NA'
-        ar = cds_lengths
-        row = self.get_stats(row, ar)
-        rower.writerow(row)
+
+    def writer(self):
+        """Method which creates the final output"""
+
+        self.__prepare_arrays()
+        self.__rower.writeheader()
+        self.__write_statrow('Number of genes',
+                             len(self.genes))
+        self.__write_statrow("Number of genes (coding)",
+                             len(self.coding_genes))
+
+        self.__write_statrow('Number of transcripts',
+                             sum(self.genes[x].num_transcripts for x in self.genes))
+        self.__write_statrow('Transcripts per gene',
+                             sum(self.genes[x].num_transcripts for x in self.genes))
+        self.__write_statrow("Number of coding transcripts",
+                             sum(len(x.coding_transcripts) for x in self.coding_genes))
+        self.__write_statrow("Coding transcripts per gene",
+                             sum(len(x.coding_transcripts) for x in self.coding_genes))
+
+        self.__write_statrow('CDNA lengths', total=False)
+        self.__write_statrow("CDNA lengths (mRNAs)", total=False)
+        self.__write_statrow('CDS lengths', total=False)
+        if self.only_coding is False:
+            self.__write_statrow("CDS lengths (mRNAs)", total=False)
+
+        self.__write_statrow('Monoexonic transcripts')
+        self.__write_statrow('MonoCDS transcripts')
+        self.__write_statrow('Exons per transcript', total='Exon lengths')
 
         if self.only_coding is False:
-            row["Stat"] = "CDS lengths (mRNAs)"
-            row["Total"] = 'NA'
-            ar = cArray('i', list(filter(lambda x: x > 0, cds_lengths)))
-            row = self.get_stats(row, ar)
-            rower.writerow(row)
+            self.__write_statrow('Exons per transcript (mRNAs)',
+                                 total="Exon lengths (mRNAs)")
+        self.__write_statrow('Exon lengths', total=False)
+        if self.only_coding is False:
+            self.__write_statrow('Exon lengths (mRNAs)', total=False)
+        self.__write_statrow("Intron lengths", total=False)
+        if self.only_coding is False:
+            self.__write_statrow("Intron lengths (mRNAs)", total=False)
 
-        row["Stat"] = 'Monoexonic transcripts'
-        row['Total'] = len(monoexonic_lengths)
-        ar = monoexonic_lengths
-        row = self.get_stats(row, ar)
-        rower.writerow(row)
-
-        row["Stat"] = 'MonoCDS transcripts'
-        row['Total'] = len(monocds_lengths)
-        ar = monoexonic_lengths
-        row = self.get_stats(row, ar)
-        rower.writerow(row)
-
-        row["Stat"] = 'Exons per transcript'
-        ar = exon_num
-        row = self.get_stats(row, ar)
-        row["Total"] = len(exons)
-        rower.writerow(row)
+        self.__write_statrow("CDS exons per transcript",
+                             total="CDS exon lengths")
 
         if self.only_coding is False:
-            row["Stat"] = 'Exons per transcript (mRNAs)'
-            ar = exon_num_coding
-            row = self.get_stats(row, ar)
-            row["Total"] = len(exons)
-            rower.writerow(row)
+            self.__write_statrow("CDS exons per transcript (mRNAs)",
+                                 total="CDS exon lengths")
 
-        row["Stat"] = 'Exon lengths'
-        ar = exons
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
+        self.__write_statrow("CDS exon lengths", total=sum)
+        self.__write_statrow("CDS Intron lengths", total=sum)
+        self.__write_statrow("5'UTR exon number", total=sum)
+        self.__write_statrow("3'UTR exon number", total=sum)
+        self.__write_statrow("5'UTR length", total=sum, )
+        self.__write_statrow("3'UTR length", total=sum)
+        self.__write_statrow("Stop distance from junction",
+                             total=False)
+        self.__write_statrow("Intergenic distances", total=False)
+        self.__write_statrow("Intergenic distances (coding)", total=False)
 
-        if self.only_coding is False:
-            row["Stat"] = 'Exon lengths (mRNAs)'
-            ar = exons_coding
-            row = self.get_stats(row, ar)
-            row["Total"] = "NA"
-            rower.writerow(row)
+    def __write_statrow(self, stat, total=True):
+        """
+        Static method to write out a statistic to the
+        output file.
+        :param stat: the name of the row
+        :type stat: str
+        :param total: value to display in the "Total" column
+        :type total: str | int | sum | bool
+        """
+        row = dict()
+        for key in self.__fieldnames:
+            row[key] = "NA"
+        row["Stat"] = stat
+        if total is False:
+            total = "NA"
+        elif total is True:
+            total = len(self.__arrays[stat])
+        else:
+            if total is sum:
+                total = sum(self.__arrays[stat])
+            elif not isinstance(total, int):
+                assert total in self.__arrays
+                total = len(self.__arrays[total])
 
-        row["Stat"] = "Intron lengths"
-        ar = introns
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        if self.only_coding is False:
-            row["Stat"] = "Intron lengths (mRNAs)"
-            ar = introns_coding
-            row = self.get_stats(row, ar)
-            row["Total"] = "NA"
-            rower.writerow(row)
-
-        row["Stat"] = "CDS exons per transcript"
-        ar = cds_exon_num
-        row = self.get_stats(row, ar)
-        row["Total"] = len(cds_exons)
-        rower.writerow(row)
-
-        if self.only_coding is False:
-            row["Stat"] = "CDS exons per transcript (mRNAs)"
-            ar = cds_exon_num_coding
-            row = self.get_stats(row, ar)
-            row["Total"] = len(cds_exons)
-            rower.writerow(row)
-
-        row["Stat"] = "CDS exon lengths"
-        ar = cds_exons
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "CDS Intron lengths"
-        ar = cds_introns
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "5'UTR exon number"
-        ar = five_utr_nums
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "3'UTR exon number"
-        ar = three_utr_nums
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "5'UTR length"
-        ar = five_utr_lengths
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "3'UTR length"
-        ar = three_utr_lengths
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "Stop distance from junction"
-        ar = end_distance_from_junction
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "Intergenic distances"
-        ar = self.distances
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
-
-        row["Stat"] = "Intergenic distances (coding)"
-        ar = self.coding_distances
-        row = self.get_stats(row, ar)
-        row["Total"] = "NA"
-        rower.writerow(row)
+        row["Total"] = total
+        if stat in self.__arrays:
+            current_array = self.__arrays[stat]
+        else:
+            current_array = None
+        row = self.get_stats(row, current_array)
+        self.__rower.writerow(row)
 
 
 def launch(args):

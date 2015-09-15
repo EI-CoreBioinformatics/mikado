@@ -7,8 +7,10 @@ Module to serialize GFF files.
 """
 
 from mikado_lib.parsers import Parser
+from mikado_lib.parsers.gfannotation import GFAnnotation
 
-class GffLine(object):
+
+class GffLine(GFAnnotation):
     """Object which serializes a GFF line.
     Parameters:
     :param _line: the original line
@@ -62,45 +64,10 @@ class GffLine(object):
         :type header: bool
         """
 
-        self.attributes = dict()
-        self.id = None
-        self.parent = []
-        self.__score = None
-        self.__strand = None
-        self.__phase = None
-        self._line = "NA"
-
-        self.attribute_order = []
-        if line is None:  # Empty constructor
-            return
-        if line == '' and my_line == '':
-            return
-
-        if line == '' and my_line != "":
-            self._line = my_line
-        else:
-            self._line = line
-
-        self._fields = line.rstrip().split('\t')
-        self.header = header
-
-        if self.header or len(self._fields) != 9 or self._line == '':
-            self.feature = None
-            self.header = True
-            return
-
-        self.chrom, self.source, self.feature = self._fields[0:3]
-        self.start, self.end = tuple(int(i) for i in self._fields[3:5])
-
-        self.score = self._fields[5]
-        self.strand = self._fields[6]
-        self.phase = self._fields[7]
-
-        self._attr = self._fields[8]
-        self.__parse_attributes()
+        GFAnnotation.__init__(self, line, my_line, header=header)
         _ = self.name  # Set the name
 
-    def __parse_attributes(self):
+    def _parse_attributes(self):
 
         """
         Private method that parses the last field of the GFF line.
@@ -123,32 +90,13 @@ class GffLine(object):
             except IndexError:
                 pass
 
-    def __format_middle(self):
+    def _format_attributes(self):
         """
-        Private method to format the middle fields (score, strand, phase)
-        for printing.
-        :return: score, strand, phase
-        :rtype: str, str, str
+        Implementation of the abstract method for formatting the
+        ninth field of a GFF.
+        :return:
         """
 
-        if self.score is not None:
-            score = str(int(round(self.score, 0)))
-        else:
-            score = "."
-        if self.strand is None:
-            strand = '.'
-        else:
-            strand = self.strand
-        if self.phase is not None:
-            phase = str(self.phase)
-        else:
-            phase = "."
-        return score, strand, phase
-
-    def __str__(self):
-        if not self.feature:
-            return self._line.rstrip()
-        score, strand, phase = self.__format_middle()
         attrs = []
         if self.id is not None:
             attrs.append("ID={0}".format(self.id))
@@ -166,21 +114,10 @@ class GffLine(object):
                 try:
                     attrs.append("{0}={1}".format(att, self.attributes[att]))
                 except KeyError:
-                    continue  # Hack for those times when we modify the attributes at runtime
-
-        line = '\t'.join(
-            [self.chrom, self.source,
-             self.feature, str(self.start), str(self.end),
-             str(score), strand, phase,
-             ";".join(attrs)]
-        )
-        return line
-
-    def __len__(self):
-        if "end" in self.__dict__:
-            return self.end - self.start + 1
-        else:
-            return 0
+                    # Hack for those times when we modify the attributes at runtime
+                    continue
+        attrs = ";".join(attrs)
+        return attrs
 
     @property
     def id(self):
@@ -228,16 +165,6 @@ class GffLine(object):
         if isinstance(parent, str):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
-        # if parent is None:
-        #     self.attributes["Parent"] = None
-        # elif type(parent) is str:
-        #     new_parent = parent.split(",")
-        #     self.attributes["Parent"] = new_parent
-        # elif type(parent) is list:
-        #     self.attributes["Parent"] = parent
-        # else:
-        #     raise TypeError(parent, type(parent))
-        # assert type(self.parent) is list or self.parent is None
 
     @property
     def name(self):
@@ -260,104 +187,6 @@ class GffLine(object):
         """
 
         self.attributes["Name"] = name
-
-    @property
-    def strand(self):
-
-        """
-        Strand attribute. One of None, +, -
-        :rtype str
-        :rtype None
-        """
-
-        return self.__strand
-
-    @strand.setter
-    def strand(self, strand):
-        """
-        Strand setter. It verifies that strand is a valid value (None, +, -)
-        :param strand: new strand value
-        :type strand: str
-        :type strand: None
-        """
-
-        if strand in ("+", "-"):
-            self.__strand = strand
-        elif strand in (None, ".", "?"):
-            self.__strand = None
-        else:
-            raise ValueError("Invalid value for strand: {0}".format(strand))
-
-    @property
-    def score(self):
-        """
-        Score value. Either None or float.
-        :rtype float
-        :rtype None
-        """
-
-        return self.__score
-
-    @score.setter
-    def score(self, *args):
-        """
-        Score setter. It verifies that the score is a valid value (None or float).
-        :param args: List of arguments. Only the first is used.
-        :type args: list
-        :type args: None
-        :type args: float
-        """
-
-        if isinstance(args[0], (float, int)):
-            self.__score = args[0]
-        elif args[0] is None or args[0] == '.':
-            self.__score = None
-        elif isinstance(args[0], str):
-            self.__score = float(args[0])
-        else:
-            raise TypeError(args[0])
-
-    @property
-    def phase(self):
-        """
-        Property. Stores the phase of the feature.
-        Valid values: None, 0, 1 ,2
-        :return:
-        """
-
-        return self.__phase
-
-    @phase.setter
-    def phase(self, value):
-        """
-        Setter for the phase attribute.
-        :param value:
-        :return:
-        """
-
-        if value in (None, '.', '?'):
-            self.__phase = None
-        elif isinstance(value, (str, int, float)):
-            value = int(value)
-            if value not in range(3):
-                raise ValueError("Invalid value for phase: {0}".format(value))
-            self.__phase = value
-        else:
-            raise ValueError("Invalid phase: {0}".format(value))
-
-    @property
-    def is_exon(self):
-        """
-        Property. True if the feature is CDS/exon/UTR/start or stop codon.
-        :rtype bool
-        """
-
-        if self.feature is None:
-            return False
-        _ = self.feature.lower()
-        if _.endswith("cds") or _.endswith("exon") or "utr" in _ or "codon" in _:
-            return True
-        return False
 
     @property
     def is_transcript(self):

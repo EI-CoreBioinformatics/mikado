@@ -7,7 +7,7 @@ Script to convert the BlastXML output into a tabular format.
 
 import sys
 import argparse
-from mikado_lib.serializers.blast_utils import Hit
+from mikado_lib.serializers.blast_serializer import Hit
 from sqlalchemy import create_engine
 from sqlalchemy.orm.session import sessionmaker
 

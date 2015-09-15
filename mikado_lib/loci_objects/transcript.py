@@ -20,7 +20,7 @@ from sqlalchemy import bindparam
 # mikado imports
 from mikado_lib.serializers.junction import Junction
 import mikado_lib.serializers.orf
-from mikado_lib.serializers.blast_utils import Query, Hit
+from mikado_lib.serializers.blast_serializer import Query, Hit
 from mikado_lib.serializers.orf import Orf
 from mikado_lib.parsers import bed12
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus

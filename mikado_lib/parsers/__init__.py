@@ -95,3 +95,4 @@ class Parser(metaclass=abc.ABCMeta):
 import mikado_lib.parsers.GFF
 import mikado_lib.parsers.GTF
 import mikado_lib.parsers.bed12
+import mikado_lib.parsers.blast_utils

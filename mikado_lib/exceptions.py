@@ -57,7 +57,8 @@ class InvalidJson(KeyError):
 
 class InvalidTranscript(ValueError):
     """
-    Exception to be raised when a transcript contains corrupted data (e.g. overlapping or missing exons).
+    Exception to be raised when a transcript contains corrupted data
+    (e.g. overlapping or missing exons).
     """
 
     pass
@@ -65,7 +66,8 @@ class InvalidTranscript(ValueError):
 
 class InvalidCDS(InvalidTranscript):
     """
-    Exception to be raised when a transcript contains an invalid CDS (e.g. with a UTR in the middle).
+    Exception to be raised when a transcript contains an invalid CDS
+    (e.g. with a UTR in the middle).
     """
 
     pass
@@ -73,8 +75,8 @@ class InvalidCDS(InvalidTranscript):
 
 class IncorrectStrandError(InvalidTranscript):
     """
-    Exception to be raised when a transcript contains an invalid intron (e.g. an AG-GT intron assigned
-    to the minus strand).
+    Exception to be raised when a transcript contains an invalid intron
+    (e.g. an AG-GT intron assigned to the minus strand).
     """
 
     pass

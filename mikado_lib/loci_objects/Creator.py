@@ -23,7 +23,7 @@ import sqlalchemy
 # Mikado imports
 import mikado_lib.loci_objects
 import mikado_lib.parsers
-from mikado_lib.serializers.blast_utils import Hit, Query
+from mikado_lib.serializers.blast_serializer import Hit, Query
 from mikado_lib.serializers.junction import Junction
 from mikado_lib.serializers.orf import Orf
 from mikado_lib.serializers import dbutils
@@ -31,7 +31,9 @@ from mikado_lib.loci_objects.superlocus import Superlocus
 from mikado_lib import json_utils
 import mikado_lib.exceptions
 import multiprocessing
+# pylint: disable=no-name-in-module
 from multiprocessing import Process
+# pylint: enable=no-name-in-module
 import multiprocessing.managers
 
 # For profiling
@@ -235,7 +237,9 @@ class Creator:
         self.sub_out = self.json_conf["subloci_out"]
         self.monolocus_out = self.json_conf["monoloci_out"]
         self.locus_out = self.json_conf["loci_out"]
+        # pylint: disable=no-member
         self.context = multiprocessing.get_context()
+        # pylint: enable=no-member
         self.manager = self.context.Manager()
         self.printer_queue = self.manager.Queue(-1)
         self.logging_queue = self.manager.Queue(-1)
@@ -622,8 +626,7 @@ class Creator:
             assert len(data_dict["hits"]) <= len(queries)
             self.main_logger.info("%d BLAST hits loaded for %d queries",
                                   hit_counter,
-                                  len(data_dict["hits"])
-            )
+                                  len(data_dict["hits"]))
             self.main_logger.debug("%s",
                                    ", ".join(
                                        [str(x) for x in list(data_dict["hits"].keys())[:10]]))
@@ -652,8 +655,9 @@ class Creator:
         if self.json_conf["run_options"]["preload"] is True:
             # Use the preload function to create the data dictionary
             data_dict = self.preload()
-
+        # pylint: disable=no-member
         pool = multiprocessing.Pool(processes=self.threads)
+        # pylint: enable=no-member
 
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
@@ -687,9 +691,7 @@ class Creator:
                                 analyse_locus(current_locus,
                                               self.json_conf,
                                               self.printer_queue,
-                                              self.logging_queue,
-                                              # data_dict
-                                              )
+                                              self.logging_queue)
                             else:
                                 jobs.append(pool.apply_async(analyse_locus,
                                                              args=(current_locus,
@@ -735,16 +737,13 @@ class Creator:
                             analyse_locus(current_locus,
                                           self.json_conf,
                                           self.printer_queue,
-                                          self.logging_queue,
-                                          )
+                                          self.logging_queue)
                         else:
-                            jobs.append(
-                                pool.apply_async(
-                                    analyse_locus,
-                                    args=(current_locus,
-                                          self.json_conf,
-                                          self.printer_queue,
-                                          self.logging_queue)))
+                            jobs.append(pool.apply_async(analyse_locus,
+                                                         args=(current_locus,
+                                                               self.json_conf,
+                                                               self.printer_queue,
+                                                               self.logging_queue)))
 
                 current_locus = mikado_lib.loci_objects.superlocus.Superlocus(
                     current_transcript,
@@ -774,16 +773,12 @@ class Creator:
                     analyse_locus(current_locus,
                                   self.json_conf,
                                   self.printer_queue,
-                                  self.logging_queue,
-                                  )
+                                  self.logging_queue)
                 else:
-                    jobs.append(
-                        pool.apply_async(
-                            analyse_locus,
-                            args=(current_locus,
-                                  self.json_conf,
-                                  self.printer_queue,
-                                  self.logging_queue)))
+                    jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
+                                                                      self.json_conf,
+                                                                      self.printer_queue,
+                                                                      self.logging_queue)))
 
         for job in jobs:
             job.get()
@@ -803,8 +798,7 @@ class Creator:
         if self.json_conf["run_options"]["shm"] is True and \
                         self.json_conf["run_options"]["shm_shared"] is False:
             self.main_logger.info("Removing shared memory DB %s",
-                self.json_conf["run_options"]["shm_db"]
-            )
+                                  self.json_conf["run_options"]["shm_db"])
             os.remove(self.json_conf["run_options"]["shm_db"])
 
         self.main_logger.info("Finished analysis of %s", self.input_file)

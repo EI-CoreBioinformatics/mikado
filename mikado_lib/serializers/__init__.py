@@ -4,6 +4,6 @@
 
 
 import mikado_lib.serializers.dbutils
-import mikado_lib.serializers.blast_utils
+import mikado_lib.serializers.blast_serializer
 import mikado_lib.serializers.orf
 import mikado_lib.serializers.junction

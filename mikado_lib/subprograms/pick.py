@@ -62,6 +62,7 @@ def check_run_options(args):
 
     return args
 
+
 def pick(args):
 
     """
@@ -85,7 +86,6 @@ def pick(args):
 
     if args.source is not None:
         args.json_conf["source"] = args.source
-
 
     if args.gff is not None:
         args.gff.close()

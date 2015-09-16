@@ -3,7 +3,6 @@
 
 """Script to trim down the terminal exons of multiexonic transcripts"""
 
-__author__ = 'Luca Venturini'
 
 import sys
 import argparse
@@ -11,26 +10,29 @@ import mikado_lib.parsers
 import mikado_lib.loci_objects.transcript
 from mikado_lib.subprograms import to_gff
 
+__author__ = 'Luca Venturini'
 
-def trim_noncoding(transcript, args):
+
+def trim_noncoding(transcript, max_length=0):
     """
     Function to trim the terminal exons for non-coding transcripts,
      i.e. the simplest case.
     :param transcript:
     :return: transcript
+    :rtype: mikado_lib.loci_objects.transcript.Transcript
     """
 
     # Non-coding transcript: trim the terminal exons and the return
-    first = list(transcript.exons[0])
-    if (first[1] - first[0] + 1) > args.max_length:
+    first = transcript.exons[0]
+    if (first[1] - first[0] + 1) > max_length:
         newfirst = list(first)
-        newfirst[0] = first[1] - args.max_length
+        newfirst[0] = first[1] - max_length
         transcript.start = newfirst[0]
         transcript.exons[0] = tuple(newfirst)
     last = transcript.exons[-1]
-    if (last[1] - last[0] + 1) > args.max_length:
+    if (last[1] - last[0] + 1) > max_length:
         newlast = list(last[:])
-        newlast[1] = last[0] + args.max_length
+        newlast[1] = last[0] + max_length
         transcript.end = newlast[1]
         transcript.exons[-1] = tuple(newlast)
         if transcript.selected_cds_length > 0:
@@ -49,7 +51,7 @@ def trim_start(transcript, cds_start, max_length=0):
     :param transcript:
     :param cds_start:
     :param max_length:
-    :return: transcript
+    :rtype: mikado_lib.loci_objects.transcript.Transcript
     """
 
     first = transcript.exons[0]
@@ -95,6 +97,7 @@ def trim_end(transcript, cds_end, max_length=0):
     :param cds_end:
     :param max_length:
     :return: transcript
+    :rtype: mikado_lib.loci_objects.transcript.Transcript
     """
 
     last = transcript.exons[-1]
@@ -127,22 +130,23 @@ def trim_end(transcript, cds_end, max_length=0):
     return transcript
 
 
-def trim_coding(transcript, args):
+def trim_coding(transcript, max_length=0):
     """
     Function to trim the terminal exons for coding transcripts,
      i.e. the more complex case as we have to account for CDS
      as well.
     :param transcript:
     :return: transcript
+    :rtype: mikado_lib.loci_objects.transcript.Transcript
     """
     # Coding transcript
     # Order cds_start and end irrespectively of strand
     cds_start, cds_end = sorted([transcript.selected_cds_end, transcript.selected_cds_start])
 
     transcript = trim_start(transcript, cds_start,
-                            max_length=args.max_length)
+                            max_length=max_length)
     transcript = trim_end(transcript, cds_end,
-                          max_length=args.max_length)
+                          max_length=max_length)
 
     return transcript
 
@@ -168,11 +172,14 @@ def strip_terminal(transcript, args) -> mikado_lib.loci_objects.transcript.Trans
 
     transcript.finalized = False
 
+    # noinspection PyUnresolvedReferences
+    max_l = args.max_length
     if transcript.selected_cds_length == 0:
-        transcript = trim_noncoding(transcript, args)
+        transcript = trim_noncoding(transcript, max_length=max_l)
     else:
-        transcript = trim_coding(transcript, args)
+        transcript = trim_coding(transcript, max_length=max_l)
 
+    # noinspection PyUnresolvedReferences
     transcript.finalize()
     return transcript
 

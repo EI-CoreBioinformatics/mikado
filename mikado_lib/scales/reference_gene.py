@@ -20,10 +20,10 @@ class Gene:
 
     def __init__(self, transcr: Transcript, gid=None, logger=None):
 
-        self.chrom, self.start, self.end, self.strand = transcr.chrom,\
-                                                        transcr.start,\
-                                                        transcr.end,\
-                                                        transcr.strand
+        self.chrom, self.start, self.end, self.strand = (transcr.chrom,
+                                                         transcr.start,
+                                                         transcr.end,
+                                                         transcr.strand)
         self.id = gid
         self.transcripts = dict()
         self.transcripts[transcr.id] = transcr
@@ -51,10 +51,10 @@ class Gene:
 
     def add(self, transcr: Transcript):
         """
-        :param tr:
-
-        This method adds a transcript to the Locus.
+        This method adds a transcript to the storage.
+        :param transcr: the transcript to be added.
         """
+
         self.start = min(self.start, transcr.start)
         self.end = max(self.end, transcr.end)
         self.transcripts[transcr.id] = transcr

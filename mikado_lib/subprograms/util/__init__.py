@@ -6,7 +6,6 @@ including e.g. a statistical calculator for GFF/GTFs, an awk-like utility for
 GTFs, and a grep-like utility for annotation files.
 """
 
-__author__ = 'Luca Venturini'
 
 import mikado_lib.subprograms.util.awk_gtf
 import mikado_lib.subprograms.util.metrics
@@ -15,6 +14,8 @@ import mikado_lib.subprograms.util.trim
 import mikado_lib.subprograms.util.grep
 import mikado_lib.subprograms.util.merge_blast
 import argparse
+
+__author__ = 'Luca Venturini'
 
 
 def util_parser():

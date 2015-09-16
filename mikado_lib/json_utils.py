@@ -343,7 +343,7 @@ def check_requirements(json_conf):
                     "\n\t".join(parameters_not_found)
                 ))
 
-          # Create automatically a filtering expression
+        # Create automatically a filtering expression
         if "expression" not in json_conf["requirements"]:
             json_conf["requirements"]["expression"] = " and ".join(
                 list(json_conf["requirements"]["parameters"].keys()))
@@ -610,6 +610,7 @@ def check_db(json_conf):
                 json_conf["dbport"] = 5432
 
     return json_conf
+
 
 def check_json(json_conf, json_file):
 

@@ -9,11 +9,11 @@ purpose is to compare two sets of annotations, with no interest in
 assembling or checking the expression.
 """
 
-__author__ = "Luca Venturini"
-
 import argparse
 from mikado_lib.scales.compare import compare
 from mikado_lib.subprograms import to_gff
+
+__author__ = "Luca Venturini"
 
 
 def compare_parser():

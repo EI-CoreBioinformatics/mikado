@@ -19,8 +19,14 @@ def to_gff(string):
     else:
         raise ValueError('Unrecognized format')
 
+
+# noinspection PyPep8
 import mikado_lib.subprograms.compare
+# noinspection PyPep8
 import mikado_lib.subprograms.pick
+# noinspection PyPep8
 import mikado_lib.subprograms.prepare
+# noinspection PyPep8
 import mikado_lib.subprograms.serialise
+# noinspection PyPep8
 import mikado_lib.subprograms.util

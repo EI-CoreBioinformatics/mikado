@@ -15,6 +15,7 @@ import time
 import threading
 import queue
 import logging
+from mikado_lib.parsers import HeaderError
 
 __author__ = 'Luca Venturini'
 
@@ -94,13 +95,13 @@ def check_beginning(handle, filename, previous_header):
             break
         line = line.rstrip()
         if not line:
-            exc = ValueError("Invalid header for {0}:\n\n{1}".format(
+            exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
                 filename,
                 "\n".join(header)
             ))
             break
         if len(header) > 10**3:
-            exc = ValueError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
+            exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
                 len(header),
                 filename,
                 "\n".join(header)
@@ -109,7 +110,7 @@ def check_beginning(handle, filename, previous_header):
         header.append(line)
 
     if not any(iter(True if "BlastOutput" in x else False for x in header)):
-        exc = ValueError("Invalid header for {0}:\n\n{1}".format(filename, "\n".join(header)))
+        exc = HeaderError("Invalid header for {0}:\n\n{1}".format(filename, "\n".join(header)))
 
     if previous_header is not None:
         checker = [header_line for header_line in header if
@@ -117,7 +118,7 @@ def check_beginning(handle, filename, previous_header):
         previous_header = [header_line for header_line in previous_header if
                            "BlastOutput_query" not in header_line]
         if checker != previous_header:
-            exc = ValueError("BLAST XML header does not match for {0}".format(
+            exc = HeaderError("BLAST XML header does not match for {0}".format(
                 filename))
 
     return handle, header, exc
@@ -245,6 +246,7 @@ class _Merger(multiprocessing.Process):
         self.queue.put("Finished")
         return
 # pylint: enable=no-member
+
 
 class XMLMerger(threading.Thread):
 

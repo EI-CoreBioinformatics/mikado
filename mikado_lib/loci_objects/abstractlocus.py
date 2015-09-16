@@ -20,6 +20,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     """
 
     __name__ = "Abstractlocus"
+    available_metrics = []
 
     # ##### Special methods #########
 
@@ -143,11 +144,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 second_interval: tuple([int, int]), flank=0) -> int:
         """
 
-        :param a: a tuple of integers
-        :type a: (int,int)
+        :param first_interval: a tuple of integers
+        :type first_interval: (int,int)
 
-        :param b: a tuple of integers
-        :type b: (int,int)
+        :param second_interval: a tuple of integers
+        :type second_interval: (int,int)
 
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int
@@ -536,6 +537,31 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             )) is True:
                 transcript_instance.retained_introns.append(exon)
         transcript_instance.retained_introns = tuple(transcript_instance.retained_introns)
+
+    def print_metrics(self):
+
+        """This method yields dictionary "rows" that will be given to a csv.DictWriter class."""
+
+        # Check that rower is an instance of the csv.DictWriter class
+
+        # The rower is an instance of the DictWriter class from the standard CSV module
+
+        for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
+            row = {}
+            for key in self.available_metrics:
+                if key.lower() in ("id", "tid"):
+                    row[key] = tid
+                elif key.lower() == "parent":
+                    row[key] = self.id
+                else:
+                    row[key] = getattr(self.transcripts[tid], key, "NA")
+                if isinstance(row[key], float):
+                    row[key] = round(row[key], 2)
+                elif row[key] is None or row[key] == "":
+                    row[key] = "NA"
+            yield row
+
+        return
 
     @classmethod
     @abc.abstractmethod

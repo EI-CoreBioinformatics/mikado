@@ -13,6 +13,9 @@ This module defines the classes needed for the "compare" script, namely:
 - accountant:       This class calculates the final summary statistics for the comparison.
 """
 
+import mikado_lib.scales.reference_gene
+import mikado_lib.scales.resultstorer
+
 
 def calc_f1(recall, precision):
     """
@@ -20,9 +23,9 @@ def calc_f1(recall, precision):
     and recall (order is unimportant). Definition:
     F1 = (2 * precision * recall) / (precision + recall)
 
-    :param prec:
-    :param recall:
-    :return:
+    :type recall: float
+    :type precision: float
+    :rtype: float
     """
     if max(precision, recall) == 0:
         return 0
@@ -32,7 +35,8 @@ def calc_f1(recall, precision):
         return product / summa
 
 
+# noinspection PyPep8
 import mikado_lib.scales.accountant
+# noinspection PyPep8
 import mikado_lib.scales.assigner
-import mikado_lib.scales.reference_gene
-import mikado_lib.scales.resultstorer
+

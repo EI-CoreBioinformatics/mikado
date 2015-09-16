@@ -85,3 +85,9 @@ class ResultStorer:
             represent += "{0}={1}, ".format(key, getattr(self, key))
         represent += ")"
         return represent
+
+    def __getitem__(self, item):
+        if item in self.__slots__:
+            return getattr(self, item)
+        else:
+            raise KeyError(item)

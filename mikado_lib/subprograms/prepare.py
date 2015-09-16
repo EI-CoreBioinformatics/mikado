@@ -5,9 +5,6 @@
 Subprogram that constitutes the first step of the Mikado pipeline.
 """
 
-
-__author__ = 'Luca Venturini'
-
 import sys
 import os
 import argparse
@@ -24,6 +21,8 @@ import functools
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
+
+__author__ = 'Luca Venturini'
 
 
 def grouper(iterable, num, fillvalue=(None, None)):
@@ -129,7 +128,9 @@ def perform_check(keys, exon_lines, args, logger):
 
     counter = 0
 
+    # pylint: disable=no-member
     pool = multiprocessing.Pool(args.threads)
+    # pylint: enable=no-member
 
     # Use functools to pre-configure the function
     # with all necessary arguments aside for the lines
@@ -175,6 +176,7 @@ def perform_check(keys, exon_lines, args, logger):
                 len(exon_lines), counter)
     return
 
+
 def prepare(args):
     """Main script function."""
 
@@ -216,6 +218,7 @@ def prepare(args):
     perform_check(keys, exon_lines, args, logger)
 
     logger.info("Finished")
+
 
 def to_seqio_complete(string, logger_instance=None):
     """

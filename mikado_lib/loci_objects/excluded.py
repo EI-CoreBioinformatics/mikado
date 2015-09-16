@@ -10,16 +10,12 @@ from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 
 
-# Resolution order is important here!
 class Excluded(Abstractlocus):
     """This is a container of discarded transcripts. It is used only for completeness purposes -
     i.e. printing out the discarded transcripts to a separate file.
     """
 
     __name__ = "excluded_transcripts"
-    available_metrics = []
-    if not available_metrics:
-        available_metrics = Transcript.get_available_metrics()
 
     def __init__(self, monosublocus_instance, json_conf=None, logger=None):
         """
@@ -73,28 +69,19 @@ class Excluded(Abstractlocus):
         it should not be printed out directly!"""
         raise NotImplementedError(message)
 
-    def print_metrics(self):
-
-        """This class yields dictionary "rows" that will be given to a csv.DictWriter class.
-
-        :rtype : dict
+    def calculate_scores(self):
+        """
+        Suppress the method from the base class
         """
 
-        for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
-            row = {}
-            for key in self.available_metrics:
-                if key.lower() in ("id", "tid"):
-                    row[key] = tid
-                elif key.lower() == "parent":
-                    row[key] = self.id
-                else:
-                    row[key] = getattr(self.transcripts[tid], key, "NA")
-                if isinstance(row[key], float):
-                    row[key] = round(row[key], 2)
-                elif row[key] is None or row[key] == "":
-                    row[key] = "NA"
-            yield row
-        return
+        raise NotImplementedError("Scores are not calculated by this class!")
+
+    def define_monosubloci(self, purge=False, excluded=None):
+        """
+        Suppress the method from the base class
+        """
+
+        raise NotImplementedError("Monosubloci are not calculated by this class!!")
 
     @classmethod
     def is_intersecting(cls):

@@ -229,9 +229,10 @@ def compare(args):
             assert os.path.isdir(dirname)
         else:
             os.makedirs(dirname)
-
+    # pylint: disable=no-member
     context = multiprocessing.get_context()
     manager = context.Manager()
+    # pylint: enable=no-member
 
     args, handler,\
         logger,\

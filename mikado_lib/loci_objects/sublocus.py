@@ -332,14 +332,14 @@ class Sublocus(Abstractlocus):
             else:
                 for position, fragment in enumerate(in_cds):
                     if position < len(in_cds) - 1:
-                        to_check = (fragment[1] + 1, in_cds[position + 1][0] -1)
+                        to_check = (fragment[1] + 1, in_cds[position + 1][0] - 1)
                         # If any of the fragments overlaps the intersecting introns,
                         # this is a retained intron exon
                         if any(True if self.overlap(to_check, intron) > 0 else False
                                for intron in intersecting_introns):
                             transcript.retained_introns.append(exon)
                             break
-                    elif position == len(in_cds) - 1: # last fragment to analyse
+                    elif position == len(in_cds) - 1:  # last fragment to analyse
                         if fragment[1] < exon[1]:
                             to_check = (fragment[1] + 1, exon[1])
                             # If any of the fragments overlaps the intersecting introns,
@@ -348,7 +348,7 @@ class Sublocus(Abstractlocus):
                                    else False for intron in intersecting_introns):
                                 transcript.retained_introns.append(exon)
                                 break
-                    elif position == 0: # first fragment to analyse
+                    elif position == 0:  # first fragment to analyse
                         if fragment[0] > exon[0]:
                             to_check = (exon[0], fragment[0] - 1)
                             # If any of the fragments overlaps the intersecting introns,
@@ -493,25 +493,31 @@ class Sublocus(Abstractlocus):
 
         # The rower is an instance of the DictWriter class from the standard CSV module
 
-        for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
-            row = {}
-            for key in self.available_metrics:
-                if key.lower() in ("id", "tid"):
-                    row[key] = tid
-                elif key.lower() == "parent":
-                    row[key] = self.id
-                else:
-                    row[key] = getattr(self.transcripts[tid], key, "NA")
-                if isinstance(row[key], float):
-                    row[key] = round(row[key], 2)
-                elif row[key] is None or row[key] == "":
-                    row[key] = "NA"
-            yield row
+        Abstractlocus.print_metrics(self)
         if self.excluded is not None:
             for row in self.excluded.print_metrics():
                 yield row
-
         return
+
+        # for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
+        #     row = {}
+        #     for key in self.available_metrics:
+        #         if key.lower() in ("id", "tid"):
+        #             row[key] = tid
+        #         elif key.lower() == "parent":
+        #             row[key] = self.id
+        #         else:
+        #             row[key] = getattr(self.transcripts[tid], key, "NA")
+        #         if isinstance(row[key], float):
+        #             row[key] = round(row[key], 2)
+        #         elif row[key] is None or row[key] == "":
+        #             row[key] = "NA"
+        #     yield row
+        # if self.excluded is not None:
+        #     for row in self.excluded.print_metrics():
+        #         yield row
+        #
+        # return
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""

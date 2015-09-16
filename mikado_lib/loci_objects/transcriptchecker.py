@@ -136,7 +136,7 @@ class TranscriptChecker(Transcript):
 
             for intron in self.introns:
                 splice_donor = self.fasta_seq[intron[0] - self.start - 1:intron[0]-self.start + 1]
-                splice_acceptor = self.fasta_seq[intron[1] - 2 -self.start:intron[1] - self.start]
+                splice_acceptor = self.fasta_seq[intron[1] - 2 - self.start:intron[1] - self.start]
 
                 # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
                 # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]

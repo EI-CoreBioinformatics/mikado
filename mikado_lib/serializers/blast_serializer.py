@@ -904,7 +904,6 @@ class XmlSerializer:
             current_target = current_target.target_id
         return current_target, targets
 
-
     def load_into_db(self, objects):
         """
         :param objects: Objects to be loaded into the database
@@ -917,7 +916,7 @@ class XmlSerializer:
         try:
             self.session.bulk_save_objects(objects, return_defaults=False)
             self.session.commit()
-        except Exception as err:
+        except sqlalchemy.exc.IntegrityError as err:
             self.logger.error('Database corrupted')
             self.logger.error(err)
             self.logger.error('Dropping and reloading')

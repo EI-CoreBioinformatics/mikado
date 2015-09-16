@@ -400,7 +400,7 @@ class BED12:
         if self.transcriptomic is True and self.cds_len % 3 != 0:
             self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
                 self.cds_len,
-                self.cds_len %3
+                self.cds_len % 3
             )
             return True
         return False

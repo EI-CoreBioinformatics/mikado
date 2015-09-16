@@ -4,10 +4,13 @@
 This module defines the RNA objects. It also defines Metric, a property alias.
 """
 
+# pylint: disable=bad-builtin, too-many-lines
+
 import operator
 import sys
 import re
-from collections import OrderedDict
+import functools
+from collections import OrderedDict, Counter
 import inspect
 # import asyncio
 from mikado_lib.exceptions import InvalidTranscript
@@ -55,7 +58,9 @@ class Metric(property):
     pass
 
 
-# noinspection PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess
+# noinspection PyPropertyAccess
+# I do not care that there are too many attributes: this IS a massive class!
+# pylint: disable=too-many-instance-attributes
 class Transcript:
     """
     This class defines a transcript, down to its exon/CDS/UTR components.
@@ -103,12 +108,12 @@ class Transcript:
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
     blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
-    orf_baked = bakery(lambda session: session.query(mikado_lib.serializers.orf.Orf))
+    orf_baked = bakery(lambda session: session.query(Orf))
     orf_baked += lambda q: q.filter(
         mikado_lib.serializers.orf.Orf.query_id == bindparam("query_id"))
     orf_baked += lambda q: q.filter(
         mikado_lib.serializers.orf.Orf.cds_len >= bindparam("cds_len"))
-    orf_baked += lambda q: q.order_by(desc(mikado_lib.serializers.orf.Orf.cds_len))
+    orf_baked += lambda q: q.order_by(desc(Orf.cds_len))
 
     # ######## Class special methods ####################
 
@@ -131,31 +136,29 @@ class Transcript:
         # Mock setting of base hidden variables
         self.__logger = None
         self.__id = ""
-        self.__strand = None
-        self.__score = None
-        self.__has_start_codon = self.__has_stop_codon = False
+        self.__strand = self.__score = None
+        self.__has_start_codon, self.__has_stop_codon = False, False
         self.__max_internal_orf_index = None
         self.__max_internal_orf_length = self.__intron_fraction = self.__exon_fraction = 0
+        # Metrics might have queer names
+        # pylint: disable=invalid-name
         self.__proportion_verified_introns_inlocus = 0
         self.__retained_fraction = 0
-        self.__combined_cds_intron_fraction = 0
-        self.__selected_cds_intron_fraction = 0
+        self.__combined_cds_intron_fraction = self.__selected_cds_intron_fraction = 0
         self.__non_overlapping_cds = set()
         self.__exons = set()
         self.__parent = []
         self.__combined_cds = []
         self.__selected_cds = []
         self.__combined_utr = []
+        # pylint: enable=invalid-name
         self._selected_internal_orf_cds = []
-        self.intron_range = intron_range
-        self.internal_orfs = []
-        self.blast_hits = []
-        self.feature = "transcript"
-        self.start, self.end = None, None
 
         # Starting settings for everything else
         self.chrom = None
         self.source = source
+        self.feature = "transcript"
+        self.start, self.end = None, None
         self.attributes = dict()
         self.exons, self.combined_cds, self.combined_utr = [], [], []
         self.logger = logger
@@ -163,34 +166,31 @@ class Transcript:
         self.splices = []
         self.finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self.selected_internal_orf_index = None
-        self.__has_start_codon, self.__has_stop_codon = False, False
         self.non_overlapping_cds = None
         self.verified_introns = set()
         self.segments = []
+        self.intron_range = intron_range
+        self.internal_orfs = []
+        self.blast_hits = []
 
         # Relative properties
         self.retained_introns = []
         self.retained_fraction = 0
-        self.exon_fraction = 1
-        self.intron_fraction = 1
-        self.cds_intron_fraction = 1
-        self.selected_cds_intron_fraction = 1
+        self.exon_fraction = self.intron_fraction = 1
+        self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
 
         # Json configuration
         self.json_conf = None
 
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
-        self.engine = None
-        self.session = None
-        self.sessionmaker = None
+        self.engine, self.session, self.sessionmaker = None, None, None
         self.query_id = None
 
         if len(args) == 0:
             return
         else:
             self.__initialize_with_line(args[0])
-
 
     def __initialize_with_line(self, transcript_row):
         """
@@ -206,6 +206,7 @@ class Transcript:
         self.chrom = transcript_row.chrom
         assert transcript_row.is_transcript is True
         self.feature = transcript_row.feature
+        # pylint: disable=invalid-name
         self.id = transcript_row.id
         self.name = transcript_row.name
         if self.source is None:
@@ -214,12 +215,10 @@ class Transcript:
         self.strand = transcript_row.strand
         self.end = transcript_row.end
         self.score = transcript_row.score
-
         self.parent = transcript_row.parent
         self.attributes = transcript_row.attributes
         self.blast_hits = []
         self.json_conf = None
-
 
     def __str__(self, to_gtf=False, print_cds=True):
         """
@@ -383,6 +382,38 @@ class Transcript:
         :return:
         """
 
+        exon_lines = []
+        cds_begin = False
+        counter = Counter()
+
+        line_creator = functools.partial(self.__create_exon_line,
+                                         **{"to_gtf": to_gtf,
+                                            "tid": tid})
+        for segment in cds_run:
+            exon_line, counter, cds_begin = line_creator(segment,
+                                                         counter,
+                                                         cds_begin)
+            exon_lines.append(str(exon_line))
+        return exon_lines
+
+    # pylint: disable=too-many-arguments
+    def __create_exon_line(self, segment, counter, cds_begin,
+                           tid="", to_gtf=False):
+        """
+        Private method that creates an exon line for printing.
+        :param segment: a segment of the form (feature, start, end)
+        :type segment: list(str, int, int)
+        :param counter: a Counter object that keeps track of how many exons,
+        CDS, UTR segments we have already seen
+        :type counter: Counter
+        :param cds_begin: boolean flag that indicates whether the CDS has already begun
+        :type cds_begin: bool
+        :param tid: name of the transcript
+        :param to_gtf: boolean flag
+        :return: exon_line, counter, cds_begin
+        :rtype: ((GtfLine | GffLine), Counter, bool)
+        """
+
         if to_gtf is False:
             constructor = GffLine
             utr3_feature = "three_prime_UTR"
@@ -392,55 +423,44 @@ class Transcript:
             utr3_feature = "3UTR"
             utr5_feature = "5UTR"
 
-        exon_lines = []
-
-        cds_begin = False
-
-        cds_count = 0
-        exon_count = 0
-        five_utr_count = 0
-        three_utr_count = 0
-
-        for segment in cds_run:
-            if cds_begin is False and segment[0] == "CDS":
-                cds_begin = True
-            if segment[0] == "UTR":
-                if (cds_begin is True and self.strand == "-") or \
-                        (self.strand == "+" and cds_begin is False):
-                    feature = utr5_feature
-                    five_utr_count += 1
-                    index = five_utr_count
-                else:
-                    feature = utr3_feature
-                    three_utr_count += 1
-                    index = three_utr_count
-            elif segment[0] == "CDS":
-                cds_count += 1
-                index = cds_count
-                feature = "CDS"
+        if cds_begin is False and segment[0] == "CDS":
+            cds_begin = True
+        if segment[0] == "UTR":
+            if (cds_begin is True and self.strand == "-") or \
+                    (self.strand == "+" and cds_begin is False):
+                feature = utr5_feature
+                counter.update(["five"])
+                index = counter["five"]
             else:
-                exon_count += 1
-                index = exon_count
-                feature = segment[0]
-            exon_line = constructor(None)
+                feature = utr3_feature
+                counter.update(["three"])
+                index = counter["three"]
+        elif segment[0] == "CDS":
+            counter.update(["CDS"])
+            index = counter["CDS"]
+            feature = "CDS"
+        else:
+            counter.update(["exon"])
+            index = counter["exon"]
+            feature = segment[0]
+        exon_line = constructor(None)
 
-            for attr in ["chrom", "source", "strand"]:
-                setattr(exon_line, attr, getattr(self, attr))
+        for attr in ["chrom", "source", "strand"]:
+            setattr(exon_line, attr, getattr(self, attr))
 
-            exon_line.feature = feature
-            exon_line.start, exon_line.end = segment[1], segment[2]
-            exon_line.phase = None
-            exon_line.score = None
-            if to_gtf is True:
-                # noinspection PyPropertyAccess
-                exon_line.gene = self.parent
-                exon_line.transcript = tid
-            else:
-                exon_line.id = "{0}.{1}{2}".format(tid, feature, index)
-                exon_line.parent = tid
-
-            exon_lines.append(str(exon_line))
-        return exon_lines
+        exon_line.feature = feature
+        exon_line.start, exon_line.end = segment[1], segment[2]
+        exon_line.phase = None
+        exon_line.score = None
+        if to_gtf is True:
+            # noinspection PyPropertyAccess
+            exon_line.gene = self.parent
+            exon_line.transcript = tid
+        else:
+            exon_line.id = "{0}.{1}{2}".format(tid, feature, index)
+            exon_line.parent = tid
+        return exon_line, counter, cds_begin
+    # pylint: enable=too-many-arguments
 
     def create_lines_cds(self, to_gtf=False):
 
@@ -533,7 +553,6 @@ class Transcript:
         lines.extend(exon_lines)
         return lines
 
-
     @staticmethod
     def orf_sorter(orf):
         """Sorting function for the ORFs."""
@@ -572,9 +591,9 @@ class Transcript:
             to_remove = set()
             for comm in communities:
                 comm = [orf_dictionary[x] for x in comm]
-                best_orf = sorted(comm, key=lambda x: self.orf_sorter(x), reverse=True)[0]
+                best_orf = sorted(comm, key=self.orf_sorter, reverse=True)[0]
                 candidate_orfs.append(best_orf)
-                for clique in filter(lambda cl: best_orf.name in cl, cliques):
+                for clique in iter(cl for cl in cliques if best_orf.name in cl):
                     to_remove.update(clique)
             graph.remove_nodes_from(to_remove)
 
@@ -680,6 +699,29 @@ class Transcript:
                             hsp['query_hsp_end'])) >= overlap_threshold:
                         cds_hit_dict[cds_run].add(hit["target"])
 
+        final_boundaries = OrderedDict()
+        for boundary in self.__get_boundaries_from_blast(cds_boundaries, cds_hit_dict):
+            if len(boundary) == 1:
+                assert len(boundary[0]) == 2
+                boundary = boundary[0]
+                final_boundaries[boundary] = cds_boundaries[boundary]
+            else:
+                nboun = (boundary[0][0], boundary[-1][1])
+                final_boundaries[nboun] = []
+                for boun in boundary:
+                    final_boundaries[nboun].extend(cds_boundaries[boun])
+
+        cds_boundaries = final_boundaries.copy()
+        return cds_boundaries
+
+    def __get_boundaries_from_blast(self, cds_boundaries, cds_hit_dict):
+
+        """
+        Private method that calculates the CDS boundaries to keep
+        given the blast hits. Called by check_split_by_blast
+        :param cds_boundaries:
+        :return:
+        """
         new_boundaries = []
         for cds_boundary in cds_boundaries:
             if not new_boundaries:
@@ -708,21 +750,7 @@ class Transcript:
                     else:
                         new_boundaries[-1].append(cds_boundary)
             # } # Finish BLAST check
-
-        final_boundaries = OrderedDict()
-        for boundary in new_boundaries:
-            if len(boundary) == 1:
-                assert len(boundary[0]) == 2
-                boundary = boundary[0]
-                final_boundaries[boundary] = cds_boundaries[boundary]
-            else:
-                nboun = (boundary[0][0], boundary[-1][1])
-                final_boundaries[nboun] = []
-                for boun in boundary:
-                    final_boundaries[nboun].extend(cds_boundaries[boun])
-
-        cds_boundaries = final_boundaries.copy()
-        return cds_boundaries
+        return new_boundaries
 
     def __split_complex_exon(self, exon, texon, left, right, boundary):
 
@@ -1293,36 +1321,13 @@ class Transcript:
 
         self.__check_cdna_vs_utr()
 
-        self.internal_orfs = []
-        introns = []
-        splices = []
-
-        if len(self.exons) > 1:
-            for index in range(len(self.exons) - 1):
-                exona, exonb = self.exons[index:index + 2]
-                if exona[1] >= exonb[0]:
-                    raise mikado_lib.exceptions.InvalidTranscript(
-                        "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(
-                            self.id, exona, exonb, self.exons))
-                # Append the splice junction
-                introns.append((exona[1] + 1, exonb[0] - 1))
-                # Append the splice locations
-                splices.extend([exona[1] + 1, exonb[0] - 1])
+        self.__calculate_introns()
 
         self.combined_cds = sorted(self.combined_cds,
                                    key=operator.itemgetter(0, 1))
         self.combined_utr = sorted(self.combined_utr,
                                    key=operator.itemgetter(0, 1))
-        if len(self.combined_utr) > 0 and self.combined_utr[0][0] < self.combined_cds[0][0]:
-            if self.strand == "+":
-                self.has_start_codon = True
-            elif self.strand == "-":
-                self.has_stop_codon = True
-        if len(self.combined_utr) > 0 and self.combined_utr[-1][1] > self.combined_cds[-1][1]:
-            if self.strand == "+":
-                self.has_stop_codon = True
-            elif self.strand == "-":
-                self.has_start_codon = True
+        self.__check_completeness()
 
         # assert self.selected_internal_orf_index > -1
         self.segments = [("exon", e[0], e[1]) for e in self.exons] + \
@@ -1330,12 +1335,10 @@ class Transcript:
                         [("UTR", u[0], u[1]) for u in self.combined_utr]
         self.segments = sorted(self.segments, key=operator.itemgetter(1, 2, 0))
 
-        self.internal_orfs.append(self.segments)
+        self.internal_orfs = [self.segments]
         if self.combined_cds_length > 0:
             self.selected_internal_orf_index = 0
 
-        self.introns = set(introns)
-        self.splices = set(splices)
         # Necessary to set it to the default value
         _ = self.selected_internal_orf
 
@@ -1354,6 +1357,48 @@ class Transcript:
 
         self.finalized = True
         return
+
+    def __calculate_introns(self):
+
+        """Private method to create the stores of intron
+        and splice sites positions.
+        """
+
+        introns = []
+        splices = []
+
+        if len(self.exons) > 1:
+            for index in range(len(self.exons) - 1):
+                exona, exonb = self.exons[index:index + 2]
+                if exona[1] >= exonb[0]:
+                    raise mikado_lib.exceptions.InvalidTranscript(
+                        "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(
+                            self.id, exona, exonb, self.exons))
+                # Append the splice junction
+                introns.append((exona[1] + 1, exonb[0] - 1))
+                # Append the splice locations
+                splices.extend([exona[1] + 1, exonb[0] - 1])
+        self.introns = set(introns)
+        self.splices = set(splices)
+
+    def __check_completeness(self):
+
+        """Private method that checks whether a transcript is complete
+        or not based solely on the presence of CDS/UTR information."""
+
+        if len(self.combined_utr) > 0:
+            if self.combined_utr[0][0] < self.combined_cds[0][0]:
+                if self.strand == "+":
+                    self.has_start_codon = True
+                elif self.strand == "-":
+                    self.has_stop_codon = True
+            if self.combined_utr[-1][1] > self.combined_cds[-1][1]:
+                if self.strand == "+":
+                    self.has_stop_codon = True
+                elif self.strand == "-":
+                    self.has_start_codon = True
+
+
 
     def reverse_strand(self):
         """Method to reverse the strand"""
@@ -1499,7 +1544,10 @@ class Transcript:
 
         if introns is None:
             for intron in self.introns:
-                # noinspection PyCallByClass
+                # Disable checks as the hybridproperties confuse
+                # both pycharm and pylint
+                # noinspection PyCallByClass,PyTypeChecker
+                # pylint: disable=no-value-for-parameter
                 if self.session.query(Junction).filter(
                         Junction.is_equal(self.chrom, intron[0],
                                           intron[1], self.strand)).count() == 1:
@@ -1547,42 +1595,68 @@ class Transcript:
 
         cds_exons = []
         current_start, current_end = 0, 0
-        if self.strand == "+":
-            for exon in sorted(self.exons, key=operator.itemgetter(0, 1)):
-                cds_exons.append(("exon", exon[0], exon[1]))
-                current_start += 1
-                current_end += exon[1] - exon[0] + 1
-                # Whole UTR
-                if current_end < orf.thick_start or current_start > orf.thick_end:
-                    cds_exons.append(("UTR", exon[0], exon[1]))
-                else:
-                    c_start = exon[0] + max(0, orf.thick_start - current_start)
-                    if c_start > exon[0]:
-                        u_end = c_start - 1
-                        cds_exons.append(("UTR", exon[0], u_end))
-                    c_end = exon[1] - max(0, current_end - orf.thick_end)
-                    if c_start <= c_end:
-                        cds_exons.append(("CDS", c_start, c_end))
-                    if c_end < exon[1]:
-                        cds_exons.append(("UTR", c_end + 1, exon[1]))
-                current_start = current_end
 
-        elif self.strand == "-":
-            for exon in sorted(self.exons, key=operator.itemgetter(0, 1), reverse=True):
-                cds_exons.append(("exon", exon[0], exon[1]))
-                current_start += 1
-                current_end += exon[1] - exon[0] + 1
-                if current_end < orf.thick_start or current_start > orf.thick_end:
-                    cds_exons.append(("UTR", exon[0], exon[1]))
+        for exon in sorted(self.exons, key=operator.itemgetter(0, 1),
+                           reverse=(self.strand == "-")):
+            cds_exons.append(("exon", exon[0], exon[1]))
+            current_start += 1
+            current_end += exon[1] - exon[0] + 1
+            # Whole UTR
+            if current_end < orf.thick_start or current_start > orf.thick_end:
+                cds_exons.append(("UTR", exon[0], exon[1]))
+            else:
+                if self.strand == "+":
+                    c_start = exon[0] + max(0, orf.thick_start - current_start)
+                    c_end = exon[1] - max(0, current_end - orf.thick_end)
                 else:
-                    c_end = exon[1] - max(0, orf.thick_start - current_start)
-                    if c_end < exon[1]:
-                        cds_exons.append(("UTR", c_end + 1, exon[1]))
                     c_start = exon[0] + max(0, current_end - orf.thick_end)
+                    c_end = exon[1] - max(0, orf.thick_start - current_start)
+                if c_start > exon[0]:
+                    u_end = c_start - 1
+                    cds_exons.append(("UTR", exon[0], u_end))
+                if c_start <= c_end:
                     cds_exons.append(("CDS", c_start, c_end))
-                    if c_start > exon[0]:
-                        cds_exons.append(("UTR", exon[0], c_start - 1))
-                current_start = current_end
+                if c_end < exon[1]:
+                    cds_exons.append(("UTR", c_end + 1, exon[1]))
+            current_start = current_end
+
+        # if self.strand == "+":
+        #     for exon in sorted(self.exons, key=operator.itemgetter(0, 1)):
+        #         cds_exons.append(("exon", exon[0], exon[1]))
+        #         current_start += 1
+        #         current_end += exon[1] - exon[0] + 1
+        #         # Whole UTR
+        #         if current_end < orf.thick_start or current_start > orf.thick_end:
+        #             cds_exons.append(("UTR", exon[0], exon[1]))
+        #         else:
+        #             c_start = exon[0] + max(0, orf.thick_start - current_start)
+        #             c_end = exon[1] - max(0, current_end - orf.thick_end)
+        #             if c_start > exon[0]:
+        #                 u_end = c_start - 1
+        #                 cds_exons.append(("UTR", exon[0], u_end))
+        #             if c_start <= c_end:
+        #                 cds_exons.append(("CDS", c_start, c_end))
+        #             if c_end < exon[1]:
+        #                 cds_exons.append(("UTR", c_end + 1, exon[1]))
+        #         current_start = current_end
+        #
+        # elif self.strand == "-":
+        #     for exon in sorted(self.exons, key=operator.itemgetter(0, 1), reverse=True):
+        #         cds_exons.append(("exon", exon[0], exon[1]))
+        #         current_start += 1
+        #         current_end += exon[1] - exon[0] + 1
+        #         if current_end < orf.thick_start or current_start > orf.thick_end:
+        #             cds_exons.append(("UTR", exon[0], exon[1]))
+        #         else:
+        #             c_start = exon[0] + max(0, current_end - orf.thick_end)
+        #             c_end = exon[1] - max(0, orf.thick_start - current_start)
+        #             if c_start > exon[0]:
+        #                 cds_exons.append(("UTR", exon[0], c_start - 1))
+        #             if c_start <= c_end:
+        #                 cds_exons.append(("CDS", c_start, c_end))
+        #             if c_end < exon[1]:
+        #                 cds_exons.append(("UTR", c_end + 1, exon[1]))
+        #         current_start = current_end
         return cds_exons
 
     def load_orfs(self, candidate_orfs):
@@ -1638,8 +1712,8 @@ class Transcript:
         for orf in candidate_orfs:
             # Minimal check
             if primary_orf is True:
-                self.has_start_codon,\
-                self.has_stop_codon = orf.has_start_codon, orf.has_stop_codon
+                (self.has_start_codon, self.has_stop_codon) = (orf.has_start_codon,
+                                                               orf.has_stop_codon)
                 primary_orf = False
                 primary_strand = orf.strand
             elif primary_orf is False and orf.strand != primary_strand:
@@ -2177,7 +2251,6 @@ class Transcript:
             return True
         return False
 
-
     @property
     def combined_utr(self):
         """This is a list which contains all the non-overlapping UTR
@@ -2269,6 +2342,9 @@ class Transcript:
 
     # ################### Class metrics ##################################
 
+    # Disable normal checks on names and hidden methods, as
+    # checkers get confused by the Metric method
+    # pylint: disable=method-hidden,invalid-name
     @Metric
     def tid(self):
         """ID of the transcript - cannot be an undefined value. Alias of id.
@@ -2622,6 +2698,7 @@ class Transcript:
                     break
         return distance
 
+    # pylint: disable=invalid-name
     @Metric
     def selected_start_distance_from_tss(self):
         """This property returns the distance of the start of the best CDS

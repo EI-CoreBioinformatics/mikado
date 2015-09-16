@@ -109,7 +109,7 @@ class GtfLine(GFAnnotation):
             else:
                 val = self.attributes[info]
             info_list.append("{0} \"{1}\"".format(info, val))
-        attributes = ";".join(info_list) +";"
+        attributes = ";".join(info_list) + ";"
         return attributes
 
     @property
@@ -233,7 +233,7 @@ class GtfLine(GFAnnotation):
         :type transcript: str
         """
 
-        self.attributes["transcript_id"] = self.__transcript = transcript
+        self.attributes["transcript_id"] = self._transcript = transcript
         if self.is_transcript is True:
             self.attributes["ID"] = transcript
         else:

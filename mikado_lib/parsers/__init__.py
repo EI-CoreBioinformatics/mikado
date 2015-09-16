@@ -92,7 +92,11 @@ class Parser(metaclass=abc.ABCMeta):
         self.__closed = args[0]
 
 
+# noinspection PyPep8
 import mikado_lib.parsers.GFF
+# noinspection PyPep8
 import mikado_lib.parsers.GTF
+# noinspection PyPep8
 import mikado_lib.parsers.bed12
+# noinspection PyPep8
 import mikado_lib.parsers.blast_utils

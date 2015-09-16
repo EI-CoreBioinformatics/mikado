@@ -61,9 +61,11 @@ class Assigner:
         else:
             self.args = args
 
+        # noinspection PyUnresolvedReferences
         self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
         self.logger = logging.getLogger("Assigner")
         self.logger.addHandler(self.queue_handler)
+        # noinspection PyUnresolvedReferences
         if args.verbose:
             self.logger.setLevel(logging.DEBUG)
         else:
@@ -189,7 +191,6 @@ class Assigner:
         """
         return curr_result.j_f1[0], curr_result.n_f1[0]
 
-
     def __prepare_transcript(self, prediction: Transcript):
         """
         Private method that checks that a prediction transcript is OK
@@ -202,6 +203,7 @@ class Assigner:
         prediction.logger = self.logger
         try:
             prediction.finalize()
+            # noinspection PyUnresolvedReferences
             if self.args.exclude_utr is True:
                 prediction.remove_utrs()
         except mikado_lib.exceptions.InvalidCDS:
@@ -373,6 +375,7 @@ class Assigner:
             return None
 
         # Ignore non-coding RNAs if we are interested in protein-coding transcripts only
+        # noinspection PyUnresolvedReferences
         if self.args.protein_coding is True and prediction.combined_cds_length == 0:
             #         args.queue.put_nowait("mock")
             self.logger.debug("No CDS for %s. Ignoring.", prediction.id)
@@ -385,6 +388,7 @@ class Assigner:
         else:
             keys = IntervalTree()
 
+        # noinspection PyUnresolvedReferences
         distances = self.find_neighbours(keys,
                                          (prediction.start, prediction.end),
                                          distance=self.args.distance)
@@ -393,8 +397,10 @@ class Assigner:
                           distances)
 
         # Unknown transcript
+        # noinspection PyUnresolvedReferences
         if len(distances) == 0 or distances[0][1] > self.args.distance:
             ccode = "u"
+            # noinspection PyTypeChecker,PyUnresolvedReferences
             best_result = ResultStorer("-", "-",
                                        ccode,
                                        prediction.id,
@@ -515,7 +521,7 @@ class Assigner:
         nucl_precision = nucl_overlap / prediction.cdna_length
         nucl_f1 = calc_f1(nucl_recall, nucl_precision)
 
-        #Exon statistics
+        # Exon statistics
         recalled_exons = set.intersection(set(prediction.exons), set(reference.exons))
         exon_recall = len(recalled_exons)/len(reference.exons)
         exon_precision = len(recalled_exons)/len(prediction.exons)
@@ -628,8 +634,8 @@ class Assigner:
                             ccode = "o"
                     elif nucl_overlap > 0:
                         ccode = "o"
-                    elif nucl_recall == 0 and \
-                                            reference.start < prediction.start < reference.end:
+                    elif (nucl_recall == 0 and
+                          reference.start < prediction.start < reference.end):
                         ccode = "i"  # Monoexonic fragment inside an intron
                 elif prediction.exon_num > 1 and reference.exon_num == 1:
                     if nucl_recall == 1:
@@ -646,9 +652,9 @@ class Assigner:
                     else:
                         ccode = "m"  # just a generic exon overlap b/w two monoexonic transcripts
 
-        if ccode in ("e", "o", "c", "m") and \
-            prediction.strand != reference.strand \
-            and all([x is not None for x in (prediction.strand, reference.strand)]):
+        if (ccode in ("e", "o", "c", "m") and
+                prediction.strand != reference.strand and
+                all([x is not None for x in (prediction.strand, reference.strand)])):
             ccode = "x"
 
         if prediction.strand != reference.strand:
@@ -680,7 +686,7 @@ class Assigner:
         """
         This method will print a ResultStorer instance onto the TMAP file.
         :param res: result from compare
-        :type res: ResultStorer
+        :type res: ResultStorer | None
         """
         if self.done % 10000 == 0 and self.done > 0:
             self.logger.info("Done %d transcripts", self.done)
@@ -698,6 +704,7 @@ class Assigner:
 
         """Function to print out the best match for each gene."""
         self.logger.info("Starting printing RefMap")
+        # noinspection PyUnresolvedReferences
         with open("{0}.refmap".format(self.args.out), 'wt') as out:
             fields = ["ref_id", "ccode", "tid", "gid",
                       "ref_gene", "best_ccode", "best_tid", "best_gid"]

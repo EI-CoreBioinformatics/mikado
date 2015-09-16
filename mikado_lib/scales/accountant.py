@@ -16,6 +16,7 @@ import collections
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess,PyPropertyAccess
+# pylint: disable=too-many-instance-attributes
 class Accountant:
     """This class stores the data necessary to calculate the final statistics
      - base and exon Sn/Sp/F1 etc."""
@@ -80,28 +81,38 @@ class Accountant:
                     self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b1
                     self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b100
                 else:
-                    for intron in transcr.introns:
-                        self.introns[transcr.chrom][strand][intron] = 0b01
-                    if tuple(transcr.introns) not in self.intron_chains[transcr.chrom][strand]:
-                        self.intron_chains[transcr.chrom][
-                            strand][tuple(transcr.introns)] = [set(), set()]
-                    self.intron_chains[transcr.chrom][
-                        strand][tuple(transcr.introns)][0].add(transcr.id)
-
-                    for index, exon in enumerate(transcr.exons):
-                        if exon not in self.exons[transcr.chrom][strand]:
-                            self.exons[transcr.chrom][strand][exon] = 0b00000
-                        self.exons[transcr.chrom][strand][exon] |= 0b01
-                        if index == 0:
-                            self.exons[transcr.chrom][strand][exon] |= 0b010000
-                            self.starts[transcr.chrom][strand][exon[1]] = 0b01
-                        elif index == transcr.exon_num - 1:
-                            self.exons[transcr.chrom][strand][exon] |= 0b010000
-                            self.ends[transcr.chrom][strand][exon[0]] = 0b01
-                        else:
-                            self.exons[transcr.chrom][strand][exon] |= 0b01000
-
+                    self.__store_multiexonic_reference(transcr, strand)
         return
+
+    def __store_multiexonic_reference(self, transcr, strand):
+
+        """
+        Private method to store a multiexonic reference transcript.
+        :param transcr:
+        :param strand:
+        :return:
+        """
+
+        for intron in transcr.introns:
+            self.introns[transcr.chrom][strand][intron] = 0b01
+        if tuple(transcr.introns) not in self.intron_chains[transcr.chrom][strand]:
+            self.intron_chains[transcr.chrom][
+                strand][tuple(transcr.introns)] = [set(), set()]
+        self.intron_chains[transcr.chrom][
+            strand][tuple(transcr.introns)][0].add(transcr.id)
+
+        for index, exon in enumerate(transcr.exons):
+            if exon not in self.exons[transcr.chrom][strand]:
+                self.exons[transcr.chrom][strand][exon] = 0b00000
+            self.exons[transcr.chrom][strand][exon] |= 0b01
+            if index == 0:
+                self.exons[transcr.chrom][strand][exon] |= 0b010000
+                self.starts[transcr.chrom][strand][exon[1]] = 0b01
+            elif index == transcr.exon_num - 1:
+                self.exons[transcr.chrom][strand][exon] |= 0b010000
+                self.ends[transcr.chrom][strand][exon[0]] = 0b01
+            else:
+                self.exons[transcr.chrom][strand][exon] |= 0b01000
 
     def __setup_logger(self):
 
@@ -111,11 +122,13 @@ class Accountant:
         """
 
         if hasattr(self.args, "log_queue"):
+            # noinspection PyUnresolvedReferences
             self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
         else:
             self.queue_handler = logging.NullHandler
         self.logger = logging.getLogger("stat_logger")
         self.logger.addHandler(self.queue_handler)
+        # noinspection PyUnresolvedReferences
         if self.args.verbose:
             self.logger.setLevel(logging.DEBUG)
         else:
@@ -123,6 +136,7 @@ class Accountant:
         self.logger.propagate = False
         return
 
+    # pylint: disable=too-many-locals
     def __retrieve_gene_stats(self, store_name="ref"):
 
         """
@@ -188,6 +202,7 @@ class Accountant:
         result["private"] = (private_transcripts, private_genes)
 
         return result
+    # pylint: enable=too-many-locals
 
     def __calculate_gene_stats(self):
 
@@ -211,7 +226,8 @@ class Accountant:
 
         """
         This private method calculates the raw numbers regarding intron and intron chain statistics.
-        :return:
+        :return: result_dictionary
+        :rtype: dict
         """
         intron_common = 0
         intron_ref = 0
@@ -262,36 +278,36 @@ class Accountant:
                           intron_chains_common_ref,
                           intron_chains_common_pred)
 
-        result = dict()
-        result["introns"] = [intron_common, intron_pred, intron_ref]
-        result["intron_chains"] = dict()
-        result["intron_chains"]["non_redundant"] = [intron_chains_common_nonred,
-                                                    intron_chains_pred_nonred,
-                                                    intron_chains_ref_nonred]
+        result_dictionary = dict()
+        result_dictionary["introns"] = [intron_common, intron_pred, intron_ref]
+        result_dictionary["intron_chains"] = dict()
+        result_dictionary["intron_chains"]["non_redundant"] = [intron_chains_common_nonred,
+                                                               intron_chains_pred_nonred,
+                                                               intron_chains_ref_nonred]
 
-        result["intron_chains"]["redundant"] = [intron_chains_common_pred,
-                                                intron_chains_common_ref]
-        return result
+        result_dictionary["intron_chains"]["redundant"] = [intron_chains_common_pred,
+                                                           intron_chains_common_ref]
+        return result_dictionary
 
-    def __calculate_exon_stats(self):
-
+    def __extract_terminal_stats(self, result_dictionary):
         """
-        This private method calculates the raw numbers regarding base and exon statistics.
-        :return:
+        Private method to
+        :param result_dictionary: the results dictionary
+        :type result_dictionary: dict
+        :return: updated result dictionary
+        :rtype: dict
         """
 
-        bases_common = 0
-        bases_reference = 0
-        bases_prediction = 0
+        # 0b000001: in reference
+        # 0b000010: in prediction
+        # 0b000100: single
+        # 0b001000: internal
+        # 0b010000: border
+        # 0b100000: single match lenient
 
-        exon_pred_stringent = 0
-        exon_ref_stringent = 0
-        exon_common_stringent = 0
-
+        exon_common_lenient = 0
         exon_ref_lenient = 0
         exon_pred_lenient = 0
-        exon_common_lenient = 0
-        # missed_lenient = []
 
         for chrom in self.starts:
             for strand in self.starts[chrom]:
@@ -300,12 +316,10 @@ class Accountant:
                                            ((0b10 & self.starts[chrom][strand][start]) >> 1)
                     exon_ref_lenient += 0b01 & self.starts[chrom][strand][start]
                     exon_pred_lenient += (0b10 & self.starts[chrom][strand][start]) >> 1
-                    # if not (0b10 & self.starts[chrom][strand][start]) >> 1:
-                    #     missed_lenient.append(("{0}{1}".format(chrom, strand), "start", start))
-
         starts_common = exon_common_lenient
         starts_ref = exon_ref_lenient
         starts_pred = exon_pred_lenient
+
         self.logger.debug("Starts %s", [starts_common, starts_ref, starts_pred])
 
         for chrom in self.ends:
@@ -315,13 +329,39 @@ class Accountant:
                                            ((0b10 & self.ends[chrom][strand][end]) >> 1)
                     exon_ref_lenient += 0b01 & self.ends[chrom][strand][end]
                     exon_pred_lenient += (0b10 & self.ends[chrom][strand][end]) >> 1
-                    # if not (0b10 & self.ends[chrom][strand][end]) >> 1:
-                    #     missed_lenient.append(("{0}{1}".format(chrom, strand), "end", end))
 
         ends_common = exon_common_lenient - starts_common
         ends_ref = exon_ref_lenient - starts_ref
         ends_pred = exon_pred_lenient - starts_pred
         self.logger.debug("Ends %s", [ends_common, ends_ref, ends_pred])
+        result_dictionary["ends"] = [ends_common, ends_pred, ends_ref]
+        result_dictionary["starts"] = [starts_common, starts_pred, starts_ref]
+        result_dictionary["exons"] = dict()
+        result_dictionary["exons"]["lenient"] = [exon_common_lenient,
+                                                 exon_pred_lenient,
+                                                 exon_ref_lenient]
+
+        return result_dictionary
+
+    def __extract_internal_stats(self, result_dictionary):
+        """
+        Private method that extracts the internal stats from the stored
+        data and updates the result_dictionary dictionary.
+        :param result_dictionary: the dictionary that stores the results
+        :return:
+        """
+
+        # Re-extract the previous stats
+        exon_common_lenient, exon_pred_lenient, exon_ref_lenient = (
+            result_dictionary["exons"]["lenient"])
+
+        bases_common = 0
+        bases_reference = 0
+        bases_prediction = 0
+
+        exon_pred_stringent = 0
+        exon_ref_stringent = 0
+        exon_common_stringent = 0
 
         for chrom in self.exons:
             for strand in self.exons[chrom]:
@@ -336,8 +376,8 @@ class Accountant:
                 curr_exon = (-1, -1)
 
                 for exon in sorted(self.exons[chrom][strand], key=operator.itemgetter(0)):
+                    # Out of previous overlap
                     if exon[0] > curr_exon[1]:
-
                         bases_common += len(set.intersection(curr_pred_bases, curr_ref_bases))
                         bases_reference += len(curr_ref_bases)
                         bases_prediction += len(curr_pred_bases)
@@ -347,7 +387,8 @@ class Accountant:
                     else:
                         curr_exon = (curr_exon[0], exon[1])
 
-                    if (0b01 & self.exons[chrom][strand][exon]) == 0b1:  # In reference
+                    # Exon is in reference
+                    if (0b01 & self.exons[chrom][strand][exon]) == 0b1:
                         curr_ref_bases.update(set(range(exon[0], exon[1])))
                         exon_ref_stringent += 1
                         # Internal (first condition)
@@ -358,7 +399,8 @@ class Accountant:
                         elif 0b100000 & self.exons[chrom][strand][exon]:
                             exon_ref_lenient += 1
 
-                    if (0b10 & self.exons[chrom][strand][exon]) == 0b10:  # In prediction
+                    # Exon is in prediction
+                    if (0b10 & self.exons[chrom][strand][exon]) == 0b10:
                         curr_pred_bases.update(set(range(exon[0], exon[1])))
                         exon_pred_stringent += 1
                         # Either internal, or a single exon which
@@ -368,7 +410,8 @@ class Accountant:
                         elif 0b100000 & self.exons[chrom][strand][exon]:
                             exon_pred_lenient += 1
 
-                    if (0b11 & self.exons[chrom][strand][exon]) == 0b11:  # In both
+                    # In both
+                    if (0b11 & self.exons[chrom][strand][exon]) == 0b11:
                         exon_common_stringent += 1
                         if (0b001000 & self.exons[chrom][strand][exon]) == 0b001000:
                             exon_common_lenient += 1
@@ -379,22 +422,96 @@ class Accountant:
                 bases_reference += len(curr_ref_bases)
                 bases_prediction += len(curr_pred_bases)
 
+        result_dictionary["bases"] = dict()
+        result_dictionary["bases"] = [bases_common, bases_prediction, bases_reference]
+        result_dictionary["exons"]["stringent"] = [exon_common_stringent,
+                                                   exon_pred_stringent,
+                                                   exon_ref_stringent]
+        result_dictionary["exons"]["lenient"] = [exon_common_lenient,
+                                                 exon_pred_lenient,
+                                                 exon_ref_lenient]
+        return result_dictionary
+
+    def __calculate_exon_stats(self):
+
+        """
+        This private method calculates the raw numbers regarding base and exon statistics.
+        :return:
+        """
+
         result = dict()
-        result["bases"] = dict()
-        result["bases"] = [bases_common, bases_prediction, bases_reference]
-
-        result["exons"] = dict()
-        result["exons"]["stringent"] = [exon_common_stringent,
-                                        exon_pred_stringent,
-                                        exon_ref_stringent]
-
-        result["exons"]["lenient"] = [exon_common_lenient,
-                                      exon_pred_lenient,
-                                      exon_ref_lenient]
-        result["ends"] = [ends_common, ends_pred, ends_ref]
-        result["starts"] = [starts_common, starts_pred, starts_ref]
-
+        result = self.__extract_terminal_stats(result)
+        result = self.__extract_internal_stats(result)
         return result
+
+    def __store_multiexonic_result(self, transcr, strand, result):
+
+        """
+        Private procedure to store the results regarding a multiexonic
+        transcript compared to the reference.
+        :param transcr: a transcript instance
+        :param strand: the strand to be used for storing
+        :param result: a ResultStorer instance
+        :return:
+        """
+
+        assert transcr.monoexonic is False
+        ic_key = tuple(transcr.introns)
+        if result.ccode == ("=",):
+            assert ic_key in self.intron_chains[transcr.chrom][strand]
+            assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
+
+        if ic_key not in self.intron_chains[transcr.chrom][strand]:
+            self.intron_chains[transcr.chrom][strand][ic_key] = [set(), set()]
+        self.intron_chains[transcr.chrom][strand][ic_key][1].add(transcr.id)
+
+        for intron in transcr.introns:
+            if intron not in self.introns[transcr.chrom][strand]:
+                self.introns[transcr.chrom][strand][intron] = 0b0
+            self.introns[transcr.chrom][strand][intron] |= 0b10
+
+        for index, exon in enumerate(transcr.exons):
+            if exon not in self.exons[transcr.chrom][strand]:
+                self.exons[transcr.chrom][strand][exon] = 0b0
+            self.exons[transcr.chrom][strand][exon] |= 0b10  # set it as "in prediction"
+            if index == 0:
+                self.exons[transcr.chrom][strand][exon] |= 0b010000
+                if exon[1] not in self.starts[transcr.chrom][strand]:
+                    self.starts[transcr.chrom][strand][exon[1]] = 0b0
+                self.starts[transcr.chrom][strand][exon[1]] |= 0b10
+            elif index == transcr.exon_num - 1:
+                self.exons[transcr.chrom][strand][exon] |= 0b010000
+                if exon[0] not in self.ends[transcr.chrom][strand]:
+                    self.ends[transcr.chrom][strand][exon[0]] = 0b00
+                self.ends[transcr.chrom][strand][exon[0]] |= 0b10
+            else:
+                self.exons[transcr.chrom][strand][exon] |= 0b01000
+
+    def __store_monoexonic_result(self, transcr, strand, other_exon=None):
+        """
+        Private procedure to store the comparison of a monoexonic
+        transcript with the reference.
+        :param transcr: the monoexonic transcript
+        :param strand: the strand to be used for storing
+        :param other_exon: the reference exon this transcript is assigned to
+        :return:
+        """
+        assert transcr.monoexonic is True
+        exon = transcr.exons[0]
+        if exon not in self.exons[transcr.chrom][strand]:
+            self.exons[transcr.chrom][strand][exon] = 0b0
+        self.exons[transcr.chrom][strand][exon] |= 0b10
+        self.exons[transcr.chrom][strand][exon] |= 0b100
+        if other_exon is not None:
+            assert isinstance(other_exon, tuple)
+            assert other_exon in self.exons[transcr.chrom][strand],\
+                (transcr.id, transcr.exons, other_exon)
+            if not 0b100 & self.exons[transcr.chrom][strand][other_exon]:
+                # Check the other exon is marked as single
+                self.exons[transcr.chrom][strand][other_exon] |= 0b100
+
+            # self.exons[transcr.chrom][strand][exon] |= 0b100000
+            self.exons[transcr.chrom][strand][other_exon] |= 0b100000
 
     def store(self, transcr: Transcript, result: ResultStorer, other_exon):
 
@@ -447,52 +564,9 @@ class Accountant:
             self.intron_chains[transcr.chrom] = dict([("+", dict()), ("-", dict())])
 
         if transcr.exon_num > 1:
-            ic_key = tuple(transcr.introns)
-            if result.ccode == ("=",):
-                assert ic_key in self.intron_chains[transcr.chrom][strand]
-                assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
-
-            if ic_key not in self.intron_chains[transcr.chrom][strand]:
-                self.intron_chains[transcr.chrom][strand][ic_key] = [set(), set()]
-            self.intron_chains[transcr.chrom][strand][ic_key][1].add(transcr.id)
-
-            for intron in transcr.introns:
-                if intron not in self.introns[transcr.chrom][strand]:
-                    self.introns[transcr.chrom][strand][intron] = 0b0
-                self.introns[transcr.chrom][strand][intron] |= 0b10
-
-            for index, exon in enumerate(transcr.exons):
-                if exon not in self.exons[transcr.chrom][strand]:
-                    self.exons[transcr.chrom][strand][exon] = 0b0
-                self.exons[transcr.chrom][strand][exon] |= 0b10  # set it as "in prediction"
-                if index == 0:
-                    self.exons[transcr.chrom][strand][exon] |= 0b010000
-                    if exon[1] not in self.starts[transcr.chrom][strand]:
-                        self.starts[transcr.chrom][strand][exon[1]] = 0b0
-                    self.starts[transcr.chrom][strand][exon[1]] |= 0b10
-                elif index == transcr.exon_num - 1:
-                    self.exons[transcr.chrom][strand][exon] |= 0b010000
-                    if exon[0] not in self.ends[transcr.chrom][strand]:
-                        self.ends[transcr.chrom][strand][exon[0]] = 0b00
-                    self.ends[transcr.chrom][strand][exon[0]] |= 0b10
-                else:
-                    self.exons[transcr.chrom][strand][exon] |= 0b01000
+            self.__store_multiexonic_result(transcr, strand, result)
         else:
-            exon = transcr.exons[0]
-            if exon not in self.exons[transcr.chrom][strand]:
-                self.exons[transcr.chrom][strand][exon] = 0b0
-            self.exons[transcr.chrom][strand][exon] |= 0b10
-            self.exons[transcr.chrom][strand][exon] |= 0b100
-            if other_exon is not None:
-                assert isinstance(other_exon, tuple)
-                assert other_exon in self.exons[transcr.chrom][strand],\
-                    (transcr.id, transcr.exons, other_exon)
-                if not 0b100 & self.exons[transcr.chrom][strand][other_exon]:
-                    # Check the other exon is marked as single
-                    self.exons[transcr.chrom][strand][other_exon] |= 0b100
-
-                # self.exons[transcr.chrom][strand][exon] |= 0b100000
-                self.exons[transcr.chrom][strand][other_exon] |= 0b100000
+            self.__store_monoexonic_result(transcr, strand, other_exon=other_exon)
 
     @staticmethod
     def __calculate_statistics(common, pred, ref):
@@ -594,17 +668,11 @@ class Accountant:
         bases_prec, bases_recall, bases_f1 = self.__calculate_statistics(
             *bases_exon_result["bases"])
 
-        exon_stringent_precision,\
-        exon_stringent_recall,\
-        exon_stringent_f1 = self.__calculate_statistics(
-            *bases_exon_result["exons"]["stringent"]
-        )
+        (exon_stringent_precision, exon_stringent_recall, exon_stringent_f1) = (
+            self.__calculate_statistics(*bases_exon_result["exons"]["stringent"]))
 
-        exon_lenient_precision,\
-        exon_lenient_recall,\
-        exon_lenient_f1 = self.__calculate_statistics(
-            *bases_exon_result["exons"]["lenient"]
-        )
+        (exon_lenient_precision, exon_lenient_recall, exon_lenient_f1) = (
+            self.__calculate_statistics(*bases_exon_result["exons"]["lenient"]))
 
         intron_precision, intron_recall, intron_f1 = self.__calculate_statistics(
             *intron_results["introns"]
@@ -616,42 +684,41 @@ class Accountant:
         intron_chains_precision, intron_chains_recall, intron_chains_f1 = intron_stats
 
         # Transcript level
-        transcript_precision_stringent,\
-        transcript_recall_stringent,\
-        transcript_f1_stringent = self.__calculate_statistics(
-            gene_transcript_results["ref"]["stringent"][0],
-            gene_transcript_results["pred"]["total"],
-            gene_transcript_results["ref"]["total"]
-        )
+        # noinspection PyTypeChecker
+        (tr_precision_stringent, tr_recall_stringent, tr_f1_stringent) = (
+            self.__calculate_statistics(
+                gene_transcript_results["ref"]["stringent"][0],
+                gene_transcript_results["pred"]["total"],
+                gene_transcript_results["ref"]["total"]))
 
-        transcript_precision_lenient,\
-        transcript_recall_lenient,\
-        transcript_f1_lenient = self.__calculate_statistics(
-            gene_transcript_results["ref"]["lenient"][0],
-            gene_transcript_results["pred"]["total"],
-            gene_transcript_results["ref"]["total"])
+        # noinspection PyTypeChecker
+        (tr_precision_lenient, tr_recall_lenient, tr_f1_lenient) = (
+            self.__calculate_statistics(
+                gene_transcript_results["ref"]["lenient"][0],
+                gene_transcript_results["pred"]["total"],
+                gene_transcript_results["ref"]["total"]))
 
         # Gene level
         ref_genes = len(self.ref_genes)
         pred_genes = len(self.pred_genes)
-        gene_precision_stringent,\
-        gene_recall_stringent,\
-        gene_f1_stringent = self.__calculate_statistics(
-            gene_transcript_results["ref"]["stringent"][1],
-            pred_genes,
-            ref_genes
-        )
+        # noinspection PyTypeChecker
+        (gene_precision_stringent, gene_recall_stringent, gene_f1_stringent) = (
+            self.__calculate_statistics(
+                gene_transcript_results["ref"]["stringent"][1],
+                pred_genes,
+                ref_genes))
 
-        gene_precision_lenient,\
-        gene_recall_lenient,\
-        gene_f1_lenient = self.__calculate_statistics(
-            gene_transcript_results["ref"]["lenient"][1],
-            pred_genes,
-            ref_genes
-        )
+        # noinspection PyTypeChecker
+        (gene_precision_lenient, gene_recall_lenient, gene_f1_lenient) = (
+            self.__calculate_statistics(
+                gene_transcript_results["ref"]["lenient"][1],
+                pred_genes,
+                ref_genes))
 
+        # noinspection PyUnresolvedReferences
         with open("{0}.stats".format(self.args.out), 'wt') as out:
 
+            # noinspection PyUnresolvedReferences
             print("Command line:\n{0:>10}".format(self.args.commandline), file=out)
             print(gene_transcript_results["ref"]["total"], "reference RNAs in",
                   len(self.ref_genes), "genes", file=out)
@@ -684,14 +751,14 @@ class Accountant:
                 intron_chains_f1 * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Transcript level (stringent)"),
-                transcript_recall_stringent * 100,
-                transcript_precision_stringent * 100,
-                transcript_f1_stringent * 100), file=out)
+                tr_recall_stringent * 100,
+                tr_precision_stringent * 100,
+                tr_f1_stringent * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Transcript level (lenient)"),
-                transcript_recall_lenient * 100,
-                transcript_precision_lenient * 100,
-                transcript_f1_lenient * 100), file=out)
+                tr_recall_lenient * 100,
+                tr_precision_lenient * 100,
+                tr_f1_lenient * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Gene level (stringent)"),
                 gene_recall_stringent * 100,
@@ -740,24 +807,27 @@ class Accountant:
                   file=out)
             print("")
 
+            # noinspection PyTypeChecker
             print(self.__format_comparison_line("Missed transcripts",
-                                                    gene_transcript_results["ref"]["private"][0],
-                                                    gene_transcript_results["ref"]["total"]),
+                                                gene_transcript_results["ref"]["private"][0],
+                                                gene_transcript_results["ref"]["total"]),
                   file=out)
 
+            # noinspection PyTypeChecker
             print(self.__format_comparison_line("Novel transcripts",
-                                                    gene_transcript_results["pred"]["private"][0],
-                                                    gene_transcript_results["pred"]["total"]),
+                                                gene_transcript_results["pred"]["private"][0],
+                                                gene_transcript_results["pred"]["total"]),
                   file=out)
 
+            # noinspection PyTypeChecker
             print(self.__format_comparison_line("Missed genes",
-                                                    gene_transcript_results["ref"]["private"][1],
-                                                    len(self.ref_genes)), file=out)
+                                                gene_transcript_results["ref"]["private"][1],
+                                                len(self.ref_genes)), file=out)
 
+            # noinspection PyTypeChecker
             print(self.__format_comparison_line("Novel genes",
                                                 gene_transcript_results["pred"]["private"][1],
                                                 len(self.pred_genes)), file=out)
-
 
         self.logger.removeHandler(self.queue_handler)
         # self.queue_handler.close()

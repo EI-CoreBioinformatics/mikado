@@ -99,7 +99,6 @@ class GffLine(GFAnnotation):
 
         self.attributes["ID"] = newid
 
-
     @property
     def parent(self):
         """This property looks up the "Parent" field in the "attributes" dictionary.

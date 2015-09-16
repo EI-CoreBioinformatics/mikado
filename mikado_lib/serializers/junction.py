@@ -26,16 +26,6 @@ from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
 class Chrom(DBBASE):
     """
     Simple serialization class for chromosomes.
-
-    :param id: numerical id (table key)
-    :type id: int
-
-    :param name: chromosome name
-    :type name: str
-
-    :param length: length of the chromosome
-    :type length: None
-    :type length: int
     """
 
     __tablename__ = "chrom"
@@ -147,11 +137,8 @@ class JunctionSerializer:
         :param handle: the file to be serialized.
         :type handle: str | io.IOBase
 
-        :param db: the database to connect to. Can be None.
-        :type db: None | str
-
         :param fai: an optional FAI file to be used for generating the database.
-        :type fai: str | io.IOBase
+        :type fai: str | io.IOBase | io.TextIOWrapper
 
         :param maxobjects: maximal number of objects to cache in memory before bulk loading.
         Default 10^4
@@ -180,6 +167,7 @@ class JunctionSerializer:
         self.fai = fai
         if isinstance(fai, str):
             assert os.path.exists(fai)
+            # noinspection PyTypeChecker
             self.fai = open(self.fai)
         else:
             if fai is not None:

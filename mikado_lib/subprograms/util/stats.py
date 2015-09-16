@@ -29,6 +29,7 @@ numpy.seterr(all="ignore")  # Suppress warnings
 numpy.warnings.filterwarnings("ignore")
 # pylint: enable=E1101
 
+
 class TranscriptComputer(transcript.Transcript):
     """
     Class that is used to calculate and store basic statistics about a transcript object.
@@ -457,7 +458,6 @@ class Calculator:
         self.__arrays["5'UTR length"] = five_utr_lengths
         self.__arrays["3'UTR length"] = three_utr_lengths
         self.__arrays["Stop distance from junction"] = end_distance_from_junction
-
 
     def writer(self):
         """Method which creates the final output"""

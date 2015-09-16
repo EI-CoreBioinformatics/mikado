@@ -346,8 +346,8 @@ class Creator:
         self.main_logger = logging.getLogger("main_logger")
         self.logger = logging.getLogger("listener")
         self.logger.propagate = False
-        if self.json_conf["log_settings"]["log"] is None or \
-                        self.json_conf["log_settings"]["log"] == "stream":
+        if (self.json_conf["log_settings"]["log"] is None or
+                self.json_conf["log_settings"]["log"] == "stream"):
             self.log_handler = logging.StreamHandler()
         else:
             self.log_handler = logging.FileHandler(
@@ -795,8 +795,8 @@ class Creator:
         if self.queue_pool is not None:
             self.queue_pool.dispose()
 
-        if self.json_conf["run_options"]["shm"] is True and \
-                        self.json_conf["run_options"]["shm_shared"] is False:
+        if (self.json_conf["run_options"]["shm"] is True and
+                self.json_conf["run_options"]["shm_shared"] is False):
             self.main_logger.info("Removing shared memory DB %s",
                                   self.json_conf["run_options"]["shm_db"])
             os.remove(self.json_conf["run_options"]["shm_db"])

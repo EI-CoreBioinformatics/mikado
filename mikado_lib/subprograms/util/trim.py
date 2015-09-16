@@ -92,7 +92,7 @@ def trim_end(transcript, cds_end, max_length=0):
     Method to trim the end of a transcript, given both
     the cds_end and the maximal allowed length after trimming.
     :param transcript:
-    :param cds_start:
+    :param cds_end:
     :param max_length:
     :return: transcript
     """

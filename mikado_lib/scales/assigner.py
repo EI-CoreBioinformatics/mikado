@@ -23,6 +23,7 @@ import mikado_lib.exceptions
 from mikado_lib.scales.accountant import Accountant
 
 
+# noinspection PyPropertyAccess,PyPropertyAccess
 class Assigner:
 
     """
@@ -84,6 +85,7 @@ class Assigner:
             #                              key=operator.itemgetter(0,1))
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
+        # noinspection PyUnresolvedReferences
         self.tmap_out = open("{0}.tmap".format(args.out), 'wt')
         self.tmap_rower = csv.DictWriter(self.tmap_out, ResultStorer.__slots__, delimiter="\t")
         self.tmap_rower.writeheader()
@@ -751,6 +753,7 @@ class Assigner:
                                         best_pick.tid, best_pick.gid)
                     else:
                         row = out_tuple(row[0], "NA", "NA", "NA", row[1], "NA", "NA", "NA")
+                    # noinspection PyProtectedMember,PyProtectedMember
                     rower.writerow(row._asdict())
         self.logger.info("Finished printing RefMap")
         return None

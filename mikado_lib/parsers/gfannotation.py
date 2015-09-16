@@ -25,6 +25,8 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         self.__strand = None
         self.__phase = None
         self._line = "NA"
+        self.__gene = None
+        self._transcript = None
 
         self.attribute_order = []
         if line is None:  # Empty constructor

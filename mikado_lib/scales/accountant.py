@@ -15,6 +15,7 @@ import operator
 import collections
 
 
+# noinspection PyPropertyAccess,PyPropertyAccess,PyPropertyAccess
 class Accountant:
     """This class stores the data necessary to calculate the final statistics
      - base and exon Sn/Sp/F1 etc."""
@@ -516,7 +517,6 @@ class Accountant:
 
         return recall, precision, f1stat
 
-
     @staticmethod
     def __format_rowname(stru):
         """
@@ -564,7 +564,6 @@ class Accountant:
                                                   perc)
         return string
 
-
     def print_stats(self):
 
         """
@@ -575,7 +574,6 @@ class Accountant:
 
         # num_ref_transcripts = sum(len(self.ref_genes[gid]) for gid in self.ref_genes)
         # num_pred_transcripts = sum(len(self.pred_genes[gid]) for gid in self.pred_genes)
-
 
         # Dictionary with the necessary data
         bases_exon_result = self.__calculate_exon_stats()

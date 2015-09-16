@@ -55,37 +55,6 @@ class Chrom(DBBASE):
 class Junction(DBBASE):
     """
     Class that describes the junction table in the database.
-
-    :param id: numerical id
-    :type id: int
-
-    :param chrom_id: numerical foreign id for the Chrom table
-    :type chrom_id: int
-
-    :param start: start position of the junction (1-based)
-    :type start: int
-
-    :param end: end position of the junction (1-based)
-    :type end: int
-
-    :param name: Name of the junction
-    :type name: str
-
-    :param strand: Strand of the junction. One of "+","-"
-    :type strand: str
-
-    :param junctionStart: Start internal position of the junction i.e. intron start (1-based)
-    :type junction_start: int
-
-    :param junctionEnd: End internal position of the junction i.e. intron end (1-based)
-    :type junction_end: int
-
-    :param score: Score of the junction.
-    :type score: Float
-
-    :param chrom_object: a reference to the Chrom object over which the junction is positioned.
-    :type chrom_object: Chrom
-
     """
 
     __tablename__ = "junctions"

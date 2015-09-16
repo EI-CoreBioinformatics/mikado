@@ -13,6 +13,7 @@ This module defines the classes needed for the "compare" script, namely:
 - accountant:       This class calculates the final summary statistics for the comparison.
 """
 
+
 def calc_f1(recall, precision):
     """
     Static method to calculate the F1 statistic given precision

@@ -11,45 +11,7 @@ from mikado_lib.parsers.gfannotation import GFAnnotation
 
 
 class GffLine(GFAnnotation):
-    """Object which serializes a GFF line.
-    Parameters:
-    :param _line: the original line
-    :type _line: str
-
-    :param _fields: the splitted line
-    :type _fields: list
-
-    :param chrom: the chromosome
-    :type chrom: str
-
-    :param source: source field, where the data originated from.
-    :type source: str
-
-    :param feature: mRNA, gene, exon, start/stop_codon, etc.
-    :type feature: str
-
-    :param start: start of the feature
-    :type start: int
-
-    :param end: stop of the feature
-    :type end: int
-
-    :param strand: strand of the feature
-    :type strand: str
-    :type strand: None
-
-    :param score: Score assigned to the feature
-    :type score: None
-    :type score: float
-
-    :param phase: Codon phase for protein-coding CDS/exon features
-    :type phase: int
-    :type phase: None
-
-    :param attributes: a dictionary which contains the extra information.
-    :type attributes: dict
-
-    """
+    """Object which serializes a GFF line."""
 
     def __init__(self, line: str, my_line='', header=False):
         """

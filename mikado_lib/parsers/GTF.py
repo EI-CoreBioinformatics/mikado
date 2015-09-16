@@ -4,7 +4,6 @@
 Generic parser for GTF files.
 """
 
-import copy
 from mikado_lib.parsers import Parser
 from mikado_lib.parsers.gfannotation import GFAnnotation
 

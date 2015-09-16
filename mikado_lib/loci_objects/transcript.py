@@ -55,6 +55,7 @@ class Metric(property):
     pass
 
 
+# noinspection PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess,PyPropertyAccess
 class Transcript:
     """
     This class defines a transcript, down to its exon/CDS/UTR components.
@@ -431,6 +432,7 @@ class Transcript:
             exon_line.phase = None
             exon_line.score = None
             if to_gtf is True:
+                # noinspection PyPropertyAccess
                 exon_line.gene = self.parent
                 exon_line.transcript = tid
             else:
@@ -1092,7 +1094,7 @@ class Transcript:
         self.finalize()
 
         # List of the transcript that will be retained
-        new_transcripts = []
+
         if self.number_internal_orfs < 2:
             new_transcripts = [self]  # If we only have one ORF this is easy
         else:
@@ -1497,6 +1499,7 @@ class Transcript:
 
         if introns is None:
             for intron in self.introns:
+                # noinspection PyCallByClass
                 if self.session.query(Junction).filter(
                         Junction.is_equal(self.chrom, intron[0],
                                           intron[1], self.strand)).count() == 1:

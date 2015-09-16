@@ -13,7 +13,7 @@ from mikado_lib.exceptions import InvalidTranscript, InvalidCDS
 class Gene:
 
     """
-    :param tr: a transcript used to initialize the container.
+    :param transcr: a transcript used to initialize the container.
     :param gid:Id of the gene.
     :param logger: an optional Logger from the logging module.
     """

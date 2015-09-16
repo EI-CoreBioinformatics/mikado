@@ -262,7 +262,7 @@ class XMLMerger(threading.Thread):
     logger.propagate = False
     logger.setLevel(logging.INFO)
     __stream_handler = logging.StreamHandler()
-    __formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
+    __formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}", style='{')
     __stream_handler.setFormatter(__formatter)
     logger.addHandler(__stream_handler)
 

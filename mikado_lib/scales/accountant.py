@@ -133,6 +133,7 @@ class Accountant:
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.INFO)
+
         self.logger.propagate = False
         return
 
@@ -805,7 +806,7 @@ class Accountant:
                                                     intron_results["introns"][1],
                                                     intron_results["introns"][0]),
                   file=out)
-            print("")
+            print("", file=out)
 
             # noinspection PyTypeChecker
             print(self.__format_comparison_line("Missed transcripts",

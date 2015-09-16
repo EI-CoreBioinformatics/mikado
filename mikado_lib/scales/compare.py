@@ -43,7 +43,6 @@ def setup_logger(args, manager):
     else:
         if os.path.exists(args.log):
             os.remove(args.log)
-
         handler = logging.FileHandler(args.log)
     handler.setFormatter(formatter)
 
@@ -52,14 +51,19 @@ def setup_logger(args, manager):
     else:
         logger.setLevel(logging.DEBUG)
     logger.addHandler(handler)
+    logger.propagate = False
 
     queue_logger = logging.getLogger("main_queue")
+    for handler in queue_logger.handlers:
+        queue_logger.removeHandler(handler)
     if args.verbose is False:
         queue_logger.setLevel(logging.INFO)
     else:
         queue_logger.setLevel(logging.DEBUG)
     main_queue_handler = log_handlers.QueueHandler(args.log_queue)
+    queue_logger.propagate = False
     queue_logger.addHandler(main_queue_handler)
+
     return args, handler, logger, log_queue_listener, queue_logger
 
 
@@ -234,11 +238,10 @@ def compare(args):
     manager = context.Manager()
     # pylint: enable=no-member
 
-    args, handler,\
-        logger,\
-        log_queue_listener, queue_logger = setup_logger(args, manager)
+    args, handler, logger, log_queue_listener, queue_logger = setup_logger(
+        args, manager)
 
-    queue_logger.propagate = False
+#    queue_logger.propagate = False
     queue_logger.info("Start")
     args.commandline = " ".join(sys.argv)
     queue_logger.info("Command line: %s", args.commandline)
@@ -252,7 +255,8 @@ def compare(args):
                                           ref_gff=ref_gff)
 
     # Needed for refmap
-    queue_logger.info("Finished preparation; found %d reference genes", len(genes))
+    queue_logger.info("Finished preparation; found %d reference gene%s",
+                      len(genes), "s" if len(genes) > 1 else "")
     queue_logger.debug("Gene names (first 20): %s",
                        "\n\t".join(list(genes.keys())[:20]))
 

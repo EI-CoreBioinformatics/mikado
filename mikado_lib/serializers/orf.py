@@ -120,8 +120,9 @@ class OrfSerializer:
 
     logger = logging.getLogger("main")
     logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("{asctime} - {levelname} - {message}", style='{')
+    handler = logging.NullHandler()
+    formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}",
+                                  style='{')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 

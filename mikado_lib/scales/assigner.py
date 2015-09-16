@@ -70,6 +70,7 @@ class Assigner:
             self.logger.setLevel(logging.DEBUG)
         else:
             self.logger.setLevel(logging.INFO)
+
         self.logger.propagate = False
 
         self.genes = genes
@@ -104,30 +105,7 @@ class Assigner:
         """
 
         if result is not None and result.ccode != ("u",):
-            # This is necessary for fusion genes
-            if len(result.ref_gene) == 1:
-                self.gene_matches[result.ref_gene[0]][result.ref_id[0]].append(result)
-
-            else:  # Fusion gene
-
-                for index, (gid, tid) in enumerate(zip(result.ref_gene, result.ref_id)):
-                    new_result = ResultStorer(gid, tid,
-                                              ["f", result.ccode[index + 1]],
-                                              result.tid, result.gid,
-                                              # Nucleotide stats
-                                              result.n_prec[index],
-                                              result.n_recall[index],
-                                              result.n_f1[index],
-                                              # Junction stats
-                                              result.j_prec[index],
-                                              result.j_recall[index],
-                                              result.j_f1[index],
-                                              # Exonic stats
-                                              result.e_prec[index],
-                                              result.e_recall[index],
-                                              result.e_f1[index],
-                                              0)
-                    self.gene_matches[gid][tid].append(new_result)
+            self.gene_matches[result.ref_gene[0]][result.ref_id[0]].append(result)
         return
 
     @classmethod
@@ -278,6 +256,7 @@ class Assigner:
             if m_res[0].j_f1[0] == 0 and m_res[0].n_recall[0] < 10:
                 dubious.append(m_res)
                 continue
+            # List of ResultStorer instances
             results.extend(m_res)
             best_fusion_results.append(m_res[0])
 
@@ -288,6 +267,7 @@ class Assigner:
             results = dubious[0]
             best_fusion_results = [results[0]]
 
+        # Create the fusion best result
         values = []
         for key in ResultStorer.__slots__:
             if key in ["gid", "tid", "distance"]:
@@ -297,6 +277,8 @@ class Assigner:
                     # Add the "f" ccode for fusions
                     ccode = ["f"]
                     ccode += [getattr(x, key)[0] for x in best_fusion_results]
+                    for result in results:
+                        result.ccode = ("f", result.ccode[0])
                     values.append(tuple(ccode))
                 else:
                     values.append(tuple(getattr(best_fusion_results[0], key)))
@@ -307,6 +289,8 @@ class Assigner:
                 values.append(val)
 
         best_result = ResultStorer(*values)
+        # Finished creating the fusion result
+
         return results, best_result
 
     def __prepare_result(self, prediction, distances):
@@ -348,6 +332,8 @@ class Assigner:
             #     args.refmap_queue.put_nowait(result)
             #     args.stats_queue.put_nowait((tr,result))
             #     return result
+
+
         return results, best_result
 
     def get_best(self, prediction: Transcript):
@@ -406,7 +392,7 @@ class Assigner:
                                        prediction.id,
                                        ",".join(prediction.parent), *[0] * 9 + ["-"])
             self.stat_calculator.store(prediction, best_result, None)
-            results = [best_result]
+            # results = [best_result]
         elif distances[0][1] > 0:
             # Polymerase run-on
             match = self.positions[prediction.chrom][distances[0][0]][0]
@@ -422,6 +408,7 @@ class Assigner:
 
         for result in results:
             self.add_to_refmap(result)
+
         self.logger.debug("Finished with %s", prediction.id)
         self.print_tmap(best_result)
         self.done += 1
@@ -433,7 +420,8 @@ class Assigner:
         It will print out the reference file assignments into the refmap
         file, and the final statistics into the stats file.
         """
-        self.logger.info("Finished parsing, total: %d transcripts.", self.done)
+        self.logger.info("Finished parsing, total: %d transcript%s.",
+                         self.done, "s" if self.done > 1 else "")
         self.refmap_printer()
         self.stat_calculator.print_stats()
 
@@ -735,12 +723,13 @@ class Assigner:
                                           key=operator.attrgetter("distance"),
                                           reverse=False)[0]
                         best_picks.append(best)
-                        if len(best.ccode) == 1:
-                            row = tuple([tid, gid, ",".join(best.ccode),
+                        row = tuple([tid, gid, ",".join(best.ccode),
                                          best.tid, best.gid])
-                        else:
-                            row = tuple([tid, gid, ",".join(best.ccode),
-                                         best.tid, best.gid])
+                        # if len(best.ccode) == 1:
+                        #
+                        # else:
+                        #     row = tuple([tid, gid, ",".join(best.ccode),
+                        #                  best.tid, best.gid])
 
                     rows.append(row)
 

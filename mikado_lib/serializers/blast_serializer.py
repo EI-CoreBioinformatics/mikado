@@ -573,7 +573,7 @@ class XmlSerializer:
     logger = logging.getLogger("blast_serialiser")
     logger.propagate = False
     logger.setLevel(logging.INFO)
-    handler = logging.StreamHandler()
+    handler = logging.NullHandler()
     formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}",
                                   style='{')
     handler.setFormatter(formatter)

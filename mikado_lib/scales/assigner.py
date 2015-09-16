@@ -384,6 +384,7 @@ class Assigner:
 
         # Unknown transcript
         # noinspection PyUnresolvedReferences
+        results = []
         if len(distances) == 0 or distances[0][1] > self.args.distance:
             ccode = "u"
             # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -392,7 +393,7 @@ class Assigner:
                                        prediction.id,
                                        ",".join(prediction.parent), *[0] * 9 + ["-"])
             self.stat_calculator.store(prediction, best_result, None)
-            # results = [best_result]
+            results = [best_result]
         elif distances[0][1] > 0:
             # Polymerase run-on
             match = self.positions[prediction.chrom][distances[0][0]][0]

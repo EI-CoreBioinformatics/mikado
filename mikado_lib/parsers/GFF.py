@@ -38,7 +38,7 @@ class GffLine(GFAnnotation):
 
         self.attribute_order = []
 
-        for item in [x for x in self._attr.rstrip().split(';') if x != '']:
+        for item in iter(x for x in self._attr.rstrip().split(';') if x != ''):
             itemized = item.split('=')
             try:
                 if itemized[0].lower() == "parent":

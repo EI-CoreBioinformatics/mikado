@@ -27,9 +27,7 @@ class Gene:
         self.id = gid
         self.transcripts = dict()
         self.transcripts[transcr.id] = transcr
-        self.logger = logging.getLogger("null_logger").addHandler(
-            logging.NullHandler()
-        )
+        self.logger=None
         self.set_logger(logger)
         self.exception_message = ''
 
@@ -40,11 +38,9 @@ class Gene:
 
         """
         if logger is None:
-            logger = logging.getLogger("null_logger")
-            handler = logging.NullHandler()
-            logger.addHandler(handler)
-            self.logger = logger
+            return
         else:
+            assert isinstance(logger, logging.Logger)
             self.logger = logger
         for tid in self.transcripts:
             self.transcripts[tid].logger = logger

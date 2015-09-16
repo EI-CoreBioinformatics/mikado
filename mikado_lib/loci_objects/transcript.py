@@ -7,6 +7,7 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 # pylint: disable=bad-builtin, too-many-lines
 
 import operator
+import logging
 import sys
 import re
 import functools
@@ -95,6 +96,7 @@ class Transcript:
     """
 
     __name__ = "transcript"
+    __logger = Abstractlocus.create_default_logger()
 
     # Query baking to minimize overhead
     bakery = baked.bakery()
@@ -134,7 +136,6 @@ class Transcript:
         """
 
         # Mock setting of base hidden variables
-        self.__logger = None
         self.__id = ""
         self.__strand = self.__score = None
         self.__has_start_codon, self.__has_stop_codon = False, False
@@ -1862,8 +1863,11 @@ class Transcript:
         :type logger: logging.Logger | None
         """
         if logger is None:
-            logger = Abstractlocus.create_default_logger()
-        self.__logger = logger
+            if self.__logger is None:
+                logger = Abstractlocus.create_default_logger()
+        else:
+            assert isinstance(logger, logging.Logger)
+            self.__logger = logger
 
     @logger.deleter
     def logger(self):

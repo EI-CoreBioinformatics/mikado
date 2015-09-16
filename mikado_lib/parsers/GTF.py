@@ -45,7 +45,7 @@ class GtfLine(GFAnnotation):
         """
 
         info_list = []
-        for info in [x for x in self._attr.rstrip().split(';') if x != '']:
+        for info in iter(x for x in self._attr.rstrip().split(';') if x != ''):
             info_list.append(info)
             info = info.lstrip().split(' ')
             try:

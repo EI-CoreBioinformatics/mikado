@@ -576,7 +576,7 @@ class Accountant:
         :param common:
         :param pred:
         :param ref:
-        :return:
+        :return: precision, recall, f1stat
         """
 
         if ref > 0:
@@ -589,7 +589,7 @@ class Accountant:
             precision = 0
         f1stat = calc_f1(recall, precision)
 
-        return recall, precision, f1stat
+        return precision, recall, f1stat
 
     @staticmethod
     def __format_rowname(stru):

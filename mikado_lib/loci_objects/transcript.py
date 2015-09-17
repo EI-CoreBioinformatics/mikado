@@ -401,10 +401,12 @@ class Transcript:
                                                          counter,
                                                          cds_begin)
             exon_lines.append(exon_line)
-        exon_lines = [str(exon_line) for exon_line in
+        exon_lines = [exon_line for exon_line in
                       self.__add_phase(exon_lines)]
+        assert not any(
+            True for x in exon_lines if x.feature == "CDS" and x.phase is None), exon_lines
 
-        return exon_lines
+        return [str(line) for line in exon_lines]
 
     # pylint: disable=too-many-arguments
     def __create_exon_line(self, segment, counter, cds_begin,
@@ -524,7 +526,22 @@ class Transcript:
     def __add_phase(self, exon_lines):
 
         """
-        Private method to add the phase to a transcript.
+        Private method to add the phase to a transcript. The phase is defined as
+        the reverse of the modulo 3 of the number of bases from the start.
+        Or:
+
+        (3 - (len(cds so far) % 3)) % 3
+
+        Or (more verbose):
+
+        modulo = len(cds so far) % 3
+        if modulo == 0:
+           phase = 0
+        elif modulo == 1:
+           phase = 2
+        else:
+           phase = 1
+
         :param exon_lines:
         :return:
         """
@@ -532,12 +549,13 @@ class Transcript:
         # We start by 0 if no CDS loaded, else
         # we use the first phase
 
-        previous = ((self._first_phase - 1) % 3 + 1) % 3
+        previous = (3 - (self._first_phase % 3)) % 3
 
         new_lines = []
         for line in sorted(exon_lines, reverse=(self.strand == "-")):
             if line.feature == "CDS":
-                line.phase = ((previous % 3 - 1) % 3 + 1) % 3
+                phase = (3 - (previous % 3)) % 3
+                line.phase = phase
                 previous += len(line)
             new_lines.append(line)
         return sorted(new_lines)

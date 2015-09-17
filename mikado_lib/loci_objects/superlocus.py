@@ -29,6 +29,8 @@ from mikado_lib.parsers.GFF import GffLine
 import mikado_lib.exceptions
 
 
+# The number of attributes is something I need
+# pylint: disable=too-many-instance-attributes
 class Superlocus(Abstractlocus):
     """The superlocus class is used to define overlapping regions
     on the genome, and it receives as input transcript class instances.
@@ -197,6 +199,8 @@ class Superlocus(Abstractlocus):
             lines.append(sublocus_instance.__str__(print_cds=print_cds).rstrip())
         return lines
 
+    # This discrepancy with the base class is necessary
+    # pylint: disable=arguments-differ
     def __str__(self, level=None, print_cds=True):
 
         """
@@ -250,6 +254,7 @@ class Superlocus(Abstractlocus):
         if len(lines) > 0:
             lines.append("###")
         return "\n".join(lines)
+    # pylint: enable=arguments-differ
 
     # ########### Class instance methods ############
 
@@ -436,19 +441,13 @@ class Superlocus(Abstractlocus):
 
     # ##### Sublocus-related steps ######
 
-    def define_subloci(self):
-        """This method will define all subloci inside the superlocus.
-        Steps:
-            - Call the BronKerbosch algorithm to define cliques
-            - Call the "merge_cliques" algorithm the merge the cliques.
-            - Create "sublocus" objects from the merged cliques
-            and store them inside the instance store "subloci"
+    def __prefilter_transcripts(self):
+
+        """Private method that will check whether there are any transcripts
+        not meeting the minimum requirements specified in the configuration.
+        :return:
         """
 
-        self.compile_requirements()
-        if self.subloci_defined is True:
-            return
-        self.subloci = []
         not_passing = set()
         self.excluded_transcripts = None
 
@@ -462,9 +461,14 @@ class Superlocus(Abstractlocus):
                         value,
                         self.json_conf["requirements"]["parameters"][key])
 
+                # This is by design
+                # pylint: disable=eval-used
                 if eval(self.json_conf["requirements"]["compiled"]) is False:
                     not_passing.add(tid)
                     self.transcripts[tid].score = 0
+                # pylint: enable=eval-used
+        else:
+            return
 
         if len(not_passing) > 0 and self.purge is True:
             tid = not_passing.pop()
@@ -480,6 +484,24 @@ class Superlocus(Abstractlocus):
                 self.excluded_transcripts.add_transcript_to_locus(
                     self.transcripts[tid])
                 self.remove_transcript_from_locus(tid)
+        return
+
+    def define_subloci(self):
+        """This method will define all subloci inside the superlocus.
+        Steps:
+            - Call the BronKerbosch algorithm to define cliques
+            - Call the "merge_cliques" algorithm the merge the cliques.
+            - Create "sublocus" objects from the merged cliques
+            and store them inside the instance store "subloci"
+        """
+
+        self.compile_requirements()
+        if self.subloci_defined is True:
+            return
+        self.subloci = []
+
+        # Check whether there is something to remove
+        self.__prefilter_transcripts()
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
@@ -682,8 +704,8 @@ class Superlocus(Abstractlocus):
                     loci_cliques[locus_instance.id].update(clique)
 
         for tid in self.transcripts:
-            loci_in = list(filter(lambda llid: tid in loci_cliques[llid],
-                                  loci_cliques))
+            loci_in = list(llid for llid in loci_cliques if
+                           tid in llid)
             if len(loci_in) == 1:
                 candidates[loci_in[0]].add(tid)
 
@@ -730,6 +752,8 @@ class Superlocus(Abstractlocus):
 
     # ############ Class methods ###########
 
+    # The discrepancy is by design
+    # pylint: disable=arguments-differ
     @classmethod
     def is_intersecting(cls, transcript, other, cds_only=False):
         """
@@ -784,6 +808,7 @@ class Superlocus(Abstractlocus):
             intersecting = False
 
         return intersecting
+    # pylint: enable=arguments-differ
 
     # ############## Properties ############
     @property

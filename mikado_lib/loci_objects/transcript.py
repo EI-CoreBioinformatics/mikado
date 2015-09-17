@@ -529,20 +529,15 @@ class Transcript:
         :return:
         """
 
-        previous = ((self._first_phase - 1) % 3 + 1) % 3
-
-        # previous = self.__first_phase
-        first = True
         # We start by 0 if no CDS loaded, else
         # we use the first phase
+
+        previous = ((self._first_phase - 1) % 3 + 1) % 3
+
         new_lines = []
         for line in sorted(exon_lines, reverse=(self.strand == "-")):
             if line.feature == "CDS":
                 line.phase = ((previous % 3 - 1) % 3 + 1) % 3
-                # if previous == 0:
-                #     line.phase = 0
-                # else:
-                #     line.phase = (previous % 3 + 1) % 3
                 previous += len(line)
             new_lines.append(line)
         return sorted(new_lines)
@@ -1377,7 +1372,7 @@ class Transcript:
             self.selected_internal_orf_index = 0
             if len(self.__phases) > 0:
                 self._first_phase = sorted(self.__phases, key=operator.itemgetter(0),
-                                            reverse=(self.strand == "-"))[0][1]
+                                           reverse=(self.strand == "-"))[0][1]
             else:
                 self._first_phase = 0
 

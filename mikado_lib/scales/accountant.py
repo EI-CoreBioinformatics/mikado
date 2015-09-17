@@ -232,28 +232,17 @@ class Accountant:
         """
 
         intron_stats = [0, 0, 0]  # Common, prediction, reference
-        # intron_common = 0
-        # intron_ref = 0
-        # intron_pred = 0
 
         for chrom in self.introns:
             for strand in self.introns[chrom]:
                 for intron in self.introns[chrom][strand]:
                     intron_stats[0] += (0b01 & self.introns[chrom][strand][intron]) & \
                                      ((0b10 & self.introns[chrom][strand][intron]) >> 1)
-
-                    # intron_common += (0b01 & self.introns[chrom][strand][intron]) & \
-                    #                  ((0b10 & self.introns[chrom][strand][intron]) >> 1)
                     intron_stats[1] += (0b10 & self.introns[chrom][strand][intron]) >> 1
-                    # intron_pred += (0b10 & self.introns[chrom][strand][intron]) >> 1
                     intron_stats[2] += 0b01 & self.introns[chrom][strand][intron]
-                    # intron_ref += 0b01 & self.introns[chrom][strand][intron]
 
-
+        # Common, prediction, reference
         intron_chains_nonred = [0, 0, 0]
-        # intron_chains_common_nonred = 0
-        # intron_chains_ref_nonred = 0
-        # intron_chains_pred_nonred = 0
         intron_chains_common_ref = set()
         intron_chains_common_pred = set()
         intron_chains_pred = 0
@@ -264,7 +253,6 @@ class Accountant:
                 for _, intron_val in self.intron_chains[chrom][strand].items():
                     if len(intron_val[0]) > 0 and len(intron_val[1]) > 0:
                         intron_chains_nonred[0] += 1
-                        # intron_chains_common_nonred += 1
                         intron_chains_common_ref.update(intron_val[0])
                         intron_chains_common_pred.update(intron_val[1])
                     # In reference
@@ -295,12 +283,9 @@ class Accountant:
                           intron_chains_common_pred)
 
         result_dictionary = dict()
-        result_dictionary["introns"] = intron_stats  # [intron_common, intron_pred, intron_ref]
+        result_dictionary["introns"] = intron_stats
         result_dictionary["intron_chains"] = dict()
         result_dictionary["intron_chains"]["non_redundant"] = intron_chains_nonred
-        # [intron_chains_common_nonred,
-        # intron_chains_pred_nonred,
-        # intron_chains_ref_nonred]
 
         result_dictionary["intron_chains"]["redundant"] = [intron_chains_common_pred,
                                                            intron_chains_common_ref]
@@ -371,20 +356,12 @@ class Accountant:
         # Re-extract the previous stats
         # Common, prediction, reference
         exon_lenient = result_dictionary["exons"]["lenient"]
-        # exon_common_lenient, exon_pred_lenient, exon_ref_lenient = (
-        #     result_dictionary["exons"]["lenient"])
 
         # Common, prediction, reference
         bases = [0, 0, 0]
-        # bases_common = 0
-        # bases_reference = 0
-        # bases_prediction = 0
 
         # Common, prediction, reference
         exon_stringent = [0, 0, 0]
-        # exon_pred_stringent = 0
-        # exon_ref_stringent = 0
-        # exon_common_stringent = 0
 
         for chrom in self.exons:
             for strand in self.exons[chrom]:
@@ -448,9 +425,6 @@ class Accountant:
         # result_dictionary["bases"] = dict()
         result_dictionary["bases"] = bases
         result_dictionary["exons"]["stringent"] = exon_stringent
-        # [exon_common_stringent,
-        #  exon_pred_stringent,
-        #  exon_ref_stringent]
         result_dictionary["exons"]["lenient"] = exon_lenient
         return result_dictionary
 

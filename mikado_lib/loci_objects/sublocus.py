@@ -6,6 +6,7 @@ Each of these containers holds transcripts which either are monoexonic and overl
 or multiexonic and with at least one intron in common.
 """
 
+import itertools
 from mikado_lib.loci_objects.excluded import Excluded
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.loci_objects.monosublocus import Monosublocus
@@ -13,6 +14,7 @@ from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.parsers.GFF import GffLine
 
 
+# pylint: disable=too-many-instance-attributes
 class Sublocus(Abstractlocus):
     """
     The sublocus class is created either by the superlocus class during
@@ -85,6 +87,7 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Initialized {0}".format(self.id))
         self.scores = dict()
 
+    # pylint: disable=arguments-differ
     def __str__(self, print_cds=True):
 
         lines = []
@@ -105,6 +108,7 @@ class Sublocus(Abstractlocus):
             lines.append(self.transcripts[tid].__str__(print_cds=print_cds).rstrip())
 
         return "\n".join(lines)
+    # pylint: enable=arguments-differ
 
     # ########## Class instance methods #####################
 
@@ -307,25 +311,24 @@ class Sublocus(Abstractlocus):
 
         # Exclude from consideration any exon which is fully coding
         for exon in transcript.exons:
-            in_cds = sorted(list(
-                filter(lambda cds: cds[0] >= exon[0] or cds[1] <= exon[1],
-                       transcript.combined_cds)
-                ))
+            in_cds = sorted(iter(
+                cds for cds in transcript.combined_cds if
+                cds[0] >= exon[0] or cds[1] <= exon[1]))
             if len(in_cds) == 1 and in_cds[0] == exon:
                 # Completely coding exon
                 continue
 
             # Find overlapping introns
             intersecting_introns = list(
-                filter(lambda intron: self.overlap(exon, intron) >= intron[1]-intron[0]+1,
-                       self.combined_cds_introns))
+                intron for intron in self.combined_cds_introns if
+                self.overlap(exon, intron) >= intron[1]-intron[0]+1)
 
             # If no CDS intron is completely overlapping the exon, continue
             if len(intersecting_introns) == 0:
                 continue
 
             # Now start to check
-            if len(in_cds) == 0:
+            elif len(in_cds) == 0:
                 # Completely UTR exon and there is at least one CDS intron
                 # which is completely contained inside it
                 transcript.retained_introns.append(exon)
@@ -388,8 +391,8 @@ class Sublocus(Abstractlocus):
         previous_not_passing = set()
         while True:
             not_passing = set()
-            for tid in filter(lambda t: t not in previous_not_passing,
-                              self.transcripts):
+            for tid in iter(tid for tid in self.transcripts if
+                            tid not in previous_not_passing):
                 evaluated = dict()
                 for key in self.json_conf["requirements"]["parameters"]:
                     value = getattr(self.transcripts[tid],
@@ -397,9 +400,10 @@ class Sublocus(Abstractlocus):
                     evaluated[key] = self.evaluate(
                         value,
                         self.json_conf["requirements"]["parameters"][key])
-
+                # pylint: disable=eval-used
                 if eval(self.json_conf["requirements"]["compiled"]) is False:
                     not_passing.add(tid)
+                # pylint: enable=eval-used
             if len(not_passing) == 0:
                 return
             for tid in not_passing:
@@ -447,35 +451,7 @@ class Sublocus(Abstractlocus):
         for tid in self.transcripts:
             self.scores[tid] = dict()
         for param in self.json_conf["scoring"]:
-            rescaling = self.json_conf["scoring"][param]["rescaling"]
-            metrics = [getattr(self.transcripts[tid], param) for tid in self.transcripts]
-            if rescaling == "target":
-                target = self.json_conf["scoring"][param]["value"]
-                denominator = max(abs(x - target) for x in metrics)
-            else:
-                target = None
-                denominator = (max(metrics) - min(metrics))
-            if denominator == 0:
-                denominator = 1
-
-            for tid in self.transcripts:
-                tid_metric = getattr(self.transcripts[tid], param)
-                check = True
-                score = 0
-                if "filter" in self.json_conf["scoring"][param]:
-                    check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
-                if check is False:
-                    score = 0
-                else:
-                    if rescaling == "max":
-                        score = abs((tid_metric - min(metrics)) / denominator)
-                    elif rescaling == "min":
-                        score = abs(1 - (tid_metric - min(metrics)) / denominator)
-                    elif rescaling == "target":
-                        score = 1 - abs(tid_metric - target) / denominator
-                score *= self.json_conf["scoring"][param]["multiplier"]
-                self.scores[tid][param] = score
-
+            self.__calculate_score(param)
         for tid in self.transcripts:
             if tid in not_passing:
                 self.transcripts[tid].score = 0
@@ -483,6 +459,43 @@ class Sublocus(Abstractlocus):
                 self.transcripts[tid].score = sum(self.scores[tid].values())
 
         self.scores_calculated = True
+
+    def __calculate_score(self, param):
+        """
+        Private method that calculates a score for each transcript,
+        given a target parameter.
+        :param param:
+        :return:
+        """
+
+        rescaling = self.json_conf["scoring"][param]["rescaling"]
+        metrics = [getattr(self.transcripts[tid], param) for tid in self.transcripts]
+        if rescaling == "target":
+            target = self.json_conf["scoring"][param]["value"]
+            denominator = max(abs(x - target) for x in metrics)
+        else:
+            target = None
+            denominator = (max(metrics) - min(metrics))
+        if denominator == 0:
+            denominator = 1
+
+        for tid in self.transcripts:
+            tid_metric = getattr(self.transcripts[tid], param)
+            check = True
+            score = 0
+            if "filter" in self.json_conf["scoring"][param]:
+                check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
+            if check is False:
+                score = 0
+            else:
+                if rescaling == "max":
+                    score = abs((tid_metric - min(metrics)) / denominator)
+                elif rescaling == "min":
+                    score = abs(1 - (tid_metric - min(metrics)) / denominator)
+                elif rescaling == "target":
+                    score = 1 - abs(tid_metric - target) / denominator
+            score *= self.json_conf["scoring"][param]["multiplier"]
+            self.scores[tid][param] = score
 
     def print_metrics(self):
 
@@ -549,6 +562,8 @@ class Sublocus(Abstractlocus):
 
     # ############## Class methods ################
 
+    # Class specific implementation differs from abstract blueprint
+    # pylint: disable=arguments-differ
     @classmethod
     def is_intersecting(cls, transcript, other, logger=None):
         """
@@ -569,20 +584,16 @@ class Sublocus(Abstractlocus):
             return False
         if logger is not None:
             logger.debug("Comparing {0} and {1}".format(transcript.id, other.id))
-        for exon in transcript.exons:
-            if any(
-                    filter(
-                        # Check that at least one couple of exons are overlapping
-                        lambda oexon: cls.overlap(exon, oexon) >= 0,
-                        other.exons
-                    )
-            ) is True:
-                if logger is not None:
-                    logger.debug("{0} and {1} are intersecting".format(transcript.id, other.id))
-                return True
+        if any(True for comb in itertools.product(transcript.exons, other.exons) if
+               cls.overlap(*comb) >= 0):
+            if logger is not None:
+                logger.debug("{0} and {1} are intersecting".format(transcript.id, other.id))
+
+            return True
         if logger is not None:
             logger.debug("{0} and {1} are not intersecting".format(transcript.id, other.id))
         return False
+    # pylint: enable=arguments-differ
 
     @property
     def splitted(self):

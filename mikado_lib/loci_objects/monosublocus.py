@@ -12,6 +12,7 @@ from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.parsers.GFF import GffLine
 
 
+# pylint: disable=too-many-instance-attributes,too-many-public-methods
 class Monosublocus(Abstractlocus):
     """Very basic class which holds a single transcript."""
 
@@ -34,6 +35,7 @@ class Monosublocus(Abstractlocus):
         self.logger = logger
         self.attributes = dict()
 
+    # pylint: disable=arguments-differ
     def __str__(self, print_cds=True):
 
         lines = []
@@ -65,6 +67,7 @@ class Monosublocus(Abstractlocus):
             lines.append(transcript_instance.__str__(print_cds=print_cds).rstrip())
 
         return "\n".join(lines)
+    # pylint: enable=arguments-differ
 
     # ########## Class instance methods ##############
 

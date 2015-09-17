@@ -9,6 +9,8 @@ import os
 from Bio import SeqIO
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 from sqlalchemy.ext.hybrid import hybrid_property
+import sqlalchemy.exc
+import sqlite3
 from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.session import sessionmaker
@@ -208,6 +210,7 @@ class OrfSerializer:
 
             done += len(objects)
             self.session.bulk_save_objects(objects)
+
             self.session.commit()
             self.logger.info(
                 "Finished loading %d transcripts into query table", done)
@@ -252,4 +255,11 @@ class OrfSerializer:
         Alias for serialize
         """
 
-        self.serialize()
+        try:
+            self.serialize()
+        except (sqlalchemy.exc.IntegrityError, sqlite3.IntegrityError) as exc:
+            self.logger.error("DB corrupted, reloading data. Error: %s",
+                              exc)
+            self.session.query(Query).delete()
+            self.session.query(Orf).delete()
+            self.serialize()

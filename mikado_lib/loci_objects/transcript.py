@@ -62,7 +62,7 @@ class Metric(property):
 
 # noinspection PyPropertyAccess
 # I do not care that there are too many attributes: this IS a massive class!
-# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-instance-attributes,too-many-public-methods
 class Transcript:
     """
     This class defines a transcript, down to its exon/CDS/UTR components.
@@ -155,6 +155,9 @@ class Transcript:
         self.__combined_utr = []
         # pylint: enable=invalid-name
         self._selected_internal_orf_cds = []
+        # This is used to set the phase if the CDS is loaded from the GFF
+        self._first_phase = 0
+        self.__phases = []  # will contain (start, phase) for each CDS exon
 
         # Starting settings for everything else
         self.chrom = None
@@ -210,6 +213,7 @@ class Transcript:
         self.feature = transcript_row.feature
         # pylint: disable=invalid-name
         self.id = transcript_row.id
+        # pylint: enable=invalid-name
         self.name = transcript_row.name
         if self.source is None:
             self.source = transcript_row.source
@@ -353,6 +357,7 @@ class Transcript:
 
         if gffline.feature.upper().endswith("CDS"):
             store = self.combined_cds
+            self.__phases.append((gffline.start, gffline.phase))
         elif "combined_utr" in gffline.feature or "UTR" in gffline.feature.upper():
             store = self.combined_utr
         elif gffline.feature.endswith("exon"):
@@ -395,7 +400,10 @@ class Transcript:
             exon_line, counter, cds_begin = line_creator(segment,
                                                          counter,
                                                          cds_begin)
-            exon_lines.append(str(exon_line))
+            exon_lines.append(exon_line)
+        exon_lines = [str(exon_line) for exon_line in
+                      self.__add_phase(exon_lines)]
+
         return exon_lines
 
     # pylint: disable=too-many-arguments
@@ -512,6 +520,32 @@ class Transcript:
             lines.append(str(parent_line))
             lines.extend(exon_lines)
         return lines
+
+    def __add_phase(self, exon_lines):
+
+        """
+        Private method to add the phase to a transcript.
+        :param exon_lines:
+        :return:
+        """
+
+        previous = ((self._first_phase - 1) % 3 + 1) % 3
+
+        # previous = self.__first_phase
+        first = True
+        # We start by 0 if no CDS loaded, else
+        # we use the first phase
+        new_lines = []
+        for line in sorted(exon_lines, reverse=(self.strand == "-")):
+            if line.feature == "CDS":
+                line.phase = ((previous % 3 - 1) % 3 + 1) % 3
+                # if previous == 0:
+                #     line.phase = 0
+                # else:
+                #     line.phase = (previous % 3 + 1) % 3
+                previous += len(line)
+            new_lines.append(line)
+        return sorted(new_lines)
 
     def create_lines_no_cds(self, to_gtf=False):
 
@@ -1327,6 +1361,7 @@ class Transcript:
 
         self.combined_cds = sorted(self.combined_cds,
                                    key=operator.itemgetter(0, 1))
+
         self.combined_utr = sorted(self.combined_utr,
                                    key=operator.itemgetter(0, 1))
         self.__check_completeness()
@@ -1340,6 +1375,11 @@ class Transcript:
         self.internal_orfs = [self.segments]
         if self.combined_cds_length > 0:
             self.selected_internal_orf_index = 0
+            if len(self.__phases) > 0:
+                self._first_phase = sorted(self.__phases, key=operator.itemgetter(0),
+                                            reverse=(self.strand == "-"))[0][1]
+            else:
+                self._first_phase = 0
 
         # Necessary to set it to the default value
         _ = self.selected_internal_orf

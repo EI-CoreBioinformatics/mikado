@@ -31,7 +31,7 @@ class Chrom(DBBASE):
     __tablename__ = "chrom"
     __table_args__ = {"extend_existing": True}
 
-    id = Column(Integer, primary_key=True)
+    chrom_id = Column(Integer, primary_key=True)
     name = Column(String(200))
     length = Column(Integer, nullable=True)
 
@@ -50,7 +50,7 @@ class Junction(DBBASE):
     __tablename__ = "junctions"
 
     id = Column(Integer, primary_key=True)
-    chrom_id = Column(Integer, ForeignKey(Chrom.id), unique=False)
+    chrom_id = Column(Integer, ForeignKey(Chrom.chrom_id), unique=False)
     start = Column(Integer, nullable=False)
     end = Column(Integer, nullable=False)
     name = Column(String(200))
@@ -185,10 +185,10 @@ class JunctionSerializer:
                 name, length = line.rstrip().split()[:2]
                 current_chrom = Chrom(name, length=int(length))
                 self.session.add(current_chrom)
-                sequences[current_chrom.name] = current_chrom.id
+                sequences[current_chrom.name] = current_chrom.chrom_id
             self.session.commit()
             for query in self.session.query(Chrom):
-                sequences[query.name] = query.id
+                sequences[query.name] = query.chrom_id
 
         objects = []
 
@@ -201,8 +201,8 @@ class JunctionSerializer:
                 current_chrom = Chrom(row.chrom)
                 self.session.add(current_chrom)
                 self.session.commit()
-                sequences[current_chrom.name] = current_chrom.id
-                current_chrom = current_chrom.id
+                sequences[current_chrom.name] = current_chrom.chrom_id
+                current_chrom = current_chrom.chrom_id
 
             current_junction = Junction(row, current_chrom)
             objects.append(current_junction)

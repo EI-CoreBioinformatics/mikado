@@ -6,7 +6,6 @@ It is invoked when all transcripts in a locus have a score of 0 and the "purge"
 option has been enabled.
 """
 
-from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 
 
@@ -42,7 +41,7 @@ class Excluded(Abstractlocus):
         """Override of the sublocus method, and reversal to the original
         method in the Abstractlocus class.
         :param transcript: a transcript to add
-        :type transcript: Transcript
+        :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
         :param kwargs: optional arguments are completely ignored by this method.
         """

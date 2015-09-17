@@ -56,41 +56,44 @@ class Locus(Monosublocus, Abstractlocus):
 
         _ = kwargs
         to_be_added = True
-        if len(self.transcripts) >= self.json_conf["alternative_splicing"]["max_isoforms"]:
+        # Total, 5', 3'
+        max_utr_lenghts = {"total": self.json_conf["alternative_splicing"]["max_utr_length"],
+                           "five": self.json_conf["alternative_splicing"]["max_fiveutr_length"],
+                           "three": self.json_conf["alternative_splicing"]["max_threeutr_length"]}
+        max_isoforms = self.json_conf["alternative_splicing"]["max_isoforms"]
+
+        if len(self.transcripts) >= max_isoforms:
             self.logger.debug("%s not added because the Locus has already too many transcripts.",
                               transcript.id)
             to_be_added = False
-        elif not self.is_alternative_splicing(transcript):
+        if to_be_added and not self.is_alternative_splicing(transcript):
             self.logger.debug("%s not added because it is not a valid splicing isoform.",
                               transcript.id)
             to_be_added = False
-        elif transcript.combined_utr_length >\
-                self.json_conf["alternative_splicing"]["max_utr_length"]:
+        if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:
             self.logger.debug("%s not added because it has too much UTR (%d).",
                               transcript.id,
                               transcript.combined_utr_length)
             to_be_added = False
-        elif transcript.five_utr_length >\
-                self.json_conf["alternative_splicing"]["max_fiveutr_length"]:
+        if to_be_added and transcript.five_utr_length > max_utr_lenghts["five"]:
             self.logger.debug("%s not added because it has too much 5'UTR (%d).",
                               transcript.id,
                               transcript.five_utr_length)
             to_be_added = False
-        elif transcript.three_utr_length >\
-                self.json_conf["alternative_splicing"]["max_threeutr_length"]:
+        if to_be_added and transcript.three_utr_length > max_utr_lenghts["three"]:
             self.logger.debug("%s not added because it has too much 5'UTR (%d).",
                               transcript.id,
                               transcript.three_utr_length)
             to_be_added = False
 
-        elif self.json_conf["alternative_splicing"]["keep_retained_introns"] is False:
+        if to_be_added and self.json_conf["alternative_splicing"]["keep_retained_introns"] is False:
             self.find_retained_introns(transcript)
             if transcript.retained_intron_num > 0:
                 self.logger.debug("%s not added because it has %d retained introns.",
                                   transcript.id,
                                   transcript.retained_intron_num)
                 to_be_added = False
-        elif self.json_conf["alternative_splicing"]["min_cds_overlap"] > 0:
+        if to_be_added and self.json_conf["alternative_splicing"]["min_cds_overlap"] > 0:
             if self.primary_transcript.combined_cds_length > 0:
                 tr_nucls = set(itertools.chain(
                     *[range(x[0], x[1] + 1) for x in transcript.combined_cds]))
@@ -101,7 +104,7 @@ class Locus(Monosublocus, Abstractlocus):
                 overlap = nucl_overlap / self.primary_transcript.combined_cds_length
                 if overlap < self.json_conf["alternative_splicing"]["min_cds_overlap"]:
                     self.logger.debug(
-                        "%s not added because its CDS overlap is too low (%f%).",
+                        "%s not added because its CDS overlap is too low (%f%%).",
                         transcript.id,
                         round(overlap * 100, 2))
                     to_be_added = False
@@ -201,6 +204,7 @@ class Locus(Monosublocus, Abstractlocus):
         elif other.retained_intron_num > 0:
             is_valid = False
 
+        valid_ccodes = self.json_conf["alternative_splicing"]["valid_ccodes"]
         if is_valid is True:
             for tid in self.transcripts:
                 result, _ = Assigner.compare(other, self.transcripts[tid])
@@ -208,9 +212,7 @@ class Locus(Monosublocus, Abstractlocus):
                                   tid,
                                   other.id,
                                   result.ccode[0])
-                if result.ccode[0] not in ("j", "n") or \
-                        (self.transcripts[tid].monoexonic is True and
-                         result.ccode[0] in ("o", "O")):
+                if result.ccode[0] not in valid_ccodes:
                     self.logger.debug(
                         "%s is not a valid splicing isoform. Ccode: %s",
                         other.id,

@@ -1,11 +1,18 @@
 #!/usr/local/bin/env python3
 
+"""
+This module describes an abstract class which underlies the parsing of
+GTF/GFF files.
+"""
+
 import abc
 import copy
 
 __author__ = 'Luca Venturini'
 
 
+# This class has exactly how many attributes I need it to have
+# pylint: disable=too-many-instance-attributes
 class GFAnnotation(metaclass=abc.ABCMeta):
 
     """
@@ -18,7 +25,9 @@ class GFAnnotation(metaclass=abc.ABCMeta):
     def __init__(self, line, my_line='', header=False):
         self.attributes = dict()
         self.chrom, self.source, self.feature = None, None, None
+        # pylint: disable=invalid-name
         self.id = None
+        # pylint: enable=invalid-name
         self.parent = []
         self.start, self.end = None, None
         self.__score = None
@@ -216,3 +225,42 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if _.endswith("cds") or _.endswith("exon") or "utr" in _ or "codon" in _:
             return True
         return False
+
+    @abc.abstractmethod
+    def _sort_feature(self, feature):
+        """
+        Private method that sorts features according to the normal order in a GF file.
+        :param feature:
+        :return: numeric sort index
+        """
+
+        raise NotImplementedError(
+            "The sorting of features must be implemented at the class level")
+
+    def __lt__(self, other):
+
+        if self.chrom != other.chrom:
+            return self.chrom < other.chrom
+        else:
+            if self.start != other.start:
+                return self.start < other.start
+            elif self.end != other.end:
+                return self.end < other.end
+            elif self.feature != other.feature:
+                return self._sort_feature(self.feature) < self._sort_feature(other.feature)
+            else:
+                return False
+
+    def __eq__(self, other):
+
+        if self.is_exon is True:
+            return (self.chrom == other.chrom and
+                    self.feature == other.feature and
+                    self.start == other.start and
+                    self.end == other.end)
+        else:
+            return (self.id == other.id and
+                    self.feature == other.feature and
+                    self.chrom == other.chrom and
+                    self.start == other.start and
+                    self.end == other.end)

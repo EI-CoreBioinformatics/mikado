@@ -28,6 +28,7 @@ alternative_splicing:
   min_cds_overlap: 60
   keep_retained_introns: false
   max_isoforms: 3
+  valid_ccodes: ["O", "j", "n"]
 orf_loading:
   minimal_secondary_orf_length: 200
   minimal_orf_length: 50

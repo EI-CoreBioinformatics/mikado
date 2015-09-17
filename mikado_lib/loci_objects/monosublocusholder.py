@@ -6,6 +6,7 @@ before the definition of real loci.
 """
 
 import collections
+import itertools
 from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.loci_objects.sublocus import Sublocus
@@ -14,6 +15,7 @@ from mikado_lib.loci_objects.monosublocus import Monosublocus
 
 
 # Resolution order is important here!
+# pylint: disable=too-many-instance-attributes
 class MonosublocusHolder(Sublocus, Abstractlocus):
     """This is a container that groups together the transcripts
     surviving the selection for the Monosublocus.
@@ -28,8 +30,11 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
     __name__ = "monosubloci_holder"
 
+    # pylint: disable=super-init-not-called
     def __init__(self, monosublocus_instance: Monosublocus, json_conf=None, logger=None):
 
+        # I know what I am doing by NOT calling the Sublocus super but rather
+        # Abstractlocus
         Abstractlocus.__init__(self)
         self.logger = logger
         self.splitted = False
@@ -43,6 +48,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.add_monosublocus(monosublocus_instance)
         self.loci = collections.OrderedDict()
 
+    # Overriding is correct here
+    # pylint: disable=arguments-differ
     def add_transcript_to_locus(self, transcript, check_in_locus=True):
         """Override of the sublocus method, and reversal to the original
         method in the Abstractlocus class.
@@ -63,6 +70,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                                               check_in_locus=check_in_locus)
         self.locus_verified_introns = set.union(self.locus_verified_introns,
                                                 transcript.verified_introns)
+    # pylint: enable=arguments-differ
 
     def add_monosublocus(self, monosublocus_instance: Monosublocus):
         """Wrapper to extract the transcript from the monosubloci and pass it to the constructor.
@@ -180,34 +188,28 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 (other.start, other.end)) <= 0:
             return False  # We do not want intersection with oneself
 
-        if cds_only is False:
-            if len(set.intersection(set(transcript.splices), set(other.splices))) > 0:
-                return True
-        else:
-            transcript_splices = set()
-            other_splices = set()
-            for intron in transcript.combined_cds_introns:
-                transcript_splices.add(intron[0])
-                transcript_splices.add(intron[1])
-            for intron in other.combined_cds_introns:
-                other_splices.add(intron[0])
-                other_splices.add(intron[1])
-            if len(set.intersection(transcript_splices, other_splices)) > 0:
-                return True
-
-        if other.monoexonic is True or transcript.monoexonic is True or \
-                min(other.combined_cds_length, transcript.combined_cds_length) == 0:
-            for exon in transcript.exons:
-                for oexon in other.exons:
-                    if cls.overlap(exon, oexon) >= 0:
-                        return True
-
-        for cds_segment in transcript.combined_cds:
-            for ocds_segment in other.combined_cds:
-                if cls.overlap(cds_segment, ocds_segment) > 0:
+        if not any([other.monoexonic, transcript.monoexonic]):
+            if cds_only is False:
+                if len(set.intersection(set(transcript.splices), set(other.splices))) > 0:
                     return True
+            else:
+                transcript_splices = set()
+                for intron in transcript.combined_cds_introns:
+                    transcript_splices.update(intron)
+                for intron in other.combined_cds_introns:
+                    if intron[0] in transcript_splices or intron[1] in transcript_splices:
+                        return True
+        elif (any([other.monoexonic, transcript.monoexonic]) or
+              min(other.combined_cds_length,
+                  transcript.combined_cds_length) == 0):
+            if any(True for comb in itertools.product(transcript.exons, other.exons) if
+                   cls.overlap(*comb) >= 0):
+                return True
 
-        return False
+        # Finally check for CDS consistency
+        return any(True for comb in itertools.product(
+            transcript.combined_cds, other.combined_cds) if
+                   cls.overlap(*comb) > 0)
 
     @classmethod
     def in_locus(cls, monosublocus: Abstractlocus, transcript: Transcript, flank=0) -> bool:

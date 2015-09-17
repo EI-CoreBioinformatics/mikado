@@ -13,6 +13,8 @@ import Bio.SeqRecord
 from mikado_lib.parsers import Parser
 
 
+# These classes do contain lots of things, it is correct like it is
+# pylint: disable=too-many-instance-attributes
 class BED12:
 
     """
@@ -99,7 +101,9 @@ class BED12:
         self.__has_start = False
         self.__has_stop = False
         self.__transcriptomic = False
+        self.__invalid = None
         self.__strand = None
+        self.__internal_stop_codons = 0
         self.chrom = None
         self.start = self.end = self.thick_start = self.thick_end = 0
         self.score = 0
@@ -176,8 +180,8 @@ class BED12:
             self.has_start_codon = False
             self.has_stop_codon = False
 
-            if self.strand == "-":
-                self.thick_end -= 3
+            # if self.strand == "-":
+            #     self.thick_end -= 3
 
         if self.invalid is True:
             return
@@ -187,16 +191,14 @@ class BED12:
             self.fasta_length = len(fasta_index[self.id])
             if self.invalid is True:
                 return
+            sequence = fasta_index[self.id].seq
 
-            start_codon = fasta_index[self.id][self.thick_start - 1:self.thick_start + 2]
-            stop_codon = fasta_index[self.id][self.thick_end:self.thick_end + 3]
+            orf_sequence = sequence[self.thick_start-1:self.thick_end]
             if self.strand == "-":
-                start_codon = fasta_index[self.id][self.thick_start - 1:self.thick_start + 2]
-                start_codon = start_codon.reverse_complement()
-                stop_codon = stop_codon.reverse_complement()
-                start_codon, stop_codon = stop_codon, start_codon
-            self.start_codon = str(start_codon.seq)
-            self.stop_codon = str(stop_codon.seq)
+                orf_sequence = orf_sequence.reverse_complement()
+
+            self.start_codon = str(orf_sequence)[:3]
+            self.stop_codon = str(orf_sequence[-3:])
 
             if self.start_codon == "ATG":
                 self.has_start_codon = True
@@ -207,45 +209,54 @@ class BED12:
             else:
                 self.has_stop_codon = False
 
-            if self.has_stop_codon is False and \
-                    (self.strand != "-" and self.thick_end < len(self) - 2) or\
-                    (self.strand == "-" and self.thick_start > 2):
-                self.__recheck_stop_codon(fasta_index)
+            translated_seq = orf_sequence.translate()
+            self.__internal_stop_codons = str(translated_seq).count("*")
 
-    def __recheck_stop_codon(self, fasta_index):
+            # if self.has_stop_codon is False and \
+            #         (self.strand != "-" and self.thick_end < len(self) - 2) or\
+            #         (self.strand == "-" and self.thick_start > 2):
+            #     self.__recheck_stop_codon(sequence)
 
-        """
-        Due to a bug in TransDecoder, sometimes valid ORFs with valid stop
-        codons are tuncated. This private method rechecks the consistency
-         of the ORF against the transcript underlying sequence.
-        :param fasta_index:
-        :return:
-        """
-
-        sequence = fasta_index[self.id]
-        if self.strand != "-":
-            num = self.thick_end + 3
-            for num in range(self.thick_end + 3, self.end, 3):
-                codon = sequence[num:num + 3]
-                if str(codon.seq) in ("TAA", "TGA", "TAG"):
-                    self.has_stop_codon = True
-                    break
-            self.thick_end = num - 3
-        else:
-            num = self.thick_start
-            # This while loop is necessary b/c range does not function backwards
-            # and reversed mingles poorly with non-unary steps
-            # i.e reversed(range(1,10,3)) = [9,6,3,0], not [10,7,4,1] ...
-            while num > self.start:
-                num -= 3
-                codon = sequence[num - 3:num]
-                # Reversed version, save on reversal, should save time
-                if str(codon.seq) in ("TTA", "TCA", "CTA"):
-                    self.has_stop_codon = True
-                    break
-            self.thick_start = num
-        if self.invalid is True:
-            self.invalid_reason = "Wrong CDS detection"
+    # def __recheck_stop_codon(self, sequence):
+    #
+    #     """
+    #     Due to a bug in TransDecoder, sometimes valid ORFs with valid stop
+    #     codons are tuncated. This private method rechecks the consistency
+    #      of the ORF against the transcript underlying sequence.
+    #     :param fasta_index:
+    #     :return:
+    #     """
+    #
+    #     if self.strand != "-":
+    #         num = self.thick_end + 3
+    #         for num in range(self.thick_end + 3, self.end, 3):
+    #             codon = sequence[num:num + 3]
+    #             if str(codon) in ("TAA", "TGA", "TAG"):
+    #                 self.has_stop_codon = True
+    #                 break
+    #         self.thick_end = num - 3
+    #     else:
+    #         num = self.thick_start
+    #         # This while loop is necessary b/c range does not function backwards
+    #         # and reversed mingles poorly with non-unary steps
+    #         # i.e reversed(range(1,10,3)) = [9,6,3,0], not [10,7,4,1] ...
+    #         while num > self.start:
+    #             num -= 3
+    #             codon = sequence[num - 3:num]
+    #             # Reversed version, save on reversal, should save time
+    #             if str(codon) in ("TTA", "TCA", "CTA"):
+    #                 self.has_stop_codon = True
+    #                 break
+    #         self.thick_start = num
+    #     orf_sequence = sequence[self.thick_start-1:self.thick_end]
+    #     if self.strand == "-":
+    #         orf_sequence = orf_sequence.reverse_complement()
+    #
+    #     translated_seq = orf_sequence.translate()
+    #     self.__internal_stop_codons = str(translated_seq).count("*")
+    #
+    #     if self.invalid is True:
+    #         self.invalid_reason = "Wrong CDS detection"
 
     def __str__(self):
 
@@ -360,6 +371,7 @@ class BED12:
         """
         return self.has_stop_codon and self.has_start_codon
 
+    # pylint: disable=invalid-name
     @property
     def id(self):
         """
@@ -371,6 +383,7 @@ class BED12:
             return self.chrom
         else:
             return self.name
+    # pylint: enable=invalid-name
 
     @property
     def invalid(self):
@@ -378,6 +391,10 @@ class BED12:
         Property. It performs basic checks on the BED line to verify its integrity.
         :rtype bool
         """
+
+        if self.__internal_stop_codons > 1:
+            return True
+
         if self.thick_start < self.start or self.thick_end > self.end:
             invalid = "thickStart {0} <start {1}: {2}; end {3} <thickEnd {4} {5}"
             self.invalid_reason = invalid.format(self.thick_start,
@@ -386,6 +403,7 @@ class BED12:
                                                  self.end,
                                                  self.thick_end,
                                                  self.thick_end > self.end)
+            self.__invalid = True
             return True
 
         if self.fasta_length is None:
@@ -396,13 +414,18 @@ class BED12:
                 self.fasta_length,
                 len(self)
             )
+            self.__invalid = True
             return True
+
         if self.transcriptomic is True and self.cds_len % 3 != 0:
             self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
                 self.cds_len,
                 self.cds_len % 3
             )
+            self.__invalid = True
             return True
+
+        self.__invalid = False
         return False
 
     @property

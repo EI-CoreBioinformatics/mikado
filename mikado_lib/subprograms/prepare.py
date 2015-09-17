@@ -157,7 +157,7 @@ def perform_check(keys, exon_lines, args, logger):
                 continue
             results = [
                 pool.apply_async(partial_checker, args=(exon_lines[tid], seq))
-                for (tid, seq) in filter(lambda x: x != (None, None), group)
+                for (tid, seq) in iter(x for x in group if x != (None, None))
             ]
             for transcript_object in results:
                 transcript_object = transcript_object.get()

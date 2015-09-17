@@ -212,7 +212,7 @@ CAGA"""
         self.assertFalse(b4.invalid)
         self.assertEqual(b4.start, 1)
         self.assertEqual(len(b4), 3604)
-        self.assertEqual(b4.cds_len, 1115 - 641 - 3)
+        self.assertEqual(b4.cds_len, 1115 - 641, (b4.cds_len, 1115 - 641))
 
     def test_b1_seq(self):
         b1 = bed12.BED12(self.bed1, transcriptomic=True, fasta_index=self.index)

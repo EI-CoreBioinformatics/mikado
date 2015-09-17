@@ -157,7 +157,8 @@ def merge(intervals: [(int, int)]):
     return final_list
 
 
-# pylint: disable=no-member
+# This is a private class, it does not need public methods
+# pylint: disable=no-member,too-few-public-methods
 class _Merger(multiprocessing.Process):
 
     """
@@ -246,9 +247,10 @@ class _Merger(multiprocessing.Process):
 
         self.queue.put("Finished")
         return
-# pylint: enable=no-member
+# pylint: enable=no-member,too-few-public-methods
 
 
+# pylint: disable=too-many-instance-attributes
 class XMLMerger(threading.Thread):
 
     """
@@ -385,3 +387,4 @@ class XMLMerger(threading.Thread):
 
     def __enter__(self):
         pass
+# pylint: enable=too-many-instance-attributes

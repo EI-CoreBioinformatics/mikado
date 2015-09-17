@@ -230,37 +230,52 @@ class Accountant:
         :return: result_dictionary
         :rtype: dict
         """
-        intron_common = 0
-        intron_ref = 0
-        intron_pred = 0
+
+        intron_stats = [0, 0, 0]  # Common, prediction, reference
+        # intron_common = 0
+        # intron_ref = 0
+        # intron_pred = 0
 
         for chrom in self.introns:
             for strand in self.introns[chrom]:
                 for intron in self.introns[chrom][strand]:
-                    intron_common += (0b01 & self.introns[chrom][strand][intron]) & \
+                    intron_stats[0] += (0b01 & self.introns[chrom][strand][intron]) & \
                                      ((0b10 & self.introns[chrom][strand][intron]) >> 1)
-                    intron_ref += 0b01 & self.introns[chrom][strand][intron]
-                    intron_pred += (0b10 & self.introns[chrom][strand][intron]) >> 1
 
-        intron_chains_common_nonred = 0
+                    # intron_common += (0b01 & self.introns[chrom][strand][intron]) & \
+                    #                  ((0b10 & self.introns[chrom][strand][intron]) >> 1)
+                    intron_stats[1] += (0b10 & self.introns[chrom][strand][intron]) >> 1
+                    # intron_pred += (0b10 & self.introns[chrom][strand][intron]) >> 1
+                    intron_stats[2] += 0b01 & self.introns[chrom][strand][intron]
+                    # intron_ref += 0b01 & self.introns[chrom][strand][intron]
+
+
+        intron_chains_nonred = [0, 0, 0]
+        # intron_chains_common_nonred = 0
+        # intron_chains_ref_nonred = 0
+        # intron_chains_pred_nonred = 0
         intron_chains_common_ref = set()
         intron_chains_common_pred = set()
-        intron_chains_ref_nonred = 0
-        intron_chains_pred_nonred = 0
         intron_chains_pred = 0
         intron_chains_ref = 0
+
         for chrom in self.intron_chains:
             for strand in self.intron_chains[chrom]:
                 for _, intron_val in self.intron_chains[chrom][strand].items():
                     if len(intron_val[0]) > 0 and len(intron_val[1]) > 0:
-                        intron_chains_common_nonred += 1
+                        intron_chains_nonred[0] += 1
+                        # intron_chains_common_nonred += 1
                         intron_chains_common_ref.update(intron_val[0])
                         intron_chains_common_pred.update(intron_val[1])
+                    # In reference
                     if len(intron_val[0]) > 0:
-                        intron_chains_ref_nonred += 1
+                        intron_chains_nonred[2] += 1
+                        # intron_chains_ref_nonred += 1
                         intron_chains_ref += len(intron_val[0])
+                    # In prediction
                     if len(intron_val[1]) > 0:
-                        intron_chains_pred_nonred += 1
+                        intron_chains_nonred[1] += 1
+                        # intron_chains_pred_nonred += 1
                         intron_chains_pred += len(intron_val[1])
 
         intron_chains_common_ref = len(intron_chains_common_ref)
@@ -272,19 +287,20 @@ class Accountant:
         \t%d
         \tcommon\t%d %d %d""",
                           intron_chains_ref,
-                          intron_chains_ref_nonred,
+                          intron_chains_nonred[2],
                           intron_chains_pred,
-                          intron_chains_pred_nonred,
-                          intron_chains_common_nonred,
+                          intron_chains_nonred[1],
+                          intron_chains_nonred[0],
                           intron_chains_common_ref,
                           intron_chains_common_pred)
 
         result_dictionary = dict()
-        result_dictionary["introns"] = [intron_common, intron_pred, intron_ref]
+        result_dictionary["introns"] = intron_stats  # [intron_common, intron_pred, intron_ref]
         result_dictionary["intron_chains"] = dict()
-        result_dictionary["intron_chains"]["non_redundant"] = [intron_chains_common_nonred,
-                                                               intron_chains_pred_nonred,
-                                                               intron_chains_ref_nonred]
+        result_dictionary["intron_chains"]["non_redundant"] = intron_chains_nonred
+        # [intron_chains_common_nonred,
+        # intron_chains_pred_nonred,
+        # intron_chains_ref_nonred]
 
         result_dictionary["intron_chains"]["redundant"] = [intron_chains_common_pred,
                                                            intron_chains_common_ref]
@@ -353,16 +369,22 @@ class Accountant:
         """
 
         # Re-extract the previous stats
-        exon_common_lenient, exon_pred_lenient, exon_ref_lenient = (
-            result_dictionary["exons"]["lenient"])
+        # Common, prediction, reference
+        exon_lenient = result_dictionary["exons"]["lenient"]
+        # exon_common_lenient, exon_pred_lenient, exon_ref_lenient = (
+        #     result_dictionary["exons"]["lenient"])
 
-        bases_common = 0
-        bases_reference = 0
-        bases_prediction = 0
+        # Common, prediction, reference
+        bases = [0, 0, 0]
+        # bases_common = 0
+        # bases_reference = 0
+        # bases_prediction = 0
 
-        exon_pred_stringent = 0
-        exon_ref_stringent = 0
-        exon_common_stringent = 0
+        # Common, prediction, reference
+        exon_stringent = [0, 0, 0]
+        # exon_pred_stringent = 0
+        # exon_ref_stringent = 0
+        # exon_common_stringent = 0
 
         for chrom in self.exons:
             for strand in self.exons[chrom]:
@@ -379,9 +401,9 @@ class Accountant:
                 for exon in sorted(self.exons[chrom][strand], key=operator.itemgetter(0)):
                     # Out of previous overlap
                     if exon[0] > curr_exon[1]:
-                        bases_common += len(set.intersection(curr_pred_bases, curr_ref_bases))
-                        bases_reference += len(curr_ref_bases)
-                        bases_prediction += len(curr_pred_bases)
+                        bases[0] += len(set.intersection(curr_pred_bases, curr_ref_bases))
+                        bases[1] += len(curr_pred_bases)
+                        bases[2] += len(curr_ref_bases)
                         curr_exon = exon
                         curr_pred_bases = set()
                         curr_ref_bases = set()
@@ -391,46 +413,45 @@ class Accountant:
                     # Exon is in reference
                     if (0b01 & self.exons[chrom][strand][exon]) == 0b1:
                         curr_ref_bases.update(set(range(exon[0], exon[1])))
-                        exon_ref_stringent += 1
+                        exon_stringent[2] += 1
                         # Internal (first condition)
                         # OR
                         # Single exon
                         if (0b001000 & self.exons[chrom][strand][exon]) == 0b001000:
-                            exon_ref_lenient += 1
+                            exon_lenient[2] += 1
                         elif 0b100000 & self.exons[chrom][strand][exon]:
-                            exon_ref_lenient += 1
+                            exon_lenient[2] += 1
 
                     # Exon is in prediction
                     if (0b10 & self.exons[chrom][strand][exon]) == 0b10:
                         curr_pred_bases.update(set(range(exon[0], exon[1])))
-                        exon_pred_stringent += 1
+                        exon_stringent[1] += 1
                         # Either internal, or a single exon which
                         # has not a lenient single match with the reference annotation
                         if (0b001000 & self.exons[chrom][strand][exon]) == 0b001000:
-                            exon_pred_lenient += 1
+                            exon_lenient[1] += 1
                         elif 0b100000 & self.exons[chrom][strand][exon]:
-                            exon_pred_lenient += 1
+                            exon_lenient[1] += 1
 
                     # In both
                     if (0b11 & self.exons[chrom][strand][exon]) == 0b11:
-                        exon_common_stringent += 1
+                        exon_stringent[0] += 1
                         if (0b001000 & self.exons[chrom][strand][exon]) == 0b001000:
-                            exon_common_lenient += 1
+                            exon_lenient[0] += 1
                         elif 0b100000 & self.exons[chrom][strand][exon]:
-                            exon_common_lenient += 1
+                            exon_lenient[0] += 1
 
-                bases_common += len(set.intersection(curr_pred_bases, curr_ref_bases))
-                bases_reference += len(curr_ref_bases)
-                bases_prediction += len(curr_pred_bases)
+                bases[0] += len(set.intersection(curr_pred_bases, curr_ref_bases))
+                bases[1] += len(curr_pred_bases)
+                bases[2] += len(curr_ref_bases)
 
-        result_dictionary["bases"] = dict()
-        result_dictionary["bases"] = [bases_common, bases_prediction, bases_reference]
-        result_dictionary["exons"]["stringent"] = [exon_common_stringent,
-                                                   exon_pred_stringent,
-                                                   exon_ref_stringent]
-        result_dictionary["exons"]["lenient"] = [exon_common_lenient,
-                                                 exon_pred_lenient,
-                                                 exon_ref_lenient]
+        # result_dictionary["bases"] = dict()
+        result_dictionary["bases"] = bases
+        result_dictionary["exons"]["stringent"] = exon_stringent
+        # [exon_common_stringent,
+        #  exon_pred_stringent,
+        #  exon_ref_stringent]
+        result_dictionary["exons"]["lenient"] = exon_lenient
         return result_dictionary
 
     def __calculate_exon_stats(self):

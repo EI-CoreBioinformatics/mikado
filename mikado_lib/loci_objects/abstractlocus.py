@@ -14,6 +14,8 @@ from mikado_lib.log_utils import create_null_logger
 from sys import maxsize
 
 
+# I do not care that there are too many attributes: this IS a massive class!
+# pylint: disable=too-many-instance-attributes,too-many-public-methods
 class Abstractlocus(metaclass=abc.ABCMeta):
     """This abstract class defines the basic features of any Locus-like object.
     It also defines methods/properties that are needed throughout the program,
@@ -293,7 +295,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         graph.add_nodes_from(objects.keys())
 
         for obj in objects:
-            for other_obj in filter(lambda x: x != obj, objects):
+            for other_obj in iter(x for x in objects if x != obj):
                 if inters(objects[obj], objects[other_obj], **kwargs):
                     # Connections are not directional
                     graph.add_edge(*tuple(sorted([obj, other_obj])))
@@ -457,7 +459,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.initialized = False
 
         else:
-            keys = list(filter(lambda x: x != tid, self.transcripts.keys()))
+            keys = list(key for key in self.transcripts if key != tid)
             self.end = max(self.transcripts[t].end for t in self.transcripts if t != tid)
             self.start = min(self.transcripts[t].start for t in self.transcripts if t != tid)
 
@@ -528,14 +530,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         transcript_instance.retained_introns = []
-        for exon in filter(lambda e: e not in transcript_instance.combined_cds,
-                           transcript_instance.exons):
+        for exon in iter(exon for exon in transcript_instance.exons if
+                         exon not in transcript_instance.combined_cds):
             # Check that the overlap is at least as long as
             # the minimum between the exon and the intron.
-            if any(filter(
-                    lambda junction: self.overlap(exon, junction) >= junction[1] - junction[0],
-                    self.introns
-            )) is True:
+            if any(iter(intron for intron in self.introns if
+                        self.overlap(exon, intron) >= intron[1]-intron[0]+1)) is True:
                 transcript_instance.retained_introns.append(exon)
         transcript_instance.retained_introns = tuple(transcript_instance.retained_introns)
 
@@ -599,6 +599,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise ValueError("The stranded attribute must be boolean!")
         self.__stranded = flag
 
+    # pylint: disable=invalid-name
     @property
     def id(self) -> str:
         """
@@ -611,6 +612,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.strand,
             self.start,
             self.end)
+    # pylint: enable=invalid-name
 
     @property
     def name(self) -> str:

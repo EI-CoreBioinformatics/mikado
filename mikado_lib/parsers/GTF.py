@@ -8,6 +8,8 @@ from mikado_lib.parsers import Parser
 from mikado_lib.parsers.gfannotation import GFAnnotation
 
 
+# This class has exactly how many attributes I need it to have
+# pylint: disable=too-many-instance-attributes
 class GtfLine(GFAnnotation):
     """This class defines a typical GTF line, with some added functionality
     to make it useful in e.g. parsing cufflinks GTF files or
@@ -62,9 +64,9 @@ class GtfLine(GFAnnotation):
         if 'tss_id' in self.attributes:
             self.tss_id = self.attributes['tss_id']
 
-        for tag in filter(lambda att: att not in
-                          ('gene_id', 'transcript_id', 'nearest_ref', 'tss_id', 'class_code'),
-                          self.attributes.keys()):
+        for tag in iter(att for att in self.attributes if
+                        att not in ('gene_id', 'transcript_id', 'nearest_ref',
+                                    'tss_id', 'class_code')):
             self.__dict__[tag.lower()] = self.attributes[tag]
 
     def _format_attributes(self):
@@ -113,6 +115,32 @@ class GtfLine(GFAnnotation):
         attributes = ";".join(info_list) + ";"
         return attributes
 
+    def _sort_feature(self, feature):
+        """
+        Private method that sorts features according to the normal order in a GF file.
+        :param feature:
+        :return: numeric sort index
+        """
+
+        if self.strand == "-":
+            order = ["3UTR",
+                     "exon",
+                     "stop_codon",
+                     "CDS",
+                     "start_codon",
+                     "5UTR"]
+        else:
+            order = ["5UTR",
+                     "exon",
+                     "start_codon",
+                     "CDS",
+                     "stop_codon",
+                     "3UTR"]
+        if feature not in order:
+            return float("inf")
+        else:
+            return order.index(feature)
+
     @property
     def name(self):
         """
@@ -128,7 +156,7 @@ class GtfLine(GFAnnotation):
         :param args:
         :type args: list[(str)] | str
         """
-        if isinstance(args[0], str):
+        if not isinstance(args[0], str):
             raise TypeError("Invalid value for name: {0}".format(args[0]))
         self.id = args[0]
 
@@ -175,6 +203,7 @@ class GtfLine(GFAnnotation):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
 
+    # pylint: disable=invalid-name
     @property
     def id(self):
         """
@@ -196,6 +225,7 @@ class GtfLine(GFAnnotation):
             self.transcript = newid
         else:
             pass
+    # pylint: enable=invalid-name
 
     @property
     def gene(self):
@@ -256,7 +286,7 @@ class GtfLine(GFAnnotation):
         Property. It checks whether there is a "Derives_from" attribute among the line attributes.
         :rtype bool
         """
-        return "derives_from" in [x.lower() for x in self.attributes]
+        return "derives_from" in iter(x.lower() for x in self.attributes)
 
     @property
     def derived_from(self):
@@ -267,7 +297,8 @@ class GtfLine(GFAnnotation):
         if self.is_derived is False:
             return None
         else:
-            key = list(filter(lambda x: x.lower() == "derives_from", self.attributes.keys()))[0]
+            key = list(key for key in self.attributes if
+                       key.lower == "derives_from")[0]
             return self.attributes[key].split(",")
 
     @property

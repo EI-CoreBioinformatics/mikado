@@ -10,6 +10,8 @@ from mikado_lib.parsers import Parser
 from mikado_lib.parsers.gfannotation import GFAnnotation
 
 
+# This class has exactly how many attributes I need it to have
+# pylint: disable=too-many-instance-attributes
 class GffLine(GFAnnotation):
     """Object which serializes a GFF line."""
 
@@ -52,6 +54,32 @@ class GffLine(GFAnnotation):
             except IndexError:
                 pass
 
+    def _sort_feature(self, feature):
+        """
+        Private method that sorts features according to the normal order in a GF file.
+        :param feature:
+        :return: numeric sort index
+        """
+
+        if self.strand == "-":
+            order = ["three_prime_utr",
+                     "exon",
+                     "stop_codon",
+                     "CDS",
+                     "start_codon",
+                     "five_prime_utr"]
+        else:
+            order = ["five_prime_utr",
+                     "exon",
+                     "start_codon",
+                     "CDS",
+                     "stop_codon",
+                     "three_prime_utr"]
+        if feature not in order:
+            return float("inf")
+        else:
+            return order.index(feature)
+
     def _format_attributes(self):
         """
         Implementation of the abstract method for formatting the
@@ -65,11 +93,10 @@ class GffLine(GFAnnotation):
         if len(self.parent) > 0:
             attrs.append("Parent={0}".format(",".join(self.parent)))
         if not self.attribute_order:
-            self.attribute_order = sorted(
-                list(
-                    filter(lambda x: x not in ["ID", "Parent"], self.attributes.keys())
-                ))
-        for att in filter(lambda x: x not in ["ID", "Parent"], self.attribute_order):
+            self.attribute_order = sorted(list(key for key in self.attributes if
+                                               key not in ["ID", "Parent"]))
+        for att in iter(key for key in self.attribute_order if
+                        key not in ["ID", "Parent"]):
             if att in ("gene_id", "transcript_id"):
                 continue  # These are carryovers from GTF files
             if self.attributes[att] is not None:
@@ -81,6 +108,8 @@ class GffLine(GFAnnotation):
         attrs = ";".join(attrs)
         return attrs
 
+    # id is and id remains
+    # pylint: disable=invalid-name
     @property
     def id(self):
         """
@@ -98,6 +127,7 @@ class GffLine(GFAnnotation):
         """
 
         self.attributes["ID"] = newid
+    # pylint: enable=invalid-name
 
     @property
     def parent(self):

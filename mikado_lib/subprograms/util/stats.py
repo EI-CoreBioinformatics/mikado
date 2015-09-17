@@ -96,6 +96,7 @@ class TranscriptComputer(transcript.Transcript):
         return self.data_tuple(**constructor)
 
 
+# pylint: disable=too-many-instance-attributes
 class GeneObject:
 
     """
@@ -109,7 +110,9 @@ class GeneObject:
         self.start = record.start
         self.end = record.end
         self.strand = record.strand
+        # pylint: disable=invalid-name
         self.id = record.id
+        # pylint: enable=invalid-name
 
         self.only_coding = only_coding
         self.coding_transcripts = set()
@@ -547,6 +550,7 @@ class Calculator:
             current_array = None
         row = self.get_stats(row, current_array)
         self.__rower.writerow(row)
+# pylint: enable=too-many-instance-attributes
 
 
 def launch(args):

@@ -380,7 +380,7 @@ class Superlocus(Abstractlocus):
             self.connect_to_db(pool)
             dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
             if len(dbquery) > 0:
-                chrom_id = dbquery[0].id
+                chrom_id = dbquery[0].chrom_id
                 for intron in self.introns:
                     if len(self.junction_baked(self.session).params(
                             chrom_id=chrom_id,

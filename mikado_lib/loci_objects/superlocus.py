@@ -705,7 +705,7 @@ class Superlocus(Abstractlocus):
 
         for tid in self.transcripts:
             loci_in = list(llid for llid in loci_cliques if
-                           tid in llid)
+                           tid in loci_cliques[llid])
             if len(loci_in) == 1:
                 candidates[loci_in[0]].add(tid)
 

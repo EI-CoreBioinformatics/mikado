@@ -12,7 +12,7 @@ from mikado_lib.exceptions import InvalidCDS
 from mikado_lib.subprograms import to_gff
 from mikado_lib.loci_objects import transcript
 from mikado_lib.parsers import GFF
-# pylint: disable=E1101
+# pylint: disable=E1101,no-name-in-module
 from numpy import array as num_array
 from numpy import mean, percentile
 import numpy
@@ -280,8 +280,8 @@ class Calculator:
                 self.genes[record.id] = GeneObject(
                     record, only_coding=self.only_coding)
             else:
-                for parent in filter(lambda pparent: pparent not in derived_features,
-                                     record.parent):
+                for parent in iter(pparent for pparent in record.parent if
+                                   pparent not in derived_features):
                     try:
                         gid = transcript2gene[parent]
                     except KeyError as err:
@@ -295,7 +295,7 @@ class Calculator:
 
         self.parse_input()
         ordered_genes = sorted(self.genes.values())
-        self.coding_genes = list(filter(lambda g: g.is_coding is True, ordered_genes))
+        self.coding_genes = list(g for g in ordered_genes if g.is_coding is True)
         distances = []
         for index, gene in enumerate(ordered_genes[:-1]):
             next_gene = ordered_genes[index + 1]

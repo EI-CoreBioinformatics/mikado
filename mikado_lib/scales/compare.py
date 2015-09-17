@@ -147,17 +147,21 @@ def prepare_reference(args, queue_logger, ref_gff=False):
                         gid = transcript2gene[transcr]
                         genes[gid][transcr].add_exon(row)
             else:
-                if row.gene in genes and row.transcript in genes[row.gene]:
+                if row.gene in genes and row.transcript in genes[row.gene].transcripts:
                     genes[row.gene][row.transcript].add_exon(row)
                 else:
                     if row.gene not in genes:
                         exc = KeyError("Gene {0} not encountered yet, line: {1}".format(
                             row.gene, str(row)
                         ))
-                    else:
+                    elif row.transcript not in genes[row.gene]:
                         exc = KeyError("TID {0} not found for {1}; found tids: {2}".format(
                             row.transcript, row.gene,
                             ",".join(genes[row.gene].transcripts.keys())
+                        ))
+                    else:
+                        exc = KeyError("Weird error; both {0} and {1} are in the hash..".format(
+                            row.gene, row.transcript
                         ))
                     queue_logger.exception(exc)
                     raise exc

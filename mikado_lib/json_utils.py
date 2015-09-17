@@ -150,6 +150,20 @@ def check_alternative_splicing(json_conf):
                 json_conf["alternative_splicing"]["keep_retained_introns"],
                 bool)
 
+        if "valid_ccodes" not in json_conf["alternative_splicing"]:
+            # Default alternative splicings are those where we have
+            # Some structural difference between the two transcripts
+            json_conf["alternative_splicing"]["valid_ccodes"] = ["j", "n", "O", "h"]
+        else:
+            assert isinstance(json_conf["alternative_splicing"]["valid_ccodes"], list)
+            valid_ccodes = ["j", "n", "O", "e", "K", "i",
+                            "=", "o", "m", "_", "I", "h"]
+            if any(True for x in json_conf["alternative_splicing"]["valid_ccodes"] if
+                   x not in valid_ccodes):
+                raise mikado_lib.exceptions.InvalidJson(
+                    "Invalid alternative splicing codes! Acceptable codes:\n{0}".format(
+                        ",".join(valid_ccodes)))
+
     return json_conf
 
 
@@ -355,9 +369,11 @@ def check_requirements(json_conf):
                 json_conf["requirements"]["expression"] = " ".join(
                     json_conf["requirements"]["expression"])
             newexpr = json_conf["requirements"]["expression"][:]
-            keys = list(filter(lambda x: x not in ("and", "or", "not", "xor"),
-                               re.findall(
-                                   "([^ ()]+)", json_conf["requirements"]["expression"])))
+
+            keys = list(key for key in re.findall(
+                "([^ ()]+)", json_conf["requirements"]["expression"]) if
+                        key not in ("and", "or", "not", "xor"))
+
             diff_params = set.difference(
                 set(keys), set(json_conf["requirements"]["parameters"].keys()))
 

@@ -95,7 +95,8 @@ class GtfLine(GFAnnotation):
                     val = self.attributes[tag]
                 info_list.append("{0} \"{1}\"".format(tag, val))
 
-        for info in filter(lambda x: x not in order, self.attributes.keys()):
+        for info in iter(key for key in self.attributes if
+                         self.attributes[key] not in (None, "", []) and key not in order):
             if info == "Parent" and \
                             self.attributes[info] in (self.gene,
                                                       self.transcript,

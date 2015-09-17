@@ -6,7 +6,6 @@ This module contains the necessary classes for serialising and querying ORF data
 """
 
 import os
-import logging
 from Bio import SeqIO
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -15,6 +14,7 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
 from mikado_lib.serializers.blast_serializer import Query
+from mikado_lib.log_utils import create_null_logger
 
 
 class Orf(DBBASE):
@@ -118,13 +118,7 @@ class OrfSerializer:
     This class has the purpose of automating the loading of ORF information into the SQL database.
     """
 
-    logger = logging.getLogger("main")
-    logger.setLevel(logging.INFO)
-    handler = logging.NullHandler()
-    formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}",
-                                  style='{')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    logger = create_null_logger("__orf_serializer__")
 
     def __init__(self, handle, fasta_index=None,
                  maxobjects=1000000, json_conf=None, logger=None):

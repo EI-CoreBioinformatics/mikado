@@ -10,6 +10,7 @@ import random
 import logging
 import networkx
 from mikado_lib.exceptions import NotInLocusError
+from mikado_lib.log_utils import create_null_logger
 from sys import maxsize
 
 
@@ -136,7 +137,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     self.json_conf["requirements"]["expression"],
                     "<json>", "eval")
         # Set the logger to NullHandler
-        self.logger = self.create_default_logger()
+        self.logger = create_null_logger(self)
 
     # #### Static methods #######
     @staticmethod
@@ -634,7 +635,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type logger: logging.Logger | Nonell
         """
         if logger is None:
-            logger = self.create_default_logger()
+            logger = create_null_logger(self)
         elif not isinstance(logger, logging.Logger):
             raise TypeError("Invalid logger: {0}".format(type(logger)))
         self.__logger = logger

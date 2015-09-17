@@ -62,7 +62,9 @@ class Assigner:
             self.args = args
 
         # noinspection PyUnresolvedReferences
+        # pylint: disable=no-member
         self.queue_handler = log_handlers.QueueHandler(self.args.log_queue)
+        # pylint: enable=no-member
         self.logger = logging.getLogger("Assigner")
         self.logger.addHandler(self.queue_handler)
         # noinspection PyUnresolvedReferences
@@ -235,9 +237,7 @@ class Assigner:
 
         strands = set(x.strand for x in matches)
         if len(strands) > 1 and prediction.strand in strands:
-            matches = list(filter(
-                lambda mmatch: mmatch.strand == prediction.strand,
-                matches))
+            matches = list(mmatch for mmatch in matches if mmatch.strand == prediction.strand)
         if len(matches) == 0:
             raise ValueError("I filtered out all matches. This is wrong!")
 
@@ -303,7 +303,7 @@ class Assigner:
         :return:
         """
 
-        matches = list(filter(lambda x: x[1] == 0, distances))
+        matches = list(distance for distance in distances if distance[1] == 0)
         self.logger.debug("Matches for %s: %s",
                           prediction.id,
                           matches)
@@ -332,7 +332,6 @@ class Assigner:
             #     args.refmap_queue.put_nowait(result)
             #     args.stats_queue.put_nowait((tr,result))
             #     return result
-
 
         return results, best_result
 
@@ -384,7 +383,6 @@ class Assigner:
 
         # Unknown transcript
         # noinspection PyUnresolvedReferences
-        results = []
         if len(distances) == 0 or distances[0][1] > self.args.distance:
             ccode = "u"
             # noinspection PyTypeChecker,PyUnresolvedReferences
@@ -397,10 +395,7 @@ class Assigner:
         elif distances[0][1] > 0:
             # Polymerase run-on
             match = self.positions[prediction.chrom][distances[0][0]][0]
-            results = []
-            for reference in match:
-                results.append(self.calc_compare(prediction, reference))
-
+            results = [self.calc_compare(prediction, reference) for reference in match]
             best_result = sorted(results,
                                  key=operator.attrgetter("distance"))[0]
         else:
@@ -628,7 +623,7 @@ class Assigner:
                         ccode = "i"  # Monoexonic fragment inside an intron
                 elif prediction.exon_num > 1 and reference.exon_num == 1:
                     if nucl_recall == 1:
-                        ccode = "n"  # Extension
+                        ccode = "h"  # Extension
                     else:
                         ccode = "O"  # Reverse generic overlap
                 elif prediction.exon_num == reference.exon_num == 1:
@@ -725,7 +720,7 @@ class Assigner:
                                           reverse=False)[0]
                         best_picks.append(best)
                         row = tuple([tid, gid, ",".join(best.ccode),
-                                         best.tid, best.gid])
+                                     best.tid, best.gid])
                         # if len(best.ccode) == 1:
                         #
                         # else:

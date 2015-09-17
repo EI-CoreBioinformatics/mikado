@@ -16,6 +16,7 @@ import threading
 import queue
 import logging
 from mikado_lib.parsers import HeaderError
+from mikado_lib.log_utils import create_null_logger
 
 __author__ = 'Luca Venturini'
 
@@ -258,13 +259,8 @@ class XMLMerger(threading.Thread):
     applications such Bio.Blast.NCBIXML.parse.
     """
 
-    logger = logging.getLogger("blast_merger")
-    logger.propagate = False
-    logger.setLevel(logging.INFO)
-    __stream_handler = logging.StreamHandler()
-    __formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}", style='{')
-    __stream_handler.setFormatter(__formatter)
-    logger.addHandler(__stream_handler)
+    __name__ = "XMLMerger"
+    logger = create_null_logger(__name__)
 
     def __init__(self, filenames, log_level=logging.WARNING, log=None):
 
@@ -272,9 +268,12 @@ class XMLMerger(threading.Thread):
         self.logger.setLevel(log_level)
         if log is not None:
             self.file_handler = logging.FileHandler(log, "w")
-            self.file_handler.setFormatter(self.__formatter)
+            formatter = self.logger.handlers[0].formatter
+            for null_handler in iter(handler for handler in self.logger.handlers if
+                                     isinstance(handler, logging.NullHandler)):
+                self.logger.removeHandler(null_handler)
+            self.file_handler.setFormatter(formatter)
             self.logger.addHandler(self.file_handler)
-            self.logger.removeHandler(self.__stream_handler)
 
         self.__filenames = collections.deque(filenames)
         self.__event = threading.Event()

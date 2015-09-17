@@ -27,7 +27,7 @@ class Gene:
         self.id = gid
         self.transcripts = dict()
         self.transcripts[transcr.id] = transcr
-        self.logger=None
+        self.logger = None
         self.set_logger(logger)
         self.exception_message = ''
 

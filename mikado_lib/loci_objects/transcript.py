@@ -14,6 +14,7 @@ import functools
 from collections import OrderedDict, Counter
 import inspect
 # import asyncio
+from mikado_lib.log_utils import create_null_logger
 from mikado_lib.exceptions import InvalidTranscript
 # SQLAlchemy imports
 from sqlalchemy.orm.session import sessionmaker
@@ -96,7 +97,7 @@ class Transcript:
     """
 
     __name__ = "transcript"
-    __logger = Abstractlocus.create_default_logger()
+    __logger = create_null_logger(__name__)
 
     # Query baking to minimize overhead
     bakery = baked.bakery()
@@ -1399,8 +1400,6 @@ class Transcript:
                 elif self.strand == "-":
                     self.has_start_codon = True
 
-
-
     def reverse_strand(self):
         """Method to reverse the strand"""
         if self.strand == "+":
@@ -1864,7 +1863,10 @@ class Transcript:
         """
         if logger is None:
             if self.__logger is None:
-                logger = Abstractlocus.create_default_logger()
+                logger = create_null_logger(self)
+                self.__logger = logger
+            else:
+                pass
         else:
             assert isinstance(logger, logging.Logger)
             self.__logger = logger
@@ -1959,6 +1961,8 @@ class Transcript:
 
     # ###################Class properties##################################
 
+    # This will be id, no changes.
+    # pylint: disable=invalid-name
     @property
     def id(self):
         """ID of the transcript - cannot be an undefined value."""
@@ -1975,6 +1979,7 @@ class Transcript:
             raise ValueError("Invalid value for id: {0}, type {1}".format(
                 newid, type(newid)))
         self.__id = sys.intern(newid)
+    # pylint: enable=invalid-name
 
     @property
     def available_metrics(self) -> list:

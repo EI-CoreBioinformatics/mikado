@@ -27,10 +27,14 @@ from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.serializers.dbutils import DBBASE
 from mikado_lib.serializers.dbutils import connect
 from mikado_lib.parsers.blast_utils import XMLMerger, create_opener, merge
-import logging
+from mikado_lib.log_utils import create_null_logger
+# pylint: disable=no-name-in-module
 from numpy import mean
+# pylint: enable=no-name-in-module
 
 
+# These two classes are OK like this, they do not need more public methods!
+# pylint: disable=too-few-public-methods
 class Query(DBBASE):
     """
     Very simple serialization class for Query objects.
@@ -96,6 +100,7 @@ class Target(DBBASE):
         into a named tuple with the same fields"""
         return self.named_tup(
             self.target_id, self.target_name, self.target_length)
+# pylint: enable=too-few-public-methods
 
 
 class Hsp(DBBASE):
@@ -570,14 +575,8 @@ class XmlSerializer:
     serialise it into a database. We are using SQLalchemy, so the database type
     could be any of SQLite, MySQL, PSQL, etc."""
 
-    logger = logging.getLogger("blast_serialiser")
-    logger.propagate = False
-    logger.setLevel(logging.INFO)
-    handler = logging.NullHandler()
-    formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}",
-                                  style='{')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    __name__ = "XMLSerializer"
+    logger = create_null_logger(__name__)
 
     def __init__(self, xml,
                  max_target_seqs=float("Inf"),

@@ -13,6 +13,7 @@ import tempfile
 # import threading
 import logging
 from logging import handlers as logging_handlers
+from operator import itemgetter
 import collections
 import functools
 # SQLAlchemy/DB imports
@@ -24,7 +25,7 @@ import sqlalchemy
 import mikado_lib.loci_objects
 import mikado_lib.parsers
 from mikado_lib.serializers.blast_serializer import Hit, Query
-from mikado_lib.serializers.junction import Junction
+from mikado_lib.serializers.junction import Junction, Chrom
 from mikado_lib.serializers.orf import Orf
 from mikado_lib.serializers import dbutils
 from mikado_lib.loci_objects.superlocus import Superlocus
@@ -427,6 +428,17 @@ class Creator:
         locus_scores.writeheader()
         locus_out = open(self.locus_out, 'w')
         print('##gff-version 3', file=locus_out)
+        engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+                               creator=self.db_connection)
+        session = sqlalchemy.orm.sessionmaker(bind=engine)()
+
+        chroms = sorted([(c.name, c.length) for c in session.query(Chrom)],
+                        key=itemgetter(0))
+        session.close()
+        engine.dispose()
+
+        for chrom in chroms:
+            print("##sequence-region {0} 1 {1}".format(*chrom), file=locus_out)
 
         if self.sub_out is not None:
             sub_metrics_file = re.sub("$", ".metrics.tsv",
@@ -443,12 +455,18 @@ class Creator:
             sub_scores.writeheader()
             sub_out = open(self.sub_out, 'w')
             print('##gff-version 3', file=sub_out)
+            for chrom in chroms:
+                print("##sequence-region {0} 1 {1}".format(*chrom),
+                      file=sub_out)
         else:
             sub_metrics = sub_scores = sub_out = None
 
         if self.monolocus_out is not None:
             mono_out = open(self.monolocus_out, 'w')
             print('##gff-version 3', file=mono_out)
+            for chrom in chroms:
+                print("##sequence-region {0} 1 {1}".format(*chrom),
+                      file=sub_out)
         else:
             mono_out = None
 

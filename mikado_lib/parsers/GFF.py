@@ -101,7 +101,7 @@ class GffLine(GFAnnotation):
                 continue  # These are carryovers from GTF files
             if self.attributes[att] is not None:
                 try:
-                    attrs.append("{0}={1}".format(att, self.attributes[att]))
+                    attrs.append("{0}={1}".format(att.lower(), self.attributes[att]))
                 except KeyError:
                     # Hack for those times when we modify the attributes at runtime
                     continue
@@ -199,8 +199,9 @@ class GffLine(GFAnnotation):
         :rtype bool
         """
 
-        if self.feature is not None and self.feature.endswith("gene") and self.is_parent is True:
-            return True
+        if self.feature is not None:
+            if self.feature.endswith("gene") and self.is_parent is True:
+                return True
         return False
 
     @property

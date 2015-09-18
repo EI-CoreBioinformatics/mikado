@@ -29,3 +29,15 @@ def create_null_logger(instance):
     logger.setLevel(logging.WARN)
     logger.addHandler(handler)
     return logger
+
+
+def check_logger(logger):
+    """Quick function to verify that a logger is really a logger,
+    otherwise it raises a ValueError"""
+
+    if isinstance(logger, logging.Logger):
+        return logger
+    else:
+        raise ValueError("{0} is not a logger but rather {1}".format(
+            logger, type(logger)
+        ))

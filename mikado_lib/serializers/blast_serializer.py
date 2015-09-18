@@ -13,6 +13,7 @@ The module also contains helper functions such as mean().
 
 import collections
 import os
+import logging
 import sqlalchemy
 import functools
 from Bio import SeqIO
@@ -27,7 +28,7 @@ from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.serializers.dbutils import DBBASE
 from mikado_lib.serializers.dbutils import connect
 from mikado_lib.parsers.blast_utils import XMLMerger, create_opener, merge
-from mikado_lib.log_utils import create_null_logger
+from mikado_lib.log_utils import create_null_logger, check_logger
 # pylint: disable=no-name-in-module
 from numpy import mean
 # pylint: enable=no-name-in-module
@@ -580,6 +581,7 @@ class XmlSerializer:
 
     def __init__(self, xml,
                  max_target_seqs=float("Inf"),
+                 logger = None,
                  target_seqs=None,
                  query_seqs=None,
                  discard_definition=True, maxobjects=10000,
@@ -607,6 +609,9 @@ class XmlSerializer:
 
 
         """
+
+        if logger is not None:
+            self.logger = check_logger(logger)
 
         if xml is None:
             self.logger.warning("No BLAST XML provided. Exiting.")

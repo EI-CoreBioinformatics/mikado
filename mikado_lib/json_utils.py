@@ -423,6 +423,7 @@ def check_blast(json_conf, json_file):
     if "blast" not in json_conf:
         json_conf["blast"] = dict()
         json_conf["blast"]["execute"] = False
+        json_conf["blast"]["max_target_seqs"] = sys.maxsize
         return json_conf
 
     if json_conf["blast"]["execute"] is False:

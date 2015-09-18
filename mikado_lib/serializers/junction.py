@@ -11,6 +11,7 @@ import io
 import os
 from mikado_lib.parsers import bed12
 from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
+from mikado_lib.log_utils import create_null_logger, check_logger
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -148,8 +149,11 @@ class JunctionSerializer:
         :type json_conf: dict | None
         """
 
+        if logger is not None:
+            logger = check_logger(logger)
+
         if handle is None:
-            return
+            self.logger.warn("No input file specified. Exiting.")
 
         self.bed12_parser = bed12.Bed12Parser(handle)
         self.engine = connect(json_conf, logger=logger)

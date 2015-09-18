@@ -101,7 +101,6 @@ class BED12:
         self.__has_start = False
         self.__has_stop = False
         self.__transcriptomic = False
-        self.__invalid = None
         self.__strand = None
         self.__internal_stop_codons = 0
         self.chrom = None
@@ -403,7 +402,6 @@ class BED12:
                                                  self.end,
                                                  self.thick_end,
                                                  self.thick_end > self.end)
-            self.__invalid = True
             return True
 
         if self.fasta_length is None:
@@ -414,7 +412,6 @@ class BED12:
                 self.fasta_length,
                 len(self)
             )
-            self.__invalid = True
             return True
 
         if self.transcriptomic is True and self.cds_len % 3 != 0:
@@ -422,10 +419,8 @@ class BED12:
                 self.cds_len,
                 self.cds_len % 3
             )
-            self.__invalid = True
             return True
 
-        self.__invalid = False
         return False
 
     @property

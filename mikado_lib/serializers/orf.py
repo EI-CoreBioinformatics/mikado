@@ -16,7 +16,7 @@ from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
 from mikado_lib.serializers.blast_serializer import Query
-from mikado_lib.log_utils import create_null_logger
+from mikado_lib.log_utils import create_null_logger, check_logger
 
 
 class Orf(DBBASE):
@@ -150,6 +150,9 @@ class OrfSerializer:
         :type json_conf: dict
 
         """
+
+        if logger is not None:
+            self.logger = check_logger(logger)
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)

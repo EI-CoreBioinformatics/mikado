@@ -45,7 +45,13 @@ def xml_launcher(xml_candidate=None, args=None):
     :return:
     """
 
-    args.max_target_seqs = min(args.max_target_seqs, args.json_conf["blast"]["max_target_seqs"])
+    # If we have a value in the JSON, use it
+    max_target_conf = float("Inf")
+    if "blast" in args.json_conf["blast"]:
+        if "max_target_seqs" in args.json_conf["blast"]:
+            max_target_conf = args.json_conf["blast"]["max_target_seqs"]
+
+    args.max_target_seqs = min(args.max_target_seqs, max_target_conf)
 
     xml_serializer = blast_serializer.XmlSerializer(
         xml_candidate,
@@ -104,7 +110,8 @@ def serialise(args):
 
         filenames = []
 
-        part_launcher = functools.partial(xml_launcher, **{"args": args})
+        part_launcher = functools.partial(xml_launcher, **{"args": args,
+                                                           "logger": logger})
 
         for xml in args.xml.split(","):
             if os.path.isdir(xml):

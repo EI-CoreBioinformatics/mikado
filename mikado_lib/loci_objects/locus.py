@@ -18,8 +18,6 @@ class Locus(Monosublocus, Abstractlocus):
     additional transcripts if they are valid splicing isoforms.
     """
 
-    __name__ = "gene"
-
     def __init__(self, transcript: Transcript, logger=None):
         """
         Constructor class. Like all loci, also Locus is defined starting from a transcript.
@@ -41,6 +39,7 @@ class Locus(Monosublocus, Abstractlocus):
     def __str__(self, print_cds=True) -> str:
 
         self.feature = self.__name__
+
         return super().__str__(print_cds=print_cds)
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
@@ -233,12 +232,24 @@ class Locus(Monosublocus, Abstractlocus):
         return is_valid
 
     @property
+    def __name__(self):
+        if len(self.transcripts) == 0:
+            return "locus"
+        elif any(transcript.selected_cds_length > 0 for
+               transcript in self.transcripts.values()):
+            return "gene"
+        else:
+            return "ncRNA_gene"
+
+    @property
     def id(self):
         """
         Override of the abstractlocus method.
         :rtype str
         """
-        myid = Abstractlocus.id.fget(self)  # @UndefinedVariable
+        # myid = Abstractlocus.id.fget(self)  # @UndefinedVariable
+
+        myid = self.__name__
         if self.counter > 0:
             myid = "{0}.{1}".format(myid, self.counter)
         return myid

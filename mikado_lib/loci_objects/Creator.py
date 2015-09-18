@@ -466,7 +466,7 @@ class Creator:
             print('##gff-version 3', file=mono_out)
             for chrom in chroms:
                 print("##sequence-region {0} 1 {1}".format(*chrom),
-                      file=sub_out)
+                      file=mono_out)
         else:
             mono_out = None
 

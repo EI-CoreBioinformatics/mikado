@@ -132,7 +132,8 @@ class TranscriptChecker(Transcript):
         elif self.monoexonic is False:
             canonical_counter = Counter()
 
-            checker = partial(**{"canonical_splices": canonical_splices})
+            checker = partial(self._check_intron,
+                              **{"canonical_splices": canonical_splices})
 
             for intron in self.introns:
                 canonical_counter.update([checker(intron)])

@@ -102,6 +102,8 @@ class BED12:
         self.__has_stop = False
         self.__transcriptomic = False
         self.__strand = None
+        # This value will be set when checking for the internal sequence
+        # If >=1, i.e. at least one internal stop codon, the ORF is invalid
         self.__internal_stop_codons = 0
         self.chrom = None
         self.start = self.end = self.thick_start = self.thick_end = 0
@@ -208,7 +210,7 @@ class BED12:
             else:
                 self.has_stop_codon = False
 
-            translated_seq = orf_sequence.translate()
+            translated_seq = orf_sequence[:-3].translate()
             self.__internal_stop_codons = str(translated_seq).count("*")
 
             # if self.has_stop_codon is False and \
@@ -391,7 +393,7 @@ class BED12:
         :rtype bool
         """
 
-        if self.__internal_stop_codons > 1:
+        if self.__internal_stop_codons >= 1:
             return True
 
         if self.thick_start < self.start or self.thick_end > self.end:

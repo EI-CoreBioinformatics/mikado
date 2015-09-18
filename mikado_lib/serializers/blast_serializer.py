@@ -13,7 +13,6 @@ The module also contains helper functions such as mean().
 
 import collections
 import os
-import logging
 import sqlalchemy
 import functools
 from Bio import SeqIO
@@ -581,7 +580,7 @@ class XmlSerializer:
 
     def __init__(self, xml,
                  max_target_seqs=float("Inf"),
-                 logger = None,
+                 logger=None,
                  target_seqs=None,
                  query_seqs=None,
                  discard_definition=True, maxobjects=10000,
@@ -637,6 +636,20 @@ class XmlSerializer:
 
         # Runtime arguments
         self.discard_definition = discard_definition
+        self.__max_target_seqs = max_target_seqs
+        self.maxobjects = maxobjects
+
+        # Load sequences if necessary
+        self.__load_sequences(query_seqs, target_seqs)
+
+    def __load_sequences(self, query_seqs, target_seqs):
+
+        """Private method to load the sequences in the dictionary,
+        if necessary.
+        :param query_seqs:
+        :param target_seqs:
+        :return:
+        """
 
         if isinstance(query_seqs, str):
             assert os.path.exists(query_seqs)
@@ -655,9 +668,7 @@ class XmlSerializer:
         else:
             assert "SeqIO.index" in repr(target_seqs)
             self.target_seqs = target_seqs
-
-        self.__max_target_seqs = max_target_seqs
-        self.maxobjects = maxobjects
+        return
 
     def __serialize_queries(self, queries):
 
@@ -668,8 +679,14 @@ class XmlSerializer:
         objects = []
         self.logger.info("Started to serialise the queries")
         for record in self.query_seqs:
-            if record in queries:
+            if record in queries and queries[record][1] is True:
                 continue
+            elif record in queries:
+                self.session.query(Query).filter(Query.query_name == record).update(
+                    {"query_length": record.query_length})
+                queries[record] = (queries[record][0], True)
+                continue
+
             objects.append(Query(record, len(self.query_seqs[record])))
             if len(objects) >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"query\" table",
@@ -704,8 +721,14 @@ class XmlSerializer:
         objects = []
         self.logger.info("Started to serialise the targets")
         for record in self.target_seqs:
-            if record in targets:
+            if record in targets and targets[record][1] is True:
                 continue
+            elif record in targets:
+                self.session.query(Target).filter(Target.target_name == record).update(
+                    {"target_length": record.query_length})
+                targets[record] = (targets[record][0], True)
+                continue
+
             objects.append(Target(record, len(self.target_seqs[record])))
             if len(objects) >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"target\" table",
@@ -730,18 +753,19 @@ class XmlSerializer:
         self.logger.info("Loaded targets")
         self.session.commit()
 
-    def serialize(self):
+    def __serialise_sequences(self):
 
-        """Method to serialize the BLAST XML file into a database
-        provided with the __init__ method """
+        """ Private method called at the beginning of serialize. It is tasked
+        with loading all necessary FASTA sequences into the DB and precaching the IDs.
+        """
 
         targets = dict()
         queries = dict()
         self.logger.info("Loading previous IDs")
         for query in self.session.query(Query):
-            queries[query.query_name] = query.query_id
-        for query in self.session.query(Target):
-            targets[query.target_name] = query.target_id
+            queries[query.query_name] = (query.query_id, (query.query_length is not None))
+        for target in self.session.query(Target):
+            targets[target.target_name] = (target.target_id, (target.target_length is not None))
         self.logger.info("Loaded previous IDs")
 
         self.logger.info("Started the serialisation")
@@ -749,13 +773,15 @@ class XmlSerializer:
             self.__serialize_targets(targets)
         if self.query_seqs is not None:
             self.__serialize_queries(queries)
+        return queries, targets
 
-        self.logger.info("Loading all IDs")
-        for query in self.session.query(Query):
-            queries[query.query_name] = (query.query_id, query.query_length is not None)
-        for query in self.session.query(Target):
-            targets[query.target_name] = (query.target_id, query.target_length is not None)
-        self.logger.info("Loaded all IDs")
+    def serialize(self):
+
+        """Method to serialize the BLAST XML file into a database
+        provided with the __init__ method """
+
+        # Load sequences in DB, precache IDs
+        queries, targets = self.__serialise_sequences()
 
         query_counter = 0
         get_query = functools.partial(self.__get_query_for_blast,
@@ -786,30 +812,30 @@ class XmlSerializer:
                     self.logger.exception(exc)
                     continue
 
-                current_hit = Hit(current_query, current_target,
-                                  alignment, evalue, bits,
-                                  hit_number=hit_num,
-                                  query_multiplier=q_mult,
-                                  target_multiplier=h_mult)
-                objects.append(current_hit)
+                hit_dict_params = dict()
+                hit_dict_params["query_multiplier"] = q_mult
+                hit_dict_params["target_multiplier"] = h_mult
+                hit_dict_params["hit_number"] = hit_num
+                hit_dict_params["evalue"] = evalue
+                hit_dict_params["bits"] = bits
 
-                for counter, hsp in enumerate(alignment.hsps):
-                    current_hsp = Hsp(hsp, counter, current_query, current_target)
-                    objects.append(current_hsp)
+                # Prepare for bulk load
+                hit, hsps = self.__prepare_hit(alignment,
+                                               current_query, current_target,
+                                               **hit_dict_params)
+                # Bulk load
+                self.session.bulk_insert_mappings(Hit, [hit])
+                self.session.bulk_insert_mappings(Hsp, hsps)
 
             if len(objects) >= self.maxobjects:
-                self.logger.info(
-                    "Loading %d objects into the hit, hsp tables (%d queries done)",
-                    len(objects), query_counter)
-                self.load_into_db(objects)
+                # self.logger.info(
+                #     "Loading %d objects into the hit, hsp tables (%d queries done)",
+                #     len(objects), query_counter)
+                # self.load_into_db(objects)
                 self.logger.info(
                     "Loaded %d objects into the hit, hsp tables (%d queries done)",
                     len(objects), query_counter)
-                objects = []
-
-        self.logger.info("Loading %d objects into the hit, hsp tables",
-                         len(objects))
-        self.load_into_db(objects)
+                self.session.commit()
 
         self.logger.info("Loaded %d objects into the hit, hsp tables",
                          len(objects))
@@ -864,7 +890,10 @@ class XmlSerializer:
         self.logger.debug("Started with %s", name)
 
         if name in queries:
-            current_query = queries[name][0]
+            try:
+                current_query = queries[name][0]
+            except TypeError as exc:
+                raise TypeError("{0}, {1}".format(exc, name))
             if queries[name][1] is False:
                 self.session.query(Query).filter(Query.query_name == name).update(
                     {"query_length": record.query_length})
@@ -930,3 +959,57 @@ class XmlSerializer:
             self.session.query(Hit).delete()
             self.session.bulk_save_objects(objects, return_defaults=False)
             self.session.commit()
+
+    @staticmethod
+    def __prepare_hit(hit, query_id, target_id, **kwargs):
+        """Prepare the dictionary for fast loading of Hit and Hsp objects"""
+
+        hit_dict = dict()
+        hsp_dict_list = []
+        hit_dict["global_identity"] = []
+        q_intervals = []
+        t_intervals = []
+
+        for counter, hsp in enumerate(hit.hsps):
+            hsp_dict = dict()
+            hsp_dict["counter"] = counter
+            hsp_dict["query_hsp_start"] = hsp.query_start
+            hsp_dict["query_hsp_end"] = hsp.query_end
+            # Prepare the list for later calculation
+            q_intervals.append((hsp.query_start, hsp.query_end))
+
+            hsp_dict["target_hsp_start"] = hsp.sbjct_start
+            hsp_dict["target_hsp_end"] = hsp.sbjct_end
+            # Prepare the list for later calculation
+            t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
+
+            hsp_dict["hsp_identity "] = float(hsp.identities) / hsp.align_length * 100
+            # Prepare the list for later calculation
+            hit_dict["global_identity"].append(hsp_dict["hsp_identity "])
+
+            hsp_dict["hsp_length"] = hsp.align_length
+            hsp_dict["hsp_bits"] = hsp.bits
+            hsp_dict["hsp_evalue"] = hsp.expect
+            hsp_dict["query_id"] = query_id
+            hsp_dict["target_id"] = target_id
+            hsp_dict_list.append(hsp_dict)
+
+        hit_dict.update(kwargs)
+        hit_dict["query_id"] = query_id
+        hit_dict["target_id"] = target_id
+
+        hit_dict["global_identity"] = mean(hit_dict["global_identity"])
+
+        q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
+        q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
+        hit_dict["query_aligned_length"] = q_aligned
+        hit_dict["query_start"] = q_merged_intervals[0][0]
+        hit_dict["query_end"] = q_merged_intervals[-1][1]
+
+        t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
+        t_aligned = sum([tup[1] - tup[0] + 1 for tup in t_merged_intervals])
+        hit_dict["target_aligned_length"] = t_aligned
+        hit_dict["target_start"] = t_merged_intervals[0][0]
+        hit_dict["target_end"] = t_merged_intervals[-1][1]
+
+        return hit_dict, hsp_dict_list

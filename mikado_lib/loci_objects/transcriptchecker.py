@@ -6,11 +6,11 @@ to verify that e.g. the assigned strand is correct.
 """
 
 from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.parsers.GFF import GffLine
-from mikado_lib.parsers.GTF import GtfLine
 from mikado_lib.exceptions import IncorrectStrandError
+from collections import Counter
+from functools import partial
 
-
+# pylint: disable=too-many-instance-attributes
 class TranscriptChecker(Transcript):
     """This is a subclass of the generic transcript class. Its purpose is to compare
     the information of the transcript instance with the information contained in a
@@ -33,7 +33,7 @@ class TranscriptChecker(Transcript):
         Constructor method. It inherits from Transcript, with some modifications.
 
         :param gffline: annotation line to begin the construction.
-        :type gffline: GffLine | GtfLine
+        :type gffline: mikado_lib.parsers.gfannotation.GFAnnotation
 
         :param seq: a SeqIO indexed FASTA file
 
@@ -130,28 +130,12 @@ class TranscriptChecker(Transcript):
             return
 
         elif self.monoexonic is False:
-            canonical_counter = dict()
-            for strand in ("+", "-", None):
-                canonical_counter[strand] = 0
+            canonical_counter = Counter()
+
+            checker = partial(**{"canonical_splices": canonical_splices})
 
             for intron in self.introns:
-                splice_donor = self.fasta_seq[intron[0] - self.start - 1:intron[0]-self.start + 1]
-                splice_acceptor = self.fasta_seq[intron[1] - 2 - self.start:intron[1] - self.start]
-
-                # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
-                # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
-                if self.strand == "-":
-                    splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
-                                                     self.rev_complement(splice_donor))
-                if (splice_donor, splice_acceptor) in canonical_splices:
-                    canonical_counter["+"] += 1
-                else:
-                    splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
-                                                     self.rev_complement(splice_donor))
-                    if (splice_donor, splice_acceptor) in canonical_splices:
-                        canonical_counter["-"] += 1
-                    else:
-                        canonical_counter[None] += 1
+                canonical_counter.update([checker(intron)])
 
             if canonical_counter[None] == len(self.introns):
                 if self.lenient is False:
@@ -183,3 +167,33 @@ class TranscriptChecker(Transcript):
                 self.reversed = True
 
         self.checked = True
+
+    def _check_intron(self, intron, canonical_splices):
+
+        """
+        Private method that checks whether an intron has canonical splice sites
+        or not.
+        :param intron: the intron tuple (int,int) in 1-base offset
+        :param canonical_splices: list of acceptable splice tuples, e.g.
+        [("AG","GT")]
+        :return: strand of the intron (None | "+" | "-")
+        """
+
+        splice_donor = self.fasta_seq[intron[0] - self.start - 1:intron[0]-self.start + 1]
+        splice_acceptor = self.fasta_seq[intron[1] - 2 - self.start:intron[1] - self.start]
+
+        # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
+        # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
+        if self.strand == "-":
+            splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
+                                             self.rev_complement(splice_donor))
+        if (splice_donor, splice_acceptor) in canonical_splices:
+            strand = "+"
+        else:
+            splice_donor, splice_acceptor = (self.rev_complement(splice_acceptor),
+                                             self.rev_complement(splice_donor))
+            if (splice_donor, splice_acceptor) in canonical_splices:
+                strand = "-"
+            else:
+                strand = None
+        return strand

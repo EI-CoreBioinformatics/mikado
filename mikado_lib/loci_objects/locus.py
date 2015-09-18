@@ -236,23 +236,25 @@ class Locus(Monosublocus, Abstractlocus):
         if len(self.transcripts) == 0:
             return "locus"
         elif any(transcript.selected_cds_length > 0 for
-               transcript in self.transcripts.values()):
+                 transcript in self.transcripts.values()):
             return "gene"
         else:
             return "ncRNA_gene"
 
+    # pylint: disable=invalid-name
     @property
     def id(self):
         """
         Override of the abstractlocus method.
         :rtype str
         """
-        # myid = Abstractlocus.id.fget(self)  # @UndefinedVariable
 
-        myid = self.__name__
+        myid = Abstractlocus.id.fget(self)  # @UndefinedVariable
+
         if self.counter > 0:
             myid = "{0}.{1}".format(myid, self.counter)
         return myid
+    # pylint: disable=invalid-name
 
     @property
     def is_fragment(self):

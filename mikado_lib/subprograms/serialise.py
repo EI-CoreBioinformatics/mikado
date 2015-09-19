@@ -34,7 +34,7 @@ def to_seqio(string):
     return SeqIO.index(string, "fasta")
 
 
-def xml_launcher(xml_candidate=None, args=None):
+def xml_launcher(xml_candidate=None, args=None, logger=None):
 
     """
     Thin rapper around blast_utils.XmlSerializer. Its purpose is
@@ -60,7 +60,8 @@ def xml_launcher(xml_candidate=None, args=None):
         maxobjects=args.max_objects,
         target_seqs=args.target_seqs,
         query_seqs=args.transcript_fasta,
-        json_conf=args.json_conf)
+        json_conf=args.json_conf,
+        logger=logger)
     xml_serializer()
 
 

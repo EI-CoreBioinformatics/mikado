@@ -17,8 +17,10 @@ rule clean:
     run:
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
-                                    glob.glob("compare*"), ["data.db"]):
-            os.remove(filename)
+                                    glob.glob("compare*"), glob.glob(config["db"]),
+                                    glob.glob("*.log"), glob.glob("*xml")):
+            if os.path.exists(filename):
+                os.remove(filename)
 
 rule decompress:
     input:  zipDBs
@@ -27,14 +29,14 @@ rule decompress:
 
 rule test_json:
     input: DBs, configname
-    output: "{0}.check".format(configname)
+    output: "{0}.ok".format(configname)
     run:
         __= mikado_lib.json_utils.to_json(configname)
         shell("touch {output}")
 
 rule blast_complete:
     params:	prefix="all"
-    input: query="all.fasta", db=config["blast"]["database"], check="{0}.check".format(configname) 
+    input: query="all.fasta", db=config["blast"]["database"], check="{0}.ok".format(configname)
     output: "all.blast.xml"
     shell: "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output}"
 

@@ -227,9 +227,12 @@ class OrfSerializer:
             cache[record.query_name] = record.query_id
         self.logger.info("Finished loading IDs into the cache")
 
+
+        counter = 0
         for row in self.bed12_parser:
             if row.header is True:
                 continue
+            counter += 1
             if row.invalid is True:
                 self.logger.warn("Invalid entry: %s", row)
                 continue

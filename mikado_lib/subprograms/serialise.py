@@ -78,8 +78,15 @@ def serialise(args):
 
     # Provisional logging. To be improved
     logger = create_default_logger("serialiser")
+    if args.log is not None:
+        args.log.close()
+        logger.removeHandler(logger.handlers[0])
+        handler = logging.FileHandler(args.log.name, "w")
+        logger.addHandler(handler)
+    logger.setLevel(args.log_level)
 
     if args.force is True:
+        logger.warn("Removing old data because force option in place")
         engine = dbutils.connect(args.json_conf)
         meta = sqlalchemy.MetaData(bind=engine)
         meta.reflect(engine)
@@ -88,6 +95,7 @@ def serialise(args):
         dbutils.DBBASE.metadata.create_all(engine)
 
     if args.junctions is not None:
+        logger.info("Starting to load junctions")
         for junction_file in args.junctions.split(","):
             serializer = junction.JunctionSerializer(junction_file,
                                                      fai=args.genome_fai,
@@ -95,9 +103,10 @@ def serialise(args):
                                                      maxobjects=args.max_objects,
                                                      logger=logger)
             serializer()
+        logger.info("Loaded junctions")
 
     if args.xml is not None:
-
+        logger.info("Starting to load BLAST data")
         filenames = []
 
         part_launcher = functools.partial(xml_launcher, **{"args": args,
@@ -116,8 +125,10 @@ def serialise(args):
             raise ValueError("No valid BLAST file specified!")
 
         part_launcher(filenames)
+        logger.info("Finished to load BLAST data")
 
     if args.orfs is not None:
+        logger.info("Starting to load ORF data")
         for orf_file in args.orfs.split(","):
             serializer = orf.OrfSerializer(orf_file,
                                            fasta_index=args.transcript_fasta,
@@ -125,7 +136,7 @@ def serialise(args):
                                            json_conf=args.json_conf,
                                            logger=logger)
             serializer.serialize()
-
+        logger.info("Finished loading ORF data")
 
 def serialise_parser():
     """
@@ -186,8 +197,17 @@ def serialise_parser():
     generic.add_argument("--json-conf", default=None,
                          dest="json_conf", type=json_utils.to_json,
                          required=True)
+    generic.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
+                         nargs='?',
+                         help="Optional log file. Default: stderr")
+    generic.add_argument("-lv", "--log_level", default="INFO",
+                         choices = ["DEBUG", "INFO", "WARNING", "ERROR"],
+                         nargs='?',
+                         help="Log level. Default: %(default)s")
+
     generic.add_argument("db", type=str, default=None,
                          nargs='?',
                          help="Optional output database. Default: derived from json_conf")
+
     parser.set_defaults(func=serialise)
     return parser

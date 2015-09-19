@@ -794,7 +794,7 @@ class XmlSerializer:
         self.logger.info("Loaded previous IDs; %d for queries, %d for targets",
                          len(queries), len(targets))
 
-        self.logger.info("Started the serialisation")
+        self.logger.info("Started the sequence serialisation")
         if self.target_seqs is not None:
             targets = self.__serialize_targets(targets)
             assert len(targets) > 0
@@ -815,7 +815,13 @@ class XmlSerializer:
         get_query = functools.partial(self.__get_query_for_blast,
                                       **{"queries": queries})
         objects = []
+
+        record_counter = 0
+        hit_counter = 0
         for record in self.xml_parser:
+            record_counter += 1
+            if record_counter > 0 and record_counter % 10000 == 0:
+                self.logger.info("Parsed %d queries", record_counter)
             if len(record.descriptions) == 0:
                 continue
 
@@ -826,6 +832,9 @@ class XmlSerializer:
             for ccc, alignment in enumerate(record.alignments):
                 if ccc > self.__max_target_seqs:
                     break
+                hit_counter += 1
+                if hit_counter > 0 and hit_counter % 10000 == 0:
+                    self.logger.info("Serialized %d alignments", hit_counter)
 
                 self.logger.debug("Started the hit %s-%s",
                                   name, record.alignments[ccc].accession)
@@ -855,18 +864,18 @@ class XmlSerializer:
                 self.session.bulk_insert_mappings(Hit, [hit])
                 self.session.bulk_insert_mappings(Hsp, hsps)
 
-            if len(objects) >= self.maxobjects:
+            if hit_counter > 0 and hit_counter % self.maxobjects == 0:
                 # self.logger.info(
                 #     "Loading %d objects into the hit, hsp tables (%d queries done)",
                 #     len(objects), query_counter)
                 # self.load_into_db(objects)
                 self.logger.info(
                     "Loaded %d objects into the hit, hsp tables (%d queries done)",
-                    len(objects), query_counter)
+                    hit_counter, query_counter)
                 self.session.commit()
 
         self.logger.info("Loaded %d objects into the hit, hsp tables",
-                         len(objects))
+                         hit_counter)
         self.session.commit()
         self.logger.info("Finished loading blast hits")
 

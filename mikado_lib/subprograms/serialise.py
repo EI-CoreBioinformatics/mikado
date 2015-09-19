@@ -29,9 +29,8 @@ def to_seqio(string):
     :param string
     :type string: str
     """
-    assert os.path.exists(string)
-    assert os.path.isfile(string)
-    assert os.stat(string).st_size > 0
+    if not (os.path.exists(string) and os.path.isfile(string) and os.stat(string).st_size > 0):
+        raise OSError("Invalid sequence file: {0}".format(string))
     return SeqIO.index(string, "fasta")
 
 

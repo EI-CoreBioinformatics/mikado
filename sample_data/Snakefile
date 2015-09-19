@@ -17,12 +17,6 @@ configname = "configuration.yaml"
 # 	# for f in filter(lamdba x: os.path.exists(x), DBs):
 # 	#    shell("gzip -f {f};")
 
-# rule mock:
-#     params:	prefix="mock"
-#     input: DBs, gff="mock.gff3"
-#     output: "mock.loci.gff3", "mock.loci.scores.tsv"
-#     shell: "run_pipeline.py --source {params.prefix} --json_conf configuration_mock.json --subloci_out {params.prefix}.subloci.gff3 --monoloci_out {params.prefix}.monoloci.gff3 --loci_out {output[0]} {input.gff}"
-
 rule decompress:
     input:  zipDBs
     output: DBs
@@ -41,38 +35,24 @@ rule blast_complete:
     output: "all.blast.xml"
     shell: "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output}"
 
-rule junction_to_db:
-    params: prefix="all"
-    input: junctions="junctions.bed", fai="genome.fai"
-    output: "junction_serialized.ok"
+rule serialise:
+    input: junctions="junctions.bed", fai="genome.fai", transcripts="all.fasta", targets="uniprot_sprot_plants.fasta", xml="all.blast.xml", orfs="all.bed"
+    output: "serialised.ok", "data.db"
     run:
-        import sys
-        print(sys.version_info)
-        mikado_lib.serializers.junction.JunctionSerializer("junctions.bed", json_conf=config, fai="genome.fai").serialize();
-        subprocess.call("touch junction_serialized.ok", shell=True)
+        command = """mikado.py serialise --genome_fai {fai} \
+        --transcript_fasta {transcripts} \
+        --target_seqs {targets} \
+        --xml {xml} --junctions {junctions} -f --json-conf {config{ \
+        --orfs {orfs}""".format(fai=input["fai"], transcripts=input["transcripts"],
+        targets=input["targets"], xml=input["xml"], junctions=input["junctions"],
+         orfs=input["orfs"], config=configname)
+        retcode = subprocess.call(command, shell=True)
+        if retcode == 0:
+            subprocess.call("touch serialised.ok", shell=True)
 
-rule orf_to_db:
+rule pick:
     params: prefix="all"
-    input: orf="all.bed", fasta="all.fasta", check="junction_serialized.ok"
-    output: "orf_serialized.ok"
-    run:
-        mikado_lib.serializers.orf.OrfSerializer("all.bed", json_conf=config, fasta_index="all.fasta").serialize();
-        subprocess.call("touch orf_serialized.ok", shell=True)
-
-rule blast_to_db:
-    params: prefix="all"
-    input: blast="all.blast.xml", check="orf_serialized.ok"
-    output: "blast_serialized.ok"
-    run:
-        mikado_lib.serializers.blast_serializer.XmlSerializer("all.blast.xml", discard_definition=False,
-						       target_seqs=config["blast"]["database"],
-							   json_conf = config,
-						       max_target_seqs=config["blast"]["max_target_seqs"] ).serialize();
-        subprocess.call("touch blast_serialized.ok", shell=True);
-
-rule select:
-    params: prefix="all"
-    input: configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed", check="blast_serialized.ok"
+    input: configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed", check="serialised.ok"
     output: "all.loci.gff3", "all.loci.scores.tsv"
     shell: """mikado.py pick --source {params[prefix]} --json_conf {input[configuration]} \
 	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""  

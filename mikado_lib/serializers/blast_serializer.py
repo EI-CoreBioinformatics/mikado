@@ -688,9 +688,9 @@ class XmlSerializer:
                 queries[record] = (queries[record][0], len(self.query_seqs[record]))
                 continue
 
-            self.session.bulk_insert_mappings(Target,[{
-                "target_name": record,
-                "target_length": len(self.query_seqs[record])
+            self.session.bulk_insert_mappings(Query,[{
+                "query_name": record,
+                "query_length": len(self.query_seqs[record])
             }])
             counter += 1
             #
@@ -718,8 +718,8 @@ class XmlSerializer:
         self.session.commit()
         # pylint: enable=no-member
         self.logger.info("Loaded %d objects into the \"target\" table", total+counter)
-        for target in self.session.query(Target):
-            queries[target.target_name] = (target.target_id, target.target_length is not None)
+        for query in self.session.query(Query):
+            queries[query.query_name] = (query.query_id, query.query_length is not None)
         self.logger.info("%d in queries", len(queries))
         return queries
 
@@ -927,7 +927,8 @@ class XmlSerializer:
                     {"query_length": record.query_length})
                 self.session.commit()
         else:
-            self.logger.warn("Adding %s to the db", name)
+            self.session.warn("%s not found among queries, adding to the DB now",
+                              name)
             current_query = Query(name, record.query_length)
             self.session.add(current_query)
             self.session.commit()
@@ -959,6 +960,8 @@ class XmlSerializer:
         else:
             current_target = Target(alignment.accession,
                                     alignment.length)
+            self.session.warn("%s not found among targets, adding to the DB now",
+                              alignment.accession)
             self.session.add(current_target)
             self.session.commit()
             assert isinstance(current_target.target_id, int)

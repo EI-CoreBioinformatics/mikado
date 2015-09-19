@@ -200,6 +200,8 @@ class OrfSerializer:
                                   fasta_key not in cache]))
             found = set()
             for record in self.fasta_index:
+                if record in cache:
+                    continue
                 objects.append(Query(record, len(self.fasta_index[record])))
                 self.logger.debug("Appended %s", record)
                 assert record not in found, record

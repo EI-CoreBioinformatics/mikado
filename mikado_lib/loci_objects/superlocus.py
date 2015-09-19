@@ -427,8 +427,16 @@ class Superlocus(Abstractlocus):
         if data_dict is None:
             self.session.close()
             self.sessionmaker.close_all()
-        num_coding = sum(1 for x in self.transcripts
-                         if self.transcripts[x].selected_cds_length > 0)
+
+        num_coding = 0
+        for tid in self.transcripts:
+            if self.transcripts[tid].combined_cds_length > 0:
+                num_coding += 1
+            else:
+                self.transcripts[tid].feature = "ncRNA"
+
+        # num_coding = sum(1 for x in self.transcripts
+        #                  if self.transcripts[x].selected_cds_length > 0)
         self.logger.debug(
             "Found %d coding transcripts out of %d in %s",
             num_coding,

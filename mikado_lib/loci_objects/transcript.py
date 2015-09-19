@@ -1400,7 +1400,7 @@ class Transcript:
         if len(self.combined_cds) > 0:
             self.feature = "mRNA"
         else:
-            self.feature = "ncRNA"
+            self.feature = "transcript"
 
         self.__verify_boundaries()
 

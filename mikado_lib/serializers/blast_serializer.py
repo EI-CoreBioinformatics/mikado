@@ -640,11 +640,11 @@ class XmlSerializer:
         self.maxobjects = maxobjects
 
         # Load sequences if necessary
-        self.__load_sequences(query_seqs, target_seqs)
+        self.__determine_sequences(query_seqs, target_seqs)
 
-    def __load_sequences(self, query_seqs, target_seqs):
+    def __determine_sequences(self, query_seqs, target_seqs):
 
-        """Private method to load the sequences in the dictionary,
+        """Private method to assign the sequence file variables
         if necessary.
         :param query_seqs:
         :param target_seqs:
@@ -676,39 +676,52 @@ class XmlSerializer:
         Additional argument: a set containing all queries already present
         in the database."""
 
-        objects = []
+        counter = 0
+        total = 0
         self.logger.info("Started to serialise the queries")
         for record in self.query_seqs:
-            if record in queries and queries[record][1] is True:
+            if record in queries and queries[record][1] is not None:
                 continue
             elif record in queries:
                 self.session.query(Query).filter(Query.query_name == record).update(
                     {"query_length": record.query_length})
-                queries[record] = (queries[record][0], True)
+                queries[record] = (queries[record][0], len(self.query_seqs[record]))
                 continue
 
-            objects.append(Query(record, len(self.query_seqs[record])))
-            if len(objects) >= self.maxobjects:
+            self.session.bulk_insert_mappings(Target,[{
+                "target_name": record,
+                "target_length": len(self.query_seqs[record])
+            }])
+            counter += 1
+            #
+            # objects.append(Target(record, len(self.target_seqs[record])))
+            if counter >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"query\" table",
-                                 len(objects))
+                                 counter)
+                self.session.commit()
+                total += counter
+                counter = 0
                 # pylint: disable=no-member
-                self.engine.execute(Query.__table__.insert(),
-                                    [{"query_name": obj.query_name,
-                                      "query_length": obj.query_length} for obj in objects])
-                # pylint: enable=no-member
-                self.logger.info("Loaded %d objects into the \"query\" table",
-                                 len(objects))
-                objects = []
+                # self.engine.execute(Target.__table__.insert(),
+                #                     [{"target_name": obj.target_name,
+                #                       "target_length": obj.target_length} for obj in objects])
+                # # pylint: enable=no-member
+                # self.logger.info("Loaded %d objects into the \"target\" table",
+                #                  len(objects))
+                # objects = []
         self.logger.info("Loading %d objects into the \"query\" table",
-                         len(objects))
+                         counter)
         # pylint: disable=no-member
-        self.engine.execute(Query.__table__.insert(),
-                            [{"query_name": obj.query_name,
-                              "query_length": obj.query_length} for obj in objects])
-        # pylint: enable=no-member
+        # self.engine.execute(Target.__table__.insert(),
+        #                     [{"target_name": obj.target_name,
+        #                       "target_length": obj.target_length} for obj in objects])
         self.session.commit()
-        self.logger.info("Loaded %d objects into the \"query\" table", len(objects))
-        self.logger.info("Queries serialised")
+        # pylint: enable=no-member
+        self.logger.info("Loaded %d objects into the \"target\" table", total+counter)
+        for target in self.session.query(Target):
+            queries[target.target_name] = (target.target_id, target.target_length is not None)
+        self.logger.info("%d in queries", len(queries))
+        return queries
 
     def __serialize_targets(self, targets):
         """
@@ -718,7 +731,8 @@ class XmlSerializer:
           is already present in the DB or not.
         """
 
-        objects = []
+        counter = 0
+        total = 0
         self.logger.info("Started to serialise the targets")
         for record in self.target_seqs:
             if record in targets and targets[record][1] is True:
@@ -729,29 +743,40 @@ class XmlSerializer:
                 targets[record] = (targets[record][0], True)
                 continue
 
-            objects.append(Target(record, len(self.target_seqs[record])))
-            if len(objects) >= self.maxobjects:
+            self.session.bulk_insert_mappings(Target,[{
+                "target_name": record,
+                "target_length": len(self.target_seqs[record])
+            }])
+            counter += 1
+            #
+            # objects.append(Target(record, len(self.target_seqs[record])))
+            if counter >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"target\" table",
-                                 len(objects))
+                                 counter)
+                self.session.commit()
+                total += counter
+                counter = 0
                 # pylint: disable=no-member
-                self.engine.execute(Target.__table__.insert(),
-                                    [{"target_name": obj.target_name,
-                                      "target_length": obj.target_length} for obj in objects])
-                # pylint: enable=no-member
-                self.logger.info("Loaded %d objects into the \"target\" table",
-                                 len(objects))
-                objects = []
+                # self.engine.execute(Target.__table__.insert(),
+                #                     [{"target_name": obj.target_name,
+                #                       "target_length": obj.target_length} for obj in objects])
+                # # pylint: enable=no-member
+                # self.logger.info("Loaded %d objects into the \"target\" table",
+                #                  len(objects))
+                # objects = []
         self.logger.info("Loading %d objects into the \"target\" table",
-                         len(objects))
+                         counter)
         # pylint: disable=no-member
-        self.engine.execute(Target.__table__.insert(),
-                            [{"target_name": obj.target_name,
-                              "target_length": obj.target_length} for obj in objects])
-        # pylint: enable=no-member
-        self.logger.info("Loaded %d objects into the \"target\" table",
-                         len(objects))
-        self.logger.info("Loaded targets")
+        # self.engine.execute(Target.__table__.insert(),
+        #                     [{"target_name": obj.target_name,
+        #                       "target_length": obj.target_length} for obj in objects])
         self.session.commit()
+        # pylint: enable=no-member
+        self.logger.info("Loaded %d objects into the \"target\" table", total+counter)
+        for target in self.session.query(Target):
+            targets[target.target_name] = (target.target_id, target.target_length is not None)
+        self.logger.info("%d in targets", len(targets))
+        return targets
 
     def __serialise_sequences(self):
 
@@ -766,13 +791,16 @@ class XmlSerializer:
             queries[query.query_name] = (query.query_id, (query.query_length is not None))
         for target in self.session.query(Target):
             targets[target.target_name] = (target.target_id, (target.target_length is not None))
-        self.logger.info("Loaded previous IDs")
+        self.logger.info("Loaded previous IDs; %d for queries, %d for targets",
+                         len(queries), len(targets))
 
         self.logger.info("Started the serialisation")
         if self.target_seqs is not None:
-            self.__serialize_targets(targets)
+            targets = self.__serialize_targets(targets)
+            assert len(targets) > 0
         if self.query_seqs is not None:
-            self.__serialize_queries(queries)
+            queries = self.__serialize_queries(queries)
+            assert len(queries) > 0
         return queries, targets
 
     def serialize(self):
@@ -983,9 +1011,9 @@ class XmlSerializer:
             # Prepare the list for later calculation
             t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
 
-            hsp_dict["hsp_identity "] = float(hsp.identities) / hsp.align_length * 100
+            hsp_dict["hsp_identity"] = float(hsp.identities) / hsp.align_length * 100
             # Prepare the list for later calculation
-            hit_dict["global_identity"].append(hsp_dict["hsp_identity "])
+            hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
 
             hsp_dict["hsp_length"] = hsp.align_length
             hsp_dict["hsp_bits"] = hsp.bits

@@ -11,6 +11,7 @@ import functools
 import glob
 import sqlalchemy
 from mikado_lib import json_utils
+from mikado_lib.log_utils import create_default_logger
 from mikado_lib.serializers import orf, blast_serializer, junction, dbutils
 import os
 import sys
@@ -76,10 +77,7 @@ def serialise(args):
     """
 
     # Provisional logging. To be improved
-    logger = logging.Logger("serialiser")
-    handler = logging.StreamHandler()
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
+    logger = create_default_logger("serialiser")
 
     if args.force is True:
         engine = dbutils.connect(args.json_conf)

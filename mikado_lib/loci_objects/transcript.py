@@ -711,6 +711,22 @@ class Transcript:
         """
         This method verifies if a transcript with multiple ORFs has support by BLAST to
         NOT split it into its different components.
+
+        The minimal overlap between ORF and HSP is defined inside the JSON at the key
+            ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        basically, we consider a HSP a hit only if the overlap is over a certain threshold
+        and the HSP evalue under a certain threshold.
+
+        The split by CDS can be executed in three different ways - CLEMENT, LENIENT, STRINGENT:
+
+        - PERMISSIVE: split if two CDSs do not have hits in common,
+        even when one or both do not have a hit at all.
+        - STRINGENT: split only if two CDSs have hits and none
+        of those is in common between them.
+        - LENIENT: split if *both* lack hits, OR *both* have hits and none
+        of those is in common.
+
+
         :param cds_boundaries:
         :return:
         """
@@ -1154,19 +1170,6 @@ class Transcript:
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
         UTR information will be retained only if no ORF is down/upstream.
-        The minimal overlap is defined inside the JSON at the key
-            ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-        basically, we consider a HSP a hit only if the overlap is over a certain threshold
-        and the HSP evalue under a certain threshold.
-
-        The split by CDS can be executed in three different ways - CLEMENT, LENIENT, STRINGENT:
-
-        - PERMISSIVE: split if two CDSs do not have hits in common,
-        even when one or both do not have a hit at all.
-        - STRINGENT: split only if two CDSs have hits and none
-        of those is in common between them.
-        - LENIENT: split if *both* lack hits, OR *both* have hits and none
-        of those is in common.
         """
         self.finalize()
 

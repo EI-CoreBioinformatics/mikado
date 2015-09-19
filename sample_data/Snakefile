@@ -1,4 +1,6 @@
 import os,sys
+import glob
+import itertools
 import mikado_lib.json_utils
 import subprocess
 
@@ -11,11 +13,12 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 configfile: "configuration.yaml"
 configname = "configuration.yaml"
 
-# rule clean:
-#      run:
-#         shell("rm -f ./data.db ./all.blast.xml ./*loci* ./*.fasta.n* ./*.fasta.p* {0} {1}".format(expand(DBs), "{0}.check".format(configname) ))
-# 	# for f in filter(lamdba x: os.path.exists(x), DBs):
-# 	#    shell("gzip -f {f};")
+rule clean:
+    run:
+        for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
+                                    glob.glob("uniprot*fasta"), glob.glob("*loci*"),
+                                    glob.glob("compare*"), ["data.db"]):
+            os.remove(filename)
 
 rule decompress:
     input:  zipDBs
@@ -42,8 +45,9 @@ rule serialise:
         command = """mikado.py serialise --genome_fai {fai} \
         --transcript_fasta {transcripts} \
         --target_seqs {targets} \
-        --xml {xml} --junctions {junctions} -f --json-conf {config{ \
-        --orfs {orfs}""".format(fai=input["fai"], transcripts=input["transcripts"],
+        --xml {xml} --junctions {junctions} -f --json-conf {config} \
+        --orfs {orfs} --log serialise.log -lv DEBUG""".format(fai=input["fai"],
+        transcripts=input["transcripts"],
         targets=input["targets"], xml=input["xml"], junctions=input["junctions"],
          orfs=input["orfs"], config=configname)
         retcode = subprocess.call(command, shell=True)

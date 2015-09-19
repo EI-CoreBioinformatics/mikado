@@ -89,15 +89,6 @@ def serialise(args):
             tab.drop()
         dbutils.DBBASE.metadata.create_all(engine)
 
-    if args.orfs is not None:
-        for orf_file in args.orfs.split(","):
-            serializer = orf.OrfSerializer(orf_file,
-                                           fasta_index=args.transcript_fasta,
-                                           maxobjects=args.max_objects,
-                                           json_conf=args.json_conf,
-                                           logger=logger)
-            serializer.serialize()
-
     if args.junctions is not None:
         for junction_file in args.junctions.split(","):
             serializer = junction.JunctionSerializer(junction_file,
@@ -127,6 +118,15 @@ def serialise(args):
             raise ValueError("No valid BLAST file specified!")
 
         part_launcher(filenames)
+
+    if args.orfs is not None:
+        for orf_file in args.orfs.split(","):
+            serializer = orf.OrfSerializer(orf_file,
+                                           fasta_index=args.transcript_fasta,
+                                           maxobjects=args.max_objects,
+                                           json_conf=args.json_conf,
+                                           logger=logger)
+            serializer.serialize()
 
 
 def serialise_parser():

@@ -139,8 +139,9 @@ def prepare_reference(args, queue_logger, ref_gff=False):
             assert transcr.id in genes[row.gene].transcripts
         elif row.is_exon is True:
             if ref_gff is True:
+                found = False
                 for transcr in row.transcript:
-                    found = False
+
                     if transcr in transcript2gene:
                         # We have to perform the check because there are some GFFs
                         # e.g. TAIR
@@ -148,9 +149,9 @@ def prepare_reference(args, queue_logger, ref_gff=False):
                         found = True
                         gid = transcript2gene[transcr]
                         genes[gid][transcr].add_exon(row)
-                    if found is False:
-                        queue_logger.warn("This feature has no corresponding transcript! %s",
-                                          str(row))
+                if found is False:
+                    queue_logger.warn("This feature has no corresponding transcript! %s",
+                                      str(row))
             else:
                 if row.gene in genes and row.transcript in genes[row.gene].transcripts:
                     genes[row.gene][row.transcript].add_exon(row)

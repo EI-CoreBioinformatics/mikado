@@ -80,8 +80,10 @@ def serialise(args):
     logger = create_default_logger("serialiser")
     if args.log is not None:
         args.log.close()
+        formatter = logger.handlers[0].formatter
         logger.removeHandler(logger.handlers[0])
         handler = logging.FileHandler(args.log.name, "w")
+        handler.setFormatter(formatter)
         logger.addHandler(handler)
     logger.setLevel(args.log_level)
 

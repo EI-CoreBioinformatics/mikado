@@ -751,7 +751,7 @@ class XmlSerializer:
             counter += 1
             #
             # objects.append(Target(record, len(self.target_seqs[record])))
-            if counter >= self.maxobjects:
+            if len(objects) >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"target\" table",
                                  counter)
                 self.session.bulk_insert_mappings(Target, objects)

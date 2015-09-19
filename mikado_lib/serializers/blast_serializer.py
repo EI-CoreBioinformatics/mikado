@@ -578,6 +578,13 @@ class XmlSerializer:
     __name__ = "XMLSerializer"
     logger = create_null_logger(__name__)
 
+    # This evaluates to characters A-z and |. Used to detect true matches
+    # in the match line of blast alignments
+    # Put here so it's calculated *once* inside the program
+    __valid_matches = set([chr(x) for x in range(65, 91)] +
+                          [chr(x) for x in range(97, 123)] +
+                          ["|"])
+
     def __init__(self, xml,
                  max_target_seqs=float("Inf"),
                  logger=None,
@@ -714,6 +721,7 @@ class XmlSerializer:
         # self.engine.execute(Target.__table__.insert(),
         #                     [{"target_name": obj.target_name,
         #                       "target_length": obj.target_length} for obj in objects])
+        counter += len(objects)
         self.engine.execute(Query.__table__.insert(), objects)
         # self.session.bulk_insert_mappings(Query, objects)
         self.session.commit()
@@ -843,7 +851,7 @@ class XmlSerializer:
                 if hit_counter > 0 and hit_counter % 10000 == 0:
                     self.logger.info("Serialized %d alignments", hit_counter)
 
-                self.logger.debug("Started the hit %s-%s",
+                self.logger.debug("Started the hit %s vs. %s",
                                   name, record.alignments[ccc].accession)
                 evalue = record.descriptions[ccc].e
                 bits = record.descriptions[ccc].bits
@@ -983,7 +991,7 @@ class XmlSerializer:
         else:
             current_target = Target(alignment.accession,
                                     alignment.length)
-            self.session.warn("%s not found among targets, adding to the DB now",
+            self.logger.warn("%s not found among targets, adding to the DB now",
                               alignment.accession)
             self.session.add(current_target)
             self.session.commit()
@@ -1014,15 +1022,17 @@ class XmlSerializer:
             self.session.bulk_save_objects(objects, return_defaults=False)
             self.session.commit()
 
-    @staticmethod
-    def __prepare_hit(hit, query_id, target_id, **kwargs):
+    @classmethod
+    def __prepare_hit(cls, hit, query_id, target_id, **kwargs):
         """Prepare the dictionary for fast loading of Hit and Hsp objects"""
 
         hit_dict = dict()
         hsp_dict_list = []
-        hit_dict["global_identity"] = []
+        # hit_dict["global_identity"] = []
         q_intervals = []
         t_intervals = []
+
+        identical_positions = set()
 
         for counter, hsp in enumerate(hit.hsps):
             hsp_dict = dict()
@@ -1039,7 +1049,10 @@ class XmlSerializer:
 
             hsp_dict["hsp_identity"] = float(hsp.identities) / hsp.align_length * 100
             # Prepare the list for later calculation
-            hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
+            # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
+            for position, match in zip(range(hsp.query_start, hsp.query_end), hsp.match):
+                if match in cls.__valid_matches:
+                    identical_positions.add(position)
 
             hsp_dict["hsp_length"] = hsp.align_length
             hsp_dict["hsp_bits"] = hsp.bits
@@ -1052,8 +1065,6 @@ class XmlSerializer:
         hit_dict["query_id"] = query_id
         hit_dict["target_id"] = target_id
 
-        hit_dict["global_identity"] = mean(hit_dict["global_identity"])
-
         q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
         q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
         hit_dict["query_aligned_length"] = q_aligned
@@ -1065,5 +1076,6 @@ class XmlSerializer:
         hit_dict["target_aligned_length"] = t_aligned
         hit_dict["target_start"] = t_merged_intervals[0][0]
         hit_dict["target_end"] = t_merged_intervals[-1][1]
+        hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
 
         return hit_dict, hsp_dict_list

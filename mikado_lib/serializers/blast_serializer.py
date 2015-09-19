@@ -677,8 +677,8 @@ class XmlSerializer:
         in the database."""
 
         counter = 0
-        total = 0
         self.logger.info("Started to serialise the queries")
+        objects = []
         for record in self.query_seqs:
             if record in queries and queries[record][1] is not None:
                 continue
@@ -688,19 +688,19 @@ class XmlSerializer:
                 queries[record] = (queries[record][0], len(self.query_seqs[record]))
                 continue
 
-            self.session.bulk_insert_mappings(Query,[{
+            objects.append({
                 "query_name": record,
                 "query_length": len(self.query_seqs[record])
-            }])
-            counter += 1
+            })
             #
             # objects.append(Target(record, len(self.target_seqs[record])))
-            if counter >= self.maxobjects:
-                self.logger.info("Loading %d objects into the \"query\" table",
-                                 counter)
+            if len(objects) >= self.maxobjects:
+                self.logger.info("Loading %d objects into the \"query\" table (total %d)",
+                                 self.maxobjects, counter)
+                self.session.bulk_insert_mappings(Query, objects)
                 self.session.commit()
-                total += counter
-                counter = 0
+                counter += len(objects)
+                objects = []
                 # pylint: disable=no-member
                 # self.engine.execute(Target.__table__.insert(),
                 #                     [{"target_name": obj.target_name,
@@ -709,17 +709,18 @@ class XmlSerializer:
                 # self.logger.info("Loaded %d objects into the \"target\" table",
                 #                  len(objects))
                 # objects = []
-        self.logger.info("Loading %d objects into the \"query\" table",
-                         counter)
+        self.logger.info("Loading %d objects into the \"query\" table (total %d)",
+                         len(objects), counter)
         # pylint: disable=no-member
         # self.engine.execute(Target.__table__.insert(),
         #                     [{"target_name": obj.target_name,
         #                       "target_length": obj.target_length} for obj in objects])
+        self.session.bulk_insert_mappings(Query, objects)
         self.session.commit()
         # pylint: enable=no-member
-        self.logger.info("Loaded %d objects into the \"target\" table", total+counter)
+        self.logger.info("Loaded %d objects into the \"query\" table", counter)
         for query in self.session.query(Query):
-            queries[query.query_name] = (query.query_id, query.query_length is not None)
+            queries[query.query_name] = (query.query_id, query.query_length)
         self.logger.info("%d in queries", len(queries))
         return queries
 
@@ -732,7 +733,7 @@ class XmlSerializer:
         """
 
         counter = 0
-        total = 0
+        objects = []
         self.logger.info("Started to serialise the targets")
         for record in self.target_seqs:
             if record in targets and targets[record][1] is True:
@@ -743,19 +744,20 @@ class XmlSerializer:
                 targets[record] = (targets[record][0], True)
                 continue
 
-            self.session.bulk_insert_mappings(Target,[{
+            objects.append({
                 "target_name": record,
                 "target_length": len(self.target_seqs[record])
-            }])
+            })
             counter += 1
             #
             # objects.append(Target(record, len(self.target_seqs[record])))
             if counter >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"target\" table",
                                  counter)
+                self.session.bulk_insert_mappings(Target, objects)
                 self.session.commit()
-                total += counter
-                counter = 0
+                counter += len(objects)
+                objects = []
                 # pylint: disable=no-member
                 # self.engine.execute(Target.__table__.insert(),
                 #                     [{"target_name": obj.target_name,
@@ -764,15 +766,16 @@ class XmlSerializer:
                 # self.logger.info("Loaded %d objects into the \"target\" table",
                 #                  len(objects))
                 # objects = []
-        self.logger.info("Loading %d objects into the \"target\" table",
-                         counter)
+        self.logger.info("Loading %d objects into the \"target\" table, (total %d)",
+                         len(objects), counter)
         # pylint: disable=no-member
         # self.engine.execute(Target.__table__.insert(),
         #                     [{"target_name": obj.target_name,
         #                       "target_length": obj.target_length} for obj in objects])
+        self.session.bulk_insert_mappings(Target, objects)
         self.session.commit()
         # pylint: enable=no-member
-        self.logger.info("Loaded %d objects into the \"target\" table", total+counter)
+        self.logger.info("Loaded %d objects into the \"target\" table", counter)
         for target in self.session.query(Target):
             targets[target.target_name] = (target.target_id, target.target_length is not None)
         self.logger.info("%d in targets", len(targets))
@@ -814,10 +817,12 @@ class XmlSerializer:
         query_counter = 0
         get_query = functools.partial(self.__get_query_for_blast,
                                       **{"queries": queries})
-        objects = []
 
-        record_counter = 0
+        hits = []
+        hsps = []
         hit_counter = 0
+        record_counter = 0
+
         for record in self.xml_parser:
             record_counter += 1
             if record_counter > 0 and record_counter % 10000 == 0:
@@ -857,26 +862,29 @@ class XmlSerializer:
                 hit_dict_params["bits"] = bits
 
                 # Prepare for bulk load
-                hit, hsps = self.__prepare_hit(alignment,
+                hit, hit_hsps = self.__prepare_hit(alignment,
                                                current_query, current_target,
                                                **hit_dict_params)
-                # Bulk load
-                self.session.bulk_insert_mappings(Hit, [hit])
-                self.session.bulk_insert_mappings(Hsp, hsps)
+                hits.append(hit)
+                hsps.extend(hit_hsps)
 
-            if hit_counter > 0 and hit_counter % self.maxobjects == 0:
-                # self.logger.info(
-                #     "Loading %d objects into the hit, hsp tables (%d queries done)",
-                #     len(objects), query_counter)
-                # self.load_into_db(objects)
-                self.logger.info(
-                    "Loaded %d objects into the hit, hsp tables (%d queries done)",
-                    hit_counter, query_counter)
-                self.session.commit()
+                tot_objects = len(hits) + len(hsps)
+                if tot_objects >= self.maxobjects:
+                    # Bulk load
+                    self.logger.debug("Loading %d BLAST objects into database", tot_objects)
+                    self.session.bulk_insert_mappings(Hit, hits)
+                    self.session.bulk_insert_mappings(Hsp, hsps)
+                    self.session.commit()
+                    hits = []
+                    hsps = []
 
-        self.logger.info("Loaded %d objects into the hit, hsp tables",
-                         hit_counter)
+        self.session.bulk_insert_mappings(Hit, hits)
+        self.session.bulk_insert_mappings(Hsp, hsps)
         self.session.commit()
+
+        self.logger.info("Loaded %d alignments for %d queries",
+                         hit_counter, record_counter)
+
         self.logger.info("Finished loading blast hits")
 
     def __call__(self):

@@ -506,7 +506,8 @@ class Sublocus(Abstractlocus):
 
         # The rower is an instance of the DictWriter class from the standard CSV module
 
-        Abstractlocus.print_metrics(self)
+        for row in Abstractlocus.print_metrics(self):
+            yield row
         if self.excluded is not None:
             for row in self.excluded.print_metrics():
                 yield row

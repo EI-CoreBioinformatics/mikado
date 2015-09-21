@@ -188,6 +188,8 @@ class GffLine(GFAnnotation):
 
         if self.feature is None:
             return False
+        if self.is_gene is True:
+            return False
         if self.feature.endswith("transcript") or "RNA" in self.feature.upper():
             return True
         return False
@@ -200,7 +202,7 @@ class GffLine(GFAnnotation):
         """
 
         if self.feature is not None:
-            if self.feature.endswith("gene") and self.is_parent is True:
+            if self.feature.endswith("gene"):
                 return True
         return False
 

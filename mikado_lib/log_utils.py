@@ -14,7 +14,7 @@ def create_null_logger(instance):
     """
 
     formatter = logging.Formatter(
-        "{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
+        "{asctime} - {levelname}:{lineno} - {funcName} - {processName} - {message}",
         style="{"
         )
 
@@ -25,6 +25,7 @@ def create_null_logger(instance):
     logger = create_default_logger(name)
     logger.removeHandler(logger.handlers[0])
     handler = logging.NullHandler()
+    handler.setFormatter(formatter)
     logger.setLevel(logging.WARN)
     logger.addHandler(handler)
     return logger
@@ -45,7 +46,7 @@ def check_logger(logger):
 def create_default_logger(name):
     """Default logger"""
     formatter = logging.Formatter(
-        "{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
+        "{asctime} - {levelname}:{lineno} - {funcName} - {processName} - {message}",
         style="{"
         )
 

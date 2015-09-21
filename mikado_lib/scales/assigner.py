@@ -190,7 +190,8 @@ class Assigner:
             try:
                 prediction.strip_cds()
             except mikado_lib.exceptions.InvalidTranscript as err:
-                self.logger.warn("Invalid transcript: %s", prediction.id)
+                self.logger.warn("Invalid transcript (due to CDS): %s",
+                                 prediction.id)
                 self.logger.warn("Error message: %s", err)
                 self.done += 1
                 self.print_tmap(None)

@@ -28,6 +28,7 @@ from mikado_lib.serializers.dbutils import DBBASE
 from mikado_lib.serializers.dbutils import connect
 from mikado_lib.parsers.blast_utils import XMLMerger, create_opener, merge
 from mikado_lib.log_utils import create_null_logger, check_logger
+import gc
 # pylint: disable=no-name-in-module
 from numpy import mean
 # pylint: enable=no-name-in-module
@@ -873,8 +874,8 @@ class XmlSerializer:
 
                 # Prepare for bulk load
                 hit, hit_hsps = self.__prepare_hit(alignment,
-                                               current_query, current_target,
-                                               **hit_dict_params)
+                                                   current_query, current_target,
+                                                   **hit_dict_params)
                 hits.append(hit)
                 hsps.extend(hit_hsps)
 
@@ -889,6 +890,8 @@ class XmlSerializer:
                     self.session.commit()
                     hits = []
                     hsps = []
+                    gc.collect()
+
 
         self.engine.execute(Hit.__table__.insert(), hits)
         self.engine.execute(Hsp.__table__.insert(), hsps)

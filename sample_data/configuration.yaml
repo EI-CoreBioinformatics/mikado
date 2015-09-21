@@ -16,7 +16,7 @@ chimera_split:
     minimal_hsp_overlap: 0.9
 log_settings:
   log: mikado.log
-  log_level: DEBUG
+  log_level: INFO
 db: data.db
 dbtype: sqlite
 dbhost: localhost

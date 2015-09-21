@@ -84,6 +84,12 @@ def serialise(args):
         handler = logging.FileHandler(args.log.name, "w")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+
+    # Add sqlalchemy logging
+    sql_logger = logging.getLogger("sqlalchemy.engine")
+    sql_logger.setLevel(args.log_level)
+    sql_logger.addHandler(logger.handlers[0])
+
     logger.setLevel(args.log_level)
 
     if args.force is True:
@@ -202,7 +208,7 @@ def serialise_parser():
                          nargs='?',
                          help="Optional log file. Default: stderr")
     generic.add_argument("-lv", "--log_level", default="INFO",
-                         choices = ["DEBUG", "INFO", "WARNING", "ERROR"],
+                         choices = ["DEBUG", "INFO", "WARN", "ERROR"],
                          nargs='?',
                          help="Log level. Default: %(default)s")
 

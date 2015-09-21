@@ -48,10 +48,10 @@ rule serialise:
         --transcript_fasta {transcripts} \
         --target_seqs {targets} \
         --xml {xml} --junctions {junctions} -f --json-conf {config} \
-        --orfs {orfs} --log serialise.log -lv DEBUG""".format(fai=input["fai"],
+        --orfs {orfs} --log serialise.log -lv {level}""".format(fai=input["fai"],
         transcripts=input["transcripts"],
         targets=input["targets"], xml=input["xml"], junctions=input["junctions"],
-         orfs=input["orfs"], config=configname)
+         orfs=input["orfs"], config=configname, level=config["log_settings"]["log_level"])
         retcode = subprocess.call(command, shell=True)
         if retcode == 0:
             subprocess.call("touch serialised.ok", shell=True)

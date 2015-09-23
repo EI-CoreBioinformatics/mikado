@@ -10,6 +10,7 @@ from mikado_lib.exceptions import IncorrectStrandError
 from collections import Counter
 from functools import partial
 
+
 # pylint: disable=too-many-instance-attributes
 class TranscriptChecker(Transcript):
     """This is a subclass of the generic transcript class. Its purpose is to compare

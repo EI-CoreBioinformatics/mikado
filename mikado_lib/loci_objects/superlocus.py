@@ -407,6 +407,8 @@ class Superlocus(Abstractlocus):
                 if remove_flag is True:
                     to_remove.add(tid)
                     to_add.update(new_transcripts)
+            except KeyboardInterrupt:
+                raise
             except Exception as exc:
                 self.logger.exception(exc)
                 self.logger.warning("Removing %s as data loading failed", tid)

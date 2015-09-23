@@ -454,13 +454,13 @@ class Sublocus(Abstractlocus):
             self._calculate_score(param)
         for tid in self.transcripts:
             if tid in not_passing:
-                self.logger.warning("Excluding %s as it does not pass minimum requirements",
-                                    tid)
+                self.logger.debug("Excluding %s as it does not pass minimum requirements",
+                                  tid)
                 self.transcripts[tid].score = 0
             else:
                 self.transcripts[tid].score = sum(self.scores[tid].values())
                 if self.transcripts[tid].score == 0:
-                    self.logger.warning("Excluding %s as it has a score of 0", tid)
+                    self.logger.debug("Excluding %s as it has a score of 0", tid)
 
         self.scores_calculated = True
 

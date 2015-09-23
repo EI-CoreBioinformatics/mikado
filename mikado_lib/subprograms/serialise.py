@@ -145,6 +145,7 @@ def serialise(args):
             serializer.serialize()
         logger.info("Finished loading ORF data")
 
+
 def serialise_parser():
     """
     Parser function for the serialisation step.
@@ -208,7 +209,7 @@ def serialise_parser():
                          nargs='?',
                          help="Optional log file. Default: stderr")
     generic.add_argument("-lv", "--log_level", default="INFO",
-                         choices = ["DEBUG", "INFO", "WARN", "ERROR"],
+                         choices=["DEBUG", "INFO", "WARN", "ERROR"],
                          nargs='?',
                          help="Log level. Default: %(default)s")
 

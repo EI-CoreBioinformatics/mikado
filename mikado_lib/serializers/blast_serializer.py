@@ -28,7 +28,6 @@ from mikado_lib.serializers.dbutils import DBBASE
 from mikado_lib.serializers.dbutils import connect
 from mikado_lib.parsers.blast_utils import XMLMerger, create_opener, merge
 from mikado_lib.log_utils import create_null_logger, check_logger
-import gc
 # pylint: disable=no-name-in-module
 from numpy import mean
 # pylint: enable=no-name-in-module
@@ -706,7 +705,9 @@ class XmlSerializer:
                 self.logger.info("Loading %d objects into the \"query\" table (total %d)",
                                  self.maxobjects, counter)
                 # self.session.bulk_insert_mappings(Query, objects)
+                # pylint: disable=no-member
                 self.engine.execute(Query.__table__.insert(), objects)
+                # pylint: enable=no-member
 
                 self.session.commit()
                 counter += len(objects)
@@ -723,7 +724,9 @@ class XmlSerializer:
         #                     [{"target_name": obj.target_name,
         #                       "target_length": obj.target_length} for obj in objects])
         counter += len(objects)
+        # pylint: disable=no-member
         self.engine.execute(Query.__table__.insert(), objects)
+        # pylint: enable=no-member
         # self.session.bulk_insert_mappings(Query, objects)
         self.session.commit()
         # pylint: enable=no-member
@@ -769,10 +772,7 @@ class XmlSerializer:
                 objects = []
                 # pylint: disable=no-member
                 self.engine.execute(Target.__table__.insert(), objects)
-                # self.engine.execute(Target.__table__.insert(),
-                #                     [{"target_name": obj.target_name,
-                #                       "target_length": obj.target_length} for obj in objects])
-                # # pylint: enable=no-member
+                # pylint: enable=no-member
                 # self.logger.info("Loaded %d objects into the \"target\" table",
                 #                  len(objects))
                 # objects = []
@@ -780,12 +780,9 @@ class XmlSerializer:
                          len(objects), counter)
         # pylint: disable=no-member
         self.engine.execute(Target.__table__.insert(), objects)
-        # self.engine.execute(Target.__table__.insert(),
-        #                     [{"target_name": obj.target_name,
-        #                       "target_length": obj.target_length} for obj in objects])
-        # self.session.bulk_insert_mappings(Target, objects)
-        self.session.commit()
         # pylint: enable=no-member
+        self.session.commit()
+
         self.logger.info("Loaded %d objects into the \"target\" table", counter)
         for target in self.session.query(Target):
             targets[target.target_name] = (target.target_id, target.target_length is not None)
@@ -825,14 +822,11 @@ class XmlSerializer:
         # Load sequences in DB, precache IDs
         queries, targets = self.__serialise_sequences()
 
-        query_counter = 0
         get_query = functools.partial(self.__get_query_for_blast,
                                       **{"queries": queries})
 
-        hits = []
-        hsps = []
-        hit_counter = 0
-        record_counter = 0
+        hits, hsps = [], []
+        hit_counter, record_counter = 0, 0
 
         for record in self.xml_parser:
             record_counter += 1
@@ -842,7 +836,6 @@ class XmlSerializer:
                 continue
 
             q_mult, h_mult = self.__get_multipliers(record)
-            query_counter += 1
             current_query, name = get_query(record)
 
             for ccc, alignment in enumerate(record.alignments):
@@ -883,20 +876,19 @@ class XmlSerializer:
                 if tot_objects >= self.maxobjects:
                     # Bulk load
                     self.logger.debug("Loading %d BLAST objects into database", tot_objects)
+                    # pylint: disable=no-member
                     self.engine.execute(Hit.__table__.insert(), hits)
                     self.engine.execute(Hsp.__table__.insert(), hsps)
+                    # pylint: enable=no-member
                     # self.session.bulk_insert_mappings(Hit, hits)
                     # self.session.bulk_insert_mappings(Hsp, hsps)
                     self.session.commit()
-                    hits = []
-                    hsps = []
-                    gc.collect()
+                    hits, hsps = [], []
 
-
+        # pylint: disable=no-member
         self.engine.execute(Hit.__table__.insert(), hits)
         self.engine.execute(Hsp.__table__.insert(), hsps)
-        # self.session.bulk_insert_mappings(Hit, hits)
-        # self.session.bulk_insert_mappings(Hsp, hsps)
+        # pylint: enable=no-member
         self.session.commit()
 
         self.logger.info("Loaded %d alignments for %d queries",
@@ -961,8 +953,8 @@ class XmlSerializer:
                     {"query_length": record.query_length})
                 self.session.commit()
         else:
-            self.session.warn("%s not found among queries, adding to the DB now",
-                              name)
+            self.logger.warn("%s not found among queries, adding to the DB now",
+                             name)
             current_query = Query(name, record.query_length)
             self.session.add(current_query)
             self.session.commit()
@@ -995,7 +987,7 @@ class XmlSerializer:
             current_target = Target(alignment.accession,
                                     alignment.length)
             self.logger.warn("%s not found among targets, adding to the DB now",
-                              alignment.accession)
+                             alignment.accession)
             self.session.add(current_target)
             self.session.commit()
             assert isinstance(current_target.target_id, int)

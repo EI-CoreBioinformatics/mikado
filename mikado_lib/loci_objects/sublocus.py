@@ -451,16 +451,20 @@ class Sublocus(Abstractlocus):
         for tid in self.transcripts:
             self.scores[tid] = dict()
         for param in self.json_conf["scoring"]:
-            self.__calculate_score(param)
+            self._calculate_score(param)
         for tid in self.transcripts:
             if tid in not_passing:
+                self.logger.warning("Excluding %s as it does not pass minimum requirements",
+                                    tid)
                 self.transcripts[tid].score = 0
             else:
                 self.transcripts[tid].score = sum(self.scores[tid].values())
+                if self.transcripts[tid].score == 0:
+                    self.logger.warning("Excluding %s as it has a score of 0", tid)
 
         self.scores_calculated = True
 
-    def __calculate_score(self, param):
+    def _calculate_score(self, param):
         """
         Private method that calculates a score for each transcript,
         given a target parameter.
@@ -479,23 +483,48 @@ class Sublocus(Abstractlocus):
         if denominator == 0:
             denominator = 1
 
+        scores = []
         for tid in self.transcripts:
             tid_metric = getattr(self.transcripts[tid], param)
-            check = True
             score = 0
             if "filter" in self.json_conf["scoring"][param]:
                 check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
+            else:
+                check = True
+
             if check is False:
                 score = 0
             else:
                 if rescaling == "max":
-                    score = abs((tid_metric - min(metrics)) / denominator)
+                    if min(metrics) == max(metrics):
+                        score = 1
+                    else:
+                        score = abs((tid_metric - min(metrics)) / denominator)
+                    # self.logger.warning("For %s, score of %s is %d (max. %d/%d)",
+                    #                   tid, param, score,
+                    #                   abs((tid_metric - min(metrics))), denominator)
                 elif rescaling == "min":
-                    score = abs(1 - (tid_metric - min(metrics)) / denominator)
+                    if min(metrics) == max(metrics):
+                        score = 1
+                    else:
+                        score = abs(1 - (tid_metric - min(metrics)) / denominator)
+                    # self.logger.warning("For %s, score of %s is %d (min, %d/%d)",
+                    #                   tid, param, score,
+                    #                   abs(1-(tid_metric - min(metrics))), denominator)
                 elif rescaling == "target":
                     score = 1 - abs(tid_metric - target) / denominator
+                    # self.logger.warning("For %s, score of %s is %d (target %d, 1-%d/%d)",
+                    #                   tid, param, score, target,
+                    #                   abs(tid_metric - target), denominator)
+
             score *= self.json_conf["scoring"][param]["multiplier"]
             self.scores[tid][param] = score
+            scores.append(score)
+
+        # This MUST be true
+        if "filter" not in self.json_conf["scoring"][param]:
+            if max(scores) == 0:
+                self.logger.warning("All transcripts have a score of 0 for %s", param)
 
     def print_metrics(self):
 

@@ -368,14 +368,14 @@ class Superlocus(Abstractlocus):
 
     def load_all_transcript_data(self, pool=None, data_dict=None):
 
-        """This method will load data into the transcripts instances,
+        """
+        This method will load data into the transcripts instances,
         and perform the split_by_cds if required
         by the configuration.
         Asyncio coroutines are used to decrease runtime.
 
         :param pool: a connection pool
         :type pool: sqlalchemy.pool.QueuePool
-
         """
 
         self.locus_verified_introns = []
@@ -705,6 +705,7 @@ class Superlocus(Abstractlocus):
         cliques, _ = self.find_communities(t_graph)
 
         loci_cliques = dict()
+
         for lid, locus_instance in self.loci.items():
             self.loci[lid].logger = self.logger
             self.loci[lid].set_json_conf(self.json_conf)

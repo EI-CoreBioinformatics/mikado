@@ -39,6 +39,9 @@ class Locus(Monosublocus, Abstractlocus):
     def __str__(self, print_cds=True) -> str:
 
         self.feature = self.__name__
+        # Hacky fix to make sure that the primary transcript has the attribute
+        # Set to True in any case.
+        self.primary_transcript.attributes["primary"] = True
 
         return super().__str__(print_cds=print_cds)
 

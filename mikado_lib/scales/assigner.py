@@ -704,10 +704,9 @@ class Assigner:
         bad_ccodes = set(bad_ccodes)
 
         orderer = (len(set.intersection(bad_ccodes, set(result.ccode))) == 0,
-                   result.e_f1, result.j_f1, result.n_f1)
+                   result.j_f1, result.e_f1, result.n_f1)
 
         return orderer
-
 
     def refmap_printer(self) -> None:
 

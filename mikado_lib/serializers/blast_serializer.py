@@ -822,6 +822,7 @@ class XmlSerializer:
         # Load sequences in DB, precache IDs
         queries, targets = self.__serialise_sequences()
 
+        # Create the function that will retrieve the query_id given the name
         get_query = functools.partial(self.__get_query_for_blast,
                                       **{"queries": queries})
 
@@ -835,7 +836,6 @@ class XmlSerializer:
             if len(record.descriptions) == 0:
                 continue
 
-            q_mult, h_mult = self.__get_multipliers(record)
             current_query, name = get_query(record)
 
             for ccc, alignment in enumerate(record.alignments):
@@ -847,8 +847,6 @@ class XmlSerializer:
 
                 self.logger.debug("Started the hit %s vs. %s",
                                   name, record.alignments[ccc].accession)
-                evalue = record.descriptions[ccc].e
-                bits = record.descriptions[ccc].bits
                 hit_num = ccc + 1
                 try:
                     current_target, targets = self.__get_target_for_blast(alignment,
@@ -859,11 +857,11 @@ class XmlSerializer:
                     continue
 
                 hit_dict_params = dict()
-                hit_dict_params["query_multiplier"] = q_mult
-                hit_dict_params["target_multiplier"] = h_mult
+                (hit_dict_params["query_multiplier"],
+                 hit_dict_params["target_multiplier"]) = self.__get_multipliers(record)
                 hit_dict_params["hit_number"] = hit_num
-                hit_dict_params["evalue"] = evalue
-                hit_dict_params["bits"] = bits
+                hit_dict_params["evalue"] = record.descriptions[ccc].e
+                hit_dict_params["bits"] = record.descriptions[ccc].bits
 
                 # Prepare for bulk load
                 hit, hit_hsps = self.__prepare_hit(alignment,

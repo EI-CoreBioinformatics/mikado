@@ -10,7 +10,6 @@ from intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue
 import logging
-import functools
 import collections
 import argparse
 import operator
@@ -690,9 +689,11 @@ class Assigner:
 
         """
         Method to sort the results for the refmap. Order:
-        - CCode does not contain "f", "x", "P", "p" (i.e. fusions or fragments on opposite strand)
+        - CCode does not contain "x", "P", "p" (i.e. fragments on opposite strand or
+        polymerase run-on fragments)
         - Exonic F1 (e_f1)
         - Junction F1 (j_f1)
+        - "f" in ccode (i.e. transcript is a fusion)
         - Nucleotide F1 (n_f1)
 
         :param result: a resultStorer object
@@ -704,7 +705,9 @@ class Assigner:
         bad_ccodes = set(bad_ccodes)
 
         orderer = (len(set.intersection(bad_ccodes, set(result.ccode))) == 0,
-                   result.j_f1, result.e_f1, result.n_f1)
+                   result.j_f1, result.e_f1,
+                   "f" in result.ccode,
+                   result.n_f1)
 
         return orderer
 

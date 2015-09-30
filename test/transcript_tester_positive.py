@@ -147,7 +147,8 @@ class DrosoTester(unittest.TestCase):
         
     def test_code(self):
 
-        print( mikado_lib.scales.assigner.Assigner.compare(self.pred, self.ref) )
+        print(mikado_lib.scales.assigner.Assigner.compare(self.pred, self.ref))
+        self.assertEqual(len(self.ref.combined_cds_introns), 7)
 
 
 class TranscriptTesterPositive(unittest.TestCase):

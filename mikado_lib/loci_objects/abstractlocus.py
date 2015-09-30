@@ -211,24 +211,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     # #### Class methods ########
 
     @classmethod
-    def create_default_logger(cls):
-        """Static method to create a default logging instance for the loci.
-        The default is a null handler (no log)
-        """
-
-        formatter = logging.Formatter(
-            "{asctime} - {levelname} - {lineno} - {funcName} - {processName} - {message}",
-            style="{"
-            )
-
-        logger = logging.getLogger("{0}_logger".format(cls.__name__))
-        handler = logging.NullHandler()
-        handler.setFormatter(formatter)
-        logger.setLevel(logging.WARN)
-        logger.addHandler(handler)
-        return logger
-
-    @classmethod
     def in_locus(cls, locus_instance, transcript, flank=0) -> bool:
         """
         :param locus_instance: an inheritor of this class
@@ -427,6 +409,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.combined_cds_introns = set.union(
             self.combined_cds_introns, transcript.combined_cds_introns)
+        assert len(transcript.combined_cds_introns) <= len(self.combined_cds_introns)
+
         self.selected_cds_introns.update(transcript.selected_cds_introns)
 
         self.exons.update(set(transcript.exons))

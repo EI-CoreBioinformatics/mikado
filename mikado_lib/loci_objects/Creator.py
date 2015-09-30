@@ -13,7 +13,6 @@ import tempfile
 # import threading
 import logging
 from logging import handlers as logging_handlers
-from operator import itemgetter
 import collections
 import functools
 # SQLAlchemy/DB imports
@@ -57,6 +56,37 @@ import multiprocessing.managers
 
 
 # @profile
+
+def remove_fragments(stranded_loci, json_conf, logger):
+
+    """This method checks which loci are possible fragments, according to the
+    parameters provided in the configuration file, and tags/remove them according
+    to the configuration specification."""
+
+    loci_to_check = {True: set(), False: set()}
+    for stranded_locus in stranded_loci:
+        for _, locus_instance in stranded_locus.loci.items():
+            locus_instance.logger = logger
+            loci_to_check[locus_instance.monoexonic].add(locus_instance)
+
+    mcdl = json_conf["run_options"]["fragments_maximal_cds"]
+    bool_remove_fragments = json_conf["run_options"]["remove_overlapping_fragments"]
+    for stranded_locus in stranded_loci:
+        for locus_id, locus_instance in stranded_locus.loci.items():
+            if locus_instance in loci_to_check[True]:
+                logger.debug("Checking if %s is a fragment", locus_instance.id)
+
+                for other_locus in loci_to_check[False]:
+                    if other_locus.other_is_fragment(locus_instance,
+                                                     minimal_cds_length=mcdl) is True:
+                        if bool_remove_fragments is False:
+                            # Just mark it as a fragment
+                            stranded_locus.loci[locus_id].is_fragment = True
+                        else:
+                            del stranded_locus.loci[locus_id]
+                    break
+        yield stranded_locus
+
 
 def analyse_locus(slocus: Superlocus,
                   json_conf: dict,
@@ -138,21 +168,20 @@ def analyse_locus(slocus: Superlocus,
 
     logger.info("Defining loci")
     for stranded_locus in stranded_loci:
-        try:
-            stranded_locus.define_loci()
-            logger.debug("Defined loci for %s:%d-%d, strand: %s",
-                         stranded_locus.chrom,
-                         stranded_locus.start,
-                         stranded_locus.end,
-                         stranded_locus.strand)
-        except Exception as err:
-            logger.exception("Error in defining loci for %s:%d-%d, strand: %s",
-                             stranded_locus.chrom,
-                             stranded_locus.start,
-                             stranded_locus.end,
-                             stranded_locus.strand)
-            logger.exception("Exception: %s", err)
-            stranded_loci.remove(stranded_locus)
+        stranded_locus.define_loci()
+        logger.debug("Defined loci for %s:%d-%d, strand: %s",
+                     stranded_locus.chrom,
+                     stranded_locus.start,
+                     stranded_locus.end,
+                     stranded_locus.strand)
+        # except Exception as err:
+        #     logger.exception("Error in defining loci for %s:%d-%d, strand: %s",
+        #                      stranded_locus.chrom,
+        #                      stranded_locus.start,
+        #                      stranded_locus.end,
+        #                      stranded_locus.strand)
+        #     logger.exception("Exception: %s", err)
+        #     stranded_loci.remove(stranded_locus)
 
     # Remove overlapping fragments.
     loci_to_check = {True: set(), False: set()}
@@ -161,23 +190,8 @@ def analyse_locus(slocus: Superlocus,
             locus_instance.logger = logger
             loci_to_check[locus_instance.monoexonic].add(locus_instance)
 
-    mcdl = json_conf["run_options"]["fragments_maximal_cds"]
-    remove_fragments = json_conf["run_options"]["remove_overlapping_fragments"]
-    for stranded_locus in stranded_loci:
-        for locus_id, locus_instance in stranded_locus.loci.items():
-            if locus_instance in loci_to_check[True]:
-                logger.debug("Checking if %s is a fragment", locus_instance.id)
-
-                for other_locus in loci_to_check[False]:
-                    if other_locus.other_is_fragment(locus_instance,
-                                                     minimal_cds_length=mcdl) is True:
-                        if remove_fragments is False:
-                            stranded_locus.loci[locus_id].is_fragment = True
-                        else:
-                            del stranded_locus.loci[locus_id]
-                    break
-
-        # putter_counter = 0
+    # Check if any locus is a fragment, if so, tag/remove it
+    for stranded_locus in remove_fragments(stranded_loci, json_conf, logger):
         printer_queue.put(stranded_locus)
         logger.debug("Finished for %s:%d-%d, strand: %s",
                      stranded_locus.chrom,
@@ -192,6 +206,7 @@ def analyse_locus(slocus: Superlocus,
     return
 
 
+# pylint: disable=too-many-instance-attributes
 class Creator:
 
     """
@@ -401,6 +416,57 @@ class Creator:
 
         return
 
+    def __print_gff_headers(self, locus_out, score_keys):
+        """Private method to print the GFF headers of the output files.
+        Moreover, it will determine whether to start output files for
+        subloci and/or monoloci.
+        Returns: [subloci_metrics_handle, subloci_scores_handle, subloci_handle],
+         monosubloci_outfile
+        """
+
+        print('##gff-version 3', file=locus_out)
+        engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+                               creator=self.db_connection)
+        session = sqlalchemy.orm.sessionmaker(bind=engine)()
+        for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
+            print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
+                  file=locus_out)
+
+        if self.sub_out is not None:
+            sub_metrics_file = re.sub("$", ".metrics.tsv",
+                                      re.sub(".gff.?$", "", self.sub_out))
+            sub_scores_file = re.sub("$", ".scores.tsv",
+                                     re.sub(".gff.?$", "", self.sub_out))
+            sub_metrics = csv.DictWriter(
+                open(sub_metrics_file, 'w'),
+                mikado_lib.loci_objects.superlocus.Superlocus.available_metrics,
+                delimiter="\t")
+            sub_metrics.writeheader()
+            sub_scores = csv.DictWriter(
+                open(sub_scores_file, 'w'), score_keys, delimiter="\t")
+            sub_scores.writeheader()
+            sub_out = open(self.sub_out, 'w')
+            print('##gff-version 3', file=sub_out)
+            for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
+                print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
+                      file=sub_out)
+            sub_files = [sub_metrics, sub_scores, sub_out]
+        else:
+            sub_files = [None, None, None]
+
+        if self.monolocus_out is not None:
+            mono_out = open(self.monolocus_out, 'w')
+            print('##gff-version 3', file=mono_out)
+            for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
+                print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
+                      file=mono_out)
+        else:
+            mono_out = None
+
+        session.close()
+        engine.dispose()
+        return sub_files, mono_out
+
     def __get_output_files(self):
 
         """
@@ -427,53 +493,14 @@ class Creator:
         locus_scores = csv.DictWriter(open(locus_scores_file, 'w'), score_keys, delimiter="\t")
         locus_scores.writeheader()
         locus_out = open(self.locus_out, 'w')
-        print('##gff-version 3', file=locus_out)
-        engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
-                               creator=self.db_connection)
-        session = sqlalchemy.orm.sessionmaker(bind=engine)()
-
-        chroms = sorted([(c.name, c.length) for c in session.query(Chrom)],
-                        key=itemgetter(0))
-        session.close()
-        engine.dispose()
-
-        for chrom in chroms:
-            print("##sequence-region {0} 1 {1}".format(*chrom), file=locus_out)
-
-        if self.sub_out is not None:
-            sub_metrics_file = re.sub("$", ".metrics.tsv",
-                                      re.sub(".gff.?$", "", self.sub_out))
-            sub_scores_file = re.sub("$", ".scores.tsv",
-                                     re.sub(".gff.?$", "", self.sub_out))
-            sub_metrics = csv.DictWriter(
-                open(sub_metrics_file, 'w'),
-                mikado_lib.loci_objects.superlocus.Superlocus.available_metrics,
-                delimiter="\t")
-            sub_metrics.writeheader()
-            sub_scores = csv.DictWriter(
-                open(sub_scores_file, 'w'), score_keys, delimiter="\t")
-            sub_scores.writeheader()
-            sub_out = open(self.sub_out, 'w')
-            print('##gff-version 3', file=sub_out)
-            for chrom in chroms:
-                print("##sequence-region {0} 1 {1}".format(*chrom),
-                      file=sub_out)
-        else:
-            sub_metrics = sub_scores = sub_out = None
-
-        if self.monolocus_out is not None:
-            mono_out = open(self.monolocus_out, 'w')
-            print('##gff-version 3', file=mono_out)
-            for chrom in chroms:
-                print("##sequence-region {0} 1 {1}".format(*chrom),
-                      file=mono_out)
-        else:
-            mono_out = None
+        sub_files, mono_out = self.__print_gff_headers(locus_out, score_keys)
 
         return ((locus_metrics, locus_scores, locus_out),
-                (sub_metrics, sub_scores, sub_out),
-                mono_out)
+                sub_files, mono_out)
 
+    # This method has many local variables, but most (9!) are
+    # actually file handlers. I cannot trim them down for now.
+    # pylint: disable=too-many-locals
     def printer(self):
 
         """Listener process that will print out the loci recovered by
@@ -500,13 +527,14 @@ class Creator:
                 sub_lines = stranded_locus.__str__(
                     level="subloci",
                     print_cds=not self.json_conf["run_options"]["exclude_cds"])
+                if sub_lines != '':
+                    print(sub_lines, file=sub_out)
                 sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
                 sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()]
                 for row in sub_metrics_rows:
                     sub_metrics.writerow(row)
                 for row in sub_scores_rows:
                     sub_scores.writerow(row)
-                print(sub_lines, file=sub_out)
             if self.monolocus_out is not None:
                 mono_lines = stranded_locus.__str__(
                     level="monosubloci",
@@ -526,6 +554,7 @@ class Creator:
                 print(locus_lines, file=locus_out)
             self.printer_queue.task_done()
         return
+    # pylint: enable=too-many-locals
 
     def __getstate__(self):
 
@@ -535,6 +564,77 @@ class Creator:
                 del state[not_pickable]
 
         return state
+
+    def __preload_blast(self, engine, queries):
+
+        """Private method to load all the blast information
+        into a specific dictionary.
+
+        :param engine: the connection engine from the preloading thread
+        :param queries: a dictionary containing the name=>ID relationship
+         for queries
+        :returns hits_dict: a dictionary with the loaded BLAST data
+        """
+
+        hits_dict = collections.defaultdict(list)
+        hsps = dict()
+        for hsp in engine.execute(
+                "select * from hsp where hsp_evalue <= {0}".format(
+                    self.json_conf["chimera_split"]["blast_params"]["hsp_evalue"])
+        ).fetchall():
+            if hsp.query_id not in hsps:
+                hsps[hsp.query_id] = collections.defaultdict(list)
+            hsps[hsp.query_id][hsp.target_id].append(hsp)
+
+        self.main_logger.info("{0} HSPs prepared".format(len(hsps)))
+
+        targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
+
+        hit_counter = 0
+        hits = engine.execute(
+            "select * from hit where evalue <= {0} order by query_id,evalue;".format(
+                self.json_conf["chimera_split"]["blast_params"]["evalue"]))
+
+        # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
+        current_counter = 0
+        current_hit = None
+
+        for hit in hits:
+            if current_hit != hit.query_id:
+                current_hit = hit.query_id
+                current_counter = 0
+
+            current_counter += 1
+            max_targets = self.json_conf["chimera_split"]["blast_params"]["max_target_seqs"]
+            if current_counter > max_targets:
+                continue
+            my_query = queries[hit.query_id]
+            my_target = targets[hit.target_id]
+
+            # We HAVE to use the += approach because extend/append
+            # leave the original list empty
+            hits_dict[my_query.query_name].append(
+                Hit.as_full_dict_static(
+                    hit,
+                    hsps[hit.query_id][hit.target_id],
+                    my_query,
+                    my_target
+                )
+            )
+            hit_counter += 1
+            if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
+                self.main_logger.debug("Loaded %d BLAST hits in database",
+                                       hit_counter)
+
+        del hsps
+        assert len(hits_dict) <= len(queries)
+        self.main_logger.info("%d BLAST hits loaded for %d queries",
+                              hit_counter,
+                              len(hits_dict))
+        self.main_logger.debug("%s",
+                               ", ".join(
+                                   [str(x) for x in list(hits_dict.keys())[:10]]))
+        return hits_dict
 
     def preload(self):
         """
@@ -584,70 +684,9 @@ class Creator:
 
         # Finally load BLAST
 
-        data_dict["hits"] = collections.defaultdict(list)
-
         if self.json_conf["chimera_split"]["execute"] is True and \
                 self.json_conf["chimera_split"]["blast_check"] is True:
-            hsps = dict()
-            for hsp in engine.execute(
-                    "select * from hsp where hsp_evalue <= {0}".format(
-                        self.json_conf["chimera_split"]["blast_params"]["hsp_evalue"])
-            ).fetchall():
-                if hsp.query_id not in hsps:
-                    hsps[hsp.query_id] = collections.defaultdict(list)
-                hsps[hsp.query_id][hsp.target_id].append(hsp)
-
-            self.main_logger.info("{0} HSPs prepared".format(len(hsps)))
-
-            targets = dict((x.target_id, x) for x in engine.execute("select * from target"))
-
-            hit_counter = 0
-            hits = engine.execute(
-                "select * from hit where evalue <= {0} order by query_id,evalue;".format(
-                    self.json_conf["chimera_split"]["blast_params"]["evalue"]))
-
-            # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
-            current_counter = 0
-            current_hit = None
-
-            for hit in hits:
-                if current_hit != hit.query_id:
-                    current_hit = hit.query_id
-                    current_counter = 0
-
-                current_counter += 1
-                max_targets = self.json_conf["chimera_split"]["blast_params"]["max_target_seqs"]
-                if current_counter > max_targets:
-                    continue
-                my_query = queries[hit.query_id]
-                my_target = targets[hit.target_id]
-
-                # We HAVE to use the += approach because extend/append
-                # leave the original list empty
-                data_dict["hits"][my_query.query_name].append(
-                    Hit.as_full_dict_static(
-                        hit,
-                        hsps[hit.query_id][hit.target_id],
-                        my_query,
-                        my_target
-                    )
-                )
-                hit_counter += 1
-                if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
-                    self.main_logger.debug("Loaded %d BLAST hits in database",
-                                           hit_counter)
-
-            # data_dict["hits"] = self.manager.dict(dict.update(data_dict["hits"]),
-            #                                       lock=False)
-            del hsps
-            # del hits_dict
-            assert len(data_dict["hits"]) <= len(queries)
-            self.main_logger.info("%d BLAST hits loaded for %d queries",
-                                  hit_counter,
-                                  len(data_dict["hits"]))
-            self.main_logger.debug("%s",
-                                   ", ".join(
-                                       [str(x) for x in list(data_dict["hits"].keys())[:10]]))
+            data_dict["hits"] = self.__preload_blast(engine, queries)
         else:
             data_dict["hits"] = dict()
             self.main_logger.info("Skipping BLAST loading")
@@ -655,35 +694,68 @@ class Creator:
         self.main_logger.info("Finished to preload the database into memory")
         return data_dict
 
-    def __call__(self):
+    def _submit_locus(self, current_locus, data_dict=None, pool=None):
+        """
+        Private method to submit / start the analysis of a superlocus in input.
+        :param current_locus: the locus to analyse.
+        :param data_dict: the preloaded data in memory
+        :param pool: thread execution pool
+        :return: job object / None
+        """
 
-        """This method will activate the class and start the analysis of the input file."""
+        job = None
+        if current_locus is not None:
+            # Load data on the local thread before sending.
+            if data_dict is not None:
+                self.main_logger.debug("Loading data from dict for %s",
+                                       current_locus.id)
+                current_locus.logger = self.queue_logger
+                current_locus.load_all_transcript_data(pool=self.queue_pool,
+                                                       data_dict=data_dict)
+                current_locus_id = current_locus.id
+                if current_locus.initialized is False:
+                    # This happens when we have removed all transcripts from the locus
+                    # due to errors which should have been caught and logged
+                    current_locus = None
+                    self.main_logger.warning(
+                        "%s had all transcripts failing checks, ignoring it",
+                        current_locus_id)
+                    # Exit
+                    return None
 
-        # NOTE: Pool, Process and Manager must NOT become instance attributes!
-        # Otherwise it will raise all sorts of mistakes
+            self.main_logger.info("Submitting %s",
+                                  current_locus.id)
+            if self.json_conf["single_thread"] is True:
+                analyse_locus(current_locus,
+                              self.json_conf,
+                              self.printer_queue,
+                              self.logging_queue)
+            else:
+                job = pool.apply_async(analyse_locus,
+                                       args=(current_locus,
+                                             self.json_conf,
+                                             self.printer_queue,
+                                             self.logging_queue))
+        return job
 
-        self.printer_process.start()
+    def _parse_and_submit_input(self, pool, data_dict):
+
+        """
+        This method does the parsing of the input and submission of the loci to the
+        _submit_locus method.
+        :param pool: The threading pool
+        :param data_dict: The cached data from the database
+        :return: jobs (the list of all jobs already submitted)
+        """
 
         current_locus = None
         current_transcript = None
 
         jobs = []
-
-        data_dict = None
-        if self.json_conf["run_options"]["preload"] is True:
-            # Use the preload function to create the data dictionary
-            data_dict = self.preload()
-        # pylint: disable=no-member
-        pool = multiprocessing.Pool(processes=self.threads)
-        # pylint: enable=no-member
-
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
-        self.logger.debug("Source: %s", self.json_conf["source"])
-        if self.json_conf["dbtype"] == "sqlite" and data_dict is not None:
-            self.queue_pool = sqlalchemy.pool.QueuePool(
-                self.db_connection, pool_size=1, max_overflow=2)
-
+        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
+                                                                "pool": pool})
         for row in self.define_input():
             if row.is_exon is True:
                 current_transcript.add_exon(row)
@@ -693,30 +765,10 @@ class Creator:
                             current_locus, current_transcript) is True:
                         current_locus.add_transcript_to_locus(current_transcript,
                                                               check_in_locus=False)
-                        # assert current_transcript.id in current_locus.transcripts
                     else:
-                        # Load data on the local thread before sending.
-                        if current_locus is not None:
-                            if data_dict is not None:
-                                self.main_logger.debug("Loading data from dict for %s",
-                                                       current_locus.id)
-                                current_locus.logger = self.queue_logger
-                                current_locus.load_all_transcript_data(pool=self.queue_pool,
-                                                                       data_dict=data_dict)
-                            self.main_logger.info("Submitting %s",
-                                                  current_locus.id)
-                            if self.json_conf["single_thread"] is True:
-                                analyse_locus(current_locus,
-                                              self.json_conf,
-                                              self.printer_queue,
-                                              self.logging_queue)
-                            else:
-                                jobs.append(pool.apply_async(analyse_locus,
-                                                             args=(current_locus,
-                                                                   self.json_conf,
-                                                                   self.printer_queue,
-                                                                   self.logging_queue)))
-
+                        job = submit_locus(current_locus)
+                        if job is not None:
+                            jobs.append(job)
                         current_locus = mikado_lib.loci_objects.superlocus.Superlocus(
                             current_transcript,
                             stranded=False,
@@ -734,34 +786,7 @@ class Creator:
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
             else:
-                if current_locus is not None:
-                    if data_dict is not None:
-                        self.main_logger.info("Loading data from cache for %s",
-                                              current_locus.id)
-                        current_locus_id = current_locus.id
-                        current_locus.load_all_transcript_data(
-                            pool=self.queue_pool, data_dict=data_dict)
-                        if current_locus.initialized is False:
-                            # This happens when we have removed all transcripts from the locus
-                            # due to errors which should have been caught and logged
-                            current_locus = None
-                            self.main_logger.warning(
-                                "%s had all transcripts failing checks, ignoring it",
-                                current_locus_id)
-                    if current_locus is not None:
-                        self.main_logger.info("Submitting %s",
-                                              current_locus.id)
-                        if self.json_conf["single_thread"] is True:
-                            analyse_locus(current_locus,
-                                          self.json_conf,
-                                          self.printer_queue,
-                                          self.logging_queue)
-                        else:
-                            jobs.append(pool.apply_async(analyse_locus,
-                                                         args=(current_locus,
-                                                               self.json_conf,
-                                                               self.printer_queue,
-                                                               self.logging_queue)))
+                jobs.append(submit_locus(current_locus))
 
                 current_locus = mikado_lib.loci_objects.superlocus.Superlocus(
                     current_transcript,
@@ -770,35 +795,34 @@ class Creator:
                 self.logger.debug("Created last locus %s",
                                   current_locus)
 
-        if current_locus is not None:
-            if data_dict is not None:
-                self.main_logger.debug("Loading data from cache for %s",
-                                       current_locus.id)
-                current_locus.logger = self.queue_logger
-                current_locus_id = current_locus.id
-                current_locus.load_all_transcript_data(
-                    pool=self.queue_pool, data_dict=data_dict)
-                if current_locus.initialized is False:
-                    # This happens when we have removed all transcripts from the locus
-                    # due to errors which should have been caught and logged
-                    current_locus = None
-                    self.main_logger.warning(
-                        "%s had all transcripts failing checks, ignoring it",
-                        current_locus_id)
-            if current_locus is not None:
-                self.main_logger.info("Submitting %s", current_locus.id)
-                if self.json_conf["single_thread"] is True:
-                    analyse_locus(current_locus,
-                                  self.json_conf,
-                                  self.printer_queue,
-                                  self.logging_queue)
-                else:
-                    jobs.append(pool.apply_async(analyse_locus, args=(current_locus,
-                                                                      self.json_conf,
-                                                                      self.printer_queue,
-                                                                      self.logging_queue)))
+        jobs.append(submit_locus(current_locus))
+        return jobs
 
-        for job in jobs:
+    def __call__(self):
+
+        """This method will activate the class and start the analysis of the input file."""
+
+        # NOTE: Pool, Process and Manager must NOT become instance attributes!
+        # Otherwise it will raise all sorts of mistakes
+
+        self.printer_process.start()
+
+        data_dict = None
+        if self.json_conf["run_options"]["preload"] is True:
+            # Use the preload function to create the data dictionary
+            data_dict = self.preload()
+        # pylint: disable=no-member
+        pool = multiprocessing.Pool(processes=self.threads)
+        # pylint: enable=no-member
+
+        self.logger.debug("Source: %s", self.json_conf["source"])
+        if self.json_conf["dbtype"] == "sqlite" and data_dict is not None:
+            self.queue_pool = sqlalchemy.pool.QueuePool(
+                self.db_connection, pool_size=1, max_overflow=2)
+
+        jobs = self._parse_and_submit_input(pool, data_dict)
+
+        for job in iter(x for x in jobs if x is not None):
             job.get()
 
         pool.close()
@@ -806,13 +830,12 @@ class Creator:
 
         self.printer_queue.join()
         self.printer_queue.put("EXIT")
-        # The printing process must be started AFTER
-        # we have put the stopping signal into the queue
         self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:
             self.queue_pool.dispose()
 
+        # Clean up the DB copied to SHM
         if (self.json_conf["run_options"]["shm"] is True and
                 self.json_conf["run_options"]["shm_shared"] is False):
             self.main_logger.info("Removing shared memory DB %s",
@@ -821,3 +844,4 @@ class Creator:
 
         self.main_logger.info("Finished analysis of %s", self.input_file)
         return 0
+# pylint: enable=too-many-instance-attributes

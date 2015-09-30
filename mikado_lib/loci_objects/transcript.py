@@ -179,7 +179,7 @@ class Transcript:
         self.blast_hits = []
 
         # Relative properties
-        self.retained_introns = []
+        self.retained_introns = ()
         self.retained_fraction = 0
         self.exon_fraction = self.intron_fraction = 1
         self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
@@ -2252,12 +2252,13 @@ class Transcript:
             return set()
 
         cintrons = []
-        for position in range(len(self.selected_internal_orf_cds) - 1):
+        for first, second in zip(self.selected_cds[:-1],self.selected_cds[1:]):
             cintrons.append(
-                (self.selected_internal_orf_cds[position][2] + 1,
-                 self.selected_internal_orf_cds[position + 1][1] - 1)
+                (first[1] + 1,
+                 second[0] - 1)
             )
         cintrons = set(cintrons)
+        assert len(cintrons) > 0
         return cintrons
 
     @property

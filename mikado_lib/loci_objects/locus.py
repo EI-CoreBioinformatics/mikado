@@ -75,7 +75,7 @@ class Locus(Monosublocus, Abstractlocus):
                                   transcript.id)
                 to_be_added = False
             else:
-                transcript.attributes["ccode"]=ccode
+                transcript.attributes["ccode"] = ccode
         if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:
             self.logger.debug("%s not added because it has too much UTR (%d).",
                               transcript.id,
@@ -226,16 +226,14 @@ class Locus(Monosublocus, Abstractlocus):
                                   tid, other.id, result.ccode[0])
 
             if main_ccode not in valid_ccodes:
-                self.logger.debug(
-                                "%s is not a valid splicing isoform. Ccode: %s",
-                                other.id,
-                                main_result.ccode[0])
+                self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
+                                  other.id,
+                                  main_result.ccode[0])
                 is_valid = False
             elif "_" in ccodes or "=" in ccodes:
-                self.logger.debug(
-                                "%s is a redundant valid splicing isoform. Ccode: %s",
-                                other.id,
-                                main_result.ccode[0])
+                self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
+                                  other.id,
+                                  main_result.ccode[0])
                 is_valid = False
             return is_valid, main_ccode
 

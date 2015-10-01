@@ -17,6 +17,7 @@ from mikado_lib.scales.assigner import Assigner
 from mikado_lib.scales.reference_gene import Gene
 from mikado_lib.parsers.GFF import GFF3
 from mikado_lib.scales.accountant import Accountant
+from mikado_lib.log_utils import create_default_logger
 
 __author__ = 'Luca Venturini'
 
@@ -30,27 +31,29 @@ def setup_logger(args, manager):
     :return:
     """
 
-    logger = logging.getLogger("main")
-    formatter = logging.Formatter("{asctime} - {name} - {levelname} - {message}", style="{")
+    logger = create_default_logger("main_compare")
     args.log_queue = manager.Queue()
     args.queue_handler = log_handlers.QueueHandler(args.log_queue)
     log_queue_listener = log_handlers.QueueListener(args.log_queue, logger)
     log_queue_listener.propagate = False
     log_queue_listener.start()
 
-    if args.log is None:
-        handler = logging.StreamHandler()
-    else:
+    if args.log is not None:
         if os.path.exists(args.log):
             os.remove(args.log)
         handler = logging.FileHandler(args.log)
-    handler.setFormatter(formatter)
+        handler.setFormatter(logger.handlers[0].formatter)
+        # Remove stream handler
+        logger.removeHandler(logger.handlers[0])
+        logger.addHandler(handler)
+    else:
+        handler = logger.handlers[0]
 
     if args.verbose is False:
         logger.setLevel(logging.INFO)
     else:
         logger.setLevel(logging.DEBUG)
-    logger.addHandler(handler)
+
     logger.propagate = False
 
     queue_logger = logging.getLogger("main_queue")
@@ -212,6 +215,8 @@ def parse_prediction(args, genes, positions, queue_logger):
                     assigner_instance.get_best(transcript)
             transcript = Transcript(row)
         elif row.is_exon is True:
+            queue_logger.debug("Adding exon to transcript %s: %s",
+                               transcript.id, row)
             transcript.add_exon(row)
         else:
             continue

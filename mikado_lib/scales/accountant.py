@@ -721,7 +721,7 @@ class Accountant:
             print(gene_transcript_results["pred"]["total"], "predicted RNAs in ",
                   len(self.pred_genes), "genes", file=out)
 
-            print("-" * 30, "|   Sn |   Sp |   F1 |", file=out)
+            print("-" * 30, "|   Sn |   Pr |   F1 |", file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Base level"),
                 bases_recall * 100,

@@ -11,7 +11,7 @@ import io
 import os
 from mikado_lib.parsers import bed12
 from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
-from mikado_lib.log_utils import create_null_logger, check_logger
+from mikado_lib.log_utils import check_logger, create_default_logger
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -50,7 +50,9 @@ class Junction(DBBASE):
 
     __tablename__ = "junctions"
 
+    # pylint: disable=invalid-name
     id = Column(Integer, primary_key=True)
+    # pylint: enable=invalid-name
     chrom_id = Column(Integer, ForeignKey(Chrom.chrom_id), unique=False)
     start = Column(Integer, nullable=False)
     end = Column(Integer, nullable=False)
@@ -123,6 +125,7 @@ class Junction(DBBASE):
                (self.end == end) and (self.strand == strand)
 
 
+# pylint: disable=too-few-public-methods
 class JunctionSerializer:
 
     """
@@ -151,6 +154,9 @@ class JunctionSerializer:
 
         if logger is not None:
             logger = check_logger(logger)
+            self.logger = logger
+        else:
+            self.logger = create_default_logger("junction")
 
         if handle is None:
             self.logger.warn("No input file specified. Exiting.")
@@ -222,3 +228,4 @@ class JunctionSerializer:
         """
 
         self.serialize()
+# pylint: enable=too-few-public-methods

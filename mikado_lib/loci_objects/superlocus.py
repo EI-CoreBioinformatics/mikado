@@ -253,7 +253,7 @@ class Superlocus(Abstractlocus):
                                                  print_cds=print_cds)
         if len(lines) > 0:
             lines.append("###")
-        return "\n".join(lines)
+        return "\n".join([line for line in lines if line is not None and line != ''])
     # pylint: enable=arguments-differ
 
     # ########### Class instance methods ############
@@ -355,27 +355,19 @@ class Superlocus(Abstractlocus):
 
         if self.json_conf["chimera_split"]["execute"] is True:
             if self.transcripts[tid].number_internal_orfs > 1:
-                try:
-                    new_tr = list(self.transcripts[tid].split_by_cds())
-                except Exception as err:
-                    self.logger.exception(err)
-                    raise
+                new_tr = list(self.transcripts[tid].split_by_cds())
                 if len(new_tr) > 1:
                     to_add.update(new_tr)
                     to_remove = True
         return to_remove, to_add
         # @profile
 
-    def load_all_transcript_data(self, pool=None, data_dict=None):
+    def _load_introns(self, data_dict, pool):
 
-        """This method will load data into the transcripts instances,
-        and perform the split_by_cds if required
-        by the configuration.
-        Asyncio coroutines are used to decrease runtime.
-
-        :param pool: a connection pool
-        :type pool: sqlalchemy.pool.QueuePool
-
+        """Private method to load the intron data into the locus.
+        :param data_dict: Dictionary containing the preloaded data, if available.
+        :param pool: the SQL connection pool, if available.
+        :return:
         """
 
         self.locus_verified_introns = []
@@ -399,18 +391,26 @@ class Superlocus(Abstractlocus):
                 if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
                     self.locus_verified_introns.append(intron)
 
+    def load_all_transcript_data(self, pool=None, data_dict=None):
+
+        """
+        This method will load data into the transcripts instances,
+        and perform the split_by_cds if required
+        by the configuration.
+        Asyncio coroutines are used to decrease runtime.
+
+        :param pool: a connection pool
+        :type pool: sqlalchemy.pool.QueuePool
+        """
+
+        self._load_introns(data_dict, pool)
         tid_keys = self.transcripts.keys()
         to_remove, to_add = set(), set()
         for tid in tid_keys:
-            try:
-                remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
-                if remove_flag is True:
-                    to_remove.add(tid)
-                    to_add.update(new_transcripts)
-            except Exception as exc:
-                self.logger.exception(exc)
-                self.logger.warning("Removing %s as data loading failed", tid)
+            remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
+            if remove_flag is True:
                 to_remove.add(tid)
+                to_add.update(new_transcripts)
 
         if len(to_remove) > 0:
             self.logger.debug("Adding to %s: %s",
@@ -703,6 +703,7 @@ class Superlocus(Abstractlocus):
         cliques, _ = self.find_communities(t_graph)
 
         loci_cliques = dict()
+
         for lid, locus_instance in self.loci.items():
             self.loci[lid].logger = self.logger
             self.loci[lid].set_json_conf(self.json_conf)

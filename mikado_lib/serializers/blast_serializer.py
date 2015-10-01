@@ -578,6 +578,13 @@ class XmlSerializer:
     __name__ = "XMLSerializer"
     logger = create_null_logger(__name__)
 
+    # This evaluates to characters A-z and |. Used to detect true matches
+    # in the match line of blast alignments
+    # Put here so it's calculated *once* inside the program
+    __valid_matches = set([chr(x) for x in range(65, 91)] +
+                          [chr(x) for x in range(97, 123)] +
+                          ["|"])
+
     def __init__(self, xml,
                  max_target_seqs=float("Inf"),
                  logger=None,
@@ -698,7 +705,9 @@ class XmlSerializer:
                 self.logger.info("Loading %d objects into the \"query\" table (total %d)",
                                  self.maxobjects, counter)
                 # self.session.bulk_insert_mappings(Query, objects)
+                # pylint: disable=no-member
                 self.engine.execute(Query.__table__.insert(), objects)
+                # pylint: enable=no-member
 
                 self.session.commit()
                 counter += len(objects)
@@ -714,7 +723,10 @@ class XmlSerializer:
         # self.engine.execute(Target.__table__.insert(),
         #                     [{"target_name": obj.target_name,
         #                       "target_length": obj.target_length} for obj in objects])
+        counter += len(objects)
+        # pylint: disable=no-member
         self.engine.execute(Query.__table__.insert(), objects)
+        # pylint: enable=no-member
         # self.session.bulk_insert_mappings(Query, objects)
         self.session.commit()
         # pylint: enable=no-member
@@ -760,10 +772,7 @@ class XmlSerializer:
                 objects = []
                 # pylint: disable=no-member
                 self.engine.execute(Target.__table__.insert(), objects)
-                # self.engine.execute(Target.__table__.insert(),
-                #                     [{"target_name": obj.target_name,
-                #                       "target_length": obj.target_length} for obj in objects])
-                # # pylint: enable=no-member
+                # pylint: enable=no-member
                 # self.logger.info("Loaded %d objects into the \"target\" table",
                 #                  len(objects))
                 # objects = []
@@ -771,12 +780,9 @@ class XmlSerializer:
                          len(objects), counter)
         # pylint: disable=no-member
         self.engine.execute(Target.__table__.insert(), objects)
-        # self.engine.execute(Target.__table__.insert(),
-        #                     [{"target_name": obj.target_name,
-        #                       "target_length": obj.target_length} for obj in objects])
-        # self.session.bulk_insert_mappings(Target, objects)
-        self.session.commit()
         # pylint: enable=no-member
+        self.session.commit()
+
         self.logger.info("Loaded %d objects into the \"target\" table", counter)
         for target in self.session.query(Target):
             targets[target.target_name] = (target.target_id, target.target_length is not None)
@@ -816,14 +822,12 @@ class XmlSerializer:
         # Load sequences in DB, precache IDs
         queries, targets = self.__serialise_sequences()
 
-        query_counter = 0
+        # Create the function that will retrieve the query_id given the name
         get_query = functools.partial(self.__get_query_for_blast,
                                       **{"queries": queries})
 
-        hits = []
-        hsps = []
-        hit_counter = 0
-        record_counter = 0
+        hits, hsps = [], []
+        hit_counter, record_counter = 0, 0
 
         for record in self.xml_parser:
             record_counter += 1
@@ -832,8 +836,6 @@ class XmlSerializer:
             if len(record.descriptions) == 0:
                 continue
 
-            q_mult, h_mult = self.__get_multipliers(record)
-            query_counter += 1
             current_query, name = get_query(record)
 
             for ccc, alignment in enumerate(record.alignments):
@@ -843,10 +845,8 @@ class XmlSerializer:
                 if hit_counter > 0 and hit_counter % 10000 == 0:
                     self.logger.info("Serialized %d alignments", hit_counter)
 
-                self.logger.debug("Started the hit %s-%s",
+                self.logger.debug("Started the hit %s vs. %s",
                                   name, record.alignments[ccc].accession)
-                evalue = record.descriptions[ccc].e
-                bits = record.descriptions[ccc].bits
                 hit_num = ccc + 1
                 try:
                     current_target, targets = self.__get_target_for_blast(alignment,
@@ -857,16 +857,16 @@ class XmlSerializer:
                     continue
 
                 hit_dict_params = dict()
-                hit_dict_params["query_multiplier"] = q_mult
-                hit_dict_params["target_multiplier"] = h_mult
+                (hit_dict_params["query_multiplier"],
+                 hit_dict_params["target_multiplier"]) = self.__get_multipliers(record)
                 hit_dict_params["hit_number"] = hit_num
-                hit_dict_params["evalue"] = evalue
-                hit_dict_params["bits"] = bits
+                hit_dict_params["evalue"] = record.descriptions[ccc].e
+                hit_dict_params["bits"] = record.descriptions[ccc].bits
 
                 # Prepare for bulk load
                 hit, hit_hsps = self.__prepare_hit(alignment,
-                                               current_query, current_target,
-                                               **hit_dict_params)
+                                                   current_query, current_target,
+                                                   **hit_dict_params)
                 hits.append(hit)
                 hsps.extend(hit_hsps)
 
@@ -874,18 +874,19 @@ class XmlSerializer:
                 if tot_objects >= self.maxobjects:
                     # Bulk load
                     self.logger.debug("Loading %d BLAST objects into database", tot_objects)
+                    # pylint: disable=no-member
                     self.engine.execute(Hit.__table__.insert(), hits)
                     self.engine.execute(Hsp.__table__.insert(), hsps)
+                    # pylint: enable=no-member
                     # self.session.bulk_insert_mappings(Hit, hits)
                     # self.session.bulk_insert_mappings(Hsp, hsps)
                     self.session.commit()
-                    hits = []
-                    hsps = []
+                    hits, hsps = [], []
 
+        # pylint: disable=no-member
         self.engine.execute(Hit.__table__.insert(), hits)
         self.engine.execute(Hsp.__table__.insert(), hsps)
-        # self.session.bulk_insert_mappings(Hit, hits)
-        # self.session.bulk_insert_mappings(Hsp, hsps)
+        # pylint: enable=no-member
         self.session.commit()
 
         self.logger.info("Loaded %d alignments for %d queries",
@@ -950,8 +951,8 @@ class XmlSerializer:
                     {"query_length": record.query_length})
                 self.session.commit()
         else:
-            self.session.warn("%s not found among queries, adding to the DB now",
-                              name)
+            self.logger.warn("%s not found among queries, adding to the DB now",
+                             name)
             current_query = Query(name, record.query_length)
             self.session.add(current_query)
             self.session.commit()
@@ -983,8 +984,8 @@ class XmlSerializer:
         else:
             current_target = Target(alignment.accession,
                                     alignment.length)
-            self.session.warn("%s not found among targets, adding to the DB now",
-                              alignment.accession)
+            self.logger.warn("%s not found among targets, adding to the DB now",
+                             alignment.accession)
             self.session.add(current_target)
             self.session.commit()
             assert isinstance(current_target.target_id, int)
@@ -1014,15 +1015,17 @@ class XmlSerializer:
             self.session.bulk_save_objects(objects, return_defaults=False)
             self.session.commit()
 
-    @staticmethod
-    def __prepare_hit(hit, query_id, target_id, **kwargs):
+    @classmethod
+    def __prepare_hit(cls, hit, query_id, target_id, **kwargs):
         """Prepare the dictionary for fast loading of Hit and Hsp objects"""
 
         hit_dict = dict()
         hsp_dict_list = []
-        hit_dict["global_identity"] = []
+        # hit_dict["global_identity"] = []
         q_intervals = []
         t_intervals = []
+
+        identical_positions = set()
 
         for counter, hsp in enumerate(hit.hsps):
             hsp_dict = dict()
@@ -1039,7 +1042,10 @@ class XmlSerializer:
 
             hsp_dict["hsp_identity"] = float(hsp.identities) / hsp.align_length * 100
             # Prepare the list for later calculation
-            hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
+            # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
+            for position, match in zip(range(hsp.query_start, hsp.query_end), hsp.match):
+                if match in cls.__valid_matches:
+                    identical_positions.add(position)
 
             hsp_dict["hsp_length"] = hsp.align_length
             hsp_dict["hsp_bits"] = hsp.bits
@@ -1052,8 +1058,6 @@ class XmlSerializer:
         hit_dict["query_id"] = query_id
         hit_dict["target_id"] = target_id
 
-        hit_dict["global_identity"] = mean(hit_dict["global_identity"])
-
         q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
         q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
         hit_dict["query_aligned_length"] = q_aligned
@@ -1065,5 +1069,6 @@ class XmlSerializer:
         hit_dict["target_aligned_length"] = t_aligned
         hit_dict["target_start"] = t_merged_intervals[0][0]
         hit_dict["target_end"] = t_merged_intervals[-1][1]
+        hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
 
         return hit_dict, hsp_dict_list

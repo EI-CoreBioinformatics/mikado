@@ -14,6 +14,8 @@ import functools
 from collections import OrderedDict, Counter
 import inspect
 # import asyncio
+import collections
+from intervaltree import Interval, IntervalTree
 from mikado_lib.log_utils import create_null_logger
 from mikado_lib.exceptions import InvalidTranscript
 # SQLAlchemy imports
@@ -179,7 +181,7 @@ class Transcript:
         self.blast_hits = []
 
         # Relative properties
-        self.retained_introns = []
+        self.retained_introns = ()
         self.retained_fraction = 0
         self.exon_fraction = self.intron_fraction = 1
         self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
@@ -435,8 +437,6 @@ class Transcript:
             utr3_feature = "3UTR"
             utr5_feature = "5UTR"
 
-        if cds_begin is False and segment[0] == "CDS":
-            cds_begin = True
         if segment[0] == "UTR":
             if (cds_begin is True and self.strand == "-") or \
                     (self.strand == "+" and cds_begin is False):
@@ -448,6 +448,7 @@ class Transcript:
                 counter.update(["three"])
                 index = counter["three"]
         elif segment[0] == "CDS":
+            cds_begin = True
             counter.update(["CDS"])
             index = counter["CDS"]
             feature = "CDS"
@@ -711,6 +712,22 @@ class Transcript:
         """
         This method verifies if a transcript with multiple ORFs has support by BLAST to
         NOT split it into its different components.
+
+        The minimal overlap between ORF and HSP is defined inside the JSON at the key
+            ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        basically, we consider a HSP a hit only if the overlap is over a certain threshold
+        and the HSP evalue under a certain threshold.
+
+        The split by CDS can be executed in three different ways - CLEMENT, LENIENT, STRINGENT:
+
+        - PERMISSIVE: split if two CDSs do not have hits in common,
+        even when one or both do not have a hit at all.
+        - STRINGENT: split only if two CDSs have hits and none
+        of those is in common between them.
+        - LENIENT: split if *both* lack hits, OR *both* have hits and none
+        of those is in common.
+
+
         :param cds_boundaries:
         :return:
         """
@@ -722,7 +739,7 @@ class Transcript:
 
         cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
         for key in cds_hit_dict:
-            cds_hit_dict[key] = set()
+            cds_hit_dict[key] = collections.defaultdict(list)
 
         # BUG, this is a hacky fix
         if not hasattr(self, "blast_hits"):
@@ -733,12 +750,10 @@ class Transcript:
             self.blast_hits = []
 
         # Determine for each CDS which are the hits available
+        min_eval = self.json_conf['chimera_split']['blast_params']['hsp_evalue']
         for hit in self.blast_hits:
-            for hsp in filter(lambda lambda_hsp:
-                              lambda_hsp["hsp_evalue"] <=
-                              self.json_conf['chimera_split']['blast_params']['hsp_evalue'],
-                              hit["hsps"]):
-
+            for hsp in iter(_hsp for _hsp in hit["hsps"] if
+                            _hsp["hsp_evalue"] <= min_eval):
                 for cds_run in cds_boundaries:
                     # If I have a valid hit b/w the CDS region and the hit,
                     # add the name to the set
@@ -746,7 +761,7 @@ class Transcript:
                     if Abstractlocus.overlap(cds_run, (
                             hsp['query_hsp_start'],
                             hsp['query_hsp_end'])) >= overlap_threshold:
-                        cds_hit_dict[cds_run].add(hit["target"])
+                        cds_hit_dict[cds_run][(hit["target"], hit["target_len"])].append(hsp)
 
         final_boundaries = OrderedDict()
         for boundary in self.__get_boundaries_from_blast(cds_boundaries, cds_hit_dict):
@@ -763,6 +778,59 @@ class Transcript:
         cds_boundaries = final_boundaries.copy()
         return cds_boundaries
 
+    def __check_common_hits(self, cds_hits, old_hits):
+        """
+        This private method verifies whether we have to split a transcript
+        if there are hits for both ORFs and some of them refer to the same target.
+        To do so, we check whether the two CDS runs actually share at least one HSPs
+        (in which case we do NOT want to split); if not, we verify whether the HSPs
+        cover a large fraction of the target length. If this is the case, we decide to
+        break down the transcript because we are probably in the presence of a tandem
+        duplication.
+        :param cds_hits:
+        :param old_hits:
+        :return:
+        """
+
+        in_common = set.intersection(set(cds_hits.keys()),
+                                     set(old_hits.keys()))
+        # We do not have any hit in common
+        to_break = len(in_common) == 0
+        min_overlap_duplication = self.json_conf[
+            'chimera_split']['blast_params']['min_overlap_duplication']
+        for common_hit in in_common:
+            old_hsps = old_hits[common_hit]
+            cds_hsps = cds_hits[common_hit]
+            # First check ... do we have HSPs in common?
+            # if len(set.intersection(old_hsps, cds_hsps)) > 0:
+            #     to_break = False
+            #     break
+            old_query_boundaries = IntervalTree([Interval(h["query_hsp_start"],
+                                                          h["query_hsp_end"])
+                                                 for h in old_hsps])
+            # Look for HSPs that span the two ORFs
+            if any([len(
+                    old_query_boundaries.search(new_cds["query_hsp_start"],
+                                                new_cds["query_hsp_end"])) > 0]
+                   for new_cds in cds_hsps):
+                to_break = False
+                break
+
+            old_target_boundaries = IntervalTree([
+                Interval(h["target_hsp_start"], h["target_hsp_end"]) for h in old_hsps])
+            for cds_hsp in cds_hsps:
+                boundary = (cds_hsp["target_hsp_start"], cds_hsp["target_hsp_end"])
+                for target_hit in old_target_boundaries.search(*boundary):
+                    overlap_fraction = self.overlap(boundary,
+                                                    target_hit)/common_hit[1]
+
+                    if overlap_fraction >= min_overlap_duplication:
+                        to_break = True
+                        break
+            if to_break is True:
+                break
+        return to_break
+
     def __get_boundaries_from_blast(self, cds_boundaries, cds_hit_dict):
 
         """
@@ -772,6 +840,7 @@ class Transcript:
         :return:
         """
         new_boundaries = []
+        leniency = self.json_conf['chimera_split']['blast_params']['leniency']
         for cds_boundary in cds_boundaries:
             if not new_boundaries:
                 new_boundaries.append([cds_boundary])
@@ -779,21 +848,20 @@ class Transcript:
                 old_boundary = new_boundaries[-1][-1]
                 cds_hits = cds_hit_dict[cds_boundary]
                 old_hits = cds_hit_dict[old_boundary]
-                if cds_hits == set() and old_hits == set():  # No hit found for either CDS
+                if len(cds_hits) == len(old_hits) == 0:  # No hit found for either CDS
                     # If we are stringent, we DO NOT split
-                    if self.json_conf['chimera_split']['blast_params']['leniency'] == "STRINGENT":
+                    if leniency == "STRINGENT":
                         new_boundaries[-1].append(cds_boundary)
                     else:  # Otherwise, we do split
                         new_boundaries.append([cds_boundary])
-                elif cds_hits == set() or old_hits == set():  # We have hits for only one
+                elif min(len(cds_hits), len(old_hits)) == 0:  # We have hits for only one
                     # If we are permissive, we split
-                    if self.json_conf["chimera_split"]["blast_params"]["leniency"] == "PERMISSIVE":
+                    if leniency == "PERMISSIVE":
                         new_boundaries.append([cds_boundary])
                     else:
                         new_boundaries[-1].append(cds_boundary)
                 else:
-                    # We do not have any hit in common
-                    if set.intersection(cds_hits, old_hits) == set():
+                    if self.__check_common_hits(cds_hits, old_hits) is True:
                         new_boundaries.append([cds_boundary])
                     # We have hits in common
                     else:
@@ -1154,19 +1222,6 @@ class Transcript:
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
         UTR information will be retained only if no ORF is down/upstream.
-        The minimal overlap is defined inside the JSON at the key
-            ["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-        basically, we consider a HSP a hit only if the overlap is over a certain threshold
-        and the HSP evalue under a certain threshold.
-
-        The split by CDS can be executed in three different ways - CLEMENT, LENIENT, STRINGENT:
-
-        - PERMISSIVE: split if two CDSs do not have hits in common,
-        even when one or both do not have a hit at all.
-        - STRINGENT: split only if two CDSs have hits and none
-        of those is in common between them.
-        - LENIENT: split if *both* lack hits, OR *both* have hits and none
-        of those is in common.
         """
         self.finalize()
 
@@ -1386,7 +1441,7 @@ class Transcript:
         self.segments = sorted(self.segments, key=operator.itemgetter(1, 2, 0))
 
         self.internal_orfs = [self.segments]
-        if self.combined_cds_length > 0:
+        if len(self.combined_cds) > 0:
             self.selected_internal_orf_index = 0
             if len(self.__phases) > 0:
                 self._first_phase = sorted(self.__phases, key=operator.itemgetter(0),
@@ -2080,6 +2135,7 @@ class Transcript:
             self.selected_internal_orf_index = 0
             return tuple([])
         else:
+            assert self.selected_internal_orf_index is not None
             return self.internal_orfs[self.selected_internal_orf_index]
 
     @property
@@ -2249,12 +2305,13 @@ class Transcript:
             return set()
 
         cintrons = []
-        for position in range(len(self.selected_internal_orf_cds) - 1):
+        for first, second in zip(self.selected_cds[:-1], self.selected_cds[1:]):
             cintrons.append(
-                (self.selected_internal_orf_cds[position][2] + 1,
-                 self.selected_internal_orf_cds[position + 1][1] - 1)
+                (first[1] + 1,
+                 second[0] - 1)
             )
         cintrons = set(cintrons)
+        assert len(cintrons) > 0
         return cintrons
 
     @property
@@ -2475,7 +2532,10 @@ class Transcript:
     @Metric
     def combined_cds_length(self):
         """This property return the length of the CDS part of the transcript."""
-        return sum([c[1] - c[0] + 1 for c in self.combined_cds])
+        c_length = sum([c[1] - c[0] + 1 for c in self.combined_cds])
+        if len(self.combined_cds) > 0:
+            assert c_length > 0
+        return c_length
 
     @Metric
     def combined_cds_num(self):

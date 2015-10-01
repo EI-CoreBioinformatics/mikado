@@ -230,6 +230,16 @@ def check_chimera_split(json_conf):
             else:
                 assert json_conf["chimera_split"]["blast_params"]["leniency"] in \
                        ("STRINGENT", "PERMISSIVE", "LENIENT")
+            if "min_overlap_duplication" not in json_conf["chimera_split"]["blast_params"]:
+                json_conf["chimera_split"]["blast_params"]["min_overlap_duplication"] = 0.9
+            else:
+                assert isinstance(json_conf[
+                                      "chimera_split"]["blast_params"]["min_overlap_duplication"],
+                                  float, int)
+                if (json_conf["chimera_split"]["blast_params"]["min_overlap_duplication"] <= 0 or
+                    json_conf["chimera_split"]["blast_params"]["min_overlap_duplication"] > 1):
+                    raise InvalidJson("""The minimum overlap duplication value should be
+                    a percentage i.e. a float between 0 and 1.""")
 
     return json_conf
 

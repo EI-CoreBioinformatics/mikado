@@ -10,7 +10,6 @@ from intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue
 import logging
-import functools
 import collections
 import argparse
 import operator
@@ -190,7 +189,8 @@ class Assigner:
             try:
                 prediction.strip_cds()
             except mikado_lib.exceptions.InvalidTranscript as err:
-                self.logger.warn("Invalid transcript: %s", prediction.id)
+                self.logger.warn("Invalid transcript (due to CDS): %s",
+                                 prediction.id)
                 self.logger.warn("Error message: %s", err)
                 self.done += 1
                 self.print_tmap(None)
@@ -538,7 +538,7 @@ class Assigner:
         ccode = None
         distance = 0
         if junction_f1 == 1 and prediction.exon_num > 1:
-            if prediction.strand == reference.strand or prediction.strand is None:
+            if prediction.strand == reference.strand:
                 ccode = "="  # We have recovered all the junctions
             else:
                 ccode = "c"  # We will set this to x at the end of the function
@@ -684,6 +684,33 @@ class Assigner:
             else:
                 self.tmap_rower.writerow(res.as_dict())
 
+    @staticmethod
+    def __result_sorter(result):
+
+        """
+        Method to sort the results for the refmap. Order:
+        - CCode does not contain "x", "P", "p" (i.e. fragments on opposite strand or
+        polymerase run-on fragments)
+        - Exonic F1 (e_f1)
+        - Junction F1 (j_f1)
+        - "f" in ccode (i.e. transcript is a fusion)
+        - Nucleotide F1 (n_f1)
+
+        :param result: a resultStorer object
+        :type result: ResultStorer
+        :return: (int, float, float, float)
+        """
+
+        bad_ccodes = ["x", "P", "p"]
+        bad_ccodes = set(bad_ccodes)
+
+        orderer = (len(set.intersection(bad_ccodes, set(result.ccode))) == 0,
+                   result.j_f1, result.e_f1,
+                   "f" in result.ccode,
+                   result.n_f1)
+
+        return orderer
+
     def refmap_printer(self) -> None:
 
         """Function to print out the best match for each gene."""
@@ -697,10 +724,10 @@ class Assigner:
             rower = csv.DictWriter(out, fields, delimiter="\t")
             rower.writeheader()
 
-            result_sorter = functools.partial(operator.attrgetter,
-                                              "e_f1",
-                                              "j_f1",
-                                              "n_f1")
+            # result_sorter = functools.partial(operator.attrgetter,
+            #                                   "e_f1",
+            #                                   "j_f1",
+            #                                   "n_f1")
             for gid in sorted(self.gene_matches.keys()):
 
                 rows = []
@@ -713,7 +740,7 @@ class Assigner:
                         if any(True if (x.j_f1[0] > 0 or x.n_f1[0] > 0) else False
                                for x in self.gene_matches[gid][tid]):
                             best = sorted(self.gene_matches[gid][tid],
-                                          key=result_sorter(), reverse=True)[0]
+                                          key=self.__result_sorter, reverse=True)[0]
                         else:
                             best = sorted(self.gene_matches[gid][tid],
                                           key=operator.attrgetter("distance"),
@@ -731,7 +758,7 @@ class Assigner:
 
                 if len(best_picks) > 0:
                     best_pick = sorted(best_picks,
-                                       key=result_sorter(),
+                                       key=self.__result_sorter,
                                        reverse=True)[0]
                 else:
                     best_pick = None

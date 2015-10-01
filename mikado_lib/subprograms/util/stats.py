@@ -364,10 +364,12 @@ class Calculator:
         :return:
         """
 
+        self.__arrays["Number of transcripts"] = num_array(
+            [self.genes[x].num_transcripts for x in self.genes])
         self.__arrays["Transcripts per gene"] = num_array(
-            self.genes[_].num_transcripts for _ in self.genes)
+            [self.genes[_].num_transcripts for _ in self.genes])
         self.__arrays["Coding transcripts per gene"] = num_array(
-            self.genes[_].num_transcripts for _ in self.genes)
+            [self.genes[_].num_transcripts for _ in self.genes])
         self.__arrays["Intergenic distances"] = self.__distances
         self.__arrays["Intergenic distances (coding)"] = self.__coding_distances
 
@@ -473,13 +475,13 @@ class Calculator:
                              len(self.coding_genes))
 
         self.__write_statrow('Number of transcripts',
-                             sum(self.genes[x].num_transcripts for x in self.genes))
+                             total=sum)
         self.__write_statrow('Transcripts per gene',
-                             sum(self.genes[x].num_transcripts for x in self.genes))
+                             total=sum(self.genes[x].num_transcripts for x in self.genes))
         self.__write_statrow("Number of coding transcripts",
-                             sum(len(x.coding_transcripts) for x in self.coding_genes))
+                             total=sum(len(x.coding_transcripts) for x in self.coding_genes))
         self.__write_statrow("Coding transcripts per gene",
-                             sum(len(x.coding_transcripts) for x in self.coding_genes))
+                             total=sum(len(x.coding_transcripts) for x in self.coding_genes))
 
         self.__write_statrow('CDNA lengths', total=False)
         self.__write_statrow("CDNA lengths (mRNAs)", total=False)

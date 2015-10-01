@@ -39,6 +39,9 @@ class Locus(Monosublocus, Abstractlocus):
     def __str__(self, print_cds=True) -> str:
 
         self.feature = self.__name__
+        # Hacky fix to make sure that the primary transcript has the attribute
+        # Set to True in any case.
+        self.primary_transcript.attributes["primary"] = True
 
         return super().__str__(print_cds=print_cds)
 
@@ -65,10 +68,14 @@ class Locus(Monosublocus, Abstractlocus):
             self.logger.debug("%s not added because the Locus has already too many transcripts.",
                               transcript.id)
             to_be_added = False
-        if to_be_added and not self.is_alternative_splicing(transcript):
-            self.logger.debug("%s not added because it is not a valid splicing isoform.",
-                              transcript.id)
-            to_be_added = False
+        if to_be_added:
+            is_alternative, ccode = self.is_alternative_splicing(transcript)
+            if is_alternative is False:
+                self.logger.debug("%s not added because it is not a valid splicing isoform.",
+                                  transcript.id)
+                to_be_added = False
+            else:
+                transcript.attributes["ccode"] = ccode
         if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:
             self.logger.debug("%s not added because it has too much UTR (%d).",
                               transcript.id,
@@ -80,13 +87,12 @@ class Locus(Monosublocus, Abstractlocus):
                               transcript.five_utr_length)
             to_be_added = False
         if to_be_added and transcript.three_utr_length > max_utr_lenghts["three"]:
-            self.logger.debug("%s not added because it has too much 5'UTR (%d).",
+            self.logger.debug("%s not added because it has too much 3'UTR (%d).",
                               transcript.id,
                               transcript.three_utr_length)
             to_be_added = False
 
         if to_be_added and self.json_conf["alternative_splicing"]["keep_retained_introns"] is False:
-            self.find_retained_introns(transcript)
             if transcript.retained_intron_num > 0:
                 self.logger.debug("%s not added because it has %d retained introns.",
                                   transcript.id,
@@ -191,45 +197,45 @@ class Locus(Monosublocus, Abstractlocus):
         """
 
         is_valid = True
+        main_ccode = None
 
-        if other.id == self.primary_transcript_id:
+        self.find_retained_introns(other)
+        if other.id == self.primary_transcript_id or other.strand != other.strand:
             is_valid = False
-        elif other.strand != other.strand:
-            is_valid = False
-
         elif self.overlap((other.start, other.end), (self.start, self.end)) < 0:
             is_valid = False
-
         elif other.retained_intron_num > 0:
             is_valid = False
 
         valid_ccodes = self.json_conf["alternative_splicing"]["valid_ccodes"]
-        if is_valid is True:
-            for tid in self.transcripts:
-                result, _ = Assigner.compare(other, self.transcripts[tid])
-                self.logger.debug("%s vs. %s: %s",
-                                  tid,
-                                  other.id,
-                                  result.ccode[0])
-                if result.ccode[0] not in valid_ccodes:
-                    self.logger.debug(
-                        "%s is not a valid splicing isoform. Ccode: %s",
-                        other.id,
-                        result.ccode[0])
-                    is_valid = False
-                    break
-                if result.n_f1 == 0 or \
-                        ((self.transcripts[tid].monoexonic is False and result.j_f1 == 0) or
-                         self.transcripts[tid].monoexonic is True):
-                    self.logger.debug(
-                        "%s is not a valid splicing isoform. N_f1: %f; J_f1: %f",
-                        other.id,
-                        result.n_f1,
-                        result.j_f1)
-                    is_valid = False
-                    break
 
-        return is_valid
+        if is_valid is False:
+            return is_valid, main_ccode
+        else:
+            ccodes = []
+            main_result, _ = Assigner.compare(other, self.primary_transcript)
+            main_ccode = main_result.ccode[0]
+            ccodes.append(main_ccode)
+            results = [main_result]
+            for tid in iter(tid for tid in self.transcripts if
+                            tid != self.primary_transcript_id):
+                result, _ = Assigner.compare(other, self.transcripts[tid])
+                results.append(result)
+                ccodes.append(result.ccode[0])
+                self.logger.debug("Comparing secondary transcripts %s vs %s. Ccode: %s",
+                                  tid, other.id, result.ccode[0])
+
+            if main_ccode not in valid_ccodes:
+                self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
+                                  other.id,
+                                  main_result.ccode[0])
+                is_valid = False
+            elif "_" in ccodes or "=" in ccodes:
+                self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
+                                  other.id,
+                                  main_result.ccode[0])
+                is_valid = False
+            return is_valid, main_ccode
 
     @property
     def __name__(self):

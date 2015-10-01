@@ -7,6 +7,7 @@ or multiexonic and with at least one intron in common.
 """
 
 import itertools
+import intervaltree
 from mikado_lib.loci_objects.excluded import Excluded
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.loci_objects.monosublocus import Monosublocus
@@ -200,7 +201,8 @@ class Sublocus(Abstractlocus):
                 selected_tid = self.choose_best(msbl)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
-                self.logger.debug("Selected: {0}".format(selected_tid))
+                self.logger.debug("Selected: %s (score: %f)",
+                                  selected_tid, selected_transcript.score)
                 for clique in cliques:
                     if selected_tid in clique:
                         self.logger.debug("Removing as intersecting {0}: {1}".format(
@@ -306,63 +308,37 @@ class Sublocus(Abstractlocus):
         :rtype : tuple[tuple[int,int]]
         """
 
-        # Create the store
-        transcript.retained_introns = []
+        introns = intervaltree.IntervalTree([
+            intervaltree.Interval(*intron) for intron in self.combined_cds_introns
+        ])
+        self.logger.debug("Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)",
+                          len(introns), len(self.combined_cds_introns),
+                          len(transcript.combined_cds_introns),
+                          len(transcript.selected_cds_introns),
+                          len(transcript.selected_cds))
+        cds_segments = intervaltree.IntervalTree([
+            intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds
+        ])
+        retained_introns = []
+        for position, exon in enumerate(transcript.exons):
+            exon_interval = intervaltree.IntervalTree([intervaltree.Interval(*exon)])
+            # We have to enlarge by 1 due to idiosyncrasies by intervaltree
+            # Here we obtain the
+            for cds_segment in cds_segments.search(*exon):
+                exon_interval.chop(cds_segment[0], cds_segment[1])
 
-        # Exclude from consideration any exon which is fully coding
-        for exon in transcript.exons:
-            in_cds = sorted(iter(
-                cds for cds in transcript.combined_cds if
-                cds[0] >= exon[0] or cds[1] <= exon[1]))
-            if len(in_cds) == 1 and in_cds[0] == exon:
-                # Completely coding exon
-                continue
-
-            # Find overlapping introns
-            intersecting_introns = list(
-                intron for intron in self.combined_cds_introns if
-                self.overlap(exon, intron) >= intron[1]-intron[0]+1)
-
-            # If no CDS intron is completely overlapping the exon, continue
-            if len(intersecting_introns) == 0:
-                continue
-
-            # Now start to check
-            elif len(in_cds) == 0:
-                # Completely UTR exon and there is at least one CDS intron
-                # which is completely contained inside it
-                transcript.retained_introns.append(exon)
-            else:
-                for position, fragment in enumerate(in_cds):
-                    if position < len(in_cds) - 1:
-                        to_check = (fragment[1] + 1, in_cds[position + 1][0] - 1)
-                        # If any of the fragments overlaps the intersecting introns,
-                        # this is a retained intron exon
-                        if any(True if self.overlap(to_check, intron) > 0 else False
-                               for intron in intersecting_introns):
-                            transcript.retained_introns.append(exon)
-                            break
-                    elif position == len(in_cds) - 1:  # last fragment to analyse
-                        if fragment[1] < exon[1]:
-                            to_check = (fragment[1] + 1, exon[1])
-                            # If any of the fragments overlaps the intersecting introns,
-                            # this is a retained intron exon
-                            if any(True if self.overlap(to_check, intron) > 0
-                                   else False for intron in intersecting_introns):
-                                transcript.retained_introns.append(exon)
-                                break
-                    elif position == 0:  # first fragment to analyse
-                        if fragment[0] > exon[0]:
-                            to_check = (exon[0], fragment[0] - 1)
-                            # If any of the fragments overlaps the intersecting introns,
-                            # this is a retained intron exon
-                            if any(True if self.overlap(to_check, intron) > 0
-                                   else False for intron in intersecting_introns):
-                                transcript.retained_introns.append(exon)
-                                break
+            # Exclude from consideration any exon which is fully coding
+            for frag in exon_interval:
+                self.logger.debug("Checking %s from exon %s for retained introns for %s",
+                                  frag, exon, transcript.id)
+                if introns.overlaps_range(frag[0], frag[1]):
+                    self.logger.debug("Exon %s of %s is a retained intron",
+                                      exon, transcript.id)
+                    retained_introns.append(exon)
+                    break
 
         # Sort the exons marked as retained introns
-        transcript.retained_introns = tuple(sorted(transcript.retained_introns))
+        transcript.retained_introns = tuple(sorted(retained_introns))
 
     def load_scores(self, scores):
         """
@@ -451,16 +427,26 @@ class Sublocus(Abstractlocus):
         for tid in self.transcripts:
             self.scores[tid] = dict()
         for param in self.json_conf["scoring"]:
-            self.__calculate_score(param)
+            self._calculate_score(param)
         for tid in self.transcripts:
             if tid in not_passing:
+                self.logger.debug("Excluding %s as it does not pass minimum requirements",
+                                  tid)
                 self.transcripts[tid].score = 0
             else:
                 self.transcripts[tid].score = sum(self.scores[tid].values())
+                if self.transcripts[tid].score == 0:
+                    self.logger.debug("Excluding %s as it has a score of 0", tid)
+
+            if tid not in not_passing:
+                assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
+                    tid, self.transcripts[tid].score, sum(self.scores[tid].values())
+                )
+            self.scores[tid]["score"] = self.transcripts[tid].score
 
         self.scores_calculated = True
 
-    def __calculate_score(self, param):
+    def _calculate_score(self, param):
         """
         Private method that calculates a score for each transcript,
         given a target parameter.
@@ -479,23 +465,49 @@ class Sublocus(Abstractlocus):
         if denominator == 0:
             denominator = 1
 
+        scores = []
         for tid in self.transcripts:
             tid_metric = getattr(self.transcripts[tid], param)
-            check = True
             score = 0
             if "filter" in self.json_conf["scoring"][param]:
                 check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
+            else:
+                check = True
+
             if check is False:
                 score = 0
             else:
                 if rescaling == "max":
-                    score = abs((tid_metric - min(metrics)) / denominator)
+                    if min(metrics) == max(metrics):
+                        score = 1
+                    else:
+                        score = abs((tid_metric - min(metrics)) / denominator)
+                    # self.logger.warning("For %s, score of %s is %d (max. %d/%d)",
+                    #                   tid, param, score,
+                    #                   abs((tid_metric - min(metrics))), denominator)
                 elif rescaling == "min":
-                    score = abs(1 - (tid_metric - min(metrics)) / denominator)
+                    if min(metrics) == max(metrics):
+                        score = 1
+                    else:
+                        score = abs(1 - (tid_metric - min(metrics)) / denominator)
+                    # self.logger.warning("For %s, score of %s is %d (min, %d/%d)",
+                    #                   tid, param, score,
+                    #                   abs(1-(tid_metric - min(metrics))), denominator)
                 elif rescaling == "target":
                     score = 1 - abs(tid_metric - target) / denominator
+                    # self.logger.warning("For %s, score of %s is %d (target %d, 1-%d/%d)",
+                    #                   tid, param, score, target,
+                    #                   abs(tid_metric - target), denominator)
+
             score *= self.json_conf["scoring"][param]["multiplier"]
-            self.scores[tid][param] = score
+            self.scores[tid][param] = round(score, 2)
+            scores.append(score)
+
+        # This MUST be true
+        if "filter" not in self.json_conf["scoring"][param]:
+            if max(scores) == 0:
+                self.logger.warning("All transcripts have a score of 0 for %s in %s",
+                                    param, self.id)
 
     def print_metrics(self):
 
@@ -506,31 +518,12 @@ class Sublocus(Abstractlocus):
 
         # The rower is an instance of the DictWriter class from the standard CSV module
 
-        Abstractlocus.print_metrics(self)
+        for row in Abstractlocus.print_metrics(self):
+            yield row
         if self.excluded is not None:
             for row in self.excluded.print_metrics():
                 yield row
         return
-
-        # for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
-        #     row = {}
-        #     for key in self.available_metrics:
-        #         if key.lower() in ("id", "tid"):
-        #             row[key] = tid
-        #         elif key.lower() == "parent":
-        #             row[key] = self.id
-        #         else:
-        #             row[key] = getattr(self.transcripts[tid], key, "NA")
-        #         if isinstance(row[key], float):
-        #             row[key] = round(row[key], 2)
-        #         elif row[key] is None or row[key] == "":
-        #             row[key] = "NA"
-        #     yield row
-        # if self.excluded is not None:
-        #     for row in self.excluded.print_metrics():
-        #         yield row
-        #
-        # return
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
@@ -542,9 +535,15 @@ class Sublocus(Abstractlocus):
             row = dict().fromkeys(keys)
             row["tid"] = tid
             row["parent"] = self.id
-            row["score"] = round(self.transcripts[tid].score, 2)
+            row["score"] = self.scores[tid]["score"]
             for key in score_keys:
                 row[key] = round(self.scores[tid][key], 2)
+            score_sum = sum(row[key] for key in score_keys)
+            #
+            assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
+                score_sum,
+                self.transcripts[tid].score,
+                tid)
             yield row
 
     def get_metrics(self):

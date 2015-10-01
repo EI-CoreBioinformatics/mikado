@@ -84,7 +84,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
                             stranded_locus.loci[locus_id].is_fragment = True
                         else:
                             del stranded_locus.loci[locus_id]
-                    break
+                        break
         yield stranded_locus
 
 

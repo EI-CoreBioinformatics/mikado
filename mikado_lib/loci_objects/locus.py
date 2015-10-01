@@ -93,7 +93,6 @@ class Locus(Monosublocus, Abstractlocus):
             to_be_added = False
 
         if to_be_added and self.json_conf["alternative_splicing"]["keep_retained_introns"] is False:
-            self.find_retained_introns(transcript)
             if transcript.retained_intron_num > 0:
                 self.logger.debug("%s not added because it has %d retained introns.",
                                   transcript.id,
@@ -200,6 +199,7 @@ class Locus(Monosublocus, Abstractlocus):
         is_valid = True
         main_ccode = None
 
+        self.find_retained_introns(other)
         if other.id == self.primary_transcript_id or other.strand != other.strand:
             is_valid = False
         elif self.overlap((other.start, other.end), (self.start, self.end)) < 0:

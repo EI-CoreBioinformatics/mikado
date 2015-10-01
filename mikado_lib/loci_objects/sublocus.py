@@ -201,7 +201,8 @@ class Sublocus(Abstractlocus):
                 selected_tid = self.choose_best(msbl)
                 selected_transcript = self.transcripts[selected_tid]
                 to_remove.add(selected_tid)
-                self.logger.debug("Selected: {0}".format(selected_tid))
+                self.logger.debug("Selected: %s (score: %f)",
+                                  selected_tid, selected_transcript.score)
                 for clique in cliques:
                     if selected_tid in clique:
                         self.logger.debug("Removing as intersecting {0}: {1}".format(
@@ -319,12 +320,12 @@ class Sublocus(Abstractlocus):
             intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds
         ])
         retained_introns = []
-        for exon in transcript.exons:
+        for position, exon in enumerate(transcript.exons):
             exon_interval = intervaltree.IntervalTree([intervaltree.Interval(*exon)])
             # We have to enlarge by 1 due to idiosyncrasies by intervaltree
             # Here we obtain the
             for cds_segment in cds_segments.search(*exon):
-                exon_interval.chop(*cds_segment)
+                exon_interval.chop(cds_segment[0], cds_segment[1])
 
             # Exclude from consideration any exon which is fully coding
             for frag in exon_interval:
@@ -437,6 +438,12 @@ class Sublocus(Abstractlocus):
                 if self.transcripts[tid].score == 0:
                     self.logger.debug("Excluding %s as it has a score of 0", tid)
 
+            if tid not in not_passing:
+                assert self.transcripts[tid].score == sum(self.scores[tid].values()), (
+                    tid, self.transcripts[tid].score, sum(self.scores[tid].values())
+                )
+            self.scores[tid]["score"] = self.transcripts[tid].score
+
         self.scores_calculated = True
 
     def _calculate_score(self, param):
@@ -493,13 +500,14 @@ class Sublocus(Abstractlocus):
                     #                   abs(tid_metric - target), denominator)
 
             score *= self.json_conf["scoring"][param]["multiplier"]
-            self.scores[tid][param] = score
+            self.scores[tid][param] = round(score, 2)
             scores.append(score)
 
         # This MUST be true
         if "filter" not in self.json_conf["scoring"][param]:
             if max(scores) == 0:
-                self.logger.warning("All transcripts have a score of 0 for %s", param)
+                self.logger.warning("All transcripts have a score of 0 for %s in %s",
+                                    param, self.id)
 
     def print_metrics(self):
 
@@ -517,26 +525,6 @@ class Sublocus(Abstractlocus):
                 yield row
         return
 
-        # for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
-        #     row = {}
-        #     for key in self.available_metrics:
-        #         if key.lower() in ("id", "tid"):
-        #             row[key] = tid
-        #         elif key.lower() == "parent":
-        #             row[key] = self.id
-        #         else:
-        #             row[key] = getattr(self.transcripts[tid], key, "NA")
-        #         if isinstance(row[key], float):
-        #             row[key] = round(row[key], 2)
-        #         elif row[key] is None or row[key] == "":
-        #             row[key] = "NA"
-        #     yield row
-        # if self.excluded is not None:
-        #     for row in self.excluded.print_metrics():
-        #         yield row
-        #
-        # return
-
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.calculate_scores()
@@ -547,9 +535,15 @@ class Sublocus(Abstractlocus):
             row = dict().fromkeys(keys)
             row["tid"] = tid
             row["parent"] = self.id
-            row["score"] = round(self.transcripts[tid].score, 2)
+            row["score"] = self.scores[tid]["score"]
             for key in score_keys:
                 row[key] = round(self.scores[tid][key], 2)
+            score_sum = sum(row[key] for key in score_keys)
+            #
+            assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
+                score_sum,
+                self.transcripts[tid].score,
+                tid)
             yield row
 
     def get_metrics(self):

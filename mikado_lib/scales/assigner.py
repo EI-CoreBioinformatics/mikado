@@ -538,7 +538,7 @@ class Assigner:
         ccode = None
         distance = 0
         if junction_f1 == 1 and prediction.exon_num > 1:
-            if prediction.strand == reference.strand or prediction.strand is None:
+            if prediction.strand == reference.strand:
                 ccode = "="  # We have recovered all the junctions
             else:
                 ccode = "c"  # We will set this to x at the end of the function

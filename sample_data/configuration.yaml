@@ -1,45 +1,27 @@
 blast:
   database: uniprot_sprot_plants.fasta
-  evalue: 1
+  evalue: 0.00001
   execute: true
-  max_target_seqs: 20
+  max_target_seqs: 3
   num_threads: 4
   program: blastx
 chimera_split:
   blast_check: true
   execute: true
   blast_params:
-    evalue: 0.0001
-    hsp_evalue: 0.0001
     leniency: STRINGENT
-    max_target_seqs: 3
-    minimal_hsp_overlap: 0.9
 log_settings:
-  log: mikado.log
   log_level: DEBUG
-db: data.db
-dbtype: sqlite
-dbhost: localhost
-dbuser: luca
-dbpasswd: null
 source: "Mikado"
 alternative_splicing:
   report: true
-  min_cds_overlap: 60
-  keep_retained_introns: false
-  max_isoforms: 3
-  valid_ccodes: ["O", "j", "n"]
 orf_loading:
-  minimal_secondary_orf_length: 200
-  minimal_orf_length: 50
   strand_specific: true
 run_options:
-  shm: false
-  exclude_cds: false
-  purge: false
+  purge: true
   remove_overlapping_fragments: true
   fragments_maximal_cds: 100
-  subloci_from_cds_only: false #true
+  subloci_from_cds_only: true
   threads: 5
-  preload: false
+  preload: true
 scoring_file: scoring.yaml

@@ -1,7 +1,7 @@
 import os,sys
 import glob
 import itertools
-import mikado_lib.json_utils
+import mikado_lib.configuration.json_utils
 import subprocess
 
 swissprot = "uniprot_sprot_plants.fasta"
@@ -12,37 +12,33 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configfile: "configuration.yaml"
 configname = "configuration.yaml"
+config = mikado_lib.configuration.json_utils.to_json(configname)
 
 rule clean:
     run:
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
-                                    glob.glob("compare*"), glob.glob(config["db"]),
+                                    glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml")):
             if os.path.exists(filename):
                 os.remove(filename)
 
-rule decompress:
-    input:  zipDBs
-    output: DBs
-    shell: "gzip -dc {input} > {output}"
-
 rule test_json:
-    input: DBs, configname
-    output: "{0}.ok".format(configname)
+    input: db=zipDBs, config=configname
+    output: "{0}.ok".format(configname), DBs
     run:
-        __= mikado_lib.json_utils.to_json(configname)
+        __= mikado_lib.configuration.json_utils.to_json(configname)
         shell("touch {output}")
 
 rule blast_complete:
     params:	prefix="all"
-    input: query="all.fasta", db=config["blast"]["database"], check="{0}.ok".format(configname)
+    input: query="all.fasta", db=DBs, check="{0}.ok".format(configname)
     output: "all.blast.xml"
     shell: "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output}"
 
 rule serialise:
     input: junctions="junctions.bed", fai="genome.fai", transcripts="all.fasta", targets="uniprot_sprot_plants.fasta", xml="all.blast.xml", orfs="all.bed"
-    output: "serialised.ok", "data.db"
+    output: "serialised.ok", config["db_settings"]["db"]
     run:
         command = """mikado.py serialise --genome_fai {fai} \
         --transcript_fasta {transcripts} \
@@ -61,7 +57,7 @@ rule pick:
     input: configuration=configname, gtf="all.gtf", fasta="all.fasta", orf="all.bed", check="serialised.ok"
     output: "all.loci.gff3", "all.loci.scores.tsv"
     shell: """mikado.py pick --source {params[prefix]} --json_conf {input[configuration]} \
-	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""  
+	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""
 
 rule compare:
     input: reference="reference.gff3", prediction="all.loci.gff3"

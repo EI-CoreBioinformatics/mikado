@@ -15,8 +15,9 @@ import time
 import threading
 import queue
 import logging
+
 from mikado_lib.parsers import HeaderError
-from mikado_lib.log_utils import create_null_logger
+from mikado_lib.configuration.log_utils import create_null_logger
 
 __author__ = 'Luca Venturini'
 

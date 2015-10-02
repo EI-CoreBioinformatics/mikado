@@ -4,9 +4,11 @@
 """Simple script to serialise ORF BED files into the SQLite DB"""
 
 import argparse
-from mikado_lib.serializers import orf
-from mikado_lib import json_utils
+
 from Bio import SeqIO
+
+from mikado_lib.serializers import orf
+from mikado_lib.configuration import json_utils
 
 
 def main():

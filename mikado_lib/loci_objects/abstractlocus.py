@@ -8,10 +8,12 @@ import operator
 import abc
 import random
 import logging
-import networkx
-from mikado_lib.exceptions import NotInLocusError
-from mikado_lib.log_utils import create_null_logger
 from sys import maxsize
+
+import networkx
+
+from mikado_lib.exceptions import NotInLocusError
+from mikado_lib.configuration.log_utils import create_null_logger
 
 
 # I do not care that there are too many attributes: this IS a massive class!

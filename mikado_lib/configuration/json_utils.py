@@ -17,33 +17,56 @@ import mikado_lib.exceptions
 import json
 import sys
 import subprocess
+import jsonschema
 
 
-def check_log(json_conf):
+def extend_with_default(validator_class):
     """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
-    This function checks that the logging configuration section of the JSON/YAML
-    is properly formatted and adds missing values if necessary.
-
-    :return: json_conf
-    :rtype dict
+    Function to extend the normal validation classes for jsonschema
+    so that they also set the default values provided inside the schema
+    itself. Source:
+    https://python-jsonschema.readthedocs.org/en/latest/faq/?highlight=default
+    :param validator_class: the validator class to extend (e.g. Draft4Validator)
+    :return:
     """
+    validate_properties = validator_class.VALIDATORS["properties"]
 
-    if "log_settings" not in json_conf:
-        json_conf["log_settings"] = dict()
-    if "log" not in json_conf["log_settings"]:
-        json_conf["log_settings"]["log"] = None
-    if "log_level" not in json_conf["log_settings"]:
-        json_conf["log_settings"]["log_level"] = "WARN"
-    else:
-        valid_levels = ["INFO", "WARN", "ERROR", "CRITICAL", "DEBUG"]
-        if json_conf["log_settings"]["log_level"] not in valid_levels:
-            raise mikado_lib.exceptions.InvalidJson(
-                "Invalid log level: {0}\nValid levels: {1}".format(
-                    json_conf["log_level"], "\n\t".join(valid_levels)))
-    return json_conf
+    def set_default(instance, properties):
+        """
+        Recursive function that sets the default parameters inside "object"
+        types for the dictionary instance. It also loads comments, if available.
+        :param instance: a dictionary instance
+        :param properties: the "properties" dictionary inside the schema
+        :return:
+        """
+        for prop, subschema in properties.items():
+            if "default" in subschema:
+                instance.setdefault(prop, subschema["default"])
+            elif prop not in instance and subschema["type"] == "object":
+                instance[prop] = dict()
+                if "comment" in subschema:
+                    instance[prop].setdefault("comment", subschema["comment"])
+                instance[prop] = set_default(instance[prop], subschema["properties"])
+        return instance
+
+    def set_defaults(validator, properties, instance, schema):
+        """ Function that sets the default values from the schema
+        into the dictionary.
+        :param validator: the validator class
+        :param properties: schema["properties"] if any
+        :param instance: the dictionary loaded from the external file
+        :param schema: the schema to be used as blueprint.
+        :return:
+        """
+        for error in validate_properties(
+            validator, properties, instance, schema,
+        ):
+            yield error
+        instance = set_default(instance, properties)
+
+    return jsonschema.validators.extend(
+        validator_class, {"properties": set_defaults},
+    )
 
 
 def merge_dictionaries(dict_a, dict_b, path=None):
@@ -74,174 +97,6 @@ def merge_dictionaries(dict_a, dict_b, path=None):
         else:
             dict_a[key] = dict_b[key]
     return dict_a
-
-
-def check_alternative_splicing(json_conf):
-    """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
-    This function checks the options for the alternative splicing reporting.
-    If no option is present in the configuration file, the basic "alternative_splicing":
-    {"report" = False } will be added to the json_conf.
-
-    Possible options:
-
-    - min_cds_overlap:    Amount of CDS recall on the primary transcript.
-    It can be expressed as values b/w 01 and 1, or 1 to 100. Default: 0.
-    - max_utr_length      Maximum UTR length of the AS isoforms.
-    - max_isoforms        Maximum number of isoforms per Locus.
-
-    :return: json_conf
-    :rtype dict
-    """
-
-    if "alternative_splicing" not in json_conf:
-        json_conf["alternative_splicing"] = dict()
-
-    if "report" not in json_conf["alternative_splicing"]:
-        json_conf["alternative_splicing"]["report"] = False
-    else:
-        assert isinstance(json_conf["alternative_splicing"]["report"], bool)
-
-        if "min_cds_overlap" not in json_conf["alternative_splicing"]:
-            json_conf["alternative_splicing"]["min_cds_overlap"] = 0
-        else:
-            assert isinstance(json_conf["alternative_splicing"]["min_cds_overlap"],
-                              (float, int))
-
-            if json_conf["alternative_splicing"]["min_cds_overlap"] < 0 or \
-               json_conf["alternative_splicing"]["min_cds_overlap"] > 100:
-                raise InvalidJson(
-                    "Invalid percentage value for min_cds_overlap: {0}".format(
-                        json_conf["alternative_splicing"]["min_cds_overlap"]))
-
-            if 1 < json_conf["alternative_splicing"]["min_cds_overlap"] <= 100:
-                json_conf["alternative_splicing"]["min_cds_overlap"] /= 100
-
-        if "max_isoforms" not in json_conf["alternative_splicing"]:
-            json_conf["alternative_splicing"]["max_isoforms"] = 10000
-        else:
-            assert isinstance(json_conf["alternative_splicing"]["max_isoforms"], int)
-            assert json_conf["alternative_splicing"]["max_isoforms"] >= 1
-
-        if "max_utr_length" not in json_conf["alternative_splicing"]:
-            json_conf["alternative_splicing"]["max_utr_length"] = float("Inf")
-        else:
-            assert isinstance(json_conf["alternative_splicing"]["max_utr_length"], int)
-            assert json_conf["alternative_splicing"]["max_utr_length"] >= 0
-
-        if "max_fiveutr_length" not in json_conf["alternative_splicing"]:
-            json_conf["alternative_splicing"]["max_fiveutr_length"] = sys.maxsize
-        else:
-            assert isinstance(json_conf["alternative_splicing"]["max_fiveutr_length"], int)
-            assert json_conf["alternative_splicing"]["max_fiveutr_length"] >= 0
-
-        if "max_threeutr_length" not in json_conf["alternative_splicing"]:
-            json_conf["alternative_splicing"]["max_threeutr_length"] = float("Inf")
-        else:
-            assert isinstance(json_conf["alternative_splicing"]["max_threeutr_length"], int)
-            assert json_conf["alternative_splicing"]["max_threeutr_length"] >= 0
-
-        if "keep_retained_introns" not in json_conf["alternative_splicing"]:
-            json_conf["alternative_splicing"]["keep_retained_introns"] = True
-        else:
-            assert isinstance(
-                json_conf["alternative_splicing"]["keep_retained_introns"],
-                bool)
-
-        if "valid_ccodes" not in json_conf["alternative_splicing"]:
-            # Default alternative splicings are those where we have
-            # Some structural difference between the two transcripts
-            json_conf["alternative_splicing"]["valid_ccodes"] = ["j", "n", "O", "h"]
-        else:
-            assert isinstance(json_conf["alternative_splicing"]["valid_ccodes"], list)
-            valid_ccodes = ["j", "n", "O", "e", "K", "i",
-                            "=", "o", "m", "_", "I", "h"]
-            if any(True for x in json_conf["alternative_splicing"]["valid_ccodes"] if
-                   x not in valid_ccodes):
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Invalid alternative splicing codes! Acceptable codes:\n{0}".format(
-                        ",".join(valid_ccodes)))
-
-    return json_conf
-
-
-def check_chimera_split(json_conf):
-    """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
-    Function to check the "chimera_split" section of the configuration.
-
-    :return: json_conf
-    :rtype dict
-    """
-
-    assert "execute" in json_conf["chimera_split"]
-    assert isinstance(json_conf["chimera_split"]["execute"], bool)
-    if json_conf["chimera_split"]["execute"] is True:
-        assert "blast_check" in json_conf["chimera_split"]
-        assert isinstance(json_conf["chimera_split"]["blast_check"], bool)
-
-        if json_conf["chimera_split"]["blast_check"] is True:
-            assert "blast_params" in json_conf["chimera_split"]
-            # Check evalue
-            if "evalue" in json_conf["chimera_split"]["blast_params"]:
-                assert isinstance(json_conf["chimera_split"]["blast_params"]["evalue"],
-                                  (float, int, type(None)))
-            else:
-                json_conf["chimera_split"]["blast_params"]["evalue"] = None
-
-            # Check HSP-evalue
-            if "hsp_evalue" in json_conf["chimera_split"]["blast_params"]:
-                assert isinstance(
-                    json_conf["chimera_split"]["blast_params"]["hsp_evalue"],
-                    (float, int, type(None)))
-                if json_conf["chimera_split"]["blast_params"]["evalue"] is None:
-                    val = json_conf["chimera_split"]["blast_params"]["hsp_evalue"]
-                    json_conf["chimera_split"]["blast_params"]["evalue"] = val
-                elif json_conf["chimera_split"]["blast_params"]["evalue"] > \
-                        json_conf["chimera_split"]["blast_params"]["hsp_evalue"]:
-                    raise mikado_lib.exceptions.InvalidJson(
-                        "Maximum HSP evalues cannot be higher than global e-values.")
-            else:
-                if json_conf["chimera_split"]["blast_params"]["evalue"] is None:
-                    json_conf["chimera_split"]["blast_params"]["hsp_evalue"] = None
-                else:
-                    json_conf["chimera_split"]["blast_params"]["hsp_evalue"] = \
-                        json_conf["chimera_split"]["blast_params"]["evalue"]
-
-            if "max_target_seqs" in json_conf["chimera_split"]["blast_params"]:
-                assert isinstance(
-                    json_conf["chimera_split"]["blast_params"]["max_target_seqs"],
-                    (int, type(None)))
-            else:
-                json_conf["chimera_split"]["blast_params"]["max_target_seqs"] = None
-
-            if "minimal_hsp_overlap" in json_conf["chimera_split"]["blast_params"]:
-                assert isinstance(
-                    json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"], float)
-                assert 0 <= json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"] <= 1
-            else:
-                json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"] = 0
-            if "leniency" not in json_conf["chimera_split"]["blast_params"]:
-                json_conf["chimera_split"]["blast_params"]["leniency"] = "STRINGENT"
-            else:
-                assert json_conf["chimera_split"]["blast_params"]["leniency"] in \
-                       ("STRINGENT", "PERMISSIVE", "LENIENT")
-            if "min_overlap_duplication" not in json_conf["chimera_split"]["blast_params"]:
-                json_conf["chimera_split"]["blast_params"]["min_overlap_duplication"] = 0.9
-            else:
-                assert isinstance(json_conf[
-                                      "chimera_split"]["blast_params"]["min_overlap_duplication"],
-                                  float, int)
-                if (json_conf["chimera_split"]["blast_params"]["min_overlap_duplication"] <= 0 or
-                    json_conf["chimera_split"]["blast_params"]["min_overlap_duplication"] > 1):
-                    raise InvalidJson("""The minimum overlap duplication value should be
-                    a percentage i.e. a float between 0 and 1.""")
-
-    return json_conf
 
 
 def check_scoring(json_conf):
@@ -477,9 +332,14 @@ def check_blast(json_conf, json_file):
             os.path.basename(json_conf["blast"]["database"])
         )
         if not os.path.exists(database):
-            raise mikado_lib.exceptions.InvalidJson(
-                """I need a valid BLAST database! This file does not exist:
-                {0}""".format(json_conf["blast"]["database"]))
+            if os.path.exists("{0}.gz".format(database)):
+                retcode = subprocess.call("gzip -dc {0}.gz > {0}".format(database), shell=True)
+                if retcode != 0:
+                    raise mikado_lib.exceptions.InvalidJson("Failed to decompress the BLAST database!")
+            else:
+                raise mikado_lib.exceptions.InvalidJson(
+                    """I need a valid BLAST database! This file does not exist:
+                    {0}""".format(json_conf["blast"]["database"]))
         else:
             json_conf["blast"]["database"] = os.path.abspath(database)
     else:
@@ -507,98 +367,6 @@ def check_blast(json_conf, json_file):
     return json_conf
 
 
-def check_orf_loading(json_conf):
-    """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
-    Function to check the options related to ORF loading.
-
-    :return: json_conf
-    :rtype dict
-    """
-
-    if "orf_loading" not in json_conf:
-        json_conf["orf_loading"] = dict()
-        json_conf["orf_loading"]["strand_specific"] = False
-        json_conf["orf_loading"]["minimal_secondary_orf_length"] = 0
-        json_conf["orf_loading"]["minimal_orf_length"] = 0
-    else:
-        if "strand_specific" not in json_conf:
-            json_conf["orf_loading"]["strand_specific"] = False
-        else:
-            if not isinstance(json_conf["orf_loading"]["strand_specific"], bool):
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Invalid strand_specific value: {0}".format(
-                        json_conf["orf_loading"]["strand_specific"]))
-        if "minimal_orf_length" not in json_conf["orf_loading"]:
-            json_conf["orf_loading"]["minimal_orf_length"] = 0
-        else:
-            if not isinstance(json_conf["orf_loading"]["minimal_orf_length"], int):
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Invalid minimal_primary_orf_length value: {0}".format(
-                        json_conf["orf_loading"]["minimal_primary_orf_length"]))
-
-        if "minimal_secondary_orf_length" not in json_conf["orf_loading"]:
-            json_conf["orf_loading"]["minimal_secondary_orf_length"] = 0
-        else:
-            if not isinstance(
-                    json_conf["orf_loading"]["minimal_secondary_orf_length"], int):
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Invalid minimal_secondary_orf_length value: {0}".format(
-                        json_conf["orf_loading"]["minimal_secondary_orf_length"]))
-
-    return json_conf
-
-
-def check_run_options(json_conf):
-    """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
-    Function to check general run options such as number of threads to use.
-
-    :return: json_conf
-    :rtype dict
-    """
-
-    if "run_options" not in json_conf:
-        json_conf["run_options"] = dict()
-
-    for key in ["purge", "preload", "exclude_cds",
-                "remove_overlapping_fragments",
-                "subloci_from_cds_only"]:
-        if key not in json_conf["run_options"]:
-            json_conf["run_options"][key] = False
-        else:
-            assert isinstance(json_conf["run_options"][key], bool)
-
-    if "fragments_maximal_cds" not in json_conf["run_options"]:
-        json_conf["run_options"]["fragments_maximal_cds"] = 100
-    else:
-        assert isinstance(json_conf["run_options"]["fragments_maximal_cds"], int)
-        assert json_conf["run_options"]["fragments_maximal_cds"] >= 0
-
-    if "threads" not in json_conf["run_options"]:
-        json_conf["run_options"]["threads"] = 1
-    else:
-        assert isinstance(json_conf["run_options"]["threads"], int)
-
-    if "shm" not in json_conf["run_options"]:
-        json_conf["run_options"]["shm"] = False
-        json_conf["run_options"]["shm_db"] = None
-        json_conf["run_options"]["shm_shared"] = False
-    else:
-        assert isinstance(json_conf["run_options"]["shm"], bool)
-
-    if "shm_db" not in json_conf["run_options"]:
-        json_conf["run_options"]["shm_db"] = None
-    else:
-        assert isinstance(json_conf["run_options"]["shm_db"], (type(None), str))
-
-    return json_conf
-
-
 def check_db(json_conf):
 
     """
@@ -606,35 +374,21 @@ def check_db(json_conf):
     :param json_conf:
     :return:
     """
-    if "db" not in json_conf:
-        raise mikado_lib.exceptions.InvalidJson("No database specified.")
-    if "dbtype" not in json_conf:
-        raise mikado_lib.exceptions.InvalidJson("DB type not specified.")
-    if json_conf["dbtype"] not in ("sqlite", "mysql", "postgresql"):
-        raise mikado_lib.exceptions.InvalidJson(
-            """Invalid DB type: {0}.
-            At the moment we support sqlite, mysql, postgresql""".format(
-                json_conf["dbtype"]))
 
-    if json_conf["dbtype"] in ("mysql", "postgresql"):
-        if "dbhost" not in json_conf:
+    db_settings = json_conf["db_settings"]
+
+    if json_conf["db_settings"]["dbtype"] in ("mysql", "postgresql"):
+        if "dbhost" not in json_conf["db_settings"]:
             raise mikado_lib.exceptions.InvalidJson(
-                "No host specified for the {0} database!".format(json_conf["dbtype"]))
-        if "dbuser" not in json_conf:
+                "No host specified for the {0} database!".format(json_conf["db_settings"]["dbtype"]))
+        if "dbuser" not in json_conf["db_settings"]:
             raise mikado_lib.exceptions.InvalidJson(
-                "No user specified for the {0} database!".format(json_conf["dbtype"]))
-        if "dbpasswd" not in json_conf or json_conf['dbpasswd'] is None:
-            json_conf["dbpasswd"] = ''
-        if "dbport" in json_conf and json_conf["dbport"] is not None:
-            if not isinstance(json_conf["dbport"], int):
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Invalid type for dbport: {0}".format(type(json_conf["dbport"])))
-        else:
-            # Default ports
-            if json_conf["dbtype"] == "mysql":
-                json_conf["dbport"] = 3306
+                "No user specified for the {0} database!".format(json_conf["db_settings"]["dbtype"]))
+        if json_conf["db_settings"]["dbport"] == 0:
+            if json_conf["db_settings"]["dbtype"] == "mysql":
+                json_conf["db_settings"]["dbport"] = 3306
             else:
-                json_conf["dbport"] = 5432
+                json_conf["db_settings"]["dbport"] = 5432
 
     return json_conf
 
@@ -654,6 +408,18 @@ def check_json(json_conf, json_file):
     :return json_conf
     :rtype dict
     """
+
+    validator = extend_with_default(jsonschema.Draft4Validator)
+
+    blue_print = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "configuration_blueprint.json"
+    )
+    blue_print = json.load(open(blue_print))
+
+    # This will check for consistency and add the default
+    # values if they are missing
+    validator(blue_print).validate(json_conf)
 
     if "scoring_file" in json_conf:
         if os.path.exists(os.path.abspath(json_conf["scoring_file"])):
@@ -687,6 +453,9 @@ def check_json(json_conf, json_file):
     if "source" not in json_conf:
         json_conf["source"] = "Mikado"
 
+    if json_conf["chimera_split"]["blast_params"]["hsp_evalue"] < json_conf["chimera_split"]["blast_params"]["evalue"]:
+        json_conf["chimera_split"]["blast_params"]["hsp_evalue"] = json_conf["chimera_split"]["blast_params"]["evalue"]
+
     for prefix in ["", "mono", "sub"]:
         key = "{0}loci_out".format(prefix)
         if key not in json_conf:
@@ -696,11 +465,7 @@ def check_json(json_conf, json_file):
     json_conf = check_blast(json_conf, json_file)
     json_conf = check_requirements(json_conf)
     json_conf = check_scoring(json_conf)
-    json_conf = check_orf_loading(json_conf)
-    json_conf = check_chimera_split(json_conf)
-    json_conf = check_run_options(json_conf)
-    json_conf = check_log(json_conf)
-    json_conf = check_alternative_splicing(json_conf)
+    validator(blue_print).validate(json_conf)
     return json_conf
 
 

@@ -32,6 +32,7 @@ setup(
         "Topic :: Gene Annotation",
         "License :: OSI Approved :: GPL3",
         'Programming Language :: Python :: 3.4',
+        "Operating System :: Linux"
     ],
 
     zip_safe=False,
@@ -43,6 +44,7 @@ setup(
     scripts=glob.glob("bin/*.py"),
 
     install_requires=["pyyaml",
+                      "jsonschema",
                       "numpy",
                       "networkx",
                       "sqlalchemy>=1",
@@ -56,6 +58,7 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
     },
 
-    #data_files=[("sample_data", glob.glob("sample_data/*"))],
+    data_files=[("mikado_lib/configuration",
+                 glob.glob("mikado_lib/configuration/*json") + glob.glob("mikado_lib/configuration/*yaml") )],
 
 )

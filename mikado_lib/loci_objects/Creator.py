@@ -28,7 +28,7 @@ from mikado_lib.serializers.junction import Junction, Chrom
 from mikado_lib.serializers.orf import Orf
 from mikado_lib.serializers import dbutils
 from mikado_lib.loci_objects.superlocus import Superlocus
-from mikado_lib import json_utils
+from mikado_lib.configuration import json_utils
 import mikado_lib.exceptions
 import multiprocessing
 # pylint: disable=no-name-in-module
@@ -316,7 +316,7 @@ class Creator:
         if self.json_conf["run_options"]["shm"] is True:
             self.json_conf["run_options"]["shm_shared"] = False
             self.main_logger.info("Copying the DB into memory")
-            assert self.json_conf["dbtype"] == "sqlite"
+            assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
             self.json_conf["run_options"]["preload"] = False
             if self.json_conf["run_options"]["shm_db"] is not None:
                 self.json_conf["run_options"]["shm_db"] = os.path.join(
@@ -333,10 +333,10 @@ class Creator:
             if self.json_conf["run_options"]["shm"]:
                 if not os.path.exists(self.json_conf["run_options"]["shm_db"]):
                     self.main_logger.info("Copying {0} into {1}".format(
-                        self.json_conf["db"],
+                        self.json_conf["db_settings"]["db"],
                         self.json_conf["run_options"]["shm_db"]))
                     try:
-                        shutil.copy2(self.json_conf["db"],
+                        shutil.copy2(self.json_conf["db_settings"]["db"],
                                      self.json_conf["run_options"]["shm_db"])
                     except PermissionError:
                         self.main_logger.warn(
@@ -425,7 +425,7 @@ class Creator:
         """
 
         print('##gff-version 3', file=locus_out)
-        engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
         for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
@@ -648,7 +648,7 @@ class Creator:
         self.main_logger.info("Starting to preload the database into memory")
 
         data_dict = dict()
-        engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
@@ -816,7 +816,7 @@ class Creator:
         # pylint: enable=no-member
 
         self.logger.debug("Source: %s", self.json_conf["source"])
-        if self.json_conf["dbtype"] == "sqlite" and data_dict is not None:
+        if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection, pool_size=1, max_overflow=2)
 

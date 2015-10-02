@@ -9,15 +9,18 @@ necessary during the analysis.
 import argparse
 import functools
 import glob
-import sqlalchemy
-from mikado_lib import json_utils
-from mikado_lib.log_utils import create_default_logger
-from mikado_lib.serializers import orf, blast_serializer, junction, dbutils
 import os
 import sys
 import logging
 import logging.handlers
+
+import sqlalchemy
+
 from Bio import SeqIO
+
+from mikado_lib.configuration import json_utils
+from mikado_lib.configuration.log_utils import create_default_logger
+from mikado_lib.serializers import orf, blast_serializer, junction, dbutils
 
 __author__ = 'Luca Venturini'
 

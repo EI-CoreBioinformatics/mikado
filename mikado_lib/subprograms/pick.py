@@ -5,8 +5,9 @@
 
 import argparse
 import sys
+
 import mikado_lib.loci_objects
-import mikado_lib.json_utils
+import mikado_lib.configuration.json_utils
 from mikado_lib.subprograms import to_gff
 
 
@@ -72,7 +73,7 @@ def pick(args):
     """
 
     args.json_conf.close()
-    args.json_conf = mikado_lib.json_utils.to_json(args.json_conf.name)
+    args.json_conf = mikado_lib.configuration.json_utils.to_json(args.json_conf.name)
 
     args = check_log_settings(args)
     args = check_run_options(args)

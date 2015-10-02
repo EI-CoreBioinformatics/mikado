@@ -322,8 +322,8 @@ class Superlocus(Abstractlocus):
         contained in the JSON configuration.
         """
 
-        database = self.json_conf["db"]
-        dbtype = self.json_conf["dbtype"]
+        database = self.json_conf["db_settings"]["db"]
+        dbtype = self.json_conf["db_settings"]["dbtype"]
 
         if pool is None:
             self.engine = create_engine("{dbtype}:///{db}".format(
@@ -372,9 +372,8 @@ class Superlocus(Abstractlocus):
 
         self.locus_verified_introns = []
         if data_dict is None:
-            if "db" not in self.json_conf or self.json_conf["db"] is None:
+            if "db" not in self.json_conf or self.json_conf["db_settings"]["db"] is None:
                 return  # No data to load
-            self.connect_to_db(pool)
             dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
             if len(dbquery) > 0:
                 chrom_id = dbquery[0].chrom_id
@@ -402,6 +401,9 @@ class Superlocus(Abstractlocus):
         :param pool: a connection pool
         :type pool: sqlalchemy.pool.QueuePool
         """
+
+        if data_dict is None:
+            self.connect_to_db(pool)
 
         self._load_introns(data_dict, pool)
         tid_keys = self.transcripts.keys()

@@ -16,7 +16,7 @@ import inspect
 # import asyncio
 import collections
 from intervaltree import Interval, IntervalTree
-from mikado_lib.log_utils import create_null_logger
+from mikado_lib.configuration.log_utils import create_null_logger
 from mikado_lib.exceptions import InvalidTranscript
 # SQLAlchemy imports
 from sqlalchemy.orm.session import sessionmaker

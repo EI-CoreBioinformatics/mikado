@@ -6,7 +6,8 @@ Very basic, all too basic test for some functionalities of locus-like classes.
 
 import unittest
 import os.path
-from mikado_lib import json_utils
+
+from mikado_lib.configuration import json_utils
 from mikado_lib import exceptions
 from mikado_lib.parsers import GFF  # ,GTF, bed12
 from mikado_lib.loci_objects import transcript, superlocus,  abstractlocus

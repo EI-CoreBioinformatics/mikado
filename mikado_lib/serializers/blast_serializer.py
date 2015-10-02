@@ -13,10 +13,11 @@ The module also contains helper functions such as mean().
 
 import collections
 import os
-import sqlalchemy
 import functools
-from Bio import SeqIO
 import operator
+
+import sqlalchemy
+from Bio import SeqIO
 import sqlalchemy.exc
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
 from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index
@@ -24,10 +25,12 @@ from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from Bio.Blast.NCBIXML import parse as xparser
 from sqlalchemy.orm.session import sessionmaker
+
 from mikado_lib.serializers.dbutils import DBBASE
 from mikado_lib.serializers.dbutils import connect
 from mikado_lib.parsers.blast_utils import XMLMerger, create_opener, merge
-from mikado_lib.log_utils import create_null_logger, check_logger
+from mikado_lib.configuration.log_utils import create_null_logger, check_logger
+
 # pylint: disable=no-name-in-module
 from numpy import mean
 # pylint: enable=no-name-in-module

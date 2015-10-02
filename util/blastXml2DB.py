@@ -7,9 +7,11 @@ Script to conver the BlastXML output into a tabular format.
 
 import os
 import argparse
-from mikado_lib.serializers.blast_serializer import XmlSerializer
-from mikado_lib import json_utils
+
 from Bio import SeqIO
+
+from mikado_lib.serializers.blast_serializer import XmlSerializer
+from mikado_lib.configuration import json_utils
 
 
 def to_seqio(string):

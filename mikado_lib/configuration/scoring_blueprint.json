@@ -1,108 +1,17 @@
 {
   "type": "object",
-  "definitions": {
-    "rescal_limit": {
+  "required": ["rescaling"],
+  "properties":{
+    "rescaling": {"type": "string", "enum": ["max", "min", "target"]},
+    "value": {"oneOf": [{"type": "number"}, {"type": "boolean"}]},
+    "multiplier": {"type": "number", "default": 1, "minVal": 0.00001},
+    "filter": {
       "type": "object",
-      "required": [
-        "rescaling"
-      ],
-      "properties": {
-        "rescaling": {
-          "type": "string",
-          "enum": [
-            "max",
-            "min"
-          ]
-        }
-      }
-    },
-    "rescal_target": {
-      "type": "object",
-      "required": [
-        "rescaling",
-        "value"
-      ],
-      "properties": {
-        "rescaling": {
-          "type": "string",
-          "enum": [
-            "target"
-          ]
-        },
-        "value": {
-          "oneOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "boolean"
-            }
-          ]
-        }
-      }
-    },
-    "filter_num": {
-      "type": "object",
-      "filter":{
-        "type": "object",
-      "required": [
-        "operator",
-        "value"
-      ],
-      "properties": {
-        "value": {
-          "type": "number"
-        },
-        "operator": {
-          "type": "string",
-          "enum": [
-            "gt",
-            "ge",
-            "eq",
-            "lt",
-            "le",
-            "ne"
-          ]
-        }
-      }
-    }},
-    "filter_val": {
-      "type": "object",
-      "filter":{
-        "type": "object",
-      "required": [
-        "operator",
-        "valid_values"
-      ],
-      "properties": {
-        "valid_values": {
-          "type": "array"
-        },
-        "operator": {
-          "type": "string",
-          "enum": [
-            "in",
-            "not in"
-          ]
-        }
-      }}
-    }},
-    "properties": {
-      "oneOf": [
-        {
-          "$ref": "#/definitions/rescal_limit"
-        },
-        {
-          "$ref": "#/definitions/rescal_target"
-        }],
-      "oneOf": [{
-          "$ref": "#/definitions/filter_val"
-        },{
-          "$ref": "#/definitions/filter_num"
-        },
-        {}]
+      "required": ["operator", "value"],
+      "properties":{
+        "operator": {"type": "string", "enum": ["gt", "ge", "eq", "lt", "le", "ne", "in", "not in"]},
+        "value": {"oneOf": [{"type": "array"}, {"type": "number"}, {"type": "boolean"}]}
       }
     }
-
-
-
+  }
+}

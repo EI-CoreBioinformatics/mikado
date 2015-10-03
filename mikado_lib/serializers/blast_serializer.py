@@ -186,6 +186,7 @@ class Hsp(DBBASE):
     hsp_evalue = Column(Float)
     hsp_bits = Column(Float)
     hsp_identity = Column(Float)
+    hsp_positives = Column(Float)
     hsp_length = Column(Integer)
 
     query_object = relationship(Query, uselist=False)
@@ -216,6 +217,7 @@ class Hsp(DBBASE):
         self.target_hsp_start = hsp.sbjct_start
         self.target_hsp_end = hsp.sbjct_end
         self.hsp_identity = float(hsp.identities) / hsp.align_length * 100
+        self.hsp_positives = float(hsp.positives) / hsp.align_length * 100
         self.hsp_length = hsp.align_length
         self.hsp_bits = hsp.bits
         self.hsp_evalue = hsp.expect
@@ -322,6 +324,7 @@ class Hit(DBBASE):
     evalue = Column(Float)
     bits = Column(Float)
     global_identity = Column(Float)
+    global_positives = Column(Float)
     query_start = Column(Integer)
     query_end = Column(Integer)
     target_start = Column(Integer)
@@ -429,6 +432,7 @@ class Hit(DBBASE):
             "evalue",
             "bits",
             "global_identity",
+            "global_positives",
             "query_start",
             "query_end",
             "target_start",
@@ -867,9 +871,9 @@ class XmlSerializer:
                 hit_dict_params["bits"] = record.descriptions[ccc].bits
 
                 # Prepare for bulk load
-                hit, hit_hsps = self.__prepare_hit(alignment,
-                                                   current_query, current_target,
-                                                   **hit_dict_params)
+                hit, hit_hsps = self.prepare_hit(alignment,
+                                                 current_query, current_target,
+                                                 **hit_dict_params)
                 hits.append(hit)
                 hsps.extend(hit_hsps)
 
@@ -1019,7 +1023,7 @@ class XmlSerializer:
             self.session.commit()
 
     @classmethod
-    def __prepare_hit(cls, hit, query_id, target_id, **kwargs):
+    def prepare_hit(cls, hit, query_id, target_id, **kwargs):
         """Prepare the dictionary for fast loading of Hit and Hsp objects"""
 
         hit_dict = dict()
@@ -1028,7 +1032,7 @@ class XmlSerializer:
         q_intervals = []
         t_intervals = []
 
-        identical_positions = set()
+        identical_positions, positives = set(), set()
 
         for counter, hsp in enumerate(hit.hsps):
             hsp_dict = dict()
@@ -1043,12 +1047,16 @@ class XmlSerializer:
             # Prepare the list for later calculation
             t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
 
-            hsp_dict["hsp_identity"] = float(hsp.identities) / hsp.align_length * 100
+            hsp_dict["hsp_identity"] = (hsp.identities) / hsp.align_length * 100
+            hsp_dict["hsp_positives"] = (hsp.positives) / hsp.align_length * 100
             # Prepare the list for later calculation
             # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
             for position, match in zip(range(hsp.query_start, hsp.query_end), hsp.match):
                 if match in cls.__valid_matches:
                     identical_positions.add(position)
+                    positives.add(position)
+                elif match == "+":
+                    positives.add(position)
 
             hsp_dict["hsp_length"] = hsp.align_length
             hsp_dict["hsp_bits"] = hsp.bits
@@ -1073,5 +1081,6 @@ class XmlSerializer:
         hit_dict["target_start"] = t_merged_intervals[0][0]
         hit_dict["target_end"] = t_merged_intervals[-1][1]
         hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
+        hit_dict["global_positives"] = len(positives) * 100 / q_aligned
 
         return hit_dict, hsp_dict_list

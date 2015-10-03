@@ -1,0 +1,19 @@
+{
+  "definitions":
+  {"parameter":
+    {"type": "object",
+      "properties":{
+      "operator": {"type": "string", "enum": ["gt", "ge", "eq", "lt", "le", "ne", "in", "not in"]},
+      "value": {"type": "number"}
+      }
+  },
+    "expression":
+    {"type": "array", "items": {"type": "string"} }
+  },
+  "required": ["parameters"],
+  "properties":
+  {"type": "object",
+  "properties":{
+
+  }}
+}

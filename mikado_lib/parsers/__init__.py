@@ -38,6 +38,7 @@ class Parser(metaclass=abc.ABCMeta):
                 handle = open(handle, "rt", buffering=1)
             except:
                 raise TypeError
+
         self._handle = handle
         self.closed = False
 

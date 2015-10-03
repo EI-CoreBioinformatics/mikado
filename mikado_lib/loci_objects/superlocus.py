@@ -9,15 +9,12 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 # Core imports
 import collections
 import sqlalchemy
-# SQLAlchemy imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 import sqlalchemy.pool
-
-# Shanghai imports
 from mikado_lib.serializers.junction import Junction, Chrom
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.loci_objects.monosublocus import Monosublocus
@@ -697,6 +694,7 @@ class Superlocus(Abstractlocus):
         self.define_loci()
 
         candidates = collections.defaultdict(set)
+        primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
 
         cds_only = self.json_conf["run_options"]["subloci_from_cds_only"]
         t_graph = self.define_graph(self.transcripts,
@@ -712,9 +710,11 @@ class Superlocus(Abstractlocus):
             loci_cliques[lid] = set()
             for clique in cliques:
                 if locus_instance.primary_transcript_id in clique:
-                    loci_cliques[locus_instance.id].update(clique)
+                    loci_cliques[
+                        locus_instance.id].update({tid for tid in clique if
+                                                   tid != locus_instance.primary_transcript_id})
 
-        for tid in self.transcripts:
+        for tid in iter(tid for tid in self.transcripts if tid not in primary_transcripts):
             loci_in = list(llid for llid in loci_cliques if
                            tid in loci_cliques[llid])
             if len(loci_in) == 1:

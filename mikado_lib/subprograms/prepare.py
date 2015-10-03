@@ -15,7 +15,8 @@ import itertools
 from mikado_lib import exceptions
 import copy
 from mikado_lib.loci_objects.transcriptchecker import TranscriptChecker
-from mikado_lib.parsers import GTF
+# from mikado_lib.parsers import GTF, GFF
+from mikado_lib.subprograms import to_gff
 from Bio import SeqIO
 import functools
 import multiprocessing
@@ -180,6 +181,16 @@ def perform_check(keys, exon_lines, args, logger):
 def prepare(args):
     """Main script function."""
 
+    if args.labels != '':
+        args.labels = args.labels.split(",")
+        # Checks labels are unique
+        assert len(set(args.labels)) == len(args.labels)
+        assert not any([True for _ in args.labels if _.strip() == ''])
+        if len(args.labels) != len(args.gff):
+            raise ValueError("Incorrect number of labels specified")
+    else:
+        args.labels = [""] * len(args.gff)
+
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
         "{asctime}:{levelname} - {filename}:{lineno} - {funcName} - {message}",
@@ -199,14 +210,38 @@ def prepare(args):
     args.fasta.close()
     args.fasta = to_seqio(args.fasta.name)
 
-    exon_lines = dict()
+    exon_lines = collections.defaultdict(list)
 
-    for row in args.gff:
-        if row.feature != "exon":
-            continue
-        if row.transcript not in exon_lines:
-            exon_lines[row.transcript] = []
-        exon_lines[row.transcript].append(row)
+    previous_file_ids = collections.defaultdict(set)
+
+    for label, gff_handle in zip(args.labels, args.gff):
+        found_ids = set.union(*previous_file_ids.values())
+        for row in gff_handle:
+            if row.is_exon is False:
+                continue
+            # This convoluted block is due to the fact that transcript is a list for
+            # GFF files (as it is a parent), while it is a string for GTF files
+
+            if isinstance(row.transcript, list):
+                if label != '':
+                    row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
+                for tid in row.transcript:
+                    if tid in found_ids:
+                        assert label != ''
+                        raise ValueError("""{0} has already been found in another file,
+                        this will cause unsolvable collisions. Please rerun preparation using
+                        labels to tag each file.""")
+                    previous_file_ids[gff_handle.name].add(tid)
+                    exon_lines[tid].append(row)
+            else:
+                if label != '':
+                    row.transcript = "{0}_{1}".format(label, row.transcript)
+                if row.transcript in found_ids:
+                    assert label != ''
+                    raise ValueError("""{0} has already been found in another file,
+                        this will cause unsolvable collisions. Please rerun preparation using
+                        labels to tag each file.""")
+                exon_lines[row.transcript].append(row)
 
     logger.info("Finished loading exon lines")
 
@@ -254,21 +289,6 @@ def prepare_parser():
     :rtype: argparse.Namespace
     """
 
-    def to_gff(string):
-        """
-        Function to verify the input file.
-        :param string: filename
-        """
-        if string[-4:] != ".gtf":
-            raise TypeError("This script takes as input only GTF files.")
-
-        gff = GTF.GTF(string)
-        for record in gff:
-            if record.header is False:
-                gff.close()
-                return GTF.GTF(string)
-        raise ValueError("Empty GTF file provided.")
-
     def to_cpu_count(string):
         """
         :param string: cpu requested
@@ -302,10 +322,13 @@ def prepare_parser():
     parser.add_argument("-t", "--threads",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=1)
+    # parser.add_argument("--labels", type="str", default="",
+    #                     help="""Labels to attach to the IDs of the transcripts of the input files,
+    #                     separated by comma.""")
     parser.add_argument("--single", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
-    parser.add_argument("gff", type=to_gff, help="Input GTF file.")
-    parser.add_argument("out", default=sys.stdout, nargs='?', type=argparse.FileType('w'),
+    parser.add_argument("--out", default=sys.stdout, type=argparse.FileType('w'),
                         help="Output file. Default: STDOUT.")
+    parser.add_argument("gff", type=to_gff, help="Input GFF/GTF file(s).", nargs="+")
     parser.set_defaults(func=prepare)
     return parser

@@ -160,6 +160,7 @@ class Transcript:
         # This is used to set the phase if the CDS is loaded from the GFF
         self._first_phase = 0
         self.__phases = []  # will contain (start, phase) for each CDS exon
+        self.__blast_score = None # Homology score
 
         # Starting settings for everything else
         self.chrom = None
@@ -1207,6 +1208,10 @@ class Transcript:
                     self.id, counter)
                 err_message += "BED: {0}".format("\n\t".join([str(x) for x in new_bed12s]))
                 raise InvalidTranscript(err_message)
+
+            for hit in self.blast_hits:
+                if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), (boundary)) > 0:
+                    new_transcript.blast_hits.append(hit)
 
             new_transcripts.append(new_transcript)
             nspan = (new_transcript.start, new_transcript.end)
@@ -3078,3 +3083,33 @@ class Transcript:
 
         return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],
                                self.introns)))
+
+    @Metric
+    def blast_score(self):
+
+        """
+        Metric that indicates how good a hit is compared to the competition, in terms of BLAST
+        similarities.
+        As in SnowyOwl, the score for each hit is calculated by taking the percentage of positive
+        matches and dividing it by (2 * len(self.blast_hits)).
+        IMPORTANT: when splitting transcripts by ORF, a blast hit is added to the new transcript only if
+         it is contained within the new transcript. This WILL screw up a bit the homology score.
+        :return
+        """
+
+        if self.__blast_score == 0 and len(self.blast_hits) > 0:
+            self.__blast_score = None
+
+        if self.__blast_score is not None:
+            return self.__blast_score
+
+        elif len(self.blast_hits) == 0:
+            self.__blast_score = 0
+        else:
+            score = 0
+            for hit in self.blast_hits:
+                score += hit["global_positives"]/(2 * len(self.blast_hits))
+            self.__blast_score = score
+
+        return self.__blast_score
+

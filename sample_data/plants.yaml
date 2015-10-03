@@ -9,6 +9,7 @@ requirements:
     exon_num.multi: {operator: gt, value: 1}
     max_intron_length: {operator: le, value: 100000}
 scoring:
+  blast_score: {rescaling: max}
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}

@@ -25,4 +25,4 @@ run_options:
   subloci_from_cds_only: true
   threads: 5
   preload: true
-scoring_file: scoring.yaml
+scoring_file: plants.yaml

@@ -42,11 +42,13 @@ def extend_with_default(validator_class):
         for prop, subschema in properties.items():
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
-            elif prop not in instance and subschema["type"] == "object":
-                instance[prop] = dict()
-                if "comment" in subschema:
-                    instance[prop].setdefault("comment", subschema["comment"])
-                instance[prop] = set_default(instance[prop], subschema["properties"])
+            elif prop not in instance:
+                if "type" not in subschema: continue
+                elif subschema["type"] == "object":
+                    instance[prop] = dict()
+                    if "comment" in subschema:
+                        instance[prop].setdefault("comment", subschema["comment"])
+                    instance[prop] = set_default(instance[prop], subschema["properties"])
         return instance
 
     def set_defaults(validator, properties, instance, schema):
@@ -113,6 +115,11 @@ def check_scoring(json_conf):
     :rtype dict
     """
 
+    scoring_schema = json.load(open(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "scoring_blueprint.json"
+    )))
+
     parameters_found = set()
     parameters_not_found = []
     double_parameters = []
@@ -121,44 +128,29 @@ def check_scoring(json_conf):
     if "scoring" not in json_conf or len(json_conf["scoring"].keys()) == 0:
         raise mikado_lib.exceptions.InvalidJson("No parameters specified for scoring!")
 
+    validator = extend_with_default(jsonschema.Draft4Validator)
+
     for parameter in json_conf["scoring"]:
         if parameter not in available_metrics:
             parameters_not_found.append(parameter)
         if parameter in parameters_found:
             double_parameters.append(parameter)
-        if "filter" in json_conf["scoring"][parameter]:
-            conf = json_conf["scoring"][parameter]["filter"]
-            if "operator" not in conf or "value" not in conf:
-                invalid_filter.add(parameter)
-            elif conf["operator"] not in ("gt", "ge", "eq", "lt", "le", "ne", "in", "not in"):
-                invalid_filter.add(parameter)
-        if "rescaling" not in json_conf["scoring"][parameter]:
-            raise mikado_lib.exceptions.UnrecognizedRescaler(
-                """No rescaling specified for {0}.
-                Must be one among "max", "min" and "target".""".format(parameter))
-        elif json_conf["scoring"][parameter]["rescaling"] not in ("max", "min", "target"):
-            raise mikado_lib.exceptions.UnrecognizedRescaler(
-                """Invalid rescaling specified for {0}."
-                Must be one among "max", "min" and "target".""".format(parameter))
-        elif json_conf["scoring"][parameter]["rescaling"] == "target":
-            if "value" not in json_conf["scoring"][parameter]:
+        if not jsonschema.Draft4Validator(scoring_schema).is_valid(json_conf["scoring"][parameter]):
+            errors = list(jsonschema.Draft4Validator(scoring_schema).iter_errors(
+                json_conf["scoring"][parameter]))
+            raise mikado_lib.exceptions.InvalidJson("Invalid scoring for {}:\n{}".format(
+                parameter,"\n".join(errors)))
+        try:
+            validator(scoring_schema).validate(json_conf["scoring"][parameter])
+        except Exception as err:
+            raise ValueError(parameter, err)
+
+
+        if (json_conf["scoring"][parameter]["rescaling"] == "target" and
+            "value" not in json_conf["scoring"][parameter]):
                 message = """Target rescaling requested for {0} but no target value specified.
                 Please specify it with the \"value\" keyword.""".format(parameter)
                 raise mikado_lib.exceptions.UnrecognizedRescaler(message)
-            # Recast as float
-            json_conf["scoring"][parameter]["value"] = float(
-                json_conf["scoring"][parameter]["value"])
-
-        if "multiplier" not in json_conf["scoring"][parameter]:
-            json_conf["scoring"][parameter]["multiplier"] = 1
-        else:
-            if not isinstance(json_conf["scoring"][parameter]["multiplier"], (float, int)) or \
-                    json_conf["scoring"][parameter]["multiplier"] == 0:
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Invalid multiplier: {0}".format(
-                        json_conf["scoring"][parameter]["multiplier"]))
-            json_conf["scoring"][parameter]["multiplier"] = float(
-                json_conf["scoring"][parameter]["multiplier"])
 
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0:
         err_message = ''
@@ -194,6 +186,10 @@ def check_requirements(json_conf):
 
     available_metrics = Transcript.get_available_metrics()
     parameters_not_found = []
+    require_schema = json.load(open(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "requirements_blueprint.json"
+    )))
 
     if "requirements" in json_conf:
         # Check that the parameters are valid
@@ -204,18 +200,17 @@ def check_requirements(json_conf):
             key_name = key.split(".")[0]
             if key_name not in available_metrics:
                 parameters_not_found.append(key_name)
-            if "operator" not in json_conf["requirements"]["parameters"][key]:
-                raise mikado_lib.exceptions.InvalidJson(
-                    "No operator provided for requirement {0}".format(key))
-            elif "value" not in json_conf["requirements"]["parameters"][key]:
-                raise mikado_lib.exceptions.InvalidJson(
-                    "No value provided for requirement {0}".format(key))
-            elif json_conf["requirements"]["parameters"][key]["operator"] not in (
-                    "gt", "ge", "eq", "lt", "le", "ne", "in", "not in"):
-                raise mikado_lib.exceptions.UnrecognizedOperator(
-                    "Unrecognized operator: {0}".format(
-                        json_conf["requirements"]["parameters"][key]["operator"]))
+                continue
+            if not jsonschema.Draft4Validator(require_schema["definitions"]["parameter"]).is_valid(
+                    json_conf["requirements"]["parameters"][key]):
+                errors = list(jsonschema.Draft4Validator(require_schema).iter_errors(
+                    json_conf["requirements"]["parameters"][key]
+                ))
+                raise mikado_lib.exceptions.InvalidJson("Invalid parameter for {0}: \n{1}".format(
+                    key, errors))
+
             json_conf["requirements"]["parameters"][key]["name"] = key_name
+
         if len(parameters_not_found) > 0:
             raise mikado_lib.exceptions.InvalidJson(
                 "The following parameters, selected for filtering, are invalid:\n\t{0}".format(
@@ -229,15 +224,16 @@ def check_requirements(json_conf):
             keys = json_conf["requirements"]["parameters"].keys()
             newexpr = json_conf["requirements"]["expression"][:]
         else:
-            # Parse the filtering expression, verify that it is syntactically correct
-            if isinstance(json_conf["requirements"]["expression"], list):
-                json_conf["requirements"]["expression"] = " ".join(
-                    json_conf["requirements"]["expression"])
-            newexpr = json_conf["requirements"]["expression"][:]
+
+            if not jsonschema.Draft4Validator(require_schema["definitions"]["expression"]).is_valid(
+                json_conf["requirements"]["expression"]
+            ):
+                raise mikado_lib.exceptions.InvalidJson("Invalid expression field")
+            expr = " ".join(json_conf["requirements"]["expression"])
+            newexpr = expr[:]
 
             keys = list(key for key in re.findall(
-                "([^ ()]+)", json_conf["requirements"]["expression"]) if
-                        key not in ("and", "or", "not", "xor"))
+                "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor"))
 
             diff_params = set.difference(
                 set(keys), set(json_conf["requirements"]["parameters"].keys()))
@@ -417,6 +413,8 @@ def check_json(json_conf, json_file):
     )
     blue_print = json.load(open(blue_print))
 
+    config_folder = os.path.dirname(os.path.abspath(__file__))
+
     # This will check for consistency and add the default
     # values if they are missing
     validator(blue_print).validate(json_conf)
@@ -424,16 +422,17 @@ def check_json(json_conf, json_file):
     if "scoring_file" in json_conf:
         if os.path.exists(os.path.abspath(json_conf["scoring_file"])):
             json_conf["scoring_file"] = os.path.abspath(json_conf["scoring_file"])
-        else:
-            if os.path.exists(
+        elif os.path.exists(
                     os.path.join(os.path.dirname(
                         json_conf["filename"]), json_conf["scoring_file"])):
                 json_conf["scoring_file"] = os.path.join(
                     os.path.dirname(json_conf["filename"]),
                     json_conf["scoring_file"])
-            else:
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Scoring file not found: {0}".format(json_conf["scoring_file"]))
+        elif os.path.exists(os.path.join(config_folder, json_conf["scoring_file"])):
+                json_conf["scoring_file"] = os.path.join(config_folder, json_conf["scoring_file"])
+        else:
+            raise mikado_lib.exceptions.InvalidJson(
+                "Scoring file not found: {0}".format(json_conf["scoring_file"]))
 
         with open(json_conf["scoring_file"]) as scoring_file:
             if json_conf["scoring_file"].endswith("yaml"):
@@ -449,12 +448,6 @@ def check_json(json_conf, json_file):
         json_conf["input"] = None
     else:
         assert os.path.exists(json_conf["input"]) and os.path.isfile(json_conf["input"])
-
-    if "source" not in json_conf:
-        json_conf["source"] = "Mikado"
-
-    if json_conf["chimera_split"]["blast_params"]["hsp_evalue"] < json_conf["chimera_split"]["blast_params"]["evalue"]:
-        json_conf["chimera_split"]["blast_params"]["hsp_evalue"] = json_conf["chimera_split"]["blast_params"]["evalue"]
 
     for prefix in ["", "mono", "sub"]:
         key = "{0}loci_out".format(prefix)

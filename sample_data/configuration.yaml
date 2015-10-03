@@ -15,6 +15,7 @@ log_settings:
 source: "Mikado"
 alternative_splicing:
   report: true
+  max_isoforms: 3
 orf_loading:
   strand_specific: true
 run_options:

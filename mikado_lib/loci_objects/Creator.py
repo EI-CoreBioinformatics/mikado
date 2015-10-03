@@ -169,7 +169,7 @@ def analyse_locus(slocus: Superlocus,
     logger.info("Defining loci")
     for stranded_locus in stranded_loci:
         stranded_locus.define_loci()
-        logger.debug("Defined loci for %s:%d-%d, strand: %s",
+        logger.debug("Defined loci for %s:%f-%f, strand: %s",
                      stranded_locus.chrom,
                      stranded_locus.start,
                      stranded_locus.end,
@@ -193,7 +193,7 @@ def analyse_locus(slocus: Superlocus,
     # Check if any locus is a fragment, if so, tag/remove it
     for stranded_locus in remove_fragments(stranded_loci, json_conf, logger):
         printer_queue.put(stranded_locus)
-        logger.debug("Finished for %s:%d-%d, strand: %s",
+        logger.debug("Finished for %s:%f-%f, strand: %s",
                      stranded_locus.chrom,
                      stranded_locus.start,
                      stranded_locus.end,
@@ -529,8 +529,10 @@ class Creator:
                     print_cds=not self.json_conf["run_options"]["exclude_cds"])
                 if sub_lines != '':
                     print(sub_lines, file=sub_out)
-                sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
-                sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()]
+                sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
+                                    if x != {} and "tid" in x]
+                sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
+                                   if x != {} and "tid" in x]
                 for row in sub_metrics_rows:
                     sub_metrics.writerow(row)
                 for row in sub_scores_rows:
@@ -541,8 +543,10 @@ class Creator:
                     print_cds=not self.json_conf["run_options"]["exclude_cds"])
                 if mono_lines != '':
                     print(mono_lines, file=mono_out)
-            locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()]
-            locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
+            locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
+                                  if x != {} and "tid" in x]
+            locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
+                                 if x != {} and "tid" in x]
             locus_lines = stranded_locus.__str__(
                 print_cds=not self.json_conf["run_options"]["exclude_cds"])
             for row in locus_metrics_rows:

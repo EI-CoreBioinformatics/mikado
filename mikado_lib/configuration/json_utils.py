@@ -144,12 +144,11 @@ def check_scoring(json_conf):
             validator(scoring_schema).validate(json_conf["scoring"][parameter])
         except Exception as err:
             raise ValueError(parameter, err)
-
-
-        if (json_conf["scoring"][parameter]["rescaling"] == "target" and
-            "value" not in json_conf["scoring"][parameter]):
+        if json_conf["scoring"][parameter]["rescaling"] == "target":
+            if "value" not in json_conf["scoring"][parameter]:
                 message = """Target rescaling requested for {0} but no target value specified.
-                Please specify it with the \"value\" keyword.""".format(parameter)
+                    Please specify it with the \"value\" keyword.\n{1}""".format(parameter,
+                                                                                 json_conf["scoring"][parameter])
                 raise mikado_lib.exceptions.UnrecognizedRescaler(message)
 
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0:

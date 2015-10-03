@@ -9,6 +9,7 @@ from mikado_lib.loci_objects.transcript import Transcript
 from mikado_lib.exceptions import IncorrectStrandError
 from collections import Counter
 from functools import partial
+from itertools import zip_longest
 
 
 # pylint: disable=too-many-instance-attributes
@@ -181,8 +182,9 @@ class TranscriptChecker(Transcript):
         :return: strand of the intron (None | "+" | "-")
         """
 
-        splice_donor = self.fasta_seq[intron[0] - self.start - 1:intron[0]-self.start + 1]
-        splice_acceptor = self.fasta_seq[intron[1] - 2 - self.start:intron[1] - self.start]
+        splice_donor = self.fasta_seq[intron[0] - self.start:intron[0]-self.start + 2]
+        assert len(splice_donor) == 2
+        splice_acceptor = self.fasta_seq[intron[1] - 1 - self.start:intron[1] - self.start + 1]
 
         # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
         # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
@@ -199,3 +201,43 @@ class TranscriptChecker(Transcript):
             else:
                 strand = None
         return strand
+
+    @property
+    def fasta(self):
+
+        self.check_strand()
+        fasta = [">{0}".format(self.id)]
+        sequence = ''
+        assert self.exons[0][0] - self.start == 0
+        assert self.exons[-1][1] - self.start + 1 == len(self.fasta_seq)
+
+        for exon in self.exons:
+            start = exon[0] - self.start
+            end = exon[1] + 1 - self.start
+            _ = self.fasta_seq[start:end]
+            # assert len(_) == end - start, (
+            #     len(_), end - start
+            # )
+            sequence += _
+
+        if self.strand == "-":
+            sequence = self.rev_complement(sequence)
+        # assert len(sequence) == sum(exon[1] + 1 - exon[0] for exon in self.exons), (
+        #     len(sequence), sum(exon[1] + 1 - exon[0] for exon in self.exons)
+        # )
+
+        sequence = self.grouper(sequence, 60)
+        fasta.extend(sequence)
+        assert isinstance(fasta, list)
+        try:
+            fasta = "\n".join(fasta)
+        except TypeError as err:
+            raise TypeError("{0}\n{1}".format(err, fasta))
+        return fasta
+
+    @staticmethod
+    def grouper(iterable, n, fillvalue=""):
+        "Collect data into fixed-length chunks or blocks. From core documentation."
+        # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+        args = [iter(iterable)] * n
+        return list("".join(x) for x in zip_longest(*args, fillvalue=fillvalue))

@@ -79,7 +79,7 @@ def create_transcript(lines,
     return transcript_object
 
 
-def store_transcripts(exon_lines, fasta, logger):
+def store_transcripts(exon_lines, fasta, logger, min_length=0):
 
     """
     Function that analyses the exon lines from the original file
@@ -94,6 +94,12 @@ def store_transcripts(exon_lines, fasta, logger):
     transcripts = collections.defaultdict(dict)
     for tid in exon_lines:
         tlines = exon_lines[tid]
+        tlength = sum(exon.end + 1 - exon.start for exon in exon_lines[tid])
+        # Discard transcript under a certain size
+        if tlength < min_length:
+            logger.warn("Discarding %s because its size (%d) is under the minimum of %d",
+                        tid, tlength, min_length)
+            continue
         start, end = min(x.start for x in tlines), max(x.end for x in tlines)
         chrom = tlines[0].chrom
         if (start, end) not in transcripts[chrom]:
@@ -105,7 +111,7 @@ def store_transcripts(exon_lines, fasta, logger):
     for chrom in sorted(transcripts.keys()):
         for key in sorted(transcripts[chrom].keys(),
                           key=operator.itemgetter(0, 1)):
-            seq = fasta[chrom][key[0]:key[1]]
+            seq = fasta[chrom][key[0]-1:key[1]]
             keys.extend([tid, seq] for tid in transcripts[chrom][key])
     logger.info("Finished to sort %d transcripts", len(exon_lines))
 
@@ -151,7 +157,7 @@ def perform_check(keys, exon_lines, args, logger):
             elif counter >= 10**3 and counter % (10**3) == 0:
                 logger.debug("Retrieved %d transcript positions", counter)
             print(transcript_object.__str__(to_gtf=True), file=args.out)
-
+            print(transcript_object.fasta, file=args.out_fasta)
     else:
         for group in grouper(keys, 100):
             if group is None:
@@ -170,6 +176,7 @@ def perform_check(keys, exon_lines, args, logger):
                 elif counter >= 10**3 and counter % (10**3) == 0:
                     logger.debug("Retrieved %d transcript positions", counter)
                 print(transcript_object.__str__(to_gtf=True), file=args.out)
+                print(transcript_object.fasta, file=args.out_fasta)
         pool.close()
         pool.join()
 
@@ -190,6 +197,11 @@ def prepare(args):
             raise ValueError("Incorrect number of labels specified")
     else:
         args.labels = [""] * len(args.gff)
+
+    if isinstance(args.out_fasta, str):
+        args.out_fasta = open(args.out_fasta, 'w')
+    if isinstance(args.out, str):
+        args.out = open(args.out, 'w')
 
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -215,7 +227,7 @@ def prepare(args):
     previous_file_ids = collections.defaultdict(set)
 
     for label, gff_handle in zip(args.labels, args.gff):
-        found_ids = set.union(*previous_file_ids.values())
+        found_ids = set.union(set(), *previous_file_ids.values())
         for row in gff_handle:
             if row.is_exon is False:
                 continue
@@ -248,7 +260,8 @@ def prepare(args):
     # Prepare the sorted data structure
     keys = store_transcripts(exon_lines,
                              args.fasta,
-                             logger)
+                             logger,
+                             min_length=args.minimum_length)
 
     perform_check(keys, exon_lines, args, logger)
 
@@ -300,6 +313,9 @@ def prepare_parser():
             raise
         return max(1, string)
 
+    def positive(string):
+        return abs(int(string))
+
     parser = argparse.ArgumentParser("""Script to prepare a GTF for the pipeline;
     it will perform the following operations:
     1- add the "transcript" feature
@@ -319,16 +335,21 @@ def prepare_parser():
                         help="""Flag. If set, transcripts with mixed +/-
                         splices will not cause exceptions but rather
                         be annotated as problematic.""")
+    parser.add_argument("-m", "--minimum_length", default=0, type=positive,
+                        help="Minimum length for transcripts. Default: no filtering.")
     parser.add_argument("-t", "--threads",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=1)
-    # parser.add_argument("--labels", type="str", default="",
-    #                     help="""Labels to attach to the IDs of the transcripts of the input files,
-    #                     separated by comma.""")
+    parser.add_argument("--labels", type=str, default="",
+                        help="""Labels to attach to the IDs of the transcripts of the input files,
+                        separated by comma.""")
     parser.add_argument("--single", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
-    parser.add_argument("--out", default=sys.stdout, type=argparse.FileType('w'),
-                        help="Output file. Default: STDOUT.")
+    parser.add_argument("-o", "--out", default='mikado.gtf', type=argparse.FileType('w'),
+                        help="Output file. Default: mikado.fasta.")
+    parser.add_argument("-of", "--out_fasta", default="mikado.fasta",
+                        type=argparse.FileType('w'),
+                        help="Output file. Default: mikado.fasta.")
     parser.add_argument("gff", type=to_gff, help="Input GFF/GTF file(s).", nargs="+")
     parser.set_defaults(func=prepare)
     return parser

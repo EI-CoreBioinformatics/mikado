@@ -1,6 +1,6 @@
 blast:
   database: uniprot_sprot_plants.fasta
-  evalue: 0.00001
+  evalue: 0.00000001
   execute: true
   max_target_seqs: 3
   num_threads: 4
@@ -9,7 +9,7 @@ chimera_split:
   blast_check: true
   execute: true
   blast_params:
-    leniency: STRINGENT
+    leniency: PERMISSIVE
 log_settings:
   log_level: DEBUG
 source: "Mikado"

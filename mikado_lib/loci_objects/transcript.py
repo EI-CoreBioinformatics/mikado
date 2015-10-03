@@ -160,7 +160,7 @@ class Transcript:
         # This is used to set the phase if the CDS is loaded from the GFF
         self._first_phase = 0
         self.__phases = []  # will contain (start, phase) for each CDS exon
-        self.__blast_score = None # Homology score
+        self.__blast_score = 0  # Homology score
 
         # Starting settings for everything else
         self.chrom = None
@@ -3084,8 +3084,8 @@ class Transcript:
         return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],
                                self.introns)))
 
-    @Metric
-    def blast_score(self):
+    @property
+    def snowy_blast_score(self):
 
         """
         Metric that indicates how good a hit is compared to the competition, in terms of BLAST
@@ -3097,15 +3097,9 @@ class Transcript:
         :return
         """
 
-        if self.__blast_score == 0 and len(self.blast_hits) > 0:
-            self.__blast_score = None
-
-        if self.__blast_score is not None:
-            return self.__blast_score
-
-        elif len(self.blast_hits) == 0:
+        if len(self.blast_hits) == 0:
             self.__blast_score = 0
-        else:
+        elif self.__blast_score == 0 and len(self.blast_hits) > 0:
             score = 0
             for hit in self.blast_hits:
                 score += hit["global_positives"]/(2 * len(self.blast_hits))
@@ -3113,3 +3107,17 @@ class Transcript:
 
         return self.__blast_score
 
+    @property
+    def best_bits(self):
+        """Metric that returns the best BitS associated with the transcript."""
+
+        return max([0] + [hit["bits"] for hit in self.blast_hits])
+
+    @Metric
+    def blast_score(self):
+        """
+        Interchangeable alias for testing different blast-related scores.
+        Current: best bit score.
+        :return:
+        """
+        return self.best_bits

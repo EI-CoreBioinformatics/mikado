@@ -392,21 +392,17 @@ class Hit(DBBASE):
         self.evalue = evalue
         self.bits = bits
 
-        self.global_identity = mean(
-            [hsp.identities / hsp.align_length * 100 for hsp in alignment.hsps])
-        q_intervals = [tuple([hsp.query_start, hsp.query_end]) for hsp in alignment.hsps]
-        q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
-        q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
-        self.query_aligned_length = q_aligned
-        self.query_start = q_merged_intervals[0][0]
-        self.query_end = q_merged_intervals[-1][1]
+        prepared_hit, _ = XmlSerializer.prepare_hit(alignment,
+                                                                query_id, target_id)
+        self.global_identity = prepared_hit["global_identity"]
+        self.global_positives = prepared_hit["global_positives"]
+        self.query_aligned_length = prepared_hit["query_aligned_length"]
+        self.query_start = prepared_hit["query_start"]
+        self.query_end = prepared_hit["query_end"]
 
-        t_intervals = [tuple([hsp.sbjct_start, hsp.sbjct_end]) for hsp in alignment.hsps]
-        t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
-        t_aligned = sum([tup[1] - tup[0] + 1 for tup in t_merged_intervals])
-        self.target_aligned_length = t_aligned
-        self.target_start = t_merged_intervals[0][0]
-        self.target_end = t_merged_intervals[-1][1]
+        self.target_aligned_length = prepared_hit["target_aligned_length"]
+        self.target_start = prepared_hit["target_start"]
+        self.target_end = prepared_hit["target_end"]
 
     def __str__(self):
         line = [self.query, self.target, self.evalue,

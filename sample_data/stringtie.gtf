@@ -1,3 +1,8 @@
+Chr5	StringTie	transcript	26581218	26581531	1000	+	.	gene_id "Stringtie_STAR.21709";transcript_id "Stringtie_STAR.21709.1";exon_number "1";cov "7.034235";
+Chr5	StringTie	exon	26581218	26581531	.	+	.	gene_id "Stringtie_STAR.21709";transcript_id "Stringtie_STAR.21709.1";
+Chr5	StringTie	transcript	26581218	26583874	1000	-	.	gene_id "Stringtie_STAR.21723";transcript_id "Stringtie_STAR.21723.1";exon_number "1";cov "10.963277";
+Chr5	StringTie	exon	26581218	26581528	.	-	.	gene_id "Stringtie_STAR.21723";transcript_id "Stringtie_STAR.21723.1";
+Chr5	StringTie	exon	26583335	26583874	.	-	.	gene_id "Stringtie_STAR.21723";transcript_id "Stringtie_STAR.21723.1";
 Chr5	StringTie	transcript	26584796	26587912	1000	+	.	gene_id "Stringtie_STAR.21710";transcript_id "Stringtie_STAR.21710.1";exon_number "1";cov "25.165945";
 Chr5	StringTie	exon	26584796	26584879	.	+	.	gene_id "Stringtie_STAR.21710";transcript_id "Stringtie_STAR.21710.1";
 Chr5	StringTie	exon	26585220	26585273	.	+	.	gene_id "Stringtie_STAR.21710";transcript_id "Stringtie_STAR.21710.1";
@@ -202,3 +207,6 @@ Chr5	StringTie	exon	26600696	26600908	.	+	.	gene_id "Stringtie_STAR.21710";trans
 Chr5	StringTie	exon	26600987	26601049	.	+	.	gene_id "Stringtie_STAR.21710";transcript_id "Stringtie_STAR.21710.16";
 Chr5	StringTie	exon	26601139	26601316	.	+	.	gene_id "Stringtie_STAR.21710";transcript_id "Stringtie_STAR.21710.16";
 Chr5	StringTie	exon	26601398	26601453	.	+	.	gene_id "Stringtie_STAR.21710";transcript_id "Stringtie_STAR.21710.16";
+Chr5	StringTie	transcript	26603065	26604456	1000	-	.	gene_id "Stringtie_STAR.21713";transcript_id "Stringtie_STAR.21713.1";exon_number "1";cov "1326.593506";
+Chr5	StringTie	exon	26603065	26603638	.	-	.	gene_id "Stringtie_STAR.21713";transcript_id "Stringtie_STAR.21713.1";
+Chr5	StringTie	exon	26603727	26604456	.	-	.	gene_id "Stringtie_STAR.21713";transcript_id "Stringtie_STAR.21713.1";

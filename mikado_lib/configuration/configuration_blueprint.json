@@ -70,7 +70,16 @@
     },
     "required": ["dbtype", "db"]
   },
-  "source": { "type": "string", "default": "Mikado"},
+  "output_format":{
+    "comment": ["Parameters related to the output format.",
+    "  - source: prefix for the source field in the mikado output.",
+    "  - id_prefix: prefix for the ID of the genes/transcripts in the output"],
+    "type": "object",
+    "properties": {
+      "source": {"type": "string","default": "Mikado"},
+      "id_prefix": {"type": "string", "default": "mikado"}
+    }
+  },
   "alternative_splicing": {
     "comment": ["Parameters related to alternative splicing reporting.",
     "- report: whether to report at all or not the AS events.",

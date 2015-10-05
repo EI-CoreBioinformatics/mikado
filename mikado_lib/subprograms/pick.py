@@ -86,7 +86,7 @@ def pick(args):
         args.json_conf["loci_out"] = args.loci_out
 
     if args.source is not None:
-        args.json_conf["source"] = args.source
+        args.json_conf["output_format"]["source"] = args.source
 
     if args.gff is not None:
         args.gff.close()

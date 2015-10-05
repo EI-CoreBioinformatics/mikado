@@ -496,7 +496,7 @@ class Creator:
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
 
-    def _print_locus(self, stranded_locus, logger=None, handles=()):
+    def _print_locus(self, stranded_locus, gene_counter, logger=None, handles=()):
 
         locus_metrics, locus_scores, locus_out = handles[0]
         sub_metrics, sub_scores, sub_out = handles[1]
@@ -527,6 +527,17 @@ class Creator:
                               if x != {} and "tid" in x]
         locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
                              if x != {} and "tid" in x]
+
+        for locus in stranded_locus.loci:
+            gene_counter += 1
+            fragment_test = (self.json_conf["run_options"]["remove_overlapping_fragments"] is True and
+                             stranded_locus.loci[locus].is_fragment is True)
+            if fragment_test is True:
+                continue
+            new_id = "{0}.{1}G{2}".format(self.json_conf["output_format"]["id_prefix"],
+                                          stranded_locus.chrom, gene_counter)
+            stranded_locus.loci[locus].id = new_id
+
         locus_lines = stranded_locus.__str__(
             print_cds=not self.json_conf["run_options"]["exclude_cds"])
         for row in locus_metrics_rows:
@@ -536,6 +547,7 @@ class Creator:
 
         if locus_lines != '':
             print(locus_lines, file=locus_out)
+        return gene_counter
 
     def printer(self):
 
@@ -552,10 +564,12 @@ class Creator:
 
         locus_printer = functools.partial(self._print_locus,
                                           logger=logger,
-                                          handles = handles)
+                                          handles=handles)
 
         last_printed = -1
         cache = dict()
+        curr_chrom = None
+        gene_counter = 0
 
         while True:
             current = self.printer_queue.get()
@@ -563,18 +577,28 @@ class Creator:
 
             if stranded_loci == "EXIT":
                 for num in sorted(cache.keys()):
+
                     for stranded_locus in cache[num]:
-                        locus_printer(stranded_locus)
+                        if stranded_locus.chrom != curr_chrom:
+                            curr_chrom = stranded_locus.chrom
+                            gene_counter = 0
+                        gene_counter = locus_printer(stranded_locus, gene_counter)
                 return  # Poison pill - once we receive a "EXIT" signal, we exit
             # logger.debug("Received %s", stranded_locus.id)
             if counter == last_printed + 1:
                 for stranded_locus in stranded_loci:
-                    locus_printer(stranded_locus)
+                    if stranded_locus.chrom != curr_chrom:
+                        curr_chrom = stranded_locus.chrom
+                        gene_counter = 0
+                    gene_counter = locus_printer(stranded_locus, gene_counter)
                 last_printed += 1
                 for num in sorted(cache.keys()):
                     if num == last_printed + 1:
                         for stranded_locus in cache[num]:
-                            locus_printer(stranded_locus)
+                            if stranded_locus.chrom != curr_chrom:
+                                curr_chrom = stranded_locus.chrom
+                                gene_counter = 0
+                            gene_counter = locus_printer(stranded_locus)
                         last_printed += 1
                         del cache[num]
             else:
@@ -793,10 +817,31 @@ class Creator:
                 current_transcript.add_exon(row)
             elif row.is_transcript is True:
                 if current_transcript is not None:
-                    if current_transcript > row:
+                    test = True
+                    if current_transcript.chrom < row.chrom:
+                        test = True
+                    elif current_transcript.chrom > row.chrom:
+                        test = False
+                    elif current_transcript.start < row.start:
+                        test = True
+                    elif current_transcript.start > row.start:
+                        test = False
+                    elif current_transcript.end <= row.end:
+                        test = True
+                    else:
+                        test = False
+
+                    if test is False:
                         self.printer_queue.put(("EXIT", float("inf")))
                         error_msg = """Unsorted input file, the results will not be correct.
-                            Please provide a properly sorted input."""
+                            Please provide a properly sorted input. Error:
+                            {0}
+                            {1}""".format(
+                            "\t".join([str(x) for x in [row.chrom, row.start, row.end, row.strand]]),
+                            "\t".join([str(x) for x in [current_transcript.chrom,
+                                                        current_transcript.start,
+                                                        current_transcript.end,
+                                                        current_transcript.strand]]))
                         self.logger.critical(error_msg)
                         error_msg = "CRITICAL - {0}".format(" ".join(
                             [l.strip() for l in error_msg.split("\n")]))
@@ -817,7 +862,7 @@ class Creator:
                             json_conf=self.json_conf)
                 current_transcript = mikado_lib.loci_objects.transcript.Transcript(
                     row,
-                    source=self.json_conf["source"],
+                    source=self.json_conf["output_format"]["source"],
                     intron_range=intron_range)
             else:
                 continue

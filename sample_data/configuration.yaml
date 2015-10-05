@@ -22,7 +22,7 @@ run_options:
   purge: true
   remove_overlapping_fragments: true
   fragments_maximal_cds: 100
-  subloci_from_cds_only: true
+  subloci_from_cds_only: false
   threads: 5
   preload: true
 scoring_file: plants.yaml

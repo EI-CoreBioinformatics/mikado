@@ -128,8 +128,6 @@ class Superlocus(Abstractlocus):
 
         lines = []
         self.define_loci()
-        if self.json_conf["alternative_splicing"]["report"] is True:
-            self.define_alternative_splicing()
         if len(self.loci) > 0:
             source = "{0}_loci".format(self.source)
             superlocus_line.source = source
@@ -677,6 +675,8 @@ class Superlocus(Abstractlocus):
             self.loci[locus.id] = locus
 
         self.loci_defined = True
+        if self.json_conf["alternative_splicing"]["report"] is True:
+            self.define_alternative_splicing()
 
         return
 

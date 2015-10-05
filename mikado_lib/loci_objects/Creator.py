@@ -5,7 +5,6 @@
 This module defines the Creator class, which is the main workhorse for Mikado pick.
 """
 
-import sys
 import re
 import csv
 import os
@@ -15,13 +14,11 @@ import logging
 from logging import handlers as logging_handlers
 import collections
 import functools
-# SQLAlchemy/DB imports
-from sqlalchemy.engine import create_engine
+from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 import sqlalchemy.pool
 import sqlalchemy
-# Mikado imports
-import mikado_lib.loci_objects
+import mikado_lib.loci_objects  # Mikado imports
 import mikado_lib.parsers
 from mikado_lib.serializers.blast_serializer import Hit, Query
 from mikado_lib.serializers.junction import Junction, Chrom

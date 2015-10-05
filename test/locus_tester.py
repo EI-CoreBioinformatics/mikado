@@ -11,7 +11,7 @@ from mikado_lib.configuration import json_utils
 from mikado_lib import exceptions
 from mikado_lib.parsers import GFF  # ,GTF, bed12
 from mikado_lib.loci_objects import transcript, superlocus,  abstractlocus
-
+from mikado_lib.configuration.log_utils import create_null_logger
 
 class OverlapTester(unittest.TestCase):
 
@@ -33,8 +33,8 @@ class LocusTester(unittest.TestCase):
 
     def setUp(self):
 
-        gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t200\t.\t+\t.\tID=t0
-Chr1\tfoo\texon\t101\t200\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
+        gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t300\t.\t+\t.\tID=t0
+Chr1\tfoo\texon\t101\t300\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
         gff_transcript1 = [GFF.GffLine(x) for x in gff_transcript1]
         self.assertEqual(gff_transcript1[0].chrom, "Chr1", gff_transcript1[0])
         self.transcript1 = transcript.Transcript(gff_transcript1[0])
@@ -72,12 +72,19 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
 
         my_json = os.path.join(os.path.dirname(__file__), "../sample_data/configuration.yaml")
         my_json = json_utils.to_json(my_json)
-        slocus = superlocus.Superlocus(self.transcript1, json_conf=my_json)
+        logger = create_null_logger("null")
+        logger.setLevel("DEBUG")
+        logger.info("Started")
+        slocus = superlocus.Superlocus(self.transcript1, json_conf=my_json,
+                                       logger=logger)
         slocus.add_transcript_to_locus(self.transcript2)
         self.assertEqual(slocus.strand, self.transcript1.strand)
         self.assertEqual(slocus.start, min(self.transcript1.start, self.transcript2.start))
         self.assertEqual(slocus.end, max(self.transcript1.end, self.transcript2.end))
+        logger.info(slocus.transcripts)
         slocus.define_subloci()
+        logger.info(slocus.subloci)
+        logger.info(slocus.transcripts)
         self.assertEqual(len(slocus.subloci), 2)
         slocus.define_monosubloci()
         self.assertEqual(len(slocus.monosubloci), 2)

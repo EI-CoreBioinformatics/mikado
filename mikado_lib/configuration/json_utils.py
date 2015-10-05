@@ -115,10 +115,9 @@ def check_scoring(json_conf):
     :rtype dict
     """
 
-    scoring_schema = json.load(open(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "scoring_blueprint.json"
-    )))
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "scoring_blueprint.json")) as sc:
+        scoring_schema = json.load(sc)
 
     parameters_found = set()
     parameters_not_found = []
@@ -185,10 +184,10 @@ def check_requirements(json_conf):
 
     available_metrics = Transcript.get_available_metrics()
     parameters_not_found = []
-    require_schema = json.load(open(os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "requirements_blueprint.json"
-    )))
+
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "requirements_blueprint.json")) as rs:
+        require_schema = json.load(rs)
 
     if "requirements" in json_conf:
         # Check that the parameters are valid
@@ -410,7 +409,8 @@ def check_json(json_conf, json_file):
         os.path.dirname(os.path.abspath(__file__)),
         "configuration_blueprint.json"
     )
-    blue_print = json.load(open(blue_print))
+    with open(blue_print) as bl:
+        blue_print = json.load(bl)
 
     config_folder = os.path.dirname(os.path.abspath(__file__))
 

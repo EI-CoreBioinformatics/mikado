@@ -471,6 +471,7 @@ class Superlocus(Abstractlocus):
                 # This is by design
                 # pylint: disable=eval-used
                 if eval(self.json_conf["requirements"]["compiled"]) is False:
+                    self.logger.debug("Discarding %s", tid)
                     not_passing.add(tid)
                     self.transcripts[tid].score = 0
                 # pylint: enable=eval-used

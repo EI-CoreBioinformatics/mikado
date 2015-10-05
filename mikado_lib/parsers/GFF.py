@@ -283,6 +283,8 @@ class GFF3(Parser):
     Class that is used to parse a GFF file.
     """
 
+    __annot_type__ = "gff3"
+
     def __init__(self, handle):
         """
         Constructor method.
@@ -291,6 +293,7 @@ class GFF3(Parser):
         """
         super().__init__(handle)
         self.header = False
+
 
     def __next__(self):
 

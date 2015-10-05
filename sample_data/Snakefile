@@ -36,7 +36,7 @@ rule test_json:
     output: "{0}.ok".format(configname), DBs, "chr5.fas"
     run:
         __= mikado_lib.configuration.json_utils.to_json(configname)
-        subprocess.call("gunzip -dc chr5.fas.gz > chr5.fas", shell=True)
+        subprocess.call("gunzip -k chr5.fas.gz", shell=True)
         shell("touch {output}")
 
 rule prepare:

@@ -5,10 +5,10 @@
 
 import argparse
 import sys
-
 import mikado_lib.loci_objects
 import mikado_lib.configuration.json_utils
 from mikado_lib.subprograms import to_gff
+import mikado_lib.exceptions
 
 
 def check_log_settings(args):
@@ -95,7 +95,11 @@ def pick(args):
 
     creator = mikado_lib.loci_objects.Creator.Creator(
         args.json_conf, commandline=" ".join(sys.argv))
-    creator()  # Run
+    try:
+        creator()  # Run
+    except mikado_lib.exceptions.UnsortedInput as err:
+        print(err, file=sys.stderr)
+        sys.exit(1)
 
 
 def pick_parser():

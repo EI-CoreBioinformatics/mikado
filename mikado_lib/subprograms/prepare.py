@@ -22,6 +22,7 @@ import functools
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
+import mikado_lib.exceptions
 
 __author__ = 'Luca Venturini'
 
@@ -61,6 +62,7 @@ def create_transcript(lines,
     transcript_object = TranscriptChecker(transcript_line,
                                           fasta_seq, lenient=lenient,
                                           strand_specific=strand_specific)
+
     transcript_object.logger = logger
     for line in lines:
         transcript_object.add_exon(line)
@@ -168,6 +170,7 @@ def perform_check(keys, exon_lines, args, logger):
             ]
             for transcript_object in results:
                 transcript_object = transcript_object.get()
+
                 if transcript_object is None:
                     continue
                 counter += 1
@@ -228,23 +231,40 @@ def prepare(args):
 
     for label, gff_handle in zip(args.labels, args.gff):
         found_ids = set.union(set(), *previous_file_ids.values())
+        if gff_handle.__annot_type__ == "gff3":
+            gff = True
+            transcript2genes = dict()
+        else:
+            gff = False
+
         for row in gff_handle:
             if row.is_exon is False:
+                if gff is True and row.is_transcript is True:
+                    if label != '':
+                        row.id = "{0}_{1}".format(label, row.id)
+                    transcript2genes[row.id] = row.parent[0]
                 continue
             # This convoluted block is due to the fact that transcript is a list for
             # GFF files (as it is a parent), while it is a string for GTF files
+            elif row.is_cds is True and args.strip_cds is True:
+                continue
 
-            if isinstance(row.transcript, list):
+            if gff is True:
                 if label != '':
                     row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
-                for tid in row.transcript:
+                parents = row.transcript[:]
+                for tid in parents:
                     if tid in found_ids:
                         assert label != ''
                         raise ValueError("""{0} has already been found in another file,
                         this will cause unsolvable collisions. Please rerun preparation using
                         labels to tag each file.""")
                     previous_file_ids[gff_handle.name].add(tid)
-                    exon_lines[tid].append(row)
+                    new_row = copy.deepcopy(row)
+                    new_row.parent = new_row.id = tid
+                    new_row.attributes["gene_id"] = transcript2genes[tid]
+                    new_row.name = tid
+                    exon_lines[tid].append(new_row)
             else:
                 if label != '':
                     row.transcript = "{0}_{1}".format(label, row.transcript)
@@ -340,6 +360,8 @@ def prepare_parser():
     parser.add_argument("-t", "--threads",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=1)
+    parser.add_argument("-scds", "--strip_cds", action="store_true", default=False,
+                        help="Boolean flag. If set, ignores any CDS/UTR segment.")
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
                         separated by comma.""")

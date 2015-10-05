@@ -222,7 +222,20 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if self.feature is None:
             return False
         _ = self.feature.lower()
-        if _.endswith("cds") or _.endswith("exon") or "utr" in _ or "codon" in _:
+        if "cds" in _ or _.endswith("exon") or "utr" in _ or "codon" in _:
+            return True
+        return False
+
+    @property
+    def is_cds(self):
+        if self.is_exon is False:
+            return False
+        _ = self.feature.lower()
+        if "cds" in _:
+            return True
+        elif "utr" in _:
+            return True
+        elif _.endswith("codon"):
             return True
         return False
 

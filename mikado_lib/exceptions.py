@@ -80,3 +80,11 @@ class IncorrectStrandError(InvalidTranscript):
     """
 
     pass
+
+
+class UnsortedInput(ValueError):
+    """
+    Exception to be raised when the input for pick is not properly sorted.
+    """
+
+    pass

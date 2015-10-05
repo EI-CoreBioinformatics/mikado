@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # coding: utf-8
 
 """This module is used to serialise BLAST objects into a database.
@@ -20,7 +21,7 @@ import sqlalchemy
 from Bio import SeqIO
 import sqlalchemy.exc
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index, BLOB
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from Bio.Blast.NCBIXML import parse as xparser
@@ -178,7 +179,7 @@ class Hsp(DBBASE):
     uni_constraint = UniqueConstraint("query_id", "target_id",
                                       "query_hsp_start", "query_hsp_end",
                                       "target_hsp_start", "target_hsp_end")
-    match = Column(BLOB)
+    match = Column(String(10000))
     hsp_evalue = Column(Float)
     hsp_bits = Column(Float)
     hsp_identity = Column(Float)
@@ -247,7 +248,8 @@ class Hsp(DBBASE):
             "target_hsp_start",
             "target_hsp_end",
             "hsp_evalue",
-            "hsp_bits"
+            "hsp_bits",
+            "match"
         ]
 
         state = dict().fromkeys(keys)
@@ -1077,5 +1079,7 @@ class XmlSerializer:
         hit_dict["target_end"] = t_merged_intervals[-1][1]
         hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
         hit_dict["global_positives"] = len(positives) * 100 / q_aligned
+        assert hit_dict["bits"] == max(hsp["hsp_bits"] for hsp in hsp_dict_list)
+        assert hit_dict["evalue"] == min(hsp["hsp_evalue"] for hsp in hsp_dict_list)
 
         return hit_dict, hsp_dict_list

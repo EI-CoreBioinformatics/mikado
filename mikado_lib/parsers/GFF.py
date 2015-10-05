@@ -248,6 +248,15 @@ class GffLine(GFAnnotation):
         else:
             return None
 
+    @transcript.setter
+    def transcript(self, string):
+        if self.is_exon is True:
+            self.parent = string
+        elif self.is_transcript is True:
+            self.id = string
+        else:
+            raise TypeError("Cannot set the transcript name of a non-transcript feature!")
+
     @property
     def is_derived(self):
         """

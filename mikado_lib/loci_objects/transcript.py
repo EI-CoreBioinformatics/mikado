@@ -1210,8 +1210,17 @@ class Transcript:
                 raise InvalidTranscript(err_message)
 
             for hit in self.blast_hits:
-                if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), (boundary)) > 0:
-                    new_transcript.blast_hits.append(hit)
+                new_hit = dict.fromkeys(hit)
+                for hsp in hit["hsps"]:
+                    if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), (boundary)) > 0:
+                        new_transcript.blast_hits.append(hit)
+                else:
+                    # TODO: finish implementation here!
+                    new_hit = dict()
+                    new_hit["hsps"] = list()
+                    for hsp in hit["hsps"]:
+                        if Abstractlocus.overlap((hsp["hsp_query_start"], hsp["hsp_query_end"]), (boundary)):
+                            new_hit["hsps"].append(hsp)
 
             new_transcripts.append(new_transcript)
             nspan = (new_transcript.start, new_transcript.end)

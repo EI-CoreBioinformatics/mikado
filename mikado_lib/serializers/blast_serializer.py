@@ -20,7 +20,7 @@ import sqlalchemy
 from Bio import SeqIO
 import sqlalchemy.exc
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
-from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, Index, BLOB
 from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from Bio.Blast.NCBIXML import parse as xparser
@@ -30,11 +30,6 @@ from mikado_lib.serializers.dbutils import DBBASE
 from mikado_lib.serializers.dbutils import connect
 from mikado_lib.parsers.blast_utils import XMLMerger, create_opener, merge
 from mikado_lib.configuration.log_utils import create_null_logger, check_logger
-
-# pylint: disable=no-name-in-module
-from numpy import mean
-# pylint: enable=no-name-in-module
-
 
 # These two classes are OK like this, they do not need more public methods!
 # pylint: disable=too-few-public-methods
@@ -183,6 +178,7 @@ class Hsp(DBBASE):
     uni_constraint = UniqueConstraint("query_id", "target_id",
                                       "query_hsp_start", "query_hsp_end",
                                       "target_hsp_start", "target_hsp_end")
+    match = Column(BLOB)
     hsp_evalue = Column(Float)
     hsp_bits = Column(Float)
     hsp_identity = Column(Float)
@@ -219,6 +215,7 @@ class Hsp(DBBASE):
         self.hsp_identity = float(hsp.identities) / hsp.align_length * 100
         self.hsp_positives = float(hsp.positives) / hsp.align_length * 100
         self.hsp_length = hsp.align_length
+        self.match = hsp.match
         self.hsp_bits = hsp.bits
         self.hsp_evalue = hsp.expect
         self.query_id = query_id
@@ -276,6 +273,7 @@ class Hsp(DBBASE):
         state["target"] = self.target
         state["query_hsp_cov"] = self.query_hsp_cov
         state["target_hsp_cov"] = self.target_hsp_cov
+        state["match"] = self.match
 
         return state
 
@@ -1045,6 +1043,7 @@ class XmlSerializer:
 
             hsp_dict["hsp_identity"] = (hsp.identities) / hsp.align_length * 100
             hsp_dict["hsp_positives"] = (hsp.positives) / hsp.align_length * 100
+            hsp_dict["match"] = hsp.match
             # Prepare the list for later calculation
             # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
             for position, match in zip(range(hsp.query_start, hsp.query_end), hsp.match):

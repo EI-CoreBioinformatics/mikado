@@ -800,6 +800,7 @@ class Transcript:
         to_break = len(in_common) == 0
         min_overlap_duplication = self.json_conf[
             'chimera_split']['blast_params']['min_overlap_duplication']
+        to_break = True
         for common_hit in in_common:
             old_hsps = old_hits[common_hit]
             cds_hsps = cds_hits[common_hit]
@@ -816,7 +817,6 @@ class Transcript:
                                                 new_cds["query_hsp_end"])) > 0]
                    for new_cds in cds_hsps):
                 to_break = False
-                break
 
             old_target_boundaries = IntervalTree([
                 Interval(h["target_hsp_start"], h["target_hsp_end"]) for h in old_hsps])
@@ -827,10 +827,9 @@ class Transcript:
                                                     target_hit)/common_hit[1]
 
                     if overlap_fraction >= min_overlap_duplication:
-                        to_break = True
-                        break
-            if to_break is True:
-                break
+                        to_break = True and to_break
+                    else:
+                        to_break = False
         return to_break
 
     def __get_boundaries_from_blast(self, cds_boundaries, cds_hit_dict):

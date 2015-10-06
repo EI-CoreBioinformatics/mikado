@@ -6,17 +6,19 @@ This module contains the necessary classes for serialising and querying ORF data
 """
 
 import os
+import sqlite3
+
 from Bio import SeqIO
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 from sqlalchemy.ext.hybrid import hybrid_property
 import sqlalchemy.exc
-import sqlite3
-from mikado_lib.parsers import bed12
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.session import sessionmaker
+
+from mikado_lib.parsers import bed12
 from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
 from mikado_lib.serializers.blast_serializer import Query
-from mikado_lib.log_utils import create_null_logger, check_logger
+from mikado_lib.configuration.log_utils import create_null_logger, check_logger
 
 
 class Orf(DBBASE):

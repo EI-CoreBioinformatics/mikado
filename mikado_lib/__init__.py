@@ -10,5 +10,5 @@ import mikado_lib.parsers
 import mikado_lib.loci_objects
 import mikado_lib.serializers
 import mikado_lib.exceptions
-import mikado_lib.json_utils
+import mikado_lib.configuration.json_utils
 import mikado_lib.scales

@@ -16,7 +16,7 @@ import inspect
 # import asyncio
 import collections
 from intervaltree import Interval, IntervalTree
-from mikado_lib.log_utils import create_null_logger
+from mikado_lib.configuration.log_utils import create_null_logger
 from mikado_lib.exceptions import InvalidTranscript
 # SQLAlchemy imports
 from sqlalchemy.orm.session import sessionmaker
@@ -33,6 +33,7 @@ from mikado_lib.parsers import bed12
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.parsers.GTF import GtfLine
 from mikado_lib.parsers.GFF import GffLine
+from mikado_lib.parsers.blast_utils import merge
 import mikado_lib.exceptions
 
 
@@ -160,6 +161,7 @@ class Transcript:
         # This is used to set the phase if the CDS is loaded from the GFF
         self._first_phase = 0
         self.__phases = []  # will contain (start, phase) for each CDS exon
+        self.__blast_score = 0  # Homology score
 
         # Starting settings for everything else
         self.chrom = None
@@ -1208,6 +1210,30 @@ class Transcript:
                 err_message += "BED: {0}".format("\n\t".join([str(x) for x in new_bed12s]))
                 raise InvalidTranscript(err_message)
 
+            for hit in self.blast_hits:
+                if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), (boundary)) > 0:
+                    new_hit = self.__recalculate_hit(hit, boundary)
+                    if new_hit is not None:
+                        self.logger.debug("""Hit %s,
+                        previous id/query_al_length/t_al_length %f/%f/%f,
+                        novel %f/%f/%f""",
+                                          new_hit["target"],
+                                          hit["global_identity"],
+                                          hit["query_aligned_length"],
+                                          hit["target_aligned_length"],
+                                          new_hit["global_identity"],
+                                          new_hit["query_aligned_length"],
+                                          new_hit["target_aligned_length"],
+                                          )
+
+                        new_transcript.blast_hits.append(new_hit)
+                    else:
+                        self.logger.debug("Hit %s did not pass overlap checks for %s",
+                                          hit["target"], new_transcript.id)
+                else:
+                    self.logger.debug("Ignoring hit {0} as it is not intersecting")
+                    continue
+
             new_transcripts.append(new_transcript)
             nspan = (new_transcript.start, new_transcript.end)
             self.logger.debug(
@@ -1217,6 +1243,65 @@ class Transcript:
             spans.append([new_transcript.start, new_transcript.end])
 
         return new_transcripts
+
+    def __recalculate_hit(self, hit, boundary):
+        """Static method to recalculate coverage/identity for new hits."""
+
+        __valid_matches = set([chr(x) for x in range(65, 91)] +
+                          [chr(x) for x in range(97, 123)] +
+                          ["|"])
+
+        hit_dict = dict()
+        for key in iter(k for k in hit.keys() if k not in ("hsps",)):
+            hit_dict[key] = hit[key]
+
+        hsp_dict_list = []
+        # hit_dict["global_identity"] = []
+        q_intervals = []
+        t_intervals = []
+
+        identical_positions, positives = set(), set()
+
+        minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+
+        for counter, hsp in enumerate(hit["hsps"]):
+            _ = Abstractlocus.overlap((hsp["query_hsp_start"], hsp["query_hsp_end"]), boundary)
+            if _ <= minimal_overlap * (boundary[1] + 1 - boundary[0]):
+                pass
+            else:
+                hsp_dict_list.append(hsp)
+                q_intervals.append((hsp["query_hsp_start"], hsp["query_hsp_end"]))
+                t_intervals.append((hsp["target_hsp_start"], hsp["target_hsp_end"]))
+
+                for position, match in zip(range(hsp["query_hsp_start"],
+                                                 hsp["query_hsp_end"]), hsp["match"]):
+                    if match in __valid_matches:
+                        identical_positions.add(position)
+                        positives.add(position)
+                    elif match == "+":
+                        positives.add(position)
+
+        if len(hsp_dict_list) == 0:
+            return None
+
+        q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
+        q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
+        hit_dict["query_aligned_length"] = q_aligned
+        hit_dict["query_start"] = q_merged_intervals[0][0]
+        hit_dict["query_end"] = q_merged_intervals[-1][1]
+
+        t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
+        t_aligned = sum([tup[1] - tup[0] + 1 for tup in t_merged_intervals])
+        hit_dict["target_aligned_length"] = t_aligned
+        hit_dict["target_start"] = t_merged_intervals[0][0]
+        hit_dict["target_end"] = t_merged_intervals[-1][1]
+        hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
+        hit_dict["global_positives"] = len(positives) * 100 / q_aligned
+        hit_dict["hsps"] = hsp_dict_list
+        hit_dict["bits"] = max(x["hsp_bits"] for x in hit_dict["hsps"])
+        hit_dict["evalue"] = min(x["hsp_evalue"] for x in hit_dict["hsps"])
+
+        return hit_dict
 
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
@@ -1310,6 +1395,7 @@ class Transcript:
 
         self.logger.warning("Stripping CDS from {0}".format(self.id))
         self.finalized = False
+        assert len(self.exons) > 0
         self.combined_cds = []
         self.combined_utr = []
         self.finalize()
@@ -3078,3 +3164,41 @@ class Transcript:
 
         return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],
                                self.introns)))
+
+    @property
+    def snowy_blast_score(self):
+
+        """
+        Metric that indicates how good a hit is compared to the competition, in terms of BLAST
+        similarities.
+        As in SnowyOwl, the score for each hit is calculated by taking the percentage of positive
+        matches and dividing it by (2 * len(self.blast_hits)).
+        IMPORTANT: when splitting transcripts by ORF, a blast hit is added to the new transcript only if
+         it is contained within the new transcript. This WILL screw up a bit the homology score.
+        :return
+        """
+
+        if len(self.blast_hits) == 0:
+            self.__blast_score = 0
+        elif self.__blast_score == 0 and len(self.blast_hits) > 0:
+            score = 0
+            for hit in self.blast_hits:
+                score += hit["global_positives"]/(2 * len(self.blast_hits))
+            self.__blast_score = score
+
+        return self.__blast_score
+
+    @property
+    def best_bits(self):
+        """Metric that returns the best BitS associated with the transcript."""
+
+        return max([0] + [hit["bits"] for hit in self.blast_hits])
+
+    @Metric
+    def blast_score(self):
+        """
+        Interchangeable alias for testing different blast-related scores.
+        Current: best bit score.
+        :return:
+        """
+        return self.best_bits

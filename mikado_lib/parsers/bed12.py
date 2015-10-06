@@ -487,7 +487,13 @@ class Bed12Parser(Parser):
         return self
 
     def __next__(self):
-        line = self._handle.readline()
-        if line == '':
-            raise StopIteration
-        return BED12(line, fasta_index=self.fasta_index, transcriptomic=self.transcriptomic)
+        bed12 = None
+        while bed12 is None:
+            line = self._handle.readline()
+            if line == '':
+                raise StopIteration
+            try:
+                bed12 = BED12(line, fasta_index=self.fasta_index, transcriptomic=self.transcriptomic)
+            except:
+                pass
+        return bed12

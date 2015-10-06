@@ -9,9 +9,7 @@ before loading.
 
 import io
 import os
-from mikado_lib.parsers import bed12
-from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
-from mikado_lib.log_utils import check_logger, create_default_logger
+
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -22,6 +20,10 @@ from sqlalchemy import Float
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
+
+from mikado_lib.parsers import bed12
+from mikado_lib.serializers.dbutils import DBBASE, Inspector, connect
+from mikado_lib.configuration.log_utils import check_logger, create_default_logger
 
 
 class Chrom(DBBASE):

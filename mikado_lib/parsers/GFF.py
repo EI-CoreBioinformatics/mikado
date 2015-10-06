@@ -248,6 +248,15 @@ class GffLine(GFAnnotation):
         else:
             return None
 
+    @transcript.setter
+    def transcript(self, string):
+        if self.is_exon is True:
+            self.parent = string
+        elif self.is_transcript is True:
+            self.id = string
+        else:
+            raise TypeError("Cannot set the transcript name of a non-transcript feature!")
+
     @property
     def is_derived(self):
         """
@@ -274,6 +283,8 @@ class GFF3(Parser):
     Class that is used to parse a GFF file.
     """
 
+    __annot_type__ = "gff3"
+
     def __init__(self, handle):
         """
         Constructor method.
@@ -282,6 +293,7 @@ class GFF3(Parser):
         """
         super().__init__(handle)
         self.header = False
+
 
     def __next__(self):
 

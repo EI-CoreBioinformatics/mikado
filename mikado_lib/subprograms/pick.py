@@ -6,8 +6,9 @@
 import argparse
 import sys
 import mikado_lib.loci_objects
-import mikado_lib.json_utils
+import mikado_lib.configuration.json_utils
 from mikado_lib.subprograms import to_gff
+import mikado_lib.exceptions
 
 
 def check_log_settings(args):
@@ -72,7 +73,7 @@ def pick(args):
     """
 
     args.json_conf.close()
-    args.json_conf = mikado_lib.json_utils.to_json(args.json_conf.name)
+    args.json_conf = mikado_lib.configuration.json_utils.to_json(args.json_conf.name)
 
     args = check_log_settings(args)
     args = check_run_options(args)
@@ -85,7 +86,7 @@ def pick(args):
         args.json_conf["loci_out"] = args.loci_out
 
     if args.source is not None:
-        args.json_conf["source"] = args.source
+        args.json_conf["output_format"]["source"] = args.source
 
     if args.gff is not None:
         args.gff.close()
@@ -94,7 +95,11 @@ def pick(args):
 
     creator = mikado_lib.loci_objects.Creator.Creator(
         args.json_conf, commandline=" ".join(sys.argv))
-    creator()  # Run
+    try:
+        creator()  # Run
+    except mikado_lib.exceptions.UnsortedInput as err:
+        print(err, file=sys.stderr)
+        sys.exit(1)
 
 
 def pick_parser():

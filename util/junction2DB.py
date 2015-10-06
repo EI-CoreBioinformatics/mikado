@@ -4,8 +4,9 @@
 """Script to serialise junctions into the database."""
 
 import argparse
+
 from mikado_lib.serializers import junction
-from mikado_lib import json_utils
+from mikado_lib.configuration import json_utils
 
 
 def main():

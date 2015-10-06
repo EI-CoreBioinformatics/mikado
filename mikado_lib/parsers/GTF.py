@@ -312,6 +312,8 @@ class GtfLine(GFAnnotation):
 class GTF(Parser):
     """The parsing class."""
 
+    __annot_type__ = "gtf"
+
     def __init__(self, handle):
         super().__init__(handle)
 

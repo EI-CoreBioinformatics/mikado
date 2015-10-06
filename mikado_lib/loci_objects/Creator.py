@@ -10,25 +10,22 @@ import csv
 import os
 import shutil
 import tempfile
-# import threading
 import logging
 from logging import handlers as logging_handlers
 import collections
 import functools
-# SQLAlchemy/DB imports
-from sqlalchemy.engine import create_engine
+from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 import sqlalchemy.pool
 import sqlalchemy
-# Mikado imports
-import mikado_lib.loci_objects
+import mikado_lib.loci_objects  # Mikado imports
 import mikado_lib.parsers
 from mikado_lib.serializers.blast_serializer import Hit, Query
 from mikado_lib.serializers.junction import Junction, Chrom
 from mikado_lib.serializers.orf import Orf
 from mikado_lib.serializers import dbutils
 from mikado_lib.loci_objects.superlocus import Superlocus
-from mikado_lib import json_utils
+from mikado_lib.configuration import json_utils
 import mikado_lib.exceptions
 import multiprocessing
 # pylint: disable=no-name-in-module
@@ -89,6 +86,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
 
 
 def analyse_locus(slocus: Superlocus,
+                  counter: int,
                   json_conf: dict,
                   printer_queue: multiprocessing.managers.AutoProxy,
                   logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
@@ -158,6 +156,7 @@ def analyse_locus(slocus: Superlocus,
             logger.warning(
                 "%s had all transcripts failing checks, ignoring it",
                 slocus_id)
+            printer_queue.put(([], counter))
             return
 
     # Split the superlocus in the stranded components
@@ -169,7 +168,7 @@ def analyse_locus(slocus: Superlocus,
     logger.info("Defining loci")
     for stranded_locus in stranded_loci:
         stranded_locus.define_loci()
-        logger.debug("Defined loci for %s:%d-%d, strand: %s",
+        logger.debug("Defined loci for %s:%f-%f, strand: %s",
                      stranded_locus.chrom,
                      stranded_locus.start,
                      stranded_locus.end,
@@ -191,13 +190,8 @@ def analyse_locus(slocus: Superlocus,
             loci_to_check[locus_instance.monoexonic].add(locus_instance)
 
     # Check if any locus is a fragment, if so, tag/remove it
-    for stranded_locus in remove_fragments(stranded_loci, json_conf, logger):
-        printer_queue.put(stranded_locus)
-        logger.debug("Finished for %s:%d-%d, strand: %s",
-                     stranded_locus.chrom,
-                     stranded_locus.start,
-                     stranded_locus.end,
-                     stranded_locus.strand)
+    stranded_loci = sorted(list(remove_fragments(stranded_loci, json_conf, logger)))
+    printer_queue.put((stranded_loci, counter))
 
     # close up shop
     logger.info("Finished with %s", slocus.id)
@@ -316,7 +310,7 @@ class Creator:
         if self.json_conf["run_options"]["shm"] is True:
             self.json_conf["run_options"]["shm_shared"] = False
             self.main_logger.info("Copying the DB into memory")
-            assert self.json_conf["dbtype"] == "sqlite"
+            assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
             self.json_conf["run_options"]["preload"] = False
             if self.json_conf["run_options"]["shm_db"] is not None:
                 self.json_conf["run_options"]["shm_db"] = os.path.join(
@@ -333,10 +327,10 @@ class Creator:
             if self.json_conf["run_options"]["shm"]:
                 if not os.path.exists(self.json_conf["run_options"]["shm_db"]):
                     self.main_logger.info("Copying {0} into {1}".format(
-                        self.json_conf["db"],
+                        self.json_conf["db_settings"]["db"],
                         self.json_conf["run_options"]["shm_db"]))
                     try:
-                        shutil.copy2(self.json_conf["db"],
+                        shutil.copy2(self.json_conf["db_settings"]["db"],
                                      self.json_conf["run_options"]["shm_db"])
                     except PermissionError:
                         self.main_logger.warn(
@@ -425,7 +419,7 @@ class Creator:
         """
 
         print('##gff-version 3', file=locus_out)
-        engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
         for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
@@ -501,6 +495,60 @@ class Creator:
     # This method has many local variables, but most (9!) are
     # actually file handlers. I cannot trim them down for now.
     # pylint: disable=too-many-locals
+
+    def _print_locus(self, stranded_locus, gene_counter, logger=None, handles=()):
+
+        locus_metrics, locus_scores, locus_out = handles[0]
+        sub_metrics, sub_scores, sub_out = handles[1]
+        mono_out = handles[2]
+
+        stranded_locus.logger = logger
+        if self.sub_out is not None:  # Skip this section if no sub_out is defined
+            sub_lines = stranded_locus.__str__(
+                level="subloci",
+                print_cds=not self.json_conf["run_options"]["exclude_cds"])
+            if sub_lines != '':
+                print(sub_lines, file=sub_out)
+            sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
+                                if x != {} and "tid" in x]
+            sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
+                               if x != {} and "tid" in x]
+            for row in sub_metrics_rows:
+                sub_metrics.writerow(row)
+            for row in sub_scores_rows:
+                sub_scores.writerow(row)
+        if self.monolocus_out is not None:
+            mono_lines = stranded_locus.__str__(
+                level="monosubloci",
+                print_cds=not self.json_conf["run_options"]["exclude_cds"])
+            if mono_lines != '':
+                print(mono_lines, file=mono_out)
+        locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
+                              if x != {} and "tid" in x]
+        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
+                             if x != {} and "tid" in x]
+
+        for locus in stranded_locus.loci:
+            gene_counter += 1
+            fragment_test = (self.json_conf["run_options"]["remove_overlapping_fragments"] is True and
+                             stranded_locus.loci[locus].is_fragment is True)
+            if fragment_test is True:
+                continue
+            new_id = "{0}.{1}G{2}".format(self.json_conf["output_format"]["id_prefix"],
+                                          stranded_locus.chrom, gene_counter)
+            stranded_locus.loci[locus].id = new_id
+
+        locus_lines = stranded_locus.__str__(
+            print_cds=not self.json_conf["run_options"]["exclude_cds"])
+        for row in locus_metrics_rows:
+            locus_metrics.writerow(row)
+        for row in locus_scores_rows:
+            locus_scores.writerow(row)
+
+        if locus_lines != '':
+            print(locus_lines, file=locus_out)
+        return gene_counter
+
     def printer(self):
 
         """Listener process that will print out the loci recovered by
@@ -512,46 +560,50 @@ class Creator:
         logger.addHandler(handler)
         logger.setLevel(self.json_conf["log_settings"]["log_level"])
 
-        locus_files, sub_files, mono_out = self.__get_output_files()
-        locus_metrics, locus_scores, locus_out = locus_files
-        sub_metrics, sub_scores, sub_out = sub_files
+        handles = self.__get_output_files()
+
+        locus_printer = functools.partial(self._print_locus,
+                                          logger=logger,
+                                          handles=handles)
+
+        last_printed = -1
+        cache = dict()
+        curr_chrom = None
+        gene_counter = 0
 
         while True:
-            stranded_locus = self.printer_queue.get()
+            current = self.printer_queue.get()
+            stranded_loci, counter = current
 
-            if stranded_locus == "EXIT":
+            if stranded_loci == "EXIT":
+                for num in sorted(cache.keys()):
+
+                    for stranded_locus in cache[num]:
+                        if stranded_locus.chrom != curr_chrom:
+                            curr_chrom = stranded_locus.chrom
+                            gene_counter = 0
+                        gene_counter = locus_printer(stranded_locus, gene_counter)
                 return  # Poison pill - once we receive a "EXIT" signal, we exit
-            logger.debug("Received %s", stranded_locus.id)
-            stranded_locus.logger = logger
-            if self.sub_out is not None:  # Skip this section if no sub_out is defined
-                sub_lines = stranded_locus.__str__(
-                    level="subloci",
-                    print_cds=not self.json_conf["run_options"]["exclude_cds"])
-                if sub_lines != '':
-                    print(sub_lines, file=sub_out)
-                sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()]
-                sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()]
-                for row in sub_metrics_rows:
-                    sub_metrics.writerow(row)
-                for row in sub_scores_rows:
-                    sub_scores.writerow(row)
-            if self.monolocus_out is not None:
-                mono_lines = stranded_locus.__str__(
-                    level="monosubloci",
-                    print_cds=not self.json_conf["run_options"]["exclude_cds"])
-                if mono_lines != '':
-                    print(mono_lines, file=mono_out)
-            locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()]
-            locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
-            locus_lines = stranded_locus.__str__(
-                print_cds=not self.json_conf["run_options"]["exclude_cds"])
-            for row in locus_metrics_rows:
-                locus_metrics.writerow(row)
-            for row in locus_scores_rows:
-                locus_scores.writerow(row)
+            # logger.debug("Received %s", stranded_locus.id)
+            if counter == last_printed + 1:
+                for stranded_locus in stranded_loci:
+                    if stranded_locus.chrom != curr_chrom:
+                        curr_chrom = stranded_locus.chrom
+                        gene_counter = 0
+                    gene_counter = locus_printer(stranded_locus, gene_counter)
+                last_printed += 1
+                for num in sorted(cache.keys()):
+                    if num == last_printed + 1:
+                        for stranded_locus in cache[num]:
+                            if stranded_locus.chrom != curr_chrom:
+                                curr_chrom = stranded_locus.chrom
+                                gene_counter = 0
+                            gene_counter = locus_printer(stranded_locus)
+                        last_printed += 1
+                        del cache[num]
+            else:
+                cache[counter] = stranded_loci
 
-            if locus_lines != '':
-                print(locus_lines, file=locus_out)
             self.printer_queue.task_done()
         return
     # pylint: enable=too-many-locals
@@ -648,7 +700,7 @@ class Creator:
         self.main_logger.info("Starting to preload the database into memory")
 
         data_dict = dict()
-        engine = create_engine("{0}://".format(self.json_conf["dbtype"]),
+        engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
@@ -694,7 +746,7 @@ class Creator:
         self.main_logger.info("Finished to preload the database into memory")
         return data_dict
 
-    def _submit_locus(self, current_locus, data_dict=None, pool=None):
+    def _submit_locus(self, current_locus, counter, data_dict=None, pool=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
         :param current_locus: the locus to analyse.
@@ -725,14 +777,17 @@ class Creator:
 
             self.main_logger.info("Submitting %s",
                                   current_locus.id)
+            counter += 1
             if self.json_conf["single_thread"] is True:
                 analyse_locus(current_locus,
+                              counter,
                               self.json_conf,
                               self.printer_queue,
                               self.logging_queue)
             else:
                 job = pool.apply_async(analyse_locus,
                                        args=(current_locus,
+                                             counter,
                                              self.json_conf,
                                              self.printer_queue,
                                              self.logging_queue))
@@ -756,17 +811,49 @@ class Creator:
         self.logger.info("Intron range: %s", intron_range)
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
                                                                 "pool": pool})
+        counter = -1
         for row in self.define_input():
             if row.is_exon is True:
                 current_transcript.add_exon(row)
             elif row.is_transcript is True:
                 if current_transcript is not None:
+                    test = True
+                    if current_transcript.chrom < row.chrom:
+                        test = True
+                    elif current_transcript.chrom > row.chrom:
+                        test = False
+                    elif current_transcript.start < row.start:
+                        test = True
+                    elif current_transcript.start > row.start:
+                        test = False
+                    elif current_transcript.end <= row.end:
+                        test = True
+                    else:
+                        test = False
+
+                    if test is False:
+                        self.printer_queue.put(("EXIT", float("inf")))
+                        error_msg = """Unsorted input file, the results will not be correct.
+                            Please provide a properly sorted input. Error:
+                            {0}
+                            {1}""".format(
+                            "\t".join([str(x) for x in [row.chrom, row.start, row.end, row.strand]]),
+                            "\t".join([str(x) for x in [current_transcript.chrom,
+                                                        current_transcript.start,
+                                                        current_transcript.end,
+                                                        current_transcript.strand]]))
+                        self.logger.critical(error_msg)
+                        error_msg = "CRITICAL - {0}".format(" ".join(
+                            [l.strip() for l in error_msg.split("\n")]))
+                        raise mikado_lib.exceptions.UnsortedInput(error_msg)
+
                     if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(
                             current_locus, current_transcript) is True:
                         current_locus.add_transcript_to_locus(current_transcript,
                                                               check_in_locus=False)
                     else:
-                        job = submit_locus(current_locus)
+                        counter += 1
+                        job = submit_locus(current_locus, counter)
                         if job is not None:
                             jobs.append(job)
                         current_locus = mikado_lib.loci_objects.superlocus.Superlocus(
@@ -775,7 +862,7 @@ class Creator:
                             json_conf=self.json_conf)
                 current_transcript = mikado_lib.loci_objects.transcript.Transcript(
                     row,
-                    source=self.json_conf["source"],
+                    source=self.json_conf["output_format"]["source"],
                     intron_range=intron_range)
             else:
                 continue
@@ -786,7 +873,8 @@ class Creator:
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
             else:
-                jobs.append(submit_locus(current_locus))
+                counter += 1
+                jobs.append(submit_locus(current_locus, counter))
 
                 current_locus = mikado_lib.loci_objects.superlocus.Superlocus(
                     current_transcript,
@@ -795,7 +883,8 @@ class Creator:
                 self.logger.debug("Created last locus %s",
                                   current_locus)
 
-        jobs.append(submit_locus(current_locus))
+        counter += 1
+        jobs.append(submit_locus(current_locus, counter))
         return jobs
 
     def __call__(self):
@@ -816,7 +905,7 @@ class Creator:
         # pylint: enable=no-member
 
         self.logger.debug("Source: %s", self.json_conf["source"])
-        if self.json_conf["dbtype"] == "sqlite" and data_dict is not None:
+        if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection, pool_size=1, max_overflow=2)
 
@@ -829,7 +918,7 @@ class Creator:
         pool.join()
 
         self.printer_queue.join()
-        self.printer_queue.put("EXIT")
+        self.printer_queue.put(("EXIT", float("inf")))
         self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:

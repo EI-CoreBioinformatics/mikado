@@ -11,6 +11,7 @@ import mikado_lib.parsers
 import mikado_lib.exceptions
 import mikado_lib.loci_objects
 import logging
+from mikado_lib.configuration.log_utils import create_null_logger
 
 
 class MonoBaseTester(unittest.TestCase):
@@ -22,18 +23,7 @@ class MonoBaseTester(unittest.TestCase):
       a previous exon.
     """
 
-    handler = logging.StreamHandler()
-    handler.setLevel("DEBUG")
-    logger = logging.getLogger("test")
-    logger.setLevel("DEBUG")
-    logger.propagate = False
-    formatter = logging.Formatter(
-        "{asctime} - {levelname} - {module}:{lineno} - {funcName} - {name} - {message}",
-        style="{"
-        )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.debug("TEST")
+    logger = create_null_logger("null")
 
     def setUp(self):
         self.tr = mikado_lib.loci_objects.transcript.Transcript()
@@ -470,12 +460,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
         # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
-        handler = logging.StreamHandler()
-        handler.setLevel("DEBUG")
-        logger = logging.getLogger("test")
-        logger.setLevel("DEBUG")
-        logger.addHandler(handler)
-        logger.debug("TEST")
+        logger = create_null_logger("null")
         self.tr.logger = logger
 
         self.tr.load_orfs([first_orf, second_orf, third_orf])

@@ -35,6 +35,7 @@ class Locus(Monosublocus, Abstractlocus):
         self.primary_transcript_id = transcript.id
 
         self.attributes["is_fragment"] = False
+        self.__id = None
 
     def __str__(self, print_cds=True) -> str:
 
@@ -254,12 +255,38 @@ class Locus(Monosublocus, Abstractlocus):
         Override of the abstractlocus method.
         :rtype str
         """
+        if self.__id is not None:
+            return self.__id
+        else:
+            myid = Abstractlocus.id.fget(self)  # @UndefinedVariable
 
-        myid = Abstractlocus.id.fget(self)  # @UndefinedVariable
+            if self.counter > 0:
+                myid = "{0}.{1}".format(myid, self.counter)
+            return myid
 
-        if self.counter > 0:
-            myid = "{0}.{1}".format(myid, self.counter)
-        return myid
+    @id.setter
+    def id(self, string):
+
+        self.logger.debug("Setting new ID for %s to %s", self.id, string)
+        self.__id = string
+        primary_id = "{0}.1".format(string)
+        old_primary = self.primary_transcript.id
+        self.primary_transcript.attributes["Alias"] = self.primary_transcript.id
+        self.primary_transcript.id = primary_id
+        self.transcripts[primary_id] = self.primary_transcript
+        self.primary_transcript_id = primary_id
+        del self.transcripts[old_primary]
+
+        order = sorted([k for k in self.transcripts.keys() if k != primary_id],
+                       key=lambda xtid: self.transcripts[xtid])
+
+        for counter, tid in enumerate(order):
+            counter += 2
+            self.transcripts[tid].attributes["Alias"] = tid
+            new_id = "{0}.{1}".format(string, counter)
+            self.transcripts[tid].id = new_id
+            self.transcripts[new_id] = self.transcripts.pop(tid)
+
     # pylint: disable=invalid-name
 
     @property

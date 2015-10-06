@@ -9,15 +9,12 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 # Core imports
 import collections
 import sqlalchemy
-# SQLAlchemy imports
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 import sqlalchemy.pool
-
-# Shanghai imports
 from mikado_lib.serializers.junction import Junction, Chrom
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.loci_objects.monosublocus import Monosublocus
@@ -131,8 +128,6 @@ class Superlocus(Abstractlocus):
 
         lines = []
         self.define_loci()
-        if self.json_conf["alternative_splicing"]["report"] is True:
-            self.define_alternative_splicing()
         if len(self.loci) > 0:
             source = "{0}_loci".format(self.source)
             superlocus_line.source = source
@@ -322,8 +317,8 @@ class Superlocus(Abstractlocus):
         contained in the JSON configuration.
         """
 
-        database = self.json_conf["db"]
-        dbtype = self.json_conf["dbtype"]
+        database = self.json_conf["db_settings"]["db"]
+        dbtype = self.json_conf["db_settings"]["dbtype"]
 
         if pool is None:
             self.engine = create_engine("{dbtype}:///{db}".format(
@@ -372,9 +367,8 @@ class Superlocus(Abstractlocus):
 
         self.locus_verified_introns = []
         if data_dict is None:
-            if "db" not in self.json_conf or self.json_conf["db"] is None:
+            if "db" not in self.json_conf or self.json_conf["db_settings"]["db"] is None:
                 return  # No data to load
-            self.connect_to_db(pool)
             dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
             if len(dbquery) > 0:
                 chrom_id = dbquery[0].chrom_id
@@ -402,6 +396,9 @@ class Superlocus(Abstractlocus):
         :param pool: a connection pool
         :type pool: sqlalchemy.pool.QueuePool
         """
+
+        if data_dict is None:
+            self.connect_to_db(pool)
 
         self._load_introns(data_dict, pool)
         tid_keys = self.transcripts.keys()
@@ -472,6 +469,7 @@ class Superlocus(Abstractlocus):
                 # This is by design
                 # pylint: disable=eval-used
                 if eval(self.json_conf["requirements"]["compiled"]) is False:
+                    self.logger.debug("Discarding %s", tid)
                     not_passing.add(tid)
                     self.transcripts[tid].score = 0
                 # pylint: enable=eval-used
@@ -677,6 +675,8 @@ class Superlocus(Abstractlocus):
             self.loci[locus.id] = locus
 
         self.loci_defined = True
+        if self.json_conf["alternative_splicing"]["report"] is True:
+            self.define_alternative_splicing()
 
         return
 
@@ -695,6 +695,7 @@ class Superlocus(Abstractlocus):
         self.define_loci()
 
         candidates = collections.defaultdict(set)
+        primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
 
         cds_only = self.json_conf["run_options"]["subloci_from_cds_only"]
         t_graph = self.define_graph(self.transcripts,
@@ -710,9 +711,11 @@ class Superlocus(Abstractlocus):
             loci_cliques[lid] = set()
             for clique in cliques:
                 if locus_instance.primary_transcript_id in clique:
-                    loci_cliques[locus_instance.id].update(clique)
+                    loci_cliques[
+                        locus_instance.id].update({tid for tid in clique if
+                                                   tid != locus_instance.primary_transcript_id})
 
-        for tid in self.transcripts:
+        for tid in iter(tid for tid in self.transcripts if tid not in primary_transcripts):
             loci_in = list(llid for llid in loci_cliques if
                            tid in loci_cliques[llid])
             if len(loci_in) == 1:

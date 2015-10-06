@@ -469,7 +469,8 @@ class Sublocus(Abstractlocus):
         for tid in self.transcripts:
             tid_metric = getattr(self.transcripts[tid], param)
             score = 0
-            if "filter" in self.json_conf["scoring"][param]:
+            if ("filter" in self.json_conf["scoring"][param]
+                and self.json_conf["scoring"][param]["filter"] != {}):
                 check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
             else:
                 check = True

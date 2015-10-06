@@ -10,21 +10,12 @@ import operator
 import re
 import mikado_lib.parsers
 import mikado_lib.loci_objects
+from mikado_lib.configuration.log_utils import create_null_logger
 
 
 class TranscriptTesterNegative(unittest.TestCase):
 
-    handler = logging.StreamHandler()
-    handler.setLevel("DEBUG")
-    logger = logging.getLogger("test")
-    logger.setLevel("DEBUG")
-    logger.propagate = False
-    formatter = logging.Formatter(
-        "{asctime} - {levelname} - {module}:{lineno} - {funcName} - {name} - {message}",
-        style="{"
-        )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+    logger = create_null_logger("null")
 
     tr_gff = """Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1;Index=1
 Chr1    TAIR10    five_prime_UTR    8667    8737    .    -    .    Parent=AT1G01020.1

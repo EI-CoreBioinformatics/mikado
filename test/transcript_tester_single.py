@@ -8,6 +8,7 @@ import unittest
 import re
 import mikado_lib.parsers
 import mikado_lib.loci_objects
+from mikado_lib.configuration.log_utils import create_null_logger
 
 
 class TranscriptTester(unittest.TestCase):
@@ -246,14 +247,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
-        import logging
-        handler = logging.StreamHandler()
-        handler.setLevel("DEBUG")
-        logger = logging.getLogger("test")
-        logger.setLevel("DEBUG")
-        logger.addHandler(handler)
-        logger.debug("TEST")
-        logger.propagate = False
+        logger = create_null_logger("null")
         self.tr.logger = logger
 
         self.tr.load_orfs([first_orf, second_orf, third_orf])
@@ -355,14 +349,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
-        import logging
-        handler = logging.StreamHandler()
-        handler.setLevel("DEBUG")
-        logger = logging.getLogger("test")
-        logger.setLevel("DEBUG")
-        logger.addHandler(handler)
-        logger.debug("TEST")
-        logger.propagate = False
+        logger = create_null_logger("null")
         self.tr.logger = logger
 
         self.tr.load_orfs([first_orf, second_orf, third_orf])

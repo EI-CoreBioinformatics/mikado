@@ -15,12 +15,14 @@ import itertools
 from mikado_lib import exceptions
 import copy
 from mikado_lib.loci_objects.transcriptchecker import TranscriptChecker
-from mikado_lib.parsers import GTF
+# from mikado_lib.parsers import GTF, GFF
+from mikado_lib.subprograms import to_gff
 from Bio import SeqIO
 import functools
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
+import mikado_lib.exceptions
 
 __author__ = 'Luca Venturini'
 
@@ -60,6 +62,7 @@ def create_transcript(lines,
     transcript_object = TranscriptChecker(transcript_line,
                                           fasta_seq, lenient=lenient,
                                           strand_specific=strand_specific)
+
     transcript_object.logger = logger
     for line in lines:
         transcript_object.add_exon(line)
@@ -78,7 +81,7 @@ def create_transcript(lines,
     return transcript_object
 
 
-def store_transcripts(exon_lines, fasta, logger):
+def store_transcripts(exon_lines, fasta, logger, min_length=0):
 
     """
     Function that analyses the exon lines from the original file
@@ -93,6 +96,12 @@ def store_transcripts(exon_lines, fasta, logger):
     transcripts = collections.defaultdict(dict)
     for tid in exon_lines:
         tlines = exon_lines[tid]
+        tlength = sum(exon.end + 1 - exon.start for exon in exon_lines[tid])
+        # Discard transcript under a certain size
+        if tlength < min_length:
+            logger.warn("Discarding %s because its size (%d) is under the minimum of %d",
+                        tid, tlength, min_length)
+            continue
         start, end = min(x.start for x in tlines), max(x.end for x in tlines)
         chrom = tlines[0].chrom
         if (start, end) not in transcripts[chrom]:
@@ -104,7 +113,7 @@ def store_transcripts(exon_lines, fasta, logger):
     for chrom in sorted(transcripts.keys()):
         for key in sorted(transcripts[chrom].keys(),
                           key=operator.itemgetter(0, 1)):
-            seq = fasta[chrom][key[0]:key[1]]
+            seq = fasta[chrom][key[0]-1:key[1]]
             keys.extend([tid, seq] for tid in transcripts[chrom][key])
     logger.info("Finished to sort %d transcripts", len(exon_lines))
 
@@ -150,7 +159,7 @@ def perform_check(keys, exon_lines, args, logger):
             elif counter >= 10**3 and counter % (10**3) == 0:
                 logger.debug("Retrieved %d transcript positions", counter)
             print(transcript_object.__str__(to_gtf=True), file=args.out)
-
+            print(transcript_object.fasta, file=args.out_fasta)
     else:
         for group in grouper(keys, 100):
             if group is None:
@@ -161,6 +170,7 @@ def perform_check(keys, exon_lines, args, logger):
             ]
             for transcript_object in results:
                 transcript_object = transcript_object.get()
+
                 if transcript_object is None:
                     continue
                 counter += 1
@@ -169,6 +179,7 @@ def perform_check(keys, exon_lines, args, logger):
                 elif counter >= 10**3 and counter % (10**3) == 0:
                     logger.debug("Retrieved %d transcript positions", counter)
                 print(transcript_object.__str__(to_gtf=True), file=args.out)
+                print(transcript_object.fasta, file=args.out_fasta)
         pool.close()
         pool.join()
 
@@ -179,6 +190,21 @@ def perform_check(keys, exon_lines, args, logger):
 
 def prepare(args):
     """Main script function."""
+
+    if args.labels != '':
+        args.labels = args.labels.split(",")
+        # Checks labels are unique
+        assert len(set(args.labels)) == len(args.labels)
+        assert not any([True for _ in args.labels if _.strip() == ''])
+        if len(args.labels) != len(args.gff):
+            raise ValueError("Incorrect number of labels specified")
+    else:
+        args.labels = [""] * len(args.gff)
+
+    if isinstance(args.out_fasta, str):
+        args.out_fasta = open(args.out_fasta, 'w')
+    if isinstance(args.out, str):
+        args.out = open(args.out, 'w')
 
     handler = logging.StreamHandler()
     formatter = logging.Formatter(
@@ -199,21 +225,63 @@ def prepare(args):
     args.fasta.close()
     args.fasta = to_seqio(args.fasta.name)
 
-    exon_lines = dict()
+    exon_lines = collections.defaultdict(list)
 
-    for row in args.gff:
-        if row.feature != "exon":
-            continue
-        if row.transcript not in exon_lines:
-            exon_lines[row.transcript] = []
-        exon_lines[row.transcript].append(row)
+    previous_file_ids = collections.defaultdict(set)
+
+    for label, gff_handle in zip(args.labels, args.gff):
+        found_ids = set.union(set(), *previous_file_ids.values())
+        if gff_handle.__annot_type__ == "gff3":
+            gff = True
+            transcript2genes = dict()
+        else:
+            gff = False
+
+        for row in gff_handle:
+            if row.is_exon is False:
+                if gff is True and row.is_transcript is True:
+                    if label != '':
+                        row.id = "{0}_{1}".format(label, row.id)
+                    transcript2genes[row.id] = row.parent[0]
+                continue
+            # This convoluted block is due to the fact that transcript is a list for
+            # GFF files (as it is a parent), while it is a string for GTF files
+            elif row.is_cds is True and args.strip_cds is True:
+                continue
+
+            if gff is True:
+                if label != '':
+                    row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
+                parents = row.transcript[:]
+                for tid in parents:
+                    if tid in found_ids:
+                        assert label != ''
+                        raise ValueError("""{0} has already been found in another file,
+                        this will cause unsolvable collisions. Please rerun preparation using
+                        labels to tag each file.""")
+                    previous_file_ids[gff_handle.name].add(tid)
+                    new_row = copy.deepcopy(row)
+                    new_row.parent = new_row.id = tid
+                    new_row.attributes["gene_id"] = transcript2genes[tid]
+                    new_row.name = tid
+                    exon_lines[tid].append(new_row)
+            else:
+                if label != '':
+                    row.transcript = "{0}_{1}".format(label, row.transcript)
+                if row.transcript in found_ids:
+                    assert label != ''
+                    raise ValueError("""{0} has already been found in another file,
+                        this will cause unsolvable collisions. Please rerun preparation using
+                        labels to tag each file.""")
+                exon_lines[row.transcript].append(row)
 
     logger.info("Finished loading exon lines")
 
     # Prepare the sorted data structure
     keys = store_transcripts(exon_lines,
                              args.fasta,
-                             logger)
+                             logger,
+                             min_length=args.minimum_length)
 
     perform_check(keys, exon_lines, args, logger)
 
@@ -254,21 +322,6 @@ def prepare_parser():
     :rtype: argparse.Namespace
     """
 
-    def to_gff(string):
-        """
-        Function to verify the input file.
-        :param string: filename
-        """
-        if string[-4:] != ".gtf":
-            raise TypeError("This script takes as input only GTF files.")
-
-        gff = GTF.GTF(string)
-        for record in gff:
-            if record.header is False:
-                gff.close()
-                return GTF.GTF(string)
-        raise ValueError("Empty GTF file provided.")
-
     def to_cpu_count(string):
         """
         :param string: cpu requested
@@ -279,6 +332,9 @@ def prepare_parser():
         except:
             raise
         return max(1, string)
+
+    def positive(string):
+        return abs(int(string))
 
     parser = argparse.ArgumentParser("""Script to prepare a GTF for the pipeline;
     it will perform the following operations:
@@ -299,13 +355,23 @@ def prepare_parser():
                         help="""Flag. If set, transcripts with mixed +/-
                         splices will not cause exceptions but rather
                         be annotated as problematic.""")
+    parser.add_argument("-m", "--minimum_length", default=0, type=positive,
+                        help="Minimum length for transcripts. Default: no filtering.")
     parser.add_argument("-t", "--threads",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=1)
+    parser.add_argument("-scds", "--strip_cds", action="store_true", default=False,
+                        help="Boolean flag. If set, ignores any CDS/UTR segment.")
+    parser.add_argument("--labels", type=str, default="",
+                        help="""Labels to attach to the IDs of the transcripts of the input files,
+                        separated by comma.""")
     parser.add_argument("--single", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
-    parser.add_argument("gff", type=to_gff, help="Input GTF file.")
-    parser.add_argument("out", default=sys.stdout, nargs='?', type=argparse.FileType('w'),
-                        help="Output file. Default: STDOUT.")
+    parser.add_argument("-o", "--out", default='mikado.gtf', type=argparse.FileType('w'),
+                        help="Output file. Default: mikado.fasta.")
+    parser.add_argument("-of", "--out_fasta", default="mikado.fasta",
+                        type=argparse.FileType('w'),
+                        help="Output file. Default: mikado.fasta.")
+    parser.add_argument("gff", type=to_gff, help="Input GFF/GTF file(s).", nargs="+")
     parser.set_defaults(func=prepare)
     return parser

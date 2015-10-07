@@ -1271,9 +1271,7 @@ class Transcript:
                 pass
             else:
                 hsp_dict_list.append(hsp)
-                if (hsp["hsp_evalue"] < best_hsp[0] or
-                        (hsp["hsp_evalue"] == best_hsp[0] and
-                                 hsp["hsp_bits"] > best_hsp[1])):
+                if (hsp["hsp_evalue"] < best_hsp[0]):
                     best_hsp = (hsp["hsp_evalue"], hsp["hsp_bits"])
 
                 q_intervals.append((hsp["query_hsp_start"], hsp["query_hsp_end"]))

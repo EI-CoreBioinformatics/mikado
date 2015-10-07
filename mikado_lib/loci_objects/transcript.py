@@ -1263,12 +1263,19 @@ class Transcript:
 
         minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
+        best_hsp = (float("inf"), float("-inf"))
+
         for counter, hsp in enumerate(hit["hsps"]):
             _ = Abstractlocus.overlap((hsp["query_hsp_start"], hsp["query_hsp_end"]), boundary)
             if _ <= minimal_overlap * (boundary[1] + 1 - boundary[0]):
                 pass
             else:
                 hsp_dict_list.append(hsp)
+                if (hsp["hsp_evalue"] < best_hsp[0] or
+                        (hsp["hsp_evalue"] == best_hsp[0] and
+                                 hsp["hsp_bits"] > best_hsp[1])):
+                    best_hsp = (hsp["hsp_evalue"], hsp["hsp_bits"])
+
                 q_intervals.append((hsp["query_hsp_start"], hsp["query_hsp_end"]))
                 t_intervals.append((hsp["target_hsp_start"], hsp["target_hsp_end"]))
 

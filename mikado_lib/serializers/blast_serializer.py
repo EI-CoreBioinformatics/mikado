@@ -1030,6 +1030,8 @@ class XmlSerializer:
 
         identical_positions, positives = set(), set()
 
+        best_hsp = (float("inf"), float("-inf"))  # E-Value, BitS
+
         for counter, hsp in enumerate(hit.hsps):
             hsp_dict = dict()
             hsp_dict["counter"] = counter
@@ -1058,6 +1060,11 @@ class XmlSerializer:
             hsp_dict["hsp_length"] = hsp.align_length
             hsp_dict["hsp_bits"] = hsp.bits
             hsp_dict["hsp_evalue"] = hsp.expect
+            if (hsp_dict["hsp_evalue"] < best_hsp[0] or
+                    (hsp_dict["hsp_evalue"] == best_hsp[0] and
+                             hsp_dict["hsp_bits"] > best_hsp[1])):
+                best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
+
             hsp_dict["query_id"] = query_id
             hsp_dict["target_id"] = target_id
             hsp_dict_list.append(hsp_dict)
@@ -1079,7 +1086,7 @@ class XmlSerializer:
         hit_dict["target_end"] = t_merged_intervals[-1][1]
         hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
         hit_dict["global_positives"] = len(positives) * 100 / q_aligned
-        assert hit_dict["bits"] == max(hsp["hsp_bits"] for hsp in hsp_dict_list)
-        assert hit_dict["evalue"] == min(hsp["hsp_evalue"] for hsp in hsp_dict_list)
+        assert hit_dict["evalue"] == best_hsp[0]
+        assert hit_dict["bits"] == best_hsp[1]
 
         return hit_dict, hsp_dict_list

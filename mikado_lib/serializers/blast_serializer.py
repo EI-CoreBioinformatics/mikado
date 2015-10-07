@@ -1060,9 +1060,7 @@ class XmlSerializer:
             hsp_dict["hsp_length"] = hsp.align_length
             hsp_dict["hsp_bits"] = hsp.bits
             hsp_dict["hsp_evalue"] = hsp.expect
-            if (hsp_dict["hsp_evalue"] < best_hsp[0] or
-                    (hsp_dict["hsp_evalue"] == best_hsp[0] and
-                             hsp_dict["hsp_bits"] > best_hsp[1])):
+            if (hsp_dict["hsp_evalue"] < best_hsp[0]):
                 best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
 
             hsp_dict["query_id"] = query_id
@@ -1086,7 +1084,10 @@ class XmlSerializer:
         hit_dict["target_end"] = t_merged_intervals[-1][1]
         hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
         hit_dict["global_positives"] = len(positives) * 100 / q_aligned
-        assert hit_dict["evalue"] == best_hsp[0]
-        assert hit_dict["bits"] == best_hsp[1]
+        if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
+            raise ValueError("Discrepant evalue/bits for hsps and hit; best: {0}, reported {1}".format(
+                best_hsp,
+                (hit_dict["evalue"], hit_dict["bits"])
+            ))
 
         return hit_dict, hsp_dict_list

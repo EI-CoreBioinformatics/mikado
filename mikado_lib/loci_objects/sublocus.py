@@ -321,9 +321,14 @@ class Sublocus(Abstractlocus):
         ])
         retained_introns = []
         for position, exon in enumerate(transcript.exons):
+            # Monobase exons are a problem
+            if exon[0] == exon[1]:
+                self.logger.warning("Monobase exon found in %s: %s:%d-%d",
+                                    self.id, self.chrom, exon[0], exon[1])
+                continue
             exon_interval = intervaltree.IntervalTree([intervaltree.Interval(*exon)])
             # We have to enlarge by 1 due to idiosyncrasies by intervaltree
-            # Here we obtain the
+
             for cds_segment in cds_segments.search(*exon):
                 exon_interval.chop(cds_segment[0], cds_segment[1])
 

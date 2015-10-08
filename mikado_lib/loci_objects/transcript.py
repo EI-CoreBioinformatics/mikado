@@ -1002,6 +1002,10 @@ class Transcript:
                 self.logger.debug("New exon: %s", new_exon)
                 self.logger.debug("New texon: %s", texon)
 
+        # Prevent monobase exons
+        if new_exon[0] == new_exon[1]:
+            new_exon[1] += 1
+
         return new_exon, texon, to_discard
 
     def __create_splitted_exons(self, boundary, left, right):

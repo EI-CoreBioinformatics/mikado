@@ -128,6 +128,8 @@ def analyse_locus(slocus: Superlocus,
     # otherwise we overwrite the global configuration
     logger.setLevel(json_conf["log_settings"]["log_level"])
     logger.propagate = False
+    logger.debug("Started with %s, counter %d",
+                 slocus.id, counter)
     if slocus.stranded is True:
         logger.warn("%s is stranded already! Resetting",
                     slocus.id)
@@ -195,7 +197,7 @@ def analyse_locus(slocus: Superlocus,
     printer_queue.put((stranded_loci, counter))
 
     # close up shop
-    logger.info("Finished with %s", slocus.id)
+    logger.info("Finished with %s, counter %d", slocus.id, counter)
     logger.removeHandler(handler)
     handler.close()
     return
@@ -770,7 +772,7 @@ class Creator:
         """
 
         job = None
-        if data_dict is not None:
+        if data_dict is not None and current_locus is not None:
             self.main_logger.debug("Loading data from dict for %s",
                                    current_locus.id)
             current_locus.logger = self.queue_logger

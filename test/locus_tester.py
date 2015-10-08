@@ -70,7 +70,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
     def test_locus(self):
         """Basic testing of the Locus functionality."""
 
-        my_json = os.path.join(os.path.dirname(__file__), "../sample_data/configuration.yaml")
+        my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
         my_json = json_utils.to_json(my_json)
         logger = create_null_logger("null")
         logger.setLevel("DEBUG")
@@ -85,6 +85,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         slocus.define_subloci()
         logger.info(slocus.subloci)
         logger.info(slocus.transcripts)
+        self.assertEqual(len(slocus.transcripts), 2)
         self.assertEqual(len(slocus.subloci), 2)
         slocus.define_monosubloci()
         self.assertEqual(len(slocus.monosubloci), 2)

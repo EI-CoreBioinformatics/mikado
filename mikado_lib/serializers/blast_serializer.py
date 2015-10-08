@@ -586,7 +586,7 @@ class XmlSerializer:
     # Put here so it's calculated *once* inside the program
     __valid_matches = set([chr(x) for x in range(65, 91)] +
                           [chr(x) for x in range(97, 123)] +
-                          ["|"])
+                          ["|", "*"])
 
     def __init__(self, xml,
                  max_target_seqs=float("Inf"),
@@ -1047,20 +1047,40 @@ class XmlSerializer:
 
             hsp_dict["hsp_identity"] = (hsp.identities) / hsp.align_length * 100
             hsp_dict["hsp_positives"] = (hsp.positives) / hsp.align_length * 100
-            hsp_dict["match"] = hsp.match
+
             # Prepare the list for later calculation
             # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
-            for position, match in zip(range(hsp.query_start, hsp.query_end), hsp.match):
-                if match in cls.__valid_matches:
-                    identical_positions.add(position)
-                    positives.add(position)
-                elif match == "+":
-                    positives.add(position)
+            match = ""
+            query_pos, target_pos = hsp.query_start - 1, hsp.sbjct_start - 1
+            positive_count, iden_count = 0, 0
+            for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
+                if middle_aa in cls.__valid_matches or middle_aa == "+":
+                    query_pos += 1
+                    target_pos += 1
+                    match += middle_aa
+                    positives.add(query_pos)
+                    positive_count += 1
+                    if middle_aa != "+":
+                        iden_count += 1
+                        identical_positions.add(query_pos)
+                elif query_aa == target_aa == "-":
+                    match += "\\"
+                elif query_aa == "-":
+                    target_pos += 1
+                    match += "-"
+                elif target_aa == "-":
+                    query_pos += 1
+                    match += "_"
+
+            assert query_pos <= hsp.query_end and target_pos <= hsp.sbjct_end
+            assert positive_count == hsp.positives and iden_count == hsp.identities
+
+            hsp_dict["match"] = match
 
             hsp_dict["hsp_length"] = hsp.align_length
             hsp_dict["hsp_bits"] = hsp.bits
             hsp_dict["hsp_evalue"] = hsp.expect
-            if (hsp_dict["hsp_evalue"] < best_hsp[0]):
+            if hsp_dict["hsp_evalue"] < best_hsp[0]:
                 best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
 
             hsp_dict["query_id"] = query_id

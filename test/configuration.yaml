@@ -1,1 +1,21 @@
-../sample_data/configuration.yaml
+chimera_split:
+  blast_check: true
+  execute: true
+  blast_params:
+    leniency: PERMISSIVE
+log_settings:
+  log_level: DEBUG
+source: "Mikado"
+alternative_splicing:
+  report: true
+  max_isoforms: 3
+orf_loading:
+  strand_specific: true
+run_options:
+  purge: true
+  remove_overlapping_fragments: true
+  fragments_maximal_cds: 100
+  subloci_from_cds_only: false
+  threads: 5
+  preload: true
+scoring_file: plants.yaml

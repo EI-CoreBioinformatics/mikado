@@ -44,7 +44,4 @@ scoring:
     filter: {operator: le, value: 2500}
     rescaling: target
     value: 200
-  three_utr_num:
-    filter: {operator: lt, value: 3}
-    rescaling: target
-    value: 1
+  three_utr_num: { filter: {operator: lt, value: 3}, rescaling: target, value: 1}

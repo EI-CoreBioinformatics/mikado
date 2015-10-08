@@ -1271,19 +1271,22 @@ class Transcript:
                 pass
             else:
                 hsp_dict_list.append(hsp)
-                if (hsp["hsp_evalue"] < best_hsp[0]):
+                if hsp["hsp_evalue"] < best_hsp[0]:
                     best_hsp = (hsp["hsp_evalue"], hsp["hsp_bits"])
 
                 q_intervals.append((hsp["query_hsp_start"], hsp["query_hsp_end"]))
                 t_intervals.append((hsp["target_hsp_start"], hsp["target_hsp_end"]))
 
-                for position, match in zip(range(hsp["query_hsp_start"],
-                                                 hsp["query_hsp_end"]), hsp["match"]):
-                    if match in __valid_matches:
-                        identical_positions.add(position)
-                        positives.add(position)
-                    elif match == "+":
-                        positives.add(position)
+                query_pos = hsp["query_hsp_start"] - 1
+
+                for aa in hsp["match"]:
+                    if aa in __valid_matches or aa == "+":
+                        query_pos += 1
+                        positives.add(query_pos)
+                        if aa != "+":
+                            identical_positions.add(query_pos)
+                    elif aa == "_":  # Gap in the target sequence
+                        query_pos += 1
 
         if len(hsp_dict_list) == 0:
             return None

@@ -55,7 +55,7 @@ class Sublocus(Abstractlocus):
         if span.__name__ == "transcript":
             span.finalize()
         self.purge = self.json_conf["run_options"]["purge"]
-        self.source = self.json_conf["source"]
+        self.source = self.json_conf["output_format"]["source"]
 
         self.excluded = None
         self.splitted = False

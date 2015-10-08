@@ -118,6 +118,7 @@ def analyse_locus(slocus: Superlocus,
 
     # Define the logger
     if slocus is None:
+        printer_queue.put(([], counter))
         return
     handler = logging_handlers.QueueHandler(logging_queue)
     logger = logging.getLogger("{0}:{1}-{2}".format(
@@ -589,7 +590,6 @@ class Creator:
 
             if stranded_loci == "EXIT":
                 for num in sorted(cache.keys()):
-
                     for stranded_locus in cache[num]:
                         if stranded_locus.chrom != curr_chrom:
                             curr_chrom = stranded_locus.chrom
@@ -770,41 +770,40 @@ class Creator:
         """
 
         job = None
-        if current_locus is not None:
-            # Load data on the local thread before sending.
-            if data_dict is not None:
-                self.main_logger.debug("Loading data from dict for %s",
-                                       current_locus.id)
-                current_locus.logger = self.queue_logger
-                current_locus.load_all_transcript_data(pool=self.queue_pool,
-                                                       data_dict=data_dict)
-                current_locus_id = current_locus.id
-                if current_locus.initialized is False:
-                    # This happens when we have removed all transcripts from the locus
-                    # due to errors which should have been caught and logged
-                    current_locus = None
-                    self.main_logger.warning(
-                        "%s had all transcripts failing checks, ignoring it",
-                        current_locus_id)
-                    # Exit
-                    return None
+        if data_dict is not None:
+            self.main_logger.debug("Loading data from dict for %s",
+                                   current_locus.id)
+            current_locus.logger = self.queue_logger
+            current_locus.load_all_transcript_data(pool=self.queue_pool,
+                                                   data_dict=data_dict)
+            current_locus_id = current_locus.id
+            if current_locus.initialized is False:
+                # This happens when we have removed all transcripts from the locus
+                # due to errors which should have been caught and logged
+                current_locus = None
+                self.main_logger.warning(
+                    "%s had all transcripts failing checks, ignoring it",
+                    current_locus_id)
+                # Exit
+                return None
 
+        if current_locus is not None:
             self.main_logger.info("Submitting %s",
                                   current_locus.id)
-            counter += 1
-            if self.json_conf["single_thread"] is True:
-                analyse_locus(current_locus,
-                              counter,
-                              self.json_conf,
-                              self.printer_queue,
-                              self.logging_queue)
-            else:
-                job = pool.apply_async(analyse_locus,
-                                       args=(current_locus,
-                                             counter,
-                                             self.json_conf,
-                                             self.printer_queue,
-                                             self.logging_queue))
+
+        if self.json_conf["single_thread"] is True:
+            analyse_locus(current_locus,
+                          counter,
+                          self.json_conf,
+                          self.printer_queue,
+                          self.logging_queue)
+        else:
+            job = pool.apply_async(analyse_locus,
+                                   args=(current_locus,
+                                         counter,
+                                         self.json_conf,
+                                         self.printer_queue,
+                                         self.logging_queue))
         return job
 
     def _parse_and_submit_input(self, pool, data_dict):
@@ -920,7 +919,8 @@ class Creator:
         pool = multiprocessing.Pool(processes=self.threads)
         # pylint: enable=no-member
 
-        self.logger.debug("Source: %s", self.json_conf["source"])
+        self.logger.debug("Source: %s",
+                          self.json_conf["output_format"]["source"])
         if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection, pool_size=1, max_overflow=2)

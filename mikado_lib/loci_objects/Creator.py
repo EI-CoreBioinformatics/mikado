@@ -498,6 +498,16 @@ class Creator:
 
     def _print_locus(self, stranded_locus, gene_counter, logger=None, handles=()):
 
+        """
+        Private method that handles a single superlocus for printing.
+        It also detects and flags/discard fragmentary loci.
+        :param stranded_locus: the stranded locus to analyse
+        :param gene_counter: A counter used to rename the genes/transcripts progressively
+        :param logger: logger instance
+        :param handles: the handles to print to
+        :return:
+        """
+
         locus_metrics, locus_scores, locus_out = handles[0]
         sub_metrics, sub_scores, sub_out = handles[1]
         mono_out = handles[2]
@@ -530,8 +540,10 @@ class Creator:
 
         for locus in stranded_locus.loci:
             gene_counter += 1
-            fragment_test = (self.json_conf["run_options"]["remove_overlapping_fragments"] is True and
-                             stranded_locus.loci[locus].is_fragment is True)
+            fragment_test = (
+                self.json_conf["run_options"]["remove_overlapping_fragments"] is True and
+                stranded_locus.loci[locus].is_fragment is True)
+
             if fragment_test is True:
                 continue
             new_id = "{0}.{1}G{2}".format(self.json_conf["output_format"]["id_prefix"],
@@ -598,9 +610,11 @@ class Creator:
                             if stranded_locus.chrom != curr_chrom:
                                 curr_chrom = stranded_locus.chrom
                                 gene_counter = 0
-                            gene_counter = locus_printer(stranded_locus)
+                            gene_counter = locus_printer(stranded_locus, gene_counter)
                         last_printed += 1
                         del cache[num]
+                    else:
+                        break
             else:
                 cache[counter] = stranded_loci
 
@@ -818,30 +832,32 @@ class Creator:
             elif row.is_transcript is True:
                 if current_transcript is not None:
                     test = True
-                    if current_transcript.chrom < row.chrom:
-                        test = True
-                    elif current_transcript.chrom > row.chrom:
+                    if current_transcript.chrom > row.chrom:
                         test = False
-                    elif current_transcript.start < row.start:
-                        test = True
-                    elif current_transcript.start > row.start:
+                    elif (current_transcript.chrom == row.chrom and
+                          current_transcript.start > row.start):
                         test = False
-                    elif current_transcript.end <= row.end:
-                        test = True
-                    else:
+                    elif (current_transcript.chrom == row.chrom and
+                          current_transcript.start == row.start and
+                          current_transcript.end > row.end):
                         test = False
 
                     if test is False:
                         self.printer_queue.put(("EXIT", float("inf")))
+                        current = "\t".join([str(x) for x in [row.chrom,
+                                                              row.start,
+                                                              row.end,
+                                                              row.strand]])
+                        previous = "\t".join([str(x) for x in [current_transcript.chrom,
+                                                               current_transcript.start,
+                                                               current_transcript.end,
+                                                               current_transcript.strand]])
+
                         error_msg = """Unsorted input file, the results will not be correct.
                             Please provide a properly sorted input. Error:
                             {0}
-                            {1}""".format(
-                            "\t".join([str(x) for x in [row.chrom, row.start, row.end, row.strand]]),
-                            "\t".join([str(x) for x in [current_transcript.chrom,
-                                                        current_transcript.start,
-                                                        current_transcript.end,
-                                                        current_transcript.strand]]))
+                            {1}""".format(current,
+                                          previous)
                         self.logger.critical(error_msg)
                         error_msg = "CRITICAL - {0}".format(" ".join(
                             [l.strip() for l in error_msg.split("\n")]))

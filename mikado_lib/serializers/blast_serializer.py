@@ -142,6 +142,12 @@ class Hsp(DBBASE):
     :return hsp_length: Length of the HSP
     :rtype hsp_length: int
 
+    :return match: the match line between query and target, with the following specs:
+        - If the position is a match/positive, keep the original value
+        - If the position is a gap *for the query*, insert a - (dash)
+        - If the position is a gap *for the target*, insert a _ (underscore)
+        - If the position is a gap *for both*, insert a \ (backslash)
+
     An HSP row has the following constraints:
     - Counter,hit_id must be unique (and are primary keys)
     - The combination ("Hit_id","query_hsp_start","query_hsp_end",
@@ -154,7 +160,6 @@ class Hsp(DBBASE):
 
     :return target_object: The reference Target
     :rtype target_object: Target
-
     """
 
     __tablename__ = "hsp"
@@ -209,16 +214,11 @@ class Hsp(DBBASE):
         """
 
         self.counter = counter
-        self.query_hsp_start = hsp.query_start
-        self.query_hsp_end = hsp.query_end
-        self.target_hsp_start = hsp.sbjct_start
-        self.target_hsp_end = hsp.sbjct_end
-        self.hsp_identity = float(hsp.identities) / hsp.align_length * 100
-        self.hsp_positives = float(hsp.positives) / hsp.align_length * 100
-        self.hsp_length = hsp.align_length
-        self.match = hsp.match
-        self.hsp_bits = hsp.bits
-        self.hsp_evalue = hsp.expect
+        hsp_dict, _, _ = prepare_hsp(hsp, counter)
+
+        for key in hsp_dict:
+            setattr(self, key, hsp_dict[key])
+
         self.query_id = query_id
         self.target_id = target_id
 
@@ -392,17 +392,11 @@ class Hit(DBBASE):
         self.evalue = evalue
         self.bits = bits
 
-        prepared_hit, _ = XmlSerializer.prepare_hit(alignment,
-                                                                query_id, target_id)
-        self.global_identity = prepared_hit["global_identity"]
-        self.global_positives = prepared_hit["global_positives"]
-        self.query_aligned_length = prepared_hit["query_aligned_length"]
-        self.query_start = prepared_hit["query_start"]
-        self.query_end = prepared_hit["query_end"]
-
-        self.target_aligned_length = prepared_hit["target_aligned_length"]
-        self.target_start = prepared_hit["target_start"]
-        self.target_end = prepared_hit["target_end"]
+        prepared_hit, _ = prepare_hit(alignment, query_id, target_id)
+        for key in ["global_identity", "global_positives", "query_aligned_length",
+                    "query_start", "query_end", "target_aligned_length",
+                    "target_start", "target_end"]:
+            setattr(self, key, prepared_hit[key])
 
     def __str__(self):
         line = [self.query, self.target, self.evalue,
@@ -867,9 +861,8 @@ class XmlSerializer:
                 hit_dict_params["bits"] = record.descriptions[ccc].bits
 
                 # Prepare for bulk load
-                hit, hit_hsps = self.prepare_hit(alignment,
-                                                 current_query, current_target,
-                                                 **hit_dict_params)
+                hit, hit_hsps = prepare_hit(alignment, current_query, current_target,
+                                            **hit_dict_params)
                 hits.append(hit)
                 hsps.extend(hit_hsps)
 
@@ -1018,96 +1011,131 @@ class XmlSerializer:
             self.session.bulk_save_objects(objects, return_defaults=False)
             self.session.commit()
 
-    @classmethod
-    def prepare_hit(cls, hit, query_id, target_id, **kwargs):
-        """Prepare the dictionary for fast loading of Hit and Hsp objects"""
 
-        hit_dict = dict()
-        hsp_dict_list = []
-        # hit_dict["global_identity"] = []
-        q_intervals = []
-        t_intervals = []
+def prepare_hsp(hsp, counter):
 
-        identical_positions, positives = set(), set()
+    """
+    Prepare a HSP for loading into the DB.
+    The match line will be reworked in the following way:
 
-        best_hsp = (float("inf"), float("-inf"))  # E-Value, BitS
+    - If the position is a match/positive, keep the original value
+    - If the position is a gap *for the query*, insert a - (dash)
+    - If the position is a gap *for the target*, insert a _ (underscore)
+    - If the position is a gap *for both*, insert a \ (backslash)
 
-        for counter, hsp in enumerate(hit.hsps):
-            hsp_dict = dict()
-            hsp_dict["counter"] = counter
-            hsp_dict["query_hsp_start"] = hsp.query_start
-            hsp_dict["query_hsp_end"] = hsp.query_end
-            # Prepare the list for later calculation
-            q_intervals.append((hsp.query_start, hsp.query_end))
+    :param hsp: An HSP object from Bio.Blast.NCBIXML
+    :type hsp: Bio.Blast.Record.HSP
+    :param counter: a digit that indicates the priority of the HSP in the hit
+    :return: hsp_dict, identical_positions, positives
+    :rtype: (dict, set, set)
+    """
 
-            hsp_dict["target_hsp_start"] = hsp.sbjct_start
-            hsp_dict["target_hsp_end"] = hsp.sbjct_end
-            # Prepare the list for later calculation
-            t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
+    valid_matches = set([chr(x) for x in range(65, 91)] +
+                      [chr(x) for x in range(97, 123)] +
+                      ["|", "*"])
 
-            hsp_dict["hsp_identity"] = (hsp.identities) / hsp.align_length * 100
-            hsp_dict["hsp_positives"] = (hsp.positives) / hsp.align_length * 100
+    identical_positions, positives = set(), set()
 
-            # Prepare the list for later calculation
-            # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
-            match = ""
-            query_pos, target_pos = hsp.query_start - 1, hsp.sbjct_start - 1
-            positive_count, iden_count = 0, 0
-            for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
-                if middle_aa in cls.__valid_matches or middle_aa == "+":
-                    query_pos += 1
-                    target_pos += 1
-                    match += middle_aa
-                    positives.add(query_pos)
-                    positive_count += 1
-                    if middle_aa != "+":
-                        iden_count += 1
-                        identical_positions.add(query_pos)
-                elif query_aa == target_aa == "-":
-                    match += "\\"
-                elif query_aa == "-":
-                    target_pos += 1
-                    match += "-"
-                elif target_aa == "-":
-                    query_pos += 1
-                    match += "_"
+    hsp_dict = dict()
+    hsp_dict["counter"] = counter
+    hsp_dict["query_hsp_start"] = hsp.query_start
+    hsp_dict["query_hsp_end"] = hsp.query_end
+    # Prepare the list for later calculation
+    # q_intervals.append((hsp.query_start, hsp.query_end))
 
-            assert query_pos <= hsp.query_end and target_pos <= hsp.sbjct_end
-            assert positive_count == hsp.positives and iden_count == hsp.identities
+    hsp_dict["target_hsp_start"] = hsp.sbjct_start
+    hsp_dict["target_hsp_end"] = hsp.sbjct_end
+    # Prepare the list for later calculation
+    # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
 
-            hsp_dict["match"] = match
+    hsp_dict["hsp_identity"] = (hsp.identities) / hsp.align_length * 100
+    hsp_dict["hsp_positives"] = (hsp.positives) / hsp.align_length * 100
 
-            hsp_dict["hsp_length"] = hsp.align_length
-            hsp_dict["hsp_bits"] = hsp.bits
-            hsp_dict["hsp_evalue"] = hsp.expect
-            if hsp_dict["hsp_evalue"] < best_hsp[0]:
-                best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
+    # Prepare the list for later calculation
+    # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])
+    match = ""
+    query_pos, target_pos = hsp.query_start - 1, hsp.sbjct_start - 1
+    positive_count, iden_count = 0, 0
+    for query_aa, middle_aa, target_aa in zip(hsp.query, hsp.match, hsp.sbjct):
+        if middle_aa in valid_matches or middle_aa == "+":
+            query_pos += 1
+            target_pos += 1
+            match += middle_aa
+            positives.add(query_pos)
+            positive_count += 1
+            if middle_aa != "+":
+                iden_count += 1
+                identical_positions.add(query_pos)
+        elif query_aa == target_aa == "-":
+            match += "\\"
+        elif query_aa == "-":
+            target_pos += 1
+            match += "-"
+        elif target_aa == "-":
+            query_pos += 1
+            match += "_"
 
-            hsp_dict["query_id"] = query_id
-            hsp_dict["target_id"] = target_id
-            hsp_dict_list.append(hsp_dict)
+    assert query_pos <= hsp.query_end and target_pos <= hsp.sbjct_end
+    assert positive_count == hsp.positives and iden_count == hsp.identities
 
-        hit_dict.update(kwargs)
-        hit_dict["query_id"] = query_id
-        hit_dict["target_id"] = target_id
+    hsp_dict["match"] = match
 
-        q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
-        q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
-        hit_dict["query_aligned_length"] = q_aligned
-        hit_dict["query_start"] = q_merged_intervals[0][0]
-        hit_dict["query_end"] = q_merged_intervals[-1][1]
+    hsp_dict["hsp_length"] = hsp.align_length
+    hsp_dict["hsp_bits"] = hsp.bits
+    hsp_dict["hsp_evalue"] = hsp.expect
 
-        t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
-        t_aligned = sum([tup[1] - tup[0] + 1 for tup in t_merged_intervals])
-        hit_dict["target_aligned_length"] = t_aligned
-        hit_dict["target_start"] = t_merged_intervals[0][0]
-        hit_dict["target_end"] = t_merged_intervals[-1][1]
-        hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
-        hit_dict["global_positives"] = len(positives) * 100 / q_aligned
-        if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
-            raise ValueError("Discrepant evalue/bits for hsps and hit; best: {0}, reported {1}".format(
-                best_hsp,
-                (hit_dict["evalue"], hit_dict["bits"])
-            ))
+    return hsp_dict, identical_positions, positives
 
-        return hit_dict, hsp_dict_list
+
+def prepare_hit(hit, query_id, target_id, **kwargs):
+    """Prepare the dictionary for fast loading of Hit and Hsp objects.
+    global_positives: the similarity rate for the global hit *using the query perspective*
+    global_identity: the identity rate for the global hit *using the query perspective*
+    """
+
+    hit_dict = dict()
+    hsp_dict_list = []
+    # hit_dict["global_identity"] = []
+    q_intervals = []
+    t_intervals = []
+
+    identical_positions, positives = set(), set()
+
+    best_hsp = (float("inf"), float("-inf"))  # E-Value, BitS
+
+    for counter, hsp in enumerate(hit.hsps):
+        hsp_dict, ident, posit = prepare_hsp(hsp, counter)
+        identical_positions.update(ident)
+        positives.update(posit)
+        if hsp_dict["hsp_evalue"] < best_hsp[0]:
+            best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
+        hsp_dict["query_id"] = query_id
+        hsp_dict["target_id"] = target_id
+        hsp_dict_list.append(hsp_dict)
+        q_intervals.append((hsp.query_start, hsp.query_end))
+        t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
+
+    hit_dict.update(kwargs)
+    hit_dict["query_id"] = query_id
+    hit_dict["target_id"] = target_id
+
+    q_merged_intervals = sorted(merge(q_intervals), key=operator.itemgetter(0, 1))
+    q_aligned = sum([tup[1] - tup[0] + 1 for tup in q_merged_intervals])
+    hit_dict["query_aligned_length"] = q_aligned
+    hit_dict["query_start"] = q_merged_intervals[0][0]
+    hit_dict["query_end"] = q_merged_intervals[-1][1]
+
+    t_merged_intervals = sorted(merge(t_intervals), key=operator.itemgetter(0, 1))
+    t_aligned = sum([tup[1] - tup[0] + 1 for tup in t_merged_intervals])
+    hit_dict["target_aligned_length"] = t_aligned
+    hit_dict["target_start"] = t_merged_intervals[0][0]
+    hit_dict["target_end"] = t_merged_intervals[-1][1]
+    hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
+    hit_dict["global_positives"] = len(positives) * 100 / q_aligned
+    if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
+        raise ValueError("Discrepant evalue/bits for hsps and hit; best: {0}, reported {1}".format(
+            best_hsp,
+            (hit_dict["evalue"], hit_dict["bits"])
+        ))
+
+    return hit_dict, hsp_dict_list

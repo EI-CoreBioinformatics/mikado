@@ -357,7 +357,7 @@ class Superlocus(Abstractlocus):
         return to_remove, to_add
         # @profile
 
-    def _load_introns(self, data_dict, pool):
+    def _load_introns(self, data_dict):
 
         """Private method to load the intron data into the locus.
         :param data_dict: Dictionary containing the preloaded data, if available.
@@ -400,7 +400,7 @@ class Superlocus(Abstractlocus):
         if data_dict is None:
             self.connect_to_db(pool)
 
-        self._load_introns(data_dict, pool)
+        self._load_introns(data_dict)
         tid_keys = self.transcripts.keys()
         to_remove, to_add = set(), set()
         for tid in tid_keys:

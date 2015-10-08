@@ -201,7 +201,9 @@ def serialise_parser():
     generic = parser.add_argument_group()
     generic.add_argument("-mo", "--max-objects", dest="max_objects",
                          type=int, default=10 ** 5,
-                         help="Maximum number of objects to cache in memory.")
+                         help="""Maximum number of objects to cache in memory before
+                         committing to the database. Default: %(default)s i.e.
+                         approximately 450MB RAM usage for Drosophila.""")
     generic.add_argument("-f", "--force", action="store_true", default=False,
                          help="""Flag. If set, an existing databse will be deleted (sqlite)
                          or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")

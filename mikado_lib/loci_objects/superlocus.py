@@ -44,8 +44,8 @@ class Superlocus(Abstractlocus):
     junction_baked += lambda q: q.filter(and_(
         Junction.chrom_id == bindparam("chrom_id"),
         Junction.junction_start == bindparam("junctionStart"),
-        Junction.junction_end == bindparam("junctionEnd"),
-        Junction.strand == bindparam("strand")))
+        Junction.junction_end == bindparam("junctionEnd")))
+    # Junction.strand == bindparam("strand")))
 
     # ###### Special methods ############
 
@@ -377,7 +377,7 @@ class Superlocus(Abstractlocus):
                             chrom_id=chrom_id,
                             junctionStart=intron[0],
                             junctionEnd=intron[1],
-                            strand=self.strand
+                            # strand=self.strand
                     ).all()) == 1:
                         self.locus_verified_introns.append(intron)
         else:

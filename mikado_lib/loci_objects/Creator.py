@@ -720,12 +720,12 @@ class Creator:
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        data_dict["junctions"] = dict()
+        data_dict["junctions"] = set()
         for junc in session.query(Junction):
-            data_dict["junctions"][(junc.chrom,
-                                    junc.junction_start,
-                                    junc.junction_end,
-                                    junc.strand)] = None
+            data_dict["junctions"].add((junc.chrom,
+                                        junc.junction_start,
+                                        junc.junction_end,
+                                        junc.strand))
 
         # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
 

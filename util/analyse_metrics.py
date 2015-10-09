@@ -24,7 +24,7 @@ def main():
 
     loci = defaultdict(dict)
     for row in csvver:
-        for metric in fieldn[4:]:
+        for metric in fieldn[3:]:
             # Kids do NOT do this at home ...
             row[metric] = eval(row[metric])
         tid = re.sub(r".orf[0-9]$", "", row["tid"])
@@ -36,8 +36,8 @@ def main():
     # For the moment I am going to assume that
     # there is only one possible winner per locus.
     for locus in loci:
-        bests = set.intersection( set(loci[locus].keys()),
-                                  refmap)
+        bests = set.intersection(set(loci[locus].keys()),
+                                 refmap)
         if len(bests) == 0:
             continue
 
@@ -48,7 +48,12 @@ def main():
                 if isinstance(loci[locus][best][metric], bool):
                     results[metric].append(("target", loci[locus][best][metric]))
                 else:
-                    if loci[locus][best][metric] == max(metric_vals):
+                    maximum = max(metric_vals)
+                    assert isinstance(maximum, (int,float)), (maximum, type(maximum))
+                    minimum = min(metric_vals)
+                    assert isinstance(minimum, (int,float))
+
+                    if loci[locus][best][metric] == max(metric_vals) and max(metric_vals) > 0:
                         results[metric].append(("max", loci[locus][best][metric]))
                     elif loci[locus][best][metric] == min(metric_vals):
                         results[metric].append(("min", loci[locus][best][metric]))

@@ -107,7 +107,7 @@ class Junction(DBBASE):
         return self.chrom_object.name
 
     @hybrid_method
-    def is_equal(self, chrom, start, end, strand):
+    def is_equal(self, chrom, start, end):  #, strand):
         """
         Function to verify whether a set of coordinates is equal to those in the DB.
 
@@ -123,8 +123,10 @@ class Junction(DBBASE):
         :param strand: strand of the junction
         :type strand: str
         """
-        return (self.chrom == chrom) and (self.start == start) and \
-               (self.end == end) and (self.strand == strand)
+        # print(self.chrom_object.chrom_id)
+
+        return ((self.chrom == chrom) and (self.start == start) and
+               (self.end == end))  # and (self.strand == strand)
 
 
 # pylint: disable=too-few-public-methods

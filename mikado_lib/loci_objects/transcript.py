@@ -25,7 +25,7 @@ from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 # mikado imports
-from mikado_lib.serializers.junction import Junction
+from mikado_lib.serializers.junction import Junction, Chrom
 import mikado_lib.serializers.orf
 from mikado_lib.serializers.blast_serializer import Query, Hit
 from mikado_lib.serializers.orf import Orf
@@ -1683,9 +1683,16 @@ class Transcript:
             "Retrieving information from DB dictionary for %s",
             self.id)
         # Intron data
-        for intron in self.introns:
-            if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
-                self.verified_introns.add(intron)
+        self.logger.debug("Checking introns for %s, candidates %s",
+                          self.id,
+                          sorted(self.introns))
+
+        self.verified_introns = set.intersection(
+            # set([(self.chrom, intron[0], intron[1], self.strand) for intron in self.introns]),
+            set([(self.chrom, intron[0], intron[1]) for intron in self.introns]),
+            data_dict["junctions"])
+        self.logger.debug("Verified introns for %s: %s", self.id,
+                          sorted(self.verified_introns))
 
         # ORF data
         trust_strand = self.json_conf["orf_loading"]["strand_specific"]
@@ -1749,21 +1756,27 @@ class Transcript:
         :type introns: set,None
         """
 
-        if introns is None:
+        self.logger.debug("Checking introns; candidates %s", self.introns)
+        if introns is None or len(introns) == 0:
             for intron in self.introns:
                 # Disable checks as the hybridproperties confuse
                 # both pycharm and pylint
                 # noinspection PyCallByClass,PyTypeChecker
                 # pylint: disable=no-value-for-parameter
-                if self.session.query(Junction).filter(
-                        Junction.is_equal(self.chrom, intron[0],
-                                          intron[1], self.strand)).count() == 1:
+                chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
+                import sqlalchemy
+                if self.session.query(Junction).filter(sqlalchemy.and_(
+                    Junction.chrom_id == chrom_id,
+                    intron[0] == Junction.junction_start,
+                    intron[1] == Junction.junction_end)
+                ).count() == 1:
                     self.verified_introns.add(intron)
 
         else:
             for intron in introns:
                 if intron in self.introns:
                     self.verified_introns.add(intron)
+        self.logger.debug("Found these introns: %s", self.verified_introns)
         return
 
     def retrieve_orfs(self):
@@ -3212,4 +3225,5 @@ class Transcript:
         Current: best bit score.
         :return:
         """
-        return self.best_bits
+        return self.snowy_blast_score
+        # return self.best_bits

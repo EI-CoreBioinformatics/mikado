@@ -135,8 +135,6 @@ def analyse_locus(slocus: Superlocus,
                     slocus.id)
         slocus.stranded = False
 
-    logger.info("Started with %s",
-                slocus.id)
     slocus.logger = logger
 
     # Load the CDS information if necessary
@@ -168,7 +166,6 @@ def analyse_locus(slocus: Superlocus,
     # Define the loci
     logger.debug("Divided into %d loci", len(stranded_loci))
 
-    logger.info("Defining loci")
     for stranded_locus in stranded_loci:
         stranded_locus.define_loci()
         logger.debug("Defined loci for %s:%f-%f, strand: %s",
@@ -197,7 +194,7 @@ def analyse_locus(slocus: Superlocus,
     printer_queue.put((stranded_loci, counter))
 
     # close up shop
-    logger.info("Finished with %s, counter %d", slocus.id, counter)
+    logger.debug("Finished with %s, counter %d", slocus.id, counter)
     logger.removeHandler(handler)
     handler.close()
     return
@@ -592,14 +589,19 @@ class Creator:
 
             if stranded_loci == "EXIT":
                 for num in sorted(cache.keys()):
+                    if num % 1000 == 0:
+                        logger.info("Done %d superloci", num)
                     for stranded_locus in cache[num]:
                         if stranded_locus.chrom != curr_chrom:
                             curr_chrom = stranded_locus.chrom
                             gene_counter = 0
                         gene_counter = locus_printer(stranded_locus, gene_counter)
+                logger.info("Final number of superloci: %d", num)
                 return  # Poison pill - once we receive a "EXIT" signal, we exit
             # logger.debug("Received %s", stranded_locus.id)
             if counter == last_printed + 1:
+                if counter % 1000 == 0 and counter > 0:
+                    logger.info("Finished with %d loci", counter)
                 for stranded_locus in stranded_loci:
                     if stranded_locus.chrom != curr_chrom:
                         curr_chrom = stranded_locus.chrom
@@ -607,6 +609,8 @@ class Creator:
                     gene_counter = locus_printer(stranded_locus, gene_counter)
                 last_printed += 1
                 for num in sorted(cache.keys()):
+                    if num % 1000 == 0:
+                        logger.info("Done %d superloci", num)
                     if num == last_printed + 1:
                         for stranded_locus in cache[num]:
                             if stranded_locus.chrom != curr_chrom:
@@ -790,8 +794,8 @@ class Creator:
                 return None
 
         if current_locus is not None:
-            self.main_logger.info("Submitting %s",
-                                  current_locus.id)
+            self.main_logger.debug("Submitting %s",
+                                   current_locus.id)
 
         if self.json_conf["single_thread"] is True:
             analyse_locus(current_locus,
@@ -877,6 +881,14 @@ class Creator:
                             current_transcript,
                             stranded=False,
                             json_conf=self.json_conf)
+
+
+                if current_transcript is None or row.chrom != current_transcript.chrom:
+                    if current_transcript is not None:
+                         self.logger.info("Finished chromosome %s",
+                                           current_transcript.chrom)
+                    self.logger.info("Starting chromosome %s", row.chrom)
+
                 current_transcript = mikado_lib.loci_objects.transcript.Transcript(
                     row,
                     source=self.json_conf["output_format"]["source"],
@@ -899,6 +911,7 @@ class Creator:
                     json_conf=self.json_conf)
                 self.logger.debug("Created last locus %s",
                                   current_locus)
+        self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
         jobs.append(submit_locus(current_locus, counter))

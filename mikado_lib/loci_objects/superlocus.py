@@ -42,7 +42,7 @@ class Superlocus(Abstractlocus):
 
     junction_baked = bakery(lambda session: session.query(Junction))
     junction_baked += lambda q: q.filter(and_(
-        Junction.chrom_id == bindparam("chrom_id"),
+        Junction.chrom == bindparam("chrom"),
         Junction.junction_start == bindparam("junctionStart"),
         Junction.junction_end == bindparam("junctionEnd")))
     # Junction.strand == bindparam("strand")))
@@ -96,6 +96,7 @@ class Superlocus(Abstractlocus):
         self.splices = set(self.splices)
         self.introns = set(self.introns)
         super().add_transcript_to_locus(transcript_instance)
+        assert transcript_instance.monoexonic is True or len(self.introns) > 0
         if self.stranded is True:
             self.strand = transcript_instance.strand
         self.logger = logger
@@ -288,15 +289,18 @@ class Superlocus(Abstractlocus):
                                            stranded=True,
                                            json_conf=self.json_conf,
                                            logger=self.logger)
+                    assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     for cdna in strand[1:]:
                         if new_locus.in_locus(new_locus, cdna):
                             new_locus.add_transcript_to_locus(cdna)
                         else:
+                            assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                             new_loci.append(new_locus)
                             new_locus = Superlocus(cdna,
                                                    stranded=True,
                                                    json_conf=self.json_conf,
                                                    logger=self.logger)
+                    assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     new_loci.append(new_locus)
 
             self.logger.debug(
@@ -366,23 +370,37 @@ class Superlocus(Abstractlocus):
         """
 
         self.locus_verified_introns = []
+        if len(self.introns) == 0:
+            if self.monoexonic is False:
+                raise ValueError("%s is multiexonic but has no introns defined!",
+                                 self.id)
+            self.logger.debug("No introns for %s", self.id)
+            return
+
+        self.logger.debug("Querying the DB for introns, %d total", len(self.introns))
         if data_dict is None:
-            if "db" not in self.json_conf or self.json_conf["db_settings"]["db"] is None:
+            if self.json_conf["db_settings"]["db"] is None:
                 return  # No data to load
-            dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
-            if len(dbquery) > 0:
-                chrom_id = dbquery[0].chrom_id
-                for intron in self.introns:
-                    if len(self.junction_baked(self.session).params(
-                            chrom_id=chrom_id,
-                            junctionStart=intron[0],
-                            junctionEnd=intron[1],
-                            # strand=self.strand
-                    ).all()) == 1:
-                        self.locus_verified_introns.append(intron)
+            # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
+            for intron in self.introns:
+                self.logger.debug("Checking %s%s:%d-%d",
+                                  self.chrom, self.strand, intron[0], intron[1])
+                if len(self.junction_baked(self.session).params(
+                                chrom=self.chrom,
+                                junctionStart=intron[0],
+                                junctionEnd=intron[1],
+                                junctionStrand=self.strand
+                        ).all()) == 1:
+                    self.logger.debug("Verified intron %s:%d-%d",
+                                      self.chrom, intron[0], intron[1])
+                    self.locus_verified_introns.append(intron)
         else:
             for intron in self.introns:
+                self.logger.debug("Checking %s%s:%d-%d",
+                                  self.chrom, self.strand, intron[0], intron[1])
                 if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
+                    self.logger.debug("Verified intron %s%s:%d-%d",
+                                      self.chrom, self.strand, intron[0], intron[1])
                     self.locus_verified_introns.append(intron)
 
     def load_all_transcript_data(self, pool=None, data_dict=None):
@@ -399,7 +417,10 @@ class Superlocus(Abstractlocus):
 
         if data_dict is None:
             self.connect_to_db(pool)
-
+        self.logger.debug("Type of data dict: %s",
+                          type(data_dict))
+        if isinstance(data_dict, dict):
+            self.logger.debug("Length of data dict: %s", len(data_dict))
         self._load_introns(data_dict)
         tid_keys = self.transcripts.keys()
         to_remove, to_add = set(), set()

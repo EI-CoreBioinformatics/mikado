@@ -45,7 +45,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.start, self.end, self.strand = maxsize, -maxsize, None
         self.stranded = True
         self.initialized = False
-        self.monoexonic = False
+        self.monoexonic = True
         self.chrom = None
         self.source = None
         self.cds_introns = set()
@@ -408,6 +408,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.transcripts[transcript.id] = transcript
         self.splices.update(transcript.splices)
         self.introns.update(transcript.introns)
+        if transcript.monoexonic is False:
+            assert len(self.introns) > 0
 
         self.combined_cds_introns = set.union(
             self.combined_cds_introns, transcript.combined_cds_introns)

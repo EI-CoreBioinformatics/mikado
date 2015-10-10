@@ -64,11 +64,10 @@ class Junction(DBBASE):
     junction_end = Column(Integer, nullable=False)
     score = Column(Float)
     __table_args__ = (Index(
-        "junction_index", "chrom_id", "junction_start", "junction_end"),
+        "junction_index", "chrom_id", "junction_start", "junction_end", "strand"),
                       {"extend_existing": True})
 
-    chrom_object = relationship(Chrom, uselist=False,
-                                backref=backref("junctions"), lazy="immediate")
+    chrom_object = relationship(Chrom, uselist=False)
 
     def __init__(self, bed12_object, chrom_id):
         """
@@ -104,10 +103,19 @@ class Junction(DBBASE):
         This property returns the name of the chromosome upon which the junction is located.
         """
 
-        return self.chrom_object.name
+        # chrom_object = self.chrom_object
+        # print(self.chrom_object.chrom_id)
+        if self.chrom_object:
+            return self.chrom_object.name
+        else:
+            return None
+
+    @chrom.expression
+    def chrom(cls):
+        return Chrom.name
 
     @hybrid_method
-    def is_equal(self, chrom, start, end):  #, strand):
+    def is_equal(self, chrom, start, end, strand):
         """
         Function to verify whether a set of coordinates is equal to those in the DB.
 
@@ -126,7 +134,7 @@ class Junction(DBBASE):
         # print(self.chrom_object.chrom_id)
 
         return ((self.chrom == chrom) and (self.start == start) and
-               (self.end == end))  # and (self.strand == strand)
+               (self.end == end)  and (self.strand == strand))
 
 
 # pylint: disable=too-few-public-methods

@@ -11,7 +11,7 @@ chimera_split:
   blast_params:
     leniency: PERMISSIVE
 log_settings:
-  log_level: INFO
+  log_level: DEBUG
 source: "Mikado"
 alternative_splicing:
   report: true

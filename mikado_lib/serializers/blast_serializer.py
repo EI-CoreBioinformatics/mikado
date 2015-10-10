@@ -284,10 +284,18 @@ class Hsp(DBBASE):
         """Returns the name of the query sequence, through a nested SQL query."""
         return self.query_object.query_name
 
+    @query.expression
+    def query(cls):
+        return Query.query_name
+
     @hybrid_property
     def target(self):
         """Returns the name of the target sequence, through a nested SQL query."""
         return self.target_object.target_name
+
+    @target.expression
+    def target(cls):
+        return Target.query_name
 
     @hybrid_property
     def query_hsp_cov(self):

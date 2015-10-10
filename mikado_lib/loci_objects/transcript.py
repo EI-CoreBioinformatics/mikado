@@ -3189,7 +3189,7 @@ class Transcript:
         return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],
                                self.introns)))
 
-    @property
+    @Metric
     def snowy_blast_score(self):
 
         """
@@ -3212,7 +3212,7 @@ class Transcript:
 
         return self.__blast_score
 
-    @property
+    @Metric
     def best_bits(self):
         """Metric that returns the best BitS associated with the transcript."""
 

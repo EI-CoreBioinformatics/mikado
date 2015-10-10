@@ -6,6 +6,9 @@ sample_data/*zip
 sample_data/*fasta.n*
 sample_data/*fasta.p*
 sample_data/uniprot*fasta*
+sample_data/chr5.fas
+sample_data/mikado.fasta
+sample_data/mikado.gtf
 myRecords/__pycache__/BatchBlast.cpython-34.pyc
 myRecords/__pycache__/Blast.cpython-34.pyc
 myRecords/__pycache__/Blat.cpython-34.pyc

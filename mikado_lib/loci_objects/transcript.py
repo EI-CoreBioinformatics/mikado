@@ -108,7 +108,7 @@ class Transcript:
     query_baked += lambda q: q.filter(Query.query_name == bindparam("query_name"))
 
     blast_baked = bakery(lambda session: session.query(Hit))
-    blast_baked += lambda q: q.filter(and_(Hit.query_id == bindparam("query_id"),
+    blast_baked += lambda q: q.filter(and_(Hit.query == bindparam("query"),
                                            Hit.evalue <= bindparam("evalue")),)
 
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
@@ -116,7 +116,7 @@ class Transcript:
 
     orf_baked = bakery(lambda session: session.query(Orf))
     orf_baked += lambda q: q.filter(
-        mikado_lib.serializers.orf.Orf.query_id == bindparam("query_id"))
+        mikado_lib.serializers.orf.Orf.query == bindparam("query"))
     orf_baked += lambda q: q.filter(
         mikado_lib.serializers.orf.Orf.cds_len >= bindparam("cds_len"))
     orf_baked += lambda q: q.order_by(desc(Orf.cds_len))
@@ -194,7 +194,7 @@ class Transcript:
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
         self.engine, self.session, self.sessionmaker = None, None, None
-        self.query_id = None
+        # self.query_id = None
 
         if len(args) == 0:
             return
@@ -1662,15 +1662,15 @@ class Transcript:
                 self.session = session
             self.__load_verified_introns(introns)
             # yield from self.load_verified_introns(introns)
-            self.query_id = self.query_baked(self.session).params(
-                query_name=self.id).all()
-            if len(self.query_id) == 0:
-                self.logger.warning(
-                    "Transcript not in database: %s", self.id)
-            else:
-                self.query_id = self.query_id[0].query_id
-                self.load_orfs(list(self.retrieve_orfs()))
-                self.__load_blast()
+            # self.query_id = self.query_baked(self.session).params(
+            #     query_name=self.id).all()
+            # if len(self.query_id) == 0:
+            #     self.logger.warning(
+            #         "Transcript not in database: %s", self.id)
+            # else:
+            #     self.query_id = self.query_id[0].query_id
+            self.load_orfs(list(self.retrieve_orfs()))
+            self.__load_blast()
             self.logger.debug("Loaded %s", self.id)
 
     def retrieve_from_dict(self, data_dict):
@@ -1785,13 +1785,13 @@ class Transcript:
         During the selection, the function will also remove overlapping ORFs.
         """
 
-        if self.query_id is None:
-            return []
+        # if self.query_id is None:
+        #     return []
 
         trust_strand = self.json_conf["orf_loading"]["strand_specific"]
         min_cds_len = self.json_conf["orf_loading"]["minimal_orf_length"]
 
-        orf_results = self.orf_baked(self.session).params(query_id=self.query_id,
+        orf_results = self.orf_baked(self.session).params(query=self.id,
                                                           cds_len=min_cds_len)
 
         if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
@@ -2044,17 +2044,17 @@ class Transcript:
         (using the Hit.as_dict() method).
         """
 
-        if self.query_id is None:
-            return
+        # if self.query_id is None:
+        #     return
 
-        if self.json_conf["chimera_split"]["blast_check"] is False:
-            return
+        # if self.json_conf["chimera_split"]["blast_check"] is False:
+        #     return
 
         max_target_seqs = self.json_conf["chimera_split"]["blast_params"]["max_target_seqs"]
         maximum_evalue = self.json_conf["chimera_split"]["blast_params"]["evalue"]
 
         blast_hits_query = self.blast_baked(self.session).params(
-            query_id=self.query_id,
+            query=self.id,
             evalue=maximum_evalue,
             max_target_seqs=max_target_seqs)
         counter = 0

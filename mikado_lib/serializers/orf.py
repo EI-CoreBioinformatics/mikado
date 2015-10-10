@@ -116,6 +116,10 @@ class Orf(DBBASE):
 
         return self.query_object.query_name
 
+    @query.expression
+    def query(cls):
+        return Query.query_name
+
 
 class OrfSerializer:
     """

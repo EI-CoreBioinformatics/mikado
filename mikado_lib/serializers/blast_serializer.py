@@ -532,6 +532,10 @@ class Hit(DBBASE):
         """
         return self.query_object.query_length
 
+    @query_len.expression
+    def query_len(cds):
+        return Query.query_length
+
     @hybrid_property
     def query(self):
         """
@@ -539,6 +543,10 @@ class Hit(DBBASE):
         :rtype str
         """
         return self.query_object.query_name
+
+    @query.expression
+    def query(cls):
+        return Query.query_name
 
     @hybrid_property
     def target(self):
@@ -549,6 +557,10 @@ class Hit(DBBASE):
 
         return self.target_object.target_name
 
+    @target.expression
+    def target(self):
+        return Target.target_name
+
     @hybrid_property
     def target_len(self):
         """
@@ -557,6 +569,10 @@ class Hit(DBBASE):
         """
 
         return self.target_object.target_length
+
+    @target_len.expression
+    def target_len(cls):
+        return Target.target_length
 
     @hybrid_property
     def query_hit_ratio(self):

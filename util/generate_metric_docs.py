@@ -3,7 +3,7 @@
 
 """Quick script to automate the generation of metrics definition from the files."""
 
-from mikado_lib.loci_objects.transcript import Transcript
+from Mikado.loci_objects.transcript import Transcript
 import re
 
 

@@ -1,7 +1,7 @@
 import os,sys
 import glob
 import itertools
-import mikado_lib.configuration.json_utils
+import Mikado.configuration.json_utils
 import subprocess
 
 swissprot = "uniprot_sprot_plants.fasta"
@@ -12,7 +12,7 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configfile: "configuration.yaml"
 configname = "configuration.yaml"
-config = mikado_lib.configuration.json_utils.to_json(configname)
+config = Mikado.configuration.json_utils.to_json(configname)
 
 rule clean:
     run:
@@ -33,9 +33,9 @@ rule clean_crumbs:
 
 rule test_json:
     input: db=zipDBs, config=configname
-    output: "{0}.ok".format(configname), DBs, "chr5.fas"
+    output: "{0}.ok".format(configname), "chr5.fas"
     run:
-        __= mikado_lib.configuration.json_utils.to_json(configname)
+        __= Mikado.configuration.json_utils.to_json(configname)
         subprocess.call("gunzip -k chr5.fas.gz", shell=True)
         shell("touch {output}")
 
@@ -44,13 +44,22 @@ rule prepare:
     output: "mikado.gtf", "mikado.fasta"
     shell: " mikado.py prepare -m 200 --out mikado.gtf --out_fasta mikado.fasta --fasta chr5.fas --labels cl,cuff,st,tr class.gtf cufflinks.gtf stringtie.gtf trinity.gtf"
 
+#rule makeblast:
+#    input: "{0}.gz".format(swissprot)
+#    output: pog="{0}.pog".format(swissprot), fasta=swissprot
+#    run:
+
 rule blast_complete:
     params:	prefix="mikado"
-    input: query="mikado.fasta", db=DBs, check="{0}.ok".format(configname)
-    output: "mikado.blast.xml"
+    input: query="mikado.fasta", db="{0}.gz".format(swissprot), check="{0}.ok".format(configname)
+    output: xml="mikado.blast.xml", db=swissprot, pog="{0}.pog".format(swissprot)
     run:
-        command = "{config[blast][program]} -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {config[blast][database]} -out {output} -evalue {config[blast][evalue]} -max_target_seqs {config[blast][max_target_seqs]}"
-        print(command)
+        subprocess.call("gzip -dc {0} > {1}".format("{0}.gz".format(swissprot), swissprot),
+                        shell=True)
+        subprocess.call("makeblastdb -in {0} -dbtype prot -parse_seqids".format(swissprot),
+                        shell=True)
+        command = "blastx -num_threads {config[blast][num_threads]} -query {input[query]} -outfmt 5 -db {output[db]} -out {output[xml]} -evalue 0.000001 -max_target_seqs 10"
+#        print(command)
         shell(command)
 
 rule serialise:

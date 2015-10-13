@@ -10,6 +10,7 @@ chimera_split:
   execute: true
   blast_params:
     leniency: PERMISSIVE
+    min_overlap_duplication: 0.8
 log_settings:
   log_level: DEBUG
 source: "Mikado"

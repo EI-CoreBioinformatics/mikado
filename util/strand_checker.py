@@ -6,8 +6,8 @@
 import sys
 import os
 from copy import deepcopy
-import mikado_lib.parsers
-import mikado_lib.loci_objects
+import Mikado.parsers
+import Mikado.loci_objects
 from Bio import SeqIO
 import argparse
 
@@ -26,9 +26,9 @@ def main():
         if not os.path.exists(string) or not os.path.isfile(string) or not os.stat(string).st_size > 0:
             raise ValueError("Invalid input file.")
         if string[-4:] == ".gtf":
-            gff_function = mikado_lib.parsers.GTF.GTF
+            gff_function = Mikado.parsers.GTF.GTF
         else:
-            gff_function = mikado_lib.parsers.GFF.GFF3
+            gff_function = Mikado.parsers.GFF.GFF3
 
         gff = gff_function(string)
         for ann_record in gff:
@@ -92,9 +92,9 @@ def main():
                         tr.check_strand()
                         if tr.reversed is True:
                             reversed_transcripts += 1
-                    except mikado_lib.exceptions.IncorrectStrandError:
+                    except Mikado.exceptions.IncorrectStrandError:
                         to_delete.append(tid)
-                    except mikado_lib.exceptions.InvalidTranscript:
+                    except Mikado.exceptions.InvalidTranscript:
                         to_delete.append(tid)
                 for tid in to_delete:
                     del current_transcripts[tid]
@@ -127,12 +127,12 @@ def main():
                 try:
                     tr.check_strand()
                     print(tr, file=args.out)
-                except mikado_lib.exceptions.IncorrectStrandError:
+                except Mikado.exceptions.IncorrectStrandError:
                     pass
-                except mikado_lib.exceptions.InvalidTranscript:
+                except Mikado.exceptions.InvalidTranscript:
                     pass
                 current_transcripts = dict()
-                transcript = mikado_lib.loci_objects.transcriptchecker.TranscriptChecker(
+                transcript = Mikado.loci_objects.transcriptchecker.TranscriptChecker(
                     record,
                     current_seq,
                     strand_specific=args.strand_specific,
@@ -146,7 +146,7 @@ def main():
                 assert current_parent.id in record.parent, record
             except TypeError:
                 raise TypeError(str(current_parent), str(record))
-            transcript = mikado_lib.loci_objects.transcriptchecker.TranscriptChecker(
+            transcript = Mikado.loci_objects.transcriptchecker.TranscriptChecker(
                 record,
                 current_seq,
                 strand_specific=args.strand_specific,
@@ -169,9 +169,9 @@ def main():
             tr.check_strand()
             if tr.reversed is True:
                 reversed_transcripts += 1
-        except mikado_lib.exceptions.IncorrectStrandError:
+        except Mikado.exceptions.IncorrectStrandError:
             to_delete.append(tid)
-        except mikado_lib.exceptions.InvalidTranscript:
+        except Mikado.exceptions.InvalidTranscript:
             to_delete.append(tid)
     for tid in to_delete:
         del current_transcripts[tid]

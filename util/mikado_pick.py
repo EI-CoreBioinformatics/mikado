@@ -5,7 +5,7 @@
 
 import argparse
 import sys
-import mikado_lib.loci_objects
+import Mikado.loci_objects
 
 
 # if "line_profiler" not in dir():
@@ -76,7 +76,7 @@ def main():
     args = parser.parse_args()
 
     args.json_conf.close()
-    args.json_conf = mikado_lib.json_utils.to_json(args.json_conf.name)
+    args.json_conf = Mikado.json_utils.to_json(args.json_conf.name)
 
     if args.procs is not None:
         args.json_conf["run_options"]["threads"] = args.procs
@@ -121,7 +121,7 @@ def main():
         args.gff = args.gff.name
         args.json_conf["input"] = args.gff
 
-    creator = mikado_lib.loci_objects.Creator.Creator(args.json_conf, commandline=" ".join(sys.argv))
+    creator = Mikado.loci_objects.Creator.Creator(args.json_conf, commandline=" ".join(sys.argv))
     creator()  # Run
 
 

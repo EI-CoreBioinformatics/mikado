@@ -4,8 +4,8 @@
 """Utility to sort GTF files with a transcript attribute"""
 
 import sys
-from mikado_lib.parsers.GTF import GTF
-from mikado_lib.loci_objects.transcript import Transcript
+from Mikado.parsers.GTF import GTF
+from Mikado.loci_objects.transcript import Transcript
 import argparse
 
 

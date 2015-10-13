@@ -5,8 +5,8 @@
 
 import argparse
 
-from mikado_lib.serializers import junction
-from mikado_lib.configuration import json_utils
+from Mikado.serializers import junction
+from Mikado.configuration import json_utils
 
 
 def main():

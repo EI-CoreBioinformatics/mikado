@@ -20,7 +20,7 @@ setup(
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
 
-    url="http://stash.tgac.ac.uk/users/venturil/repos/mikado/",
+    url="http://stash.tgac.ac.uk/users/venturil/repos/Mikado/",
 
     author="Luca Venturini",
     author_email="luca.venturini@tgac.ac.uk",
@@ -58,7 +58,7 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
     },
 
-    data_files=[("mikado_lib/configuration",
-                 glob.glob("mikado_lib/configuration/*json") + glob.glob("mikado_lib/configuration/*yaml") )],
+    data_files=[("Mikado/configuration",
+                 glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml") )],
 
 )

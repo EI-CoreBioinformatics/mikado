@@ -10,8 +10,8 @@ import argparse
 
 from Bio import SeqIO
 
-from mikado_lib.serializers.blast_serializer import XmlSerializer
-from mikado_lib.configuration import json_utils
+from Mikado.serializers.blast_serializer import XmlSerializer
+from Mikado.configuration import json_utils
 
 
 def to_seqio(string):

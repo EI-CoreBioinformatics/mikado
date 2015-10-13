@@ -8,7 +8,7 @@ import argparse
 from Bio import SeqIO
 
 from Mikado.serializers import orf
-from Mikado.configuration import json_utils
+from Mikado.configuration import configurator
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     parser = argparse.ArgumentParser("Simple script to serialise ORF BED files into the SQLite DB.")
     parser.add_argument("--fasta", default=None, required=True)
     parser.add_argument("-mo", "--max-objects", dest="max_objects", type=int, default=10 ** 5)
-    parser.add_argument("--json-conf", default=None, dest="json_conf", type=json_utils.to_json)
+    parser.add_argument("--json-conf", default=None, dest="json_conf", type=configurator.to_json)
     parser.add_argument("bed12")
     parser.add_argument("db", nargs="?", default=":memory:")
     args = parser.parse_args()

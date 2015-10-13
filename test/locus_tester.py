@@ -7,11 +7,12 @@ Very basic, all too basic test for some functionalities of locus-like classes.
 import unittest
 import os.path
 
-from Mikado.configuration import json_utils
+from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
 from Mikado.loci_objects import transcript, superlocus,  abstractlocus
-from Mikado.configuration.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
+
 
 class OverlapTester(unittest.TestCase):
 
@@ -71,7 +72,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         """Basic testing of the Locus functionality."""
 
         my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
-        my_json = json_utils.to_json(my_json)
+        my_json = configurator.to_json(my_json)
         logger = create_null_logger("null")
         logger.setLevel("DEBUG")
         logger.info("Started")

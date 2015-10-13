@@ -11,7 +11,7 @@ import argparse
 from Bio import SeqIO
 
 from Mikado.serializers.blast_serializer import XmlSerializer
-from Mikado.configuration import json_utils
+from Mikado.configuration import configurator
 
 
 def to_seqio(string):
@@ -38,7 +38,7 @@ def main():
                         help="Use query ID instead of the definition for the output.")
     parser.add_argument("--query_seqs", default=None, type=to_seqio, help="Query sequences")
     parser.add_argument("--target_seqs", default=None, type=to_seqio, help="Target sequences")
-    parser.add_argument("--json-conf", dest="json_conf", default=None, type=json_utils.to_json)
+    parser.add_argument("--json-conf", dest="json_conf", default=None, type=configurator.to_json)
     parser.add_argument("xml", type=str, help="XML file to parse.")
     parser.add_argument("dbout", type=str, default=":memory:",
                         nargs='?', help="Optional output database. Default: :memory:")

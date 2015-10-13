@@ -17,13 +17,13 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import CHAR
 from sqlalchemy import Index
 from sqlalchemy import Float
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
+from Mikado.utilities.dbutils import DBBASE, Inspector, connect
 
 from Mikado.parsers import bed12
-from Mikado.serializers.dbutils import DBBASE, Inspector, connect
-from Mikado.configuration.log_utils import check_logger, create_default_logger
+from Mikado.utilities.log_utils import check_logger, create_default_logger
 
 
 class Chrom(DBBASE):

@@ -14,20 +14,24 @@ import logging
 from logging import handlers as logging_handlers
 import collections
 import functools
+import multiprocessing
+
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 import sqlalchemy.pool
 import sqlalchemy
+
 import Mikado.loci_objects  # Mikado imports
 import Mikado.parsers
 from Mikado.serializers.blast_serializer import Hit, Query
 from Mikado.serializers.junction import Junction, Chrom
 from Mikado.serializers.orf import Orf
-from Mikado.serializers import dbutils
 from Mikado.loci_objects.superlocus import Superlocus
-from Mikado.configuration import json_utils
+from Mikado.configuration import configurator
+from Mikado.utilities import dbutils
 import Mikado.exceptions
-import multiprocessing
+
+
 # pylint: disable=no-name-in-module
 from multiprocessing import Process
 # pylint: enable=no-name-in-module
@@ -241,7 +245,7 @@ class Creator:
         # Now we start the real work
         if isinstance(json_conf, str):
             assert os.path.exists(json_conf)
-            json_conf = json_utils.to_json(json_conf)
+            json_conf = configurator.to_json(json_conf)
         else:
             assert isinstance(json_conf, dict)
 

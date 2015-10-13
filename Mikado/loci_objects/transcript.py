@@ -16,7 +16,7 @@ import inspect
 # import asyncio
 import collections
 from intervaltree import Interval, IntervalTree
-from Mikado.configuration.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
 from Mikado.exceptions import InvalidTranscript
 # SQLAlchemy imports
 from sqlalchemy.orm.session import sessionmaker
@@ -1622,7 +1622,7 @@ class Transcript:
         """This method will connect to the database using the information
         contained in the JSON configuration."""
 
-        self.engine = Mikado.serializers.dbutils.connect(
+        self.engine = Mikado.utilities.dbutils.connect(
             self.json_conf, self.logger)
 
         self.sessionmaker = sessionmaker()

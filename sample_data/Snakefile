@@ -1,7 +1,7 @@
 import os,sys
 import glob
 import itertools
-import Mikado.configuration.json_utils
+import Mikado.configuration.configurator
 import subprocess
 
 swissprot = "uniprot_sprot_plants.fasta"
@@ -12,7 +12,7 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configfile: "configuration.yaml"
 configname = "configuration.yaml"
-config = Mikado.configuration.json_utils.to_json(configname)
+config = Mikado.configuration.configurator.to_json(configname)
 
 rule clean:
     run:
@@ -35,7 +35,7 @@ rule test_json:
     input: db=zipDBs, config=configname
     output: "{0}.ok".format(configname), "chr5.fas"
     run:
-        __= Mikado.configuration.json_utils.to_json(configname)
+        __= Mikado.configuration.configurator.to_json(configname)
         subprocess.call("gunzip -k chr5.fas.gz", shell=True)
         shell("touch {output}")
 

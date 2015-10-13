@@ -17,7 +17,7 @@ def create_config(args):
     :param args:
     :return:
     """
-    default = Mikado.configuration.json_utils.to_json("")
+    default = Mikado.configuration.configurator.to_json("")
 
     del default["scoring"]
     del default["requirements"]

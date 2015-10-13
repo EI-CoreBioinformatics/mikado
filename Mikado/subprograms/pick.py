@@ -6,7 +6,7 @@
 import argparse
 import sys
 import Mikado.loci_objects
-import Mikado.configuration.json_utils
+import Mikado.configuration.configurator
 from Mikado.subprograms import to_gff
 import Mikado.exceptions
 
@@ -73,7 +73,7 @@ def pick(args):
     """
 
     args.json_conf.close()
-    args.json_conf = Mikado.configuration.json_utils.to_json(args.json_conf.name)
+    args.json_conf = Mikado.configuration.configurator.to_json(args.json_conf.name)
 
     args = check_log_settings(args)
     args = check_run_options(args)

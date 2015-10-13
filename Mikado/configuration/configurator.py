@@ -9,14 +9,12 @@ while existing values are checked for type and consistency.
 
 import os.path
 import re
-from distutils import spawn
 import yaml
 from Mikado.exceptions import InvalidJson
 from Mikado.loci_objects.transcript import Transcript
 import Mikado.exceptions
 import json
 import sys
-import subprocess
 import jsonschema
 
 

@@ -17,7 +17,7 @@ import queue
 import logging
 
 from Mikado.parsers import HeaderError
-from Mikado.configuration.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
 
 __author__ = 'Luca Venturini'
 

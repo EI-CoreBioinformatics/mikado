@@ -6,9 +6,11 @@ Mikado is a Python suite whose purpose is to find and resolve genic loci in a ge
 This is the library it relies onto.
 """
 
-import Mikado.parsers
-import Mikado.loci_objects
-import Mikado.serializers
 import Mikado.exceptions
-import Mikado.configuration.json_utils
+import Mikado.utilities
+import Mikado.parsers
+import Mikado.serializers
+import Mikado.loci_objects
+import Mikado.configuration
 import Mikado.scales
+

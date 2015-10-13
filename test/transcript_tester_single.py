@@ -6,9 +6,10 @@ Unit test for monoexonic transcripts.
 
 import unittest
 import re
+
 import Mikado.parsers
 import Mikado.loci_objects
-from Mikado.configuration.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
 
 
 class TranscriptTester(unittest.TestCase):

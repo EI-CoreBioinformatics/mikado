@@ -15,14 +15,12 @@ import itertools
 from Mikado import exceptions
 import copy
 from Mikado.loci_objects.transcriptchecker import TranscriptChecker
-# from Mikado.parsers import GTF, GFF
 from Mikado.subprograms import to_gff
 from Bio import SeqIO
 import functools
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
-import Mikado.exceptions
 
 __author__ = 'Luca Venturini'
 

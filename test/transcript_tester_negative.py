@@ -5,12 +5,12 @@ Unit test for a transcript on the negative strand.
 """
 
 import unittest
-import logging
 import operator
 import re
+
 import Mikado.parsers
 import Mikado.loci_objects
-from Mikado.configuration.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
 
 
 class TranscriptTesterNegative(unittest.TestCase):

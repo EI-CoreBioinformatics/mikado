@@ -15,12 +15,12 @@ import logging
 import logging.handlers
 
 import sqlalchemy
-
 from Bio import SeqIO
 
-from Mikado.configuration import json_utils
-from Mikado.configuration.log_utils import create_default_logger
-from Mikado.serializers import orf, blast_serializer, junction, dbutils
+from Mikado.configuration import configurator
+from Mikado.utilities.log_utils import create_default_logger
+from Mikado.utilities import dbutils
+from Mikado.serializers import orf, blast_serializer, junction
 
 __author__ = 'Luca Venturini'
 
@@ -208,7 +208,7 @@ def serialise_parser():
                          help="""Flag. If set, an existing databse will be deleted (sqlite)
                          or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
     generic.add_argument("--json-conf", default=None,
-                         dest="json_conf", type=json_utils.to_json,
+                         dest="json_conf", type=configurator.to_json,
                          required=True)
     generic.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
                          nargs='?',

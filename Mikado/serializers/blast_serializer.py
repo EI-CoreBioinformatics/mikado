@@ -27,11 +27,12 @@ from sqlalchemy.orm import relationship, backref, column_property
 from sqlalchemy import select
 from Bio.Blast.NCBIXML import parse as xparser
 from sqlalchemy.orm.session import sessionmaker
+from Mikado.utilities.dbutils import DBBASE
+from Mikado.utilities.dbutils import connect
 
-from Mikado.serializers.dbutils import DBBASE
-from Mikado.serializers.dbutils import connect
 from Mikado.parsers.blast_utils import XMLMerger, create_opener, merge
-from Mikado.configuration.log_utils import create_null_logger, check_logger
+from Mikado.utilities.log_utils import create_null_logger, check_logger
+
 
 # These two classes are OK like this, they do not need more public methods!
 # pylint: disable=too-few-public-methods

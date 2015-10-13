@@ -18,7 +18,7 @@ from Mikado.scales.assigner import Assigner
 from Mikado.scales.reference_gene import Gene
 from Mikado.parsers.GFF import GFF3
 from Mikado.scales.accountant import Accountant
-from Mikado.configuration.log_utils import create_default_logger
+from Mikado.utilities.log_utils import create_default_logger
 
 __author__ = 'Luca Venturini'
 

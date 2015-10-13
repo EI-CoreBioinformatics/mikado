@@ -14,11 +14,11 @@ import sqlalchemy.exc
 from sqlalchemy.orm import relationship, backref, column_property
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import select
+from Mikado.utilities.dbutils import DBBASE, Inspector, connect
 
 from Mikado.parsers import bed12
-from Mikado.serializers.dbutils import DBBASE, Inspector, connect
 from Mikado.serializers.blast_serializer import Query
-from Mikado.configuration.log_utils import create_null_logger, check_logger
+from Mikado.utilities.log_utils import create_null_logger, check_logger
 
 
 class Orf(DBBASE):

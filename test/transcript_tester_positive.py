@@ -7,11 +7,11 @@ Unit test for a transcript on the positive strand.
 import unittest
 import re
 import copy
+
 import Mikado.parsers
 import Mikado.exceptions
 import Mikado.loci_objects
-import logging
-from Mikado.configuration.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
 
 
 class MonoBaseTester(unittest.TestCase):

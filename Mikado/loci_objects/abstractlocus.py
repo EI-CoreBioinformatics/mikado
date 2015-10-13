@@ -13,7 +13,7 @@ from sys import maxsize
 import networkx
 
 from Mikado.exceptions import NotInLocusError
-from Mikado.configuration.log_utils import create_null_logger
+from Mikado.utilities.log_utils import create_null_logger
 
 
 # I do not care that there are too many attributes: this IS a massive class!

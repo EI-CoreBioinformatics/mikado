@@ -15,12 +15,12 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 setup(
 
     name="Mikado",
-    version="0.9.1",
+    version="0.9.2",
 
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
 
-    url="http://stash.tgac.ac.uk/users/venturil/repos/Mikado/",
+    url="https://github.com/lucventurini/Mikado.git",
 
     author="Luca Venturini",
     author_email="luca.venturini@tgac.ac.uk",
@@ -49,7 +49,6 @@ setup(
                       "networkx",
                       "sqlalchemy>=1",
                       "biopython>=1.6",
-                      "pandas",
                       "intervaltree"
                       ],
 

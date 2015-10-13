@@ -1,1 +1,1 @@
-__all__ = ["mikado_lib"]
+__all__ = ["Mikado"]

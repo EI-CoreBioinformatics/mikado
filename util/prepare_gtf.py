@@ -14,10 +14,10 @@ import operator
 import collections
 import logging
 import itertools
-from Mikado import exceptions
+from mikado_lib import exceptions
 import copy
-from Mikado.loci_objects.transcriptchecker import TranscriptChecker
-from Mikado.parsers import GTF
+from mikado_lib.loci_objects.transcriptchecker import TranscriptChecker
+from mikado_lib.parsers import GTF
 from Bio import SeqIO
 import functools
 import multiprocessing

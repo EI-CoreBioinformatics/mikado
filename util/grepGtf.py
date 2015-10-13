@@ -5,7 +5,7 @@
 
 import sys
 import argparse
-from Mikado.parsers import GTF
+from mikado_lib.parsers import GTF
 
 
 def main():

@@ -6,7 +6,7 @@ Script to add a transcript feature to an input GTF.
 """
 
 import sys
-from Mikado.parsers.GTF import GTF
+from mikado_lib.parsers.GTF import GTF
 from copy import deepcopy
 import operator
 import argparse

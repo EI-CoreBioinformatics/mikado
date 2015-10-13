@@ -4,11 +4,11 @@
 """ Script to calculate statistics about an annotation file. It can take both GTF and GFF files as input."""
 
 import sys, argparse
-from Mikado.exceptions import InvalidCDS
-from Mikado.parsers import GFF, GTF
-from Mikado.loci_objects import transcript
+from mikado_lib.exceptions import InvalidCDS
+from mikado_lib.parsers import GFF, GTF
+from mikado_lib.loci_objects import transcript
 import numpy
-import Mikado
+import mikado_lib
 from collections import namedtuple, Counter
 from array import array as cArray
 
@@ -126,7 +126,7 @@ class GeneObject:
                     to_remove.add(tid)
                 if self.transcripts[tid].selected_cds_length > 0:
                     self.coding_transcripts.add(tid)
-            except Mikado.exceptions.InvalidTranscript as _:
+            except mikado_lib.exceptions.InvalidTranscript as _:
                 print("Invalid transcript: {0}".format(tid), file=sys.stderr)
                 to_remove.add(tid)
         if len(to_remove) == len(self.transcripts):

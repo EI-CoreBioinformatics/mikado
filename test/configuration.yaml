@@ -5,7 +5,7 @@ chimera_split:
     leniency: PERMISSIVE
 log_settings:
   log_level: DEBUG
-source: "Mikado"
+source: "mikado_lib"
 alternative_splicing:
   report: true
   max_isoforms: 3

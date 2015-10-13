@@ -5,8 +5,8 @@
 
 import sys
 import argparse
-import Mikado.parsers
-import Mikado.loci_objects
+import mikado_lib.parsers
+import mikado_lib.loci_objects
 
 
 def main():
@@ -19,7 +19,7 @@ def main():
 
     transcript = None
 
-    for row in Mikado.parsers.GFF.GFF3(args.gff):
+    for row in mikado_lib.parsers.GFF.GFF3(args.gff):
         if row.is_parent and not row.is_transcript:
             continue
         if row.is_exon:
@@ -29,7 +29,7 @@ def main():
                 transcript.finalize()
                 assert len(transcript.introns) == 1
                 introns = sorted(transcript.introns)
-                bed12 = Mikado.parsers.bed12.BED12()
+                bed12 = mikado_lib.parsers.bed12.BED12()
                 bed12.chrom = transcript.chrom
                 bed12.strand = transcript.strand
                 bed12.score = transcript.score
@@ -45,13 +45,13 @@ def main():
                 bed12.block_starts = [0, bed12.block_sizes[0] + introns[0][1] - introns[0][0]]
                 print(bed12, file=args.out)
 
-            transcript = Mikado.loci_objects.transcript.Transcript(row)
+            transcript = mikado_lib.loci_objects.transcript.Transcript(row)
 
     if transcript is not None:
         transcript.finalize()
         assert len(transcript.introns) == 1
         introns = sorted(transcript.introns)
-        bed12 = Mikado.parsers.bed12.BED12()
+        bed12 = mikado_lib.parsers.bed12.BED12()
         bed12.chrom = transcript.chrom
         bed12.strand = transcript.strand
         bed12.start = transcript.start

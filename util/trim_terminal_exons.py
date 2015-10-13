@@ -5,22 +5,22 @@
 
 import sys
 import argparse
-import Mikado.parsers
-import Mikado.loci_objects.transcript
+import mikado_lib.parsers
+import mikado_lib.loci_objects.transcript
 
 
-def strip_terminal(transcript, args) -> Mikado.loci_objects.transcript.Transcript:
+def strip_terminal(transcript, args) -> mikado_lib.loci_objects.transcript.Transcript:
     """This function will take as input a transcript and then:
     - return immediately if the transcript is monoexonic
     - trim the terminal exons to a length of max(args.max_length (if longer), CDS boundary)
 
     :param transcript: the input transcript
-    :type transcript: Mikado.loci_objects.transcript.Transcript
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
     :param args: argparse configuration namespace
     :type args: argparse.Namespace
 
-    :rtype : Mikado.loci_objects.transcript.Transcript
+    :rtype : mikado_lib.loci_objects.transcript.Transcript
     """
 
     transcript.finalize()
@@ -127,9 +127,9 @@ def main():
         :type string: str
         """
         if string.endswith("gtf"):
-            return Mikado.parsers.GTF.GTF(string)
+            return mikado_lib.parsers.GTF.GTF(string)
         elif string.endswith("gff") or string.endswith("gff3"):
-            return Mikado.parsers.GFF.GFF3(string)
+            return mikado_lib.parsers.GFF.GFF3(string)
         else:
             raise ValueError("Unrecognized format")
 
@@ -150,7 +150,7 @@ def main():
         if record.is_transcript is True:
             if transcript is not None:
                 print(strip_terminal(transcript, args).__str__(to_gtf=args.as_gtf), file=args.out)
-            transcript = Mikado.loci_objects.transcript.Transcript(record)
+            transcript = mikado_lib.loci_objects.transcript.Transcript(record)
         elif record.is_exon is True:
             transcript.add_exon(record)
 

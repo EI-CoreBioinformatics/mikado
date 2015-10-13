@@ -12,8 +12,8 @@ chimera_split:
     leniency: PERMISSIVE
     min_overlap_duplication: 0.8
 log_settings:
-  log_level: DEBUG
-source: "Mikado"
+  log_level: INFO
+source: "mikado_lib"
 alternative_splicing:
   report: true
   max_isoforms: 3

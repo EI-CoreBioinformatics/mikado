@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-"""Launcher of the Mikado pipeline."""
+"""Launcher of the mikado_lib pipeline."""
 
 import argparse
 import sys
-import Mikado.loci_objects
+import mikado_lib.loci_objects
 
 
 # if "line_profiler" not in dir():
@@ -30,7 +30,7 @@ def main():
     """
     Main script function.
     """
-    parser = argparse.ArgumentParser("Launcher of the Mikado pipeline.")
+    parser = argparse.ArgumentParser("Launcher of the mikado_lib pipeline.")
     parser.add_argument("-p", "--procs", type=int, default=None,
                         help="Number of processors to use. Default: look in the configuration file (1 if undefined)")
     parser.add_argument("--json_conf", type=argparse.FileType(), required=True,
@@ -54,7 +54,7 @@ def main():
                         help="""Name of the shared memory DB. WARNING: if set, the DB copy will be persistently copied
                              into memory, so that multiple pickers can share.""")
     parser.add_argument('--cache', action='store_true', default=False,
-                        help='''Flag. If set, the Mikado DB will be pre-loaded into memory for faster access.
+                        help='''Flag. If set, the mikado_lib DB will be pre-loaded into memory for faster access.
                         WARNING: this option will increase memory usage and the preloading might be quite slow.'''
                         )
     parser.add_argument("--single", action="store_true", default=False,
@@ -76,7 +76,7 @@ def main():
     args = parser.parse_args()
 
     args.json_conf.close()
-    args.json_conf = Mikado.json_utils.to_json(args.json_conf.name)
+    args.json_conf = mikado_lib.json_utils.to_json(args.json_conf.name)
 
     if args.procs is not None:
         args.json_conf["run_options"]["threads"] = args.procs
@@ -121,7 +121,7 @@ def main():
         args.gff = args.gff.name
         args.json_conf["input"] = args.gff
 
-    creator = Mikado.loci_objects.Creator.Creator(args.json_conf, commandline=" ".join(sys.argv))
+    creator = mikado_lib.loci_objects.Picker.Creator(args.json_conf, commandline=" ".join(sys.argv))
     creator()  # Run
 
 

@@ -7,8 +7,8 @@ import argparse
 
 from Bio import SeqIO
 
-from Mikado.serializers import orf
-from Mikado.configuration import configurator
+from mikado_lib.serializers import orf
+from mikado_lib.configuration import configurator
 
 
 def main():

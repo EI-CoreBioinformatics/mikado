@@ -15,12 +15,12 @@ import collections
 import multiprocessing
 import logging
 from logging import handlers as log_handlers
-from Mikado.loci_objects.transcript import Transcript
-from Mikado.scales.assigner import Assigner
-from Mikado.scales.reference_gene import Gene
-from Mikado.parsers.GTF import GTF
-from Mikado.parsers.GFF import GFF3
-from Mikado.scales.accountant import Accountant
+from mikado_lib.loci_objects.transcript import Transcript
+from mikado_lib.scales.assigner import Assigner
+from mikado_lib.scales.reference_gene import Gene
+from mikado_lib.parsers.GTF import GTF
+from mikado_lib.parsers.GFF import GFF3
+from mikado_lib.scales.accountant import Accountant
 
 
 def main():

@@ -14,13 +14,13 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 
 setup(
 
-    name="Mikado",
+    name="mikado_lib",
     version="0.9.2",
 
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
 
-    url="https://github.com/lucventurini/Mikado.git",
+    url="https://github.com/lucventurini/mikado_lib.git",
 
     author="Luca Venturini",
     author_email="luca.venturini@tgac.ac.uk",
@@ -57,7 +57,7 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
     },
 
-    data_files=[("Mikado/configuration",
-                 glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml") )],
+    data_files=[("mikado_lib/configuration",
+                 glob.glob("mikado_lib/configuration/*json") + glob.glob("mikado_lib/configuration/*yaml") )],
 
 )

@@ -7,9 +7,9 @@ Unit test for monoexonic transcripts.
 import unittest
 import re
 
-import Mikado.parsers
-import Mikado.loci_objects
-from Mikado.utilities.log_utils import create_null_logger
+import mikado_lib.parsers
+import mikado_lib.loci_objects
+from mikado_lib.utilities.log_utils import create_null_logger
 
 
 class TranscriptTester(unittest.TestCase):
@@ -24,7 +24,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         tr_lines[pos] = re.sub("\s+", "\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
-    tr_gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in tr_lines]
+    tr_gff_lines = [mikado_lib.parsers.GFF.GffLine(line) for line in tr_lines]
 
     for l in tr_gff_lines:
         assert l.header is False
@@ -33,12 +33,12 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
+        self.tr = mikado_lib.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
 
-        self.orf = Mikado.parsers.bed12.BED12()
+        self.orf = mikado_lib.parsers.bed12.BED12()
         self.orf.chrom = self.tr.id
         self.orf.start = 1
         self.orf.end = self.tr.cdna_length
@@ -177,7 +177,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.tr.strip_cds()
         self.tr.finalized = False
 
-        first_orf = Mikado.parsers.bed12.BED12()
+        first_orf = mikado_lib.parsers.bed12.BED12()
         first_orf.chrom = self.tr.id
         first_orf.start = 1
         first_orf.end = self.tr.cdna_length
@@ -196,7 +196,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         first_orf.transcriptomic = True
         self.assertFalse(first_orf.invalid)
         # This should not be incorporated
-        second_orf = Mikado.parsers.bed12.BED12()
+        second_orf = mikado_lib.parsers.bed12.BED12()
         second_orf.chrom = self.tr.id
         second_orf.start = 1
         second_orf.end = self.tr.cdna_length
@@ -215,10 +215,10 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid)
 
-        self.assertTrue(Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
-        third_orf = Mikado.parsers.bed12.BED12()
+        third_orf = mikado_lib.parsers.bed12.BED12()
         third_orf.chrom = self.tr.id
         third_orf.start = 1
         third_orf.end = self.tr.cdna_length
@@ -237,8 +237,8 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         third_orf.transcriptomic = True
         self.assertFalse(third_orf.invalid)
 
-        self.assertFalse(Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, third_orf))
-        self.assertFalse(Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(second_orf, third_orf))
+        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, third_orf))
+        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
         self.assertFalse(first_orf == second_orf)
@@ -246,7 +246,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         candidates = [first_orf, second_orf, third_orf]
 
-        # self.assertEqual(len(Mikado.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
+        # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
         logger = create_null_logger("null")
         self.tr.logger = logger
@@ -275,7 +275,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.tr.strip_cds()
         self.tr.finalized = False
 
-        first_orf = Mikado.parsers.bed12.BED12()
+        first_orf = mikado_lib.parsers.bed12.BED12()
         first_orf.chrom = self.tr.id
         first_orf.start = 1
         first_orf.end = self.tr.cdna_length
@@ -294,7 +294,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         first_orf.transcriptomic = True
         self.assertFalse(first_orf.invalid)
         # This should not be incorporated
-        second_orf = Mikado.parsers.bed12.BED12()
+        second_orf = mikado_lib.parsers.bed12.BED12()
         second_orf.chrom = self.tr.id
         second_orf.start = 1
         second_orf.end = self.tr.cdna_length
@@ -313,10 +313,10 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid)
 
-        self.assertTrue(Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
-        third_orf = Mikado.parsers.bed12.BED12()
+        third_orf = mikado_lib.parsers.bed12.BED12()
         third_orf.chrom = self.tr.id
         third_orf.start = 1
         third_orf.end = self.tr.cdna_length
@@ -336,10 +336,10 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertFalse(third_orf.invalid)
 
         self.assertFalse(
-            Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(
+            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
                 first_orf, third_orf))
         self.assertFalse(
-            Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(
+            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
                 second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
@@ -348,7 +348,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         candidates = [first_orf, second_orf, third_orf]
 
-        # self.assertEqual(len(Mikado.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
+        # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
         logger = create_null_logger("null")
         self.tr.logger = logger

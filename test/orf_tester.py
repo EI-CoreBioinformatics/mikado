@@ -6,7 +6,7 @@ Test for the BED12 module.
 
 import unittest
 from Bio import Seq, SeqRecord
-from Mikado.parsers import bed12
+from mikado_lib.parsers import bed12
 
 
 class OrfTester(unittest.TestCase):

@@ -7,8 +7,8 @@ Script to extract features from a GTF with certain coordinates.
 
 import sys
 import argparse
-from Mikado.parsers.GTF import GTF
-from Mikado.loci_objects.transcript import Transcript
+from mikado_lib.parsers.GTF import GTF
+from mikado_lib.loci_objects.transcript import Transcript
 
 
 def main():

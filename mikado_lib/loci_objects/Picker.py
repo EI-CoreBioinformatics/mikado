@@ -69,8 +69,9 @@ def remove_fragments(stranded_loci, json_conf, logger):
             locus_instance.logger = logger
             loci_to_check[locus_instance.monoexonic].add(locus_instance)
 
-    mcdl = json_conf["pick_options"]["fragments_maximal_cds"]
-    bool_remove_fragments = json_conf["pick_options"]["remove_overlapping_fragments"]
+    mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
+    bool_remove_fragments = json_conf["pick"]["run_options"]\
+        ["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:
         for locus_id, locus_instance in stranded_locus.loci.items():
             if locus_instance in loci_to_check[True]:
@@ -143,7 +144,7 @@ def analyse_locus(slocus: Superlocus,
     slocus.logger = logger
 
     # Load the CDS information if necessary
-    if json_conf["pick_options"]["preload"] is False:
+    if json_conf["pick"]["run_options"]["preload"] is False:
         slocus_id = slocus.id
         logger.debug(
             "Loading transcript data for %s",
@@ -246,12 +247,12 @@ class Creator:
         self.commandline = commandline
         self.json_conf = json_conf
 
-        self.threads = self.json_conf["pick_options"]["threads"]
-        self.input_file = self.json_conf["pick_options"]["files"]["input"]
+        self.threads = self.json_conf["pick"]["run_options"]["threads"]
+        self.input_file = self.json_conf["pick"]["files"]["input"]
         _ = self.define_input()  # Check the input file
-        self.sub_out = self.json_conf["pick_options"]["files"]["subloci_out"]
-        self.monolocus_out = self.json_conf["pick_options"]["files"]["monoloci_out"]
-        self.locus_out = self.json_conf["pick_options"]["files"]["loci_out"]
+        self.sub_out = self.json_conf["pick"]["files"]["subloci_out"]
+        self.monolocus_out = self.json_conf["pick"]["files"]["monoloci_out"]
+        self.locus_out = self.json_conf["pick"]["files"]["loci_out"]
         # pylint: disable=no-member
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
@@ -289,7 +290,7 @@ class Creator:
         if self.json_conf["single_thread"] is True:
             # Reset threads to 1
             self.main_logger.warning("Reset number of threads to 1 as requested")
-            self.threads = self.json_conf["pick_options"]["threads"] = 1
+            self.threads = self.json_conf["pick"]["threads"] = 1
 
         if self.locus_out is None:
             raise mikado_lib.exceptions.InvalidJson(
@@ -323,40 +324,40 @@ class Creator:
         """
 
         self.main_logger.info("Copy into a SHM db: %s",
-                              self.json_conf["pick_options"]["shm"])
-        if self.json_conf["pick_options"]["shm"] is True:
-            self.json_conf["pick_options"]["shm_shared"] = False
+                              self.json_conf["pick"]["run_options"]["shm"])
+        if self.json_conf["pick"]["run_options"]["shm"] is True:
+            self.json_conf["pick"]["run_options"]["shm_shared"] = False
             self.main_logger.info("Copying the DB into memory")
             assert self.json_conf["db_settings"]["dbtype"] == "sqlite"
-            self.json_conf["pick_options"]["preload"] = False
-            if self.json_conf["pick_options"]["shm_db"] is not None:
-                self.json_conf["pick_options"]["shm_db"] = os.path.join(
+            self.json_conf["pick"]["run_options"]["preload"] = False
+            if self.json_conf["pick"]["run_options"]["shm_db"] is not None:
+                self.json_conf["pick"]["run_options"]["shm_db"] = os.path.join(
                     "/dev/shm/",
-                    self.json_conf["pick_options"]["shm_db"])
-                self.json_conf["pick_options"]["shm_shared"] = True
+                    self.json_conf["pick"]["run_options"]["shm_db"])
+                self.json_conf["pick"]["run_options"]["shm_shared"] = True
             else:
                 # Create temporary file
                 temp = tempfile.mktemp(suffix=".db",
                                        prefix="/dev/shm/")
                 if os.path.exists(temp):
                     os.remove(temp)
-                self.json_conf["pick_options"]["shm_db"] = temp
-            if self.json_conf["pick_options"]["shm"]:
-                if not os.path.exists(self.json_conf["pick_options"]["shm_db"]):
+                self.json_conf["pick"]["run_options"]["shm_db"] = temp
+            if self.json_conf["pick"]["run_options"]["shm"]:
+                if not os.path.exists(self.json_conf["pick"]["run_options"]["shm_db"]):
                     self.main_logger.info("Copying {0} into {1}".format(
                         self.json_conf["db_settings"]["db"],
-                        self.json_conf["pick_options"]["shm_db"]))
+                        self.json_conf["pick"]["run_options"]["shm_db"]))
                     try:
                         shutil.copy2(self.json_conf["db_settings"]["db"],
-                                     self.json_conf["pick_options"]["shm_db"])
+                                     self.json_conf["pick"]["run_options"]["shm_db"])
                     except PermissionError:
                         self.main_logger.warn(
                             """Permission to write on /dev/shm denied.
                             Back to using the DB on disk.""")
-                        self.json_conf["pick_options"]["shm"] = False
+                        self.json_conf["pick"]["run_options"]["shm"] = False
                 else:
                     self.main_logger.info("%s exists already. Doing nothing.",
-                                          self.json_conf["pick_options"]["shm_db"])
+                                          self.json_conf["pick"]["run_options"]["shm_db"])
             self.main_logger.info("DB copied into memory")
 
     def setup_logger(self):
@@ -373,12 +374,12 @@ class Creator:
         self.main_logger = logging.getLogger("main_logger")
         self.logger = logging.getLogger("listener")
         self.logger.propagate = False
-        if (self.json_conf["log_settings"]["log"] is None or
-                self.json_conf["log_settings"]["log"] == "stream"):
+        if (self.json_conf["pick"]["files"]["log"] is None or
+                self.json_conf["pick"]["files"]["log"] == "stream"):
             self.log_handler = logging.StreamHandler()
         else:
             self.log_handler = logging.FileHandler(
-                self.json_conf["log_settings"]["log"], 'w')
+                self.json_conf["pick"]["files"]["log"], 'w')
         # For the main logger I want to keep it at the "INFO" level
         self.log_level = self.json_conf["log_settings"]["log_level"]
 
@@ -396,19 +397,20 @@ class Creator:
         if self.commandline != '':
             self.main_logger.info("Command line: {0}".format(self.commandline))
         else:
-            self.main_logger.info("Analysis launched directly, without using the launch script.")
+            self.main_logger.info(
+                "Analysis launched directly, without using the launch script.")
 
         # Create the shared DB if necessary
         self.setup_shm_db()
 
-        if self.json_conf["chimera_split"]["blast_check"] is True and \
+        if self.json_conf["pick"]["chimera_split"]["blast_check"] is True and \
                 self.json_conf["log_settings"]["log_level"] == "DEBUG":
             engine = dbutils.connect(self.json_conf, self.main_logger)
             smaker = sessionmaker()
             smaker.configure(bind=engine)
             session = smaker()
 
-            evalue = self.json_conf["chimera_split"]["blast_params"]["evalue"]
+            evalue = self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
             queries_with_hits = session.query(
                 Hit.query_id).filter(Hit.evalue <= evalue).distinct().count()
             total_queries = session.query(Query).count()
@@ -533,7 +535,7 @@ class Creator:
         if self.sub_out is not None:  # Skip this section if no sub_out is defined
             sub_lines = stranded_locus.__str__(
                 level="subloci",
-                print_cds=not self.json_conf["pick_options"]["exclude_cds"])
+                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if sub_lines != '':
                 print(sub_lines, file=sub_out)
             sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
@@ -547,7 +549,7 @@ class Creator:
         if self.monolocus_out is not None:
             mono_lines = stranded_locus.__str__(
                 level="monosubloci",
-                print_cds=not self.json_conf["pick_options"]["exclude_cds"])
+                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if mono_lines != '':
                 print(mono_lines, file=mono_out)
         locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
@@ -558,17 +560,18 @@ class Creator:
         for locus in stranded_locus.loci:
             gene_counter += 1
             fragment_test = (
-                self.json_conf["pick_options"]["remove_overlapping_fragments"] is True and
-                stranded_locus.loci[locus].is_fragment is True)
+                self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
+                is True and stranded_locus.loci[locus].is_fragment is True)
 
             if fragment_test is True:
                 continue
-            new_id = "{0}.{1}G{2}".format(self.json_conf["output_format"]["id_prefix"],
-                                          stranded_locus.chrom, gene_counter)
+            new_id = "{0}.{1}G{2}".format(
+                self.json_conf["pick"]["output_format"]["id_prefix"],
+                stranded_locus.chrom, gene_counter)
             stranded_locus.loci[locus].id = new_id
 
         locus_lines = stranded_locus.__str__(
-            print_cds=not self.json_conf["pick_options"]["exclude_cds"])
+            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
         for row in locus_metrics_rows:
             locus_metrics.writerow(row)
         for row in locus_scores_rows:
@@ -652,7 +655,7 @@ class Creator:
         hsps = dict()
         for hsp in engine.execute(
                 "select * from hsp where hsp_evalue <= {0}".format(
-                    self.json_conf["chimera_split"]["blast_params"]["hsp_evalue"])
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"])
         ).fetchall():
             if hsp.query_id not in hsps:
                 hsps[hsp.query_id] = collections.defaultdict(list)
@@ -665,7 +668,7 @@ class Creator:
         hit_counter = 0
         hits = engine.execute(
             "select * from hit where evalue <= {0} order by query_id,evalue;".format(
-                self.json_conf["chimera_split"]["blast_params"]["evalue"]))
+                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
         current_counter = 0
@@ -677,7 +680,7 @@ class Creator:
                 current_counter = 0
 
             current_counter += 1
-            max_targets = self.json_conf["chimera_split"]["blast_params"]["max_target_seqs"]
+            max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
             if current_counter > max_targets:
                 continue
             my_query = queries[hit.query_id]
@@ -756,7 +759,7 @@ class Creator:
 
         # Finally load BLAST
 
-        if self.json_conf["chimera_split"]["execute"] is True and \
+        if self.json_conf["pick"]["chimera_split"]["execute"] is True and \
                 self.json_conf["chimera_split"]["blast_check"] is True:
             data_dict["hits"] = self.__preload_blast(engine, queries)
         else:
@@ -909,7 +912,7 @@ class Creator:
 
                 current_transcript = mikado_lib.loci_objects.transcript.Transcript(
                     row,
-                    source=self.json_conf["output_format"]["source"],
+                    source=self.json_conf["pick"]["output_format"]["source"],
                     intron_range=intron_range)
 
         if current_transcript is not None:
@@ -943,7 +946,7 @@ class Creator:
         self.printer_process.start()
 
         data_dict = None
-        if self.json_conf["pick_options"]["preload"] is True:
+        if self.json_conf["pick"]["run_options"]["preload"] is True:
             # Use the preload function to create the data dictionary
             data_dict = self.preload()
         # pylint: disable=no-member
@@ -951,7 +954,7 @@ class Creator:
         # pylint: enable=no-member
 
         self.logger.debug("Source: %s",
-                          self.json_conf["output_format"]["source"])
+                          self.json_conf["pick"]["output_format"]["source"])
         if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection, pool_size=1, max_overflow=2)
@@ -975,11 +978,11 @@ class Creator:
             self.queue_pool.dispose()
 
         # Clean up the DB copied to SHM
-        if (self.json_conf["pick_options"]["shm"] is True and
-                self.json_conf["pick_options"]["shm_shared"] is False):
+        if (self.json_conf["pick"]["run_options"]["shm"] is True and
+                self.json_conf["pick"]["shm_shared"] is False):
             self.main_logger.info("Removing shared memory DB %s",
-                                  self.json_conf["pick_options"]["shm_db"])
-            os.remove(self.json_conf["pick_options"]["shm_db"])
+                                  self.json_conf["pick"]["run_options"]["shm_db"])
+            os.remove(self.json_conf["pick"]["run_options"]["shm_db"])
 
         self.main_logger.info("Finished analysis of %s", self.input_file)
         return 0

@@ -482,10 +482,8 @@ class Assigner:
         - h    the transcript is multiexonic and extends a monoexonic reference transcript
         - O    Reverse generic overlap - the reference is monoexonic and
         overlaps the prediction
-        - K    Reverse intron retention - the annotated gene model retains an intron
-        compared to the prediction
         - P    Possible polymerase run-on fragment
-        (within 2Kbases of a reference transcript), on the opposite strand
+        (within 2K bases of a reference transcript), on the opposite strand
 
         This is a class method, and can therefore be used outside of a class instance.
         """
@@ -605,7 +603,7 @@ class Assigner:
                             if reference.start < prediction.start < reference.end:
                                 ccode = "I"
                             elif prediction.start < reference.start < prediction.end:
-                                ccode = "K"  # reverse intron retention
+                                ccode = "j"  # reverse intron retention
             else:
                 if prediction.exon_num == 1 and reference.exon_num > 1:
                     if nucl_precision < 1 and nucl_overlap > 0:

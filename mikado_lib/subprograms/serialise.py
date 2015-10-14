@@ -50,9 +50,9 @@ def xml_launcher(xml_candidate=None, args=None, logger=None):
 
     # If we have a value in the JSON, use it
     max_target_conf = float("Inf")
-    if "blast" in args.json_conf["blast"]:
-        if "max_target_seqs" in args.json_conf["blast"]:
-            max_target_conf = args.json_conf["blast"]["max_target_seqs"]
+    # if "blast" in args.json_conf["blast"]:
+    #     if "max_target_seqs" in args.json_conf["blast"]:
+    #         max_target_conf = args.json_conf["blast"]["max_target_seqs"]
 
     args.max_target_seqs = min(args.max_target_seqs, max_target_conf)
 
@@ -88,12 +88,19 @@ def serialise(args):
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
+    logger.setLevel(args.log_level)
+    logger.info("Command line: {0}".format(" ".join(sys.argv)))
+
     # Add sqlalchemy logging
     sql_logger = logging.getLogger("sqlalchemy.engine")
-    sql_logger.setLevel(args.log_level)
-    sql_logger.addHandler(logger.handlers[0])
+    if args.log_level == "DEBUG":
+        level = args.log_level
+    else:
+        level = logging._levelToName[min(50,
+                                         10 + logging._nameToLevel[args.log_level])]
 
-    logger.setLevel(args.log_level)
+    sql_logger.setLevel(level)
+    sql_logger.addHandler(logger.handlers[0])
 
     if args.force is True:
         logger.warn("Removing old data because force option in place")
@@ -101,6 +108,7 @@ def serialise(args):
         meta = sqlalchemy.MetaData(bind=engine)
         meta.reflect(engine)
         for tab in reversed(meta.sorted_tables):
+            logger.warn("Dropping %s", tab)
             tab.drop()
         dbutils.DBBASE.metadata.create_all(engine)
 

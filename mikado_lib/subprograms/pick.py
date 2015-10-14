@@ -43,23 +43,23 @@ def check_run_options(args):
     :return: args
     """
     if args.procs is not None:
-        args.json_conf["pick_options"]["threads"] = args.procs
+        args.json_conf["pick"]["threads"] = args.procs
 
     if args.shm_db is not None or args.shm is True:
         args.shm = True
-        args.json_conf["pick_options"]["shm"] = True
+        args.json_conf["pick"]["shm"] = True
         # I will deal with it being None or not in Creator
-        args.json_conf["pick_options"]["shm_db"] = args.shm_db
+        args.json_conf["pick"]["shm_db"] = args.shm_db
 
     if args.cache is True:
-        args.json_conf["pick_options"]["preload"] = True
+        args.json_conf["pick"]["preload"] = True
 
     args.json_conf["single_thread"] = args.single
 
     if args.no_cds is not None:
-        args.json_conf["pick_options"]["exclude_cds"] = True
+        args.json_conf["pick"]["exclude_cds"] = True
     if args.purge is not None:
-        args.json_conf["pick_options"]["purge"] = True
+        args.json_conf["pick"]["purge"] = True
 
     return args
 
@@ -79,11 +79,11 @@ def pick(args):
     args = check_run_options(args)
 
     if args.monoloci_out is not None:
-        args.json_conf["pick_options"]["files"]["monoloci_out"] = args.monoloci_out
+        args.json_conf["pick"]["files"]["monoloci_out"] = args.monoloci_out
     if args.subloci_out is not None:
-        args.json_conf["pick_options"]["files"]["subloci_out"] = args.subloci_out
+        args.json_conf["pick"]["files"]["subloci_out"] = args.subloci_out
     if args.loci_out is not None:
-        args.json_conf["pick_options"]["files"]["loci_out"] = args.loci_out
+        args.json_conf["pick"]["files"]["loci_out"] = args.loci_out
 
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
@@ -91,7 +91,7 @@ def pick(args):
     if args.gff is not None:
         args.gff.close()
         args.gff = args.gff.name
-        args.json_conf["pick_options"]["files"]["input"] = args.gff
+        args.json_conf["pick"]["files"]["input"] = args.gff
 
     creator = mikado_lib.loci_objects.Picker.Creator(
         args.json_conf, commandline=" ".join(sys.argv))

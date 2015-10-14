@@ -41,7 +41,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.metrics_calculated = False
         self.json_conf = json_conf
         self.excluded = None
-        self.purge = self.json_conf["pick_options"]["purge"]
+        self.purge = self.json_conf["pick"]["purge"]
         self.scores_calculated = False
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
@@ -130,7 +130,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.calculate_scores()
 
         graph = self.define_graph(self.transcripts, inters=self.is_intersecting,
-                                  cds_only=self.json_conf["pick_options"]["subloci_from_cds_only"])
+                                  cds_only=self.json_conf["pick"]\
+                                      ["run_options"]["subloci_from_cds_only"])
 
         loci = []
         while len(graph) > 0:

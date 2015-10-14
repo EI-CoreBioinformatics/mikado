@@ -91,7 +91,7 @@ class Superlocus(Abstractlocus):
                 "I am missing the configuration for prioritizing transcripts!"
             )
         self.json_conf = json_conf
-        self.purge = self.json_conf["pick_options"]["purge"]
+        self.purge = self.json_conf["pick"]["run_options"]["purge"]
 
         self.splices = set(self.splices)
         self.introns = set(self.introns)
@@ -352,7 +352,7 @@ class Superlocus(Abstractlocus):
                                                        data_dict=data_dict)
         to_remove, to_add = False, set()
 
-        if self.json_conf["chimera_split"]["execute"] is True:
+        if self.json_conf["pick"]["chimera_split"]["execute"] is True:
             if self.transcripts[tid].number_internal_orfs > 1:
                 new_tr = list(self.transcripts[tid].split_by_cds())
                 if len(new_tr) > 1:
@@ -535,7 +535,7 @@ class Superlocus(Abstractlocus):
             self.subloci_defined = True
             return
 
-        cds_only = self.json_conf["pick_options"]["subloci_from_cds_only"]
+        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
                                              cds_only=cds_only)
@@ -696,7 +696,7 @@ class Superlocus(Abstractlocus):
             self.loci[locus.id] = locus
 
         self.loci_defined = True
-        if self.json_conf["alternative_splicing"]["report"] is True:
+        if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
             self.define_alternative_splicing()
 
         return
@@ -718,7 +718,7 @@ class Superlocus(Abstractlocus):
         candidates = collections.defaultdict(set)
         primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
 
-        cds_only = self.json_conf["pick_options"]["subloci_from_cds_only"]
+        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only)

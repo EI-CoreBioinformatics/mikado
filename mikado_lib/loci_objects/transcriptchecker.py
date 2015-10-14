@@ -29,7 +29,9 @@ class TranscriptChecker(Transcript):
 
     __translation_table = str.maketrans("ACGT", "TGCA")
 
-    def __init__(self, gffline, seq, strand_specific=False, lenient=False):
+    def __init__(self, gffline, seq,
+                 strand_specific=False, lenient=False,
+                 canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC"))):
 
         """
         Constructor method. It inherits from Transcript, with some modifications.
@@ -61,6 +63,7 @@ class TranscriptChecker(Transcript):
         self.lenient = lenient
         self.mixed_splices = False
         self.reversed = False
+        self.canonical_splices = canonical_splices
 
     @property
     def translation_table(self):
@@ -121,12 +124,6 @@ class TranscriptChecker(Transcript):
         if self.checked is True:
             return
 
-        canonical_splices = [
-            ("GT", "AG"),
-            ("GC", "AG"),
-            ("AT", "AC")
-        ]
-
         if self.strand_specific is False and self.monoexonic is True:
             self.strand = None
             return
@@ -135,7 +132,7 @@ class TranscriptChecker(Transcript):
             canonical_counter = Counter()
 
             checker = partial(self._check_intron,
-                              **{"canonical_splices": canonical_splices})
+                              **{"canonical_splices": self.canonical_splices})
 
             for intron in self.introns:
                 canonical_counter.update([checker(intron)])

@@ -673,7 +673,7 @@ class Transcript:
         # Prepare the minimal secondary length parameter
         if self.json_conf is not None:
             minimal_secondary_orf_length = \
-                self.json_conf["orf_loading"]["minimal_secondary_orf_length"]
+                self.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"]
         else:
             minimal_secondary_orf_length = 0
 
@@ -737,7 +737,7 @@ class Transcript:
         # Establish the minimum overlap between an ORF and a BLAST hit to consider it
         # to establish belongingness
 
-        minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        minimal_overlap = self.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
         cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
         for key in cds_hit_dict:
@@ -752,7 +752,7 @@ class Transcript:
             self.blast_hits = []
 
         # Determine for each CDS which are the hits available
-        min_eval = self.json_conf['chimera_split']['blast_params']['hsp_evalue']
+        min_eval = self.json_conf["pick"]["chimera_split"]['blast_params']['hsp_evalue']
         for hit in self.blast_hits:
             for hsp in iter(_hsp for _hsp in hit["hsps"] if
                             _hsp["hsp_evalue"] <= min_eval):
@@ -798,7 +798,7 @@ class Transcript:
                                      set(old_hits.keys()))
         # We do not have any hit in common
         to_break = len(in_common) == 0
-        min_overlap_duplication = self.json_conf[
+        min_overlap_duplication = self.json_conf["pick"][
             'chimera_split']['blast_params']['min_overlap_duplication']
         to_break = True
         for common_hit in in_common:
@@ -841,7 +841,7 @@ class Transcript:
         :return:
         """
         new_boundaries = []
-        leniency = self.json_conf['chimera_split']['blast_params']['leniency']
+        leniency = self.json_conf["pick"]["chimera_split"]['blast_params']['leniency']
         for cds_boundary in cds_boundaries:
             if not new_boundaries:
                 new_boundaries.append([cds_boundary])
@@ -1263,7 +1263,7 @@ class Transcript:
 
         identical_positions, positives = set(), set()
 
-        minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        minimal_overlap = self.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
         best_hsp = (float("inf"), float("-inf"))
 
@@ -1330,7 +1330,7 @@ class Transcript:
 
             # Check whether we have to split or not based on BLAST data
             if self.json_conf is not None:
-                if self.json_conf["chimera_split"]["blast_check"] is True:
+                if self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
                     cds_boundaries = self.check_split_by_blast(cds_boundaries)
 
             if len(cds_boundaries) == 1:
@@ -1695,8 +1695,8 @@ class Transcript:
                           sorted(self.verified_introns))
 
         # ORF data
-        trust_strand = self.json_conf["orf_loading"]["strand_specific"]
-        min_cds_len = self.json_conf["orf_loading"]["minimal_orf_length"]
+        trust_strand = self.json_conf["pick"]["orf_loading"]["strand_specific"]
+        min_cds_len = self.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
 
         self.logger.debug("Retrieving ORF information from DB dictionary for %s",
                           self.id)
@@ -1716,10 +1716,10 @@ class Transcript:
 
         self.load_orfs(candidate_orfs)
 
-        if self.json_conf["chimera_split"]["blast_check"] is True:
+        if self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
             self.logger.debug("Retrieving BLAST hits for %s",
                               self.id)
-            maximum_evalue = self.json_conf["chimera_split"]["blast_params"]["evalue"]
+            maximum_evalue = self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
 
             if self.id in data_dict["hits"]:
                 # this is a dictionary full of lists of dictionary
@@ -1787,8 +1787,8 @@ class Transcript:
         # if self.query_id is None:
         #     return []
 
-        trust_strand = self.json_conf["orf_loading"]["strand_specific"]
-        min_cds_len = self.json_conf["orf_loading"]["minimal_orf_length"]
+        trust_strand = self.json_conf["pick"]["orf_loading"]["strand_specific"]
+        min_cds_len = self.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
 
         orf_results = self.orf_baked(self.session).params(query=self.id,
                                                           cds_len=min_cds_len)
@@ -2057,11 +2057,13 @@ class Transcript:
         # if self.query_id is None:
         #     return
 
-        # if self.json_conf["chimera_split"]["blast_check"] is False:
+        # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
         #     return
 
-        max_target_seqs = self.json_conf["chimera_split"]["blast_params"]["max_target_seqs"]
-        maximum_evalue = self.json_conf["chimera_split"]["blast_params"]["evalue"]
+        max_target_seqs = self.json_conf["pick"]\
+            ["chimera_split"]["blast_params"]["max_target_seqs"]
+        maximum_evalue = self.json_conf["pick"]["chimera_split"]\
+            ["blast_params"]["evalue"]
 
         blast_hits_query = self.blast_baked(self.session).params(
             query=self.id,

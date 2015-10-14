@@ -38,7 +38,10 @@ def grouper(iterable, num, fillvalue=(None, None)):
 def create_transcript(lines,
                       fasta_seq,
                       lenient=False,
-                      strand_specific=False):
+                      strand_specific=False,
+                      canonical_splices=(("GT", "AG"),
+                                         ("GC", "AG"),
+                                         ("AT", "AC"))):
     """Function to create the checker.
 
     :param lines: all the exon lines for an object
@@ -59,7 +62,8 @@ def create_transcript(lines,
     transcript_line.end = max(r.end for r in lines)
     transcript_object = TranscriptChecker(transcript_line,
                                           fasta_seq, lenient=lenient,
-                                          strand_specific=strand_specific)
+                                          strand_specific=strand_specific,
+                                          canonical_splices=canonical_splices)
 
     transcript_object.logger = logger
     for line in lines:
@@ -219,6 +223,7 @@ def prepare(args):
         logger.setLevel(logging.WARN)
 
     to_seqio = functools.partial(to_seqio_complete,
+                                 cache=args.cache,
                                  logger_instance=logger)
     args.fasta.close()
     args.fasta = to_seqio(args.fasta.name)
@@ -286,7 +291,7 @@ def prepare(args):
     logger.info("Finished")
 
 
-def to_seqio_complete(string, logger_instance=None):
+def to_seqio_complete(string, cache=False, logger_instance=None):
     """
     Function to index a FASTA file using SeqIO.
     :param string: a vaild file name
@@ -305,9 +310,12 @@ def to_seqio_complete(string, logger_instance=None):
         exc = ValueError("Invalid input file.")
         logger_instance.exception(exc)
         raise exc
-    seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
+    if cache is True:
+        seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
+        seqdict = dict((seq, str(seqdict[seq].seq)) for seq in seqdict)
+    else:
+        seqdict = SeqIO.index(string, "fasta")
 
-    seqdict = dict((seq, str(seqdict[seq].seq)) for seq in seqdict)
     logger_instance.info("Finished loading reference file")
     return seqdict
 
@@ -370,6 +378,8 @@ def prepare_parser():
     parser.add_argument("-of", "--out_fasta", default="mikado_lib.fasta",
                         type=argparse.FileType('w'),
                         help="Output file. Default: mikado_lib.fasta.")
+    parser.add_argument("--cache", default=False, action="store_true",
+                        help="Whether to load the whole genome in memory or not.")
     parser.add_argument("gff", type=to_gff, help="Input GFF/GTF file(s).", nargs="+")
     parser.set_defaults(func=prepare)
     return parser

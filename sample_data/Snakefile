@@ -64,16 +64,17 @@ rule blast_complete:
 
 rule serialise:
     input: junctions="junctions.bed", fai="genome.fai", transcripts="mikado.fasta", targets="uniprot_sprot_plants.fasta", xml="mikado.blast.xml", orfs="mikado.bed"
-    output: "serialised.ok", config["db_settings"]["db"]
+    output: "serialised.ok" #, config["db_settings"]["db"]
     run:
-        command = """mikado.py serialise -f --genome_fai {fai} \
+        command = """mikado.py serialise --force --genome_fai {fai} \
         --transcript_fasta {transcripts} \
         --target_seqs {targets} \
         --xml {xml} --junctions {junctions} --json-conf {config} \
         --orfs {orfs} --log serialise.log -lv {level}""".format(fai=input["fai"],
         transcripts=input["transcripts"],
         targets=input["targets"], xml=input["xml"], junctions=input["junctions"],
-         orfs=input["orfs"], config=configname, level=config["log_settings"]["log_level"])
+         orfs=input["orfs"], config="mikado_configuration.yaml",
+         level=config["log_settings"]["log_level"])
         retcode = subprocess.call(command, shell=True)
         if retcode == 0:
             subprocess.call("touch serialised.ok", shell=True)
@@ -82,7 +83,7 @@ rule pick:
     params: prefix="all"
     input: configuration=configname, gtf="mikado.gtf", check="serialised.ok"
     output: "all.loci.gff3", "all.subloci.gff3"
-    shell: """mikado.py pick --source {params[prefix]} --json_conf {input[configuration]} \
+    shell: """mikado.py pick --json_conf mikado_configuration.yaml \
 	    --subloci_out all.subloci.gff3 --monoloci_out all.monoloci.gff3 --loci_out all.loci.gff3 {input[gtf]}"""
 
 rule compare:

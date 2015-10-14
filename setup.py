@@ -14,7 +14,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 
 setup(
 
-    name="mikado_lib",
+    name="Mikado",
     version="0.9.2",
 
     description="A Python3 annotation program to select the best gene model in each locus",
@@ -48,6 +48,7 @@ setup(
                       "numpy",
                       "networkx",
                       "sqlalchemy>=1",
+                      "sqlalchemy_utils",
                       "biopython>=1.6",
                       "intervaltree"
                       ],

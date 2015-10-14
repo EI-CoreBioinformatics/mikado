@@ -1,256 +1,507 @@
 {
   "type": "object",
-  "Comment": [""],
+  "Comment": [
+    ""
+  ],
   "properties": {
-    "chimera_split":{
-      "Comment": ["Parameters related to the splitting of transcripts in the presence of",
-      "two or more ORFs. Parameters:",
-        "- execute: whether to split multi-ORF transcripts at all. Boolean.",
-        "- blast_check: whether to use BLAST information to take a decision. See blast_params for details.",
-        "- blast_params: Parameters related to which BLAST data we want to analyse."],
+    "log_settings": {
+      "Comment": [
+        "Settings related to the logs. Keys:",
+        "log: the name of the log file. Default: mikado.log",
+        "log_level: verbosity. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
+      ],
       "type": "object",
-      "properties":{
-        "blast_check": {"type": "boolean", "default": false},
-        "execute": {"type": "boolean", "default": false},
-        "blast_params": {
-          "type": "object",
-          "Comment": ["Parameters for the BLAST check prior to splitting.",
-            "- evalue: Minimum evalue for the whole hit. Default: 1e-6",
-            "- hsp_evalue: Minimum evalue for any HSP hit (some might be discarded even if the whole hit is valid). Default: 1e-6",
-            "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
-            "- max_target_seqs: maximum number of hits to consider. Default: 3",
-            "- minimal_hsp_overlap: minimum overlap of the ORF with the HSP (*not* reciprocal). Default: 0.8, i.e. 80%",
-            "- min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as target duplications.",
-            "  This means that if two ORFs have no HSPs in common, but the coverage of their disjoint HSPs covers more",
-            "  Than this % of the length of the *target*, they represent most probably a duplicated gene."
-          ],
-          "properties": {
-             "evalue": {"type": "number", "minimum": 0, "default": 0.000001},
-             "hsp_evalue": {"type": "number", "minimum": 0, "default": 0.000001},
-             "leniency": {"type": "string", "enum": ["STRINGENT", "LENIENT","PERMISSIVE"],
-             "default": "LENIENT"},
-             "max_target_seqs": {"type": "integer", "minimum": 1, "default": 3},
-             "minimal_hsp_overlap": {"type": "number", "minimum": 0,
-               "maximum": 1, "default": 0.9},
-            "min_overlap_duplication": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.8}
-          }
-        }
-      },
-      "required": ["blast_check", "execute"]
-    },
-   "log_settings":{
-     "Comment": ["Settings related to the logs. Keys:",
-       "log: the name of the log file. Default: mikado.log",
-     "log_level: verbosity. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"],
-     "type": "object",
-     "properties":{
-       "log": {
-         "type": "string",
-         "default": "mikado.log"
-       },
-       "log_level": {"type": "string", "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-         "default": "WARNING" }
-     }
-   },
-  "db_settings": {
-    "Comment": ["Settings related to DB connection. Parameters:",
-    "db: the DB to connect to. Required. Default: mikado.db",
-    "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
-    "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
-    "dbuser: DB user. Default: ''", "dbpasswd: DB password for the user. Default: ''",
-    "dbport: Integer. It indicates the default port for the DB."],
-    "type": "object",
-    "properties": {
-      "db": {"default": "mikado.db", "type": "string"},
-      "dbtype": {"default": "sqlite", "enum": ["mysql", "postgresql", "sqlite"], "type": "string" },
-      "dbhost": { "format": "hostname", "default": "localhost"},
-      "dbuser": {"type": "string", "default": ""},
-      "dbpasswd": {"type": "string", "default": ""},
-      "dbport": {"type": "integer", "default": 0}
-    },
-    "required": ["dbtype", "db"]
-  },
-  "output_format":{
-    "Comment": ["Parameters related to the output format.",
-    "  - source: prefix for the source field in the mikado output.",
-    "  - id_prefix: prefix for the ID of the genes/transcripts in the output"],
-    "type": "object",
-    "properties": {
-      "source": {"type": "string","default": "Mikado"},
-      "id_prefix": {"type": "string", "default": "mikado"}
-    }
-  },
-  "alternative_splicing": {
-    "Comment": ["Parameters related to alternative splicing reporting.",
-    "- report: whether to report at all or not the AS events.",
-    "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
-    "- keep_retained_introns: Whether to consider as valid AS events where one intron",
-      "is retained compared to the primary or any other valid AS. Default: false.",
-    "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
-    "- valid_ccodes: Valid class codes for AS events. See documentation for details. Choices:",
-    "   j, n, O, e, K, o, h. Default: j, O, n, h",
-    "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
-    "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
-    "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)"],
-    "type": "object",
-    "properties": {
-      "report": {
-        "type": "boolean",
-        "default": true
-      },
-      "min_cds_overlap": {
-        "type": "number",
-        "minimum": 0,
-        "maximum": 1,
-        "default": 0.6
-      },
-      "keep_retained_introns": {
-        "type": "boolean",
-        "default": false
-      },
-      "max_isoforms": {
-        "type": "integer",
-        "minimum": 1,
-        "default": 3
-      },
-      "max_utr_length":{
-        "type": "integer",
-        "default": 1000000,
-        "minimum": 1
-      },
-      "max_fiveutr_length":{
-        "type": "integer",
-        "default": 1000000,
-        "minimum": 1
-      },
-      "max_threeutr_length":{
-        "type": "integer",
-        "default": 1000000,
-        "minimum": 1
-      },
-      "valid_ccodes": {
-        "type": "array",
-        "items": {
+      "properties": {
+        "log": {
+          "type": "string",
+          "default": "mikado.log"
+        },
+        "log_level": {
           "type": "string",
           "enum": [
-            "j",
-            "n",
-            "O",
-            "e",
-            "K",
-            "o",
-            "h"
-          ]
-        },
-        "default": [
-          "j",
-          "n",
-          "O",
-          "h"
-        ]
-      }
-    }
-  },
-    "orf_loading": {
-      "type": "object",
-      "Comment": ["Parameters related to ORF loading.",
-        "- minimal_secondary_orf_length: Minimum length of a *secondary* ORF",
-        "  to be loaded after the first, in bp. Default: 200 bps",
-        "- minimal_orf_length: Minimum length in bps of an ORF to be loaded,",
-        "  as the primary ORF, onto a transcript. Default: 50 bps",
-        "- strand_specific: Boolean flag. If set to true, monoexonic transcripts",
-        "  will not have their ORF reversed even if they would have an ORF on the opposite strand."
-      ],
-      "properties": {
-        "minimal_secondary_orf_length": {
-          "type": "integer",
-          "default": 200,
-          "minimum": 0
-        },
-        "minimal_orf_length": {
-          "type": "integer",
-          "default": 50,
-          "minimum": 0
-        },
-        "strand_specific": {
-          "type": "boolean",
-          "default": true
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL"
+          ],
+          "default": "WARNING"
         }
       }
     },
-    "pick_options": {
-      "Comment": ["Generic run options.",
-      "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
-      "- shm_db: String. It indicates a DB that has to be copied onto SHM and left there for",
-      "  concurrent Mikado runs.",
-      "- shm_shared: boolean flag. If set, the database loaded onto SHM will be shared and should not be",
-        "  deleted at the end of the run (see shm_db).",
-      "  for faster access. Default: false",
-      "- exclude_cds: boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false",
-      "- purge: boolean flag. If set, all loci where all transcripts have a score of 0 will be excluded",
-      "  from the output. Default: false",
-      "- remove_overlapping_fragments: boolean flag. If set, fragments (defined as monoexonic loci",
-      "  classified as P,x,i or p compared to another locus, will be removed from the output.",
-      "- fragments_maximal_cds: a monoexonic superlocus will never be considered a fragment if its longest CDS is over",
-      "  this length. Default: 100 bps.",
-      "- threads: number of threads to use. Default: 1",
-      "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
-        "  using SQLite databases."],
+    "db_settings": {
+      "Comment": [
+        "Settings related to DB connection. Parameters:",
+        "db: the DB to connect to. Required. Default: mikado.db",
+        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
+        "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
+        "dbuser: DB user. Default: ''",
+        "dbpasswd: DB password for the user. Default: ''",
+        "dbport: Integer. It indicates the default port for the DB."
+      ],
+      "SimpleComment": [
+        "Settings related to DB connection. Parameters:",
+        "db: the DB to connect to. Required. Default: mikado.db",
+        "dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.",
+        "dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost",
+        "dbuser: DB user. Default: ''",
+        "dbpasswd: DB password for the user. Default: ''",
+        "dbport: Integer. It indicates the default port for the DB."
+      ],
       "type": "object",
       "properties": {
-        "shm": {
-          "type": "boolean",
-          "default": false
+        "db": {
+          "default": "mikado.db",
+          "type": "string"
         },
-        "shm_db":{"type": "string", "default": ""},
-        "exclude_cds": {
-          "type": "boolean",
-          "default": false
+        "dbtype": {
+          "default": "sqlite",
+          "enum": [
+            "mysql",
+            "postgresql",
+            "sqlite"
+          ],
+          "type": "string"
         },
-        "purge": {
-          "type": "boolean",
-          "default": false
+        "dbhost": {
+          "format": "hostname",
+          "default": "localhost"
         },
-        "remove_overlapping_fragments": {
-          "type": "boolean",
-          "default": true
+        "dbuser": {
+          "type": "string",
+          "default": ""
         },
-        "fragments_maximal_cds": {
+        "dbpasswd": {
+          "type": "string",
+          "default": ""
+        },
+        "dbport": {
           "type": "integer",
-          "default": 100
+          "default": 0
+        }
+      },
+      "required": [
+        "dbtype",
+        "db"
+      ]
+    },
+    "serialise":{
+      "type": "object",
+      "Comment": ["Options related to serialisation"],
+      "SimpleComment": ["Options related to serialisation",
+        "- force: whether to drop and reload everything into the DB",
+        "- orfs: BED12 file(s) with the ORFs.",
+        "- fai: genome "
+      ],
+      "properties": {
+        "files": {
+          "type": "object",
+          "properties": {
+            "junctions": {
+              "type": "string",
+              "default": ""
+            },
+            "blast": {
+              "type": "array",
+              "default": []
+            },
+            "orfs": {
+              "type": "array",
+              "default": [""]
+            },
+            "transcripts": {
+              "type": "array",
+              "default": ["mikado_prepared.fasta"]
+            },
+            "log": {
+              "type": "string",
+              "default": "serialise.log"
+            },
+            "fai": {
+              "type": "string"
+            },
+            "blast_targets": {
+              "type": "string",
+              "default": ""
+            }
+          }
         },
-        "subloci_from_cds_only": {
-          "type": "boolean",
-          "default": false
+        "max_objects": {"type": "integer", "default": 100000, "minimum": 1},
+        "max_target_seqs": {"type": "integer", "default": 100000, "minimum": 1},
+        "discard_definition": {"type": "boolean", "default": false},
+        "force": {"type": "boolean", "default": false}
+      }
+    },
+    "prepare":{
+      "type": "object",
+      "Comment": ["Options related to the input data preparation.",
+        "- predictions: array of GFF3/GTF files containing the predictions. Required.",
+        "- fasta: genomic FASTA file. Required.",
+        "- threads: Number of threads to use.",
+        "- strip_cds: whether to remove the CDS from the predictions during preparation.",
+        "- out: output GTF file",
+        "- out_fasta: output transcript FASTA file",
+        "- lenient: if set to True, invalid transcripts will be only flagged and not removed. EXPERIMENTAL.",
+        "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
+        "- canonical: canonical splice sites, to infer the correct orientation."
+      ],
+      "SimpleComment": ["Options related to the input data preparation.",
+        "- predictions: array of GFF3/GTF files containing the predictions. Required.",
+        "- fasta: genomic FASTA file. Required.",
+        "- threads: Number of threads to use.",
+        "- out: output GTF file",
+        "- out_fasta: output transcript FASTA file",
+        "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal"
+      ],
+      "required": ["out_fasta", "predictions", "fasta", "out"],
+      "properties":
+      {"predictions": { "type": "array", "default": []},
+        "fasta": {"type": "string", "default": ""},
+        "minimum_length": {
+          "type": "integer", "default": 200, "minimum": 1
         },
-        "threads": {
-          "type": "integer",
-          "default": 1,
-          "minimum": 1
+        "log": "prepare.log",
+        "threads": {"type": "integer", "default": 1},
+        "labels": {"type": "array"},
+        "out": {"type": "string", "default": "mikado_prepared.gtf"},
+        "out_fasta": {"type": "string", "default": "mikado_prepared.fasta"},
+        "strip_cds": {"type": "boolean", "default": false},
+        "lenient": {"type": "boolean", "default": false},
+        "strand_specific": {"type": "boolean", "default": false},
+        "canonical": {"type": "array", "default": [
+            ["GT", "AG"],
+            ["GC", "AG"],
+            ["AT", "AC"]
+        ]}
+      }
+    },
+    "pick": {
+      "type": "object",
+      "properties": {
+        "alternative_splicing": {
+          "Comment": [
+            "Parameters related to alternative splicing reporting.",
+            "- report: whether to report at all or not the AS events.",
+            "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
+            "- keep_retained_introns: Whether to consider as valid AS events where one intron",
+            "is retained compared to the primary or any other valid AS. Default: false.",
+            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
+            "- valid_ccodes: Valid class codes for AS events. See documentation for details. Choices:",
+            "   j, n, O, e, K, o, h. Default: j, O, n, h",
+            "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
+            "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
+            "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)"
+          ],
+          "SimpleComment": [
+            "Parameters related to alternative splicing reporting.",
+            "- report: whether to report at all or not the AS events.",
+            "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
+            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3"
+          ],
+          "required": ["report", "max_isoforms"],
+          "type": "object",
+          "properties": {
+            "report": {
+              "type": "boolean",
+              "default": true
+            },
+            "min_cds_overlap": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.6
+            },
+            "keep_retained_introns": {
+              "type": "boolean",
+              "default": false
+            },
+            "max_isoforms": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3
+            },
+            "max_utr_length": {
+              "type": "integer",
+              "default": 1000000,
+              "minimum": 1
+            },
+            "max_fiveutr_length": {
+              "type": "integer",
+              "default": 1000000,
+              "minimum": 1
+            },
+            "max_threeutr_length": {
+              "type": "integer",
+              "default": 1000000,
+              "minimum": 1
+            },
+            "valid_ccodes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "j",
+                  "n",
+                  "O",
+                  "e",
+                  "K",
+                  "o",
+                  "h"
+                ]
+              },
+              "default": [
+                "j",
+                "n",
+                "O",
+                "h"
+              ]
+            }
+          }
         },
-        "preload": {
-          "type": "boolean",
-          "default": false
+        "output_format": {
+          "Comment": [
+            "Parameters related to the output format.",
+            "  - source: prefix for the source field in the mikado output.",
+            "  - id_prefix: prefix for the ID of the genes/transcripts in the output"
+          ],
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "default": "Mikado"
+            },
+            "id_prefix": {
+              "type": "string",
+              "default": "mikado"
+            }
+          }
+        },
+        "orf_loading": {
+          "type": "object",
+          "Comment": [
+            "Parameters related to ORF loading.",
+            "- minimal_secondary_orf_length: Minimum length of a *secondary* ORF",
+            "  to be loaded after the first, in bp. Default: 200 bps",
+            "- minimal_orf_length: Minimum length in bps of an ORF to be loaded,",
+            "  as the primary ORF, onto a transcript. Default: 50 bps",
+            "- strand_specific: Boolean flag. If set to true, monoexonic transcripts",
+            "  will not have their ORF reversed even if they would have an ORF on the opposite strand."
+          ],
+          "properties": {
+            "minimal_secondary_orf_length": {
+              "type": "integer",
+              "default": 200,
+              "minimum": 0
+            },
+            "minimal_orf_length": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 0
+            },
+            "strand_specific": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        },
+        "chimera_split": {
+          "Comment": [
+            "Parameters related to the splitting of transcripts in the presence of",
+            "two or more ORFs. Parameters:",
+            "- execute: whether to split multi-ORF transcripts at all. Boolean.",
+            "- blast_check: whether to use BLAST information to take a decision. See blast_params for details.",
+            "- blast_params: Parameters related to which BLAST data we want to analyse."
+          ],
+          "SimpleComment": [
+            "Parameters related to the splitting of transcripts in the presence of",
+            "two or more ORFs. Parameters:",
+            "- execute: whether to split multi-ORF transcripts at all. Boolean.",
+            "- blast_check: whether to use BLAST information to take a decision. See blast_params for details.",
+            "- blast_params: Parameters related to which BLAST data we want to analyse."
+          ],
+          "type": "object",
+          "properties": {
+            "blast_check": {
+              "type": "boolean",
+              "default": false
+            },
+            "execute": {
+              "type": "boolean",
+              "default": false
+            },
+            "blast_params": {
+              "type": "object",
+              "Comment": [
+                "Parameters for the BLAST check prior to splitting.",
+                "- evalue: Minimum evalue for the whole hit. Default: 1e-6",
+                "- hsp_evalue: Minimum evalue for any HSP hit (some might be discarded even if the whole hit is valid). Default: 1e-6",
+                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
+                "- max_target_seqs: maximum number of hits to consider. Default: 3",
+                "- minimal_hsp_overlap: minimum overlap of the ORF with the HSP (*not* reciprocal). Default: 0.8, i.e. 80%",
+                "- min_overlap_duplication: minimum overlap (in %) for two ORFs to consider them as target duplications.",
+                "  This means that if two ORFs have no HSPs in common, but the coverage of their disjoint HSPs covers more",
+                "  Than this % of the length of the *target*, they represent most probably a duplicated gene."
+              ],
+              "SimpleComment": [
+                "Parameters for the BLAST check prior to splitting.",
+                "- evalue: Minimum evalue for the whole hit. Default: 1e-6",
+                "- leniency: One of 'STRINGENT', 'LENIENT', 'PERMISSIVE'. Default: LENIENT",
+                "- max_target_seqs: maximum number of hits to consider. Default: 3"
+                ],
+              "properties": {
+                "evalue": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0.000001
+                },
+                "hsp_evalue": {
+                  "type": "number",
+                  "minimum": 0,
+                  "default": 0.000001
+                },
+                "leniency": {
+                  "type": "string",
+                  "enum": [
+                    "STRINGENT",
+                    "LENIENT",
+                    "PERMISSIVE"
+                  ],
+                  "default": "LENIENT"
+                },
+                "max_target_seqs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 3
+                },
+                "minimal_hsp_overlap": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.9
+                },
+                "min_overlap_duplication": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "default": 0.8
+                }
+              }
+            }
+          },
+          "required": [
+            "blast_check",
+            "execute"
+          ]
+        },
+        "run_options": {
+          "type": "object",
+          "required": ["threads", "preload"],
+          "Comment": [
+            "Generic run options.",
+            "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
+            "- shm_db: String. It indicates a DB that has to be copied onto SHM and left there for",
+            "  concurrent Mikado runs.",
+            "- shm_shared: boolean flag. If set, the database loaded onto SHM will be shared and should not be",
+            "  deleted at the end of the run (see shm_db).",
+            "  for faster access. Default: false",
+            "- exclude_cds: boolean flag. If set, the CDS information will not be printed in Mikado output. Default: false",
+            "- purge: boolean flag. If set, all loci where all transcripts have a score of 0 will be excluded",
+            "  from the output. Default: false",
+            "- remove_overlapping_fragments: boolean flag. If set, fragments (defined as monoexonic loci",
+            "  classified as P,x,i or p compared to another locus, will be removed from the output.",
+            "- fragments_maximal_cds: a monoexonic superlocus will never be considered a fragment if its longest CDS is over",
+            "  this length. Default: 100 bps.",
+            "- threads: number of threads to use. Default: 1",
+            "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
+            "  using SQLite databases."
+          ],
+          "SimpleComment": [
+            "Generic run options.",
+            "- purge: boolean flag. If set, all loci where all transcripts have a score of 0 will be excluded",
+            "  from the output. Default: false",
+            "- remove_overlapping_fragments: boolean flag. If set, fragments (defined as monoexonic loci",
+            "  classified as P,x,i or p compared to another locus, will be removed from the output.",
+            "- threads: number of threads to use. Default: 1",
+            "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
+            "  using SQLite databases."
+          ],
+          "properties": {
+            "shm": {
+              "type": "boolean",
+              "default": false
+            },
+            "shm_db": {
+              "type": "string",
+              "default": ""
+            },
+            "exclude_cds": {
+              "type": "boolean",
+              "default": false
+            },
+            "purge": {
+              "type": "boolean",
+              "default": false
+            },
+            "remove_overlapping_fragments": {
+              "type": "boolean",
+              "default": true
+            },
+            "fragments_maximal_cds": {
+              "type": "integer",
+              "default": 100
+            },
+            "subloci_from_cds_only": {
+              "type": "boolean",
+              "default": false
+            },
+            "threads": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            },
+            "preload": {
+              "type": "boolean",
+              "default": false
+            }
+          }
         },
         "files": {
           "type": "object",
-          "Comment": ["Input and output files for Mikado pick.",
-          "- input: input GTF/GFF3 file. Default: mikado_prepared.gtf",
-          "- loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3",
-          "- subloci_out: optional GFF file with the intermediate subloci. Default: no output",
-          "- monoloci_out: optional GFF file with the intermediate monoloci. Default: no output"],
+          "Comment": [
+            "Input and output files for Mikado pick.",
+            "- input: input GTF/GFF3 file. Default: mikado_prepared.gtf",
+            "- loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3",
+            "- subloci_out: optional GFF file with the intermediate subloci. Default: no output",
+            "- monoloci_out: optional GFF file with the intermediate monoloci. Default: no output"
+          ],
           "properties": {
-            "input": {"type": "string", "default": "mikado_prepared.gtf"},
-            "loci_out": {"type": "string", "default": "mikado.loci.gff3"},
-            "subloci_out": {"type": "string", "default": ""},
-            "monoloci_out": {"type": "string", "default": ""}
+            "input": {
+              "type": "string",
+              "default": "mikado_prepared.gtf"
+            },
+            "loci_out": {
+              "type": "string",
+              "default": "mikado.loci.gff3"
+            },
+            "subloci_out": {
+              "type": "string",
+              "default": ""
+            },
+            "monoloci_out": {
+              "type": "string",
+              "default": ""
+            },
+            "log": {
+            "type": "string",
+            "default": "mikado_pick.log"
+            }
           }
+        },
+        "scoring_file": {
+          "type": "string",
+          "default": "plants.yaml"
         }
       }
-    },
-    "scoring_file": {
-      "type": "string",
-      "default": "plants.yaml"
     }
   }
 }

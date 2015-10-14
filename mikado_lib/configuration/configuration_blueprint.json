@@ -146,28 +146,31 @@
         "- canonical: canonical splice sites, to infer the correct orientation."
       ],
       "SimpleComment": ["Options related to the input data preparation.",
-        "- predictions: array of GFF3/GTF files containing the predictions. Required.",
+        "- gff: array of GFF3/GTF files containing the predictions. Required.",
         "- fasta: genomic FASTA file. Required.",
         "- threads: Number of threads to use.",
         "- out: output GTF file",
         "- out_fasta: output transcript FASTA file",
-        "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal"
+        "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
+        "- cache: whether to load the whole genome in memory or not."
       ],
-      "required": ["out_fasta", "predictions", "fasta", "out"],
+      "required": ["out_fasta", "gff", "fasta", "out"],
       "properties":
-      {"predictions": { "type": "array", "default": []},
+      {"gff": { "type": "array", "default": []},
         "fasta": {"type": "string", "default": ""},
         "minimum_length": {
           "type": "integer", "default": 200, "minimum": 1
         },
-        "log": "prepare.log",
+        "log": {"type": "string", "default": "prepare.log"},
         "threads": {"type": "integer", "default": 1},
-        "labels": {"type": "array"},
+        "labels": {"type": "array", "default": []},
         "out": {"type": "string", "default": "mikado_prepared.gtf"},
         "out_fasta": {"type": "string", "default": "mikado_prepared.fasta"},
         "strip_cds": {"type": "boolean", "default": false},
+        "single": {"type": "boolean", "default": false},
         "lenient": {"type": "boolean", "default": false},
         "strand_specific": {"type": "boolean", "default": false},
+        "cache": {"type": "boolean", "default": false},
         "canonical": {"type": "array", "default": [
             ["GT", "AG"],
             ["GC", "AG"],

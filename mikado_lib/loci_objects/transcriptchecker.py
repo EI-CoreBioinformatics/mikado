@@ -183,6 +183,12 @@ class TranscriptChecker(Transcript):
         assert len(splice_donor) == 2
         splice_acceptor = self.fasta_seq[intron[1] - 1 - self.start:intron[1] - self.start + 1]
 
+        if not isinstance(splice_donor, str):
+            splice_donor = str(splice_donor.seq)
+            splice_acceptor = str(splice_acceptor.seq)
+
+        assert isinstance(splice_acceptor, str)
+
         # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
         # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
         if self.strand == "-":
@@ -216,6 +222,9 @@ class TranscriptChecker(Transcript):
             #     len(_), end - start
             # )
             sequence += _
+
+        if not isinstance(sequence, str):
+            sequence = str(sequence.seq)
 
         if self.strand == "-":
             sequence = self.rev_complement(sequence)

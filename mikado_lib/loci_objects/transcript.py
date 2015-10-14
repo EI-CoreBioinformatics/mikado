@@ -563,6 +563,36 @@ class Transcript:
             new_lines.append(line)
         return sorted(new_lines)
 
+    def __add_frame(self, exon_lines):
+
+        """
+        Private method to add the frame to a transcript. The frame is defined as
+        the modulo 3 of the number of bases from the start.
+        Or:
+
+        len(cds so far) % 3
+
+        In this library, the frame (correct definition for the field in GTF)
+        is aliased as "phase".
+
+        :param exon_lines:
+        :return:
+        """
+
+        # We start by 0 if no CDS loaded, else
+        # we use the first phase
+
+        previous = self._first_phase % 3
+
+        new_lines = []
+        for line in sorted(exon_lines, reverse=(self.strand == "-")):
+            if line.feature == "CDS":
+                frame = previous % 3
+                line.frame = frame
+                previous += len(line)
+            new_lines.append(line)
+        return sorted(new_lines)
+
     def create_lines_no_cds(self, to_gtf=False):
 
         """

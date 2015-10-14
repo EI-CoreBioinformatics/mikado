@@ -308,6 +308,15 @@ class GtfLine(GFAnnotation):
         """
         return self.feature == "gene"
 
+    @property
+    def frame(self):
+        return self.phase
+
+    @frame.setter
+    def frame(self, value):
+        assert value in (None, 0, 1, 2)
+        self.phase = value
+
 
 class GTF(Parser):
     """The parsing class."""

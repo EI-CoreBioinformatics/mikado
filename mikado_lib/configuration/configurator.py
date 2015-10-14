@@ -304,42 +304,12 @@ def check_blast(json_conf, json_file):
     :rtype dict
     """
 
-    if "blast" not in json_conf:
-        json_conf["blast"] = dict()
-        json_conf["blast"]["execute"] = False
-        json_conf["blast"]["max_target_seqs"] = sys.maxsize
-        return json_conf
-
     if json_conf["blast"]["execute"] is False:
         return json_conf
 
-    if "program" not in json_conf["blast"]:
-        raise mikado_lib.exceptions.InvalidJson("No BLAST program specified.")
-    elif os.path.basename(json_conf["blast"]["program"]) not in ("blastn", "blastx", "tblastx"):
-        raise mikado_lib.exceptions.InvalidJson("""Invalid BLAST program specified: {0}.
-        Supported options: blastn, blastx, tblastx.""")
-    if os.path.dirname(json_conf["blast"]["program"]) == "":
-        program = spawn.find_executable(json_conf["blast"]["program"])
-    else:
-        try:
-            program = os.path.abspath(json_conf["blast"]["program"])
-        except OSError:
-            raise mikado_lib.exceptions.InvalidJson(
-                "The selected BLAST program {0} has not been found on this system!".format(
-                    json_conf["blast"]["program"]))
-    json_conf["blast"]["program"] = program
+    json_conf["blast"]["program"] = spawn.find_executable(
+        json_conf["blast"]["program"])
 
-    if "evalue" not in json_conf["blast"]:
-        json_conf["blast"]["evalue"] = 10
-    else:
-        evalue = json_conf["blast"]["evalue"]
-        if not isinstance(evalue, (float, int)) or evalue < 0:
-            raise mikado_lib.exceptions.InvalidJson(
-                "Invalid evalue: {0}".format(evalue))
-    if "max_target_seqs" in json_conf["blast"]:
-        assert isinstance(json_conf["blast"]["max_target_seqs"], int)
-    else:
-        json_conf["blast"]["max_target_seqs"] = sys.maxsize
     if "database" not in json_conf["blast"]:
         raise mikado_lib.exceptions.InvalidJson("No BLAST database provided!")
     json_conf["blast"]["database"] = os.path.abspath(json_conf["blast"]["database"])

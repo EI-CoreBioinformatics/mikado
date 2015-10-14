@@ -131,8 +131,7 @@ class OrfSerializer:
 
     logger = create_null_logger("__orf_serializer__")
 
-    def __init__(self, handle, fasta_index=None,
-                 maxobjects=1000000, json_conf=None, logger=None):
+    def __init__(self, handle, json_conf=None, logger=None):
 
         """Constructor function. Arguments:
         - handle         the BED12 file
@@ -163,6 +162,8 @@ class OrfSerializer:
         if logger is not None:
             self.logger = check_logger(logger)
 
+        fasta_index = json_conf["serialise"]["files"]["transcripts"]
+
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
             self.fasta_index = SeqIO.index(fasta_index, "fasta")
@@ -186,7 +187,7 @@ class OrfSerializer:
         if Orf.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)
         self.session = session()
-        self.maxobjects = maxobjects
+        self.maxobjects = json_conf["serialise"]["max_objects"]
 
     def serialize(self):
         """

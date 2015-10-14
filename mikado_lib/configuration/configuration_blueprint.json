@@ -98,26 +98,26 @@
           "type": "object",
           "properties": {
             "junctions": {
-              "type": "string",
-              "default": ""
-            },
-            "blast": {
               "type": "array",
-              "default": []
+              "default": [""]
+            },
+            "xml": {
+              "type": "array",
+              "default": [""]
             },
             "orfs": {
               "type": "array",
               "default": [""]
             },
             "transcripts": {
-              "type": "array",
-              "default": ["mikado_prepared.fasta"]
+              "type": "string",
+              "default": "mikado_prepared.fasta"
             },
             "log": {
               "type": "string",
               "default": "serialise.log"
             },
-            "fai": {
+            "genome_fai": {
               "type": "string"
             },
             "blast_targets": {
@@ -505,6 +505,19 @@
           "default": "plants.yaml"
         }
       }
+    }
+  },
+  "blast": {
+    "type": "object",
+    "Comment": ["Options related to the BLAST output"],
+    "SimpleComment": ["Options related to the BLAST output"],
+    "properties":{
+      "program": {"type": "string", "default": "blastx",
+        "enum": ["blastx", "tblastn", "blastp"]},
+      "execute": {"type": "boolean", "default": false},
+      "max_target_seqs": {"type": "integer", "default": 1000000},
+      "evalue": {"type": "number", "default": 10, "minimum": 0},
+      "database": {"type": "string", "default": ""}
     }
   }
 }

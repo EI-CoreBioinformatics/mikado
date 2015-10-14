@@ -15,6 +15,14 @@ import jsonschema
 
 def check_has_requirements(dictionary, schema, key=None):
 
+    """
+    Method to find all keys that
+:param dictionary:
+:param schema:
+:param key:
+:return:
+"""
+
     required = []
 
     for new_key, value in dictionary.items():

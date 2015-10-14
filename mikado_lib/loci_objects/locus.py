@@ -171,13 +171,11 @@ class Locus(Monosublocus, Abstractlocus):
             other.strand))
         if result.ccode[0] in ("i", "P", "p", "x"):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
-              other.primary_transcript.id, result.ccode[0]
-            ))
+                other.primary_transcript.id, result.ccode[0]))
             return True
         elif other.strand is None and result.ccode[0] in ("_", "o", "e"):
             self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
-              other.primary_transcript.id, result.ccode[0]
-            ))
+                other.primary_transcript.id, result.ccode[0]))
             return True
 
         return False
@@ -273,6 +271,7 @@ class Locus(Monosublocus, Abstractlocus):
                 myid = "{0}.{1}".format(myid, self.counter)
             return myid
 
+    # pylint: disable=arguments-differ
     @id.setter
     def id(self, string):
 
@@ -296,7 +295,7 @@ class Locus(Monosublocus, Abstractlocus):
             self.transcripts[tid].id = new_id
             self.transcripts[new_id] = self.transcripts.pop(tid)
 
-    # pylint: disable=invalid-name
+    # pylint: enable=invalid-name,arguments-differ
 
     @property
     def is_fragment(self):

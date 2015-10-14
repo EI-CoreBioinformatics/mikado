@@ -1226,8 +1226,7 @@ class Transcript:
                                           hit["target_aligned_length"],
                                           new_hit["global_identity"],
                                           new_hit["query_aligned_length"],
-                                          new_hit["target_aligned_length"],
-                                          )
+                                          new_hit["target_aligned_length"])
 
                         new_transcript.blast_hits.append(new_hit)
                     else:
@@ -1250,9 +1249,8 @@ class Transcript:
     def __recalculate_hit(self, hit, boundary):
         """Static method to recalculate coverage/identity for new hits."""
 
-        __valid_matches = set([chr(x) for x in range(65, 91)] +
-                          [chr(x) for x in range(97, 123)] +
-                          ["|"])
+        __valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
+                              ["|"])
 
         hit_dict = dict()
         for key in iter(k for k in hit.keys() if k not in ("hsps",)):
@@ -1269,11 +1267,9 @@ class Transcript:
 
         best_hsp = (float("inf"), float("-inf"))
 
-        for counter, hsp in enumerate(hit["hsps"]):
+        for hsp in hit["hsps"]:
             _ = Abstractlocus.overlap((hsp["query_hsp_start"], hsp["query_hsp_end"]), boundary)
-            if _ <= minimal_overlap * (boundary[1] + 1 - boundary[0]):
-                pass
-            else:
+            if _ >= minimal_overlap * (boundary[1] + 1 - boundary[0]):
                 hsp_dict_list.append(hsp)
                 if hsp["hsp_evalue"] < best_hsp[0]:
                     best_hsp = (hsp["hsp_evalue"], hsp["hsp_bits"])
@@ -1283,13 +1279,13 @@ class Transcript:
 
                 query_pos = hsp["query_hsp_start"] - 1
 
-                for aa in hsp["match"]:
-                    if aa in __valid_matches or aa == "+":
+                for amino in hsp["match"]:
+                    if amino in __valid_matches or amino == "+":
                         query_pos += 1
                         positives.add(query_pos)
-                        if aa != "+":
+                        if amino != "+":
                             identical_positions.add(query_pos)
-                    elif aa == "_":  # Gap in the target sequence
+                    elif amino == "_":  # Gap in the target sequence
                         query_pos += 1
 
         if len(hsp_dict_list) == 0:
@@ -1770,10 +1766,9 @@ class Transcript:
                 chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
                 import sqlalchemy
                 if self.session.query(Junction).filter(sqlalchemy.and_(
-                    Junction.chrom_id == chrom_id,
-                    intron[0] == Junction.junction_start,
-                    intron[1] == Junction.junction_end)
-                ).count() == 1:
+                        Junction.chrom_id == chrom_id,
+                        intron[0] == Junction.junction_start,
+                        intron[1] == Junction.junction_end)).count() == 1:
                     self.verified_introns.add(intron)
 
         else:
@@ -3212,8 +3207,9 @@ class Transcript:
         similarities.
         As in SnowyOwl, the score for each hit is calculated by taking the percentage of positive
         matches and dividing it by (2 * len(self.blast_hits)).
-        IMPORTANT: when splitting transcripts by ORF, a blast hit is added to the new transcript only if
-         it is contained within the new transcript. This WILL screw up a bit the homology score.
+        IMPORTANT: when splitting transcripts by ORF, a blast hit is added to the new transcript
+        only if it is contained within the new transcript.
+        This WILL screw up a bit the homology score.
         :return
         """
 

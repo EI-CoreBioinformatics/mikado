@@ -105,7 +105,8 @@ class Target(DBBASE):
 
 
 class Hsp(DBBASE):
-    """
+
+    r"""
     This class serializes and stores into the DB the various HSPs.
     It is directly connected to the Hit table, through the "hit_id"
     reference key.
@@ -196,17 +197,13 @@ class Hsp(DBBASE):
     query_object = relationship(Query, uselist=False)
     target_object = relationship(Target, uselist=False)
 
-    query = column_property(select([
-        Query.query_name]).where(
+    query = column_property(select([Query.query_name]).where(
         Query.query_id == query_id))
-    query_length = column_property(select([
-        Query.query_length]).where(
+    query_length = column_property(select([Query.query_length]).where(
         Query.query_id == query_id))
-    target = select(
-        [Target.target_name]).where(
+    target = select([Target.target_name]).where(
         Target.target_id == target_id)
-    target_length = select(
-        [Target.target_length]).where(
+    target_length = select([Target.target_length]).where(
         Target.target_id == target_id)
 
     __table_args__ = (pk_constraint, query_index, target_index, combined_index)
@@ -355,17 +352,13 @@ class Hit(DBBASE):
                         foreign_keys=[query_id, target_id],
                         primaryjoin=join_condition)
 
-    query = column_property(select([
-        Query.query_name]).where(
+    query = column_property(select([Query.query_name]).where(
         Query.query_id == query_id))
-    query_length = column_property(select([
-        Query.query_length]).where(
+    query_length = column_property(select([Query.query_length]).where(
         Query.query_id == query_id))
-    target = select(
-        [Target.target_name]).where(
+    target = select([Target.target_name]).where(
         Target.target_id == target_id)
-    target_length = select(
-        [Target.target_length]).where(
+    target_length = select([Target.target_length]).where(
         Target.target_id == target_id)
 
     __table_args__ = (qt_constraint, qt_index, query_index, target_index)
@@ -540,7 +533,10 @@ class Hit(DBBASE):
         This property returns the quotient (Query Length)/(Target Length)
         """
 
-        return self.query_length * self.query_multiplier / (self.target_length * self.target_multiplier)
+        ratio = self.query_length * self.query_multiplier
+        ratio /= self.target_length * self.target_multiplier
+
+        return ratio
 
     @hybrid_property
     def hit_query_ratio(self):
@@ -548,7 +544,10 @@ class Hit(DBBASE):
         This property returns the quotient (Target Length)/(Query Length)
         """
 
-        return self.target_length * self.target_multiplier / (self.query_length * self.query_multiplier)
+        ratio = self.target_length * self.target_multiplier
+        ratio /= (self.query_length * self.query_multiplier)
+
+        return ratio
 
 
 class XmlSerializer:
@@ -998,7 +997,7 @@ class XmlSerializer:
 
 def prepare_hsp(hsp, counter):
 
-    """
+    r"""
     Prepare a HSP for loading into the DB.
     The match line will be reworked in the following way:
 
@@ -1014,9 +1013,8 @@ def prepare_hsp(hsp, counter):
     :rtype: (dict, set, set)
     """
 
-    valid_matches = set([chr(x) for x in range(65, 91)] +
-                      [chr(x) for x in range(97, 123)] +
-                      ["|", "*"])
+    valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
+                        ["|", "*"])
 
     identical_positions, positives = set(), set()
 

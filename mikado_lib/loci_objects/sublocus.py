@@ -320,7 +320,7 @@ class Sublocus(Abstractlocus):
             intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds
         ])
         retained_introns = []
-        for position, exon in enumerate(transcript.exons):
+        for exon in transcript.exons:
             # Monobase exons are a problem
             if exon[0] == exon[1]:
                 self.logger.warning("Monobase exon found in %s: %s:%d-%d",
@@ -474,46 +474,30 @@ class Sublocus(Abstractlocus):
         for tid in self.transcripts:
             tid_metric = getattr(self.transcripts[tid], param)
             score = 0
-            if ("filter" in self.json_conf["scoring"][param]
-                and self.json_conf["scoring"][param]["filter"] != {}):
+            check = True
+            if ("filter" in self.json_conf["scoring"][param] and
+                    self.json_conf["scoring"][param]["filter"] != {}):
                 check = self.evaluate(tid_metric, self.json_conf["scoring"][param]["filter"])
-            else:
-                check = True
 
-            if check is False:
-                score = 0
-            else:
-                if rescaling == "max":
-                    if min(metrics) == max(metrics):
-                        score = 1
-                    else:
-                        score = abs((tid_metric - min(metrics)) / denominator)
-                    # self.logger.warning("For %s, score of %s is %d (max. %d/%d)",
-                    #                   tid, param, score,
-                    #                   abs((tid_metric - min(metrics))), denominator)
-                elif rescaling == "min":
-                    if min(metrics) == max(metrics):
-                        score = 1
-                    else:
-                        score = abs(1 - (tid_metric - min(metrics)) / denominator)
-                    # self.logger.warning("For %s, score of %s is %d (min, %d/%d)",
-                    #                   tid, param, score,
-                    #                   abs(1-(tid_metric - min(metrics))), denominator)
-                elif rescaling == "target":
+            if check is True:
+                if rescaling == "target":
                     score = 1 - abs(tid_metric - target) / denominator
-                    # self.logger.warning("For %s, score of %s is %d (target %d, 1-%d/%d)",
-                    #                   tid, param, score, target,
-                    #                   abs(tid_metric - target), denominator)
+                else:
+                    if min(metrics) == max(metrics):
+                        score = 1
+                    elif rescaling == "max":
+                        score = abs((tid_metric - min(metrics)) / denominator)
+                    elif rescaling == "min":
+                        score = abs(1 - (tid_metric - min(metrics)) / denominator)
 
             score *= self.json_conf["scoring"][param]["multiplier"]
             self.scores[tid][param] = round(score, 2)
             scores.append(score)
 
         # This MUST be true
-        if "filter" not in self.json_conf["scoring"][param]:
-            if max(scores) == 0:
-                self.logger.warning("All transcripts have a score of 0 for %s in %s",
-                                    param, self.id)
+        if "filter" not in self.json_conf["scoring"][param] and max(scores) == 0:
+            self.logger.warning("All transcripts have a score of 0 for %s in %s",
+                                param, self.id)
 
     def print_metrics(self):
 

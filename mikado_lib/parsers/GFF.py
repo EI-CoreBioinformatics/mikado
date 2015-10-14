@@ -250,6 +250,12 @@ class GffLine(GFAnnotation):
 
     @transcript.setter
     def transcript(self, string):
+        """
+        Setter for the transcript property. It performs a light sanity check on the new
+        assigned value.
+        :param string:
+        :return:
+        """
         if self.is_exon is True:
             self.parent = string
         elif self.is_transcript is True:

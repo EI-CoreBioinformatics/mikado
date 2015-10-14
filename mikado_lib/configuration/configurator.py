@@ -41,7 +41,8 @@ def extend_with_default(validator_class):
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:
-                if "type" not in subschema: continue
+                if "type" not in subschema:
+                    continue
                 elif subschema["type"] == "object":
                     instance[prop] = dict()
                     if "Comment" in subschema:
@@ -58,9 +59,7 @@ def extend_with_default(validator_class):
         :param schema: the schema to be used as blueprint.
         :return:
         """
-        for error in validate_properties(
-            validator, properties, instance, schema,
-        ):
+        for error in validate_properties(validator, properties, instance, schema):
             yield error
         instance = set_default(instance, properties)
 
@@ -114,8 +113,8 @@ def check_scoring(json_conf):
     """
 
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "scoring_blueprint.json")) as sc:
-        scoring_schema = json.load(sc)
+                           "scoring_blueprint.json")) as schema:
+        scoring_schema = json.load(schema)
 
     parameters_found = set()
     parameters_not_found = []
@@ -136,7 +135,7 @@ def check_scoring(json_conf):
             errors = list(jsonschema.Draft4Validator(scoring_schema).iter_errors(
                 json_conf["scoring"][parameter]))
             raise mikado_lib.exceptions.InvalidJson("Invalid scoring for {}:\n{}".format(
-                parameter,"\n".join(errors)))
+                parameter, "\n".join(errors)))
         try:
             validator(scoring_schema).validate(json_conf["scoring"][parameter])
         except Exception as err:
@@ -144,8 +143,9 @@ def check_scoring(json_conf):
         if json_conf["scoring"][parameter]["rescaling"] == "target":
             if "value" not in json_conf["scoring"][parameter]:
                 message = """Target rescaling requested for {0} but no target value specified.
-                    Please specify it with the \"value\" keyword.\n{1}""".format(parameter,
-                                                                                 json_conf["scoring"][parameter])
+                    Please specify it with the \"value\" keyword.\n{1}""".format(
+                        parameter,
+                        json_conf["scoring"][parameter])
                 raise mikado_lib.exceptions.UnrecognizedRescaler(message)
 
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0:
@@ -184,8 +184,8 @@ def check_requirements(json_conf):
     parameters_not_found = []
 
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "requirements_blueprint.json")) as rs:
-        require_schema = json.load(rs)
+                           "requirements_blueprint.json")) as rs_blueprint:
+        require_schema = json.load(rs_blueprint)
 
     if "requirements" in json_conf:
         # Check that the parameters are valid
@@ -221,9 +221,9 @@ def check_requirements(json_conf):
             newexpr = json_conf["requirements"]["expression"][:]
         else:
 
-            if not jsonschema.Draft4Validator(require_schema["definitions"]["expression"]).is_valid(
-                json_conf["requirements"]["expression"]
-            ):
+            if not jsonschema.Draft4Validator(
+                    require_schema["definitions"]["expression"]).is_valid(
+                        json_conf["requirements"]["expression"]):
                 raise mikado_lib.exceptions.InvalidJson("Invalid expression field")
             expr = " ".join(json_conf["requirements"]["expression"])
             newexpr = expr[:]
@@ -388,15 +388,15 @@ def check_db(json_conf):
     :return:
     """
 
-    db_settings = json_conf["db_settings"]
-
     if json_conf["db_settings"]["dbtype"] in ("mysql", "postgresql"):
         if "dbhost" not in json_conf["db_settings"]:
             raise mikado_lib.exceptions.InvalidJson(
-                "No host specified for the {0} database!".format(json_conf["db_settings"]["dbtype"]))
+                "No host specified for the {0} database!".format(
+                    json_conf["db_settings"]["dbtype"]))
         if "dbuser" not in json_conf["db_settings"]:
             raise mikado_lib.exceptions.InvalidJson(
-                "No user specified for the {0} database!".format(json_conf["db_settings"]["dbtype"]))
+                "No user specified for the {0} database!".format(
+                    json_conf["db_settings"]["dbtype"]))
         if json_conf["db_settings"]["dbport"] == 0:
             if json_conf["db_settings"]["dbtype"] == "mysql":
                 json_conf["db_settings"]["dbport"] = 3306
@@ -406,7 +406,7 @@ def check_db(json_conf):
     return json_conf
 
 
-def check_json(json_conf, json_file):
+def check_json(json_conf):
 
     """
     :param json_conf: The dicitonary loaded from the configuration file.
@@ -429,8 +429,8 @@ def check_json(json_conf, json_file):
         "configuration_blueprint.json"
     )
 
-    with open(blue_print) as bl:
-        blue_print = json.load(bl)
+    with open(blue_print) as blue:
+        blue_print = json.load(blue)
 
     config_folder = os.path.dirname(os.path.abspath(__file__))
 
@@ -442,14 +442,12 @@ def check_json(json_conf, json_file):
     if "scoring_file" in json_conf:
         if os.path.exists(os.path.abspath(json_conf["scoring_file"])):
             json_conf["scoring_file"] = os.path.abspath(json_conf["scoring_file"])
-        elif os.path.exists(
-                    os.path.join(os.path.dirname(
-                        json_conf["filename"]), json_conf["scoring_file"])):
-                json_conf["scoring_file"] = os.path.join(
-                    os.path.dirname(json_conf["filename"]),
-                    json_conf["scoring_file"])
+        elif os.path.exists(os.path.join(os.path.dirname(json_conf["filename"]),
+                                         json_conf["scoring_file"])):
+            json_conf["scoring_file"] = os.path.join(
+                os.path.dirname(json_conf["filename"]), json_conf["scoring_file"])
         elif os.path.exists(os.path.join(config_folder, json_conf["scoring_file"])):
-                json_conf["scoring_file"] = os.path.join(config_folder, json_conf["scoring_file"])
+            json_conf["scoring_file"] = os.path.join(config_folder, json_conf["scoring_file"])
         else:
             raise mikado_lib.exceptions.InvalidJson(
                 "Scoring file not found: {0}".format(json_conf["scoring_file"]))
@@ -490,5 +488,5 @@ def to_json(string):
             else:
                 json_dict = json.load(json_file)
     json_dict["filename"] = string
-    json_dict = check_json(json_dict, string)
+    json_dict = check_json(json_dict)
     return json_dict

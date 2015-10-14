@@ -492,8 +492,6 @@ class Bed12Parser(Parser):
             line = self._handle.readline()
             if line == '':
                 raise StopIteration
-            try:
-                bed12 = BED12(line, fasta_index=self.fasta_index, transcriptomic=self.transcriptomic)
-            except:
-                pass
+            bed12 = BED12(line, fasta_index=self.fasta_index,
+                          transcriptomic=self.transcriptomic)
         return bed12

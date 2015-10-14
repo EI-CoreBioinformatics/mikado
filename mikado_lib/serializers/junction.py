@@ -17,15 +17,16 @@ from sqlalchemy import ForeignKey
 from sqlalchemy import CHAR
 from sqlalchemy import Index
 from sqlalchemy import Float
-from sqlalchemy.orm import relationship
+from sqlalchemy import select
+from sqlalchemy.orm import relationship, column_property
 from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.ext.hybrid import hybrid_method, hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_method
 from mikado_lib.utilities.dbutils import DBBASE, Inspector, connect
 
 from mikado_lib.parsers import bed12
 from mikado_lib.utilities.log_utils import check_logger, create_default_logger
 
-
+# pylint: disable=too-few-public-methods
 class Chrom(DBBASE):
     """
     Simple serialization class for chromosomes.
@@ -68,6 +69,7 @@ class Junction(DBBASE):
                       {"extend_existing": True})
 
     chrom_object = relationship(Chrom, uselist=False)
+    chrom = column_property(select([Chrom.name]).where(chrom_id == Chrom.chrom_id))
 
     def __init__(self, bed12_object, chrom_id):
         """
@@ -97,23 +99,6 @@ class Junction(DBBASE):
             end=self.end
         )
 
-    @hybrid_property
-    def chrom(self):
-        """
-        This property returns the name of the chromosome upon which the junction is located.
-        """
-
-        # chrom_object = self.chrom_object
-        # print(self.chrom_object.chrom_id)
-        if self.chrom_object:
-            return self.chrom_object.name
-        else:
-            return None
-
-    @chrom.expression
-    def chrom(cls):
-        return Chrom.name
-
     @hybrid_method
     def is_equal(self, chrom, start, end, strand):
         """
@@ -134,10 +119,9 @@ class Junction(DBBASE):
         # print(self.chrom_object.chrom_id)
 
         return ((self.chrom == chrom) and (self.start == start) and
-               (self.end == end)  and (self.strand == strand))
+                (self.end == end) and (self.strand == strand))
 
 
-# pylint: disable=too-few-public-methods
 class JunctionSerializer:
 
     """

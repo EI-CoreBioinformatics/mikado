@@ -100,4 +100,4 @@ import mikado_lib.parsers.GTF
 # # noinspection PyPep8
 import mikado_lib.parsers.bed12
 # # noinspection PyPep8
-# import mikado_lib.parsers.blast_utils
+import mikado_lib.parsers.blast_utils

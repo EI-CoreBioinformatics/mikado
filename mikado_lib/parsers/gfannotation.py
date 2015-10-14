@@ -228,6 +228,8 @@ class GFAnnotation(metaclass=abc.ABCMeta):
 
     @property
     def is_cds(self):
+        """This property evaluates to True if the row describes a CDS/UTR segment,
+        False otherwise."""
         if self.is_exon is False:
             return False
         _ = self.feature.lower()

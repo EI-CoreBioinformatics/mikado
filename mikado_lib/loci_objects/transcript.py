@@ -26,6 +26,7 @@ from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 # mikado_lib imports
 from mikado_lib.serializers.junction import Junction, Chrom
+import mikado_lib.utilities
 import mikado_lib.serializers.orf
 from mikado_lib.serializers.blast_serializer import Query, Hit
 from mikado_lib.serializers.orf import Orf
@@ -3261,3 +3262,14 @@ class Transcript:
         """
         return self.snowy_blast_score
         # return self.best_bits
+
+    @Metric
+    def canonical_intron_proportion(self):
+
+        """
+        This metric returns the proportion of canonical introns
+         of the transcript on its total number of introns.
+        :return:
+        """
+
+        return float(self.attributes.get("canonical_proportion", 0))

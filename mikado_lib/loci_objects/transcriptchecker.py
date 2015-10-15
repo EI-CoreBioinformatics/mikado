@@ -126,20 +126,23 @@ class TranscriptChecker(Transcript):
 
         if self.strand_specific is False and self.monoexonic is True:
             self.strand = None
-            return
 
         elif self.monoexonic is False:
             canonical_counter = Counter()
+            canonical_index = dict()
 
             checker = partial(self._check_intron,
                               **{"canonical_splices": self.canonical_splices})
 
-            for intron in self.introns:
-                canonical_counter.update([checker(intron)])
+            for pos, intron in enumerate(self.introns):
+                canonical_index[pos+1] = checker(intron)
+
+            canonical_counter.update(canonical_index.values())
 
             if canonical_counter[None] == len(self.introns):
                 if self.lenient is False:
-                    raise IncorrectStrandError("No correct strand found for {0}".format(self.id))
+                    raise IncorrectStrandError("No correct strand found for {0}".format(
+                        self.id))
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
                 # if self.lenient is False:
@@ -165,8 +168,20 @@ class TranscriptChecker(Transcript):
             elif canonical_counter["-"] > 0:
                 self.reverse_strand()
                 self.reversed = True
+            else:
+                assert canonical_counter["+"] + canonical_counter[None] == len(self.introns)
+
+            # self.attributes["canonical_splices"] = ",".join(
+            #     str(k) for k in canonical_index.keys() if
+            #     canonical_index[k] in ("+", "-"))
+            # self.attributes["canonical_number"] = max(canonical_counter["+"],
+            #                                           canonical_counter["-"])
+            self.attributes[
+                "canonical_proportion"] = max(canonical_counter["+"],
+                                              canonical_counter["-"]) / len(self.introns)
 
         self.checked = True
+        return
 
     def _check_intron(self, intron, canonical_splices):
 

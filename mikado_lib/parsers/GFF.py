@@ -41,7 +41,7 @@ class GffLine(GFAnnotation):
         self.attribute_order = []
 
         for item in iter(x for x in self._attr.rstrip().split(';') if x != ''):
-            itemized = item.split('=')
+            itemized = item.strip().split('=')
             try:
                 if itemized[0].lower() == "parent":
                     self.parent = itemized[1].split(",")
@@ -105,7 +105,7 @@ class GffLine(GFAnnotation):
                 except KeyError:
                     # Hack for those times when we modify the attributes at runtime
                     continue
-        attrs = ";".join(attrs)
+        attrs = "; ".join(attrs)
         return attrs
 
     # id is and id remains

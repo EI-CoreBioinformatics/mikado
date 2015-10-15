@@ -48,6 +48,7 @@ class GtfLine(GFAnnotation):
 
         info_list = []
         for info in iter(x for x in self._attr.rstrip().split(';') if x != ''):
+            info = info.strip()
             info_list.append(info)
             info = info.lstrip().split(' ')
             try:
@@ -112,7 +113,7 @@ class GtfLine(GFAnnotation):
             else:
                 val = self.attributes[info]
             info_list.append("{0} \"{1}\"".format(info, val))
-        attributes = ";".join(info_list) + ";"
+        attributes = "; ".join(info_list) + ";"
         return attributes
 
     def _sort_feature(self, feature):

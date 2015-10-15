@@ -26,7 +26,7 @@ rule clean:
 
 rule clean_crumbs:
     run:
-        for filename in itertools.chain(["finished.ok"], glob.glob("all*loci*"),
+        for filename in itertools.chain(["finished.ok"], glob.glob("mikado*loci*"),
                                         glob.glob("compare*")):
             if os.path.exists(filename):
                 os.remove(filename)
@@ -60,7 +60,7 @@ rule blast_complete:
                         shell=True)
         subprocess.call(["blastx", "-num_threads", "5",
          "-query", input["query"], "-outfmt", "5", "-db", output["db"], "-out",
-          output["xml"], "-evalue", "0.000001", "-max_target_seqs", "10"],
+          output["xml"], "-evalue", "0.000000001", "-max_target_seqs", "10"],
           shell=False)
         command = ""
         shell(command)

@@ -5,7 +5,6 @@
 Subprogram that constitutes the first step of the mikado_lib pipeline.
 """
 
-import sys
 import os
 import argparse
 import operator

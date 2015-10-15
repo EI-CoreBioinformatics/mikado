@@ -8,7 +8,6 @@ import re
 import argparse
 import sys
 import mikado_lib
-import jsonschema
 
 """Stub of pre-configurer for mikado_lib"""
 

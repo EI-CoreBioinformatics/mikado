@@ -7,8 +7,10 @@
     "log_settings": {
       "Comment": [
         "Settings related to the logs. Keys:",
-        "log: the name of the log file. Default: mikado.log",
-        "log_level: verbosity. Default: WARNING. In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
+        "- sql_level: verbosity for SQL calls. Default: WARNING.",
+        "  In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'",
+        "- log_level: verbosity. Default: WARNING.",
+        "  In decreasing order: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'"
       ],
       "type": "object",
       "properties": {
@@ -17,6 +19,17 @@
           "default": "mikado.log"
         },
         "log_level": {
+          "type": "string",
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL"
+          ],
+          "default": "WARNING"
+        },
+        "sql_level": {
           "type": "string",
           "enum": [
             "DEBUG",
@@ -472,11 +485,20 @@
           "type": "object",
           "Comment": [
             "Input and output files for Mikado pick.",
-            "- input: input GTF/GFF3 file. Default: mikado_prepared.gtf",
+            "- gff: input GTF/GFF3 file. Default: mikado_prepared.gtf",
             "- loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3",
             "- subloci_out: optional GFF file with the intermediate subloci. Default: no output",
-            "- monoloci_out: optional GFF file with the intermediate monoloci. Default: no output"
+            "- monoloci_out: optional GFF file with the intermediate monoloci. Default: no output",
+            "- log: log file for this step."
           ],
+          "SimpleComment": [
+            "Input and output files for Mikado pick.",
+            "- gff: input GTF/GFF3 file. Default: mikado_prepared.gtf",
+            "- loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3",
+            "- subloci_out: optional GFF file with the intermediate subloci. Default: no output",
+            "- monoloci_out: optional GFF file with the intermediate monoloci. Default: no output",
+            "- log: log file for this step."],
+          "required": ["input", "loci_out"],
           "properties": {
             "input": {
               "type": "string",

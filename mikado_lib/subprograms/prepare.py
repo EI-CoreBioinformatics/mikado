@@ -196,8 +196,9 @@ def perform_check(keys, exon_lines, args, logger):
     return
 
 
-def prepare(args):
-    """Main script function."""
+def setup(args):
+    """Method to set up the analysis using the JSON configuration
+    and the command line options."""
 
     if args.json_conf["prepare"]["log"]:
         handler = logging.FileHandler(
@@ -242,10 +243,20 @@ def prepare(args):
     for option in ["cache",
                    "out", "out_fasta", "fasta",
                    "minimum_length", "threads", "single"]:
-        if getattr(args, option) or getattr(args, option) == 0:
+        if ((getattr(args, option) or getattr(args, option) == 0) and
+                getattr(args, option) is not False):
             args.json_conf["prepare"][option] = getattr(args, option)
 
-    print(args.json_conf["prepare"])
+    return args, logger
+
+
+def prepare(args):
+    """Main script function."""
+
+    #
+    # print(args.json_conf["prepare"])
+
+    args, logger = setup(args)
 
     assert os.path.exists(args.json_conf["prepare"]["fasta"])
     assert len(args.json_conf["prepare"]["gff"]) > 0

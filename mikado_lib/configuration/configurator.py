@@ -40,6 +40,8 @@ def extend_with_default(validator_class, simple=False):
         :return:
         """
         for prop, subschema in properties.items():
+            if instance is None:
+                instance = dict()
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:

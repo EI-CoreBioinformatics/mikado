@@ -172,9 +172,7 @@ def setup(args):
     if args.log_level == "DEBUG":
         level = args.json_conf["serialise"]["log_level"]
     else:
-        log_level = args.json_conf["serialise"]["log_level"]
-        level = logging._levelToName[min(50,
-                                         10 + logging._nameToLevel[log_level])]
+        level = args.json_conf["log_settings"]["sql_level"]
 
     sql_logger.setLevel(level)
     sql_logger.addHandler(logger.handlers[0])

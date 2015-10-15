@@ -61,6 +61,12 @@ def check_run_options(args):
     if args.purge is not None:
         args.json_conf["pick"]["purge"] = True
 
+    for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
+        if getattr(args, key):
+            if key == "gff":
+                key = "input"  # Redefine it for loading into the dictionary
+            args.json_conf["pick"]["files"][key] = getattr(args, key)
+
     return args
 
 
@@ -87,11 +93,6 @@ def pick(args):
 
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
-
-    if args.gff is not None:
-        args.gff.close()
-        args.gff = args.gff.name
-        args.json_conf["pick"]["files"]["input"] = args.gff
 
     creator = mikado_lib.loci_objects.Picker.Creator(
         args.json_conf, commandline=" ".join(sys.argv))

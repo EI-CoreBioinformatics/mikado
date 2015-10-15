@@ -250,8 +250,14 @@ class Creator:
         self.threads = self.json_conf["pick"]["run_options"]["threads"]
         self.input_file = self.json_conf["pick"]["files"]["input"]
         _ = self.define_input()  # Check the input file
-        self.sub_out = self.json_conf["pick"]["files"]["subloci_out"]
-        self.monolocus_out = self.json_conf["pick"]["files"]["monoloci_out"]
+        if self.json_conf["pick"]["files"]["subloci_out"]:
+            self.sub_out = self.json_conf["pick"]["files"]["subloci_out"]
+        else:
+            self.sub_out = ""
+        if self.json_conf["pick"]["files"]["monoloci_out"]:
+            self.monolocus_out = self.json_conf["pick"]["files"]["monoloci_out"]
+        else:
+            self.monolocus_out = ""
         self.locus_out = self.json_conf["pick"]["files"]["loci_out"]
         # pylint: disable=no-member
         self.context = multiprocessing.get_context()
@@ -277,10 +283,7 @@ class Creator:
         if json_conf["log_settings"]["log_level"] == "DEBUG":
             sqllogger.setLevel("DEBUG")
         else:
-            # Bump logging level up by one because SQLalchemy is REALLY verbose
-            levelno = min(logging._nameToLevel["CRITICAL"],
-                          logging._nameToLevel[json_conf["log_settings"]["log_level"]] + 10)
-            sqllogger.setLevel(logging._levelToName[levelno])
+            sqllogger.setLevel(json_conf["log_settings"]["sql_level"])
         sqllogger.addHandler(self.logger_queue_handler)
 
         # We need to set this to the lowest possible level,
@@ -445,7 +448,8 @@ class Creator:
             print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                   file=locus_out)
 
-        if self.sub_out != "":
+        if self.sub_out != '':
+            assert isinstance(self.sub_out, str)
             sub_metrics_file = re.sub("$", ".metrics.tsv",
                                       re.sub(".gff.?$", "", self.sub_out))
             sub_scores_file = re.sub("$", ".scores.tsv",
@@ -467,7 +471,7 @@ class Creator:
         else:
             sub_files = [None, None, None]
 
-        if self.monolocus_out != "":
+        if self.monolocus_out != '':
             mono_out = open(self.monolocus_out, 'w')
             print('##gff-version 3', file=mono_out)
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
@@ -532,7 +536,7 @@ class Creator:
         mono_out = handles[2]
 
         stranded_locus.logger = logger
-        if self.sub_out is not None:  # Skip this section if no sub_out is defined
+        if self.sub_out != '':  # Skip this section if no sub_out is defined
             sub_lines = stranded_locus.__str__(
                 level="subloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
@@ -546,7 +550,7 @@ class Creator:
                 sub_metrics.writerow(row)
             for row in sub_scores_rows:
                 sub_scores.writerow(row)
-        if self.monolocus_out is not None:
+        if self.monolocus_out != '':
             mono_lines = stranded_locus.__str__(
                 level="monosubloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
@@ -760,7 +764,7 @@ class Creator:
         # Finally load BLAST
 
         if self.json_conf["pick"]["chimera_split"]["execute"] is True and \
-                self.json_conf["chimera_split"]["blast_check"] is True:
+                self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
             data_dict["hits"] = self.__preload_blast(engine, queries)
         else:
             data_dict["hits"] = dict()
@@ -789,7 +793,6 @@ class Creator:
             if current_locus.initialized is False:
                 # This happens when we have removed all transcripts from the locus
                 # due to errors which should have been caught and logged
-                current_locus = None
                 self.main_logger.warning(
                     "%s had all transcripts failing checks, ignoring it",
                     current_locus_id)

@@ -61,6 +61,12 @@ def get_key(new_dict, key, default):
 
 def create_simple_config():
 
+    """
+    Method to create a stripped down configuration dictionary
+    containing only SimpleComments and required fields.
+    :return:
+    """
+
     default = mikado_lib.configuration.configurator.to_json("", simple=True)
     validator = mikado_lib.configuration.configurator.create_validator(simple=True)
 
@@ -76,6 +82,7 @@ def create_simple_config():
     # Sort the composite keys by depth
     for ckey in sorted(composite_keys, key=len, reverse=True):
         defa = default
+        # Get to the latest position
         for pos, k in enumerate(ckey):
             try:
                 defa = defa[k]
@@ -97,16 +104,31 @@ def create_config(args):
     :return:
     """
 
-    if args.simple is False:
+    if args.full is True:
         default = mikado_lib.configuration.configurator.to_json("")
         del default["scoring"]
         del default["requirements"]
-        output = yaml.dump(default, default_flow_style=False)
+        config = default
     else:
-        output = yaml.dump(create_simple_config(), default_flow_style=False)
+        config = create_simple_config()
+
+    if args.gff:
+        args.gff = args.gff.split(",")
+        config["prepare"]["gff"] = args.gff
+
+        if args.labels != '':
+            args.labels = args.labels.split(",")
+            if not len(args.labels) == len(args.gff):
+                raise ValueError("""Length mismatch between input files and labels!
+                GFFs: {0} (length {1})
+                Labels: {2} (length {3})""".format(
+                    args.gff, len(args.gff),
+                    args.labels, len(args.labels)))
+            config["prepare"]["labels"] = args.labels
 
     comment = []
     comment_level = -1
+    output = yaml.dump(config, default_flow_style=False)
 
     for line in output.split("\n"):
         # comment found
@@ -121,14 +143,17 @@ def create_config(args):
                         print("{spaces}#  {comment}".format(spaces=" "*comment_level,
                                                             comment=re.sub("'", "", re.sub("^- ", "", l))),
                               file=args.out)
+                    if level < comment_level:
+                        print("{0}{{}}".format(" " * comment_level), file=args.out)
                     comment = []
                     comment_level = -1
+
                     print(line.rstrip(), file=args.out)
             else:
-                if args.simple is True:
-                    comment = [re.sub("SimpleComment:", "", line.strip())]
-                else:
+                if args.full is True:
                     comment = [re.sub("Comment:", "", line.strip())]
+                else:
+                    comment = [re.sub("SimpleComment:", "", line.strip())]
                 comment_level = level
         else:
             print(line.rstrip(), file=args.out)
@@ -141,7 +166,11 @@ def create_config(args):
 
 def configure_parser():
     parser = argparse.ArgumentParser("Configuration utility")
-    parser.add_argument("--simple", action="store_true", default=False)
+    parser.add_argument("--full", action="store_true", default=False)
+    parser.add_argument("--labels", type=str, default="",
+                        help="""Labels to attach to the IDs of the transcripts of the input files,
+                        separated by comma.""")
+    parser.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)
     return parser

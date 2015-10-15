@@ -49,6 +49,16 @@ def check_has_requirements(dictionary, schema, key=None):
 
 def get_key(new_dict, key, default):
 
+    """
+    Recursive method to get a nested key from inside the "default" dict
+    and transfer it, keeping the tree structure, inside the
+    new_dict
+    :param new_dict: dictionary to transfer the key to
+    :param key: composite key
+    :param default: dictionary to extract the key from
+    :return: new_dict (with updated structure)
+    """
+
     if isinstance(default[key[0]], dict):
         assert len(key) > 1
         new_dict.setdefault(key[0], new_dict.get(key[0], dict()))

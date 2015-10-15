@@ -1680,21 +1680,12 @@ class Transcript:
 
         if data_dict is not None:
             self.retrieve_from_dict(data_dict)
-            # yield from self.retrieve_from_dict(data_dict)
         else:
             if session is None:
                 self.__connect_to_db()
             else:
                 self.session = session
             self.__load_verified_introns(introns)
-            # yield from self.load_verified_introns(introns)
-            # self.query_id = self.query_baked(self.session).params(
-            #     query_name=self.id).all()
-            # if len(self.query_id) == 0:
-            #     self.logger.warning(
-            #         "Transcript not in database: %s", self.id)
-            # else:
-            #     self.query_id = self.query_id[0].query_id
             candidate_orfs = []
             for orf in self.retrieve_orfs():
                 candidate_orfs.append(orf)
@@ -1718,8 +1709,8 @@ class Transcript:
                           sorted(self.introns))
 
         self.verified_introns = set.intersection(
-            # set([(self.chrom, intron[0], intron[1], self.strand) for intron in self.introns]),
-            set([(self.chrom, intron[0], intron[1]) for intron in self.introns]),
+            set((self.chrom, intron[0], intron[1], self.strand)
+                for intron in self.introns),
             data_dict["junctions"])
         self.logger.debug("Verified introns for %s: %s", self.id,
                           sorted(self.verified_introns))

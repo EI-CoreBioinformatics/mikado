@@ -422,6 +422,9 @@ class Superlocus(Abstractlocus):
         if isinstance(data_dict, dict):
             self.logger.debug("Length of data dict: %s", len(data_dict))
         self._load_introns(data_dict)
+        self.logger.debug("Verified %d introns for %s",
+                          len(self.locus_verified_introns),
+                          self.id)
         tid_keys = self.transcripts.keys()
         to_remove, to_add = set(), set()
         for tid in tid_keys:

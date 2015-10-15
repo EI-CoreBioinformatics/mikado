@@ -54,7 +54,7 @@ class Sublocus(Abstractlocus):
         self.fixed_size = True if span.feature == "sublocus" else False
         if span.__name__ == "transcript":
             span.finalize()
-        self.purge = self.json_conf["pick"]["purge"]
+        self.purge = self.json_conf["pick"]["run_options"]["purge"]
         self.source = self.json_conf["pick"]["output_format"]["source"]
 
         self.excluded = None

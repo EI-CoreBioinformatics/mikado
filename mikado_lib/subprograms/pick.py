@@ -43,23 +43,23 @@ def check_run_options(args):
     :return: args
     """
     if args.procs is not None:
-        args.json_conf["pick"]["threads"] = args.procs
+        args.json_conf["pick"]["run_options"]["threads"] = args.procs
 
     if args.shm_db is not None or args.shm is True:
         args.shm = True
-        args.json_conf["pick"]["shm"] = True
+        args.json_conf["pick"]["run_options"]["shm"] = True
         # I will deal with it being None or not in Creator
-        args.json_conf["pick"]["shm_db"] = args.shm_db
+        args.json_conf["pick"]["run_options"]["shm_db"] = args.shm_db
 
-    if args.cache is True:
-        args.json_conf["pick"]["preload"] = True
+    if args.preload is True:
+        args.json_conf["pick"]["run_options"]["preload"] = True
 
     args.json_conf["single_thread"] = args.single
 
     if args.no_cds is not None:
-        args.json_conf["pick"]["exclude_cds"] = True
+        args.json_conf["pick"]["run_options"]["exclude_cds"] = True
     if args.purge is not None:
-        args.json_conf["pick"]["purge"] = True
+        args.json_conf["pick"]["run_options"]["purge"] = True
 
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
@@ -94,7 +94,7 @@ def pick(args):
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
 
-    creator = mikado_lib.loci_objects.Picker.Creator(
+    creator = mikado_lib.loci_objects.picker.Picker(
         args.json_conf, commandline=" ".join(sys.argv))
     try:
         creator()  # Run
@@ -133,7 +133,7 @@ def pick_parser():
                         help="""Name of the shared memory DB.
                         WARNING: if set, the DB copy will be persistently copied
                         into memory, so that multiple pickers can share.""")
-    parser.add_argument('--cache', action='store_true', default=False,
+    parser.add_argument('--preload', action='store_true', default=False,
                         help='''Flag. If set, the mikado_lib DB will be pre-loaded
                         into memory for faster access. WARNING: this option will
                         increase memory usage and the preloading might be quite slow.''')

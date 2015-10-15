@@ -41,7 +41,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.metrics_calculated = False
         self.json_conf = json_conf
         self.excluded = None
-        self.purge = self.json_conf["pick"]["purge"]
+        self.purge = self.json_conf["pick"]["run_options"]["purge"]
         self.scores_calculated = False
         # Add the transcript to the Locus
         self.locus_verified_introns = set()

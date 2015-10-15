@@ -10,7 +10,7 @@
 """
 
 import mikado_lib.loci_objects.abstractlocus
-import mikado_lib.loci_objects.Picker
+import mikado_lib.loci_objects.picker
 import mikado_lib.loci_objects.excluded
 import mikado_lib.loci_objects.locus
 import mikado_lib.loci_objects.monosublocus

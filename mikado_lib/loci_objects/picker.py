@@ -207,7 +207,7 @@ def analyse_locus(slocus: Superlocus,
 
 
 # pylint: disable=too-many-instance-attributes
-class Creator:
+class Picker:
 
     """
     This class is used to launch the main mikado_lib pipeline. Its purpose is to parse
@@ -742,6 +742,10 @@ class Creator:
 
         self.main_logger.info("%d junctions loaded",
                               len(data_dict["junctions"]))
+        self.main_logger.debug("Example junctions:\n{0}".format(
+            "\n".join(str(junc) for junc in list(data_dict["junctions"])[
+                                            :min(10, len(data_dict["junctions"]))])))
+
         queries = dict((que.query_id, que) for que in engine.execute("select * from query"))
 
         # Then load ORFs

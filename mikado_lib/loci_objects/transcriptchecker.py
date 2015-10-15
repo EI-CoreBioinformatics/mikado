@@ -142,25 +142,25 @@ class TranscriptChecker(Transcript):
                     raise IncorrectStrandError("No correct strand found for {0}".format(self.id))
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
-                if self.lenient is False:
-                    err_messg = """Transcript {0} has {1} positive and {2} negative
-                    splice junctions. Aborting.""".format(
-                        self.id,
-                        canonical_counter["+"],
-                        canonical_counter["-"])
-                    raise IncorrectStrandError(err_messg)
-                else:
-                    self.mixed_splices = True
-
-                if canonical_counter["+"] >= canonical_counter["-"]:
-                    self.mixed_attribute = "{0}concordant,{1}discordant".format(
-                        canonical_counter["+"],
-                        canonical_counter["-"])
-                else:
-                    self.reverse_strand()
-                    self.mixed_attribute = "{0}concordant,{1}discordant".format(
-                        canonical_counter["-"],
-                        canonical_counter["+"])
+                # if self.lenient is False:
+                err_messg = """Transcript {0} has {1} positive and {2} negative
+                splice junctions. Aborting.""".format(
+                    self.id,
+                    canonical_counter["+"],
+                    canonical_counter["-"])
+                raise IncorrectStrandError(err_messg)
+                # else:
+                #     self.mixed_splices = True
+                #
+                #     if canonical_counter["+"] >= canonical_counter["-"]:
+                #         self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                #             canonical_counter["+"],
+                #             canonical_counter["-"])
+                #     else:
+                #         self.reverse_strand()
+                #         self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                #             canonical_counter["-"],
+                #             canonical_counter["+"])
 
             elif canonical_counter["-"] > 0:
                 self.reverse_strand()

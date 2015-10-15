@@ -427,7 +427,8 @@ def prepare_parser():
                         help="Output file. Default: mikado_prepared.fasta.")
     parser.add_argument("--cache", default=False, action="store_true",
                         help="Whether to load the whole genome in memory or not.")
-    parser.add_argument("--json_conf", type=to_json, default="",
+    parser.add_argument("--json-conf", dest="json_conf",
+                        type=to_json, default="",
                         help="Configuration file.")
     parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")
     parser.set_defaults(func=prepare)

@@ -6,7 +6,7 @@
 import argparse
 import sys
 import mikado_lib.loci_objects
-import mikado_lib.configuration.configurator
+from mikado_lib.configuration.configurator import to_json
 from mikado_lib.subprograms import to_gff
 import mikado_lib.exceptions
 
@@ -78,9 +78,6 @@ def pick(args):
 
     """
 
-    args.json_conf.close()
-    args.json_conf = mikado_lib.configuration.configurator.to_json(args.json_conf.name)
-
     args = check_log_settings(args)
     args = check_run_options(args)
 
@@ -111,7 +108,8 @@ def pick_parser():
     parser.add_argument("-p", "--procs", type=int, default=None,
                         help="""Number of processors to use.
                         Default: look in the configuration file (1 if undefined)""")
-    parser.add_argument("--json_conf", type=argparse.FileType(), required=True,
+    parser.add_argument("--json-conf", dest="json_conf",
+                        type=to_json, required=True,
                         help="JSON/YAML configuration file for scoring transcripts.")
     parser.add_argument("--subloci_out", type=str, default=None)
     parser.add_argument("--monoloci_out", type=str, default=None)

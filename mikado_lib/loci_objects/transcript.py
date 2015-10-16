@@ -25,7 +25,7 @@ from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 # mikado_lib imports
-from mikado_lib.serializers.junction import Junction, Chrom
+from mikado_lib.serializers.junction import Junction
 import mikado_lib.utilities
 import mikado_lib.serializers.orf
 from mikado_lib.serializers.blast_serializer import Query, Hit
@@ -1686,14 +1686,14 @@ class Transcript:
                 self.__connect_to_db()
             else:
                 self.session = session
-            self.__load_verified_introns(introns)
             candidate_orfs = []
             for orf in self.retrieve_orfs():
                 candidate_orfs.append(orf)
 
             self.load_orfs(candidate_orfs)
             self.__load_blast()
-            self.logger.debug("Loaded %s", self.id)
+        self.__load_verified_introns(data_dict, introns)
+        self.logger.debug("Loaded data for %s", self.id)
 
     def retrieve_from_dict(self, data_dict):
         """
@@ -1769,7 +1769,7 @@ class Transcript:
         """
         self.json_conf = json_conf
 
-    def __load_verified_introns(self, introns=None):
+    def __load_verified_introns(self, data_dict=None, introns=None):
 
         """This method will load verified junctions from the external
         (usually the superlocus class).
@@ -1779,25 +1779,47 @@ class Transcript:
         """
 
         self.logger.debug("Checking introns; candidates %s", self.introns)
-        if introns is None or len(introns) == 0:
+        if data_dict is None:
+            self.logger.debug("Checking introns using the database for %s",
+                              self.id)
+
             for intron in self.introns:
                 # Disable checks as the hybridproperties confuse
                 # both pycharm and pylint
                 # noinspection PyCallByClass,PyTypeChecker
                 # pylint: disable=no-value-for-parameter
-                chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
-                import sqlalchemy
-                if self.session.query(Junction).filter(sqlalchemy.and_(
-                        Junction.chrom_id == chrom_id,
-                        intron[0] == Junction.junction_start,
-                        intron[1] == Junction.junction_end)).count() == 1:
-                    self.verified_introns.add(intron)
+                # chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
+                # import sqlalchemy
+                for ver_intron in self.session.query(Junction).filter(and_(
+                            Junction.chrom == self.chrom,
+                            intron[0] == Junction.junction_start,
+                            intron[1] == Junction.junction_end)):
+                    if ver_intron.strand in (self.strand, None):
+                        self.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                          self.chrom, ver_intron.strand,
+                                          intron[0], intron[1], self.id)
+                        self.verified_introns.add(intron)
 
         else:
-            for intron in introns:
-                if intron in self.introns:
+            self.logger.debug("Checking introns using data structure for %s",
+                              self.id)
+            for intron in self.introns:
+                self.logger.debug("Checking intron %s%s:%d-%d for %s",
+                                  self.chrom, self.strand,
+                                  intron[0], intron[1], self.id)
+                if (intron[0], intron[1], self.strand) in introns:
+                    self.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                      self.chrom, self.strand,
+                                      intron[0], intron[1], self.id)
                     self.verified_introns.add(intron)
-        self.logger.debug("Found these introns: %s", self.verified_introns)
+                elif (intron[0], intron[1], None) in introns:
+                    self.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                       self.chrom, None,
+                                       intron[0], intron[1], self.id)
+                    self.verified_introns.add(intron)
+
+        self.logger.debug("Found these introns for %s: %s",
+                          self.id, self.verified_introns)
         return
 
     def retrieve_orfs(self):

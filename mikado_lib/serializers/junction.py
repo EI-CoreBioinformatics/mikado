@@ -65,7 +65,7 @@ class Junction(DBBASE):
     junction_end = Column(Integer, nullable=False)
     score = Column(Float)
     __table_args__ = (Index(
-        "junction_index", "chrom_id", "junction_start", "junction_end", "strand"),
+        "junction_index", "chrom_id", "junction_start", "junction_end"),
                       {"extend_existing": True})
 
     chrom_object = relationship(Chrom, uselist=False)

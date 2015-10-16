@@ -385,23 +385,30 @@ class Superlocus(Abstractlocus):
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
                                   self.chrom, self.strand, intron[0], intron[1])
-                if len(self.junction_baked(self.session).params(
+                for ver_intron in self.junction_baked(self.session).params(
                                 chrom=self.chrom,
                                 junctionStart=intron[0],
-                                junctionEnd=intron[1],
-                                junctionStrand=self.strand
-                        ).all()) == 1:
+                                junctionEnd=intron[1]):
                     self.logger.debug("Verified intron %s:%d-%d",
                                       self.chrom, intron[0], intron[1])
-                    self.locus_verified_introns.append(intron)
+                    self.locus_verified_introns.append((ver_intron.junction_start,
+                                                        ver_intron.junction_end,
+                                                        ver_intron.strand))
+                    break
         else:
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
                                   self.chrom, self.strand, intron[0], intron[1])
-                if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
+                key = (self.chrom, intron[0], intron[1])
+                # Ignore the strand 'cause we are loading BEFORE splitting by strand
+                if key in data_dict["junctions"]:
                     self.logger.debug("Verified intron %s%s:%d-%d",
-                                      self.chrom, self.strand, intron[0], intron[1])
-                    self.locus_verified_introns.append(intron)
+                                      self.chrom,
+                                      data_dict["junctions"][key],
+                                      intron[0], intron[1])
+                    self.locus_verified_introns.append((intron[0],
+                                                        intron[1],
+                                                        data_dict["junctions"][key]))
 
     def load_all_transcript_data(self, pool=None, data_dict=None):
 

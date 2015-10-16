@@ -84,7 +84,7 @@ rule pick:
     params: prefix="all"
     input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
     output: "mikado.loci.gff3", "mikado.subloci.gff3"
-    shell: "mikado.py pick --json-conf configuration.yaml"
+    shell: "mikado.py pick --json-conf configuration.yaml -lv DEBUG --preload"
 
 rule compare:
     input: reference="reference.gff3", prediction="mikado.loci.gff3"

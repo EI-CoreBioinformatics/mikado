@@ -731,12 +731,11 @@ class Picker:
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        data_dict["junctions"] = set()
+        data_dict["junctions"] = dict()
         for junc in session.query(Junction):
-            data_dict["junctions"].add((junc.chrom,
-                                        junc.junction_start,
-                                        junc.junction_end,
-                                        junc.strand))
+            key = (junc.chrom, junc.junction_start, junc.junction_end)
+            assert key not in data_dict["junctions"]
+            data_dict["junctions"][key] = junc.strand
 
         # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
 

@@ -365,7 +365,6 @@ class Superlocus(Abstractlocus):
 
         """Private method to load the intron data into the locus.
         :param data_dict: Dictionary containing the preloaded data, if available.
-        :param pool: the SQL connection pool, if available.
         :return:
         """
 

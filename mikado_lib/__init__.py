@@ -2,8 +2,8 @@
 # coding: utf_8
 
 """
-mikado_lib is a Python suite whose purpose is to find and resolve genic loci in a genomic annotation.
-This is the library it relies onto.
+mikado_lib is a Python suite whose purpose is to find and resolve genic loci in a
+genomic annotation. This is the library it relies onto.
 """
 
 from mikado_lib import exceptions

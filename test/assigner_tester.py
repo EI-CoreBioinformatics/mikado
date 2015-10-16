@@ -150,7 +150,8 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.j_prec, (100,))
         self.assertEqual(result.j_recall, (100,))
         self.assertAlmostEqual(result.n_prec[0], 100, delta=0.1)
-        self.assertAlmostEqual(result.n_recall[0], 100 * (900 - 200 + 1) / reference.cdna_length, delta=0.1)
+        self.assertAlmostEqual(result.n_recall[0], 100 * (900 - 200 + 1) / reference.cdna_length,
+                               delta=0.1)
 
         prediction.strand = "-"
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)

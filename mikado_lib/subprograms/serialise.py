@@ -41,10 +41,10 @@ def xml_launcher(xml_candidate=None, json_conf=None, logger=None):
 
     """
     Thin rapper around blast_utils.XmlSerializer. Its purpose is
-    to launch the
+    to create a standard serializer object (use it with partial
+     from functools)
 
     :param xml_candidate: An XML or ASN BLAST file name
-    :param args: namespace with the parameters
     :return:
     """
 

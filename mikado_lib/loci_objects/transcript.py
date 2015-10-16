@@ -768,7 +768,8 @@ class Transcript:
         # Establish the minimum overlap between an ORF and a BLAST hit to consider it
         # to establish belongingness
 
-        minimal_overlap = self.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        minimal_overlap = self.json_conf["pick"][
+            "chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
         cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
         for key in cds_hit_dict:
@@ -828,7 +829,6 @@ class Transcript:
         in_common = set.intersection(set(cds_hits.keys()),
                                      set(old_hits.keys()))
         # We do not have any hit in common
-        to_break = len(in_common) == 0
         min_overlap_duplication = self.json_conf["pick"][
             'chimera_split']['blast_params']['min_overlap_duplication']
         to_break = True
@@ -1245,7 +1245,7 @@ class Transcript:
                 raise InvalidTranscript(err_message)
 
             for hit in self.blast_hits:
-                if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), (boundary)) > 0:
+                if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), boundary) > 0:
                     new_hit = self.__recalculate_hit(hit, boundary)
                     if new_hit is not None:
                         self.logger.debug("""Hit %s,
@@ -1294,7 +1294,8 @@ class Transcript:
 
         identical_positions, positives = set(), set()
 
-        minimal_overlap = self.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        minimal_overlap = self.json_conf["pick"][
+            "chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
         best_hsp = (float("inf"), float("-inf"))
 
@@ -1788,7 +1789,8 @@ class Transcript:
                 # both pycharm and pylint
                 # noinspection PyCallByClass,PyTypeChecker
                 # pylint: disable=no-value-for-parameter
-                # chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
+                # chrom_id = self.session.query(Chrom).filter(
+                #                            Chrom.name == self.chrom).one().chrom_id
                 # import sqlalchemy
                 for ver_intron in self.session.query(Junction).filter(and_(
                             Junction.chrom == self.chrom,
@@ -1814,8 +1816,8 @@ class Transcript:
                     self.verified_introns.add(intron)
                 elif (intron[0], intron[1], None) in introns:
                     self.logger.debug("Verified intron %s%s:%d-%d for %s",
-                                       self.chrom, None,
-                                       intron[0], intron[1], self.id)
+                                      self.chrom, None,
+                                      intron[0], intron[1], self.id)
                     self.verified_introns.add(intron)
 
         self.logger.debug("Found these introns for %s: %s",
@@ -2104,10 +2106,10 @@ class Transcript:
         # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
         #     return
 
-        max_target_seqs = self.json_conf["pick"]\
-            ["chimera_split"]["blast_params"]["max_target_seqs"]
-        maximum_evalue = self.json_conf["pick"]["chimera_split"]\
-            ["blast_params"]["evalue"]
+        max_target_seqs = self.json_conf[
+            "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+        maximum_evalue = self.json_conf["pick"][
+            "chimera_split"]["blast_params"]["evalue"]
 
         blast_hits_query = self.blast_baked(self.session).params(
             query=self.id,

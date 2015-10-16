@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-__author__ = 'Luca Venturini'
+"""Stub of pre-configurer for mikado_lib"""
+
 
 import yaml
 import itertools
@@ -9,7 +10,8 @@ import argparse
 import sys
 import mikado_lib
 
-"""Stub of pre-configurer for mikado_lib"""
+
+__author__ = 'Luca Venturini'
 
 
 def check_has_requirements(dictionary, schema, key=None):
@@ -149,8 +151,9 @@ def create_config(args):
                     comment.append(line.strip())
                 else:
                     for l in iter(_ for _ in comment if _ != ''):
-                        print("{spaces}#  {comment}".format(spaces=" "*comment_level,
-                                                            comment=re.sub("'", "", re.sub("^- ", "", l))),
+                        print("{spaces}#  {comment}".format(
+                              spaces=" "*comment_level,
+                              comment=re.sub("'", "", re.sub("^- ", "", l))),
                               file=args.out)
                     if level < comment_level:
                         print("{0}{{}}".format(" " * comment_level), file=args.out)

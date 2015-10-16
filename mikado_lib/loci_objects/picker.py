@@ -70,8 +70,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
             loci_to_check[locus_instance.monoexonic].add(locus_instance)
 
     mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
-    bool_remove_fragments = json_conf["pick"]["run_options"]\
-        ["remove_overlapping_fragments"]
+    bool_remove_fragments = json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:
         for locus_id, locus_instance in stranded_locus.loci.items():
             if locus_instance in loci_to_check[True]:

@@ -31,7 +31,7 @@ def extend_with_default(validator_class, simple=False):
     """
     validate_properties = validator_class.VALIDATORS["properties"]
 
-    def set_default(instance, properties, simple=False):
+    def set_default(instance, properties, simple_comment=False):
         """
         Recursive function that sets the default parameters inside "object"
         types for the dictionary instance. It also loads comments, if available.
@@ -49,14 +49,14 @@ def extend_with_default(validator_class, simple=False):
                     continue
                 elif subschema["type"] == "object":
                     instance[prop] = dict()
-                    if not simple and "Comment" in subschema:
+                    if not simple_comment and "Comment" in subschema:
                         instance[prop].setdefault("Comment", subschema["Comment"])
-                    elif simple and "SimpleComment" in subschema:
+                    elif simple_comment and "SimpleComment" in subschema:
                         instance[prop].setdefault("SimpleComment",
                                                   subschema["SimpleComment"])
                     instance[prop] = set_default(instance[prop],
                                                  subschema["properties"],
-                                                 simple=simple)
+                                                 simple_comment=simple_comment)
         return instance
 
     def set_defaults(validator, properties, instance, schema):
@@ -70,7 +70,8 @@ def extend_with_default(validator_class, simple=False):
         """
         for error in validate_properties(validator, properties, instance, schema):
             yield error
-        instance = set_default(instance, properties, simple=simple)
+        # noinspection PyUnusedLocal
+        instance = set_default(instance, properties, simple_comment=simple)
 
     return jsonschema.validators.extend(
         validator_class, {"properties": set_defaults},

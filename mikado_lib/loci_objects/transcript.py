@@ -769,10 +769,17 @@ class Transcript:
         # to establish belongingness
 
         minimal_overlap = self.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        self.logger.debug("Creating cds_hit_dict for %s, keys: %s",
+                          self.id,
+                          cds_boundaries.keys())
 
         cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
         for key in cds_hit_dict:
             cds_hit_dict[key] = collections.defaultdict(list)
+
+        self.logger.debug("Cds_hit_dict for %s: %s",
+                          self.id,
+                          cds_hit_dict)
 
         # BUG, this is a hacky fix
         if not hasattr(self, "blast_hits"):

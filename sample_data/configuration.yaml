@@ -26,11 +26,13 @@ pick:
     #  for details.
     #  - blast_params: Parameters related to which BLAST data we want to analyse.
     blast_check: true
-    blast_params: {}
+    blast_params:
       #  Parameters for the BLAST check prior to splitting.
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
       #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
+      leniency: LENIENT
+      min_overlap_duplication: 0.1
     execute: true
   files:
     #  Input and output files for Mikado pick.

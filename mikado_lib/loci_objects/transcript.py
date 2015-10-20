@@ -797,6 +797,8 @@ class Transcript:
                 for cds_run in cds_boundaries:
                     # If I have a valid hit b/w the CDS region and the hit,
                     # add the name to the set
+                    self.logger.debug("Checking overlap in %s between %s CDS and %s HSP",
+                                      self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']))
                     overlap_threshold = minimal_overlap * (cds_run[1] + 1 - cds_run[0])
                     if Abstractlocus.overlap(cds_run, (
                             hsp['query_hsp_start'],
@@ -814,7 +816,8 @@ class Transcript:
                 final_boundaries[nboun] = []
                 for boun in boundary:
                     final_boundaries[nboun].extend(cds_boundaries[boun])
-
+        self.logger.debug("Final boundaries for %s: %s",
+                          self.id, final_boundaries)
         cds_boundaries = final_boundaries.copy()
         return cds_boundaries
 

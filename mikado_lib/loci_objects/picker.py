@@ -675,20 +675,24 @@ class Picker:
 
         hit_counter = 0
         hits = engine.execute(
-            "select * from hit where evalue <= {0} order by query_id,evalue,query_start asc;".format(
+            "select * from hit where evalue <= {0} order by query_id,evalue asc;".format(
                 self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
         current_counter = 0
         current_hit = None
 
+        previous_evalue = -1
+        max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
         for hit in hits:
             if current_hit != hit.query_id:
                 current_hit = hit.query_id
                 current_counter = 0
 
-            current_counter += 1
-            max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+            if previous_evalue < hit.evalue:
+                current_counter += 1
+                previous_evalue = hit.evalue
+                
             if current_counter > max_targets:
                 continue
             my_query = queries[hit.query_id]

@@ -112,8 +112,8 @@ class Transcript:
     blast_baked += lambda q: q.filter(and_(Hit.query == bindparam("query"),
                                            Hit.evalue <= bindparam("evalue")),)
 
-    blast_baked += lambda q: q.order_by(asc(Hit.evalue, Hit.query_start))
-    blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
+    blast_baked += lambda q: q.order_by(asc(Hit.evalue))
+    # blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
     orf_baked = bakery(lambda session: session.query(Orf))
     orf_baked += lambda q: q.filter(
@@ -813,6 +813,7 @@ class Transcript:
                                           self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
                                           overlap_threshold)
 
+        self.logger.debug("Final cds_hit_dict for %s: %s", self.id, cds_hit_dict)
         final_boundaries = OrderedDict()
         for boundary in self.__get_boundaries_from_blast(cds_boundaries, cds_hit_dict):
             if len(boundary) == 1:
@@ -2130,14 +2131,28 @@ class Transcript:
 
         blast_hits_query = self.blast_baked(self.session).params(
             query=self.id,
-            evalue=maximum_evalue,
-            max_target_seqs=max_target_seqs)
-        counter = 0
+            evalue=maximum_evalue)
+        
         self.logger.debug("Starting to load BLAST data for %s",
                           self.id)
+        # variables which take care of defining
+        # the maximum evalue and target seqs
+        # We do not trust the limit in the sqlite because
+        # we might lose legitimate hits with the same evalue as the
+        # best ones. So we collapse all hits with the same evalue.
+        previous_evalue = -1
+        counter = 0
         for hit in blast_hits_query:
+
+            if counter > max_target_seqs and previous_evalue < hit.evalue:
+                break
+            elif previous_evalue < hit.evalue:
+                previous_evalue= hit.evalue
+
             counter += 1
+
             self.blast_hits.append(hit.as_dict())
+
         self.logger.debug("Loaded %d BLAST hits for %s",
                           counter, self.id)
 

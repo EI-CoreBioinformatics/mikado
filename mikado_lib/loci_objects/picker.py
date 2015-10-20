@@ -661,10 +661,7 @@ class Picker:
 
         hits_dict = collections.defaultdict(list)
         hsps = dict()
-        for hsp in engine.execute(
-                "select * from hsp where hsp_evalue <= {0}".format(
-                    self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"])
-        ).fetchall():
+        for hsp in engine.execute("select * from hsp"):
             if hsp.query_id not in hsps:
                 hsps[hsp.query_id] = collections.defaultdict(list)
             hsps[hsp.query_id][hsp.target_id].append(hsp)
@@ -675,26 +672,28 @@ class Picker:
 
         hit_counter = 0
         hits = engine.execute(
-            "select * from hit where evalue <= {0} order by query_id,evalue asc;".format(
+            "select * from hit where evalue <= {0} order by query_id, evalue asc;".format(
                 self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
         current_counter = 0
         current_hit = None
-
         previous_evalue = -1
+
         max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
         for hit in hits:
             if current_hit != hit.query_id:
                 current_hit = hit.query_id
                 current_counter = 0
+                previous_evalue = -1
 
-            if previous_evalue < hit.evalue:
-                current_counter += 1
-                previous_evalue = hit.evalue
-                
-            if current_counter > max_targets:
+            if current_counter > max_targets and previous_evalue < hit.evalue:
                 continue
+            elif previous_evalue < hit.evalue:
+                previous_evalue = hit.evalue
+
+            current_counter += 1
+
             my_query = queries[hit.query_id]
             my_target = targets[hit.target_id]
 

@@ -73,6 +73,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
     bool_remove_fragments = json_conf["pick"]["run_options"]\
         ["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:
+        to_remove = set()
         for locus_id, locus_instance in stranded_locus.loci.items():
             if locus_instance in loci_to_check[True]:
                 logger.debug("Checking if %s is a fragment", locus_instance.id)
@@ -84,8 +85,11 @@ def remove_fragments(stranded_loci, json_conf, logger):
                             # Just mark it as a fragment
                             stranded_locus.loci[locus_id].is_fragment = True
                         else:
-                            del stranded_locus.loci[locus_id]
+                            to_remove.add(locus_id)
+                            # del stranded_locus.loci[locus_id]
                         break
+        for locus_id in to_remove:
+            del stranded_locus.loci[locus_id]
         yield stranded_locus
 
 

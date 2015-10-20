@@ -72,6 +72,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
     mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
     bool_remove_fragments = json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:
+        to_remove = set()
         for locus_id, locus_instance in stranded_locus.loci.items():
             if locus_instance in loci_to_check[True]:
                 logger.debug("Checking if %s is a fragment", locus_instance.id)
@@ -83,8 +84,11 @@ def remove_fragments(stranded_loci, json_conf, logger):
                             # Just mark it as a fragment
                             stranded_locus.loci[locus_id].is_fragment = True
                         else:
-                            del stranded_locus.loci[locus_id]
+                            to_remove.add(locus_id)
+                            # del stranded_locus.loci[locus_id]
                         break
+        for locus_id in to_remove:
+            del stranded_locus.loci[locus_id]
         yield stranded_locus
 
 
@@ -656,10 +660,7 @@ class Picker:
 
         hits_dict = collections.defaultdict(list)
         hsps = dict()
-        for hsp in engine.execute(
-                "select * from hsp where hsp_evalue <= {0}".format(
-                    self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"])
-        ).fetchall():
+        for hsp in engine.execute("select * from hsp"):
             if hsp.query_id not in hsps:
                 hsps[hsp.query_id] = collections.defaultdict(list)
             hsps[hsp.query_id][hsp.target_id].append(hsp)
@@ -670,22 +671,28 @@ class Picker:
 
         hit_counter = 0
         hits = engine.execute(
-            "select * from hit where evalue <= {0} order by query_id,evalue;".format(
+            "select * from hit where evalue <= {0} order by query_id, evalue asc;".format(
                 self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
         current_counter = 0
         current_hit = None
+        previous_evalue = -1
 
+        max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
         for hit in hits:
             if current_hit != hit.query_id:
                 current_hit = hit.query_id
                 current_counter = 0
+                previous_evalue = -1
+
+            if current_counter > max_targets and previous_evalue < hit.evalue:
+                continue
+            elif previous_evalue < hit.evalue:
+                previous_evalue = hit.evalue
 
             current_counter += 1
-            max_targets = self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
-            if current_counter > max_targets:
-                continue
+
             my_query = queries[hit.query_id]
             my_target = targets[hit.target_id]
 

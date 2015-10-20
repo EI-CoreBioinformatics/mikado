@@ -113,7 +113,7 @@ class Transcript:
                                            Hit.evalue <= bindparam("evalue")),)
 
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
-    blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
+    # blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
     orf_baked = bakery(lambda session: session.query(Orf))
     orf_baked += lambda q: q.filter(
@@ -770,10 +770,13 @@ class Transcript:
 
         minimal_overlap = self.json_conf["pick"][
             "chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-
         cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
         for key in cds_hit_dict:
             cds_hit_dict[key] = collections.defaultdict(list)
+
+        self.logger.debug("Cds_hit_dict for %s: %s",
+                          self.id,
+                          cds_hit_dict)
 
         # BUG, this is a hacky fix
         if not hasattr(self, "blast_hits"):
@@ -792,11 +795,22 @@ class Transcript:
                     # If I have a valid hit b/w the CDS region and the hit,
                     # add the name to the set
                     overlap_threshold = minimal_overlap * (cds_run[1] + 1 - cds_run[0])
-                    if Abstractlocus.overlap(cds_run, (
+                    overlap = Abstractlocus.overlap(cds_run, (
                             hsp['query_hsp_start'],
-                            hsp['query_hsp_end'])) >= overlap_threshold:
+                            hsp['query_hsp_end']))
+                    if overlap >= overlap_threshold:
                         cds_hit_dict[cds_run][(hit["target"], hit["target_length"])].append(hsp)
+                        self.logger.debug("Overlap %s passed for %s between %s CDS and %s HSP, overlap threshold %s",
+                                          overlap,
+                                          self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                          overlap_threshold)
+                    else:
+                        self.logger.debug("Overlap %s rejected for %s between %s CDS and %s HSP, overlap threshold %s",
+                                          overlap,
+                                          self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                          overlap_threshold)
 
+        self.logger.debug("Final cds_hit_dict for %s: %s", self.id, cds_hit_dict)
         final_boundaries = OrderedDict()
         for boundary in self.__get_boundaries_from_blast(cds_boundaries, cds_hit_dict):
             if len(boundary) == 1:
@@ -808,7 +822,8 @@ class Transcript:
                 final_boundaries[nboun] = []
                 for boun in boundary:
                     final_boundaries[nboun].extend(cds_boundaries[boun])
-
+        self.logger.debug("Final boundaries for %s: %s",
+                          self.id, final_boundaries)
         cds_boundaries = final_boundaries.copy()
         return cds_boundaries
 
@@ -856,7 +871,8 @@ class Transcript:
                 for target_hit in old_target_boundaries.search(*boundary):
                     overlap_fraction = self.overlap(boundary,
                                                     target_hit)/common_hit[1]
-
+                    self.logger.debug("Checking overlap duplication for %s; OF %s, minimum %s",
+                                      self.id, overlap_fraction, min_overlap_duplication)
                     if overlap_fraction >= min_overlap_duplication:
                         to_break = True and to_break
                     else:
@@ -2113,14 +2129,28 @@ class Transcript:
 
         blast_hits_query = self.blast_baked(self.session).params(
             query=self.id,
-            evalue=maximum_evalue,
-            max_target_seqs=max_target_seqs)
-        counter = 0
+            evalue=maximum_evalue)
+        
         self.logger.debug("Starting to load BLAST data for %s",
                           self.id)
+        # variables which take care of defining
+        # the maximum evalue and target seqs
+        # We do not trust the limit in the sqlite because
+        # we might lose legitimate hits with the same evalue as the
+        # best ones. So we collapse all hits with the same evalue.
+        previous_evalue = -1
+        counter = 0
         for hit in blast_hits_query:
+
+            if counter > max_target_seqs and previous_evalue < hit.evalue:
+                break
+            elif previous_evalue < hit.evalue:
+                previous_evalue= hit.evalue
+
             counter += 1
+
             self.blast_hits.append(hit.as_dict())
+
         self.logger.debug("Loaded %d BLAST hits for %s",
                           counter, self.id)
 

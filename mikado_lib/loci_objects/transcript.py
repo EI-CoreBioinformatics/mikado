@@ -797,13 +797,21 @@ class Transcript:
                 for cds_run in cds_boundaries:
                     # If I have a valid hit b/w the CDS region and the hit,
                     # add the name to the set
-                    self.logger.debug("Checking overlap in %s between %s CDS and %s HSP",
-                                      self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']))
                     overlap_threshold = minimal_overlap * (cds_run[1] + 1 - cds_run[0])
-                    if Abstractlocus.overlap(cds_run, (
+                    overlap = Abstractlocus.overlap(cds_run, (
                             hsp['query_hsp_start'],
-                            hsp['query_hsp_end'])) >= overlap_threshold:
+                            hsp['query_hsp_end']))
+                    if overlap >= overlap_threshold:
                         cds_hit_dict[cds_run][(hit["target"], hit["target_length"])].append(hsp)
+                        self.logger.debug("Overlap %s passed for %s between %s CDS and %s HSP, overlap threshold %s",
+                                          overlap,
+                                          self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                          overlap_threshold)
+                    else:
+                        self.logger.debug("Overlap %s rejected for %s between %s CDS and %s HSP, overlap threshold %s",
+                                          overlap,
+                                          self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                          overlap_threshold)
 
         final_boundaries = OrderedDict()
         for boundary in self.__get_boundaries_from_blast(cds_boundaries, cds_hit_dict):
@@ -866,7 +874,8 @@ class Transcript:
                 for target_hit in old_target_boundaries.search(*boundary):
                     overlap_fraction = self.overlap(boundary,
                                                     target_hit)/common_hit[1]
-
+                    self.logger.debug("Checking overlap duplication for %s; OF %s, minimum %s",
+                                      self.id, overlap_fraction, min_overlap_duplication)
                     if overlap_fraction >= min_overlap_duplication:
                         to_break = True and to_break
                     else:

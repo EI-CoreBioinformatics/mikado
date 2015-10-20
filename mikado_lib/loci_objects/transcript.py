@@ -112,7 +112,7 @@ class Transcript:
     blast_baked += lambda q: q.filter(and_(Hit.query == bindparam("query"),
                                            Hit.evalue <= bindparam("evalue")),)
 
-    blast_baked += lambda q: q.order_by(asc(Hit.evalue))
+    blast_baked += lambda q: q.order_by(asc(Hit.evalue, Hit.query_start))
     blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
     orf_baked = bakery(lambda session: session.query(Orf))

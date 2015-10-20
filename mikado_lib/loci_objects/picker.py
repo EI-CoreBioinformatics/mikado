@@ -675,7 +675,7 @@ class Picker:
 
         hit_counter = 0
         hits = engine.execute(
-            "select * from hit where evalue <= {0} order by query_id,evalue;".format(
+            "select * from hit where evalue <= {0} order by query_id,evalue,query_start asc;".format(
                 self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))

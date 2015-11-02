@@ -4,11 +4,13 @@ import operator
 from intervaltree import IntervalTree, Interval
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.exceptions import InvalidTranscript
+from mikado_lib.parsers.blast_utils import merge
+from mikado_lib.parsers import bed12
 
 __author__ = 'luca'
 
 
-def check_split_by_blast(self, cds_boundaries):
+def check_split_by_blast(transcript, cds_boundaries):
 
     """
     This method verifies if a transcript with multiple ORFs has support by BLAST to
@@ -28,7 +30,8 @@ def check_split_by_blast(self, cds_boundaries):
     - LENIENT: split if *both* lack hits, OR *both* have hits and none
     of those is in common.
 
-
+    :param transcript: the transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
     :param cds_boundaries:
     :return:
     """
@@ -36,23 +39,23 @@ def check_split_by_blast(self, cds_boundaries):
     # Establish the minimum overlap between an ORF and a BLAST hit to consider it
     # to establish belongingness
 
-    minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+    minimal_overlap = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
     cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
     for key in cds_hit_dict:
         cds_hit_dict[key] = collections.defaultdict(list)
 
     # BUG, this is a hacky fix
-    if not hasattr(self, "blast_hits"):
-        self.logger.warning(
+    if not hasattr(transcript, "blast_hits"):
+        transcript.logger.warning(
             "BLAST hits store lost for %s! Creating a mock one to avoid a crash",
 
-            self.id)
-        self.blast_hits = []
+            transcript.id)
+        transcript.blast_hits = []
 
     # Determine for each CDS which are the hits available
-    min_eval = self.json_conf['chimera_split']['blast_params']['hsp_evalue']
-    for hit in self.blast_hits:
+    min_eval = transcript.json_conf["pick"]['chimera_split']['blast_params']['hsp_evalue']
+    for hit in transcript.blast_hits:
         for hsp in iter(_hsp for _hsp in hit["hsps"] if
                         _hsp["hsp_evalue"] <= min_eval):
             for cds_run in cds_boundaries:
@@ -65,7 +68,7 @@ def check_split_by_blast(self, cds_boundaries):
                     cds_hit_dict[cds_run][(hit["target"], hit["target_length"])].append(hsp)
 
     final_boundaries = OrderedDict()
-    for boundary in self.__get_boundaries_from_blast(cds_boundaries, cds_hit_dict):
+    for boundary in __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
         if len(boundary) == 1:
             assert len(boundary[0]) == 2
             boundary = boundary[0]
@@ -97,8 +100,7 @@ def check_common_hits(self, cds_hits, old_hits):
     in_common = set.intersection(set(cds_hits.keys()),
                                  set(old_hits.keys()))
     # We do not have any hit in common
-    to_break = len(in_common) == 0
-    min_overlap_duplication = self.json_conf[
+    min_overlap_duplication = self.json_conf["pick"][
         'chimera_split']['blast_params']['min_overlap_duplication']
     to_break = True
     for common_hit in in_common:
@@ -133,7 +135,7 @@ def check_common_hits(self, cds_hits, old_hits):
     return to_break
 
 
-def __get_boundaries_from_blast(self, cds_boundaries, cds_hit_dict):
+def __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
 
     """
     Private method that calculates the CDS boundaries to keep
@@ -142,7 +144,7 @@ def __get_boundaries_from_blast(self, cds_boundaries, cds_hit_dict):
     :return:
     """
     new_boundaries = []
-    leniency = self.json_conf['chimera_split']['blast_params']['leniency']
+    leniency = transcript.json_conf["pick"]['chimera_split']['blast_params']['leniency']
     for cds_boundary in cds_boundaries:
         if not new_boundaries:
             new_boundaries.append([cds_boundary])
@@ -163,7 +165,7 @@ def __get_boundaries_from_blast(self, cds_boundaries, cds_hit_dict):
                 else:
                     new_boundaries[-1].append(cds_boundary)
             else:
-                if self.__check_common_hits(cds_hits, old_hits) is True:
+                if check_common_hits(transcript, cds_hits, old_hits) is True:
                     new_boundaries.append([cds_boundary])
                 # We have hits in common
                 else:
@@ -172,7 +174,7 @@ def __get_boundaries_from_blast(self, cds_boundaries, cds_hit_dict):
     return new_boundaries
 
 
-def __split_complex_exon(self, exon, texon, left, right, boundary):
+def __split_complex_exon(transcript, exon, texon, left, right, boundary):
 
     """
     Private method used to split an exon when it is only partially coding,
@@ -193,22 +195,22 @@ def __split_complex_exon(self, exon, texon, left, right, boundary):
         # In this case we have that the exon ends exactly at the end of the
         # UTR, so we have to keep a one-base exon
         if left is False:
-            self.logger.debug("Appending mixed UTR/CDS 5' exon %s", exon)
+            transcript.logger.debug("Appending mixed UTR/CDS 5' exon %s", exon)
         else:
-            if self.strand == "+":
+            if transcript.strand == "+":
                 # Keep only the LAST base
                 to_discard = (exon[0], exon[1]-1)
                 new_exon = (exon[1]-1, exon[1])
                 texon = (texon[1]-1, texon[1])
-                self.logger.debug("Appending monobase CDS exon %s (Texon %s)",
-                                  new_exon,
-                                  texon)
+                transcript.logger.debug("Appending monobase CDS exon %s (Texon %s)",
+                                        new_exon,
+                                        texon)
             else:
                 # Keep only the FIRST base
                 to_discard = (exon[0]+1, exon[1])
                 new_exon = (exon[0], exon[0]+1)
                 texon = (texon[1]-1, texon[1])
-                self.logger.debug(
+                transcript.logger.debug(
                     "Appending monobase CDS exon %s (Texon %s)",
                     new_exon,
                     texon)
@@ -217,16 +219,16 @@ def __split_complex_exon(self, exon, texon, left, right, boundary):
         # In this case we have that the exon ends exactly at the end of the
         # CDS, so we have to keep a one-base exon
         if right is False:
-            self.logger.debug(
+            transcript.logger.debug(
                 "Appending mixed UTR/CDS right exon %s",
                 exon)
         else:
-            if self.strand == "+":
+            if transcript.strand == "+":
                 # In this case we have to keep only the FIRST base
                 to_discard = (exon[0]+1, exon[1])
                 new_exon = (exon[0], exon[0]+1)
                 texon = (texon[0], texon[0]+1)
-                self.logger.debug(
+                transcript.logger.debug(
                     "Appending monobase CDS exon %s (Texon %s)",
                     new_exon,
                     texon)
@@ -235,15 +237,15 @@ def __split_complex_exon(self, exon, texon, left, right, boundary):
                 to_discard = (exon[0], exon[1]-1)
                 new_exon = (exon[1]-1, exon[1])
                 texon = (texon[0], texon[0]+1)
-                self.logger.debug(
+                transcript.logger.debug(
                     "Appending monobase CDS exon %s (Texon %s)",
                     new_exon,
                     texon)
 
     elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:
         # Monoexonic
-        self.logger.debug("Exon %s, case 3.1", exon)
-        if self.strand == "-":
+        transcript.logger.debug("Exon %s, case 3.1", exon)
+        if transcript.strand == "-":
             if left is True:
                 new_exon[1] = exon[0] + (texon[1] - boundary[0])
             if right is True:
@@ -253,18 +255,18 @@ def __split_complex_exon(self, exon, texon, left, right, boundary):
                 new_exon[0] = exon[1] - (texon[1] - boundary[0])
             if right is True:
                 new_exon[1] = exon[0] + (boundary[1] - texon[0])
-        self.logger.debug(
+        transcript.logger.debug(
             "[Monoexonic] Tstart shifted for %s, %d to %d",
-            self.id, texon[0], boundary[0])
-        self.logger.debug(
+            transcript.id, texon[0], boundary[0])
+        transcript.logger.debug(
             "[Monoexonic] GStart shifted for %s, %d to %d",
-            self.id, exon[0], new_exon[1])
-        self.logger.debug(
+            transcript.id, exon[0], new_exon[1])
+        transcript.logger.debug(
             "[Monoexonic] Tend shifted for %s, %d to %d",
-            self.id, texon[1], boundary[1])
-        self.logger.debug(
+            transcript.id, texon[1], boundary[1])
+        transcript.logger.debug(
             "[Monoexonic] Gend shifted for %s, %d to %d",
-            self.id, exon[1], new_exon[1])
+            transcript.id, exon[1], new_exon[1])
 
         if left is True:
             texon[0] = boundary[0]
@@ -275,34 +277,34 @@ def __split_complex_exon(self, exon, texon, left, right, boundary):
         # In this case we have that exon is sitting halfway
         # i.e. there is a partial 5'UTR
         if left is True:
-            if self.strand == "-":
+            if transcript.strand == "-":
                 new_exon[1] = exon[0] + (texon[1] - boundary[0])
             else:
                 new_exon[0] = exon[1] - (texon[1] - boundary[0])
-            self.logger.debug(
-                "Tstart shifted for %s, %d to %d", self.id, texon[0], boundary[0])
-            self.logger.debug(
-                "GStart shifted for %s, %d to %d", self.id, exon[0], new_exon[1])
+            transcript.logger.debug(
+                "Tstart shifted for %s, %d to %d", transcript.id, texon[0], boundary[0])
+            transcript.logger.debug(
+                "GStart shifted for %s, %d to %d", transcript.id, exon[0], new_exon[1])
             texon[0] = boundary[0]
 
     elif texon[1] >= boundary[1] >= texon[0] >= boundary[0]:
         # In this case we have that exon is sitting halfway
         # i.e. there is a partial 3'UTR
         if right is True:
-            if self.strand == "-":
+            if transcript.strand == "-":
                 new_exon[0] = exon[1] - (boundary[1] - texon[0])
             else:
                 new_exon[1] = exon[0] + (boundary[1] - texon[0])
-            self.logger.debug(
+            transcript.logger.debug(
                 "Tend shifted for %s, %d to %d",
-                self.id, texon[1], boundary[1])
-            self.logger.debug(
+                transcript.id, texon[1], boundary[1])
+            transcript.logger.debug(
                 "Gend shifted for %s, %d to %d",
-                self.id, exon[1], new_exon[1])
+                transcript.id, exon[1], new_exon[1])
             texon[1] = boundary[1]
         else:
-            self.logger.debug("New exon: %s", new_exon)
-            self.logger.debug("New texon: %s", texon)
+            transcript.logger.debug("New exon: %s", new_exon)
+            transcript.logger.debug("New texon: %s", texon)
 
     # Prevent monobase exons
     if new_exon[0] == new_exon[1]:
@@ -310,7 +312,8 @@ def __split_complex_exon(self, exon, texon, left, right, boundary):
 
     return new_exon, texon, to_discard
 
-def __create_splitted_exons(self, boundary, left, right):
+
+def __create_splitted_exons(transcript, boundary, left, right):
 
     """
     Given a boundary in transcriptomic coordinates, this method will extract the
@@ -341,46 +344,45 @@ def __create_splitted_exons(self, boundary, left, right):
     tstart = float("Inf")
     tend = float("-Inf")
 
-    if self.strand == "-":
+    if transcript.strand == "-":
         reversal = True
     else:
         reversal = False
 
-    for exon in sorted(self.exons, key=operator.itemgetter(0), reverse=reversal):
+    for exon in sorted(transcript.exons, key=operator.itemgetter(0), reverse=reversal):
         # Translate into transcript coordinates
         elength = exon[1] - exon[0] + 1
         texon = [tlength + 1, tlength + elength]
         tlength += elength
-        self.logger.debug("Analysing exon %s [%s] for %s",
-                          exon, texon, self.id)
+        transcript.logger.debug("Analysing exon %s [%s] for %s",
+                                exon, texon, transcript.id)
 
         # SIMPLE CASES
         # Exon completely contained in the ORF
         if boundary[0] <= texon[0] < texon[1] <= boundary[1]:
-            self.logger.debug("Appending CDS exon %s", exon)
+            transcript.logger.debug("Appending CDS exon %s", exon)
             my_exons.append(exon)
         # Exon on the left of the CDS
         elif texon[1] < boundary[0]:
             if left is False:
-                self.logger.debug("Appending 5'UTR exon %s", exon)
+                transcript.logger.debug("Appending 5'UTR exon %s", exon)
                 my_exons.append(exon)
             else:
-                self.logger.debug("Discarding 5'UTR exon %s", exon)
+                transcript.logger.debug("Discarding 5'UTR exon %s", exon)
                 discarded_exons.append(exon)
                 continue
         elif texon[0] > boundary[1]:
             if right is False:
-                self.logger.debug("Appending 3'UTR exon %s", exon)
+                transcript.logger.debug("Appending 3'UTR exon %s", exon)
                 my_exons.append(exon)
             else:
-                self.logger.debug("Discarding 3'UTR exon %s", exon)
+                transcript.logger.debug("Discarding 3'UTR exon %s", exon)
                 discarded_exons.append(exon)
                 continue
         else:
             # exon with partial UTR, go to the relative function
             # to handle these complex cases
-            exon, texon, to_discard = self.__split_complex_exon(
-                exon, texon, left, right, boundary)
+            exon, texon, to_discard = __split_complex_exon(transcript, exon, texon, left, right, boundary)
             my_exons.append(tuple(sorted(exon)))
             if to_discard is not None:
                 discarded_exons.append(to_discard)
@@ -390,7 +392,8 @@ def __create_splitted_exons(self, boundary, left, right):
 
     return my_exons, discarded_exons, tstart, tend
 
-def __create_splitted_transcripts(self, cds_boundaries):
+
+def __create_splitted_transcripts(transcript, cds_boundaries):
 
     """
     Private method called by split_by_cds to create the various (N>1) transcripts
@@ -406,12 +409,12 @@ def __create_splitted_transcripts(self, cds_boundaries):
     for counter, (boundary, bed12_objects) in enumerate(
             sorted(cds_boundaries.items(),
                    key=operator.itemgetter(0))):
-        new_transcript = self.__class__()
+        new_transcript = transcript.__class__()
         new_transcript.feature = "mRNA"
         for attribute in ["chrom", "source", "score", "strand", "attributes"]:
-            setattr(new_transcript, attribute, getattr(self, attribute))
+            setattr(new_transcript, attribute, getattr(transcript, attribute))
         # Determine which ORFs I have on my right and left
-        new_transcript.parent = self.parent
+        new_transcript.parent = transcript.parent
         left = True
         right = True
         if counter == 0:  # leftmost
@@ -419,25 +422,25 @@ def __create_splitted_transcripts(self, cds_boundaries):
         if 1 + counter == len(cds_boundaries):  # rightmost
             right = False
         counter += 1  # Otherwise they start from 0
-        new_transcript.id = "{0}.split{1}".format(self.id, counter)
-        new_transcript.logger = self.logger
+        new_transcript.id = "{0}.split{1}".format(transcript.id, counter)
+        new_transcript.logger = transcript.logger
 
-        my_exons, discarded_exons, tstart, tend = self.__create_splitted_exons(
-            boundary, left, right)
+        my_exons, discarded_exons, tstart, tend = __create_splitted_exons(
+            transcript, boundary, left, right)
 
-        self.logger.debug("""TID %s counter %d, boundary %s, left %s right %s""",
-                          self.id,
-                          counter,
-                          boundary,
-                          left,
-                          right)
+        transcript.logger.debug("""TID %s counter %d, boundary %s, left %s right %s""",
+                                transcript.id,
+                                counter,
+                                boundary,
+                                left,
+                                right)
 
         if right is True:
-            self.logger.debug("TID %s TEND %d Boun[1] %s",
-                              self.id, tend, boundary[1])
+            transcript.logger.debug("TID %s TEND %d Boun[1] %s",
+                                    transcript.id, tend, boundary[1])
         if left is True:
-            self.logger.debug("TID %s TSTART %d Boun[0] %s",
-                              self.id, tstart, boundary[0])
+            transcript.logger.debug("TID %s TSTART %d Boun[0] %s",
+                                    transcript.id, tstart, boundary[0])
 
         assert len(my_exons) > 0, (discarded_exons, boundary)
 
@@ -445,58 +448,87 @@ def __create_splitted_transcripts(self, cds_boundaries):
 
         new_transcript.start = min(exon[0] for exon in new_transcript.exons)
         new_transcript.end = max(exon[1] for exon in new_transcript.exons)
-        new_transcript.json_conf = self.json_conf
+        new_transcript.json_conf = transcript.json_conf
         # Now we have to modify the BED12s to reflect
         # the fact that we are starting/ending earlier
         new_transcript.finalize()
         if new_transcript.monoexonic is True:
             new_transcript.strand = None
 
-        new_bed12s = self.relocate_orfs(bed12_objects, tstart, tend)
-        self.logger.debug("Loading %d ORFs into the new transcript",
-                          len(new_bed12s))
+        new_bed12s = __relocate_orfs(bed12_objects, tstart, tend)
+        transcript.logger.debug("Loading %d ORFs into the new transcript",
+                                len(new_bed12s))
         new_transcript.load_orfs(new_bed12s)
 
         if new_transcript.selected_cds_length <= 0:
             err_message = "No CDS information retained for {0} split {1}\n".format(
-                self.id, counter)
+                transcript.id, counter)
             err_message += "BED: {0}".format("\n\t".join([str(x) for x in new_bed12s]))
             raise InvalidTranscript(err_message)
 
-        for hit in self.blast_hits:
+        for hit in transcript.blast_hits:
             if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), (boundary)) > 0:
-                new_hit = self.__recalculate_hit(hit, boundary)
+                minimal_overlap = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+                new_hit = __recalculate_hit(hit, boundary, minimal_overlap)
                 if new_hit is not None:
-                    self.logger.debug("""Hit %s,
-                    previous id/query_al_length/t_al_length %f/%f/%f,
-                    novel %f/%f/%f""",
-                                      new_hit["target"],
-                                      hit["global_identity"],
-                                      hit["query_aligned_length"],
-                                      hit["target_aligned_length"],
-                                      new_hit["global_identity"],
-                                      new_hit["query_aligned_length"],
-                                      new_hit["target_aligned_length"])
+                    transcript.logger.debug("""Hit %s,
+                                            previous id/query_al_length/t_al_length %f/%f/%f,
+                                            novel %f/%f/%f""",
+                                            new_hit["target"],
+                                            hit["global_identity"],
+                                            hit["query_aligned_length"],
+                                            hit["target_aligned_length"],
+                                            new_hit["global_identity"],
+                                            new_hit["query_aligned_length"],
+                                            new_hit["target_aligned_length"])
 
                     new_transcript.blast_hits.append(new_hit)
                 else:
-                    self.logger.debug("Hit %s did not pass overlap checks for %s",
-                                      hit["target"], new_transcript.id)
+                    transcript.logger.debug("Hit %s did not pass overlap checks for %s",
+                                            hit["target"], new_transcript.id)
             else:
-                self.logger.debug("Ignoring hit {0} as it is not intersecting")
+                transcript.logger.debug("Ignoring hit %s as it is not intersecting", hit)
                 continue
 
         new_transcripts.append(new_transcript)
         nspan = (new_transcript.start, new_transcript.end)
-        self.logger.debug(
+        transcript.logger.debug(
             "Transcript {0} split {1}, discarded exons: {2}".format(
-                self.id, counter, discarded_exons))
-        self.__check_collisions(nspan, spans)
+                transcript.id, counter, discarded_exons))
+        __check_collisions(transcript, nspan, spans)
         spans.append([new_transcript.start, new_transcript.end])
 
     return new_transcripts
 
-def __recalculate_hit(self, hit, boundary):
+
+def __check_collisions(transcript, nspan, spans):
+
+    """
+    This method checks whether a new transcript collides with a previously
+    defined transcript.
+    :param nspan:
+    :param spans:
+    :return:
+    """
+
+    if len(spans) == 0:
+        return
+    for span in spans:
+        overl = Abstractlocus.overlap(span, nspan)
+
+        transcript.logger.debug(
+            "Comparing start-ends for split of %s. SpanA: %s SpanB: %s Overlap: %d",
+            transcript.id, span,
+            nspan, overl)
+
+        if overl > 0:
+            err_message = "Invalid overlap for {0}! T1: {1}. T2: {2}".format(
+                transcript.id, span, nspan)
+            transcript.logger.error(err_message)
+            raise InvalidTranscript(err_message)
+
+
+def __recalculate_hit(hit, boundary, minimal_overlap):
     """Static method to recalculate coverage/identity for new hits."""
 
     __valid_matches = set([chr(x) for x in range(65, 91)] + [chr(x) for x in range(97, 123)] +
@@ -512,8 +544,6 @@ def __recalculate_hit(self, hit, boundary):
     t_intervals = []
 
     identical_positions, positives = set(), set()
-
-    minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
     best_hsp = (float("inf"), float("-inf"))
 
@@ -561,34 +591,68 @@ def __recalculate_hit(self, hit, boundary):
     return hit_dict
 
 
-def split_by_cds(self):
-        self.finalize()
+def __relocate_orfs(bed12_objects, tstart, tend):
+    """
+    Function to recalculate the coordinates of BED12 objects based on
+    the new transcriptomic start/end
+    :param bed12_objects: list of the BED12 ORFs to relocate
+    :param tstart: New transcriptomic start
+    :param tend: New transcriptomic end
+    :return:
+    """
+    new_bed12s = []
+    for obj in bed12_objects:
+        assert isinstance(obj, bed12.BED12), (obj, bed12_objects)
 
-        # List of the transcript that will be retained
+        obj.start = 1
+        obj.end = min(obj.end, tend) - tstart + 1
+        obj.fasta_length = obj.end
+        obj.thick_start = min(obj.thick_start, tend) - tstart + 1
+        obj.thick_end = min(obj.thick_end, tend) - tstart + 1
+        obj.blockSizes = [obj.end]
+        assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length,
+                                      obj.invalid_reason,
+                                      str(obj))
+        new_bed12s.append(obj)
+    return new_bed12s
 
-        if self.number_internal_orfs < 2:
-            new_transcripts = [self]  # If we only have one ORF this is easy
+
+def split_by_cds(transcript):
+    """This method is used for transcripts that have multiple ORFs.
+    It will split them according to the CDS information into multiple transcripts.
+    UTR information will be retained only if no ORF is down/upstream.
+
+    :param transcript: the transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    """
+
+    transcript.finalize()
+
+    # List of the transcript that will be retained
+
+    if transcript.number_internal_orfs < 2:
+        new_transcripts = [transcript]  # If we only have one ORF this is easy
+    else:
+
+        cds_boundaries = OrderedDict()
+        for orf in sorted(transcript.loaded_bed12,
+                          key=operator.attrgetter("thick_start", "thick_end")):
+            cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
+
+        # Check whether we have to split or not based on BLAST data
+        if transcript.json_conf is not None:
+            if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
+                cds_boundaries = check_split_by_blast(transcript, cds_boundaries)
+
+        if len(cds_boundaries) == 1:
+            # Recheck how many boundaries we have - after the BLAST check
+            # we might have determined that the transcript has not to be split
+            new_transcripts = [transcript]
         else:
+            new_transcripts = __create_splitted_transcripts(transcript, cds_boundaries)
 
-            cds_boundaries = OrderedDict()
-            for orf in sorted(self.loaded_bed12,
-                              key=operator.attrgetter("thick_start", "thick_end")):
-                cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
+    assert len(new_transcripts) > 0, str(transcript)
+    for new_transc in new_transcripts:
+        yield new_transc
 
-            # Check whether we have to split or not based on BLAST data
-            if self.json_conf is not None:
-                if self.json_conf["chimera_split"]["blast_check"] is True:
-                    cds_boundaries = self.check_split_by_blast(cds_boundaries)
-
-            if len(cds_boundaries) == 1:
-                # Recheck how many boundaries we have - after the BLAST check
-                # we might have determined that the transcript has not to be split
-                new_transcripts = [self]
-            else:
-                new_transcripts = __create_splitted_transcripts(cds_boundaries)
-
-        assert len(new_transcripts) > 0, str(self)
-        for new_transc in new_transcripts:
-            yield new_transc
-
-        return
+    return

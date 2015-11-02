@@ -6,7 +6,7 @@
 import argparse
 import sys
 import mikado_lib.loci_objects
-import mikado_lib.configuration.configurator
+from mikado_lib.configuration.configurator import to_json
 from mikado_lib.subprograms import to_gff
 import mikado_lib.exceptions
 
@@ -43,23 +43,29 @@ def check_run_options(args):
     :return: args
     """
     if args.procs is not None:
-        args.json_conf["pick_options"]["threads"] = args.procs
+        args.json_conf["pick"]["run_options"]["threads"] = args.procs
 
     if args.shm_db is not None or args.shm is True:
         args.shm = True
-        args.json_conf["pick_options"]["shm"] = True
+        args.json_conf["pick"]["run_options"]["shm"] = True
         # I will deal with it being None or not in Creator
-        args.json_conf["pick_options"]["shm_db"] = args.shm_db
+        args.json_conf["pick"]["run_options"]["shm_db"] = args.shm_db
 
-    if args.cache is True:
-        args.json_conf["pick_options"]["preload"] = True
+    if args.preload is True:
+        args.json_conf["pick"]["run_options"]["preload"] = True
 
     args.json_conf["single_thread"] = args.single
 
     if args.no_cds is not None:
-        args.json_conf["pick_options"]["exclude_cds"] = True
+        args.json_conf["pick"]["run_options"]["exclude_cds"] = True
     if args.purge is not None:
-        args.json_conf["pick_options"]["purge"] = True
+        args.json_conf["pick"]["run_options"]["purge"] = True
+
+    for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
+        if getattr(args, key):
+            if key == "gff":
+                key = "input"  # Redefine it for loading into the dictionary
+            args.json_conf["pick"]["files"][key] = getattr(args, key)
 
     return args
 
@@ -72,28 +78,20 @@ def pick(args):
 
     """
 
-    args.json_conf.close()
-    args.json_conf = mikado_lib.configuration.configurator.to_json(args.json_conf.name)
-
     args = check_log_settings(args)
     args = check_run_options(args)
 
     if args.monoloci_out is not None:
-        args.json_conf["pick_options"]["files"]["monoloci_out"] = args.monoloci_out
+        args.json_conf["pick"]["files"]["monoloci_out"] = args.monoloci_out
     if args.subloci_out is not None:
-        args.json_conf["pick_options"]["files"]["subloci_out"] = args.subloci_out
+        args.json_conf["pick"]["files"]["subloci_out"] = args.subloci_out
     if args.loci_out is not None:
-        args.json_conf["pick_options"]["files"]["loci_out"] = args.loci_out
+        args.json_conf["pick"]["files"]["loci_out"] = args.loci_out
 
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
 
-    if args.gff is not None:
-        args.gff.close()
-        args.gff = args.gff.name
-        args.json_conf["pick_options"]["files"]["input"] = args.gff
-
-    creator = mikado_lib.loci_objects.Picker.Creator(
+    creator = mikado_lib.loci_objects.picker.Picker(
         args.json_conf, commandline=" ".join(sys.argv))
     try:
         creator()  # Run
@@ -110,7 +108,8 @@ def pick_parser():
     parser.add_argument("-p", "--procs", type=int, default=None,
                         help="""Number of processors to use.
                         Default: look in the configuration file (1 if undefined)""")
-    parser.add_argument("--json_conf", type=argparse.FileType(), required=True,
+    parser.add_argument("--json-conf", dest="json_conf",
+                        type=to_json, required=True,
                         help="JSON/YAML configuration file for scoring transcripts.")
     parser.add_argument("--subloci_out", type=str, default=None)
     parser.add_argument("--monoloci_out", type=str, default=None)
@@ -132,7 +131,7 @@ def pick_parser():
                         help="""Name of the shared memory DB.
                         WARNING: if set, the DB copy will be persistently copied
                         into memory, so that multiple pickers can share.""")
-    parser.add_argument('--cache', action='store_true', default=False,
+    parser.add_argument('--preload', action='store_true', default=False,
                         help='''Flag. If set, the mikado_lib DB will be pre-loaded
                         into memory for faster access. WARNING: this option will
                         increase memory usage and the preloading might be quite slow.''')

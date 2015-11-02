@@ -10,6 +10,8 @@ while existing values are checked for type and consistency.
 import os.path
 import re
 import yaml
+import subprocess
+from distutils import spawn
 from mikado_lib.exceptions import InvalidJson
 from mikado_lib.loci_objects.transcript import Transcript
 import mikado_lib.exceptions
@@ -18,7 +20,7 @@ import sys
 import jsonschema
 
 
-def extend_with_default(validator_class):
+def extend_with_default(validator_class, simple=False):
     """
     Function to extend the normal validation classes for jsonschema
     so that they also set the default values provided inside the schema
@@ -29,7 +31,7 @@ def extend_with_default(validator_class):
     """
     validate_properties = validator_class.VALIDATORS["properties"]
 
-    def set_default(instance, properties):
+    def set_default(instance, properties, simple=False):
         """
         Recursive function that sets the default parameters inside "object"
         types for the dictionary instance. It also loads comments, if available.
@@ -38,6 +40,8 @@ def extend_with_default(validator_class):
         :return:
         """
         for prop, subschema in properties.items():
+            if instance is None:
+                instance = dict()
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:
@@ -45,9 +49,14 @@ def extend_with_default(validator_class):
                     continue
                 elif subschema["type"] == "object":
                     instance[prop] = dict()
-                    if "Comment" in subschema:
+                    if not simple and "Comment" in subschema:
                         instance[prop].setdefault("Comment", subschema["Comment"])
-                    instance[prop] = set_default(instance[prop], subschema["properties"])
+                    elif simple and "SimpleComment" in subschema:
+                        instance[prop].setdefault("SimpleComment",
+                                                  subschema["SimpleComment"])
+                    instance[prop] = set_default(instance[prop],
+                                                 subschema["properties"],
+                                                 simple=simple)
         return instance
 
     def set_defaults(validator, properties, instance, schema):
@@ -61,7 +70,7 @@ def extend_with_default(validator_class):
         """
         for error in validate_properties(validator, properties, instance, schema):
             yield error
-        instance = set_default(instance, properties)
+        instance = set_default(instance, properties, simple=simple)
 
     return jsonschema.validators.extend(
         validator_class, {"properties": set_defaults},
@@ -245,7 +254,7 @@ def check_requirements(json_conf):
 
     if "soft_requirements" not in json_conf:
         json_conf["soft_requirements"] = dict()
-        json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)
+        json_conf["soft_requirements"]["intron_range"] = [0, sys.maxsize]
     if "intron_range" not in json_conf["soft_requirements"]:
         raise InvalidJson("No intron range found!")
         # json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)
@@ -253,7 +262,7 @@ def check_requirements(json_conf):
         try:
             minimal, maximal = (
                 int(_) for _ in json_conf["soft_requirements"]["intron_range"])
-            json_conf["soft_requirements"]["intron_range"] = (minimal, maximal)
+            json_conf["soft_requirements"]["intron_range"] = [minimal, maximal]
         except Exception:
             raise InvalidJson("Invalid intron range: {0}".format(
                 json_conf["soft_requirements"]["intron_range"]
@@ -282,102 +291,70 @@ def check_loci_requirements(json_conf):
         pass
 
 
-# def check_blast(json_conf, json_file):
-#     """
-#     :param json_conf: configuration dictionary to check.
-#     :type json_conf: dict
-#
-#     :param json_file: the original JSON file name (necessary to derive its parent folder)
-#     :type json_file: str
-#
-#     Function to check the optional "blast" section of the configuration.
-#     It will be created (with "execute" set to False) if it is missing.
-#
-#     :return: json_conf
-#     :rtype dict
-#     """
-#
-#     if "blast" not in json_conf:
-#         json_conf["blast"] = dict()
-#         json_conf["blast"]["execute"] = False
-#         json_conf["blast"]["max_target_seqs"] = sys.maxsize
-#         return json_conf
-#
-#     if json_conf["blast"]["execute"] is False:
-#         return json_conf
-#
-#     if "program" not in json_conf["blast"]:
-#         raise mikado_lib.exceptions.InvalidJson("No BLAST program specified.")
-#     elif os.path.basename(json_conf["blast"]["program"]) not in ("blastn", "blastx", "tblastx"):
-#         raise mikado_lib.exceptions.InvalidJson("""Invalid BLAST program specified: {0}.
-#         Supported options: blastn, blastx, tblastx.""")
-#     if os.path.dirname(json_conf["blast"]["program"]) == "":
-#         program = spawn.find_executable(json_conf["blast"]["program"])
-#     else:
-#         try:
-#             program = os.path.abspath(json_conf["blast"]["program"])
-#         except OSError:
-#             program = None
-#     if program is None:
-#         raise mikado_lib.exceptions.InvalidJson(
-#             "The selected BLAST program {0} has not been found on this system!".format(
-#                 json_conf["blast"]["program"]))
-#     json_conf["blast"]["program"] = program
-#
-#     if "evalue" not in json_conf["blast"]:
-#         json_conf["blast"]["evalue"] = 10
-#     else:
-#         evalue = json_conf["blast"]["evalue"]
-#         if not isinstance(evalue, (float, int)) or evalue < 0:
-#             raise mikado_lib.exceptions.InvalidJson(
-#                 "Invalid evalue: {0}".format(evalue))
-#     if "max_target_seqs" in json_conf["blast"]:
-#         assert isinstance(json_conf["blast"]["max_target_seqs"], int)
-#     else:
-#         json_conf["blast"]["max_target_seqs"] = sys.maxsize
-#     if "database" not in json_conf["blast"]:
-#         raise mikado_lib.exceptions.InvalidJson("No BLAST database provided!")
-#     json_conf["blast"]["database"] = os.path.abspath(json_conf["blast"]["database"])
-#     if not os.path.exists(json_conf["blast"]["database"]):
-#         database = os.path.join(
-#             os.path.dirname(json_file),
-#             os.path.basename(json_conf["blast"]["database"])
-#         )
-#         if not os.path.exists(database):
-#             if os.path.exists("{0}.gz".format(database)):
-#                 retcode = subprocess.call("gzip -dc {0}.gz > {0}".format(database), shell=True)
-#                 if retcode != 0:
-#                     raise mikado_lib.exceptions.InvalidJson(
-#                         "Failed to decompress the BLAST database!")
-#             else:
-#                 raise mikado_lib.exceptions.InvalidJson(
-#                     """I need a valid BLAST database! This file does not exist:
-#                     {0}""".format(json_conf["blast"]["database"]))
-#         else:
-#             json_conf["blast"]["database"] = os.path.abspath(database)
-#     else:
-#         json_conf["blast"]["database"] = os.path.abspath(
-#             json_conf["blast"]["database"])
-#
-#     makeblastdb_cmd = os.path.join(
-#         os.path.dirname(json_conf["blast"]["program"]), "makeblastdb")
-#     assert os.path.exists(makeblastdb_cmd)
-#     retcode = 0
-#     program = os.path.basename(json_conf["blast"]["program"])
-#     if program == "blastx" and not os.path.exists("{0}.pog".format(
-#             json_conf["blast"]["database"])):
-#         retcode = subprocess.call(
-#             "{0} -in {1} -dbtype prot -parse_seqids".format(
-#                 makeblastdb_cmd, json_conf["blast"]["database"]), shell=True)
-#     elif program in ("blastn", "tblastx") and not os.path.exists("{0}.nog".format(
-#             json_conf["blast"]["database"])):
-#         retcode = subprocess.call(
-#             "{0} -in {1} -dbtype nucl -parse_seqids".format(
-#                 makeblastdb_cmd, json_conf["blast"]["database"]), shell=True)
-#     if retcode != 0:
-#         raise OSError("BLAST indexing failed.")
-#
-#     return json_conf
+def check_blast(json_conf, json_file):
+    """
+    :param json_conf: configuration dictionary to check.
+    :type json_conf: dict
+
+    :param json_file: the original JSON file name (necessary to derive its parent folder)
+    :type json_file: str
+
+    Function to check the optional "blast" section of the configuration.
+    It will be created (with "execute" set to False) if it is missing.
+
+    :return: json_conf
+    :rtype dict
+    """
+
+    if json_conf["blast"]["execute"] is False:
+        return json_conf
+
+    json_conf["blast"]["program"] = spawn.find_executable(
+        json_conf["blast"]["program"])
+
+    if "database" not in json_conf["blast"]:
+        raise mikado_lib.exceptions.InvalidJson("No BLAST database provided!")
+    json_conf["blast"]["database"] = os.path.abspath(json_conf["blast"]["database"])
+    if not os.path.exists(json_conf["blast"]["database"]):
+        database = os.path.join(
+            os.path.dirname(json_file),
+            os.path.basename(json_conf["blast"]["database"])
+        )
+        if not os.path.exists(database):
+            if os.path.exists("{0}.gz".format(database)):
+                retcode = subprocess.call("gzip -dc {0}.gz > {0}".format(database), shell=True)
+                if retcode != 0:
+                    raise mikado_lib.exceptions.InvalidJson(
+                        "Failed to decompress the BLAST database!")
+            else:
+                raise mikado_lib.exceptions.InvalidJson(
+                    """I need a valid BLAST database! This file does not exist:
+                    {0}""".format(json_conf["blast"]["database"]))
+        else:
+            json_conf["blast"]["database"] = os.path.abspath(database)
+    else:
+        json_conf["blast"]["database"] = os.path.abspath(
+            json_conf["blast"]["database"])
+
+    makeblastdb_cmd = os.path.join(
+        os.path.dirname(json_conf["blast"]["program"]), "makeblastdb")
+    assert os.path.exists(makeblastdb_cmd)
+    retcode = 0
+    program = os.path.basename(json_conf["blast"]["program"])
+    if program == "blastx" and not os.path.exists("{0}.pog".format(
+            json_conf["blast"]["database"])):
+        retcode = subprocess.call(
+            "{0} -in {1} -dbtype prot -parse_seqids".format(
+                makeblastdb_cmd, json_conf["blast"]["database"]), shell=True)
+    elif program in ("blastn", "tblastx") and not os.path.exists("{0}.nog".format(
+            json_conf["blast"]["database"])):
+        retcode = subprocess.call(
+            "{0} -in {1} -dbtype nucl -parse_seqids".format(
+                makeblastdb_cmd, json_conf["blast"]["database"]), shell=True)
+    if retcode != 0:
+        raise OSError("BLAST indexing failed.")
+
+    return json_conf
 
 
 def check_db(json_conf):
@@ -406,23 +383,20 @@ def check_db(json_conf):
     return json_conf
 
 
-def check_json(json_conf):
+def create_validator(simple=False):
 
-    """
-    :param json_conf: The dicitonary loaded from the configuration file.
-    :type json_conf: dict
+    """Method to create a validator class (see extend_with_default).
+    The simple keyword (boolean) is used to determine whether to keep
+    only SimpleComment or full Comments from the schema.
 
-    :param json_file: The original configuration file name.
-    :type json_file: str
+    :type simple: bool
 
-
-    Wrapper for the various checks performed on the configuration file.
-
-    :return json_conf
-    :rtype dict
+    :return validator
+    :rtype: jsonschema.Draft4Validator
     """
 
-    validator = extend_with_default(jsonschema.Draft4Validator)
+    validator = extend_with_default(jsonschema.Draft4Validator,
+                                    simple=simple)
 
     blue_print = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -432,28 +406,65 @@ def check_json(json_conf):
     with open(blue_print) as blue:
         blue_print = json.load(blue)
 
+    validator = validator(blue_print)
+
+    return validator
+
+
+def check_json(json_conf, simple=False):
+
+    """
+    :param json_conf: The dicitonary loaded from the configuration file.
+    :type json_conf: dict
+
+    Wrapper for the various checks performed on the configuration file.
+
+    :return json_conf
+    :rtype: dict
+    """
+
+    # validator = extend_with_default(jsonschema.Draft4Validator)
+    #
+    # blue_print = os.path.join(
+    #     os.path.dirname(os.path.abspath(__file__)),
+    #     "configuration_blueprint.json"
+    # )
+    #
+    # with open(blue_print) as blue:
+    #     blue_print = json.load(blue)
+
+    validator = create_validator(simple=simple)
+
     config_folder = os.path.dirname(os.path.abspath(__file__))
 
     # This will check for consistency and add the default
     # values if they are missing
-    validator(blue_print).validate(json_conf)
-    assert "files" in json_conf["pick_options"]
+    validator.validate(json_conf)
+    assert "files" in json_conf["pick"]
 
-    if "scoring_file" in json_conf:
-        if os.path.exists(os.path.abspath(json_conf["scoring_file"])):
-            json_conf["scoring_file"] = os.path.abspath(json_conf["scoring_file"])
-        elif os.path.exists(os.path.join(os.path.dirname(json_conf["filename"]),
-                                         json_conf["scoring_file"])):
-            json_conf["scoring_file"] = os.path.join(
-                os.path.dirname(json_conf["filename"]), json_conf["scoring_file"])
-        elif os.path.exists(os.path.join(config_folder, json_conf["scoring_file"])):
-            json_conf["scoring_file"] = os.path.join(config_folder, json_conf["scoring_file"])
+    if "scoring_file" in json_conf["pick"]:
+        if os.path.exists(os.path.abspath(json_conf["pick"]["scoring_file"])):
+            json_conf["pick"]["scoring_file"] = os.path.abspath(
+                json_conf["pick"]["scoring_file"])
+        elif os.path.exists(os.path.join(
+                os.path.dirname(json_conf["filename"]),
+                json_conf["pick"]["scoring_file"])):
+            json_conf["pick"]["scoring_file"] = os.path.join(
+                os.path.dirname(json_conf["filename"]),
+                json_conf["pick"]["scoring_file"])
+        elif os.path.exists(os.path.join(
+                config_folder,
+                json_conf["pick"]["scoring_file"])):
+            json_conf["pick"]["scoring_file"] = os.path.join(
+                config_folder,
+                json_conf["pick"]["scoring_file"])
         else:
             raise mikado_lib.exceptions.InvalidJson(
-                "Scoring file not found: {0}".format(json_conf["scoring_file"]))
+                "Scoring file not found: {0}".format(
+                    json_conf["pick"]["scoring_file"]))
 
-        with open(json_conf["scoring_file"]) as scoring_file:
-            if json_conf["scoring_file"].endswith("yaml"):
+        with open(json_conf["pick"]["scoring_file"]) as scoring_file:
+            if json_conf["pick"]["scoring_file"].endswith("yaml"):
                 scoring = yaml.load(scoring_file)
             else:
                 scoring = json.load(scoring_file)
@@ -466,11 +477,11 @@ def check_json(json_conf):
     # json_conf = check_blast(json_conf, json_file)
     json_conf = check_requirements(json_conf)
     json_conf = check_scoring(json_conf)
-    validator(blue_print).validate(json_conf)
+    validator.validate(json_conf)
     return json_conf
 
 
-def to_json(string):
+def to_json(string, simple=False):
     """
     :param string: the configuration file name.
     :type string: str
@@ -488,5 +499,5 @@ def to_json(string):
             else:
                 json_dict = json.load(json_file)
     json_dict["filename"] = string
-    json_dict = check_json(json_dict)
+    json_dict = check_json(json_dict, simple=simple)
     return json_dict

@@ -118,7 +118,7 @@ def grep_gtf(args, gene_ids, mrna_ids):
     :return:
     """
 
-    for record in args.gtf:
+    for record in args.gff:
         if not record:
             continue
         if args.genes is False:

@@ -5,7 +5,6 @@
 Subprogram that constitutes the first step of the mikado_lib pipeline.
 """
 
-import sys
 import os
 import argparse
 import operator
@@ -15,6 +14,7 @@ import itertools
 from mikado_lib import exceptions
 import copy
 from mikado_lib.loci_objects.transcriptchecker import TranscriptChecker
+from mikado_lib.configuration.configurator import to_json
 from mikado_lib.subprograms import to_gff
 from Bio import SeqIO
 import functools
@@ -38,7 +38,10 @@ def grouper(iterable, num, fillvalue=(None, None)):
 def create_transcript(lines,
                       fasta_seq,
                       lenient=False,
-                      strand_specific=False):
+                      strand_specific=False,
+                      canonical_splices=(("GT", "AG"),
+                                         ("GC", "AG"),
+                                         ("AT", "AC"))):
     """Function to create the checker.
 
     :param lines: all the exon lines for an object
@@ -59,7 +62,8 @@ def create_transcript(lines,
     transcript_line.end = max(r.end for r in lines)
     transcript_object = TranscriptChecker(transcript_line,
                                           fasta_seq, lenient=lenient,
-                                          strand_specific=strand_specific)
+                                          strand_specific=strand_specific,
+                                          canonical_splices=canonical_splices)
 
     transcript_object.logger = logger
     for line in lines:
@@ -141,12 +145,13 @@ def perform_check(keys, exon_lines, args, logger):
 
     # Use functools to pre-configure the function
     # with all necessary arguments aside for the lines
-    partial_checker = functools.partial(create_transcript,
-                                        lenient=args.lenient,
-                                        strand_specific=args.strand_specific)
+    partial_checker = functools.partial(
+        create_transcript,
+        lenient=args.json_conf["prepare"]["lenient"],
+        strand_specific=args.json_conf["prepare"]["strand_specific"])
 
     logger.info("Starting to analyse the transcripts looking at the underlying sequence")
-    if args.single is True:
+    if args.json_conf["prepare"]["single"] is True:
         for tid, seq in keys:
             transcript_object = partial_checker(exon_lines[tid], seq)
             if transcript_object is None:
@@ -156,8 +161,10 @@ def perform_check(keys, exon_lines, args, logger):
                 logger.info("Retrieved %d transcript positions", counter)
             elif counter >= 10**3 and counter % (10**3) == 0:
                 logger.debug("Retrieved %d transcript positions", counter)
-            print(transcript_object.__str__(to_gtf=True), file=args.out)
-            print(transcript_object.fasta, file=args.out_fasta)
+            print(transcript_object.__str__(to_gtf=True),
+                  file=args.json_conf["prepare"]["out"])
+            print(transcript_object.fasta,
+                  file=args.json_conf["prepare"]["out_fasta"])
     else:
         for group in grouper(keys, 100):
             if group is None:
@@ -176,8 +183,10 @@ def perform_check(keys, exon_lines, args, logger):
                     logger.info("Retrieved %d transcript positions", counter)
                 elif counter >= 10**3 and counter % (10**3) == 0:
                     logger.debug("Retrieved %d transcript positions", counter)
-                print(transcript_object.__str__(to_gtf=True), file=args.out)
-                print(transcript_object.fasta, file=args.out_fasta)
+                print(transcript_object.__str__(to_gtf=True),
+                      file=args.json_conf["prepare"]["out"])
+                print(transcript_object.fasta,
+                      file=args.json_conf["prepare"]["out_fasta"])
         pool.close()
         pool.join()
 
@@ -186,25 +195,17 @@ def perform_check(keys, exon_lines, args, logger):
     return
 
 
-def prepare(args):
-    """Main script function."""
+def setup(args):
+    """Method to set up the analysis using the JSON configuration
+    and the command line options."""
 
-    if args.labels != '':
-        args.labels = args.labels.split(",")
-        # Checks labels are unique
-        assert len(set(args.labels)) == len(args.labels)
-        assert not any([True for _ in args.labels if _.strip() == ''])
-        if len(args.labels) != len(args.gff):
-            raise ValueError("Incorrect number of labels specified")
+    if args.json_conf["prepare"]["log"]:
+        handler = logging.FileHandler(
+            args.json_conf["prepare"]["log"],
+            "w")
     else:
-        args.labels = [""] * len(args.gff)
+        handler = logging.StreamHandler()
 
-    if isinstance(args.out_fasta, str):
-        args.out_fasta = open(args.out_fasta, 'w')
-    if isinstance(args.out, str):
-        args.out = open(args.out, 'w')
-
-    handler = logging.StreamHandler()
     formatter = logging.Formatter(
         "{asctime}:{levelname} - {filename}:{lineno} - {funcName} - {message}",
         style="{")
@@ -218,16 +219,67 @@ def prepare(args):
     elif args.quiet is True:
         logger.setLevel(logging.WARN)
 
-    to_seqio = functools.partial(to_seqio_complete,
-                                 logger_instance=logger)
-    args.fasta.close()
-    args.fasta = to_seqio(args.fasta.name)
+    if args.gff:
+        args.json_conf["prepare"]["gff"] = args.gff
+    else:
+        assert args.json_conf["prepare"]["gff"]
 
+    if args.labels != '':
+        args.labels = args.labels.split(",")
+        # Checks labels are unique
+        assert len(set(args.labels)) == len(args.labels)
+        assert not any([True for _ in args.labels if _.strip() == ''])
+        if len(args.labels) != len(
+            args.json_conf["prepare"]["gff"]
+        ):
+            raise ValueError("Incorrect number of labels specified")
+        args.json_conf["prepare"]["labels"] = args.labels
+    else:
+        if not args.json_conf["prepare"]["labels"]:
+            args.labels = [""] * len(args.json_conf["prepare"]["gff"])
+            args.json_conf["prepare"]["labels"] = args.labels
+
+    for option in ["cache",
+                   "out", "out_fasta", "fasta",
+                   "minimum_length", "threads", "single"]:
+        if ((getattr(args, option) or getattr(args, option) == 0) and
+                getattr(args, option) is not False):
+            args.json_conf["prepare"][option] = getattr(args, option)
+
+    return args, logger
+
+
+def prepare(args):
+    """Main script function."""
+
+    #
+    # print(args.json_conf["prepare"])
+
+    args, logger = setup(args)
+
+    assert os.path.exists(args.json_conf["prepare"]["fasta"])
+    assert len(args.json_conf["prepare"]["gff"]) > 0
+    assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
+
+    args.json_conf["prepare"]["out_fasta"] = open(
+        args.json_conf["prepare"]["out_fasta"], 'w')
+    args.json_conf["prepare"]["out"] = open(
+        args.json_conf["prepare"]["out"], 'w')
+
+    to_seqio = functools.partial(to_seqio_complete,
+                                 cache=args.json_conf["prepare"]["cache"],
+                                 logger_instance=logger)
+
+    args.json_conf["prepare"]["fasta"] = to_seqio(
+        args.json_conf["prepare"]["fasta"])
     exon_lines = collections.defaultdict(list)
 
     previous_file_ids = collections.defaultdict(set)
 
-    for label, gff_handle in zip(args.labels, args.gff):
+    for label, gff_name in zip(args.json_conf["prepare"]["labels"],
+                               args.json_conf["prepare"]["gff"]):
+        logger.info("Starting with %s", gff_name)
+        gff_handle = to_gff(gff_name)
         found_ids = set.union(set(), *previous_file_ids.values())
         if gff_handle.__annot_type__ == "gff3":
             gff = True
@@ -244,7 +296,7 @@ def prepare(args):
                 continue
             # This convoluted block is due to the fact that transcript is a list for
             # GFF files (as it is a parent), while it is a string for GTF files
-            elif row.is_cds is True and args.strip_cds is True:
+            elif row.is_cds is True and args.json_conf["prepare"]["strip_cds"] is True:
                 continue
 
             if gff is True:
@@ -277,16 +329,16 @@ def prepare(args):
 
     # Prepare the sorted data structure
     keys = store_transcripts(exon_lines,
-                             args.fasta,
+                             args.json_conf["prepare"]["fasta"],
                              logger,
-                             min_length=args.minimum_length)
+                             min_length=args.json_conf["prepare"]["minimum_length"])
 
     perform_check(keys, exon_lines, args, logger)
 
     logger.info("Finished")
 
 
-def to_seqio_complete(string, logger_instance=None):
+def to_seqio_complete(string, cache=False, logger_instance=None):
     """
     Function to index a FASTA file using SeqIO.
     :param string: a vaild file name
@@ -305,9 +357,12 @@ def to_seqio_complete(string, logger_instance=None):
         exc = ValueError("Invalid input file.")
         logger_instance.exception(exc)
         raise exc
-    seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
+    if cache is True:
+        seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
+        seqdict = dict((seq, str(seqdict[seq].seq)) for seq in seqdict)
+    else:
+        seqdict = SeqIO.index(string, "fasta")
 
-    seqdict = dict((seq, str(seqdict[seq].seq)) for seq in seqdict)
     logger_instance.info("Finished loading reference file")
     return seqdict
 
@@ -339,7 +394,7 @@ def prepare_parser():
     1- add the "transcript" feature
     2- sort by coordinates
     3- check the strand""")
-    parser.add_argument("--fasta", type=argparse.FileType(), required=True,
+    parser.add_argument("--fasta", type=argparse.FileType(),
                         help="Genome FASTA file. Required.")
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument("-v", "--verbose", action="store_true", default=False)
@@ -353,8 +408,8 @@ def prepare_parser():
                         help="""Flag. If set, transcripts with mixed +/-
                         splices will not cause exceptions but rather
                         be annotated as problematic.""")
-    parser.add_argument("-m", "--minimum_length", default=0, type=positive,
-                        help="Minimum length for transcripts. Default: no filtering.")
+    parser.add_argument("-m", "--minimum_length", default=200, type=positive,
+                        help="Minimum length for transcripts. Default: 200 bps.")
     parser.add_argument("-t", "--threads",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=1)
@@ -365,11 +420,15 @@ def prepare_parser():
                         separated by comma.""")
     parser.add_argument("--single", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
-    parser.add_argument("-o", "--out", default='mikado_lib.gtf', type=argparse.FileType('w'),
-                        help="Output file. Default: mikado_lib.fasta.")
-    parser.add_argument("-of", "--out_fasta", default="mikado_lib.fasta",
-                        type=argparse.FileType('w'),
-                        help="Output file. Default: mikado_lib.fasta.")
-    parser.add_argument("gff", type=to_gff, help="Input GFF/GTF file(s).", nargs="+")
+    parser.add_argument("-o", "--out", default=None,
+                        help="Output file. Default: mikado_prepared.fasta.")
+    parser.add_argument("-of", "--out_fasta", default=None,
+                        help="Output file. Default: mikado_prepared.fasta.")
+    parser.add_argument("--cache", default=False, action="store_true",
+                        help="Whether to load the whole genome in memory or not.")
+    parser.add_argument("--json-conf", dest="json_conf",
+                        type=to_json, default="",
+                        help="Configuration file.")
+    parser.add_argument("gff", help="Input GFF/GTF file(s).", nargs="*")
     parser.set_defaults(func=prepare)
     return parser

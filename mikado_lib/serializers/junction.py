@@ -65,7 +65,7 @@ class Junction(DBBASE):
     junction_end = Column(Integer, nullable=False)
     score = Column(Float)
     __table_args__ = (Index(
-        "junction_index", "chrom_id", "junction_start", "junction_end", "strand"),
+        "junction_index", "chrom_id", "junction_start", "junction_end"),
                       {"extend_existing": True})
 
     chrom_object = relationship(Chrom, uselist=False)
@@ -128,8 +128,7 @@ class JunctionSerializer:
     This class is used to serialize a junction BED12 file into an SQL database.
     """
 
-    def __init__(self, handle, fai=None,
-                 maxobjects=10000,
+    def __init__(self, handle,
                  json_conf=None,
                  logger=None):
 
@@ -168,17 +167,19 @@ class JunctionSerializer:
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
         self.session = session()
-        self.maxobjects = maxobjects
+        if json_conf is not None:
+            self.maxobjects = json_conf["serialise"]["max_objects"]
+        else:
+            self.maxobjects = 10000
 
-        self.fai = fai
-        if isinstance(fai, str):
-            assert os.path.exists(fai)
+        self.fai = json_conf["serialise"]["files"]["genome_fai"]
+        if isinstance(self.fai, str):
+            assert os.path.exists(self.fai)
             # noinspection PyTypeChecker
             self.fai = open(self.fai)
         else:
-            if fai is not None:
-                assert isinstance(fai, io.TextIOWrapper)
-            self.fai = fai
+            if self.fai is not None:
+                assert isinstance(self.fai, io.TextIOWrapper)
 
     def serialize(self):
         """

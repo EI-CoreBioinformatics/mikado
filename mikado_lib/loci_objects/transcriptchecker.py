@@ -29,7 +29,9 @@ class TranscriptChecker(Transcript):
 
     __translation_table = str.maketrans("ACGT", "TGCA")
 
-    def __init__(self, gffline, seq, strand_specific=False, lenient=False):
+    def __init__(self, gffline, seq,
+                 strand_specific=False, lenient=False,
+                 canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC"))):
 
         """
         Constructor method. It inherits from Transcript, with some modifications.
@@ -61,6 +63,7 @@ class TranscriptChecker(Transcript):
         self.lenient = lenient
         self.mixed_splices = False
         self.reversed = False
+        self.canonical_splices = canonical_splices
 
     @property
     def translation_table(self):
@@ -121,55 +124,64 @@ class TranscriptChecker(Transcript):
         if self.checked is True:
             return
 
-        canonical_splices = [
-            ("GT", "AG"),
-            ("GC", "AG"),
-            ("AT", "AC")
-        ]
-
         if self.strand_specific is False and self.monoexonic is True:
             self.strand = None
-            return
 
         elif self.monoexonic is False:
             canonical_counter = Counter()
+            canonical_index = dict()
 
             checker = partial(self._check_intron,
-                              **{"canonical_splices": canonical_splices})
+                              **{"canonical_splices": self.canonical_splices})
 
-            for intron in self.introns:
-                canonical_counter.update([checker(intron)])
+            for pos, intron in enumerate(self.introns):
+                canonical_index[pos+1] = checker(intron)
+
+            canonical_counter.update(canonical_index.values())
 
             if canonical_counter[None] == len(self.introns):
                 if self.lenient is False:
-                    raise IncorrectStrandError("No correct strand found for {0}".format(self.id))
+                    raise IncorrectStrandError("No correct strand found for {0}".format(
+                        self.id))
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
-                if self.lenient is False:
-                    err_messg = """Transcript {0} has {1} positive and {2} negative
-                    splice junctions. Aborting.""".format(
-                        self.id,
-                        canonical_counter["+"],
-                        canonical_counter["-"])
-                    raise IncorrectStrandError(err_messg)
-                else:
-                    self.mixed_splices = True
-
-                if canonical_counter["+"] >= canonical_counter["-"]:
-                    self.mixed_attribute = "{0}concordant,{1}discordant".format(
-                        canonical_counter["+"],
-                        canonical_counter["-"])
-                else:
-                    self.reverse_strand()
-                    self.mixed_attribute = "{0}concordant,{1}discordant".format(
-                        canonical_counter["-"],
-                        canonical_counter["+"])
+                # if self.lenient is False:
+                err_messg = """Transcript {0} has {1} positive and {2} negative
+                splice junctions. Aborting.""".format(
+                    self.id,
+                    canonical_counter["+"],
+                    canonical_counter["-"])
+                raise IncorrectStrandError(err_messg)
+                # else:
+                #     self.mixed_splices = True
+                #
+                #     if canonical_counter["+"] >= canonical_counter["-"]:
+                #         self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                #             canonical_counter["+"],
+                #             canonical_counter["-"])
+                #     else:
+                #         self.reverse_strand()
+                #         self.mixed_attribute = "{0}concordant,{1}discordant".format(
+                #             canonical_counter["-"],
+                #             canonical_counter["+"])
 
             elif canonical_counter["-"] > 0:
                 self.reverse_strand()
                 self.reversed = True
+            else:
+                assert canonical_counter["+"] + canonical_counter[None] == len(self.introns)
+
+            # self.attributes["canonical_splices"] = ",".join(
+            #     str(k) for k in canonical_index.keys() if
+            #     canonical_index[k] in ("+", "-"))
+            # self.attributes["canonical_number"] = max(canonical_counter["+"],
+            #                                           canonical_counter["-"])
+            self.attributes[
+                "canonical_proportion"] = max(canonical_counter["+"],
+                                              canonical_counter["-"]) / len(self.introns)
 
         self.checked = True
+        return
 
     def _check_intron(self, intron, canonical_splices):
 
@@ -185,6 +197,12 @@ class TranscriptChecker(Transcript):
         splice_donor = self.fasta_seq[intron[0] - self.start:intron[0]-self.start + 2]
         assert len(splice_donor) == 2
         splice_acceptor = self.fasta_seq[intron[1] - 1 - self.start:intron[1] - self.start + 1]
+
+        if not isinstance(splice_donor, str):
+            splice_donor = str(splice_donor.seq)
+            splice_acceptor = str(splice_acceptor.seq)
+
+        assert isinstance(splice_acceptor, str)
 
         # splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]
         # splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]
@@ -219,6 +237,9 @@ class TranscriptChecker(Transcript):
             #     len(_), end - start
             # )
             sequence += _
+
+        if not isinstance(sequence, str):
+            sequence = str(sequence.seq)
 
         if self.strand == "-":
             sequence = self.rev_complement(sequence)

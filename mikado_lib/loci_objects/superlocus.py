@@ -91,7 +91,7 @@ class Superlocus(Abstractlocus):
                 "I am missing the configuration for prioritizing transcripts!"
             )
         self.json_conf = json_conf
-        self.purge = self.json_conf["pick_options"]["purge"]
+        self.purge = self.json_conf["pick"]["run_options"]["purge"]
 
         self.splices = set(self.splices)
         self.introns = set(self.introns)
@@ -352,7 +352,7 @@ class Superlocus(Abstractlocus):
                                                        data_dict=data_dict)
         to_remove, to_add = False, set()
 
-        if self.json_conf["chimera_split"]["execute"] is True:
+        if self.json_conf["pick"]["chimera_split"]["execute"] is True:
             if self.transcripts[tid].number_internal_orfs > 1:
                 new_tr = list(self.transcripts[tid].split_by_cds())
                 if len(new_tr) > 1:
@@ -385,23 +385,30 @@ class Superlocus(Abstractlocus):
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
                                   self.chrom, self.strand, intron[0], intron[1])
-                if len(self.junction_baked(self.session).params(
+                for ver_intron in self.junction_baked(self.session).params(
                                 chrom=self.chrom,
                                 junctionStart=intron[0],
-                                junctionEnd=intron[1],
-                                junctionStrand=self.strand
-                        ).all()) == 1:
+                                junctionEnd=intron[1]):
                     self.logger.debug("Verified intron %s:%d-%d",
                                       self.chrom, intron[0], intron[1])
-                    self.locus_verified_introns.append(intron)
+                    self.locus_verified_introns.append((ver_intron.junction_start,
+                                                        ver_intron.junction_end,
+                                                        ver_intron.strand))
+                    break
         else:
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
                                   self.chrom, self.strand, intron[0], intron[1])
-                if (self.chrom, intron[0], intron[1], self.strand) in data_dict["junctions"]:
+                key = (self.chrom, intron[0], intron[1])
+                # Ignore the strand 'cause we are loading BEFORE splitting by strand
+                if key in data_dict["junctions"]:
                     self.logger.debug("Verified intron %s%s:%d-%d",
-                                      self.chrom, self.strand, intron[0], intron[1])
-                    self.locus_verified_introns.append(intron)
+                                      self.chrom,
+                                      data_dict["junctions"][key],
+                                      intron[0], intron[1])
+                    self.locus_verified_introns.append((intron[0],
+                                                        intron[1],
+                                                        data_dict["junctions"][key]))
 
     def load_all_transcript_data(self, pool=None, data_dict=None):
 
@@ -422,6 +429,9 @@ class Superlocus(Abstractlocus):
         if isinstance(data_dict, dict):
             self.logger.debug("Length of data dict: %s", len(data_dict))
         self._load_introns(data_dict)
+        self.logger.debug("Verified %d introns for %s",
+                          len(self.locus_verified_introns),
+                          self.id)
         tid_keys = self.transcripts.keys()
         to_remove, to_add = set(), set()
         for tid in tid_keys:
@@ -535,7 +545,7 @@ class Superlocus(Abstractlocus):
             self.subloci_defined = True
             return
 
-        cds_only = self.json_conf["pick_options"]["subloci_from_cds_only"]
+        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
                                              cds_only=cds_only)
@@ -696,7 +706,7 @@ class Superlocus(Abstractlocus):
             self.loci[locus.id] = locus
 
         self.loci_defined = True
-        if self.json_conf["alternative_splicing"]["report"] is True:
+        if self.json_conf["pick"]["alternative_splicing"]["report"] is True:
             self.define_alternative_splicing()
 
         return
@@ -718,7 +728,7 @@ class Superlocus(Abstractlocus):
         candidates = collections.defaultdict(set)
         primary_transcripts = set(locus.primary_transcript_id for locus in self.loci.values())
 
-        cds_only = self.json_conf["pick_options"]["subloci_from_cds_only"]
+        cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only)

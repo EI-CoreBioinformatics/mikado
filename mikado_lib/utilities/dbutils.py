@@ -5,6 +5,7 @@
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.engine import create_engine
+from sqlalchemy_utils import database_exists, create_database
 import sqlite3
 import logging
 import functools
@@ -47,33 +48,51 @@ def create_connector(json_conf, logger=None):
     db_settings = json_conf["db_settings"]
 
     if db_settings["dbtype"] == "sqlite":
-        if json_conf["pick_options"]['shm'] is False:
+        if json_conf["pick"]["run_options"]['shm'] is False:
             logger.debug("Connecting to %s", db_settings["db"])
             func = sqlite3.connect(database=db_settings["db"], check_same_thread=False)
         else:
-            logger.debug("Connecting to %s", json_conf["pick_options"]["shm_db"])
-            func = sqlite3.connect(database=json_conf["pick_options"]["shm_db"],
-                                   check_same_thread=False)
-    elif db_settings["dbtype"] == "mysql":
-        import MySQLdb
-        logger.debug("Connecting to MySQL %s", db_settings["pick_options"]["db"])
-        func = MySQLdb.connect(host=db_settings["dbhost"],
-                               user=db_settings["dbuser"],
-                               passwd=db_settings["dbpasswd"],
-                               db=db_settings["db"],
-                               port=db_settings["dbport"])
-    elif db_settings["dbtype"] == "postgresql":
-        import psycopg2
-        logger.debug("Connecting to PSQL %s", db_settings["pick_options"]["db"])
-        func = psycopg2.connect(
+            logger.debug("Connecting to %s",
+                         json_conf["pick"]["run_options"]["shm_db"])
+            func = sqlite3.connect(
+                database=json_conf["pick"]["run_options"]["shm_db"],
+                check_same_thread=False)
+    else:
+        if db_settings["dbpasswd"] != '':
+            passwd = ":{0}".format(db_settings["dbpasswd"])
+        else:
+            passwd = ''
+        url = "{dialect}://{user}{passwd}@{host}:{port}/{db}".format(
+            dialect=db_settings["dbtype"],
             host=db_settings["dbhost"],
             user=db_settings["dbuser"],
-            password=db_settings["dbpasswd"],
-            database=db_settings["db"],
+            passwd=passwd,
+            db=db_settings["db"],
             port=db_settings["dbport"]
         )
-    else:
-        raise ValueError("DB type not supported! {0}".format(db_settings["dbtype"]))
+        if database_exists(url) is False:
+            create_database(url)
+
+        if db_settings["dbtype"] == "mysql":
+            import MySQLdb
+            logger.debug("Connecting to MySQL %s", db_settings["db"])
+            func = MySQLdb.connect(host=db_settings["dbhost"],
+                                   user=db_settings["dbuser"],
+                                   passwd=db_settings["dbpasswd"],
+                                   db=db_settings["db"],
+                                   port=db_settings["dbport"])
+        elif db_settings["dbtype"] == "postgresql":
+            import psycopg2
+            logger.debug("Connecting to PSQL %s", db_settings["db"])
+            func = psycopg2.connect(
+                host=db_settings["dbhost"],
+                user=db_settings["dbuser"],
+                password=db_settings["dbpasswd"],
+                database=db_settings["db"],
+                port=db_settings["dbport"]
+            )
+        else:
+            raise ValueError("DB type not supported! {0}".format(db_settings["dbtype"]))
     return func
 
 

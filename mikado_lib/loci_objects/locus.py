@@ -60,10 +60,13 @@ class Locus(Monosublocus, Abstractlocus):
         _ = kwargs
         to_be_added = True
         # Total, 5', 3'
-        max_utr_lenghts = {"total": self.json_conf["alternative_splicing"]["max_utr_length"],
-                           "five": self.json_conf["alternative_splicing"]["max_fiveutr_length"],
-                           "three": self.json_conf["alternative_splicing"]["max_threeutr_length"]}
-        max_isoforms = self.json_conf["alternative_splicing"]["max_isoforms"]
+        max_utr_lenghts = {"total": self.json_conf["pick"]\
+                           ["alternative_splicing"]["max_utr_length"],
+                           "five": self.json_conf["pick"]\
+                           ["alternative_splicing"]["max_fiveutr_length"],
+                           "three": self.json_conf["pick"]\
+                           ["alternative_splicing"]["max_threeutr_length"]}
+        max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
 
         if len(self.transcripts) >= max_isoforms:
             self.logger.debug("%s not added because the Locus has already too many transcripts.",
@@ -93,13 +96,14 @@ class Locus(Monosublocus, Abstractlocus):
                               transcript.three_utr_length)
             to_be_added = False
 
-        if to_be_added and self.json_conf["alternative_splicing"]["keep_retained_introns"] is False:
+        if (to_be_added and
+                self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False):
             if transcript.retained_intron_num > 0:
                 self.logger.debug("%s not added because it has %d retained introns.",
                                   transcript.id,
                                   transcript.retained_intron_num)
                 to_be_added = False
-        if to_be_added and self.json_conf["alternative_splicing"]["min_cds_overlap"] > 0:
+        if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] > 0:
             if self.primary_transcript.combined_cds_length > 0:
                 tr_nucls = set(itertools.chain(
                     *[range(x[0], x[1] + 1) for x in transcript.combined_cds]))
@@ -108,7 +112,7 @@ class Locus(Monosublocus, Abstractlocus):
                         *[range(x[0], x[1] + 1) for x in self.primary_transcript.combined_cds]))
                 nucl_overlap = len(set.intersection(primary_nucls, tr_nucls))
                 overlap = nucl_overlap / self.primary_transcript.combined_cds_length
-                if overlap < self.json_conf["alternative_splicing"]["min_cds_overlap"]:
+                if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"]:
                     self.logger.debug(
                         "%s not added because its CDS overlap is too low (%f%%).",
                         transcript.id,
@@ -215,7 +219,7 @@ class Locus(Monosublocus, Abstractlocus):
         elif other.retained_intron_num > 0:
             is_valid = False
 
-        valid_ccodes = self.json_conf["alternative_splicing"]["valid_ccodes"]
+        valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
 
         if is_valid is False:
             return is_valid, main_ccode

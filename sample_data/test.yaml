@@ -31,12 +31,11 @@ pick:
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
       #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
-      leniency: LENIENT
-      min_overlap_duplication: 0.8
+      leniency: STRINGENT
     execute: true
   files:
     #  Input and output files for Mikado pick.
-    #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf
+    #  - input: input GTF/GFF3 file. Default: mikado_prepared.gtf
     #  - loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3
     #  - subloci_out: optional GFF file with the intermediate subloci. Default: no
     #  output
@@ -45,8 +44,6 @@ pick:
     #  - log: log file for this step.
     input: mikado_prepared.gtf
     loci_out: mikado.loci.gff3
-    subloci_out: mikado.subloci.gff3
-    monoloci_out: mikado.monoloci.gff3
   run_options:
     #  Generic run options.
     #  - purge: boolean flag. If set, all loci where all transcripts have a score
@@ -60,7 +57,7 @@ pick:
     #  - preload: boolean flag. If set, the whole database will be preloaded into
     #  memory for faster access. Useful when
     #    using SQLite databases.
-    preload: false
+    preload: true
     threads: 1
 prepare:
   #  Options related to the input data preparation.
@@ -73,19 +70,13 @@ prepare:
   #  orientation, no strand flipping or removal
   #  - cache: whether to load the whole genome in memory or not.
   fasta: chr5.fas
-  gff:
-  - class.gtf
-  - cufflinks.gtf
-  - stringtie.gtf
-  - trinity.gtf
-  labels:
-  - cl
-  - cuff
-  - st
-  - tr
+  gff: ["class.gtf", "cufflinks.gtf", "trinity.gtf", "stringtie.gtf"]
+  labels: ["cl", "cuff", "tr", "st"]
   out: mikado_prepared.gtf
   out_fasta: mikado_prepared.fasta
-  cache: true
+  threads: 5
+  cache: false
+  strand_specific: false
 serialise:
   #  Options related to serialisation
   #  - force: whether to drop and reload everything into the DB

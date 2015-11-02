@@ -25,7 +25,8 @@ from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 # mikado_lib imports
-from mikado_lib.serializers.junction import Junction, Chrom
+from mikado_lib.serializers.junction import Junction
+import mikado_lib.utilities
 import mikado_lib.serializers.orf
 from mikado_lib.serializers.blast_serializer import Query, Hit
 from mikado_lib.serializers.orf import Orf
@@ -112,7 +113,7 @@ class Transcript:
                                            Hit.evalue <= bindparam("evalue")),)
 
     blast_baked += lambda q: q.order_by(asc(Hit.evalue))
-    blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
+    # blast_baked += lambda q: q.limit(bindparam("max_target_seqs"))
 
     orf_baked = bakery(lambda session: session.query(Orf))
     orf_baked += lambda q: q.filter(
@@ -563,6 +564,36 @@ class Transcript:
             new_lines.append(line)
         return sorted(new_lines)
 
+    def __add_frame(self, exon_lines):
+
+        """
+        Private method to add the frame to a transcript. The frame is defined as
+        the modulo 3 of the number of bases from the start.
+        Or:
+
+        len(cds so far) % 3
+
+        In this library, the frame (correct definition for the field in GTF)
+        is aliased as "phase".
+
+        :param exon_lines:
+        :return:
+        """
+
+        # We start by 0 if no CDS loaded, else
+        # we use the first phase
+
+        previous = self._first_phase % 3
+
+        new_lines = []
+        for line in sorted(exon_lines, reverse=(self.strand == "-")):
+            if line.feature == "CDS":
+                frame = previous % 3
+                line.frame = frame
+                previous += len(line)
+            new_lines.append(line)
+        return sorted(new_lines)
+
     def create_lines_no_cds(self, to_gtf=False):
 
         """
@@ -673,7 +704,7 @@ class Transcript:
         # Prepare the minimal secondary length parameter
         if self.json_conf is not None:
             minimal_secondary_orf_length = \
-                self.json_conf["orf_loading"]["minimal_secondary_orf_length"]
+                self.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"]
         else:
             minimal_secondary_orf_length = 0
 
@@ -737,11 +768,18 @@ class Transcript:
         # Establish the minimum overlap between an ORF and a BLAST hit to consider it
         # to establish belongingness
 
-        minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        minimal_overlap = self.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        self.logger.debug("Creating cds_hit_dict for %s, keys: %s",
+                          self.id,
+                          cds_boundaries.keys())
 
         cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
         for key in cds_hit_dict:
             cds_hit_dict[key] = collections.defaultdict(list)
+
+        self.logger.debug("Cds_hit_dict for %s: %s",
+                          self.id,
+                          cds_hit_dict)
 
         # BUG, this is a hacky fix
         if not hasattr(self, "blast_hits"):
@@ -752,7 +790,7 @@ class Transcript:
             self.blast_hits = []
 
         # Determine for each CDS which are the hits available
-        min_eval = self.json_conf['chimera_split']['blast_params']['hsp_evalue']
+        min_eval = self.json_conf["pick"]["chimera_split"]['blast_params']['hsp_evalue']
         for hit in self.blast_hits:
             for hsp in iter(_hsp for _hsp in hit["hsps"] if
                             _hsp["hsp_evalue"] <= min_eval):
@@ -760,11 +798,22 @@ class Transcript:
                     # If I have a valid hit b/w the CDS region and the hit,
                     # add the name to the set
                     overlap_threshold = minimal_overlap * (cds_run[1] + 1 - cds_run[0])
-                    if Abstractlocus.overlap(cds_run, (
+                    overlap = Abstractlocus.overlap(cds_run, (
                             hsp['query_hsp_start'],
-                            hsp['query_hsp_end'])) >= overlap_threshold:
+                            hsp['query_hsp_end']))
+                    if overlap >= overlap_threshold:
                         cds_hit_dict[cds_run][(hit["target"], hit["target_length"])].append(hsp)
+                        self.logger.debug("Overlap %s passed for %s between %s CDS and %s HSP, overlap threshold %s",
+                                          overlap,
+                                          self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                          overlap_threshold)
+                    else:
+                        self.logger.debug("Overlap %s rejected for %s between %s CDS and %s HSP, overlap threshold %s",
+                                          overlap,
+                                          self.id, cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                          overlap_threshold)
 
+        self.logger.debug("Final cds_hit_dict for %s: %s", self.id, cds_hit_dict)
         final_boundaries = OrderedDict()
         for boundary in self.__get_boundaries_from_blast(cds_boundaries, cds_hit_dict):
             if len(boundary) == 1:
@@ -776,7 +825,8 @@ class Transcript:
                 final_boundaries[nboun] = []
                 for boun in boundary:
                     final_boundaries[nboun].extend(cds_boundaries[boun])
-
+        self.logger.debug("Final boundaries for %s: %s",
+                          self.id, final_boundaries)
         cds_boundaries = final_boundaries.copy()
         return cds_boundaries
 
@@ -798,7 +848,7 @@ class Transcript:
                                      set(old_hits.keys()))
         # We do not have any hit in common
         to_break = len(in_common) == 0
-        min_overlap_duplication = self.json_conf[
+        min_overlap_duplication = self.json_conf["pick"][
             'chimera_split']['blast_params']['min_overlap_duplication']
         to_break = True
         for common_hit in in_common:
@@ -825,7 +875,8 @@ class Transcript:
                 for target_hit in old_target_boundaries.search(*boundary):
                     overlap_fraction = self.overlap(boundary,
                                                     target_hit)/common_hit[1]
-
+                    self.logger.debug("Checking overlap duplication for %s; OF %s, minimum %s",
+                                      self.id, overlap_fraction, min_overlap_duplication)
                     if overlap_fraction >= min_overlap_duplication:
                         to_break = True and to_break
                     else:
@@ -841,7 +892,7 @@ class Transcript:
         :return:
         """
         new_boundaries = []
-        leniency = self.json_conf['chimera_split']['blast_params']['leniency']
+        leniency = self.json_conf["pick"]["chimera_split"]['blast_params']['leniency']
         for cds_boundary in cds_boundaries:
             if not new_boundaries:
                 new_boundaries.append([cds_boundary])
@@ -1263,7 +1314,7 @@ class Transcript:
 
         identical_positions, positives = set(), set()
 
-        minimal_overlap = self.json_conf["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+        minimal_overlap = self.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
         best_hsp = (float("inf"), float("-inf"))
 
@@ -1330,7 +1381,7 @@ class Transcript:
 
             # Check whether we have to split or not based on BLAST data
             if self.json_conf is not None:
-                if self.json_conf["chimera_split"]["blast_check"] is True:
+                if self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
                     cds_boundaries = self.check_split_by_blast(cds_boundaries)
 
             if len(cds_boundaries) == 1:
@@ -1650,28 +1701,19 @@ class Transcript:
 
         if data_dict is not None:
             self.retrieve_from_dict(data_dict)
-            # yield from self.retrieve_from_dict(data_dict)
         else:
             if session is None:
                 self.__connect_to_db()
             else:
                 self.session = session
-            self.__load_verified_introns(introns)
-            # yield from self.load_verified_introns(introns)
-            # self.query_id = self.query_baked(self.session).params(
-            #     query_name=self.id).all()
-            # if len(self.query_id) == 0:
-            #     self.logger.warning(
-            #         "Transcript not in database: %s", self.id)
-            # else:
-            #     self.query_id = self.query_id[0].query_id
             candidate_orfs = []
             for orf in self.retrieve_orfs():
                 candidate_orfs.append(orf)
 
             self.load_orfs(candidate_orfs)
             self.__load_blast()
-            self.logger.debug("Loaded %s", self.id)
+        self.__load_verified_introns(data_dict, introns)
+        self.logger.debug("Loaded data for %s", self.id)
 
     def retrieve_from_dict(self, data_dict):
         """
@@ -1688,15 +1730,15 @@ class Transcript:
                           sorted(self.introns))
 
         self.verified_introns = set.intersection(
-            # set([(self.chrom, intron[0], intron[1], self.strand) for intron in self.introns]),
-            set([(self.chrom, intron[0], intron[1]) for intron in self.introns]),
+            set((self.chrom, intron[0], intron[1], self.strand)
+                for intron in self.introns),
             data_dict["junctions"])
         self.logger.debug("Verified introns for %s: %s", self.id,
                           sorted(self.verified_introns))
 
         # ORF data
-        trust_strand = self.json_conf["orf_loading"]["strand_specific"]
-        min_cds_len = self.json_conf["orf_loading"]["minimal_orf_length"]
+        trust_strand = self.json_conf["pick"]["orf_loading"]["strand_specific"]
+        min_cds_len = self.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
 
         self.logger.debug("Retrieving ORF information from DB dictionary for %s",
                           self.id)
@@ -1716,10 +1758,10 @@ class Transcript:
 
         self.load_orfs(candidate_orfs)
 
-        if self.json_conf["chimera_split"]["blast_check"] is True:
+        if self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
             self.logger.debug("Retrieving BLAST hits for %s",
                               self.id)
-            maximum_evalue = self.json_conf["chimera_split"]["blast_params"]["evalue"]
+            maximum_evalue = self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
 
             if self.id in data_dict["hits"]:
                 # this is a dictionary full of lists of dictionary
@@ -1747,7 +1789,7 @@ class Transcript:
         """
         self.json_conf = json_conf
 
-    def __load_verified_introns(self, introns=None):
+    def __load_verified_introns(self, data_dict=None, introns=None):
 
         """This method will load verified junctions from the external
         (usually the superlocus class).
@@ -1757,25 +1799,47 @@ class Transcript:
         """
 
         self.logger.debug("Checking introns; candidates %s", self.introns)
-        if introns is None or len(introns) == 0:
+        if data_dict is None:
+            self.logger.debug("Checking introns using the database for %s",
+                              self.id)
+
             for intron in self.introns:
                 # Disable checks as the hybridproperties confuse
                 # both pycharm and pylint
                 # noinspection PyCallByClass,PyTypeChecker
                 # pylint: disable=no-value-for-parameter
-                chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
-                import sqlalchemy
-                if self.session.query(Junction).filter(sqlalchemy.and_(
-                        Junction.chrom_id == chrom_id,
-                        intron[0] == Junction.junction_start,
-                        intron[1] == Junction.junction_end)).count() == 1:
-                    self.verified_introns.add(intron)
+                # chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
+                # import sqlalchemy
+                for ver_intron in self.session.query(Junction).filter(and_(
+                            Junction.chrom == self.chrom,
+                            intron[0] == Junction.junction_start,
+                            intron[1] == Junction.junction_end)):
+                    if ver_intron.strand in (self.strand, None):
+                        self.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                          self.chrom, ver_intron.strand,
+                                          intron[0], intron[1], self.id)
+                        self.verified_introns.add(intron)
 
         else:
-            for intron in introns:
-                if intron in self.introns:
+            self.logger.debug("Checking introns using data structure for %s",
+                              self.id)
+            for intron in self.introns:
+                self.logger.debug("Checking intron %s%s:%d-%d for %s",
+                                  self.chrom, self.strand,
+                                  intron[0], intron[1], self.id)
+                if (intron[0], intron[1], self.strand) in introns:
+                    self.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                      self.chrom, self.strand,
+                                      intron[0], intron[1], self.id)
                     self.verified_introns.add(intron)
-        self.logger.debug("Found these introns: %s", self.verified_introns)
+                elif (intron[0], intron[1], None) in introns:
+                    self.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                       self.chrom, None,
+                                       intron[0], intron[1], self.id)
+                    self.verified_introns.add(intron)
+
+        self.logger.debug("Found these introns for %s: %s",
+                          self.id, self.verified_introns)
         return
 
     def retrieve_orfs(self):
@@ -1787,8 +1851,8 @@ class Transcript:
         # if self.query_id is None:
         #     return []
 
-        trust_strand = self.json_conf["orf_loading"]["strand_specific"]
-        min_cds_len = self.json_conf["orf_loading"]["minimal_orf_length"]
+        trust_strand = self.json_conf["pick"]["orf_loading"]["strand_specific"]
+        min_cds_len = self.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
 
         orf_results = self.orf_baked(self.session).params(query=self.id,
                                                           cds_len=min_cds_len)
@@ -2057,22 +2121,38 @@ class Transcript:
         # if self.query_id is None:
         #     return
 
-        # if self.json_conf["chimera_split"]["blast_check"] is False:
+        # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
         #     return
 
-        max_target_seqs = self.json_conf["chimera_split"]["blast_params"]["max_target_seqs"]
-        maximum_evalue = self.json_conf["chimera_split"]["blast_params"]["evalue"]
+        max_target_seqs = self.json_conf["pick"]\
+            ["chimera_split"]["blast_params"]["max_target_seqs"]
+        maximum_evalue = self.json_conf["pick"]["chimera_split"]\
+            ["blast_params"]["evalue"]
 
         blast_hits_query = self.blast_baked(self.session).params(
             query=self.id,
-            evalue=maximum_evalue,
-            max_target_seqs=max_target_seqs)
-        counter = 0
+            evalue=maximum_evalue)
+        
         self.logger.debug("Starting to load BLAST data for %s",
                           self.id)
+        # variables which take care of defining
+        # the maximum evalue and target seqs
+        # We do not trust the limit in the sqlite because
+        # we might lose legitimate hits with the same evalue as the
+        # best ones. So we collapse all hits with the same evalue.
+        previous_evalue = -1
+        counter = 0
         for hit in blast_hits_query:
+
+            if counter > max_target_seqs and previous_evalue < hit.evalue:
+                break
+            elif previous_evalue < hit.evalue:
+                previous_evalue= hit.evalue
+
             counter += 1
+
             self.blast_hits.append(hit.as_dict())
+
         self.logger.debug("Loaded %d BLAST hits for %s",
                           counter, self.id)
 
@@ -3238,3 +3318,14 @@ class Transcript:
         """
         return self.snowy_blast_score
         # return self.best_bits
+
+    @Metric
+    def canonical_intron_proportion(self):
+
+        """
+        This metric returns the proportion of canonical introns
+         of the transcript on its total number of introns.
+        :return:
+        """
+
+        return float(self.attributes.get("canonical_proportion", 0))

@@ -37,7 +37,7 @@ def to_seqio(string):
     return SeqIO.index(string, "fasta")
 
 
-def xml_launcher(xml_candidate=None, args=None, logger=None):
+def xml_launcher(xml_candidate=None, json_conf=None, logger=None):
 
     """
     Thin rapper around blast_utils.XmlSerializer. Its purpose is
@@ -48,24 +48,136 @@ def xml_launcher(xml_candidate=None, args=None, logger=None):
     :return:
     """
 
-    # If we have a value in the JSON, use it
-    max_target_conf = float("Inf")
-    if "blast" in args.json_conf["blast"]:
-        if "max_target_seqs" in args.json_conf["blast"]:
-            max_target_conf = args.json_conf["blast"]["max_target_seqs"]
-
-    args.max_target_seqs = min(args.max_target_seqs, max_target_conf)
-
     xml_serializer = blast_serializer.XmlSerializer(
         xml_candidate,
-        discard_definition=args.discard_definition,
-        max_target_seqs=args.max_target_seqs,
-        maxobjects=args.max_objects,
-        target_seqs=args.target_seqs,
-        query_seqs=args.transcript_fasta,
-        json_conf=args.json_conf,
+        json_conf=json_conf,
         logger=logger)
     xml_serializer()
+
+
+def load_junctions(args, logger):
+    """
+    Function that performs the loading of the junctions.
+    :return:
+    """
+
+    if args.json_conf["serialise"]["files"]["junctions"] is not None:
+        logger.info("Starting to load junctions: %s",
+                    args.json_conf["serialise"]["files"]["junctions"])
+        for junction_file in iter(
+                j_file for j_file in args.json_conf["serialise"]["files"]["junctions"]
+                if j_file != ''):
+            logger.info("Loading junctions: %s", junction_file)
+            serializer = junction.JunctionSerializer(
+                junction_file,
+                json_conf=args.json_conf,
+                logger=logger)
+            serializer()
+        logger.info("Loaded junctions")
+
+
+def load_blast(args, logger):
+
+    """
+    Function to load the BLAST data into the chosen database
+    """
+    if args.json_conf["serialise"]["files"]["xml"]:
+        assert isinstance(args.json_conf["serialise"]["files"]["blast_targets"], str)
+        logger.info("Starting to load BLAST data")
+        filenames = []
+
+        part_launcher = functools.partial(
+            xml_launcher,
+            **{"json_conf": args.json_conf, "logger": logger})
+
+        for xml in args.json_conf["serialise"]["files"]["xml"]:
+            if os.path.isdir(xml):
+                filenames.extend(
+                    [os.path.join(xml, _xml) for _xml in
+                     os.listdir(xml) if (_xml.endswith(".xml") or
+                                         _xml.endswith(".xml.gz") or
+                                         _xml.endswith(".asn.gz")) is True])
+            else:
+                filenames.extend(glob.glob(xml))
+
+        if len(filenames) == 0:
+            raise ValueError("No valid BLAST file specified!")
+
+        part_launcher(filenames)
+        logger.info("Finished to load BLAST data")
+
+
+def load_orfs(args, logger):
+
+    """
+    Function to load the ORFs into the DB.
+    :param args:
+    :param logger:
+    :return:
+    """
+
+    if args.json_conf["serialise"]["files"]["orfs"] is not None:
+        logger.info("Starting to load ORF data")
+        for orf_file in args.json_conf["serialise"]["files"]["orfs"]:
+            serializer = orf.OrfSerializer(orf_file,
+                                           json_conf=args.json_conf,
+                                           logger=logger)
+            serializer.serialize()
+        logger.info("Finished loading ORF data")
+
+
+def setup(args):
+
+    """
+    Function to set up everything for the serialisation.
+    :param args:
+    :return:
+    """
+
+    logger = create_default_logger("serialiser")
+    # Get the log level from general settings
+    args.json_conf["serialise"]["log_level"] = args.json_conf["log_settings"]["log_level"]
+
+    for key in args.json_conf["serialise"]:
+        if key == "files":
+            for file_key in args.json_conf["serialise"]["files"]:
+                if getattr(args, file_key):
+                    if file_key in ("xml", "junctions", "orfs"):
+                        setattr(args, key, getattr(args, key).split(","))
+                    args.json_conf["serialise"]["files"][key] = getattr(args, key)
+        else:
+            if getattr(args, key) or getattr(args, key) == 0:
+                if getattr(args, key) is False:
+                    continue
+                else:
+                    args.json_conf["serialise"][key] = getattr(args, key)
+
+    if args.json_conf["serialise"]["files"]["log"] is not None:
+        if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
+            args.json_conf["serialise"]["files"]["log"].close()
+            args.json_conf["serialise"]["files"]["log"] = \
+                args.json_conf["serialise"]["files"]["log"].name
+        formatter = logger.handlers[0].formatter
+        logger.removeHandler(logger.handlers[0])
+        handler = logging.FileHandler(
+            args.json_conf["serialise"]["files"]["log"], "w")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    logger.setLevel(args.log_level)
+    logger.info("Command line: {0}".format(" ".join(sys.argv)))
+
+    # Add sqlalchemy logging
+    sql_logger = logging.getLogger("sqlalchemy.engine")
+    if args.log_level == "DEBUG":
+        level = args.json_conf["serialise"]["log_level"]
+    else:
+        level = args.json_conf["log_settings"]["sql_level"]
+
+    sql_logger.setLevel(level)
+    sql_logger.addHandler(logger.handlers[0])
+
+    return args, logger
 
 
 def serialise(args):
@@ -78,75 +190,21 @@ def serialise(args):
     :return:
     """
 
-    # Provisional logging. To be improved
-    logger = create_default_logger("serialiser")
-    if args.log is not None:
-        args.log.close()
-        formatter = logger.handlers[0].formatter
-        logger.removeHandler(logger.handlers[0])
-        handler = logging.FileHandler(args.log.name, "w")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    args, logger = setup(args)
 
-    # Add sqlalchemy logging
-    sql_logger = logging.getLogger("sqlalchemy.engine")
-    sql_logger.setLevel(args.log_level)
-    sql_logger.addHandler(logger.handlers[0])
-
-    logger.setLevel(args.log_level)
-
-    if args.force is True:
+    if args.json_conf["serialise"]["force"] is True:
         logger.warn("Removing old data because force option in place")
         engine = dbutils.connect(args.json_conf)
         meta = sqlalchemy.MetaData(bind=engine)
         meta.reflect(engine)
         for tab in reversed(meta.sorted_tables):
+            logger.warn("Dropping %s", tab)
             tab.drop()
         dbutils.DBBASE.metadata.create_all(engine)
 
-    if args.junctions is not None:
-        logger.info("Starting to load junctions")
-        for junction_file in args.junctions.split(","):
-            serializer = junction.JunctionSerializer(junction_file,
-                                                     fai=args.genome_fai,
-                                                     json_conf=args.json_conf,
-                                                     maxobjects=args.max_objects,
-                                                     logger=logger)
-            serializer()
-        logger.info("Loaded junctions")
-
-    if args.xml is not None:
-        logger.info("Starting to load BLAST data")
-        filenames = []
-
-        part_launcher = functools.partial(xml_launcher, **{"args": args,
-                                                           "logger": logger})
-
-        for xml in args.xml.split(","):
-            if os.path.isdir(xml):
-                filenames.extend([os.path.join(xml, _xml) for _xml in
-                                  os.listdir(xml) if (_xml.endswith(".xml") or
-                                                      _xml.endswith(".xml.gz") or
-                                                      _xml.endswith(".asn.gz")) is True])
-            else:
-                filenames.extend(glob.glob(xml))
-
-        if len(filenames) == 0:
-            raise ValueError("No valid BLAST file specified!")
-
-        part_launcher(filenames)
-        logger.info("Finished to load BLAST data")
-
-    if args.orfs is not None:
-        logger.info("Starting to load ORF data")
-        for orf_file in args.orfs.split(","):
-            serializer = orf.OrfSerializer(orf_file,
-                                           fasta_index=args.transcript_fasta,
-                                           maxobjects=args.max_objects,
-                                           json_conf=args.json_conf,
-                                           logger=logger)
-            serializer.serialize()
-        logger.info("Finished loading ORF data")
+    load_junctions(args, logger)
+    load_blast(args, logger)
+    load_orfs(args, logger)
 
 
 def serialise_parser():
@@ -159,7 +217,7 @@ def serialise_parser():
     orfs = parser.add_argument_group()
     orfs.add_argument("--orfs", type=str, default=None,
                       help="ORF BED file(s), separated by commas")
-    orfs.add_argument("--transcript_fasta", default=None,
+    orfs.add_argument("--transcripts", default=None,
                       help="""Transcript FASTA file(s) used for ORF calling and BLAST queries,
                       separated by commas.
                       If multiple files are given, they must be in the same order of the
@@ -181,7 +239,7 @@ def serialise_parser():
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=sys.maxsize,
                        help="Maximum number of target sequences.")
-    blast.add_argument("--target_seqs", default=None, type=to_seqio, help="Target sequences")
+    blast.add_argument("--blast_targets", default=None, type=to_seqio, help="Target sequences")
     blast.add_argument("--discard-definition", action="store_true", default=False,
                        help="""Flag. If set, the sequences IDs instead of their definition
                        will be used for serialisation.""")

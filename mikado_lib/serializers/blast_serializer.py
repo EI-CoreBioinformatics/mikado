@@ -566,29 +566,13 @@ class XmlSerializer:
                           ["|", "*"])
 
     def __init__(self, xml,
-                 max_target_seqs=float("Inf"),
                  logger=None,
-                 target_seqs=None,
-                 query_seqs=None,
-                 discard_definition=True, maxobjects=10000,
                  json_conf=None):
         """Initializing method. Arguments:
 
         :param xml: The XML to parse.
 
-        Optional arguments:
-
-        :param target_seqs: either a BioPython index of a FASTA file or the file itself.
-
-        :param query_seqs: either a BioPython index of a FASTA file or the file itself.
-
-        :param discard_definition: flag. If set to True, the "id" field in the XML
-        instead of "definition" will be used for serializing.
-        :type discard_definition: bool
-
-        :param maxobjects: maximum number of objects to keep in memory
-        before bulk loading. Default: 10^4
-        :type maxobjects: int
+        Arguments:
 
         :param json_conf: a configuration dictionary.
         :type json_conf: dict
@@ -596,8 +580,18 @@ class XmlSerializer:
 
         """
 
+        if json_conf is None:
+            raise ValueError("No configuration provided!")
+
         if logger is not None:
             self.logger = check_logger(logger)
+
+        # Runtime arguments
+        self.discard_definition = json_conf["serialise"]["discard_definition"]
+        self.__max_target_seqs = json_conf["serialise"]["max_target_seqs"]
+        self.maxobjects = json_conf["serialise"]["max_objects"]
+        target_seqs = json_conf["serialise"]["files"]["blast_targets"]
+        query_seqs = json_conf["serialise"]["files"]["transcripts"]
 
         if xml is None:
             self.logger.warning("No BLAST XML provided. Exiting.")
@@ -621,11 +615,6 @@ class XmlSerializer:
             else:
                 self.xml_parser = xparser(XMLMerger(xml))  # Merge in memory
 
-        # Runtime arguments
-        self.discard_definition = discard_definition
-        self.__max_target_seqs = max_target_seqs
-        self.maxobjects = maxobjects
-
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
 
@@ -644,6 +633,7 @@ class XmlSerializer:
         elif query_seqs is None:
             self.query_seqs = None
         else:
+            self.logger.warn("Query type: %s", type(query_seqs))
             assert "SeqIO.index" in repr(query_seqs)
             self.query_seqs = query_seqs
 
@@ -653,6 +643,9 @@ class XmlSerializer:
         elif target_seqs is None:
             self.target_seqs = None
         else:
+            self.logger.warn("Target (%s) type: %s",
+                             target_seqs,
+                             type(target_seqs))
             assert "SeqIO.index" in repr(target_seqs)
             self.target_seqs = target_seqs
         return
@@ -852,21 +845,32 @@ class XmlSerializer:
                 tot_objects = len(hits) + len(hsps)
                 if tot_objects >= self.maxobjects:
                     # Bulk load
-                    self.logger.debug("Loading %d BLAST objects into database", tot_objects)
-                    # pylint: disable=no-member
-                    self.engine.execute(Hit.__table__.insert(), hits)
-                    self.engine.execute(Hsp.__table__.insert(), hsps)
-                    # pylint: enable=no-member
-                    # self.session.bulk_insert_mappings(Hit, hits)
-                    # self.session.bulk_insert_mappings(Hsp, hsps)
-                    self.session.commit()
+                    self.logger.info("Loading %d BLAST objects into database", tot_objects)
+
+                    try:
+                        # pylint: disable=no-member
+                        self.engine.execute(Hit.__table__.insert(), hits)
+                        self.engine.execute(Hsp.__table__.insert(), hsps)
+                        # pylint: enable=no-member
+                        self.session.commit()
+                    except sqlalchemy.exc.IntegrityError as err:
+                        self.logger.critical("Failed to serialise BLAST!")
+                        self.logger.exception(err)
+                        raise err
                     hits, hsps = [], []
 
-        # pylint: disable=no-member
-        self.engine.execute(Hit.__table__.insert(), hits)
-        self.engine.execute(Hsp.__table__.insert(), hsps)
-        # pylint: enable=no-member
-        self.session.commit()
+        tot_objects = len(hits) + len(hsps)
+        self.logger.info("Loading %d BLAST objects into database", tot_objects)
+        try:
+            # pylint: disable=no-member
+            self.engine.execute(Hit.__table__.insert(), hits)
+            self.engine.execute(Hsp.__table__.insert(), hsps)
+            # pylint: enable=no-member
+            self.session.commit()
+        except sqlalchemy.exc.IntegrityError as err:
+            self.logger.critical("Failed to serialise BLAST!")
+            self.logger.exception(err)
+            raise err
 
         self.logger.info("Loaded %d alignments for %d queries",
                          hit_counter, record_counter)
@@ -1019,7 +1023,9 @@ def prepare_hsp(hsp, counter):
     identical_positions, positives = set(), set()
 
     hsp_dict = dict()
-    hsp_dict["counter"] = counter
+    # We must start from 1, otherwise MySQL crashes
+    # as its indices start from 1 not 0
+    hsp_dict["counter"] = counter + 1
     hsp_dict["query_hsp_start"] = hsp.query_start
     hsp_dict["query_hsp_end"] = hsp.query_end
     # Prepare the list for later calculation

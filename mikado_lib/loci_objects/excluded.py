@@ -75,7 +75,7 @@ class Excluded(Abstractlocus):
 
         raise NotImplementedError("Scores are not calculated by this class!")
 
-    def define_monosubloci(self, purge=False, excluded=None):
+    def define_monosubloci(self):
         """
         Suppress the method from the base class
         """

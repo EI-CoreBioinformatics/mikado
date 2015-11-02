@@ -100,10 +100,10 @@ class GtfLine(GFAnnotation):
 
         for info in iter(key for key in self.attributes if
                          self.attributes[key] not in (None, "", []) and key not in order):
-            if info == "Parent" and \
-                            self.attributes[info] in (self.gene,
-                                                      self.transcript,
-                                                      self.parent):
+            if info == ("Parent" and
+                        self.attributes[info] in (self.gene,
+                                                  self.transcript,
+                                                  self.parent)):
                 continue
             if info == "ID" and self.attributes[info] in (self.gene, self.transcript):
                 continue
@@ -311,10 +311,22 @@ class GtfLine(GFAnnotation):
 
     @property
     def frame(self):
+        """
+        Frame of the GTF record line. It can be one of None, 0, 1, 2.
+        :return:
+        """
+
         return self.phase
 
     @frame.setter
     def frame(self, value):
+        """
+        Setter for the frame.
+        :param value: the new frame. One of None, 0, 1, 2.
+        :type value: (None | int)
+        :return:
+        """
+
         assert value in (None, 0, 1, 2)
         self.phase = value
 
@@ -325,6 +337,12 @@ class GTF(Parser):
     __annot_type__ = "gtf"
 
     def __init__(self, handle):
+        """
+        Constructor for the parser.
+        :param handle: either the filename or the handle for the file to parse.
+        :return:
+        """
+
         super().__init__(handle)
 
     def __next__(self):

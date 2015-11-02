@@ -177,6 +177,12 @@ def create_config(args):
 
 
 def configure_parser():
+    """
+    Parser for the configuration utility.
+    :return: the parser.
+    :rtype: argparse.ArgumentParser
+    """
+
     parser = argparse.ArgumentParser("Configuration utility")
     parser.add_argument("--full", action="store_true", default=False)
     parser.add_argument("--labels", type=str, default="",

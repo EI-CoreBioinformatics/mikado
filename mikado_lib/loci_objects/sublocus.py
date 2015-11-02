@@ -562,6 +562,9 @@ class Sublocus(Abstractlocus):
         :param other: the second transcript to check
         :type other: Transcript
 
+        :param logger: the logger to be used.
+        :type logger: (None | logging.Logger)
+
         Implementation of the is_intersecting method. Here at the level of the sublocus,
         the intersection is seen as overlap between exons.
         """

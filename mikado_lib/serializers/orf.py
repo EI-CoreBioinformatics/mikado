@@ -76,7 +76,12 @@ class Orf(DBBASE):
     @classmethod
     def as_bed12_static(cls, state, query_name):
         """Class method to transform the mapper into a BED12 object.
-        Usable from outside the class."""
+        Usable from outside the class.
+
+        :param state: the original state derived from the mapping.
+
+        :param query_name: the name of the query, retrieved from the Query associated object/table.
+        """
         __bed12 = bed12.BED12()
 
         __bed12.header = False

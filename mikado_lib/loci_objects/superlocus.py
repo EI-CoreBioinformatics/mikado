@@ -342,6 +342,10 @@ class Superlocus(Abstractlocus):
         :param tid: the name of the transcript to retrieve data for.
         :type tid: str
 
+        :param data_dict: the dictionary to use for data retrieval, if specified. If None, a DB connection
+                          will be established to retrieve the necessary data.
+        :type data_dict: (None | dict)
+
         This routine is used to load data for a single transcript."""
 
         self.logger.debug("Retrieving data for {0}".format(tid))
@@ -385,9 +389,9 @@ class Superlocus(Abstractlocus):
                 self.logger.debug("Checking %s%s:%d-%d",
                                   self.chrom, self.strand, intron[0], intron[1])
                 for ver_intron in self.junction_baked(self.session).params(
-                                chrom=self.chrom,
-                                junctionStart=intron[0],
-                                junctionEnd=intron[1]):
+                        chrom=self.chrom,
+                        junctionStart=intron[0],
+                        junctionEnd=intron[1]):
                     self.logger.debug("Verified intron %s:%d-%d",
                                       self.chrom, intron[0], intron[1])
                     self.locus_verified_introns.append((ver_intron.junction_start,
@@ -419,6 +423,11 @@ class Superlocus(Abstractlocus):
 
         :param pool: a connection pool
         :type pool: sqlalchemy.pool.QueuePool
+
+        :param data_dict: the dictionary to use for data retrieval, if specified. If None, a DB connection
+                          will be established to retrieve the necessary data.
+        :type data_dict: (None | dict)
+
         """
 
         if data_dict is None:

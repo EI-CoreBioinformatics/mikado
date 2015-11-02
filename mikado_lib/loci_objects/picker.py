@@ -61,7 +61,18 @@ def remove_fragments(stranded_loci, json_conf, logger):
 
     """This method checks which loci are possible fragments, according to the
     parameters provided in the configuration file, and tags/remove them according
-    to the configuration specification."""
+    to the configuration specification.
+
+    :param stranded_loci: a list of the loci to consider for fragment removal
+    :type stranded_loci: list[Superlocus]
+
+    :param json_conf: the configuration dictionary
+    :type json_conf: dict
+
+    :param logger: the logger
+    :type logger: logging.Logger
+
+    """
 
     loci_to_check = {True: set(), False: set()}
     for stranded_locus in stranded_loci:
@@ -101,6 +112,9 @@ def analyse_locus(slocus: Superlocus,
     """
     :param slocus: a superlocus instance
     :type slocus: mikado_lib.loci_objects.superlocus.Superlocus
+
+    :param counter: an integer which is used to create the proper name for the locus.
+    :type counter: int
 
     :param json_conf: the configuration dictionary
     :type json_conf: dict
@@ -748,8 +762,8 @@ class Picker:
         self.main_logger.info("%d junctions loaded",
                               len(data_dict["junctions"]))
         self.main_logger.debug("Example junctions:\n{0}".format(
-            "\n".join(str(junc) for junc in list(data_dict["junctions"])[
-                                            :min(10, len(data_dict["junctions"]))])))
+            "\n".join(str(junc) for junc in list(
+                data_dict["junctions"])[:min(10, len(data_dict["junctions"]))])))
 
         queries = dict((que.query_id, que) for que in engine.execute("select * from query"))
 

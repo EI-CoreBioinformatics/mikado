@@ -1,3 +1,5 @@
-__author__ = 'Luca Venturini'
+"""
+This package contains the modules with the private methods employed by the Transcript class.
+"""
 
-"""Methods for the transcript instances."""
+__author__ = 'Luca Venturini'

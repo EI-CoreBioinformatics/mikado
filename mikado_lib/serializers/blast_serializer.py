@@ -1079,6 +1079,18 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     """Prepare the dictionary for fast loading of Hit and Hsp objects.
     global_positives: the similarity rate for the global hit *using the query perspective*
     global_identity: the identity rate for the global hit *using the query perspective*
+
+    :param hit: the hit to parse.
+    :type hit: Bio.Blast.Record.Alignment
+
+    :param query_id: the numeric ID of the query in the database. Necessary for serialisation.
+    :type query_id: int
+
+    :param target_id: the numeric ID of the target in the database. Necessary for serialisation.
+    :type target_id: int
+
+    :param kwargs: additional properties to give to the hit_dict. Retrieved e.g. from descriptions.
+    :type kwargs: dict
     """
 
     hit_dict = dict()

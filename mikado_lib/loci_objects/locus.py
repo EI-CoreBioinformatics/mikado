@@ -276,6 +276,12 @@ class Locus(Monosublocus, Abstractlocus):
     # pylint: disable=arguments-differ
     @id.setter
     def id(self, string):
+        """
+        Override of the original method from AbstractLocus. This override allows to create proper IDs
+        for the final annotation to be output by Mikado.
+        :param string:
+        :return:
+        """
 
         self.logger.debug("Setting new ID for %s to %s", self.id, string)
         self.__id = string

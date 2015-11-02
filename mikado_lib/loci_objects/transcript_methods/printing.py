@@ -1,3 +1,9 @@
+"""
+This module contains the methods related to creating the proper output lines for printing
+GFFs/GTFs starting from the transcript class.
+"""
+
+
 from collections import Counter
 import functools
 from mikado_lib.parsers.GTF import GtfLine
@@ -15,7 +21,7 @@ def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False):
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
     :param cds_run: the internal orf run we are preparing
     :param tid: name of the transcript
-    :param to_gtf: boolean, indicates whether
+    :param to_gtf: boolean, indicates whether th
     we want GTF or GFF output
     :return:
     """
@@ -124,7 +130,9 @@ def create_lines_cds(transcript, to_gtf=False, first_phase=0):
     :param transcript: the transcript instance
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
-    :param to_gtf:
+    :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
+
+    :param first_phase: number it indicates the phase of the first CDS exon. It defaults to 0.
     :return:
     """
 
@@ -249,6 +257,12 @@ def create_lines_no_cds(transcript, to_gtf=False):
 
     """
     Method to create the GTF/GFF lines for printing in the absence of CDS information.
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
+    :type to_gtf: bool
     """
 
     if to_gtf is True:

@@ -28,7 +28,7 @@ def create_opener(filename):
     Function to create the appropriate opener for a BLAST file.
     If a handle is given instead of a filename, the function returns the input immediately.
 
-    :param filename
+    :param filename: the name of the filename to use.
     :return:
     """
 
@@ -58,6 +58,13 @@ def check_beginning(handle, filename, previous_header):
 
     """
     Static method to check that the beginning of the XML file is actually correct.
+
+    :param handle: handle to the file to check.
+    :param filename: name of the file associated with the handle.
+    :type filename: str
+
+    :param previous_header: header found in previous file(s). It is used the parameter used for the consinstency check.
+    :type previous_header: (None | list)
 
     :return
     """
@@ -128,12 +135,13 @@ def check_beginning(handle, filename, previous_header):
 
 def merge(intervals: [(int, int)]):
     """
-    :param intervals: a list of integer duplexes
-    :type intervals: list
     This function is used to merge together intervals, which have to be supplied as a list
     of duplexes - (start,stop). The function will then merge together overlapping tuples and
     return a list of non-overlapping tuples.
     If the list is composed by only one element, the function returns immediately.
+    :param intervals: a list of integer duplexes
+    :type intervals: list
+
     """
 
     # Assume tuple of the form (start,end)
@@ -307,6 +315,12 @@ class XMLMerger(threading.Thread):
         self.start()
 
     def run(self):
+
+        """
+        Method to start the process. Override of the original Thread method.
+        :return:
+        """
+
         # pylint: disable=no-member
         self.merger.start()
         # pylint: enable=no-member

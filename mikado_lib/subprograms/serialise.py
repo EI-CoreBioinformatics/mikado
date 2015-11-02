@@ -45,6 +45,13 @@ def xml_launcher(xml_candidate=None, json_conf=None, logger=None):
      from functools)
 
     :param xml_candidate: An XML or ASN BLAST file name
+
+    :param json_conf: the configuration dictionary, if available
+    :type json_conf: (None | dict)
+
+    :param logger: the logger instance.
+    :type logger: (None | logging.Logger)
+
     :return:
     """
 
@@ -58,6 +65,12 @@ def xml_launcher(xml_candidate=None, json_conf=None, logger=None):
 def load_junctions(args, logger):
     """
     Function that performs the loading of the junctions.
+
+    :param args: the Namespace with all the details from the command line.
+
+    :param logger: the logging instance.
+    :type logger: (None | logging.Logger)
+
     :return:
     """
 
@@ -79,7 +92,13 @@ def load_junctions(args, logger):
 def load_blast(args, logger):
 
     """
-    Function to load the BLAST data into the chosen database
+    Function to load the BLAST data into the chosen database.
+
+    :param args: the Namespace with all the details from the command line.
+
+    :param logger: the logging instance.
+    :type logger: (None | logging.Logger)
+
     """
     if args.json_conf["serialise"]["files"]["xml"]:
         assert isinstance(args.json_conf["serialise"]["files"]["blast_targets"], str)

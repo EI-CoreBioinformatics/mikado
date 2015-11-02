@@ -11,6 +11,9 @@ __author__ = 'Luca Venturini'
 def create_null_logger(instance):
     """Static method to create a default logging instance for the loci.
     The default is a null handler (no log)
+
+    :param instance: the instance used to derive a name for the logger. It must be either a string
+    or a class instance with a __name__ attribute.
     """
 
     formatter = logging.Formatter(
@@ -33,7 +36,11 @@ def create_null_logger(instance):
 
 def check_logger(logger):
     """Quick function to verify that a logger is really a logger,
-    otherwise it raises a ValueError"""
+    otherwise it raises a ValueError.
+
+    :param logger: the logger instance
+    :type logger: logging.Logger
+    """
 
     if isinstance(logger, logging.Logger):
         return logger
@@ -44,7 +51,11 @@ def check_logger(logger):
 
 
 def create_default_logger(name):
-    """Default logger"""
+    """Default logger
+    :param name: string used to give a name to the logger.
+    :type name: str
+    """
+
     formatter = logging.Formatter(
         "{asctime} - {levelname}:{lineno} - {funcName} - {processName} - {message}",
         style="{"

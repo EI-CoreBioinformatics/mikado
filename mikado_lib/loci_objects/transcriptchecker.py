@@ -77,6 +77,9 @@ class TranscriptChecker(Transcript):
         """
         Quick method to perform the reverse complement of a given string,
         using the class translation table.
+
+        :param string: the sequence to be rev-complented
+        :type string: str
         """
 
         return "".join(x for x in reversed(
@@ -222,6 +225,11 @@ class TranscriptChecker(Transcript):
 
     @property
     def fasta(self):
+        """
+        This property calculates and returns the FASTA sequence associated with the transcript instance.
+        The FASTA sequence itself will be formatted to be in lines with 60 characters (the standard).
+        :return:
+        """
 
         self.check_strand()
         fasta = [">{0}".format(self.id)]
@@ -233,13 +241,16 @@ class TranscriptChecker(Transcript):
             start = exon[0] - self.start
             end = exon[1] + 1 - self.start
             _ = self.fasta_seq[start:end]
-            # assert len(_) == end - start, (
-            #     len(_), end - start
-            # )
             sequence += _
 
         if not isinstance(sequence, str):
-            sequence = str(sequence.seq)
+            if hasattr(sequence, "seq"):
+                sequence = str(sequence.seq)
+            else:
+                raise TypeError("Invalid object for sequence: {0} ({1})".format(
+                    type(sequence),
+                    repr(sequence)
+                ))
 
         if self.strand == "-":
             sequence = self.rev_complement(sequence)
@@ -258,7 +269,15 @@ class TranscriptChecker(Transcript):
 
     @staticmethod
     def grouper(iterable, n, fillvalue=""):
-        """Collect data into fixed-length chunks or blocks. From core documentation."""
+        """Collect data into fixed-length chunks or blocks. From core documentation.
+
+        :param iterable: the iterable to be considered for grouping.
+        :param n: length of the chunks.
+        :type n: int
+
+        :param fillvalue: the default filler for missing positions while grouping.
+        :type fillvalue: str
+        """
         # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
         args = [iter(iterable)] * n
         return list("".join(x) for x in zip_longest(*args, fillvalue=fillvalue))

@@ -29,6 +29,13 @@ def grouper(iterable, num, fillvalue=(None, None)):
     """Collect data into fixed-length chunks or blocks.
     Source: itertools standard library documentation
     https://docs.python.org/3/library/itertools.html?highlight=itertools#itertools-recipes
+
+    :param iterable: the iterable to be considered for grouping.
+    :param num: length of the chunks.
+    :type num: int
+
+    :param fillvalue: the default filler for missing positions while grouping.
+    :type fillvalue: tuple
     """
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * num
@@ -51,6 +58,9 @@ def create_transcript(lines,
 
     :type lenient: bool
     :type strand_specific: bool
+
+    :param canonical_splices: the splices considered as canonical for the species.
+    :type canonical_splices: list[tuple]
 
     """
     logger = logging.getLogger("main")
@@ -90,6 +100,15 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0):
     and organises the data into a proper dictionary.
     :param exon_lines: dictionary of exon lines, ordered by TID
     :type exon_lines: dict
+
+    :param fasta: the FASTA sequence to use for the transcript.
+
+    :param logger: logger instance.
+    :type logger: logging.Logger
+
+    :param min_length: minimal length of the transcript. If it is not met, the transcript will be discarded.
+    :type min_length: int
+
     :return: transcripts: dictionary which will be the final output
     :rtype: transcripts
     """
@@ -101,8 +120,8 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0):
         tlength = sum(exon.end + 1 - exon.start for exon in exon_lines[tid])
         # Discard transcript under a certain size
         if tlength < min_length:
-            logger.warn("Discarding %s because its size (%d) is under the minimum of %d",
-                        tid, tlength, min_length)
+            logger.warning("Discarding %s because its size (%d) is under the minimum of %d",
+                           tid, tlength, min_length)
             continue
         start, end = min(x.start for x in tlines), max(x.end for x in tlines)
         chrom = tlines[0].chrom
@@ -197,7 +216,10 @@ def perform_check(keys, exon_lines, args, logger):
 
 def setup(args):
     """Method to set up the analysis using the JSON configuration
-    and the command line options."""
+    and the command line options.
+
+    :param args: the ArgumentParser-derived namespace.
+    """
 
     if args.json_conf["prepare"]["log"]:
         handler = logging.FileHandler(
@@ -250,10 +272,10 @@ def setup(args):
 
 
 def prepare(args):
-    """Main script function."""
+    """Main script function.
 
-    #
-    # print(args.json_conf["prepare"])
+    :param args: the ArgumentParser-derived namespace.
+    """
 
     args, logger = setup(args)
 
@@ -346,8 +368,8 @@ def to_seqio_complete(string, cache=False, logger_instance=None):
 
     :param logger_instance: a logging.Logger instance
 
-    # :param manager_instance: a multiprocessing.manager_instance instance
-    # :type manager_instance: None | multiprocessing.Manager
+    :param cache: boolean flag. If set to True, the genome will be preloaded in memory. Fast but expensive!
+    :type cache: bool
     """
 
     logger_instance.info("Loading reference file")
@@ -387,6 +409,12 @@ def prepare_parser():
         return max(1, string)
 
     def positive(string):
+        """
+        Simple function to return the absolute value of the integer of the input string.
+        :param string:
+        :return:
+        """
+
         return abs(int(string))
 
     parser = argparse.ArgumentParser("""Script to prepare a GTF for the pipeline;

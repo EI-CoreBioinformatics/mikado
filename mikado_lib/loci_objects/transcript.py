@@ -6,24 +6,17 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 
 # pylint: disable=bad-builtin, too-many-lines
 
-import operator
 import logging
 import sys
 import re
-import functools
-from collections import Counter
 import inspect
-# import asyncio
 from mikado_lib.utilities.log_utils import create_null_logger
-from mikado_lib.exceptions import InvalidTranscript
 # SQLAlchemy imports
-from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import desc, asc
 from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
 # mikado_lib imports
-from mikado_lib.serializers.junction import Junction
 import mikado_lib.utilities
 import mikado_lib.serializers.orf
 from mikado_lib.serializers.blast_serializer import Query, Hit
@@ -32,7 +25,10 @@ from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.parsers.GTF import GtfLine
 from mikado_lib.parsers.GFF import GffLine
 import mikado_lib.exceptions
-
+import mikado_lib.loci_objects.transcript_methods.splitting
+from mikado_lib.loci_objects.transcript_methods.printing import create_lines_cds, create_lines_no_cds
+from mikado_lib.loci_objects.transcript_methods.finalizing import finalize
+import mikado_lib.loci_objects.transcript_methods.retrieval
 
 # from memory_profiler import profile
 # import logging
@@ -186,7 +182,7 @@ class Transcript:
         self.cds_intron_fraction = self.selected_cds_intron_fraction = 1
 
         # Json configuration
-        self.json_conf = None
+        self.__json_conf = None
 
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
@@ -240,9 +236,9 @@ class Transcript:
 
         self.finalize()  # Necessary to sort the exons
         if print_cds is True:
-            lines = self.create_lines_cds(to_gtf=to_gtf)
+            lines = create_lines_cds(self, to_gtf=to_gtf, first_phase=self._first_phase)
         else:
-            lines = self.create_lines_no_cds(to_gtf=to_gtf)
+            lines = create_lines_no_cds(self, to_gtf=to_gtf)
 
         return "\n".join(lines)
 
@@ -358,7 +354,7 @@ class Transcript:
 
         if gffline.feature.upper().endswith("CDS"):
             store = self.combined_cds
-            self.__phases.append((gffline.start, gffline.phase))
+            self.phases.append((gffline.start, gffline.phase))
         elif "combined_utr" in gffline.feature or "UTR" in gffline.feature.upper():
             store = self.combined_utr
         elif gffline.feature.endswith("exon"):
@@ -378,404 +374,15 @@ class Transcript:
         start, end = sorted([gffline.start, gffline.end])
         store.append((start, end))
 
-    def __create_cds_lines(self, cds_run, tid, to_gtf=False):
-
-        """
-        Private method to create the exon/UTR/CDS lines for printing
-        out in GTF/GFF format.
-        :param cds_run: the internal orf run we are preparing
-        :param tid: name of the transcript
-        :param to_gtf: boolean, indicates whether
-        we want GTF or GFF output
-        :return:
-        """
-
-        exon_lines = []
-        cds_begin = False
-        counter = Counter()
-
-        line_creator = functools.partial(self.__create_exon_line,
-                                         **{"to_gtf": to_gtf,
-                                            "tid": tid})
-        for segment in cds_run:
-            exon_line, counter, cds_begin = line_creator(segment,
-                                                         counter,
-                                                         cds_begin)
-            exon_lines.append(exon_line)
-        exon_lines = [exon_line for exon_line in
-                      self.__add_phase(exon_lines)]
-        assert not any(
-            True for x in exon_lines if x.feature == "CDS" and x.phase is None), exon_lines
-
-        return [str(line) for line in exon_lines]
-
-    # pylint: disable=too-many-arguments
-    def __create_exon_line(self, segment, counter, cds_begin,
-                           tid="", to_gtf=False):
-        """
-        Private method that creates an exon line for printing.
-        :param segment: a segment of the form (feature, start, end)
-        :type segment: list(str, int, int)
-        :param counter: a Counter object that keeps track of how many exons,
-        CDS, UTR segments we have already seen
-        :type counter: Counter
-        :param cds_begin: boolean flag that indicates whether the CDS has already begun
-        :type cds_begin: bool
-        :param tid: name of the transcript
-        :param to_gtf: boolean flag
-        :return: exon_line, counter, cds_begin
-        :rtype: ((GtfLine | GffLine), Counter, bool)
-        """
-
-        if to_gtf is False:
-            constructor = GffLine
-            utr3_feature = "three_prime_UTR"
-            utr5_feature = "five_prime_UTR"
-        else:
-            constructor = GtfLine
-            utr3_feature = "3UTR"
-            utr5_feature = "5UTR"
-
-        if segment[0] == "UTR":
-            if (cds_begin is True and self.strand == "-") or \
-                    (self.strand == "+" and cds_begin is False):
-                feature = utr5_feature
-                counter.update(["five"])
-                index = counter["five"]
-            else:
-                feature = utr3_feature
-                counter.update(["three"])
-                index = counter["three"]
-        elif segment[0] == "CDS":
-            cds_begin = True
-            counter.update(["CDS"])
-            index = counter["CDS"]
-            feature = "CDS"
-        else:
-            counter.update(["exon"])
-            index = counter["exon"]
-            feature = segment[0]
-        exon_line = constructor(None)
-
-        for attr in ["chrom", "source", "strand"]:
-            setattr(exon_line, attr, getattr(self, attr))
-
-        exon_line.feature = feature
-        exon_line.start, exon_line.end = segment[1], segment[2]
-        exon_line.phase = None
-        exon_line.score = None
-        if to_gtf is True:
-            # noinspection PyPropertyAccess
-            exon_line.gene = self.parent
-            exon_line.transcript = tid
-        else:
-            exon_line.id = "{0}.{1}{2}".format(tid, feature, index)
-            exon_line.parent = tid
-        return exon_line, counter, cds_begin
-    # pylint: enable=too-many-arguments
-
-    def create_lines_cds(self, to_gtf=False):
-
-        """
-        Method to create the GTF/GFF lines for printing in the presence of CDS information.
-        WARNING: at the moment, the phase support is disabled.
-
-        :param to_gtf:
-        :return:
-        """
-
-        if to_gtf is False:
-            constructor = GffLine
-        else:
-            constructor = GtfLine
-
-        lines = []
-        transcript_counter = 0
-
-        parent_line = constructor(None)
-        for index in range(len(self.internal_orfs)):
-            if self.number_internal_orfs > 1:
-                transcript_counter += 1
-                tid = "{0}.orf{1}".format(self.id, transcript_counter)
-
-                if index == self.selected_internal_orf_index:
-                    self.attributes["maximal"] = True
-                else:
-                    self.attributes["maximal"] = False
-            else:
-                tid = self.id
-            cds_run = self.internal_orfs[index]
-
-            for attr in ["chrom", "source", "feature", "start", "end",
-                         "score", "strand", "attributes", "parent"]:
-                setattr(parent_line, attr, getattr(self, attr))
-
-            parent_line.phase = '.'
-
-            parent_line.id = tid
-            parent_line.name = self.id
-
-            exon_lines = self.__create_cds_lines(cds_run,
-                                                 tid,
-                                                 to_gtf=to_gtf)
-
-            lines.append(str(parent_line))
-            lines.extend(exon_lines)
-        return lines
-
-    def __add_phase(self, exon_lines):
-
-        """
-        Private method to add the phase to a transcript. The phase is defined as
-        the reverse of the modulo 3 of the number of bases from the start.
-        Or:
-
-        (3 - (len(cds so far) % 3)) % 3
-
-        Or (more verbose):
-
-        modulo = len(cds so far) % 3
-        if modulo == 0:
-           phase = 0
-        elif modulo == 1:
-           phase = 2
-        else:
-           phase = 1
-
-        :param exon_lines:
-        :return:
-        """
-
-        # We start by 0 if no CDS loaded, else
-        # we use the first phase
-
-        previous = (3 - (self._first_phase % 3)) % 3
-
-        new_lines = []
-        for line in sorted(exon_lines, reverse=(self.strand == "-")):
-            if line.feature == "CDS":
-                phase = (3 - (previous % 3)) % 3
-                line.phase = phase
-                previous += len(line)
-            new_lines.append(line)
-        return sorted(new_lines)
-
-    def __add_frame(self, exon_lines):
-
-        """
-        Private method to add the frame to a transcript. The frame is defined as
-        the modulo 3 of the number of bases from the start.
-        Or:
-
-        len(cds so far) % 3
-
-        In this library, the frame (correct definition for the field in GTF)
-        is aliased as "phase".
-
-        :param exon_lines:
-        :return:
-        """
-
-        # We start by 0 if no CDS loaded, else
-        # we use the first phase
-
-        previous = self._first_phase % 3
-
-        new_lines = []
-        for line in sorted(exon_lines, reverse=(self.strand == "-")):
-            if line.feature == "CDS":
-                frame = previous % 3
-                line.frame = frame
-                previous += len(line)
-            new_lines.append(line)
-        return sorted(new_lines)
-
-    def create_lines_no_cds(self, to_gtf=False):
-
-        """
-        Method to create the GTF/GFF lines for printing in the absence of CDS information.
-        """
-
-        if to_gtf is True:
-            constructor = GtfLine
-        else:
-            constructor = GffLine
-
-        parent_line = constructor(None)
-
-        for attr in ["chrom", "source", "feature", "start", "end",
-                     "score", "strand", "attributes", "parent"]:
-            setattr(parent_line, attr, getattr(self, attr))
-
-        parent_line.phase = '.'
-        parent_line.id = self.id
-        parent_line.name = self.id
-
-        lines = [str(parent_line)]
-        exon_lines = []
-
-        exon_count = 0
-        for exon in self.exons:
-            exon_count += 1
-            exon_line = constructor(None)
-            for attr in ["chrom", "source", "strand", "attributes"]:
-                setattr(exon_line, attr, getattr(self, attr))
-            exon_line.feature = "exon"
-            exon_line.start, exon_line.end = exon[0], exon[1]
-            exon_line.score = None
-            exon_line.phase = None
-
-            exon_line.id = "{0}.{1}{2}".format(self.id, "exon", exon_count)
-            exon_line.parent = self.id
-            exon_lines.append(str(exon_line))
-
-        lines.extend(exon_lines)
-        return lines
-
-    @staticmethod
-    def orf_sorter(orf):
-        """Sorting function for the ORFs."""
-        return ((orf.has_start_codon and orf.has_stop_codon),
-                (orf.has_start_codon or orf.has_stop_codon),
-                orf.cds_len)
-
-    def find_candidate_orfs(self, graph, orf_dictionary) -> list:
-
-        """
-        Function that returns the best non-overlapping ORFs
-        :param graph: The NetworkX graph to be analysed
-        :return:
-        """
-
-        candidate_orfs = []
-
-        while len(graph) > 0:
-            cliques, communities = Abstractlocus.find_communities(graph)
-            clique_str = []
-            for clique in cliques:
-                clique_str.append(str([(orf_dictionary[x].thick_start,
-                                        orf_dictionary[x].thick_end) for x in clique]))
-            comm_str = []
-            for comm in communities:
-                comm_str.append(str([(orf_dictionary[x].thick_start,
-                                      orf_dictionary[x].thick_end) for x in comm]))
-            self.logger.debug("{0} communities for {1}:\n\t{2}".format(len(communities),
-                                                                       self.id,
-                                                                       "\n\t".join(
-                                                                           comm_str
-                                                                       )))
-            self.logger.debug("{0} cliques for {1}:\n\t{2}".format(len(cliques),
-                                                                   self.id,
-                                                                   "\n\t".join(clique_str)))
-            to_remove = set()
-            for comm in communities:
-                comm = [orf_dictionary[x] for x in comm]
-                best_orf = sorted(comm, key=self.orf_sorter, reverse=True)[0]
-                candidate_orfs.append(best_orf)
-                for clique in iter(cl for cl in cliques if best_orf.name in cl):
-                    to_remove.update(clique)
-            graph.remove_nodes_from(to_remove)
-
-        candidate_orfs = sorted(candidate_orfs,
-                                key=self.orf_sorter, reverse=True)
-        return candidate_orfs
-
-    def find_overlapping_cds(self, candidates: list) -> list:
-        """
-        :param candidates: candidate ORFs to analyse
-        :type candidates: list(mikado_lib.serializers.orf.Orf)
-
-        Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
-        It will pass to the function the class's "is_overlapping_cds" method
-        (which would be otherwise be inaccessible from the Abstractlocus class method).
-        As we are interested only in the communities, not the cliques,
-        this wrapper discards the cliques
-        (first element of the Abstractlocus.find_communities results)
-        """
-
-        # If we are looking at a multiexonic transcript
-        if not (self.monoexonic is True and self.strand is None):
-            candidates = list(filter(lambda co: co.strand == "+", candidates))
-
-        # Prepare the minimal secondary length parameter
-        if self.json_conf is not None:
-            minimal_secondary_orf_length = \
-                self.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"]
-        else:
-            minimal_secondary_orf_length = 0
-
-        self.logger.debug("{0} input ORFs for {1}".format(len(candidates), self.id))
-        candidates = list(filter(lambda x: x.invalid is False, candidates))
-        self.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), self.id))
-        if len(candidates) == 0:
-            return []
-
-        orf_dictionary = dict((x.name, x) for x in candidates)
-
-        # First define the graph
-        graph = Abstractlocus.define_graph(orf_dictionary, inters=self.is_overlapping_cds)
-        candidate_orfs = self.find_candidate_orfs(graph, orf_dictionary)
-
-        self.logger.debug("{0} candidate retained ORFs for {1}: {2}".format(
-            len(candidate_orfs),
-            self.id,
-            [x.name for x in candidate_orfs]))
-        final_orfs = [candidate_orfs[0]]
-        if len(candidate_orfs) > 1:
-            others = list(filter(lambda o: o.cds_len >= minimal_secondary_orf_length,
-                                 candidate_orfs[1:]))
-            self.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
-                len(others), self.id,
-                minimal_secondary_orf_length
-            ))
-            final_orfs.extend(others)
-
-        self.logger.debug("Retained %d ORFs for %s: %s",
-                          len(final_orfs),
-                          self.id,
-                          [orf.name for orf in final_orfs])
-        return final_orfs
-
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
         UTR information will be retained only if no ORF is down/upstream.
         """
 
-        import mikado_lib.loci_objects.transcript_methods.splitting
-
-        for new_transcript in  mikado_lib.loci_objects.transcript_methods.splitting.split_by_cds(self):
+        for new_transcript in mikado_lib.loci_objects.transcript_methods.splitting.split_by_cds(self):
             yield new_transcript
 
-        # self.finalize()
-        #
-        # # List of the transcript that will be retained
-        #
-        # if self.number_internal_orfs < 2:
-        #     new_transcripts = [self]  # If we only have one ORF this is easy
-        # else:
-        #
-        #     cds_boundaries = OrderedDict()
-        #     for orf in sorted(self.loaded_bed12,
-        #                       key=operator.attrgetter("thick_start", "thick_end")):
-        #         cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
-        #
-        #     # Check whether we have to split or not based on BLAST data
-        #     if self.json_conf is not None:
-        #         if self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
-        #             cds_boundaries = self.check_split_by_blast(cds_boundaries)
-        #
-        #     if len(cds_boundaries) == 1:
-        #         # Recheck how many boundaries we have - after the BLAST check
-        #         # we might have determined that the transcript has not to be split
-        #         new_transcripts = [self]
-        #     else:
-        #         new_transcripts = self.__create_splitted_transcripts(cds_boundaries)
-        #
-        # assert len(new_transcripts) > 0, str(self)
-        # for new_transc in new_transcripts:
-        #     yield new_transc
-        #
         return
 
     def remove_utrs(self):
@@ -786,47 +393,53 @@ class Transcript:
 
         self.finalize()
         if self.selected_cds_length == 0:
+            print("No CDS")
             return
         elif self.three_utr_length + self.five_utr_length == 0:
+            print("No UTR")
             return  # No UTR to strip
 
         elif self.number_internal_orfs > 1:
             return
         elif re.search(r"\.orf[0-9]+$", self.id):
+            print("Multiple ORFs already")
             return
 
         self.finalized = False
-        exons = []
         cds_start, cds_end = self.combined_cds[0][0], self.combined_cds[-1][1]
         assert isinstance(cds_start, int)
         assert isinstance(cds_end, int)
-        if len(self.selected_cds) == 1:
-            self.exons = self.selected_cds
-        else:
-            for exon in self.exons:
-                if exon in self.combined_utr:
-                    continue
-                elif exon in self.selected_cds:
-                    exons.append(exon)
-                elif exon[0] <= cds_start <= exon[1]:
-                    exons.append((cds_start, exon[1]))
-                elif exon[0] <= cds_end <= exon[1]:
-                    exons.append((exon[0], cds_end))
-                else:
-                    raise InvalidTranscript(
-                        "Exon: {0}; cds_start: {1}; cds_end: {2}; ID: {3}".format(
-                            exon, self.selected_cds_start,
-                            self.selected_cds_end, self.id))
 
-            assert (len(exons) < len(self.exons) or
-                    exons[0][0] > self.exons[0][0] or
-                    exons[-1][1] < self.exons[-1][1]),\
-                (exons, self.exons)
-            self.exons = exons
+        self.exons = [(_[-2], _[-1]) for _ in self.combined_cds]
+        # if len(self.selected_cds) == 1:
+        #     self.exons = self.selected_cds
+        # else:
+        #     for exon in self.exons:
+        #         if exon in self.combined_utr:
+        #             continue
+        #         elif exon in self.selected_cds:
+        #             exons.append(exon)
+        #         elif exon[0] <= cds_start <= exon[1]:
+        #             exons.append((cds_start, exon[1]))
+        #         elif exon[0] <= cds_end <= exon[1]:
+        #             exons.append((exon[0], cds_end))
+        #         else:
+        #             raise InvalidTranscript(
+        #                 "Exon: {0}; cds_start: {1}; cds_end: {2}; ID: {3}".format(
+        #                     exon, self.selected_cds_start,
+        #                     self.selected_cds_end, self.id))
+        #
+        #     assert (len(exons) < len(self.exons) or
+        #             exons[0][0] > self.exons[0][0] or
+        #             exons[-1][1] < self.exons[-1][1]),\
+        #         (exons, self.exons)
+        #     self.exons = exons
         self.start = cds_start
         self.end = cds_end
-        self.combined_utr = []
+        self.internal_orfs, self.combined_utr = [], []
         self.finalize()
+        assert self.combined_utr == self.three_utr == self.five_utr == [], (
+            self.combined_utr, self.three_utr, self.five_utr, self.start, self.end)
 
     def strip_cds(self):
         """Method to completely remove CDS information from a transcript.
@@ -839,103 +452,6 @@ class Transcript:
         self.combined_utr = []
         self.finalize()
 
-    def __check_cdna_vs_utr(self):
-
-        """
-        Verify that cDNA + UTR in the transcript add up.
-        :return:
-        """
-
-        if self.cdna_length > self.combined_utr_length + self.combined_cds_length:
-            if self.combined_utr == [] and self.combined_cds != []:
-                self.combined_cds = sorted(self.combined_cds,
-                                           key=operator.itemgetter(0, 1))
-                for exon in self.exons:
-                    if exon in self.combined_cds:
-                        continue
-                    elif (exon[1] < self.combined_cds[0][0] or
-                          exon[0] > self.combined_cds[-1][1]):
-                        self.combined_utr.append(exon)
-                    elif (exon[0] < self.combined_cds[0][0] and
-                          exon[1] == self.combined_cds[0][1]):
-                        self.combined_utr.append((exon[0], self.combined_cds[0][0] - 1))
-                    elif (exon[1] > self.combined_cds[-1][1] and
-                          exon[0] == self.combined_cds[-1][0]):
-                        self.combined_utr.append((self.combined_cds[-1][1] + 1, exon[1]))
-                    else:
-                        if len(self.combined_cds) == 1:
-                            self.combined_utr.append(
-                                (exon[0], self.combined_cds[0][0] - 1))
-                            self.combined_utr.append(
-                                (self.combined_cds[-1][1] + 1, exon[1]))
-                        else:
-                            raise mikado_lib.exceptions.InvalidCDS(
-                                "Error while inferring the UTR",
-                                exon, self.id,
-                                self.exons, self.combined_cds)
-
-                equality_one = (self.combined_cds_length == self.combined_utr_length == 0)
-                equality_two = (self.cdna_length ==
-                                self.combined_utr_length + self.combined_cds_length)
-                if not (equality_one or equality_two):
-                    raise mikado_lib.exceptions.InvalidCDS(
-                        "Failed to create the UTR",
-                        self.id, self.exons,
-                        self.combined_cds, self.combined_utr)
-            else:
-                pass
-
-    def __basic_final_checks(self):
-
-        """
-        Function that verifies minimal criteria of a transcript before finalising.
-        :return:
-        """
-
-        if len(self.exons) == 0:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                "No exon defined for the transcript {0}. Aborting".format(self.id))
-
-        if len(self.exons) > 1 and self.strand is None:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                "Multiexonic transcripts must have a defined strand! Error for {0}".format(
-                    self.id))
-
-        if self.combined_utr != [] and self.combined_cds == []:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                "Transcript {tid} has defined UTRs but no CDS feature!".format(
-                    tid=self.id))
-
-    def __verify_boundaries(self):
-
-        """
-        Method to verify that the start/end of the transcripts are exactly where they should.
-        Called from finalise.
-        :return:
-        """
-
-        try:
-            if self.exons[0][0] != self.start or self.exons[-1][1] != self.end:
-                if self.exons[0][0] > self.start and self.selected_cds[0][0] == self.start:
-                    self.exons[0] = (self.start, self.exons[0][0])
-                if self.exons[-1][1] < self.end and self.selected_cds[-1][1] == self.end:
-                    self.exons[-1] = (self.exons[-1][0], self.end)
-
-                if self.exons[0][0] != self.start or self.exons[-1][1] != self.end:
-                    raise mikado_lib.exceptions.InvalidTranscript(
-                        """The transcript {id} has coordinates {tstart}:{tend},
-                    but its first and last exons define it up until {estart}:{eend}!
-                    Exons: {exons}
-                    """.format(id=self.id,
-                               tstart=self.start,
-                               tend=self.end,
-                               estart=self.exons[0][0],
-                               eend=self.exons[-1][1],
-                               exons=self.exons))
-        except IndexError as err:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                err, self.id, str(self.exons))
-
     def finalize(self):
         """Function to calculate the internal introns from the exons.
         In the first step, it will sort the exons by their internal coordinates.
@@ -944,96 +460,9 @@ class Transcript:
         if self.finalized is True:
             return
 
-        self.__basic_final_checks()
-        # Sort the exons by start then stop
-        self.exons = sorted(self.exons, key=operator.itemgetter(0, 1))
+        finalize(self)
 
-        self.__check_cdna_vs_utr()
-
-        self.__calculate_introns()
-
-        self.combined_cds = sorted(self.combined_cds,
-                                   key=operator.itemgetter(0, 1))
-
-        self.combined_utr = sorted(self.combined_utr,
-                                   key=operator.itemgetter(0, 1))
-        self.__check_completeness()
-
-        # assert self.selected_internal_orf_index > -1
-        self.segments = [("exon", e[0], e[1]) for e in self.exons] + \
-                        [("CDS", c[0], c[1]) for c in self.combined_cds] + \
-                        [("UTR", u[0], u[1]) for u in self.combined_utr]
-        self.segments = sorted(self.segments, key=operator.itemgetter(1, 2, 0))
-
-        self.internal_orfs = [self.segments]
-        if len(self.combined_cds) > 0:
-            self.selected_internal_orf_index = 0
-            if len(self.__phases) > 0:
-                self._first_phase = sorted(self.__phases, key=operator.itemgetter(0),
-                                           reverse=(self.strand == "-"))[0][1]
-            else:
-                self._first_phase = 0
-
-        # Necessary to set it to the default value
-        _ = self.selected_internal_orf
-
-        if len(self.combined_cds) > 0:
-            self.feature = "mRNA"
-        else:
-            self.feature = "transcript"
-
-        self.__verify_boundaries()
-
-        if len(self.combined_cds) == 0:
-            self.selected_internal_orf_cds = tuple([])
-        else:
-            self.selected_internal_orf_cds = tuple(
-                filter(lambda x: x[0] == "CDS",
-                       self.internal_orfs[self.selected_internal_orf_index])
-            )
-
-        self.finalized = True
         return
-
-    def __calculate_introns(self):
-
-        """Private method to create the stores of intron
-        and splice sites positions.
-        """
-
-        introns = []
-        splices = []
-
-        if len(self.exons) > 1:
-            for index in range(len(self.exons) - 1):
-                exona, exonb = self.exons[index:index + 2]
-                if exona[1] >= exonb[0]:
-                    raise mikado_lib.exceptions.InvalidTranscript(
-                        "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(
-                            self.id, exona, exonb, self.exons))
-                # Append the splice junction
-                introns.append((exona[1] + 1, exonb[0] - 1))
-                # Append the splice locations
-                splices.extend([exona[1] + 1, exonb[0] - 1])
-        self.introns = set(introns)
-        self.splices = set(splices)
-
-    def __check_completeness(self):
-
-        """Private method that checks whether a transcript is complete
-        or not based solely on the presence of CDS/UTR information."""
-
-        if len(self.combined_utr) > 0:
-            if self.combined_utr[0][0] < self.combined_cds[0][0]:
-                if self.strand == "+":
-                    self.has_start_codon = True
-                elif self.strand == "-":
-                    self.has_stop_codon = True
-            if self.combined_utr[-1][1] > self.combined_cds[-1][1]:
-                if self.strand == "+":
-                    self.has_stop_codon = True
-                elif self.strand == "-":
-                    self.has_start_codon = True
 
     def reverse_strand(self):
         """Method to reverse the strand"""
@@ -1044,18 +473,6 @@ class Transcript:
         elif self.strand is None:
             pass
         return
-
-    def __connect_to_db(self):
-
-        """This method will connect to the database using the information
-        contained in the JSON configuration."""
-
-        self.engine = mikado_lib.utilities.dbutils.connect(
-            self.json_conf, self.logger)
-
-        self.sessionmaker = sessionmaker()
-        self.sessionmaker.configure(bind=self.engine)
-        self.session = self.sessionmaker()
 
     def load_information_from_db(self, json_conf, introns=None, session=None,
                                  data_dict=None):
@@ -1077,497 +494,21 @@ class Transcript:
         Otherwise, they will be extracted from the database directly.
         """
 
-        self.logger.debug("Loading {0}".format(self.id))
-        self.load_json(json_conf)
-
-        if data_dict is not None:
-            self.retrieve_from_dict(data_dict)
-        else:
-            if session is None:
-                self.__connect_to_db()
-            else:
-                self.session = session
-            candidate_orfs = []
-            for orf in self.retrieve_orfs():
-                candidate_orfs.append(orf)
-
-            self.load_orfs(candidate_orfs)
-            self.__load_blast()
-        self.__load_verified_introns(data_dict, introns)
-        self.logger.debug("Loaded data for %s", self.id)
-
-    def retrieve_from_dict(self, data_dict):
-        """
-        Method to retrieve transcript data directly from a dictionary.
-        :param data_dict: the dictionary with loaded data from DB
-        """
-
-        self.logger.debug(
-            "Retrieving information from DB dictionary for %s",
-            self.id)
-        # Intron data
-        self.logger.debug("Checking introns for %s, candidates %s",
-                          self.id,
-                          sorted(self.introns))
-
-        self.verified_introns = set.intersection(
-            set((self.chrom, intron[0], intron[1], self.strand)
-                for intron in self.introns),
-            data_dict["junctions"])
-        self.logger.debug("Verified introns for %s: %s", self.id,
-                          sorted(self.verified_introns))
-
-        # ORF data
-        trust_strand = self.json_conf["pick"]["orf_loading"]["strand_specific"]
-        min_cds_len = self.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
-
-        self.logger.debug("Retrieving ORF information from DB dictionary for %s",
-                          self.id)
-        if self.id in data_dict["orfs"]:
-            candidate_orfs = list(filter(
-                lambda orf: orf.cds_len >= min_cds_len,
-                data_dict["orfs"][self.id]))
-        else:
-            candidate_orfs = []
-
-        # They must already be as ORFs
-        if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
-            # Remove negative strand ORFs for multiexonic transcripts,
-            # or monoexonic strand-specific transcripts
-            candidate_orfs = list(filter(lambda orf: orf.strand != "-",
-                                         candidate_orfs))
-
-        self.load_orfs(candidate_orfs)
-
-        if self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
-            self.logger.debug("Retrieving BLAST hits for %s",
-                              self.id)
-            maximum_evalue = self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
-
-            if self.id in data_dict["hits"]:
-                # this is a dictionary full of lists of dictionary
-                hits = data_dict["hits"][self.id]
-            else:
-                hits = list()
-
-            self.logger.debug("Found %d potential BLAST hits for %s with evalue <= %f",
-                              len(hits),
-                              self.id,
-                              maximum_evalue)
-
-            self.blast_hits.extend(hits)
-            self.logger.debug("Loaded %d BLAST hits for %s",
-                              len(self.blast_hits), self.id)
-
-        self.logger.debug("Retrieved information from DB dictionary for %s",
-                          self.id)
-
-    def load_json(self, json_conf):
-        """
-        Setter for the json configuration dictionary.
-        :param json_conf: The configuration dictionary
-        :type json_conf: dict
-        """
-        self.json_conf = json_conf
-
-    def __load_verified_introns(self, data_dict=None, introns=None):
-
-        """This method will load verified junctions from the external
-        (usually the superlocus class).
-
-        :param introns: verified introns
-        :type introns: set,None
-        """
-
-        self.logger.debug("Checking introns; candidates %s", self.introns)
-        if data_dict is None:
-            self.logger.debug("Checking introns using the database for %s",
-                              self.id)
-
-            for intron in self.introns:
-                # Disable checks as the hybridproperties confuse
-                # both pycharm and pylint
-                # noinspection PyCallByClass,PyTypeChecker
-                # pylint: disable=no-value-for-parameter
-                # chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
-                # import sqlalchemy
-                for ver_intron in self.session.query(Junction).filter(and_(
-                            Junction.chrom == self.chrom,
-                            intron[0] == Junction.junction_start,
-                            intron[1] == Junction.junction_end)):
-                    if ver_intron.strand in (self.strand, None):
-                        self.logger.debug("Verified intron %s%s:%d-%d for %s",
-                                          self.chrom, ver_intron.strand,
-                                          intron[0], intron[1], self.id)
-                        self.verified_introns.add(intron)
-
-        else:
-            self.logger.debug("Checking introns using data structure for %s",
-                              self.id)
-            for intron in self.introns:
-                self.logger.debug("Checking intron %s%s:%d-%d for %s",
-                                  self.chrom, self.strand,
-                                  intron[0], intron[1], self.id)
-                if (intron[0], intron[1], self.strand) in introns:
-                    self.logger.debug("Verified intron %s%s:%d-%d for %s",
-                                      self.chrom, self.strand,
-                                      intron[0], intron[1], self.id)
-                    self.verified_introns.add(intron)
-                elif (intron[0], intron[1], None) in introns:
-                    self.logger.debug("Verified intron %s%s:%d-%d for %s",
-                                       self.chrom, None,
-                                       intron[0], intron[1], self.id)
-                    self.verified_introns.add(intron)
-
-        self.logger.debug("Found these introns for %s: %s",
-                          self.id, self.verified_introns)
-        return
-
-    def retrieve_orfs(self):
-
-        """This method will look up the ORFs loaded inside the database.
-        During the selection, the function will also remove overlapping ORFs.
-        """
-
-        # if self.query_id is None:
-        #     return []
-
-        trust_strand = self.json_conf["pick"]["orf_loading"]["strand_specific"]
-        min_cds_len = self.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
-
-        orf_results = self.orf_baked(self.session).params(query=self.id,
-                                                          cds_len=min_cds_len)
-        self.logger.debug("Retrieving ORFs from database for %s",
-                          self.id)
-
-        assert orf_results is not None
-
-        if (self.monoexonic is False) or (self.monoexonic is True and trust_strand is True):
-            # Remove negative strand ORFs for multiexonic transcripts,
-            # or monoexonic strand-specific transcripts
-            assert orf_results is not None
-            candidate_orfs = list(orf for orf in orf_results if orf.strand != "-")
-        else:
-            candidate_orfs = orf_results.all()
-        self.logger.debug("Found %d ORFs for %s",
-                          len(candidate_orfs), self.id)
-        assert isinstance(candidate_orfs, list)
-
-        if len(candidate_orfs) == 0:
-            return []
-        else:
-            result = [orf.as_bed12() for orf in candidate_orfs]
-            for orf in result:
-                assert orf.chrom == self.id, (orf.chrom, self.id)
-            return result
-
-    def __create_internal_orf(self, orf):
-
-        """
-        Private method that calculates the assignment of the exons given the
-        coordinates of the transcriptomic ORF.
-        """
-
-        cds_exons = []
-        current_start, current_end = 0, 0
-
-        for exon in sorted(self.exons, key=operator.itemgetter(0, 1),
-                           reverse=(self.strand == "-")):
-            cds_exons.append(("exon", exon[0], exon[1]))
-            current_start += 1
-            current_end += exon[1] - exon[0] + 1
-            # Whole UTR
-            if current_end < orf.thick_start or current_start > orf.thick_end:
-                cds_exons.append(("UTR", exon[0], exon[1]))
-            else:
-                if self.strand == "+":
-                    c_start = exon[0] + max(0, orf.thick_start - current_start)
-                    c_end = exon[1] - max(0, current_end - orf.thick_end)
-                else:
-                    c_start = exon[0] + max(0, current_end - orf.thick_end)
-                    c_end = exon[1] - max(0, orf.thick_start - current_start)
-                if c_start > exon[0]:
-                    u_end = c_start - 1
-                    cds_exons.append(("UTR", exon[0], u_end))
-                if c_start <= c_end:
-                    cds_exons.append(("CDS", c_start, c_end))
-                if c_end < exon[1]:
-                    cds_exons.append(("UTR", c_end + 1, exon[1]))
-            current_start = current_end
-
-        # if self.strand == "+":
-        #     for exon in sorted(self.exons, key=operator.itemgetter(0, 1)):
-        #         cds_exons.append(("exon", exon[0], exon[1]))
-        #         current_start += 1
-        #         current_end += exon[1] - exon[0] + 1
-        #         # Whole UTR
-        #         if current_end < orf.thick_start or current_start > orf.thick_end:
-        #             cds_exons.append(("UTR", exon[0], exon[1]))
-        #         else:
-        #             c_start = exon[0] + max(0, orf.thick_start - current_start)
-        #             c_end = exon[1] - max(0, current_end - orf.thick_end)
-        #             if c_start > exon[0]:
-        #                 u_end = c_start - 1
-        #                 cds_exons.append(("UTR", exon[0], u_end))
-        #             if c_start <= c_end:
-        #                 cds_exons.append(("CDS", c_start, c_end))
-        #             if c_end < exon[1]:
-        #                 cds_exons.append(("UTR", c_end + 1, exon[1]))
-        #         current_start = current_end
-        #
-        # elif self.strand == "-":
-        #     for exon in sorted(self.exons, key=operator.itemgetter(0, 1), reverse=True):
-        #         cds_exons.append(("exon", exon[0], exon[1]))
-        #         current_start += 1
-        #         current_end += exon[1] - exon[0] + 1
-        #         if current_end < orf.thick_start or current_start > orf.thick_end:
-        #             cds_exons.append(("UTR", exon[0], exon[1]))
-        #         else:
-        #             c_start = exon[0] + max(0, current_end - orf.thick_end)
-        #             c_end = exon[1] - max(0, orf.thick_start - current_start)
-        #             if c_start > exon[0]:
-        #                 cds_exons.append(("UTR", exon[0], c_start - 1))
-        #             if c_start <= c_end:
-        #                 cds_exons.append(("CDS", c_start, c_end))
-        #             if c_end < exon[1]:
-        #                 cds_exons.append(("UTR", c_end + 1, exon[1]))
-        #         current_start = current_end
-        return cds_exons
+        mikado_lib.loci_objects.transcript_methods.retrieval.load_information_from_db(self,
+                                                                                      json_conf,
+                                                                                      introns=introns,
+                                                                                      session=session,
+                                                                                      data_dict=data_dict)
 
     def load_orfs(self, candidate_orfs):
 
         """
-        :param candidate_orfs: The ORFs to be inspected for loading.
-        :type candidate_orfs: list[mikado_lib.parsers.serializers.orf.Orf
-
-        This method replicates what is done internally by the
-        "cdna_alignment_orf_to_genome_orf.pl"
-        utility in the TransDecoder suite. It takes as argument "candidate_orfs"
-        i.e. a list of BED12 serialised objects.
-        The method expects as argument a dictionary containing BED entries,
-        and indexed by the transcript name. The indexed name *must* equal the
-        "id" property, otherwise the method returns immediately.
-        If no entry is found for the transcript, the method exits immediately.
-        Otherwise, any CDS information present in the original GFF/GTF
-        file is completely overwritten.
-        Briefly, it follows this logic:
-        - Finalise the transcript
-        - Retrieve from the dictionary (input) the CDS object
-        - Sort in decreasing order the CDSs on the basis of:
-            - Presence of start/stop codon
-            - CDS length (useful for monoexonic transcripts where we might want to set the strand)
-        - For each CDS:
-            - If the ORF is on the + strand:
-                - all good
-            - If the ORF is on the - strand:
-                - if the transcript is monoexonic: invert its genomic strand
-                - if the transcript is multiexonic: skip
-            - Start looking at the exons
-        """
-
-        # Prepare the transcript
-        self.finalize()
-
-        candidate_orfs = self.find_overlapping_cds(candidate_orfs)
-
-        if candidate_orfs is None or len(candidate_orfs) == 0:
-            self.logger.debug("No ORF for {0}".format(self.id))
-            return
-
-        self.combined_utr = []
-        self.combined_cds = []
-        self.internal_orfs = []
-        self.finalized = False
-        # Token to be set to False after the first CDS is exhausted
-        primary_orf = True
-        primary_strand = None
-        # This will keep in memory the original BED12 objects
-        self.loaded_bed12 = []
-
-        for orf in candidate_orfs:
-            # Minimal check
-            if primary_orf is True:
-                (self.has_start_codon, self.has_stop_codon) = (orf.has_start_codon,
-                                                               orf.has_stop_codon)
-                primary_orf = False
-                primary_strand = orf.strand
-            elif primary_orf is False and orf.strand != primary_strand:
-                continue
-
-            check_sanity = (orf.thick_start >= 1 and orf.thick_end <= self.cdna_length)
-            if len(orf) != self.cdna_length or not check_sanity:
-                message = "Wrong ORF for {0}: ".format(orf.id)
-                message += "cDNA length: {0}; ".format(self.cdna_length)
-                message += "orf length: {0}; ".format(len(orf))
-                message += "CDS: {0}-{1}".format(orf.thick_start, orf.thick_end)
-                self.logger.warning(message)
-                continue
-
-            if self.strand is None:
-                self.strand = orf.strand
-
-            self.loaded_bed12.append(orf)
-            cds_exons = self.__create_internal_orf(orf)
-            self.internal_orfs.append(sorted(
-                cds_exons, key=operator.itemgetter(1, 2)))
-
-        # Now verify the loaded content
-        self.check_loaded_orfs()
-
-    def check_loaded_orfs(self):
-
-        """
-        This function verifies the ORF status after
-        loading from an external data structure/database.
+        Thin layer over the load_orfs method from the retrieval module.
+        :param candidate_orfs: list of candidate ORFs in BED12 format.
         :return:
         """
 
-        if len(self.internal_orf_lengths) == 0:
-            self.logger.warning("No candidate ORF retained for %s",
-                                self.id)
-
-        if len(self.internal_orfs) == 1:
-            self.logger.debug("Found 1 ORF for %s", self.id)
-            self.combined_cds = sorted(
-                [(a[1], a[2]) for a in filter(lambda x: x[0] == "CDS",
-                                              self.internal_orfs[0])],
-                key=operator.itemgetter(0, 1)
-
-            )
-            self.combined_utr = sorted(
-                [(a[1], a[2]) for a in filter(lambda x: x[0] == "UTR",
-                                              self.internal_orfs[0])],
-                key=operator.itemgetter(0, 1)
-
-            )
-
-        elif len(self.internal_orfs) > 1:
-            self.logger.debug("Found %d ORFs for %s",
-                              len(self.internal_orfs),
-                              self.id)
-            cds_spans = []
-            candidates = []
-            for internal_cds in self.internal_orfs:
-                candidates.extend(
-                    [tuple([a[1], a[2]]) for a in filter(
-                        lambda tup: tup[0] == "CDS", internal_cds)])
-
-            for comm in self.find_communities(candidates):
-                span = tuple([min(t[0] for t in comm), max(t[1] for t in comm)])
-                cds_spans.append(span)
-
-            self.combined_cds = sorted(cds_spans, key=operator.itemgetter(0, 1))
-
-            # This method is probably OBSCENELY inefficient,
-            # but I cannot think of a better one for the moment.
-            curr_utr_segment = None
-
-            utr_pos = set.difference(
-                set.union(*[set(range(exon[0], exon[1] + 1)) for exon in self.exons]),
-                set.union(*[set(range(cds[0], cds[1] + 1)) for cds in self.combined_cds])
-            )
-            for pos in sorted(list(utr_pos)):
-                if curr_utr_segment is None:
-                    curr_utr_segment = (pos, pos)
-                else:
-                    if pos == curr_utr_segment[1] + 1:
-                        curr_utr_segment = (curr_utr_segment[0], pos)
-                    else:
-                        self.combined_utr.append(curr_utr_segment)
-                        curr_utr_segment = (pos, pos)
-
-            if curr_utr_segment is not None:
-                self.combined_utr.append(curr_utr_segment)
-
-            equality = (self.cdna_length ==
-                        self.combined_cds_length + self.combined_utr_length)
-            assert equality, (self.cdna_length, self.combined_cds, self.combined_utr)
-
-        if not self.internal_orfs:
-            self.finalize()
-        else:
-            self.feature = "mRNA"
-            self.finalized = True
-        return
-
-    def __load_blast(self):
-
-        """This method looks into the DB for hits corresponding to the desired requirements.
-        Hits will be loaded into the "blast_hits" list;
-        we will not store the SQLAlchemy query object,
-        but rather its representation as a dictionary
-        (using the Hit.as_dict() method).
-        """
-
-        # if self.query_id is None:
-        #     return
-
-        # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
-        #     return
-
-        max_target_seqs = self.json_conf["pick"]\
-            ["chimera_split"]["blast_params"]["max_target_seqs"]
-        maximum_evalue = self.json_conf["pick"]["chimera_split"]\
-            ["blast_params"]["evalue"]
-
-        blast_hits_query = self.blast_baked(self.session).params(
-            query=self.id,
-            evalue=maximum_evalue)
-        
-        self.logger.debug("Starting to load BLAST data for %s",
-                          self.id)
-        # variables which take care of defining
-        # the maximum evalue and target seqs
-        # We do not trust the limit in the sqlite because
-        # we might lose legitimate hits with the same evalue as the
-        # best ones. So we collapse all hits with the same evalue.
-        previous_evalue = -1
-        counter = 0
-        for hit in blast_hits_query:
-
-            if counter > max_target_seqs and previous_evalue < hit.evalue:
-                break
-            elif previous_evalue < hit.evalue:
-                previous_evalue= hit.evalue
-
-            counter += 1
-
-            self.blast_hits.append(hit.as_dict())
-
-        self.logger.debug("Loaded %d BLAST hits for %s",
-                          counter, self.id)
-
-    @property
-    def logger(self):
-        """
-        Property. It returns the logger instance attached to the class.
-        :rtype : logging.Logger | None
-        """
-
-        return self.__logger
-
-    @logger.setter
-    def logger(self, logger):
-        """Set a logger for the instance.
-        :param logger: a Logger instance
-        :type logger: logging.Logger | None
-        """
-        if logger is None:
-            if self.__logger is None:
-                logger = create_null_logger(self)
-                self.__logger = logger
-            else:
-                pass
-        else:
-            assert isinstance(logger, logging.Logger)
-            self.__logger = logger
-
-    @logger.deleter
-    def logger(self):
-        """
-        Destroyer for the logger. It sets the internal __logger attribute to None.
-        """
-        self.__logger = None
+        mikado_lib.loci_objects.transcript_methods.retrieval.load_orfs(self, candidate_orfs)
 
     # ###################Class methods#####################################
 
@@ -1651,6 +592,81 @@ class Transcript:
         return final_metrics
 
     # ###################Class properties##################################
+
+    @property
+    def logger(self):
+        """
+        Property. It returns the logger instance attached to the class.
+        :rtype : logging.Logger | None
+        """
+
+        return self.__logger
+
+    @logger.setter
+    def logger(self, logger):
+        """Set a logger for the instance.
+        :param logger: a Logger instance
+        :type logger: logging.Logger | None
+        """
+        if logger is None:
+            if self.__logger is None:
+                logger = create_null_logger(self)
+                self.__logger = logger
+            else:
+                pass
+        else:
+            assert isinstance(logger, logging.Logger)
+            self.__logger = logger
+
+    @property
+    def json_conf(self):
+        """
+        Configuration dictionary. It can be None.
+        :return:
+        """
+
+        return self.__json_conf
+
+    @json_conf.setter
+    def json_conf(self, json_conf):
+
+        """
+        Setter for the configuration dictionary.
+        :param json_conf: None or a dictionary
+        :type json_conf: (None | dict)
+        :return:
+        """
+
+        assert isinstance(json_conf, dict) or json_conf is None
+        self.__json_conf = json_conf
+
+    @logger.deleter
+    def logger(self):
+        """
+        Destroyer for the logger. It sets the internal __logger attribute to None.
+        """
+        self.__logger = None
+
+    @property
+    def phases(self):
+        """
+        This property contains the first phase gleaned for each internal ORF from the
+         GFF.
+        :return: __phases, a list
+        :rtype: list
+        """
+        return self.__phases
+
+    @phases.setter
+    def phases(self, phases):
+        """
+        Setter for phases. The input must be a list.
+        :param phases:
+        :return:
+        """
+
+        assert isinstance(phases, list)
+        self.__phases = phases
 
     # This will be id, no changes.
     # pylint: disable=invalid-name

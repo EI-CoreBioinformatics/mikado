@@ -82,6 +82,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
         self.assertEqual(self.tr.chrom, "Chr1")
         self.assertEqual(self.tr.strand, "-")
+        self.assertEqual(self.tr.number_internal_orfs, 1)
         self.assertEqual(self.tr.exon_num, 10)
         self.assertEqual(self.tr.exon_num, len(self.tr.exons))
         self.assertEqual(self.tr.start, 5928)

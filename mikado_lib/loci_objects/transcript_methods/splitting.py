@@ -467,7 +467,7 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
             raise InvalidTranscript(err_message)
 
         for hit in transcript.blast_hits:
-            if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), (boundary)) > 0:
+            if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), boundary) > 0:
                 minimal_overlap = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
                 new_hit = __recalculate_hit(hit, boundary, minimal_overlap)
                 if new_hit is not None:

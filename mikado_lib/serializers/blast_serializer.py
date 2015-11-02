@@ -1036,8 +1036,8 @@ def prepare_hsp(hsp, counter):
     # Prepare the list for later calculation
     # t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))
 
-    hsp_dict["hsp_identity"] = (hsp.identities) / hsp.align_length * 100
-    hsp_dict["hsp_positives"] = (hsp.positives) / hsp.align_length * 100
+    hsp_dict["hsp_identity"] = hsp.identities / hsp.align_length * 100
+    hsp_dict["hsp_positives"] = hsp.positives / hsp.align_length * 100
 
     # Prepare the list for later calculation
     # hit_dict["global_identity"].append(hsp_dict["hsp_identity"])

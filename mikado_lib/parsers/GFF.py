@@ -300,7 +300,6 @@ class GFF3(Parser):
         super().__init__(handle)
         self.header = False
 
-
     def __next__(self):
 
         if self.closed:

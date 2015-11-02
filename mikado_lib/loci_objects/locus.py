@@ -60,12 +60,10 @@ class Locus(Monosublocus, Abstractlocus):
         _ = kwargs
         to_be_added = True
         # Total, 5', 3'
-        max_utr_lenghts = {"total": self.json_conf["pick"]\
-                           ["alternative_splicing"]["max_utr_length"],
-                           "five": self.json_conf["pick"]\
-                           ["alternative_splicing"]["max_fiveutr_length"],
-                           "three": self.json_conf["pick"]\
-                           ["alternative_splicing"]["max_threeutr_length"]}
+        max_utr_lenghts = {
+            "total": self.json_conf["pick"]["alternative_splicing"]["max_utr_length"],
+            "five": self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"],
+            "three": self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"]}
         max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
 
         if len(self.transcripts) >= max_isoforms:

@@ -1,3 +1,9 @@
+"""
+This module contains the methods used by the Transcript class to split an instance into
+multiple transcripts, if the conditions are met (multiple ORFs present and BLAST not supporting them being part
+of the same transcript).
+"""
+
 from collections import OrderedDict
 import collections
 import operator
@@ -62,10 +68,23 @@ def check_split_by_blast(transcript, cds_boundaries):
                 # If I have a valid hit b/w the CDS region and the hit,
                 # add the name to the set
                 overlap_threshold = minimal_overlap * (cds_run[1] + 1 - cds_run[0])
-                if Abstractlocus.overlap(cds_run, (
-                        hsp['query_hsp_start'],
-                        hsp['query_hsp_end'])) >= overlap_threshold:
+                overlap = Abstractlocus.overlap(cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']))
+
+                if overlap >= overlap_threshold:
                     cds_hit_dict[cds_run][(hit["target"], hit["target_length"])].append(hsp)
+                    transcript.logger.debug("Overlap %s passed for %s between %s CDS and %s HSP (threshold %s)",
+                                            overlap,
+                                            transcript.id,
+                                            cds_run,
+                                            (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                            overlap_threshold)
+                else:
+                    transcript.logger.debug("Overlap %s rejected for %s between %s CDS and %s HSP (threshold %s)",
+                                            overlap,
+                                            transcript.id,
+                                            cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']),
+                                            overlap_threshold)
+    transcript.logger.debug("Final cds_hit_dict for %s: %s", transcript.id, cds_hit_dict)
 
     final_boundaries = OrderedDict()
     for boundary in __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
@@ -78,12 +97,14 @@ def check_split_by_blast(transcript, cds_boundaries):
             final_boundaries[nboun] = []
             for boun in boundary:
                 final_boundaries[nboun].extend(cds_boundaries[boun])
+    transcript.logger.debug("Final boundaries for %s: %s",
+                            transcript.id, final_boundaries)
 
     cds_boundaries = final_boundaries.copy()
     return cds_boundaries
 
 
-def check_common_hits(self, cds_hits, old_hits):
+def check_common_hits(transcript, cds_hits, old_hits):
     """
     This private method verifies whether we have to split a transcript
     if there are hits for both ORFs and some of them refer to the same target.
@@ -92,6 +113,10 @@ def check_common_hits(self, cds_hits, old_hits):
     cover a large fraction of the target length. If this is the case, we decide to
     break down the transcript because we are probably in the presence of a tandem
     duplication.
+
+    :param transcript: the transcript instance to analyse
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
     :param cds_hits:
     :param old_hits:
     :return:
@@ -100,8 +125,7 @@ def check_common_hits(self, cds_hits, old_hits):
     in_common = set.intersection(set(cds_hits.keys()),
                                  set(old_hits.keys()))
     # We do not have any hit in common
-    min_overlap_duplication = self.json_conf["pick"][
-        'chimera_split']['blast_params']['min_overlap_duplication']
+    min_overlap_duplication = transcript.json_conf["pick"]['chimera_split']['blast_params']['min_overlap_duplication']
     to_break = True
     for common_hit in in_common:
         old_hsps = old_hits[common_hit]
@@ -125,9 +149,10 @@ def check_common_hits(self, cds_hits, old_hits):
         for cds_hsp in cds_hsps:
             boundary = (cds_hsp["target_hsp_start"], cds_hsp["target_hsp_end"])
             for target_hit in old_target_boundaries.search(*boundary):
-                overlap_fraction = self.overlap(boundary,
-                                                target_hit)/common_hit[1]
-
+                overlap_fraction = transcript.overlap(boundary,
+                                                      target_hit)/common_hit[1]
+                transcript.logger.debug("Checking overlap duplication for %s; OF %s, minimum %s",
+                                        transcript.id, overlap_fraction, min_overlap_duplication)
                 if overlap_fraction >= min_overlap_duplication:
                     to_break = True and to_break
                 else:

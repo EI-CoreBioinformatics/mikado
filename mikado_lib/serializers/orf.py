@@ -148,12 +148,6 @@ class OrfSerializer:
         :type handle: io.IOBase
         :type handle: str
 
-        :param fasta_index: a dictionary-like BioPython index object
-        :type fasta_index: Bio.File._IndexedSeqFileDict
-
-        :param maxobjects: Maximum number of entries to cache before bulk loading. Default: 10^6
-        :type maxobjects: int
-
         :param json_conf: a configuration dictionary
         :type json_conf: dict
 

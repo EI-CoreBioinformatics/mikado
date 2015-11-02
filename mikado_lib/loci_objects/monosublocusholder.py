@@ -130,8 +130,8 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         self.calculate_scores()
 
         graph = self.define_graph(self.transcripts, inters=self.is_intersecting,
-                                  cds_only=self.json_conf["pick"]\
-                                      ["run_options"]["subloci_from_cds_only"])
+                                  cds_only=self.json_conf["pick"][
+                                      "run_options"]["subloci_from_cds_only"])
 
         loci = []
         while len(graph) > 0:

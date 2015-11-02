@@ -26,6 +26,7 @@ from mikado_lib.utilities.dbutils import DBBASE, Inspector, connect
 from mikado_lib.parsers import bed12
 from mikado_lib.utilities.log_utils import check_logger, create_default_logger
 
+
 # pylint: disable=too-few-public-methods
 class Chrom(DBBASE):
     """
@@ -135,13 +136,6 @@ class JunctionSerializer:
         """
         :param handle: the file to be serialized.
         :type handle: str | io.IOBase
-
-        :param fai: an optional FAI file to be used for generating the database.
-        :type fai: str | io.IOBase | io.TextIOWrapper
-
-        :param maxobjects: maximal number of objects to cache in memory before bulk loading.
-        Default 10^4
-        :type maxobjects: int
 
         :param json_conf: Optional configuration dictionary with db connection parameters.
         :type json_conf: dict | None

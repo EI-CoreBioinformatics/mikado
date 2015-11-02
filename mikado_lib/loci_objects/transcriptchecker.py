@@ -258,7 +258,7 @@ class TranscriptChecker(Transcript):
 
     @staticmethod
     def grouper(iterable, n, fillvalue=""):
-        "Collect data into fixed-length chunks or blocks. From core documentation."
+        """Collect data into fixed-length chunks or blocks. From core documentation."""
         # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
         args = [iter(iterable)] * n
         return list("".join(x) for x in zip_longest(*args, fillvalue=fillvalue))

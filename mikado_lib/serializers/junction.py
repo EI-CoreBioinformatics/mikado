@@ -47,6 +47,8 @@ class Chrom(DBBASE):
         self.length = length
 
 
+# A serialisation class must have a ton of attributes ...
+# pylint: disable=too-many-instance-attributes
 class Junction(DBBASE):
     """
     Class that describes the junction table in the database.
@@ -120,6 +122,7 @@ class Junction(DBBASE):
 
         return ((self.chrom == chrom) and (self.start == start) and
                 (self.end == end) and (self.strand == strand))
+# pylint: enable=too-many-instance-attributes
 
 
 class JunctionSerializer:

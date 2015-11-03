@@ -184,7 +184,8 @@ def setup(args):
         logger.addHandler(handler)
 
     logger.setLevel(args.log_level)
-    logger.info("Command line: {0}".format(" ".join(sys.argv)))
+    logger.info("Command line: %s",
+                " ".join(sys.argv))
 
     # Add sqlalchemy logging
     sql_logger = logging.getLogger("sqlalchemy.engine")

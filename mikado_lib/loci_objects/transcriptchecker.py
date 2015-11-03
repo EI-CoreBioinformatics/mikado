@@ -29,6 +29,8 @@ class TranscriptChecker(Transcript):
 
     __translation_table = str.maketrans("ACGT", "TGCA")
 
+    # The arguments are all needed here.
+    # pylint: disable=too-many-arguments
     def __init__(self, gffline, seq,
                  strand_specific=False, lenient=False,
                  canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC"))):
@@ -64,6 +66,7 @@ class TranscriptChecker(Transcript):
         self.mixed_splices = False
         self.reversed = False
         self.canonical_splices = canonical_splices
+    # pylint: enable=too-many-arguments
 
     @property
     def translation_table(self):
@@ -226,8 +229,10 @@ class TranscriptChecker(Transcript):
     @property
     def fasta(self):
         """
-        This property calculates and returns the FASTA sequence associated with the transcript instance.
-        The FASTA sequence itself will be formatted to be in lines with 60 characters (the standard).
+        This property calculates and returns the FASTA sequence associated with
+        the transcript instance.
+        The FASTA sequence itself will be formatted to be in lines with 60 characters
+        (the standard).
         :return:
         """
 
@@ -243,6 +248,7 @@ class TranscriptChecker(Transcript):
             _ = self.fasta_seq[start:end]
             sequence += _
 
+        # pylint: disable=no-member
         if not isinstance(sequence, str):
             if hasattr(sequence, "seq"):
                 sequence = str(sequence.seq)
@@ -251,6 +257,7 @@ class TranscriptChecker(Transcript):
                     type(sequence),
                     repr(sequence)
                 ))
+        # pylint: enable=no-member
 
         if self.strand == "-":
             sequence = self.rev_complement(sequence)
@@ -268,16 +275,16 @@ class TranscriptChecker(Transcript):
         return fasta
 
     @staticmethod
-    def grouper(iterable, n, fillvalue=""):
+    def grouper(iterable, num, fillvalue=""):
         """Collect data into fixed-length chunks or blocks. From core documentation.
 
         :param iterable: the iterable to be considered for grouping.
-        :param n: length of the chunks.
-        :type n: int
+        :param num: length of the chunks.
+        :type num: int
 
         :param fillvalue: the default filler for missing positions while grouping.
         :type fillvalue: str
         """
         # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-        args = [iter(iterable)] * n
+        args = [iter(iterable)] * num
         return list("".join(x) for x in zip_longest(*args, fillvalue=fillvalue))

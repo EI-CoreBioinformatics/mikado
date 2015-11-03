@@ -99,16 +99,16 @@ def load_orfs(transcript, candidate_orfs):
     # Now verify the loaded content
     check_loaded_orfs(transcript)
 
-    
+
 def check_loaded_orfs(transcript):
 
     """
     This function verifies the ORF status after
     loading from an external data structure/database.
-    
+
     :param transcript: the transcript instance
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
-    
+
     :return:
     """
 
@@ -119,16 +119,15 @@ def check_loaded_orfs(transcript):
     if len(transcript.internal_orfs) == 1:
         transcript.logger.debug("Found 1 ORF for %s", transcript.id)
         transcript.combined_cds = sorted(
-            [(a[1], a[2]) for a in filter(lambda x: x[0] == "CDS",
-                                          transcript.internal_orfs[0])],
+            [(a[1], a[2]) for a in iter(_ for _ in transcript.internal_orfs[0]
+                                        if _[0] == "CDS")],
             key=operator.itemgetter(0, 1)
 
         )
         transcript.combined_utr = sorted(
-            [(a[1], a[2]) for a in filter(lambda x: x[0] == "UTR",
-                                          transcript.internal_orfs[0])],
+            [(a[1], a[2]) for a in iter(_ for _ in transcript.internal_orfs[0]
+                                        if _[0] == "UTR")],
             key=operator.itemgetter(0, 1)
-
         )
 
     elif len(transcript.internal_orfs) > 1:
@@ -139,8 +138,8 @@ def check_loaded_orfs(transcript):
         candidates = []
         for internal_cds in transcript.internal_orfs:
             candidates.extend(
-                [tuple([a[1], a[2]]) for a in filter(
-                    lambda tup: tup[0] == "CDS", internal_cds)])
+                [tuple([a[1], a[2]]) for a in iter(tup for tup in internal_cds
+                                                   if tup[0] == "CDS")])
 
         for comm in transcript.find_communities(candidates):
             span = tuple([min(t[0] for t in comm), max(t[1] for t in comm)])
@@ -198,7 +197,8 @@ def __load_blast(transcript):
     # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
     #     return
 
-    max_target_seqs = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+    max_target_seqs = transcript.json_conf[
+        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
     maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
 
     blast_hits_query = transcript.blast_baked(transcript.session).params(
@@ -321,9 +321,8 @@ def retrieve_from_dict(transcript, data_dict):
     transcript.logger.debug("Retrieving ORF information from DB dictionary for %s",
                             transcript.id)
     if transcript.id in data_dict["orfs"]:
-        candidate_orfs = list(filter(
-            lambda orf: orf.cds_len >= min_cds_len,
-            data_dict["orfs"][transcript.id]))
+        candidate_orfs = list(orf for orf in data_dict["orfs"][transcript.id] if
+                              orf.cds_len >= min_cds_len)
     else:
         candidate_orfs = []
 
@@ -331,8 +330,7 @@ def retrieve_from_dict(transcript, data_dict):
     if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True):
         # Remove negative strand ORFs for multiexonic transcripts,
         # or monoexonic strand-specific transcripts
-        candidate_orfs = list(filter(lambda orf: orf.strand != "-",
-                                     candidate_orfs))
+        candidate_orfs = list(orf for orf in candidate_orfs if orf.strand != "-")
 
     load_orfs(transcript, candidate_orfs)
 
@@ -379,7 +377,7 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
 
     # If we are looking at a multiexonic transcript
     if not (transcript.monoexonic is True and transcript.strand is None):
-        candidates = list(filter(lambda co: co.strand == "+", candidates))
+        candidates = list(corf for corf in candidates if corf.strand == "+")
 
     # Prepare the minimal secondary length parameter
     if transcript.json_conf is not None:
@@ -389,7 +387,7 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
         minimal_secondary_orf_length = 0
 
     transcript.logger.debug("{0} input ORFs for {1}".format(len(candidates), transcript.id))
-    candidates = list(filter(lambda x: x.invalid is False, candidates))
+    candidates = list(corf for corf in candidates if corf.invalid is False)
     transcript.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), transcript.id))
     if len(candidates) == 0:
         return []
@@ -401,13 +399,13 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
     candidate_orfs = find_candidate_orfs(transcript, graph, orf_dictionary)
 
     transcript.logger.debug("{0} candidate retained ORFs for {1}: {2}".format(
-                            len(candidate_orfs),
-                            transcript.id,
-                            [x.name for x in candidate_orfs]))
+        len(candidate_orfs),
+        transcript.id,
+        [x.name for x in candidate_orfs]))
     final_orfs = [candidate_orfs[0]]
     if len(candidate_orfs) > 1:
-        others = list(filter(lambda o: o.cds_len >= minimal_secondary_orf_length,
-                             candidate_orfs[1:]))
+        others = list(corf for corf in candidate_orfs[1:] if
+                      corf.cds_len >= minimal_secondary_orf_length)
         transcript.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
             len(others), transcript.id,
             minimal_secondary_orf_length
@@ -608,13 +606,15 @@ def find_candidate_orfs(transcript, graph, orf_dictionary) -> list:
         for comm in communities:
             comm_str.append(str([(orf_dictionary[x].thick_start,
                                   orf_dictionary[x].thick_end) for x in comm]))
-        transcript.logger.debug("{0} communities for {1}:\n\t{2}".format(len(communities),
-                                                                         transcript.id,
-                                                                         "\n\t".join(
-                                                                         comm_str)))
-        transcript.logger.debug("{0} cliques for {1}:\n\t{2}".format(len(cliques),
-                                                                     transcript.id,
-                                                                     "\n\t".join(clique_str)))
+        transcript.logger.debug("{0} communities for {1}:\n\t{2}".format(
+            len(communities),
+            transcript.id,
+            "\n\t".join(comm_str)))
+        transcript.logger.debug("{0} cliques for {1}:\n\t{2}".format(
+            len(cliques),
+            transcript.id,
+            "\n\t".join(clique_str)))
+
         to_remove = set()
         for comm in communities:
             comm = [orf_dictionary[x] for x in comm]

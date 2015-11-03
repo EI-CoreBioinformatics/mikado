@@ -176,82 +176,20 @@ def check_scoring(json_conf):
     return json_conf
 
 
-def check_requirements(json_conf):
+def check_all_requirements(json_conf):
     """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
-    Function to check the "requirements" section of the configuration.
-    Each filtering function will be checked for:
-    - validity of the expression (it can be interpreted by mikado_lib)
-    - validity of the parameter (it is a valid Metric)
+    Function to check all the "requirements" sections of the configuration.
 
     :return: json_conf
     :rtype dict
     """
-
-    available_metrics = Transcript.get_available_metrics()
-    parameters_not_found = []
 
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "requirements_blueprint.json")) as rs_blueprint:
         require_schema = json.load(rs_blueprint)
 
     if "requirements" in json_conf:
-        # Check that the parameters are valid
-        if "parameters" not in json_conf["requirements"]:
-            raise mikado_lib.exceptions.InvalidJson(
-                "The requirements field must have a \"parameters\" subfield!")
-        for key in json_conf["requirements"]["parameters"]:
-            key_name = key.split(".")[0]
-            if key_name not in available_metrics:
-                parameters_not_found.append(key_name)
-                continue
-            if not jsonschema.Draft4Validator(require_schema["definitions"]["parameter"]).is_valid(
-                    json_conf["requirements"]["parameters"][key]):
-                errors = list(jsonschema.Draft4Validator(require_schema).iter_errors(
-                    json_conf["requirements"]["parameters"][key]
-                ))
-                raise mikado_lib.exceptions.InvalidJson("Invalid parameter for {0}: \n{1}".format(
-                    key, errors))
-
-            json_conf["requirements"]["parameters"][key]["name"] = key_name
-
-        if len(parameters_not_found) > 0:
-            raise mikado_lib.exceptions.InvalidJson(
-                "The following parameters, selected for filtering, are invalid:\n\t{0}".format(
-                    "\n\t".join(parameters_not_found)
-                ))
-
-        # Create automatically a filtering expression
-        if "expression" not in json_conf["requirements"]:
-            json_conf["requirements"]["expression"] = " and ".join(
-                list(json_conf["requirements"]["parameters"].keys()))
-            keys = json_conf["requirements"]["parameters"].keys()
-            newexpr = json_conf["requirements"]["expression"][:]
-        else:
-
-            if not jsonschema.Draft4Validator(
-                    require_schema["definitions"]["expression"]).is_valid(
-                        json_conf["requirements"]["expression"]):
-                raise mikado_lib.exceptions.InvalidJson("Invalid expression field")
-            expr = " ".join(json_conf["requirements"]["expression"])
-            newexpr = expr[:]
-
-            keys = list(key for key in re.findall(
-                "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor"))
-
-            diff_params = set.difference(
-                set(keys), set(json_conf["requirements"]["parameters"].keys()))
-
-            if len(diff_params) > 0:
-                raise mikado_lib.exceptions.InvalidJson(
-                    "Expression and required parameters mismatch:\n\t{0}".format(
-                        "\n\t".join(list(diff_params))))
-
-        for key in keys:  # Create the final expression
-            newexpr = re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)
-        json_conf["requirements"]["expression"] = newexpr
+        json_conf = check_requirements(json_conf, require_schema)
 
     if "soft_requirements" not in json_conf:
         json_conf["soft_requirements"] = dict()
@@ -272,24 +210,78 @@ def check_requirements(json_conf):
     return json_conf
 
 
-def check_loci_requirements(json_conf):
+def check_requirements(json_conf, require_schema):
     """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
     Function to check the "requirements" section of the configuration.
     Each filtering function will be checked for:
     - validity of the expression (it can be interpreted by mikado_lib)
     - validity of the parameter (it is a valid Metric)
 
+    :param json_conf: configuration dictionary to check.
+    :type json_conf: dict
+
     :return: json_conf
     :rtype dict
     """
 
-    acceptable_keys = ["num_transcripts"]
+    # Check that the parameters are valid
+    parameters_not_found = []
+    available_metrics = Transcript.get_available_metrics()
 
-    if "loci_requirements" in json_conf:
-        pass
+    if "parameters" not in json_conf["requirements"]:
+        raise mikado_lib.exceptions.InvalidJson(
+            "The requirements field must have a \"parameters\" subfield!")
+    for key in json_conf["requirements"]["parameters"]:
+        key_name = key.split(".")[0]
+        if key_name not in available_metrics:
+            parameters_not_found.append(key_name)
+            continue
+        if not jsonschema.Draft4Validator(require_schema["definitions"]["parameter"]).is_valid(
+                json_conf["requirements"]["parameters"][key]):
+            errors = list(jsonschema.Draft4Validator(require_schema).iter_errors(
+                json_conf["requirements"]["parameters"][key]
+            ))
+            raise mikado_lib.exceptions.InvalidJson("Invalid parameter for {0}: \n{1}".format(
+                key, errors))
+
+        json_conf["requirements"]["parameters"][key]["name"] = key_name
+
+    if len(parameters_not_found) > 0:
+        raise mikado_lib.exceptions.InvalidJson(
+            "The following parameters, selected for filtering, are invalid:\n\t{0}".format(
+                "\n\t".join(parameters_not_found)
+            ))
+
+    # Create automatically a filtering expression
+    if "expression" not in json_conf["requirements"]:
+        json_conf["requirements"]["expression"] = " and ".join(
+            list(json_conf["requirements"]["parameters"].keys()))
+        keys = json_conf["requirements"]["parameters"].keys()
+        newexpr = json_conf["requirements"]["expression"][:]
+    else:
+
+        if not jsonschema.Draft4Validator(
+                require_schema["definitions"]["expression"]).is_valid(
+                    json_conf["requirements"]["expression"]):
+            raise mikado_lib.exceptions.InvalidJson("Invalid expression field")
+        expr = " ".join(json_conf["requirements"]["expression"])
+        newexpr = expr[:]
+
+        keys = list(key for key in re.findall(
+            "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor"))
+
+        diff_params = set.difference(
+            set(keys), set(json_conf["requirements"]["parameters"].keys()))
+
+        if len(diff_params) > 0:
+            raise mikado_lib.exceptions.InvalidJson(
+                "Expression and required parameters mismatch:\n\t{0}".format(
+                    "\n\t".join(list(diff_params))))
+
+    for key in keys:  # Create the final expression
+        newexpr = re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)
+    json_conf["requirements"]["expression"] = newexpr
+    return json_conf
 
 
 def check_blast(json_conf, json_file):
@@ -476,7 +468,7 @@ def check_json(json_conf, simple=False):
 
     json_conf = check_db(json_conf)
     # json_conf = check_blast(json_conf, json_file)
-    json_conf = check_requirements(json_conf)
+    json_conf = check_all_requirements(json_conf)
     json_conf = check_scoring(json_conf)
     validator.validate(json_conf)
     return json_conf

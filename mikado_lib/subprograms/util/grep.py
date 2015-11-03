@@ -69,7 +69,14 @@ def verify_storability(record, mrna_ids, gene_ids, args):
 def grep_gff(args, gene_ids, mrna_ids):
     """
     Grep-like main function for *GFF3* files.
-    :param args:
+    :param args: argparse Namespace with the options.
+
+    :param gene_ids: set of gene IDs to retain/discard.
+    :type gene_ids: set
+
+    :param mrna_ids: set of mRNA IDs to retain/discard.
+    :type mrna_ids: set
+
     :return:
     """
 
@@ -87,18 +94,17 @@ def grep_gff(args, gene_ids, mrna_ids):
             evaluated, mrna_ids = evaluator(record, mrna_ids)
             if evaluated is True:
                 curr_transcripts[record.id] = [record]
-        elif record.is_exon is True:
-            for parent in record.parent:
+        # Records with "derived from" are typically things like "protein" from TAIR
+        elif record.is_exon is True or record.is_derived is True:
+            if record.is_derived is True:
+                parent_store = record.derived_from
+            else:
+                parent_store = record.parent
+            for parent in parent_store:
                 if parent in mrna_ids and args.reverse is False:
                     curr_transcripts[parent].append(record)
                 elif parent not in mrna_ids and args.reverse is True:
                     curr_transcripts[parent].append(record)
-        elif record.is_derived is True:
-            for derivation in record.derived_from:
-                if args.reverse is True and derivation not in mrna_ids:
-                    curr_transcripts[derivation].append(record)
-                elif args.reverse is False and derivation in mrna_ids:
-                    curr_transcripts[derivation].append(record)
         else:
             print_gff_gene(curr_gene, curr_transcripts, args)
             curr_gene = None
@@ -116,6 +122,13 @@ def grep_gtf(args, gene_ids, mrna_ids):
     Grep-like main function for *GTF* files.
     :param args:
     :return:
+
+    :param gene_ids: set of gene IDs to retain/discard.
+    :type gene_ids: set
+
+    :param mrna_ids: set of mRNA IDs to retain/discard.
+    :type mrna_ids: set
+
     """
 
     for record in args.gff:

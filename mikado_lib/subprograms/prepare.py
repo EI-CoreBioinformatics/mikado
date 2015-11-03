@@ -106,7 +106,8 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0):
     :param logger: logger instance.
     :type logger: logging.Logger
 
-    :param min_length: minimal length of the transcript. If it is not met, the transcript will be discarded.
+    :param min_length: minimal length of the transcript.
+    If it is not met, the transcript will be discarded.
     :type min_length: int
 
     :return: transcripts: dictionary which will be the final output
@@ -251,9 +252,7 @@ def setup(args):
         # Checks labels are unique
         assert len(set(args.labels)) == len(args.labels)
         assert not any([True for _ in args.labels if _.strip() == ''])
-        if len(args.labels) != len(
-            args.json_conf["prepare"]["gff"]
-        ):
+        if len(args.labels) != len(args.json_conf["prepare"]["gff"]):
             raise ValueError("Incorrect number of labels specified")
         args.json_conf["prepare"]["labels"] = args.labels
     else:
@@ -271,6 +270,113 @@ def setup(args):
     return args, logger
 
 
+def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
+    """
+    Method to load the exon lines from GFF3 files.
+    :param exon_lines: the defaultdict which stores the exon lines.
+    :param gff_handle: The handle for the GTF to be parsed.
+    :param label: label to be attached to all transcripts.
+    :type label: str
+    :param found_ids: set of IDs already found in other files.
+    :type found_ids: set
+    :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
+    :type strip_cds: bool
+    :return:
+    """
+    transcript2genes = dict()
+    new_ids = set()
+    for row in gff_handle:
+        if row.is_transcript is True:
+            if label != '':
+                row.id = "{0}_{1}".format(label, row.id)
+            transcript2genes[row.id] = row.parent[0]
+            continue
+        elif not row.is_exon:
+            continue
+        elif row.is_exon is True:
+            if not row.is_cds or (row.is_cds is True and strip_cds is False):
+                if label != '':
+                    row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
+                parents = row.transcript[:]
+                for tid in parents:
+                    if tid in found_ids:
+                        assert label == ''
+                        raise ValueError("""{0} has already been found in another file,
+                        this will cause unsolvable collisions. Please rerun preparation using
+                        labels to tag each file.""")
+                    new_ids.add(tid)
+                    new_row = copy.deepcopy(row)
+                    new_row.parent = new_row.id = tid
+                    new_row.attributes["gene_id"] = transcript2genes[tid]
+                    new_row.name = tid
+                    exon_lines[tid].append(new_row)
+            else:
+                continue
+    return exon_lines, new_ids
+
+
+def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
+    """
+    Method to load the exon lines from GTF files.
+    :param exon_lines: the defaultdict which stores the exon lines.
+    :param gff_handle: The handle for the GTF to be parsed.
+    :param label: label to be attached to all transcripts.
+    :type label: str
+    :param found_ids: set of IDs already found in other files.
+    :type found_ids: set
+    :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
+    :type strip_cds: bool
+    :return:
+    """
+
+    new_ids = set()
+    for row in gff_handle:
+        if row.is_exon is False or (row.is_cds is True and strip_cds is True):
+            continue
+        if label != '':
+            row.transcript = "{0}_{1}".format(label, row.transcript)
+        if row.transcript in found_ids:
+            assert label != ''
+            raise ValueError("""{0} has already been found in another file,
+                this will cause unsolvable collisions. Please rerun preparation using
+                labels to tag each file.""")
+        exon_lines[row.transcript].append(row)
+        new_ids.add(row.transcript)
+    return exon_lines, new_ids
+
+
+def load_exon_lines(args, logger):
+
+    """This function loads all exon lines from the GFF inputs into a
+     defaultdict instance.
+    :param args: the Namespace from the command line.
+    :param logger: the logger instance.
+    :type logger: logging.Logger
+    :return: exon_lines
+    :rtype: collections.defaultdict[list]
+    """
+
+    exon_lines = collections.defaultdict(list)
+    previous_file_ids = collections.defaultdict(set)
+    for label, gff_name in zip(args.json_conf["prepare"]["labels"],
+                               args.json_conf["prepare"]["gff"]):
+        logger.info("Starting with %s", gff_name)
+        gff_handle = to_gff(gff_name)
+        found_ids = set.union(set(), *previous_file_ids.values())
+        strip_cds = args.json_conf["prepare"]["strip_cds"]
+
+        if gff_handle.__annot_type__ == "gff3":
+            exon_lines, new_ids = load_from_gff(exon_lines, gff_handle,
+                                                label, found_ids, strip_cds=strip_cds)
+        else:
+            exon_lines, new_ids = load_from_gtf(exon_lines, gff_handle,
+                                                label, found_ids, strip_cds=strip_cds)
+
+        previous_file_ids[gff_handle.name] = new_ids
+
+    return exon_lines
+
+
 def prepare(args):
     """Main script function.
 
@@ -283,69 +389,18 @@ def prepare(args):
     assert len(args.json_conf["prepare"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
 
-    args.json_conf["prepare"]["out_fasta"] = open(
-        args.json_conf["prepare"]["out_fasta"], 'w')
-    args.json_conf["prepare"]["out"] = open(
-        args.json_conf["prepare"]["out"], 'w')
+    args.json_conf["prepare"]["out_fasta"] = open(args.json_conf["prepare"]["out_fasta"], 'w')
+    args.json_conf["prepare"]["out"] = open(args.json_conf["prepare"]["out"], 'w')
 
     to_seqio = functools.partial(to_seqio_complete,
                                  cache=args.json_conf["prepare"]["cache"],
                                  logger_instance=logger)
 
-    args.json_conf["prepare"]["fasta"] = to_seqio(
-        args.json_conf["prepare"]["fasta"])
-    exon_lines = collections.defaultdict(list)
+    args.json_conf["prepare"]["fasta"] = to_seqio(args.json_conf["prepare"]["fasta"])
 
-    previous_file_ids = collections.defaultdict(set)
+    logger.info("Started loading exon lines")
 
-    for label, gff_name in zip(args.json_conf["prepare"]["labels"],
-                               args.json_conf["prepare"]["gff"]):
-        logger.info("Starting with %s", gff_name)
-        gff_handle = to_gff(gff_name)
-        found_ids = set.union(set(), *previous_file_ids.values())
-        if gff_handle.__annot_type__ == "gff3":
-            gff = True
-            transcript2genes = dict()
-        else:
-            gff = False
-
-        for row in gff_handle:
-            if row.is_exon is False:
-                if gff is True and row.is_transcript is True:
-                    if label != '':
-                        row.id = "{0}_{1}".format(label, row.id)
-                    transcript2genes[row.id] = row.parent[0]
-                continue
-            # This convoluted block is due to the fact that transcript is a list for
-            # GFF files (as it is a parent), while it is a string for GTF files
-            elif row.is_cds is True and args.json_conf["prepare"]["strip_cds"] is True:
-                continue
-
-            if gff is True:
-                if label != '':
-                    row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
-                parents = row.transcript[:]
-                for tid in parents:
-                    if tid in found_ids:
-                        assert label != ''
-                        raise ValueError("""{0} has already been found in another file,
-                        this will cause unsolvable collisions. Please rerun preparation using
-                        labels to tag each file.""")
-                    previous_file_ids[gff_handle.name].add(tid)
-                    new_row = copy.deepcopy(row)
-                    new_row.parent = new_row.id = tid
-                    new_row.attributes["gene_id"] = transcript2genes[tid]
-                    new_row.name = tid
-                    exon_lines[tid].append(new_row)
-            else:
-                if label != '':
-                    row.transcript = "{0}_{1}".format(label, row.transcript)
-                if row.transcript in found_ids:
-                    assert label != ''
-                    raise ValueError("""{0} has already been found in another file,
-                        this will cause unsolvable collisions. Please rerun preparation using
-                        labels to tag each file.""")
-                exon_lines[row.transcript].append(row)
+    exon_lines = load_exon_lines(args, logger)
 
     logger.info("Finished loading exon lines")
 
@@ -368,7 +423,8 @@ def to_seqio_complete(string, cache=False, logger_instance=None):
 
     :param logger_instance: a logging.Logger instance
 
-    :param cache: boolean flag. If set to True, the genome will be preloaded in memory. Fast but expensive!
+    :param cache: boolean flag. If set to True,the genome will be preloaded in memory.
+    Fast but expensive!
     :type cache: bool
     """
 

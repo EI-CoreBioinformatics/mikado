@@ -25,29 +25,10 @@ from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.parsers.GTF import GtfLine
 from mikado_lib.parsers.GFF import GffLine
 import mikado_lib.exceptions
-import mikado_lib.loci_objects.transcript_methods.splitting
-from mikado_lib.loci_objects.transcript_methods.printing import create_lines_cds, create_lines_no_cds
+from mikado_lib.loci_objects.transcript_methods import splitting, retrieval
+from mikado_lib.loci_objects.transcript_methods.printing import create_lines_cds
+from mikado_lib.loci_objects.transcript_methods.printing import create_lines_no_cds
 from mikado_lib.loci_objects.transcript_methods.finalizing import finalize
-import mikado_lib.loci_objects.transcript_methods.retrieval
-
-# from memory_profiler import profile
-# import logging
-# if "line_profiler" not in dir():
-#     def profile(function):
-#         """
-#         Mock wrapper to imitate the profile decorator
-#         :param function: the function to be wrapped
-#         :return:
-#         """
-#         def inner(*args, **kwargs):
-#             """
-#             Returns the wrapped function
-#             :param args: arguments to be passed
-#             :param kwargs: keyword arguments to be passed
-#             :return:
-#             """
-#             return function(*args, **kwargs)
-#         return inner
 
 
 class Metric(property):
@@ -380,7 +361,7 @@ class Transcript:
         UTR information will be retained only if no ORF is down/upstream.
         """
 
-        for new_transcript in mikado_lib.loci_objects.transcript_methods.splitting.split_by_cds(self):
+        for new_transcript in splitting.split_by_cds(self):
             yield new_transcript
 
         return
@@ -494,11 +475,11 @@ class Transcript:
         Otherwise, they will be extracted from the database directly.
         """
 
-        mikado_lib.loci_objects.transcript_methods.retrieval.load_information_from_db(self,
-                                                                                      json_conf,
-                                                                                      introns=introns,
-                                                                                      session=session,
-                                                                                      data_dict=data_dict)
+        retrieval.load_information_from_db(self,
+                                           json_conf,
+                                           introns=introns,
+                                           session=session,
+                                           data_dict=data_dict)
 
     def load_orfs(self, candidate_orfs):
 
@@ -508,7 +489,7 @@ class Transcript:
         :return:
         """
 
-        mikado_lib.loci_objects.transcript_methods.retrieval.load_orfs(self, candidate_orfs)
+        retrieval.load_orfs(self, candidate_orfs)
 
     # ###################Class methods#####################################
 

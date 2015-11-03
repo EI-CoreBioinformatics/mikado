@@ -131,12 +131,15 @@ def __verify_boundaries(transcript):
 
     try:
         if transcript.exons[0][0] != transcript.start or transcript.exons[-1][1] != transcript.end:
-            if transcript.exons[0][0] > transcript.start and transcript.selected_cds[0][0] == transcript.start:
+            if (transcript.exons[0][0] > transcript.start and
+                    transcript.selected_cds[0][0] == transcript.start):
                 transcript.exons[0] = (transcript.start, transcript.exons[0][0])
-            if transcript.exons[-1][1] < transcript.end and transcript.selected_cds[-1][1] == transcript.end:
+            if (transcript.exons[-1][1] < transcript.end and
+                    transcript.selected_cds[-1][1] == transcript.end):
                 transcript.exons[-1] = (transcript.exons[-1][0], transcript.end)
 
-            if transcript.exons[0][0] != transcript.start or transcript.exons[-1][1] != transcript.end:
+            if (transcript.exons[0][0] != transcript.start or
+                    transcript.exons[-1][1] != transcript.end):
                 raise mikado_lib.exceptions.InvalidTranscript(
                     """The transcript {id} has coordinates {tstart}:{tend},
                 but its first and last exons define it up until {estart}:{eend}!
@@ -173,7 +176,8 @@ def __check_internal_orf(transcript, exons, orf):
             if exon[0] <= orf_segment[0] <= orf_segment[1] <= exon[1]:
                 if previous_exon_index is not None and previous_exon_index + 1 != exon_position:
                     exc = mikado_lib.exceptions.InvalidTranscript(
-                        "Invalid ORF for {0}, invalid index: {1} (for {2}), expected {3}\n{4} CDS vs. {5} exons".format(
+                        """Invalid ORF for {0}, invalid index: {1} (for {2}), expected {3}
+                        {4} CDS vs. {5} exons""".format(
                             transcript.id,
                             exon_position,
                             orf_segment,
@@ -241,11 +245,13 @@ def finalize(transcript):
 
     if len(transcript.combined_cds) > 0:
         transcript.selected_internal_orf_index = 0
+        # pylint: disable=protected-access
         if len(transcript.phases) > 0:
             transcript._first_phase = sorted(transcript.phases, key=operator.itemgetter(0),
                                              reverse=(transcript.strand == "-"))[0][1]
         else:
             transcript._first_phase = 0
+        # pylint: enable=protected-access
 
     # Necessary to set it to the default value
     _ = transcript.selected_internal_orf
@@ -261,9 +267,9 @@ def finalize(transcript):
         transcript.selected_internal_orf_cds = tuple([])
     else:
         transcript.selected_internal_orf_cds = tuple(
-            filter(lambda x: x[0] == "CDS",
-                   transcript.internal_orfs[transcript.selected_internal_orf_index])
-        )
+            internal_cds for internal_cds in transcript.internal_orfs[
+                transcript.selected_internal_orf_index] if
+            internal_cds[0] == "CDS")
 
     transcript.finalized = True
     return

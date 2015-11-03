@@ -63,7 +63,8 @@ def check_beginning(handle, filename, previous_header):
     :param filename: name of the file associated with the handle.
     :type filename: str
 
-    :param previous_header: header found in previous file(s). It is used the parameter used for the consinstency check.
+    :param previous_header: header found in previous file(s).
+    It is used the parameter used for the consinstency check.
     :type previous_header: (None | list)
 
     :return

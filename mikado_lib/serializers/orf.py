@@ -21,6 +21,8 @@ from mikado_lib.serializers.blast_serializer import Query
 from mikado_lib.utilities.log_utils import create_null_logger, check_logger
 
 
+# This is a serialization class, it must have a ton of attributes ...
+# pylint: disable=too-many-instance-attributes
 class Orf(DBBASE):
 
     """
@@ -188,31 +190,31 @@ class OrfSerializer:
         self.session = session()
         self.maxobjects = json_conf["serialise"]["max_objects"]
 
-    def serialize(self):
+    def load_fasta(self, cache):
+
         """
-        This method performs the parsing of the ORF file and the
-        loading into the SQL database.
+        Private method to load data from the FASTA file into the database.
+        :param cache: a dictionary which memoizes the IDs.
+        :type cache: dict
+
+        :return: the updated cache
+        :rtype: dict
+
         """
 
         objects = []
-        # Dictionary to hold the data before bulk loading into the database
-        cache = dict()
 
-        for record in self.session.query(Query):
-            cache[record.query_name] = record.query_id
-
-        done = 0
         if self.fasta_index is not None:
-            self.logger.info("%d entries to load", len(self.fasta_index))
-            self.logger.info("%d entries already present in db",
+            done = 0
+            self.logger.info("%d entries already present in db, %d in the index",
                              len([fasta_key for fasta_key in self.fasta_index if
-                                  fasta_key not in cache]))
+                                  fasta_key not in cache]),
+                             len(self.fasta_index))
             found = set()
             for record in self.fasta_index:
                 if record in cache:
                     continue
                 objects.append(Query(record, len(self.fasta_index[record])))
-                self.logger.debug("Appended %s", record)
                 assert record not in found, record
                 found.add(record)
                 if len(objects) >= self.maxobjects:
@@ -228,8 +230,23 @@ class OrfSerializer:
             self.session.commit()
             self.logger.info(
                 "Finished loading %d transcripts into query table", done)
-            objects = []
-            done = 0
+        return cache
+
+    def serialize(self):
+        """
+        This method performs the parsing of the ORF file and the
+        loading into the SQL database.
+        """
+
+        objects = []
+        # Dictionary to hold the data before bulk loading into the database
+        cache = dict()
+
+        for record in self.session.query(Query):
+            cache[record.query_name] = record.query_id
+
+        done = 0
+        cache = self.load_fasta(cache)
 
         self.logger.info("Loading IDs into the cache")
         for record in self.session.query(Query):

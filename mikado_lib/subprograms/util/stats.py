@@ -358,9 +358,13 @@ class Calculator:
                 raise
         return row
 
+    # pylint: disable=too-many-locals,too-many-statements
     def __prepare_arrays(self):
         """
-
+        This private method prepares the arrays which will be used to calculate
+        all the necessary statistics.
+        Such arrays include therefore intergenic distances, exon lengths, etc.,
+        casted into integer/float arrays whenever possible.
         :return:
         """
 
@@ -463,6 +467,7 @@ class Calculator:
         self.__arrays["5'UTR length"] = five_utr_lengths
         self.__arrays["3'UTR length"] = three_utr_lengths
         self.__arrays["Stop distance from junction"] = end_distance_from_junction
+    # pylint: enable=too-many-locals,too-many-statements
 
     def writer(self):
         """Method which creates the final output"""

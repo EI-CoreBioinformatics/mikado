@@ -342,8 +342,8 @@ class Superlocus(Abstractlocus):
         :param tid: the name of the transcript to retrieve data for.
         :type tid: str
 
-        :param data_dict: the dictionary to use for data retrieval, if specified. If None, a DB connection
-                          will be established to retrieve the necessary data.
+        :param data_dict: the dictionary to use for data retrieval, if specified.
+        If None, a DB connection will be established to retrieve the necessary data.
         :type data_dict: (None | dict)
 
         This routine is used to load data for a single transcript."""
@@ -424,8 +424,8 @@ class Superlocus(Abstractlocus):
         :param pool: a connection pool
         :type pool: sqlalchemy.pool.QueuePool
 
-        :param data_dict: the dictionary to use for data retrieval, if specified. If None, a DB connection
-                          will be established to retrieve the necessary data.
+        :param data_dict: the dictionary to use for data retrieval, if specified.
+        If None, a DB connection will be established to retrieve the necessary data.
         :type data_dict: (None | dict)
 
         """

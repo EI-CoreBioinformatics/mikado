@@ -36,26 +36,6 @@ from multiprocessing import Process
 # pylint: enable=no-name-in-module
 import multiprocessing.managers
 
-# For profiling
-# from memory_profiler import profile
-# if "line_profiler" not in dir():  # @UndefinedVariable
-#     def profile(function):
-#         """
-#         Mock wrapper to make the program function also without memory_profile/cProfile
-#         enabled.
-#         :param function: the function to be wrapped
-#         """
-#         def inner(*args, **kwargs):
-#             """Inner function of the wrapper
-#             :param args: positional arguments
-#             :param kwargs: keyword arguments
-#             """
-#             return function(*args, **kwargs)
-#         return inner
-#
-
-
-# @profile
 
 def remove_fragments(stranded_loci, json_conf, logger):
 

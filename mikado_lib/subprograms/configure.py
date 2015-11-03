@@ -94,11 +94,11 @@ def create_simple_config():
     for ckey in sorted(composite_keys, key=len, reverse=True):
         defa = default
         # Get to the latest position
-        for pos, k in enumerate(ckey):
+        for key in ckey:
             try:
-                defa = defa[k]
+                defa = defa[key]
             except KeyError:
-                raise KeyError(k, defa)
+                raise KeyError(key, defa)
         val = defa
         for k in reversed(ckey):
             val = {k: val}
@@ -106,6 +106,51 @@ def create_simple_config():
         new_dict = mikado_lib.configuration.configurator.merge_dictionaries(new_dict, val)
 
     return new_dict
+
+
+def print_config(output, out):
+
+    """
+    Function to print out the prepared configuration.
+    :param output: prepared output, a huge string.
+    :type output: str
+
+    :param out: output handle.
+    """
+
+    comment = []
+    comment_level = -1
+
+    for line in output.split("\n"):
+        # comment found
+        if line.lstrip().startswith(("Comment", "SimpleComment")) or comment:
+            level = sum(1 for _ in itertools.takewhile(str.isspace, line))
+            if comment:
+                if level > comment_level or line.lstrip().startswith("-"):
+                    comment.append(line.strip())
+                else:
+                    for comment_line in iter(_ for _ in comment if _ != ''):
+                        print("{spaces}#  {comment}".format(spaces=" "*comment_level,
+                                                            comment=re.sub(
+                                                                "'", "", re.sub("^- ", "",
+                                                                                comment_line))),
+                              file=out)
+                    if level < comment_level:
+                        print("{0}{{}}".format(" " * comment_level), file=out)
+                    comment = []
+                    comment_level = -1
+
+                    print(line.rstrip(), file=out)
+            else:
+                comment = [re.sub("(Comment|SimpleComment):", "", line.strip())]
+                comment_level = level
+        else:
+            print(line.rstrip(), file=out)
+
+    if comment:
+        for comment_line in comment:
+            print("{spaces}#{comment}".format(spaces=" "*comment_level, comment=comment_line),
+                  file=out)
 
 
 def create_config(args):
@@ -137,44 +182,9 @@ def create_config(args):
                     args.labels, len(args.labels)))
             config["prepare"]["labels"] = args.labels
 
-    comment = []
-    comment_level = -1
     output = yaml.dump(config, default_flow_style=False)
 
-    for line in output.split("\n"):
-        # comment found
-        if (line.lstrip().startswith("Comment") or
-                line.lstrip().startswith("SimpleComment") or comment):
-            level = sum(1 for _ in itertools.takewhile(str.isspace, line))
-            if comment:
-                if level > comment_level or line.lstrip().startswith("-"):
-                    comment.append(line.strip())
-                else:
-                    for l in iter(_ for _ in comment if _ != ''):
-                        print("{spaces}#  {comment}".format(
-                              spaces=" "*comment_level,
-                              comment=re.sub("'", "", re.sub("^- ", "", l))),
-                              file=args.out)
-                    if level < comment_level:
-                        print("{0}{{}}".format(" " * comment_level), file=args.out)
-                    comment = []
-                    comment_level = -1
-
-                    print(line.rstrip(), file=args.out)
-            else:
-                if args.full is True:
-                    comment = [re.sub("Comment:", "", line.strip())]
-                else:
-                    comment = [re.sub("SimpleComment:", "", line.strip())]
-                comment_level = level
-        else:
-            print(line.rstrip(), file=args.out)
-
-    if comment:
-        for l in comment:
-            print("{spaces}#{comment}".format(spaces=" "*comment_level, comment=l),
-                  file=args.out)
-
+    print_config(output, args.out)
 
 def configure_parser():
     """

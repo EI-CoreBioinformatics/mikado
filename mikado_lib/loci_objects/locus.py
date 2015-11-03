@@ -277,8 +277,8 @@ class Locus(Monosublocus, Abstractlocus):
     @id.setter
     def id(self, string):
         """
-        Override of the original method from AbstractLocus. This override allows to create proper IDs
-        for the final annotation to be output by Mikado.
+        Override of the original method from AbstractLocus. This override allows to
+        create proper IDs for the final annotation to be output by Mikado.
         :param string:
         :return:
         """

@@ -685,7 +685,17 @@ def split_by_cds(transcript):
             # we might have determined that the transcript has not to be split
             new_transcripts = [transcript]
         else:
-            new_transcripts = __create_splitted_transcripts(transcript, cds_boundaries)
+            try:
+                new_transcripts = __create_splitted_transcripts(transcript, cds_boundaries)
+            except InvalidTranscript as err:
+                exc = InvalidTranscript(err)
+                transcript.logger.error("Error in splitting %s by ORF",
+                                        transcript.id)
+                transcript.logger.exception(exc)
+                transcript.logger.error("Stripping %s of its CDS.",
+                                        transcript.id)
+                transcript.strip_cds()
+                new_transcripts = [transcript]
 
     assert len(new_transcripts) > 0, str(transcript)
     for new_transc in new_transcripts:

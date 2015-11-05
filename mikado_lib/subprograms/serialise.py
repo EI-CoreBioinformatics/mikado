@@ -21,6 +21,7 @@ from mikado_lib.configuration import configurator
 from mikado_lib.utilities.log_utils import create_default_logger
 from mikado_lib.utilities import dbutils
 from mikado_lib.serializers import orf, blast_serializer, junction
+import mikado_lib.exceptions
 
 __author__ = 'Luca Venturini'
 
@@ -75,6 +76,14 @@ def load_junctions(args, logger):
     """
 
     if args.json_conf["serialise"]["files"]["junctions"] is not None:
+        if ("genome_fai" not in args.json_conf["serialise"]["files"] or
+                args.json_conf["serialise"]["files"]["genome_fai"] is None):
+
+            exc = mikado_lib.exceptions.InvalidJson(
+                "Missing the genome FAI file for serialising the junctions. I cannot proceed with this step!")
+            logger.exception(exc)
+            raise exc
+
         logger.info("Starting to load junctions: %s",
                     args.json_conf["serialise"]["files"]["junctions"])
         for junction_file in iter(
@@ -157,6 +166,7 @@ def setup(args):
     # Get the log level from general settings
     args.json_conf["serialise"]["log_level"] = args.json_conf["log_settings"]["log_level"]
 
+    # Retrieve data from the argparse and put it into the configuration
     for key in args.json_conf["serialise"]:
         if key == "files":
             for file_key in args.json_conf["serialise"]["files"]:
@@ -285,6 +295,7 @@ def serialise_parser():
     generic.add_argument("-f", "--force", action="store_true", default=False,
                          help="""Flag. If set, an existing databse will be deleted (sqlite)
                          or dropped (MySQL/PostGreSQL) before beginning the serialisation.""")
+    # If None, the default configuration will be used (from the blueprint)
     generic.add_argument("--json-conf", default=None,
                          dest="json_conf", type=configurator.to_json,
                          required=True)

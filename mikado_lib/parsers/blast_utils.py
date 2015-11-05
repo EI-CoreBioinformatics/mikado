@@ -50,6 +50,11 @@ def create_opener(filename):
             return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
     elif filename.endswith(".xml"):
         return open(filename)
+    elif filename.endswith(".asn"):
+        blast_formatter = subprocess.Popen(
+            ['blast_formatter', '-outfmt', '5', '-archive', filename],
+            shell=False, stdout=subprocess.PIPE)
+        return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
     else:
         raise ValueError("Unrecognized file format: %s", filename)
 

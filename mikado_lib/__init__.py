@@ -13,4 +13,3 @@ from mikado_lib import serializers
 from mikado_lib import loci_objects
 from mikado_lib import configuration
 from mikado_lib import scales
-

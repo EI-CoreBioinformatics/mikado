@@ -3,12 +3,14 @@ This module contains the methods used by the Transcript class to retrieve inform
 from the database/dictionary provided during the pick operation.
 """
 
+
+from itertools import groupby
 from sqlalchemy.orm.session import sessionmaker
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.serializers.junction import Junction
 from sqlalchemy import and_
-import mikado_lib.utilities
 import operator
+
 
 __author__ = 'Luca Venturini'
 
@@ -149,27 +151,27 @@ def check_loaded_orfs(transcript):
 
         # This method is probably OBSCENELY inefficient,
         # but I cannot think of a better one for the moment.
-        curr_utr_segment = None
 
-        utr_pos = set.difference(
+        # curr_utr_segment = None  # temporary token with the UTR positions
+
+        # Calculate the positions inside the UTR
+        utr_pos = sorted(list(set.difference(
             set.union(*[set(range(exon[0], exon[1] + 1)) for exon in transcript.exons]),
             set.union(*[set(range(cds[0], cds[1] + 1)) for cds in transcript.combined_cds])
-        )
-        for pos in sorted(list(utr_pos)):
-            if curr_utr_segment is None:
-                curr_utr_segment = (pos, pos)
+        )))
+
+        # This code snippet using groupby is massively more efficient than the previous naive implementation
+        for key, group in groupby(enumerate(utr_pos), lambda items: items[0] - items[1]):
+            group = list(map(operator.itemgetter(1), group))
+            if len(group) > 1:
+                transcript.combined_utr.append((group[0], group[-1]))
             else:
-                if pos == curr_utr_segment[1] + 1:
-                    curr_utr_segment = (curr_utr_segment[0], pos)
-                else:
-                    transcript.combined_utr.append(curr_utr_segment)
-                    curr_utr_segment = (pos, pos)
+                transcript.combined_utr.append((group[0], group[0]))
 
-        if curr_utr_segment is not None:
-            transcript.combined_utr.append(curr_utr_segment)
-
+        # Check everything is alright
         equality = (transcript.cdna_length ==
                     transcript.combined_cds_length + transcript.combined_utr_length)
+
         assert equality, (transcript.cdna_length, transcript.combined_cds, transcript.combined_utr)
 
     if transcript.internal_orfs:

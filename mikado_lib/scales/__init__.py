@@ -39,4 +39,3 @@ def calc_f1(recall, precision):
 import mikado_lib.scales.accountant
 # noinspection PyPep8
 import mikado_lib.scales.assigner
-

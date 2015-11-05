@@ -15,6 +15,8 @@ def launch(args):
 
     """
     Main caller.
+
+    :param args: the argparse Namespace.
     """
 
     metric_names = Transcript.get_available_metrics()

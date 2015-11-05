@@ -17,6 +17,8 @@ def launch(args):
 
     """
     Simple launcher script.
+
+    :param args: the argparse Namespace
     """
 
     if len(args.xml) == 1:

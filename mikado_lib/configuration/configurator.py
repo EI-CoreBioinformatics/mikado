@@ -19,6 +19,8 @@ import json
 import sys
 import jsonschema
 
+__author__ = "Luca Venturini"
+
 
 def extend_with_default(validator_class, simple=False):
     """
@@ -27,6 +29,10 @@ def extend_with_default(validator_class, simple=False):
     itself. Source:
     https://python-jsonschema.readthedocs.org/en/latest/faq/?highlight=default
     :param validator_class: the validator class to extend (e.g. Draft4Validator)
+
+    :param simple: boolean flag. If set to True, only required properties will be extended.
+    :type simple: bool
+
     :return:
     """
     validate_properties = validator_class.VALIDATORS["properties"]
@@ -36,8 +42,16 @@ def extend_with_default(validator_class, simple=False):
         Recursive function that sets the default parameters inside "object"
         types for the dictionary instance. It also loads comments, if available.
         :param instance: a dictionary instance
+        :type instance: dict
+
         :param properties: the "properties" dictionary inside the schema
-        :return:
+        :type properties: dict
+
+        :param simple_comment: a boolean flag to indicate whether we want the simplified schema or not.
+        :type simple_comment: bool
+
+        :return: the prepared instance
+        :rtype: dict
         """
         for prop, subschema in properties.items():
             if instance is None:
@@ -153,9 +167,8 @@ def check_scoring(json_conf):
         if json_conf["scoring"][parameter]["rescaling"] == "target":
             if "value" not in json_conf["scoring"][parameter]:
                 message = """Target rescaling requested for {0} but no target value specified.
-                    Please specify it with the \"value\" keyword.\n{1}""".format(
-                        parameter,
-                        json_conf["scoring"][parameter])
+                    Please specify it with the \"value\" keyword.\n{1}""".format(parameter,
+                                                                                 json_conf["scoring"][parameter])
                 raise mikado_lib.exceptions.UnrecognizedRescaler(message)
 
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0:
@@ -179,6 +192,9 @@ def check_scoring(json_conf):
 def check_all_requirements(json_conf):
     """
     Function to check all the "requirements" sections of the configuration.
+
+    :param json_conf: the dictionary to be checked.
+    :type json_conf: dict
 
     :return: json_conf
     :rtype dict
@@ -219,6 +235,9 @@ def check_requirements(json_conf, require_schema):
 
     :param json_conf: configuration dictionary to check.
     :type json_conf: dict
+
+    :param require_schema: the requirements section of the JSON schema.
+    :type require_schema: dict
 
     :return: json_conf
     :rtype dict
@@ -407,10 +426,13 @@ def create_validator(simple=False):
 def check_json(json_conf, simple=False):
 
     """
+    Wrapper for the various checks performed on the configuration file.
+
     :param json_conf: The dicitonary loaded from the configuration file.
     :type json_conf: dict
 
-    Wrapper for the various checks performed on the configuration file.
+    :param simple: boolean flag indicating whether we desire the simplified version of the configuration, or not.
+    :type simple: bool
 
     :return json_conf
     :rtype: dict
@@ -476,10 +498,14 @@ def check_json(json_conf, simple=False):
 
 def to_json(string, simple=False):
     """
+    Function to serialise the JSON for configuration and check its consistency.
+
     :param string: the configuration file name.
     :type string: str
 
-    Function to serialise the JSON for configuration and check its consistency."""
+    :param simple: boolean flag indicating whether we desire the simplified version of the configuration, or not.
+    :type simple: bool
+    """
 
     if string is None or string == '':
         json_dict = dict()

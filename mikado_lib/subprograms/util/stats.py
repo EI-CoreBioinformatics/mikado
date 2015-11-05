@@ -564,6 +564,8 @@ def launch(args):
 
     """
     Very simple launcher function, calls Calculator from this module.
+
+    :param args: the argparse Namespace.
     """
 
     calculator = Calculator(args)

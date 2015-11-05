@@ -186,6 +186,7 @@ def create_config(args):
 
     print_config(output, args.out)
 
+
 def configure_parser():
     """
     Parser for the configuration utility.

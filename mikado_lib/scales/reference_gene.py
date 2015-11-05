@@ -136,4 +136,3 @@ class Gene:
                 self.end == other.end and self.strand == other.strand:
             return True
         return False
-

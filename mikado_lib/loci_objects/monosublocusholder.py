@@ -209,8 +209,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         # Finally check for CDS consistency
         return any(True for comb in itertools.product(
-            transcript.combined_cds, other.combined_cds) if
-                   cls.overlap(*comb) > 0)
+            transcript.combined_cds, other.combined_cds) if cls.overlap(*comb) > 0)
 
     @classmethod
     def in_locus(cls, monosublocus: Abstractlocus, transcript: Transcript, flank=0) -> bool:

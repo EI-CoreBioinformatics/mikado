@@ -18,6 +18,8 @@ def launch(args):
 
     """
     Simple launcher script.
+
+    :param args: the argparse Namespace
     """
 
     if args.start >= args.end:

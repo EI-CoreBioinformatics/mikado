@@ -608,8 +608,9 @@ class Assigner:
                 if prediction.exon_num == 1 and reference.exon_num > 1:
                     if nucl_precision < 1 and nucl_overlap > 0:
                         # Fraction outside
-                        outside = max(reference.start - prediction.start, 0) +\
-                                  max(prediction.end - reference.end, 0)
+                        outside = max(reference.start - prediction.start, 0)
+                        outside += max(prediction.end - reference.end, 0)
+
                         if prediction.cdna_length - nucl_overlap - outside > 10:
                             ccode = "e"
                         else:

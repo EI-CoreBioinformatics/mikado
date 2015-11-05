@@ -4,20 +4,18 @@
 This module defines the RNA objects. It also defines Metric, a property alias.
 """
 
-# pylint: disable=bad-builtin, too-many-lines
+# pylint: disable=too-many-lines
 
 import logging
 import sys
 import re
 import inspect
 from mikado_lib.utilities.log_utils import create_null_logger
-# SQLAlchemy imports
-from sqlalchemy.sql.expression import desc, asc
+from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
-# mikado_lib imports
-import mikado_lib.utilities
+import mikado_lib.utilities  # mikado_lib imports
 import mikado_lib.serializers.orf
 from mikado_lib.serializers.blast_serializer import Query, Hit
 from mikado_lib.serializers.orf import Orf
@@ -392,29 +390,7 @@ class Transcript:
         assert isinstance(cds_end, int)
 
         self.exons = [(_[-2], _[-1]) for _ in self.combined_cds]
-        # if len(self.selected_cds) == 1:
-        #     self.exons = self.selected_cds
-        # else:
-        #     for exon in self.exons:
-        #         if exon in self.combined_utr:
-        #             continue
-        #         elif exon in self.selected_cds:
-        #             exons.append(exon)
-        #         elif exon[0] <= cds_start <= exon[1]:
-        #             exons.append((cds_start, exon[1]))
-        #         elif exon[0] <= cds_end <= exon[1]:
-        #             exons.append((exon[0], cds_end))
-        #         else:
-        #             raise InvalidTranscript(
-        #                 "Exon: {0}; cds_start: {1}; cds_end: {2}; ID: {3}".format(
-        #                     exon, self.selected_cds_start,
-        #                     self.selected_cds_end, self.id))
-        #
-        #     assert (len(exons) < len(self.exons) or
-        #             exons[0][0] > self.exons[0][0] or
-        #             exons[-1][1] < self.exons[-1][1]),\
-        #         (exons, self.exons)
-        #     self.exons = exons
+
         self.start = cds_start
         self.end = cds_end
         self.internal_orfs, self.combined_utr = [], []

@@ -59,8 +59,8 @@ rule blast_complete:
         subprocess.call("makeblastdb -in {0} -dbtype prot -parse_seqids".format(swissprot),
                         shell=True)
         subprocess.call(" ".join(["blastx", "-num_threads", "5",
-         "-query", input["query"][0], "-outfmt", "5", "-db", output["db"][0], "-out",
-          output["xml"][0], "-evalue", "0.000000001", "-max_target_seqs", "10"]),
+         "-query", input["query"], "-outfmt", "5", "-db", output["db"], "-out",
+          output["xml"], "-evalue", "0.000000001", "-max_target_seqs", "10"]),
           shell=True)
         # command = ""
         # shell(command)

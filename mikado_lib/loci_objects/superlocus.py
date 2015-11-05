@@ -409,6 +409,7 @@ class Superlocus(Abstractlocus):
                                       self.chrom,
                                       data_dict["junctions"][key],
                                       intron[0], intron[1])
+                    # Start, Stop, Strand
                     self.locus_verified_introns.append((intron[0],
                                                         intron[1],
                                                         data_dict["junctions"][key]))

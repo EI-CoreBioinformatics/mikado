@@ -6,6 +6,7 @@ from the database/dictionary provided during the pick operation.
 
 from itertools import groupby
 from sqlalchemy.orm.session import sessionmaker
+import mikado_lib.utilities
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.serializers.junction import Junction
 from sqlalchemy import and_
@@ -287,6 +288,8 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
 
         load_orfs(transcript, candidate_orfs)
         __load_blast(transcript)
+
+    # Finally load introns, separately
     __load_verified_introns(transcript, data_dict, introns)
     transcript.logger.debug("Loaded data for %s", transcript.id)
 
@@ -299,6 +302,7 @@ def retrieve_from_dict(transcript, data_dict):
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
     :param data_dict: the dictionary with loaded data from DB
+    :type data_dict: (None | dict)
     """
 
     transcript.logger.debug(
@@ -309,12 +313,20 @@ def retrieve_from_dict(transcript, data_dict):
                             transcript.id,
                             sorted(transcript.introns))
 
-    transcript.verified_introns = set.intersection(
-        set((transcript.chrom, intron[0], intron[1], transcript.strand)
-            for intron in transcript.introns),
-        data_dict["junctions"])
-    transcript.logger.debug("Verified introns for %s: %s", transcript.id,
-                            sorted(transcript.verified_introns))
+    # if introns is not None:
+    #     transcript.verified_introns = set.intersection(
+    #         set((intron[0], intron[1], transcript.strand) for intron in transcript.introns),
+    #         set(introns)
+    #     )
+    # else:
+    #     transcript.verified_introns = set()
+    #     for intron in transcript.introns:
+    #         key = (transcript.chrom, intron[0], intron[1])
+    #         if data_dict.get(key, None) == transcript.strand:
+    #             transcript.verified_introns.add(intron[0], intron[1], transcript.strand)
+
+    # transcript.logger.debug("Verified introns for %s: %s", transcript.id,
+    #                         sorted(transcript.verified_introns))
 
     # ORF data
     trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]

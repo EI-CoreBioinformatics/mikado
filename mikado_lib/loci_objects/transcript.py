@@ -10,6 +10,7 @@ import logging
 import sys
 import re
 import inspect
+import intervaltree
 from mikado_lib.utilities.log_utils import create_null_logger
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
@@ -166,6 +167,8 @@ class Transcript:
         # Things that will be populated by querying the database
         self.loaded_bed12 = []
         self.engine, self.session, self.sessionmaker = None, None, None
+        # Initialisation of the CDS segments used for finding retained introns
+        self.__cds_tree = intervaltree.IntervalTree()
         # self.query_id = None
 
         if len(args) == 0:
@@ -1014,6 +1017,40 @@ class Transcript:
         if len(self.exons) == 1:
             return True
         return False
+
+    @property
+    def is_coding(self):
+        """
+        Simple property to investigate whether a transcript is coding or not
+        :return: boolean value
+        :rtype: bool
+        """
+
+        return len(self.combined_cds) > 0
+
+    @property
+    def cds_tree(self):
+        """
+        This property returns an interval tree of the CDS segments.
+        Used to calculate the non-coding parts of the CDS.
+        :rtype: intervaltree.Intervaltree
+        """
+        return self.__cds_tree
+
+    @cds_tree.setter
+    def cds_tree(self, segments):
+        """
+        Setter for CDS tree. It checks that the calculated tree is actually valid.
+        :param segments: the interval tree to be set.
+        :type segments: intervaltree.Intervaltree
+        :return:
+        """
+
+        if not isinstance(segments, intervaltree.IntervalTree):
+            raise TypeError("Invalid cds segments: %s, type %s",
+                            segments, type(segments))
+        assert len(segments) == len(self.combined_cds)
+        self.__cds_tree = segments
 
     # ################### Class metrics ##################################
 

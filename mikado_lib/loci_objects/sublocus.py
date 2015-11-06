@@ -87,6 +87,7 @@ class Sublocus(Abstractlocus):
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
         self.scores = dict()
+        self._introntree = intervaltree.IntervalTree()
 
     # pylint: disable=arguments-differ
     def __str__(self, print_cds=True):
@@ -273,6 +274,7 @@ class Sublocus(Abstractlocus):
             transcript_instance.combined_cds_intron_fraction = 0
 
         self.find_retained_introns(transcript_instance)
+        assert isinstance(transcript_instance, Transcript)
         retained_bases = sum(e[1] - e[0] + 1
                              for e in transcript_instance.retained_introns)
         fraction = retained_bases / transcript_instance.cdna_length
@@ -308,17 +310,24 @@ class Sublocus(Abstractlocus):
         :rtype : tuple[tuple[int,int]]
         """
 
-        introns = intervaltree.IntervalTree([
-            intervaltree.Interval(*intron) for intron in self.combined_cds_introns
-        ])
-        self.logger.debug("Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)",
-                          len(introns), len(self.combined_cds_introns),
-                          len(transcript.combined_cds_introns),
-                          len(transcript.selected_cds_introns),
-                          len(transcript.selected_cds))
-        cds_segments = intervaltree.IntervalTree([
-            intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds
-        ])
+        # introns = intervaltree.IntervalTree([
+        #     intervaltree.Interval(*intron) for intron in self.combined_cds_introns
+        # ])
+
+        # self.logger.info("Starting to calculate retained introns for %s", transcript.id)
+        # if len(self._introntree) == 0:
+        #     transcript.retained_introns = tuple()
+        #     self.logger.info("No intron found in %s, exiting for %s",
+        #                      self.id,
+        #                      transcript.id)
+        #     return
+
+        # self.logger.debug("Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)",
+        #                   len(self._introntree), len(self.combined_cds_introns),
+        #                   len(transcript.combined_cds_introns),
+        #                   len(transcript.selected_cds_introns),
+        #                   len(transcript.selected_cds))
+
         retained_introns = []
         for exon in transcript.exons:
             # Monobase exons are a problem
@@ -329,21 +338,24 @@ class Sublocus(Abstractlocus):
             exon_interval = intervaltree.IntervalTree([intervaltree.Interval(*exon)])
             # We have to enlarge by 1 due to idiosyncrasies by intervaltree
 
-            for cds_segment in cds_segments.search(*exon):
+            for cds_segment in transcript.cds_tree.search(*exon):
                 exon_interval.chop(cds_segment[0], cds_segment[1])
 
             # Exclude from consideration any exon which is fully coding
             for frag in exon_interval:
                 self.logger.debug("Checking %s from exon %s for retained introns for %s",
                                   frag, exon, transcript.id)
-                if introns.overlaps_range(frag[0], frag[1]):
+                if self._introntree.overlaps_range(frag[0], frag[1]):
                     self.logger.debug("Exon %s of %s is a retained intron",
                                       exon, transcript.id)
                     retained_introns.append(exon)
                     break
 
         # Sort the exons marked as retained introns
+        # self.logger.info("Finished calculating retained introns for %s", transcript.id)
         transcript.retained_introns = tuple(sorted(retained_introns))
+        # self.logger.info("Returning retained introns for %s", transcript.id)
+        # return transcript
 
     def load_scores(self, scores):
         """
@@ -543,8 +555,20 @@ class Sublocus(Abstractlocus):
         if self.metrics_calculated is True:
             return
 
+        # self.logger.info("Calculating the intron tree for %s", self.id)
+        self._introntree = intervaltree.IntervalTree([
+            intervaltree.Interval(*intron) for intron in self.combined_cds_introns
+        ])
+
+        assert len(self._introntree) == len(self.combined_cds_introns)
+
+        # self.logger.info("Calculated the intron tree for %s, length %d",
+        #                  self.id, len(self._introntree))
+
         for tid in self.transcripts:
             self.calculate_metrics(tid)
+
+        # self.logger.info("Finished to calculate the metrics for %s", self.id)
 
         self.metrics_calculated = True
         return

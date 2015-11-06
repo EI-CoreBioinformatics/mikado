@@ -3,7 +3,7 @@ This module provides the functions needed to check a transcript for consinstency
 e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
-
+import intervaltree
 import operator
 import mikado_lib.exceptions
 
@@ -271,5 +271,10 @@ def finalize(transcript):
                 transcript.selected_internal_orf_index] if
             internal_cds[0] == "CDS")
 
+    # Create the interval tree
+    transcript.cds_tree = intervaltree.IntervalTree([
+        intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
+
     transcript.finalized = True
+
     return

@@ -966,12 +966,14 @@ class Picker:
                 self.db_connection, pool_size=1, max_overflow=2)
 
         try:
-            jobs = self._parse_and_submit_input(pool, data_dict)
-        except mikado_lib.exceptions.UnsortedInput:
+            _ = self._parse_and_submit_input(pool, data_dict)
+        except mikado_lib.exceptions.UnsortedInput as exc:
+            self.logger.error("The input files were not properly sorted! Please run prepare and retry.")
             sys.exit(1)
 
-        for job in iter(x for x in jobs if x is not None):
-            job.get()
+        # list(map(job.get() for job in jobs if job is not None))
+        # for job in iter(x for x in jobs if x is not None):
+        #     job.get()
 
         pool.close()
         pool.join()

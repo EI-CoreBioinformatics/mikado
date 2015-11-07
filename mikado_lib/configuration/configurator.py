@@ -47,7 +47,8 @@ def extend_with_default(validator_class, simple=False):
         :param properties: the "properties" dictionary inside the schema
         :type properties: dict
 
-        :param simple_comment: a boolean flag to indicate whether we want the simplified schema or not.
+        :param simple_comment: a boolean flag to indicate whether
+                               we want the simplified schema or not.
         :type simple_comment: bool
 
         :return: the prepared instance
@@ -101,7 +102,8 @@ def merge_dictionaries(dict_a, dict_b, path=None):
     :param dict_b: second dictionary
     :type dict_b: dict
 
-    :param path: list to be updated during recursion to indicate that we are in a secondary node
+    :param path: list to be updated during recursion to indicate
+                 that we are in a secondary node
     :type path: list(str)
 
     Source: http://stackoverflow.com/questions/7204805/dictionaries-of-dictionaries-merge
@@ -155,11 +157,14 @@ def check_scoring(json_conf):
             parameters_not_found.append(parameter)
         if parameter in parameters_found:
             double_parameters.append(parameter)
-        if not jsonschema.Draft4Validator(scoring_schema).is_valid(json_conf["scoring"][parameter]):
+
+        if not jsonschema.Draft4Validator(scoring_schema).is_valid(
+                json_conf["scoring"][parameter]):
             errors = list(jsonschema.Draft4Validator(scoring_schema).iter_errors(
                 json_conf["scoring"][parameter]))
             raise mikado_lib.exceptions.InvalidJson("Invalid scoring for {}:\n{}".format(
                 parameter, "\n".join(errors)))
+
         try:
             validator(scoring_schema).validate(json_conf["scoring"][parameter])
         except Exception as err:
@@ -167,8 +172,8 @@ def check_scoring(json_conf):
         if json_conf["scoring"][parameter]["rescaling"] == "target":
             if "value" not in json_conf["scoring"][parameter]:
                 message = """Target rescaling requested for {0} but no target value specified.
-                    Please specify it with the \"value\" keyword.\n{1}""".format(parameter,
-                                                                                 json_conf["scoring"][parameter])
+                    Please specify it with the \"value\" keyword.\n{1}"""
+                message = message.format(parameter, json_conf["scoring"][parameter])
                 raise mikado_lib.exceptions.UnrecognizedRescaler(message)
 
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0:
@@ -431,7 +436,8 @@ def check_json(json_conf, simple=False):
     :param json_conf: The dicitonary loaded from the configuration file.
     :type json_conf: dict
 
-    :param simple: boolean flag indicating whether we desire the simplified version of the configuration, or not.
+    :param simple: boolean flag indicating whether we desire
+                   the simplified version of the configuration, or not.
     :type simple: bool
 
     :return json_conf
@@ -503,7 +509,8 @@ def to_json(string, simple=False):
     :param string: the configuration file name.
     :type string: str
 
-    :param simple: boolean flag indicating whether we desire the simplified version of the configuration, or not.
+    :param simple: boolean flag indicating whether we desire
+                   the simplified version of the configuration, or not.
     :type simple: bool
     """
 

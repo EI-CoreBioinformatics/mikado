@@ -641,6 +641,7 @@ class Picker:
 
         return state
 
+    # pylint: disable=too-many-locals
     def __preload_blast(self, engine, queries):
 
         """Private method to load all the blast information
@@ -714,6 +715,7 @@ class Picker:
                                ", ".join(
                                    [str(x) for x in list(hits_dict.keys())[:10]]))
         return hits_dict
+    # pylint: enable=too-many-locals
 
     def preload(self):
         """
@@ -967,8 +969,9 @@ class Picker:
 
         try:
             _ = self._parse_and_submit_input(pool, data_dict)
-        except mikado_lib.exceptions.UnsortedInput as exc:
-            self.logger.error("The input files were not properly sorted! Please run prepare and retry.")
+        except mikado_lib.exceptions.UnsortedInput as _:
+            self.logger.error(
+                "The input files were not properly sorted! Please run prepare and retry.")
             sys.exit(1)
 
         # list(map(job.get() for job in jobs if job is not None))

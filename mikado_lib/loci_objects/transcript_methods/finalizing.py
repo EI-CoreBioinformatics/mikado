@@ -15,7 +15,7 @@ def __basic_final_checks(transcript):
     """
     Function that verifies minimal criteria of a transcript before finalising.
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
-    
+
     :return:
     """
 
@@ -28,8 +28,10 @@ def __basic_final_checks(transcript):
         transcript.logger.debug("Converting to interval objects")
         transcript.exons = _
 
-    assert all([isinstance(exon, intervaltree.Interval) for exon in transcript.exons]), transcript.exons
-    assert all([(isinstance(exon[0], int) and isinstance(exon[1], int)) for exon in transcript.exons]), transcript.exons
+    assert all([isinstance(exon, intervaltree.Interval)
+                for exon in transcript.exons]), transcript.exons
+    assert all([(isinstance(exon[0], int) and isinstance(exon[1], int))
+                for exon in transcript.exons]), transcript.exons
 
     if len(transcript.exons) > 1 and transcript.strand is None:
         raise mikado_lib.exceptions.InvalidTranscript(
@@ -185,7 +187,9 @@ def __check_internal_orf(transcript, exons, orf):
     orf_segments = sorted([_[1] for _ in orf if _[0] == "CDS"])
 
     if len(orf_segments) > 0:
-        assert isinstance(orf_segments[0], intervaltree.Interval), (orf_segments, type(orf_segments[0]))
+        assert isinstance(orf_segments[0],
+                          intervaltree.Interval), (orf_segments,
+                                                   type(orf_segments[0]))
 
     previous_exon_index = None
 
@@ -252,10 +256,18 @@ def finalize(transcript):
 
     # assert self.selected_internal_orf_index > -1
     if len(transcript.internal_orfs) == 0:
-        transcript.segments = [("exon", intervaltree.Interval(e[0], e[1])) for e in transcript.exons]
-        transcript.segments.extend([("CDS", intervaltree.Interval(c[0], c[1])) for c in transcript.combined_cds])
-        transcript.segments.extend([("UTR", intervaltree.Interval(u[0], u[1])) for u in transcript.combined_utr])
+        # Define exons
+        transcript.segments = [("exon", intervaltree.Interval(e[0], e[1]))
+                               for e in transcript.exons]
+        # Define CDS
+        transcript.segments.extend([("CDS", intervaltree.Interval(c[0], c[1]))
+                                    for c in transcript.combined_cds])
+        # Define UTR segments
+        transcript.segments.extend([("UTR", intervaltree.Interval(u[0], u[1]))
+                                    for u in transcript.combined_utr])
+        # Mix and sort
         transcript.segments = sorted(transcript.segments, key=operator.itemgetter(1, 0))
+        # Add to the store as a single entity
         transcript.internal_orfs = [transcript.segments]
     else:
         assert len(transcript.internal_orfs) > 0

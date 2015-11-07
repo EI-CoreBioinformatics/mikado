@@ -465,7 +465,9 @@ class Assigner:
         - o    Generic exonic overlap with a reference transcript
         - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
         - u    Unknown, intergenic transcript
-        - x    Exonic overlap with reference on the opposite strand
+        - x    Exonic overlap with reference on the opposite strand (class codes e, o, m, c, _)
+        - X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake,
+               unless non-canonical splicing junctions are involved).
 
         Please note that the description for i is changed from Cufflinks.
 
@@ -543,10 +545,11 @@ class Assigner:
 
         elif junction_f1 == 1 and nucl_f1 >= 0.95:
             reference_exon = reference.exons[0]
-            if prediction.strand == reference.strand or prediction.strand is None:
-                ccode = "_"  # We have recovered all the junctions
-            else:
-                ccode = "x"
+            ccode = "_"  # We have recovered all the junctions
+            # if prediction.strand == reference.strand or prediction.strand is None:
+            #     ccode = "_"  # We have recovered all the junctions
+            # else:
+            #     ccode = "x"
 
         # Outside the transcript - polymerase run-on
         elif prediction.start > reference.end or prediction.end < reference.start:
@@ -635,10 +638,17 @@ class Assigner:
                     else:
                         ccode = "m"  # just a generic exon overlap b/w two monoexonic transcripts
 
-        if (ccode in ("e", "o", "c", "m") and
-                prediction.strand != reference.strand and
+        if (prediction.strand != reference.strand and
                 all([x is not None for x in (prediction.strand, reference.strand)])):
-            ccode = "x"
+            if ccode in ("e", "o", "c", "m", "_"):
+                ccode = "x"
+            elif ccode not in ("u", "i", "I", "p", "P", "x"):
+                # print(ccode)
+                ccode = "X"
+
+        # if (prediction.strand != reference.strand and
+        #         all([x is not None for x in (prediction.strand, reference.strand)])):
+        #     ccode = "x"
 
         if prediction.strand != reference.strand:
             reference_exon = None

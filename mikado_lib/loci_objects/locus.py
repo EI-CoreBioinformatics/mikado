@@ -73,8 +73,8 @@ class Locus(Monosublocus, Abstractlocus):
         if to_be_added:
             is_alternative, ccode = self.is_alternative_splicing(transcript)
             if is_alternative is False:
-                self.logger.debug("%s not added because it is not a valid splicing isoform.",
-                                  transcript.id)
+                self.logger.debug("%s not added because it is not a valid splicing isoform. Ccode: %s",
+                                  transcript.id, ccode)
                 to_be_added = False
             else:
                 transcript.attributes["ccode"] = ccode
@@ -120,6 +120,8 @@ class Locus(Monosublocus, Abstractlocus):
         if to_be_added is False:
             return
 
+        self.logger.debug("Keeping %s as a valid alternative isoform for %s",
+                          transcript.id, self.id)
         transcript.attributes["primary"] = False
 
         Abstractlocus.add_transcript_to_locus(self, transcript)
@@ -207,45 +209,45 @@ class Locus(Monosublocus, Abstractlocus):
         """
 
         is_valid = True
-        main_ccode = None
+        # main_ccode = None
 
         self.find_retained_introns(other)
-        if other.id == self.primary_transcript_id or other.strand != other.strand:
-            is_valid = False
-        elif self.overlap((other.start, other.end), (self.start, self.end)) < 0:
-            is_valid = False
-        elif other.retained_intron_num > 0:
-            is_valid = False
+        # if other.id == self.primary_transcript_id or other.strand != other.strand:
+        #     is_valid = False
+        # elif self.overlap((other.start, other.end), (self.start, self.end)) < 0:
+        #     is_valid = False
+        # elif other.retained_intron_num > 0:
+        #     is_valid = False
 
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
 
-        if is_valid is False:
-            return is_valid, main_ccode
-        else:
-            ccodes = []
-            main_result, _ = Assigner.compare(other, self.primary_transcript)
-            main_ccode = main_result.ccode[0]
-            ccodes.append(main_ccode)
-            results = [main_result]
-            for tid in iter(tid for tid in self.transcripts if
-                            tid != self.primary_transcript_id):
-                result, _ = Assigner.compare(other, self.transcripts[tid])
-                results.append(result)
-                ccodes.append(result.ccode[0])
-                self.logger.debug("Comparing secondary transcripts %s vs %s. Ccode: %s",
-                                  tid, other.id, result.ccode[0])
+        # if is_valid is False:
+        #     return is_valid, main_ccode
+        # else:
+        ccodes = []
+        main_result, _ = Assigner.compare(other, self.primary_transcript)
+        main_ccode = main_result.ccode[0]
+        ccodes.append(main_ccode)
+        results = [main_result]
+        for tid in iter(tid for tid in self.transcripts if
+                        tid != self.primary_transcript_id):
+            result, _ = Assigner.compare(other, self.transcripts[tid])
+            results.append(result)
+            ccodes.append(result.ccode[0])
+            self.logger.debug("Comparing secondary transcripts %s vs %s. Ccode: %s",
+                              tid, other.id, result.ccode[0])
 
-            if main_ccode not in valid_ccodes:
-                self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
-                                  other.id,
-                                  main_result.ccode[0])
-                is_valid = False
-            elif "_" in ccodes or "=" in ccodes:
-                self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
-                                  other.id,
-                                  main_result.ccode[0])
-                is_valid = False
-            return is_valid, main_ccode
+        if main_ccode not in valid_ccodes:
+            self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
+                              other.id,
+                              main_result.ccode[0])
+            is_valid = False
+        elif "_" in ccodes or "=" in ccodes:
+            self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
+                              other.id,
+                              main_result.ccode[0])
+            is_valid = False
+        return is_valid, main_ccode
 
     @property
     def __name__(self):

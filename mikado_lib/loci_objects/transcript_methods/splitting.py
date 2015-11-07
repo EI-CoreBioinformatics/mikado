@@ -443,8 +443,7 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
     new_transcripts = []
 
     for counter, (boundary, bed12_objects) in enumerate(
-            sorted(cds_boundaries.items(),
-                   key=operator.itemgetter(0))):
+            sorted(cds_boundaries.items(), key=operator.itemgetter(0))):
         new_transcript = transcript.__class__()
         new_transcript.feature = "mRNA"
         for attribute in ["chrom", "source", "score", "strand", "attributes"]:
@@ -502,32 +501,8 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
             err_message += "BED: {0}".format("\n\t".join([str(x) for x in new_bed12s]))
             raise InvalidTranscript(err_message)
 
-        for hit in transcript.blast_hits:
-            if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), boundary) > 0:
-
-                minimal_overlap = transcript.json_conf[
-                    "pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
-                new_hit = __recalculate_hit(hit, boundary, minimal_overlap)
-                if new_hit is not None:
-                    transcript.logger.debug("""Hit %s,
-                                            previous id/query_al_length/t_al_length %f/%f/%f,
-                                            novel %f/%f/%f""",
-                                            new_hit["target"],
-                                            hit["global_identity"],
-                                            hit["query_aligned_length"],
-                                            hit["target_aligned_length"],
-                                            new_hit["global_identity"],
-                                            new_hit["query_aligned_length"],
-                                            new_hit["target_aligned_length"])
-
-                    new_transcript.blast_hits.append(new_hit)
-                else:
-                    transcript.logger.debug("Hit %s did not pass overlap checks for %s",
-                                            hit["target"], new_transcript.id)
-            else:
-                transcript.logger.debug("Ignoring hit %s as it is not intersecting", hit)
-                continue
-
+        # Load the blast hits
+        __load_blast_hits(new_transcript, boundary, transcript)
         new_transcripts.append(new_transcript)
         nspan = (new_transcript.start, new_transcript.end)
         transcript.logger.debug(
@@ -537,6 +512,46 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
         spans.append([new_transcript.start, new_transcript.end])
 
     return new_transcripts
+
+
+def __load_blast_hits(new_transcript, boundary, transcript):
+
+    """
+    Function to load the BLAST hits into the new splitted transcript.
+    :param new_transcript: the splitted transcript
+    :type new_transcript: mikado_lib.loci_objects.Transcript
+    :param boundary: tuple(start, end) of the boundary of the new transcript
+    :type boundary: tuple(int, int)
+    :param transcript:  the original transcript
+    :type transcript: mikado_lib.loci_objects.Transcript
+    :return:
+    """
+
+    for hit in transcript.blast_hits:
+        if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), boundary) > 0:
+
+            minimal_overlap = transcript.json_conf[
+                "pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
+            new_hit = __recalculate_hit(hit, boundary, minimal_overlap)
+            if new_hit is not None:
+                transcript.logger.debug("""Hit %s,
+                                        previous id/query_al_length/t_al_length %f/%f/%f,
+                                        novel %f/%f/%f""",
+                                        new_hit["target"],
+                                        hit["global_identity"],
+                                        hit["query_aligned_length"],
+                                        hit["target_aligned_length"],
+                                        new_hit["global_identity"],
+                                        new_hit["query_aligned_length"],
+                                        new_hit["target_aligned_length"])
+
+                new_transcript.blast_hits.append(new_hit)
+            else:
+                transcript.logger.debug("Hit %s did not pass overlap checks for %s",
+                                        hit["target"], new_transcript.id)
+        else:
+            transcript.logger.debug("Ignoring hit %s as it is not intersecting", hit)
+            continue
 
 
 def __check_collisions(transcript, nspan, spans):

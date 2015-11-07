@@ -10,6 +10,7 @@ import mikado_lib.loci_objects
 import mikado_lib.scales
 import intervaltree
 
+
 class AssignerTester(unittest.TestCase):
     """
     This unit test has the purpose of testing the scales module of mikado_lib.
@@ -253,7 +254,7 @@ class AssignerTester(unittest.TestCase):
 
         prediction.strand = "-"
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("j",))
+        self.assertEqual(result.ccode, ("X",))
 
     def test_mono_intronic(self):
 

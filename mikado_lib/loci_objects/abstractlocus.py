@@ -455,7 +455,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
             # Remove excess exons
             other_exons = [
-                set(self.transcripts[otid].exons if otid in self.transcripts else []) for otid in keys]
+                set(self.transcripts[otid].exons if
+                    otid in self.transcripts else []) for otid in keys]
             other_exons = set.union(*other_exons)
             exons_to_remove = set.difference(set(self.transcripts[tid].exons), other_exons)
             self.exons.difference_update(exons_to_remove)

@@ -140,7 +140,7 @@ def check_loaded_orfs(transcript):
         for internal_cds in transcript.internal_orfs:
             candidates.extend(
                 [a[1] for a in iter(tup for tup in internal_cds
-                                                   if tup[0] == "CDS")])
+                                    if tup[0] == "CDS")])
 
         for comm in transcript.find_communities(candidates):
             span = intervaltree.Interval(min(t[0] for t in comm), max(t[1] for t in comm))
@@ -159,9 +159,12 @@ def check_loaded_orfs(transcript):
             set.union(*[set(range(cds[0], cds[1] + 1)) for cds in transcript.combined_cds])
         )))
 
-        # This code snippet using groupby is massively more efficient than the previous naive implementation
-        for key, group in groupby(enumerate(utr_pos), lambda items: items[0] - items[1]):
-            group = list(map(operator.itemgetter(1), group))
+        # This code snippet using groupby is massively more efficient
+        # than the previous naive implementation
+        for _, group in groupby(enumerate(utr_pos), lambda items: items[0] - items[1]):
+            getter = operator.itemgetter(1)
+            group = [getter(element) for element in group]
+            # group = list(map(operator.itemgetter(1), group))
             if len(group) > 1:
                 transcript.combined_utr.append(intervaltree.Interval(group[0], group[-1]))
             else:

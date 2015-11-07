@@ -18,3 +18,8 @@ import mikado_lib.loci_objects.sublocus
 import mikado_lib.loci_objects.superlocus
 import mikado_lib.loci_objects.transcript
 import mikado_lib.loci_objects.transcriptchecker
+from mikado_lib.loci_objects.transcript import Transcript
+from mikado_lib.loci_objects.superlocus import Superlocus, Sublocus, Monosublocus
+from mikado_lib.loci_objects.monosublocusholder import MonosublocusHolder
+from mikado_lib.loci_objects.locus import Locus
+from mikado_lib.loci_objects.excluded import Excluded

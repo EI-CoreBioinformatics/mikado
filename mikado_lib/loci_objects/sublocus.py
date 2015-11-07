@@ -7,7 +7,6 @@ or multiexonic and with at least one intron in common.
 """
 
 import itertools
-import intervaltree
 from mikado_lib.loci_objects.excluded import Excluded
 from mikado_lib.loci_objects.abstractlocus import Abstractlocus
 from mikado_lib.loci_objects.monosublocus import Monosublocus

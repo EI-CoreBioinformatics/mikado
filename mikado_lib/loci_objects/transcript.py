@@ -546,12 +546,16 @@ class Transcript:
     @classmethod
     def get_available_metrics(cls) -> list:
         """This function retrieves all metrics available for the class."""
-        metrics = list(x[0] for x in filter(
-            lambda y: "__" not in y[0] and isinstance(cls.__dict__[y[0]], Metric),
-            inspect.getmembers(cls)))
+        metrics = [member[0] for member in inspect.getmembers(cls) if
+                   "__" not in member[0] and isinstance(cls.__dict__[member[0]], Metric)]
+
+        # metrics = list(x[0] for x in filter(
+        #     lambda y: "__" not in y[0] and isinstance(cls.__dict__[y[0]], Metric),
+        #     inspect.getmembers(cls)))
         assert "tid" in metrics and "parent" in metrics and "score" in metrics
-        final_metrics = ["tid", "parent", "score"] + sorted(
-            list(filter(lambda x: x not in ["tid", "parent", "score"], metrics)))
+        _metrics = sorted([metric for metric in metrics if
+                           metric not in ["tid", "parent", "score"]])
+        final_metrics = ["tid", "parent", "score"] + _metrics
         return final_metrics
 
     # ###################Class properties##################################
@@ -1221,14 +1225,17 @@ class Transcript:
     def highest_cds_exons_num(self):
         """Returns the number of CDS segments in the selected ORF
         (irrespective of the number of exons involved)"""
-        return len(list(filter(lambda x: x[0] == "CDS", self.selected_internal_orf)))
+        return sum(1 for _ in self.selected_internal_orf if _[0] == "CDS")
+        # return len(list(filter(lambda x: x[0] == "CDS", self.selected_internal_orf)))
 
     @Metric
     def selected_cds_exons_fraction(self):
         """Returns the fraction of CDS segments in the selected ORF
         (irrespective of the number of exons involved)"""
-        return len(list(filter(lambda x: x[0] == "CDS",
-                               self.selected_internal_orf))) / len(self.exons)
+        return self.highest_cds_exon_number / len(self.exons)
+
+        # return len(list(filter(lambda x: x[0] == "CDS",
+        #                        self.selected_internal_orf))) / len(self.exons)
 
     @Metric
     def highest_cds_exon_number(self):
@@ -1237,7 +1244,8 @@ class Transcript:
         from the maximal ORF."""
         cds_numbers = []
         for cds in self.internal_orfs:
-            cds_numbers.append(len(list(filter(lambda x: x[0] == "CDS", cds))))
+            cds_numbers.append(sum(1 for segment in cds if segment[0] == "CDS"))
+            # len(list(filter(lambda x: x[0] == "CDS", cds))))
         return max(cds_numbers)
 
     @Metric
@@ -1495,15 +1503,19 @@ class Transcript:
             if self.selected_cds_end > max(self.splices):
                 return 0
             else:
-                return min(list(filter(lambda s: s > self.selected_cds_end,
-                                       self.splices))) - self.selected_cds_end
+                return min([splice for splice in self.splices if
+                            splice > self.selected_cds_end]) - self.selected_cds_end
+                # return min(list(filter(lambda s: s > self.selected_cds_end,
+                #                        self.splices))) -
         elif self.strand == "-":
             if self.selected_cds_end < min(self.splices):
                 return 0
             else:
-                return self.selected_cds_end - max(list(
-                    filter(lambda s: s < self.selected_cds_end,
-                           self.splices)))
+                return self.selected_cds_end - max([splice for splice in self.splices if
+                                                    splice < self.selected_cds_end])
+                # return self.selected_cds_end - max(list(
+                #     filter(lambda s: s < self.selected_cds_end,
+                #            self.splices)))
 
     @Metric
     def end_distance_from_junction(self):
@@ -1681,8 +1693,11 @@ class Transcript:
         :rtype : int
         """
 
-        return len(list(filter(lambda x: x[1]-x[0]+1 > self.intron_range[1],
-                               self.introns)))
+        return sum(1 for intron in self.introns if
+                   intron.length + 1 > self.intron_range[1])
+        #
+        # return len(list(filter(lambda x: x[1]-x[0]+1 > self.intron_range[1],
+        #                        self.introns)))
 
     @Metric
     def num_introns_smaller_than_min(self):
@@ -1693,8 +1708,12 @@ class Transcript:
         :rtype : int
         """
 
-        return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],
-                               self.introns)))
+        return sum(1 for intron in self.introns if
+                   intron.length + 1 < self.intron_range[0])
+
+        #
+        # return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],
+        #                        self.introns)))
 
     @Metric
     def snowy_blast_score(self):

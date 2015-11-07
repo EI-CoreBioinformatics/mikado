@@ -273,6 +273,7 @@ class Sublocus(Abstractlocus):
             transcript_instance.combined_cds_intron_fraction = 0
 
         self.find_retained_introns(transcript_instance)
+        assert isinstance(transcript_instance, Transcript)
         retained_bases = sum(e[1] - e[0] + 1
                              for e in transcript_instance.retained_introns)
         fraction = retained_bases / transcript_instance.cdna_length
@@ -287,63 +288,6 @@ class Sublocus(Abstractlocus):
             transcript_instance.proportion_verified_introns_inlocus = 0
         self.transcripts[tid] = transcript_instance
         self.logger.debug("Calculated metrics for {0}".format(tid))
-
-    def find_retained_introns(self, transcript):
-
-        """This method checks the number of exons that are possibly retained
-        introns for a given transcript.
-        A retained intron is defined as an exon which:
-
-         - spans completely an intron of another model *between coding exons*
-         - is not completely coding itself
-         - has *part* of the non-coding section lying inside the intron
-
-        The results are stored inside the transcript instance,
-        in the "retained_introns" tuple.
-
-        :param transcript: a Transcript instance
-        :type transcript: Transcript
-
-        :returns : transcript.retained_introns
-        :rtype : tuple[tuple[int,int]]
-        """
-
-        introns = intervaltree.IntervalTree([
-            intervaltree.Interval(*intron) for intron in self.combined_cds_introns
-        ])
-        self.logger.debug("Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)",
-                          len(introns), len(self.combined_cds_introns),
-                          len(transcript.combined_cds_introns),
-                          len(transcript.selected_cds_introns),
-                          len(transcript.selected_cds))
-        cds_segments = intervaltree.IntervalTree([
-            intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds
-        ])
-        retained_introns = []
-        for exon in transcript.exons:
-            # Monobase exons are a problem
-            if exon[0] == exon[1]:
-                self.logger.warning("Monobase exon found in %s: %s:%d-%d",
-                                    self.id, self.chrom, exon[0], exon[1])
-                continue
-            exon_interval = intervaltree.IntervalTree([intervaltree.Interval(*exon)])
-            # We have to enlarge by 1 due to idiosyncrasies by intervaltree
-
-            for cds_segment in cds_segments.search(*exon):
-                exon_interval.chop(cds_segment[0], cds_segment[1])
-
-            # Exclude from consideration any exon which is fully coding
-            for frag in exon_interval:
-                self.logger.debug("Checking %s from exon %s for retained introns for %s",
-                                  frag, exon, transcript.id)
-                if introns.overlaps_range(frag[0], frag[1]):
-                    self.logger.debug("Exon %s of %s is a retained intron",
-                                      exon, transcript.id)
-                    retained_introns.append(exon)
-                    break
-
-        # Sort the exons marked as retained introns
-        transcript.retained_introns = tuple(sorted(retained_introns))
 
     def load_scores(self, scores):
         """
@@ -543,8 +487,16 @@ class Sublocus(Abstractlocus):
         if self.metrics_calculated is True:
             return
 
+        # self.logger.info("Calculating the intron tree for %s", self.id)
+        assert len(self._cds_introntree) == len(self.combined_cds_introns)
+
+        # self.logger.info("Calculated the intron tree for %s, length %d",
+        #                  self.id, len(self._cds_introntree))
+
         for tid in self.transcripts:
             self.calculate_metrics(tid)
+
+        # self.logger.info("Finished to calculate the metrics for %s", self.id)
 
         self.metrics_calculated = True
         return

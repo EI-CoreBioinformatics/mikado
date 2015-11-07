@@ -108,7 +108,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         setattr(exon_line, attr, getattr(transcript, attr))
 
     exon_line.feature = feature
-    exon_line.start, exon_line.end = segment[1], segment[2]
+    exon_line.start, exon_line.end = segment[1][0], segment[1][1]
     exon_line.phase = None
     exon_line.score = None
     if to_gtf is True:

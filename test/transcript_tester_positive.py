@@ -7,7 +7,7 @@ Unit test for a transcript on the positive strand.
 import unittest
 import re
 import copy
-
+import intervaltree
 import mikado_lib.parsers
 import mikado_lib.exceptions
 import mikado_lib.loci_objects
@@ -212,34 +212,37 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.exon_num, len(self.tr.exons))
         self.assertEqual(self.tr.start, 626642)
         self.assertEqual(self.tr.end, 629176)
+        exons = [(626642, 626780),
+                 (626842, 626880),
+                 (626963, 627059),
+                 (627137, 627193),
+                 (627312, 627397),
+                 (627488, 627559),
+                 (627696, 627749),
+                 (627840, 627915),
+                 (628044, 628105),
+                 (628182, 628241),
+                 (628465, 628676),
+                 (629070, 629176)]
         self.assertEqual(self.tr.exons,
-                         [(626642, 626780),
-                          (626842, 626880),
-                          (626963, 627059),
-                          (627137, 627193),
-                          (627312, 627397),
-                          (627488, 627559),
-                          (627696, 627749),
-                          (627840, 627915),
-                          (628044, 628105),
-                          (628182, 628241),
-                          (628465, 628676),
-                          (629070, 629176)],
+                         [intervaltree.Interval(*exon) for exon in exons],
                          self.tr.exons)
 
     def test_cds(self):
         self.assertEqual(self.tr.combined_cds, self.tr.selected_cds)
+        cds = [(626878, 626880),
+               (626963, 627059),
+               (627137, 627193),
+               (627312, 627397),
+               (627488, 627559),
+               (627696, 627749),
+               (627840, 627915),
+               (628044, 628105),
+               (628182, 628241),
+               (628465, 628569)]
+
         self.assertEqual(self.tr.combined_cds,
-                         [(626878, 626880),
-                          (626963, 627059),
-                          (627137, 627193),
-                          (627312, 627397),
-                          (627488, 627559),
-                          (627696, 627749),
-                          (627840, 627915),
-                          (628044, 628105),
-                          (628182, 628241),
-                          (628465, 628569)],
+                         [intervaltree.Interval(*segment) for segment in cds],
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 626878)
         self.assertEqual(self.tr.selected_cds_end, 628569)
@@ -250,8 +253,10 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.cds_not_maximal_fraction, 0)
 
     def test_utr(self):
-        self.assertEqual(self.tr.five_utr, [("UTR", 626642, 626780), ("UTR", 626842, 626877)])
-        self.assertEqual(self.tr.three_utr, [("UTR", 628570, 628676), ("UTR", 629070, 629176)])
+        self.assertEqual(self.tr.five_utr, [("UTR", intervaltree.Interval(626642, 626780)),
+                                            ("UTR", intervaltree.Interval(626842, 626877))])
+        self.assertEqual(self.tr.three_utr, [("UTR", intervaltree.Interval(628570, 628676)),
+                                             ("UTR", intervaltree.Interval(629070, 629176))])
 
     def test_introns(self):
 
@@ -333,9 +338,11 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
         self.tr.strip_cds()
         self.tr.load_orfs([self.orf])
+        cds = [(626878, 626880), (626963, 627059), (627137, 627193), (627312, 627397), (627488, 627559),
+               (627696, 627749), (627840, 627915), (628044, 628105), (628182, 628241), (628465, 628569)]
+
         self.assertEqual(self.tr.combined_cds,
-                         [(626878, 626880), (626963, 627059), (627137, 627193), (627312, 627397), (627488, 627559),
-                          (627696, 627749), (627840, 627915), (628044, 628105), (628182, 628241), (628465, 628569)],
+                         [intervaltree.Interval(*segment) for segment in cds    ],
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 626878)
         self.assertEqual(self.tr.selected_cds_end, 628569)

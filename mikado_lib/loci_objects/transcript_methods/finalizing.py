@@ -21,6 +21,9 @@ def __basic_final_checks(self):
         raise mikado_lib.exceptions.InvalidTranscript(
             "No exon defined for the transcript {0}. Aborting".format(self.id))
 
+    assert all([isinstance(exon, intervaltree.Interval) for exon in self.exons]), self.exons
+    assert all([(isinstance(exon[0], int) and isinstance(exon[1], int)) for exon in self.exons])
+
     if len(self.exons) > 1 and self.strand is None:
         raise mikado_lib.exceptions.InvalidTranscript(
             "Multiexonic transcripts must have a defined strand! Error for {0}".format(
@@ -44,6 +47,9 @@ def __check_cdna_vs_utr(transcript):
             transcript.combined_cds = sorted(transcript.combined_cds,
                                              key=operator.itemgetter(0, 1))
             for exon in transcript.exons:
+                assert isinstance(exon, intervaltree.Interval)
+                if len(transcript.combined_cds) > 1:
+                    assert isinstance(transcript.combined_cds[0], intervaltree.Interval), type(transcript.combined_cds[0])
                 if exon in transcript.combined_cds:
                     continue
                 elif (exon[1] < transcript.combined_cds[0][0] or
@@ -51,16 +57,19 @@ def __check_cdna_vs_utr(transcript):
                     transcript.combined_utr.append(exon)
                 elif (exon[0] < transcript.combined_cds[0][0] and
                       exon[1] == transcript.combined_cds[0][1]):
-                    transcript.combined_utr.append((exon[0], transcript.combined_cds[0][0] - 1))
+                    transcript.combined_utr.append(intervaltree.Interval(
+                        exon[0], transcript.combined_cds[0][0] - 1))
+
                 elif (exon[1] > transcript.combined_cds[-1][1] and
                       exon[0] == transcript.combined_cds[-1][0]):
-                    transcript.combined_utr.append((transcript.combined_cds[-1][1] + 1, exon[1]))
+                    transcript.combined_utr.append(intervaltree.Interval(
+                        transcript.combined_cds[-1][1] + 1, exon[1]))
                 else:
                     if len(transcript.combined_cds) == 1:
-                        transcript.combined_utr.append(
-                            (exon[0], transcript.combined_cds[0][0] - 1))
-                        transcript.combined_utr.append(
-                            (transcript.combined_cds[-1][1] + 1, exon[1]))
+                        transcript.combined_utr.append(intervaltree.Interval(
+                            exon[0], transcript.combined_cds[0][0] - 1))
+                        transcript.combined_utr.append(intervaltree.Interval(
+                            transcript.combined_cds[-1][1] + 1, exon[1]))
                     else:
                         raise mikado_lib.exceptions.InvalidCDS(
                             "Error while inferring the UTR",
@@ -165,8 +174,10 @@ def __check_internal_orf(transcript, exons, orf):
     :return:
     """
 
-    orf_segments = sorted([(_[1], _[2]) for _ in orf if _[0] == "CDS"],
-                          key=operator.itemgetter(0, 1))
+    orf_segments = sorted([_[1] for _ in orf if _[0] == "CDS"])
+
+    if len(orf_segments) > 0:
+        assert isinstance(orf_segments[0], intervaltree.Interval), (orf_segments, type(orf_segments[0]))
 
     previous_exon_index = None
 
@@ -217,7 +228,13 @@ def finalize(transcript):
 
     __basic_final_checks(transcript)
     # Sort the exons by start then stop
-    transcript.exons = sorted(transcript.exons, key=operator.itemgetter(0, 1))
+    try:
+        transcript.logger.warning("Converting to intervals")
+        transcript.exons = sorted(transcript.exons, key=operator.itemgetter(0, 1))
+        transcript.logger.warning("Converted to intervals")
+    except Exception as exc:
+        transcript.logger.exception(exc)
+        pass
 
     __check_cdna_vs_utr(transcript)
 
@@ -232,10 +249,10 @@ def finalize(transcript):
 
     # assert self.selected_internal_orf_index > -1
     if len(transcript.internal_orfs) == 0:
-        transcript.segments = [("exon", e[0], e[1]) for e in transcript.exons]
-        transcript.segments.extend([("CDS", c[0], c[1]) for c in transcript.combined_cds])
-        transcript.segments.extend([("UTR", u[0], u[1]) for u in transcript.combined_utr])
-        transcript.segments = sorted(transcript.segments, key=operator.itemgetter(1, 2, 0))
+        transcript.segments = [("exon", intervaltree.Interval(e[0], e[1])) for e in transcript.exons]
+        transcript.segments.extend([("CDS", intervaltree.Interval(c[0], c[1])) for c in transcript.combined_cds])
+        transcript.segments.extend([("UTR", intervaltree.Interval(u[0], u[1])) for u in transcript.combined_utr])
+        transcript.segments = sorted(transcript.segments, key=operator.itemgetter(1, 0))
         transcript.internal_orfs = [transcript.segments]
     else:
         assert len(transcript.internal_orfs) > 0
@@ -276,5 +293,6 @@ def finalize(transcript):
         intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
 
     transcript.finalized = True
+    transcript.logger.warning("Finished finalising %s", transcript.id)
 
     return

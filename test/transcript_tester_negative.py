@@ -7,6 +7,7 @@ Unit test for a transcript on the negative strand.
 import unittest
 import operator
 import re
+import intervaltree
 
 import mikado_lib.parsers
 import mikado_lib.loci_objects
@@ -87,9 +88,11 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.assertEqual(self.tr.exon_num, len(self.tr.exons))
         self.assertEqual(self.tr.start, 5928)
         self.assertEqual(self.tr.end, 8737)
+        exons = [(5928, 6263), (6437, 7069), (7157, 7232), (7384, 7450), (7564, 7649), (7762, 7835),
+                          (7942, 7987), (8236, 8325), (8417, 8464), (8571, 8737)]
+        exons = [intervaltree.Interval(*exon) for exon in exons]
         self.assertEqual(self.tr.exons,
-                         [(5928, 6263), (6437, 7069), (7157, 7232), (7384, 7450), (7564, 7649), (7762, 7835),
-                          (7942, 7987), (8236, 8325), (8417, 8464), (8571, 8737)],
+                         exons,
                          self.tr.exons)
 
     def test_cds(self):

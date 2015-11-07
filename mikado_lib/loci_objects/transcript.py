@@ -354,7 +354,10 @@ class Transcript:
                 "Unknown feature: {0}".format(gffline.feature))
 
         start, end = sorted([gffline.start, gffline.end])
-        store.append((start, end))
+        assert isinstance(start, int) and isinstance(end, int)
+        segment = intervaltree.Interval(start, end)
+        assert isinstance(segment[0], int) and isinstance(segment[1], int)
+        store.append(segment)
 
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
@@ -730,13 +733,21 @@ class Transcript:
         if len(self.combined_cds) == 0:
             return []
         if self.strand == "-":
-            return list(
-                filter(lambda exon: exon[0] == "UTR" and exon[1] > self.selected_cds_start,
-                       self.selected_internal_orf))
+            return list(utr_segment for utr_segment in self.selected_internal_orf if
+                        utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_start)
+            #
+            #
+            # return list(
+            #     filter(lambda exon: exon[0] == "UTR" and exon[1][0] > self.selected_cds_start,
+            #            self.selected_internal_orf))
         else:
-            return list(
-                filter(lambda exon: exon[0] == "UTR" and exon[2] < self.selected_cds_start,
-                       self.selected_internal_orf))
+            return list(utr_segment for utr_segment in self.selected_internal_orf if
+                        utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_start)
+            #
+            #
+            # return list(
+            #     filter(lambda exon: exon[0] == "UTR" and exon[1][1] < self.selected_cds_start,
+            #            self.selected_internal_orf))
 
     @property
     def three_utr(self):
@@ -745,13 +756,18 @@ class Transcript:
         if len(self.combined_cds) == 0:
             return []
         if self.strand == "-":
-            return list(
-                filter(lambda exon: exon[0] == "UTR" and exon[2] < self.selected_cds_end,
-                       self.selected_internal_orf))
+            return list(utr_segment for utr_segment in self.selected_internal_orf if
+                        utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_end)
+            # filter(lambda exon: exon[0] == "UTR" and exon[1][1] < self.selected_cds_end,
+            #        self.selected_internal_orf))
         else:
-            return list(
-                filter(lambda exon: exon[0] == "UTR" and exon[1] > self.selected_cds_end,
-                       self.selected_internal_orf))
+            return list(utr_segment for utr_segment in self.selected_internal_orf if
+                        utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_end)
+            #
+            #
+            # return list(
+            #     filter(lambda exon: exon[0] == "UTR" and exon[1][0] > self.selected_cds_end,
+            #            self.selected_internal_orf))
 
     @property
     def selected_internal_orf_index(self):
@@ -782,8 +798,10 @@ class Transcript:
         """
         lengths = []
         for internal_cds in self.internal_orfs:
-            lengths.append(sum(x[2] - x[1] + 1 for x in filter(
-                lambda c: c[0] == "CDS", internal_cds)))
+            assert isinstance(internal_cds[0][1], intervaltree.Interval), internal_cds[0]
+            length = sum(x[1][1] - x[1][0] + 1 for x in internal_cds if
+                         x[0] == "CDS")
+            lengths.append(length)
         lengths = sorted(lengths, reverse=True)
         return lengths
 
@@ -799,8 +817,8 @@ class Transcript:
             self.finalize()
             self.__non_overlapping_cds = set()
             for internal_cds in self.internal_orfs:
-                segments = set([(x[1], x[2]) for x in filter(
-                    lambda segment: segment[0] == "CDS", internal_cds)])
+                segments = set([segment[1] for segment in internal_cds if
+                                segment[0] == "CDS"])
                 self.__non_overlapping_cds.update(segments)
         return self.__non_overlapping_cds
 
@@ -911,6 +929,15 @@ class Transcript:
         elif any(self.__wrong_combined_entry(comb) for comb in combined):
             raise error
 
+        # if len(combined) > 0:
+        #     if isinstance(combined[0], tuple):
+        #         try:
+        #             combined = [intervaltree.Interval(_[0], _[1]) for _ in combined]
+        #         except IndexError:
+        #             raise IndexError(combined)
+        #     else:
+        #         assert isinstance(combined[0], intervaltree.Interval)
+
         self.__combined_cds = combined
 
     @staticmethod
@@ -921,11 +948,9 @@ class Transcript:
         :param to_test:
         :return:
         """
-        if len(to_test) != 2:
+        if not isinstance(to_test, intervaltree.Interval):
             return True
-        elif not isinstance(to_test[0], int):
-            return True
-        elif not isinstance(to_test[1], int):
+        elif to_test[1] < to_test[0]:
             return True
         return False
 
@@ -976,9 +1001,8 @@ class Transcript:
         if len(self.combined_cds) == 0:
             self.__selected_cds = []
         else:
-            self.__selected_cds = list(
-                (x[1], x[2]) for x in filter(lambda x: x[0] == "CDS",
-                                             self.selected_internal_orf))
+            self.__selected_cds = [segment[1] for segment in self.selected_internal_orf if
+                                   segment[0] == "CDS"]
         return self.__selected_cds
 
     @property
@@ -1161,7 +1185,10 @@ class Transcript:
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        return sum([e[1] - e[0] + 1 for e in self.exons])
+        try:
+            return sum([e[1] - e[0] + 1 for e in self.exons])
+        except TypeError:
+            raise TypeError(self.exons)
 
     @Metric
     def number_internal_orfs(self):
@@ -1176,15 +1203,14 @@ class Transcript:
             self.__max_internal_orf_length = 0
         else:
             self.__max_internal_orf_length = sum(
-                x[2] - x[1] + 1 for x in filter(lambda x: x[0] == "CDS",
-                                                self.selected_internal_orf))
+                x[1][1] - x[1][0] + 1 for x in self.selected_internal_orf if x[0] == "CDS")
+
         return self.__max_internal_orf_length
 
     @Metric
     def selected_cds_num(self):
         """This property calculates the number of CDS exons for the selected ORF"""
-        return len(list(filter(lambda exon: exon[0] == "CDS",
-                               self.selected_internal_orf)))
+        return sum(1 for exon in self.selected_internal_orf if exon[0] == "CDS")
 
     @Metric
     def selected_cds_fraction(self):
@@ -1241,7 +1267,7 @@ class Transcript:
         """Returns the length of the 5' UTR of the selected ORF."""
         if len(self.combined_cds) == 0:
             return 0
-        return sum(x[2] - x[1] + 1 for x in self.five_utr)
+        return sum(x[1][1] - x[1][0] + 1 for x in self.five_utr)
 
     @Metric
     def five_utr_num(self):
@@ -1252,15 +1278,14 @@ class Transcript:
     def five_utr_num_complete(self):
         """This property returns the number of 5' UTR segments for the selected ORF,
         considering only those which are complete exons."""
-        return len(list(filter(lambda utr: (utr[1], utr[2]) in self.exons,
-                               self.five_utr)))
+        return sum(1 for utr in self.five_utr if utr in self.exons)
 
     @Metric
     def three_utr_length(self):
         """Returns the length of the 5' UTR of the selected ORF."""
         if len(self.combined_cds) == 0:
             return 0
-        return sum(x[2] - x[1] + 1 for x in self.three_utr)
+        return sum(x[1][1] - x[1][0] + 1 for x in self.three_utr)
 
     @Metric
     def three_utr_num(self):
@@ -1272,8 +1297,7 @@ class Transcript:
     def three_utr_num_complete(self):
         """This property returns the number of 3' UTR segments for the selected ORF,
         considering only those which are complete exons."""
-        return len(list(filter(lambda utr: (utr[1], utr[2]) in self.exons,
-                               self.three_utr)))
+        return sum(1 for utr in self.three_utr if utr[1] in self.exons)
 
     @Metric
     def utr_num(self):
@@ -1498,15 +1522,17 @@ class Transcript:
             if self.combined_cds_end > max(self.splices):
                 return 0
             else:
-                return min(list(filter(
-                    lambda s: s > self.combined_cds_end, self.splices))) - self.combined_cds_end
+                return min([splice for splice in self.splices if
+                            splice > self.combined_cds_end]) - self.combined_cds_end
+                # return min(list(filter(
+                #     lambda s: s > self.combined_cds_end, self.splices))) - self.combined_cds_end
         elif self.strand == "-":
             if self.combined_cds_end < min(self.splices):
                 return 0
             else:
-                return self.combined_cds_end - max(
-                    list(filter(
-                        lambda s: s < self.combined_cds_end, self.splices)))
+                return self.combined_cds_end - max([
+                    splice for splice in self.splices if
+                    splice < self.combined_cds_end])
 
     @Metric
     def end_distance_from_tes(self):

@@ -9,7 +9,7 @@ import abc
 import random
 import logging
 from sys import maxsize
-
+import intervaltree
 import networkx
 
 from mikado_lib.exceptions import NotInLocusError
@@ -50,6 +50,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.source = None
         self.cds_introns = set()
         self.json_conf = dict()
+        self.__cds_introntree = intervaltree.IntervalTree()
         self.session = None
 
     @abc.abstractmethod
@@ -153,7 +154,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :type first_interval: (int,int)
 
         :param second_interval: a tuple of integers
-        :type second_interval: (int,int)
+        :type second_interval: (int,int | intervaltree.Interval)
 
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int
@@ -168,8 +169,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         "abstractlocus.overlap()" will function.
         Input: two 2-tuples of integers.
         """
-        first_interval = sorted(first_interval)
-        second_interval = sorted(second_interval)
+
+        first_interval = sorted(first_interval[:2])
+        second_interval = sorted(second_interval[:2])
 
         left_boundary = max(first_interval[0] - flank, second_interval[0] - flank)
         right_boundary = min(first_interval[1] + flank, second_interval[1] + flank)
@@ -501,30 +503,98 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for tid in self.transcripts:
                 self.transcripts[tid].parent = self.id
 
-    def find_retained_introns(self, transcript_instance):
+    def find_retained_introns(self, transcript):
 
+        """This method checks the number of exons that are possibly retained
+        introns for a given transcript.
+        A retained intron is defined as an exon which:
+
+         - spans completely an intron of another model *between coding exons*
+         - is not completely coding itself
+         - has *part* of the non-coding section lying inside the intron
+
+        The results are stored inside the transcript instance,
+        in the "retained_introns" tuple.
+
+        :param transcript: a Transcript instance
+        :type transcript: Transcript
+
+        :returns : transcript.retained_introns
+        :rtype : tuple[tuple[int,int]]
         """
-        :param transcript_instance: the transcript to be searched for retained introns.
-        :type transcript_instance: mikado_lib.loci_objects.transcript.Transcript
 
-        This method checks the number of exons that are possibly
-        retained introns for a given transcript.
-        To perform this operation, it checks for each non-CDS exon whether
-        it exists a sublocus intron that is *completely* contained within a transcript exon.
-        CDS exons are ignored because their retention might be perfectly valid.
-        The results are stored inside the transcript instance, in the
-        "retained_introns" tuple.
-        """
+        # introns = intervaltree.IntervalTree([
+        #     intervaltree.Interval(*intron) for intron in self.combined_cds_introns
+        # ])
 
-        transcript_instance.retained_introns = []
-        for exon in iter(exon for exon in transcript_instance.exons if
-                         exon not in transcript_instance.combined_cds):
-            # Check that the overlap is at least as long as
-            # the minimum between the exon and the intron.
-            if any(iter(intron for intron in self.introns if
-                        self.overlap(exon, intron) >= intron[1]-intron[0]+1)) is True:
-                transcript_instance.retained_introns.append(exon)
-        transcript_instance.retained_introns = tuple(transcript_instance.retained_introns)
+        # self.logger.info("Starting to calculate retained introns for %s", transcript.id)
+        # if len(self._cds_introntree) == 0:
+        #     transcript.retained_introns = tuple()
+        #     self.logger.info("No intron found in %s, exiting for %s",
+        #                      self.id,
+        #                      transcript.id)
+        #     return
+
+        # self.logger.debug("Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)",
+        #                   len(self._cds_introntree), len(self.combined_cds_introns),
+        #                   len(transcript.combined_cds_introns),
+        #                   len(transcript.selected_cds_introns),
+        #                   len(transcript.selected_cds))
+
+        retained_introns = []
+        for exon in transcript.exons:
+            # Monobase exons are a problem
+            if exon[0] == exon[1]:
+                self.logger.warning("Monobase exon found in %s: %s:%d-%d",
+                                    self.id, self.chrom, exon[0], exon[1])
+                continue
+
+            exon_interval = intervaltree.IntervalTree([intervaltree.Interval(*exon)])
+            # We have to enlarge by 1 due to idiosyncrasies by intervaltree
+
+            for cds_segment in transcript.cds_tree.search(*exon):
+                exon_interval.chop(cds_segment[0], cds_segment[1])
+
+            # Exclude from consideration any exon which is fully coding
+            for frag in exon_interval:
+                self.logger.debug("Checking %s from exon %s for retained introns for %s",
+                                  frag, exon, transcript.id)
+                if self._cds_introntree.overlaps_range(frag[0], frag[1]):
+                    self.logger.debug("Exon %s of %s is a retained intron",
+                                      exon, transcript.id)
+                    retained_introns.append(exon)
+                    break
+
+        # Sort the exons marked as retained introns
+        # self.logger.info("Finished calculating retained introns for %s", transcript.id)
+        transcript.retained_introns = tuple(sorted(retained_introns))
+        # self.logger.info("Returning retained introns for %s", transcript.id)
+        # return transcript
+
+    # def find_retained_introns(self, transcript_instance):
+    #
+    #     """
+    #     :param transcript_instance: the transcript to be searched for retained introns.
+    #     :type transcript_instance: mikado_lib.loci_objects.transcript.Transcript
+    #
+    #     This method checks the number of exons that are possibly
+    #     retained introns for a given transcript.
+    #     To perform this operation, it checks for each non-CDS exon whether
+    #     it exists a sublocus intron that is *completely* contained within a transcript exon.
+    #     CDS exons are ignored because their retention might be perfectly valid.
+    #     The results are stored inside the transcript instance, in the
+    #     "retained_introns" tuple.
+    #     """
+    #
+    #     transcript_instance.retained_introns = []
+    #     for exon in iter(exon for exon in transcript_instance.exons if
+    #                      exon not in transcript_instance.combined_cds):
+    #         # Check that the overlap is at least as long as
+    #         # the minimum between the exon and the intron.
+    #         if any(iter(intron for intron in self.introns if
+    #                     self.overlap(exon, intron) >= intron[1]-intron[0]+1)) is True:
+    #             transcript_instance.retained_introns.append(exon)
+    #     transcript_instance.retained_introns = tuple(transcript_instance.retained_introns)
 
     def print_metrics(self):
 
@@ -656,3 +726,16 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             value = "mikado_lib"
         assert isinstance(value, str)
         self.__source = value
+
+    @property
+    def _cds_introntree(self):
+
+        """
+        :rtype: intervaltree.IntervalTree
+        """
+
+        if len(self.__cds_introntree) != len(self.combined_cds_introns):
+            self.__cds_introntree = intervaltree.IntervalTree([
+                intervaltree.Interval(*intron) for intron in self.combined_cds_introns
+            ])
+        return self.__cds_introntree

@@ -341,6 +341,7 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
     # Prevent monobase exons
     if new_exon[0] == new_exon[1]:
         new_exon[1] += 1
+    new_exon = Interval(new_exon[0], new_exon[1])
 
     return new_exon, texon, to_discard
 
@@ -417,7 +418,8 @@ def __create_splitted_exons(transcript, boundary, left, right):
             exon, texon, to_discard = __split_complex_exon(
                 transcript, exon, texon, (left, right), boundary)
 
-            my_exons.append(tuple(sorted(exon)))
+            my_exons.append(exon)
+
             if to_discard is not None:
                 discarded_exons.append(to_discard)
 

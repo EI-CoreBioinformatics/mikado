@@ -24,6 +24,7 @@ class AssignerTester(unittest.TestCase):
         reference.id = "G1.1"
         reference.parent = "G1"
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
+        reference.exons = [intervaltree.Interval(*_) for _ in reference.exons]
         reference.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(reference, reference)

@@ -395,7 +395,7 @@ class Transcript:
         assert isinstance(cds_start, int)
         assert isinstance(cds_end, int)
 
-        self.exons = [(_[-2], _[-1]) for _ in self.combined_cds]
+        self.exons = self.combined_cds
 
         self.start = cds_start
         self.end = cds_end
@@ -733,7 +733,7 @@ class Transcript:
         if len(self.combined_cds) == 0:
             return []
         if self.strand == "-":
-            return list(utr_segment for utr_segment in self.selected_internal_orf if
+            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
                         utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_start)
             #
             #
@@ -741,7 +741,7 @@ class Transcript:
             #     filter(lambda exon: exon[0] == "UTR" and exon[1][0] > self.selected_cds_start,
             #            self.selected_internal_orf))
         else:
-            return list(utr_segment for utr_segment in self.selected_internal_orf if
+            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
                         utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_start)
             #
             #
@@ -756,12 +756,12 @@ class Transcript:
         if len(self.combined_cds) == 0:
             return []
         if self.strand == "-":
-            return list(utr_segment for utr_segment in self.selected_internal_orf if
+            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
                         utr_segment[0] == "UTR" and utr_segment[1][1] < self.selected_cds_end)
             # filter(lambda exon: exon[0] == "UTR" and exon[1][1] < self.selected_cds_end,
             #        self.selected_internal_orf))
         else:
-            return list(utr_segment for utr_segment in self.selected_internal_orf if
+            return list(utr_segment[1] for utr_segment in self.selected_internal_orf if
                         utr_segment[0] == "UTR" and utr_segment[1][0] > self.selected_cds_end)
             #
             #
@@ -799,7 +799,7 @@ class Transcript:
         lengths = []
         for internal_cds in self.internal_orfs:
             assert isinstance(internal_cds[0][1], intervaltree.Interval), internal_cds[0]
-            length = sum(x[1][1] - x[1][0] + 1 for x in internal_cds if
+            length = sum(x[1].length() + 1 for x in internal_cds if
                          x[0] == "CDS")
             lengths.append(length)
         lengths = sorted(lengths, reverse=True)
@@ -863,7 +863,7 @@ class Transcript:
         for position in range(len(self.combined_cds) - 1):
             former = self.combined_cds[position]
             latter = self.combined_cds[position + 1]
-            junc = (former[1] + 1, latter[0] - 1)
+            junc = intervaltree.Interval(former[1] + 1, latter[0] - 1)
             if junc in self.introns:
                 cintrons.append(junc)
         cintrons = set(cintrons)
@@ -882,8 +882,8 @@ class Transcript:
         cintrons = []
         for first, second in zip(self.selected_cds[:-1], self.selected_cds[1:]):
             cintrons.append(
-                (first[1] + 1,
-                 second[0] - 1)
+                intervaltree.Interval(first[1] + 1,
+                                      second[0] - 1)
             )
         cintrons = set(cintrons)
         assert len(cintrons) > 0
@@ -1147,7 +1147,7 @@ class Transcript:
     @Metric
     def combined_cds_length(self):
         """This property return the length of the CDS part of the transcript."""
-        c_length = sum([c[1] - c[0] + 1 for c in self.combined_cds])
+        c_length = sum([c.length() + 1 for c in self.combined_cds])
         if len(self.combined_cds) > 0:
             assert c_length > 0
         return c_length
@@ -1174,7 +1174,7 @@ class Transcript:
     @Metric
     def combined_utr_length(self):
         """This property return the length of the UTR part of the transcript."""
-        return sum([e[1] - e[0] + 1 for e in self.combined_utr])
+        return sum([e.length() + 1 for e in self.combined_utr])
 
     @Metric
     def combined_utr_fraction(self):
@@ -1186,7 +1186,7 @@ class Transcript:
     def cdna_length(self):
         """This property returns the length of the transcript."""
         try:
-            return sum([e[1] - e[0] + 1 for e in self.exons])
+            return sum([e.length() + 1 for e in self.exons])
         except TypeError:
             raise TypeError(self.exons)
 
@@ -1203,7 +1203,7 @@ class Transcript:
             self.__max_internal_orf_length = 0
         else:
             self.__max_internal_orf_length = sum(
-                x[1][1] - x[1][0] + 1 for x in self.selected_internal_orf if x[0] == "CDS")
+                x[1].length() + 1 for x in self.selected_internal_orf if x[0] == "CDS")
 
         return self.__max_internal_orf_length
 
@@ -1267,7 +1267,7 @@ class Transcript:
         """Returns the length of the 5' UTR of the selected ORF."""
         if len(self.combined_cds) == 0:
             return 0
-        return sum(x[1][1] - x[1][0] + 1 for x in self.five_utr)
+        return sum(utr.length() + 1 for utr in self.five_utr)
 
     @Metric
     def five_utr_num(self):
@@ -1285,7 +1285,7 @@ class Transcript:
         """Returns the length of the 5' UTR of the selected ORF."""
         if len(self.combined_cds) == 0:
             return 0
-        return sum(x[1][1] - x[1][0] + 1 for x in self.three_utr)
+        return sum(x.length() + 1 for x in self.three_utr)
 
     @Metric
     def three_utr_num(self):
@@ -1297,7 +1297,7 @@ class Transcript:
     def three_utr_num_complete(self):
         """This property returns the number of 3' UTR segments for the selected ORF,
         considering only those which are complete exons."""
-        return sum(1 for utr in self.three_utr if utr[1] in self.exons)
+        return sum(1 for utr in self.three_utr if utr in self.exons)
 
     @Metric
     def utr_num(self):

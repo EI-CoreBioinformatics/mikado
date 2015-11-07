@@ -6,7 +6,7 @@ Unit test for monoexonic transcripts.
 
 import unittest
 import re
-
+import intervaltree
 import mikado_lib.parsers
 import mikado_lib.loci_objects
 from mikado_lib.utilities.log_utils import create_null_logger
@@ -65,7 +65,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertEqual(self.tr.start, 5928)
         self.assertEqual(self.tr.end, 8737)
         self.assertEqual(self.tr.exons,
-                         [(5928, 8737)],
+                         [intervaltree.Interval(5928, 8737)],
                          self.tr.exons)
 
     def test_cds(self):
@@ -76,7 +76,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertEqual(self.tr.combined_cds, self.tr.selected_cds)
 
         self.assertEqual(self.tr.combined_cds,
-                         [(8571, 8666)],
+                         [intervaltree.Interval(8571, 8666)],
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 8571)
         self.assertEqual(self.tr.selected_cds_end, 8666)
@@ -86,12 +86,17 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     def test_utr(self):
 
         self.assertEqual(self.tr.selected_internal_orf,
-                         [("UTR", 5928, 8570), ("exon", 5928, 8737), ("CDS", 8571, 8666), ("UTR", 8667, 8737)],
+                         [("UTR", intervaltree.Interval(5928, 8570)),
+                          ("exon", intervaltree.Interval(5928, 8737)),
+                          ("CDS", intervaltree.Interval(8571, 8666)),
+                          ("UTR", intervaltree.Interval(8667, 8737))],
                          "Right: {0}\nFound{1}".format([("UTR", 5928, 8570), ("CDS", 8571, 8666), ("UTR", 8667, 8737)],
                                                        self.tr.selected_internal_orf))
-        self.assertEqual(self.tr.combined_utr, [(5928, 8570), (8667, 8737)])
-        self.assertEqual(self.tr.five_utr, [("UTR", 5928, 8570)], self.tr.five_utr)
-        self.assertEqual(self.tr.three_utr, [("UTR", 8667, 8737)])
+        self.assertEqual(self.tr.combined_utr, [intervaltree.Interval(5928, 8570),
+                                                intervaltree.Interval(8667, 8737)])
+        self.assertEqual(self.tr.five_utr, [intervaltree.Interval(5928, 8570)],
+                         self.tr.five_utr)
+        self.assertEqual(self.tr.three_utr, [intervaltree.Interval(8667, 8737)])
 
     def test_utr_metrics(self):
 
@@ -124,7 +129,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertEqual(self.tr.three_utr, [])
         self.assertEqual(self.tr.five_utr, [])
         self.assertEqual(self.tr.combined_cds,
-                         [(8571, 8666)],
+                         [intervaltree.Interval(8571, 8666)],
                          self.tr.combined_cds)
         self.assertEqual(self.tr.combined_utr, [], self.tr.combined_utr)
 
@@ -135,7 +140,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.tr.strip_cds()
         self.tr.load_orfs([self.orf])
         self.assertEqual(self.tr.combined_cds,
-                         [(8571, 8666)],
+                         [intervaltree.Interval(8571, 8666)],
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 8571)
         self.assertEqual(self.tr.selected_cds_end, 8666)

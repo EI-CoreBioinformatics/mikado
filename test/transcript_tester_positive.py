@@ -36,9 +36,9 @@ class MonoBaseTester(unittest.TestCase):
         self.tr.id = "StringTie_DN.70115.4"
         self.tr.source = "StringTie"
         self.tr.feature = "transcript"
-        self.tr.exons = [(22597965, 22601782),
-                         (22601862, 22601957),
-                         (22602039, 22602701)]
+        self.tr.exons = [intervaltree.Interval(22597965, 22601782),
+                         intervaltree.Interval(22601862, 22601957),
+                         intervaltree.Interval(22602039, 22602701)]
 
         self.tr.logger = self.logger
 
@@ -253,28 +253,33 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.cds_not_maximal_fraction, 0)
 
     def test_utr(self):
-        self.assertEqual(self.tr.five_utr, [("UTR", intervaltree.Interval(626642, 626780)),
-                                            ("UTR", intervaltree.Interval(626842, 626877))])
-        self.assertEqual(self.tr.three_utr, [("UTR", intervaltree.Interval(628570, 628676)),
-                                             ("UTR", intervaltree.Interval(629070, 629176))])
+        self.assertEqual(self.tr.five_utr, [intervaltree.Interval(626642, 626780),
+                                            intervaltree.Interval(626842, 626877)])
+        self.assertEqual(self.tr.three_utr, [intervaltree.Interval(628570, 628676),
+                                             intervaltree.Interval(629070, 629176)])
 
     def test_introns(self):
 
-        self.assertEqual(self.tr.introns,
-                         {(626781, 626841), (626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487),
-                          (627560, 627695), (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464),
-                          (628677, 629069)},
-                         self.tr.introns
+        _ = {(626781, 626841), (626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487),
+             (627560, 627695), (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464),
+             (628677, 629069)}
 
-                         )
+        self.assertEqual(self.tr.introns,
+                         set(intervaltree.Interval(*intron) for intron in _),
+                         self.tr.introns)
+
+        _ = {(626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487), (627560, 627695),
+             (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464)}
+
         self.assertEqual(self.tr.combined_cds_introns,
-                         {(626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487), (627560, 627695),
-                          (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464)},
-                         self.tr.combined_cds_introns
-                         )
+                         {intervaltree.Interval(*intron) for intron in _},
+                         self.tr.combined_cds_introns)
+
+        _ = {(626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487), (627560, 627695),
+             (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464)}
+
         self.assertEqual(self.tr.selected_cds_introns,
-                         {(626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487), (627560, 627695),
-                          (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464)},
+                         {intervaltree.Interval(*intron) for intron in _},
                          self.tr.selected_cds_introns
                          )
 
@@ -318,17 +323,19 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.selected_cds_end, self.tr.end)
         self.assertEqual(self.tr.three_utr, [])
         self.assertEqual(self.tr.five_utr, [])
+        cds = [(626878, 626880),
+               (626963, 627059),
+               (627137, 627193),
+               (627312, 627397),
+               (627488, 627559),
+               (627696, 627749),
+               (627840, 627915),
+               (628044, 628105),
+               (628182, 628241),
+               (628465, 628569)]
+
         self.assertEqual(self.tr.combined_cds,
-                         [(626878, 626880),
-                          (626963, 627059),
-                          (627137, 627193),
-                          (627312, 627397),
-                          (627488, 627559),
-                          (627696, 627749),
-                          (627840, 627915),
-                          (628044, 628105),
-                          (628182, 628241),
-                          (628465, 628569)],
+                         [intervaltree.Interval(*c) for c in cds],
                          self.tr.combined_cds)
         self.assertEqual(self.tr.combined_utr, [], self.tr.combined_utr)
 
@@ -365,7 +372,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.tr.strand = "+"
         self.tr.finalize()
         self.tr.finalized = False
-        self.tr.exons += [(625878, 625880)]
+        self.tr.exons += [intervaltree.Interval(625878, 625880)]
         self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_complete(self):

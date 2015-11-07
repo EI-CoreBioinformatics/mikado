@@ -1694,7 +1694,7 @@ class Transcript:
         """
 
         return sum(1 for intron in self.introns if
-                   intron.length + 1 > self.intron_range[1])
+                   intron.length() + 1 > self.intron_range[1])
         #
         # return len(list(filter(lambda x: x[1]-x[0]+1 > self.intron_range[1],
         #                        self.introns)))
@@ -1709,7 +1709,7 @@ class Transcript:
         """
 
         return sum(1 for intron in self.introns if
-                   intron.length + 1 < self.intron_range[0])
+                   intron.length() + 1 < self.intron_range[0])
 
         #
         # return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],

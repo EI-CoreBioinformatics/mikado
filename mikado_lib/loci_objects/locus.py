@@ -70,6 +70,11 @@ class Locus(Monosublocus, Abstractlocus):
             self.logger.debug("%s not added because the Locus has already too many transcripts.",
                               transcript.id)
             to_be_added = False
+        if to_be_added and transcript.strand != self.strand:
+            self.logger.debug("%s not added because it has a different strand from %s (%s vs. %s)",
+                              transcript.id, self.id, transcript.strand, self.strand)
+            to_be_added = False
+
         if to_be_added:
             is_alternative, ccode = self.is_alternative_splicing(transcript)
             if is_alternative is False:

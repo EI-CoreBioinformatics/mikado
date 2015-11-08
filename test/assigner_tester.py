@@ -769,4 +769,5 @@ class AssignerTester(unittest.TestCase):
                          [((350, 500), 4850), ((10, 200), 5150)]
                          )
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

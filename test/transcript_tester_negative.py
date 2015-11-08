@@ -410,4 +410,5 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     #     self.assertEqual(new_transcripts[0].three_utr_length, 0)
 
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

@@ -1,5 +1,5 @@
-include DESCRIPTION.rst
-include *py *.json *.yaml
+include DESCRIPTION.md
+include *py
 recursive-include mikado_lib *.py *.json *.yaml
 recursive-include util *py
 recursive-include test *py

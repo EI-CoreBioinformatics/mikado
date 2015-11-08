@@ -28,6 +28,35 @@ The criteria used to select the "*best*" transcript are left to the user's discr
 
 *****
 
+## Installation
+
+To install the package, just run 
+
+```bash
+python3 setup.py install
+```
+
+at the command prompt. You might need either administrator privileges or to create a local python
+installation directory (in the latter case, said directory must be added to your PYTHONPATH variable).
+
+The package provides a (not yet comprehensive) suite of tests under the "test" directory. You can verify a successful
+installation by running
+
+```bash
+python3 setup.py nosetests
+```
+
+Finally, the folder "sample_data" contains a toy example and a toy pipeline implmeneted using Snakemake. If the
+installation has been successful, the command
+
+```bash
+snakemake complete
+```
+
+should run to completion and produce a compare.stats file, indicating that Mikado completed and was able to retrieve
+2 perfect intron chain matches for the reference region. Please note that the toy example is dependent on the
+presence of BLAST+ on the system.
+
 ## Usage
 
 The suite is invoked using the command "mikado.py" followed by the desired subcommand. Detailed help, both for the
@@ -158,12 +187,11 @@ The pipeline is implemented in Python3, and it does require the following librar
 	* PyYaml, to use YAML configuration files.
 	
 The following packages are recommended for additional functionalities but not necessary:
-	* Numpy and SciPy: optionally used by the gff_stats utility
+	* Numpy: optionally used by the gff_stats utility
 	* psycopg2 and mysqlclient (v. >= 1.3.6), for using PosGreSQL or MySQL databases instead of default SQLite
-	* H5Py and PyTable, for using HDF5 files instead of SQLite files as databases.
 
-It has been tested on UNIX systems, using Python 3.4.3. A version of Python higher or equivalent is needed, as
-the program makes use of new language functionalities such as the asyncio module.
+It has been tested on UNIX systems, using Python 3.4.3. The package has been written for Python3 and there are no
+plans to backport it to Python2 at the moment.
 Beware that Cygwin at the time of this writing does not provide a version of Python3 more recent than 3.2.3,
 and it is therefore unsuitable for using Mikado.
 
@@ -186,7 +214,8 @@ Surviving transcripts are used to define the loci which will be the final output
 
 All "loci" objects are defined as implementations of the "abstractlocus" class.
 As such, each of them must implement the following methods:
-* *is_intersecting*		This method is used to define when two transcripts are intersecting. It varies from locus to locus, so it must be specified by each of the objects.
+* *is_intersecting*		This method is used to define when two transcripts are intersecting. It varies from locus to
+locus, so it must be specified by each of the objects.
 * __init__
 * __str__
 
@@ -236,11 +265,11 @@ The documentation for each of them can be generated with the utility "generate_m
 
 
 ###Defining new metrics
-For the program to be able to use a novel metric, it must be implemented as a *metric* inside the
-transcript class. The "metric" class is an alias of "property", and therefore metrics are coded as properties would:
+For the program to be able to use a novel metric, it must be implemented as a *Metric* inside the
+transcript class. The "Metric" class is an alias of "property", and therefore metrics are coded as properties would:
 
 ```
-@metric
+@Metric
 def my_metric(self):
 	return self.__my_metric
 
@@ -258,13 +287,14 @@ At each selection stage, the best transcript for the span is selected according 
 through a JSON file.Each metric must be specified in the "parameters" head field of the JSON configuration.
 For each parameter, it is possible to specify the following:
 
-* "multiplier"		A number by which the metrics will be multiplied to get the final score.
-* "rescaling"		This key controls the rescaling performed to calculate the score:
+  *"multiplier"		A number by which the metrics will be multiplied to get the final score.
+  *"rescaling"		This key controls the rescaling performed to calculate the score:
   *"max"
   *"min"
-  * "target"
+  *"target"
     
-Each parameter will have a score assigned which varies from 0 to 1. If the "target" rescaling is selected, it is *mandatory* to specify a "value" keyword. For details, see [RAMPART supporting material (section 2, page3)](http://bioinformatics.oxfordjournals.org/content/suppl/2015/01/29/btv056.DC1/supplementary.pdf)
+Each parameter will have a score assigned which varies from 0 to 1. If the "target" rescaling is selected,
+it is *mandatory* to specify a "value" keyword. For details, see [RAMPART supporting material (section 2, page3)](http://bioinformatics.oxfordjournals.org/content/suppl/2015/01/29/btv056.DC1/supplementary.pdf)
 
 Moreover, for each parameter it is possible to configure a "filter", i.e. boundaries after which the score for this parameter is set automatically to 0 (e.g. a 3'UTR total length over 2.5 kbps). Each "filter" subfield must contain the following:
 
@@ -279,18 +309,3 @@ Moreover, for each parameter it is possible to configure a "filter", i.e. bounda
   * "not in": value not in array of invalid values
 
 The comparisons are always made against the reference value.
-
-##Requirements
-This tool has been written for Python 3.4, and at the moment is not compatible with earlier Python versions. This is due to changes in the interface of the asyncio module,
-which break compatibility with earlier versions of Python 3.
-
-Moreover, the software requires the following packages:
-
-  * SQLAlchemy: necessary for the DB interface. Version >=1.0, as we are using very recent functionality in the package (e.g. the "bakery")
-  * NetworkX: this package provides the functionality to describe the transcripts in a locus as an undirected acyclic graph, and find its communities;
-  * BioPython: necessary for parsing FASTA and BlastXML files
-  * PyYAML: necessary for parsing and writing the YAML configuration files
-  
-These requirements should be installed automatically by PyPI if you install using PIP.
-This software is *not* compatible with PyPy, as that compiler does not have support for the asyncio module yet. 
- 

@@ -50,13 +50,16 @@ setup(
                       "sqlalchemy>=1",
                       "sqlalchemy_utils",
                       "biopython>=1.6",
-                      "intervaltree"
+                      "intervaltree",
+                      "nose"
                       ],
 
     extras_require={
         "postgresql": ["psycopg2"],
         "mysql": ["mysqlclient>=1.3.6"],
     },
+
+    test_suite="test",
 
     data_files=[("mikado_lib/configuration",
                  glob.glob("mikado_lib/configuration/*json") + glob.glob("mikado_lib/configuration/*yaml") )],

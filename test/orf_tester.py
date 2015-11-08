@@ -250,4 +250,5 @@ CAGA"""
         self.assertTrue(b4.thick_end, 1112)
         self.assertTrue(b4.cds_len, 1112 - 641)
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

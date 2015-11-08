@@ -5,6 +5,7 @@ import unittest
 
 __author__ = 'Luca Venturini'
 
+
 class MultOrfTester(unittest.TestCase):
 
     tr_gff = """
@@ -96,4 +97,5 @@ class MultOrfTester(unittest.TestCase):
         self.tr.finalize()
 
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

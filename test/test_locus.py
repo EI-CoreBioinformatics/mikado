@@ -237,4 +237,5 @@ class TestLocus(unittest.TestCase):
         self.assertEqual(len(locus.transcripts), 1)
 
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

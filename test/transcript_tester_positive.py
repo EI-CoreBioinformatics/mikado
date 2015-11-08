@@ -495,4 +495,5 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(new_transcripts[1].five_utr_length, 0)
 
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

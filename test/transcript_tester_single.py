@@ -376,4 +376,5 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertEqual(new_transcripts[1].three_utr_length, 0)
 
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

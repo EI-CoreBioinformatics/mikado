@@ -208,7 +208,7 @@ def __check_internal_orf(transcript, exons, orf):
                             orf_segments,
                             exons
                         ))
-                    transcript.logger.exception(exc)
+                    transcript.logger.error(exc)
                     raise exc
                 else:
                     previous_exon_index = exon_position

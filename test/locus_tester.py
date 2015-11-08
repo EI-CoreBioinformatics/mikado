@@ -105,4 +105,5 @@ Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)
 
-unittest.main()
+if __name__ == '__main__':
+    unittest.main()

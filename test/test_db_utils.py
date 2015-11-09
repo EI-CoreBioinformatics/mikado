@@ -2,6 +2,7 @@
 TestCase to test the DButils module
 """
 
+import os
 import unittest
 import mikado_lib.utilities.dbutils
 import mikado_lib.configuration.configurator
@@ -21,8 +22,12 @@ __author__ = 'Luca Venturini'
 class TestDbConnect(unittest.TestCase):
 
     def setUp(self):
-        self.json = mikado_lib.configuration.configurator.to_json("configuration.yaml")
+        self.json = mikado_lib.configuration.configurator.to_json(
+            os.path.join(os.path.dirname(__file__), "configuration.yaml"))
         self.assertEqual(self.json["db_settings"]["db"], "mikado.db")
+        self.json["db_settings"]["db"] = os.path.join(os.path.dirname(__file__),
+                                                      self.json["db_settings"]["db"],)
+
 
     def test_connector(self):
         connector = mikado_lib.utilities.dbutils.create_connector(self.json)

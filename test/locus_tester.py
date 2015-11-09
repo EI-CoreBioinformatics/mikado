@@ -74,7 +74,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
         my_json = configurator.to_json(my_json)
         logger = create_null_logger("null")
-        logger.setLevel("DEBUG")
+        logger.setLevel("WARNING")
         logger.info("Started")
         slocus = superlocus.Superlocus(self.transcript1, json_conf=my_json,
                                        logger=logger)

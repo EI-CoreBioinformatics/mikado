@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
-
+*.coverage
 sample_data/*loci*
 sample_data/*zip
 sample_data/*fasta.n*

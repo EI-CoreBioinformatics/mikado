@@ -4,6 +4,7 @@ import logging
 
 __author__ = 'Luca Venturini'
 
+
 class TestUtils(unittest.TestCase):
 
     def test_check_logger(self):

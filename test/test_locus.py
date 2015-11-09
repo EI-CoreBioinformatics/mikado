@@ -229,7 +229,7 @@ class TestLocus(unittest.TestCase):
         candidate = self.t1_as
         candidate.reverse_strand()
         logger = self.logger
-        logger.setLevel(logging.DEBUG)
+        # logger.setLevel(logging.DEBUG)
         locus = mikado_lib.loci_objects.Locus(self.t1, logger=logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)

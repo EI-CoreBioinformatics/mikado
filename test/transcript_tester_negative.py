@@ -78,6 +78,19 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.orf.has_stop_codon = True
         self.orf.transcriptomic = False
         self.assertFalse(self.orf.invalid)
+        self.assertEqual(len(self.tr), self.tr.end - self.tr.start + 1)
+
+    def test_empty(self):
+
+        self.tr.exons = []
+        self.tr.finalized = False
+        self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
+
+    def test_invalid_utr(self):
+
+        self.tr.combined_cds = []
+        self.tr.finalized = False
+        self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_basics(self):
 

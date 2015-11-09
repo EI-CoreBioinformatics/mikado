@@ -63,7 +63,8 @@ def __check_cdna_vs_utr(transcript):
                 if exon in transcript.combined_cds:
                     continue
                 elif (exon[1] < transcript.combined_cds[0][0] or
-                      exon[0] > transcript.combined_cds[-1][1]):
+                      exon[0] >
+                              transcript.combined_cds[-1][1]):
                     transcript.combined_utr.append(exon)
                 elif (exon[0] < transcript.combined_cds[0][0] and
                       exon[1] == transcript.combined_cds[0][1]):

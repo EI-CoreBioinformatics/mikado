@@ -251,7 +251,7 @@ class Locus(Monosublocus, Abstractlocus):
             self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
                               other.id,
                               main_result.ccode[0])
-            is_valid = False
+            # is_valid = False
         return is_valid, main_ccode
 
     @property

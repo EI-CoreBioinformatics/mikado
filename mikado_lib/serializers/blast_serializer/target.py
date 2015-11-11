@@ -36,6 +36,11 @@ class Target(DBBASE):
         :type target_length: int
         """
 
+        if not isinstance(target_name, str):
+            raise TypeError("Invalid name: {0}".format(target_name))
+        if not isinstance(target_length, int) or target_length <= 0:
+            raise TypeError("Invalid length value: {0}".format(target_length))
+
         self.target_name = target_name
         self.target_length = target_length
 

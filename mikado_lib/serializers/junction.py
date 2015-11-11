@@ -137,11 +137,14 @@ class JunctionSerializer:
 
         """
         :param handle: the file to be serialized.
-        :type handle: str | io.IOBase
+        :type handle: str | io.IOBase | io.TextIOWrapper
 
         :param json_conf: Optional configuration dictionary with db connection parameters.
         :type json_conf: dict | None
         """
+
+        self.bed12_parser = None
+        self.fai = None
 
         if logger is not None:
             logger = check_logger(logger)
@@ -151,6 +154,8 @@ class JunctionSerializer:
 
         if handle is None:
             self.logger.warn("No input file specified. Exiting.")
+            self.close()
+            return
 
         self.bed12_parser = bed12.Bed12Parser(handle)
         self.engine = connect(json_conf, logger=logger)
@@ -183,6 +188,10 @@ class JunctionSerializer:
         """
 
         sequences = dict()
+        if self.bed12_parser is None:
+            self.logger.warn("No input file specified. Exiting.")
+            return
+
         if self.fai is not None:
             for line in self.fai:
                 name, length = line.rstrip().split()[:2]
@@ -192,6 +201,7 @@ class JunctionSerializer:
             self.session.commit()
             for query in self.session.query(Chrom):
                 sequences[query.name] = query.chrom_id
+            self.fai.close()
 
         objects = []
 
@@ -214,6 +224,7 @@ class JunctionSerializer:
                 objects = []
         self.session.bulk_save_objects(objects)
         self.session.commit()
+        self.close()
 
     def __call__(self):
         """
@@ -221,4 +232,18 @@ class JunctionSerializer:
         """
 
         self.serialize()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+
+        if self.bed12_parser is not None:
+            self.bed12_parser.close()
+        if self.fai is not None:
+            self.fai.close()
+
 # pylint: enable=too-few-public-methods

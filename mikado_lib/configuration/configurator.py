@@ -507,7 +507,7 @@ def to_json(string, simple=False):
     Function to serialise the JSON for configuration and check its consistency.
 
     :param string: the configuration file name.
-    :type string: str
+    :type string: (str | None)
 
     :param simple: boolean flag indicating whether we desire
                    the simplified version of the configuration, or not.

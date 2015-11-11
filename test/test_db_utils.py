@@ -53,6 +53,44 @@ class TestDbConnect(unittest.TestCase):
         self.assertEqual(session.query(mikado_lib.serializers.blast_serializer.Hit).count(), 576)
         self.assertEqual(session.query(mikado_lib.serializers.blast_serializer.Hsp).count(), 684)
 
+        first_query = session.query(mikado_lib.serializers.blast_serializer.Query).limit(1).one()
+        astup = first_query.as_tuple()
+        self.assertTrue(astup._fields, ("query_id", "query_name", "query_length"))
+        self.assertIsInstance(astup.query_id, int)
+        self.assertIsInstance(astup.query_length, int)
+        self.assertIsInstance(astup.query_name, str)
+        
+        first_target = session.query(
+            mikado_lib.serializers.blast_serializer.Target).limit(1).one()
+        astup = first_target.as_tuple()
+        self.assertTrue(astup._fields, ("target_id", "target_name", "target_length"))
+        self.assertIsInstance(astup.target_id, int)
+        self.assertIsInstance(astup.target_length, int)
+        self.assertIsInstance(astup.target_name, str)        
+
+    def test_query_init(self):
+
+        _ = mikado_lib.serializers.blast_serializer.Query("foo", 1000)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Query(100, 1000)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Query("foo", 0)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Query("foo", -10)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Query("foo", 1000.0)
+
+    def test_target_init(self):
+
+        _ = mikado_lib.serializers.blast_serializer.Target("foo", 1000)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Target(100, 1000)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Target("foo", 0)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Target("foo", -10)
+        with self.assertRaises(TypeError):
+            _ = mikado_lib.serializers.blast_serializer.Target("foo", 1000.0)
 
 if __name__ == "__main__":
     unittest.main()

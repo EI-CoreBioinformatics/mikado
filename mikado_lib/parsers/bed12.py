@@ -480,7 +480,7 @@ class Bed12Parser(Parser):
                 assert "SeqIO" in repr(fasta_index) and "index" in repr(fasta_index)
 
         self.fasta_index = fasta_index
-
+        self.__closed = False
         self.header = False
 
     def __iter__(self):
@@ -495,3 +495,8 @@ class Bed12Parser(Parser):
             bed12 = BED12(line, fasta_index=self.fasta_index,
                           transcriptomic=self.transcriptomic)
         return bed12
+
+    def close(self):
+        if self.__closed is False:
+            self._handle.close()
+            self.__closed = True

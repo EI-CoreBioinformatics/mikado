@@ -103,7 +103,7 @@ def connect(json_conf, logger=None):
     configuration inside the provided json_conf.
     :param json_conf:
     :param logger:
-    :return:
+    :return: sqlalchemy.engine.base.Engine
     """
 
     if json_conf is None:

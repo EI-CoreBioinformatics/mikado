@@ -34,6 +34,11 @@ class Query(DBBASE):
                                        ["query_id", "query_name", "query_length"])
 
     def __init__(self, name, length):
+        if not isinstance(name, str):
+            raise TypeError("Invalid name: {0}".format(name))
+        if not isinstance(length, int) or length <= 0:
+            raise TypeError("Invalid length value: {0}".format(length))
+
         self.query_name = name
         self.query_length = length
 

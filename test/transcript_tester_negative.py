@@ -9,6 +9,7 @@ import operator
 import re
 import intervaltree
 import logging
+import mikado_lib
 import mikado_lib.parsers
 import mikado_lib.loci_objects
 from mikado_lib.utilities.log_utils import create_null_logger
@@ -19,7 +20,8 @@ class TranscriptTesterNegative(unittest.TestCase):
     logger = create_null_logger("null")
     logger.setLevel(logging.ERROR)
 
-    tr_gff = """Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1;Index=1
+    tr_gff = """
+Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020
 Chr1    TAIR10    five_prime_UTR    8667    8737    .    -    .    Parent=AT1G01020.1
 Chr1    TAIR10    CDS    8571    8666    .    -    0    Parent=AT1G01020.1;
 Chr1    TAIR10    exon    8571    8737    .    -    .    Parent=AT1G01020.1
@@ -43,7 +45,7 @@ Chr1    TAIR10    exon    6437    7069    .    -    .    Parent=AT1G01020.1
 Chr1    TAIR10    three_prime_UTR    5928    6263    .    -    .    Parent=AT1G01020.1
 Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
-    tr_lines = tr_gff.split("\n")
+    tr_lines = [line for line in tr_gff.split("\n") if line]
     for pos, line in enumerate(tr_lines):
         tr_lines[pos] = re.sub("\s+", "\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
@@ -83,17 +85,43 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
     def test_empty(self):
 
+        """
+        Test that a transcript with no exons inside is invalid.
+        :return:
+        """
+
         self.tr.exons = []
         self.tr.finalized = False
         self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_invalid_utr(self):
 
+        """
+        Test that a transcript with UTR but no CDS defined will raise an exception.
+        :return:
+        """
+
         self.tr.combined_cds = []
         self.tr.finalized = False
         self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_basics(self):
+
+        """
+        Test basic assertions about the transcript:
+
+        - chromosome (.chrom) should be Chr1
+        - strand should be -
+        - number of internal orfs should be 1
+        - number of exons should be 10
+        - the metric "exon_num" should be 10 as well
+        - start should be 5928 (1-based offset)
+        - end should be 8737
+        - the exons should correspond to those in the original strings (defined here in the list)
+          and all of them should be of the "Interval" class
+
+        :return:
+        """
 
         self.assertEqual(self.tr.chrom, "Chr1")
         self.assertEqual(self.tr.strand, "-")
@@ -166,6 +194,11 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
                          self.tr.selected_cds_introns)
 
     def test_strip_cds(self):
+        """
+        Test the "stip_cds" function which (as the name implies) removes completely the CDS
+        from a transcript.
+        :return:
+        """
 
         self.tr.strip_cds()
         self.assertEqual(self.tr.selected_cds_length, 0)
@@ -176,7 +209,8 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.assertEqual(self.tr.selected_cds_end, None)
 
     def test_remove_utr(self):
-        """Test for CDS stripping. We remove the UTRs and verify that start/end have moved, no UTR is present, etc."""
+        """Test for CDS stripping. We remove the UTRs and verify that start/end
+        have moved, no UTR is present, etc."""
 
         self.tr.remove_utrs()
         self.assertEqual(self.tr.selected_cds_start, self.tr.end)
@@ -213,7 +247,9 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.assertEqual(self.tr.selected_cds_end, 6915)
 
     def test_negative_orf(self):
-        """Test loading a negative strand ORF onto a multiexonic transcript. This should have no effect."""
+        """Test loading a negative strand ORF onto a multiexonic transcript.
+        This should have no effect.
+        """
 
         self.orf.strand = "-"
         self.tr.strip_cds()
@@ -297,22 +333,26 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         third_orf.transcriptomic = True
         self.assertFalse(third_orf.invalid, (len(third_orf), third_orf.cds_len))
 
-        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, third_orf))
-        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(second_orf, third_orf))
+        self.assertFalse(
+            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
+                first_orf, third_orf))
+        self.assertFalse(
+            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
+                second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
         self.assertFalse(first_orf == second_orf)
         self.assertFalse(first_orf == third_orf)
 
         candidates = [first_orf, second_orf, third_orf]
-        # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
         self.tr.load_orfs(candidates)
 
         self.assertTrue(self.tr.is_complete)
         self.tr.finalize()
         self.assertEqual(self.tr.start, 5928)
 
-        self.assertEqual(self.tr.number_internal_orfs, 2, "\n".join([str(x) for x in self.tr.internal_orfs]))
+        self.assertEqual(self.tr.number_internal_orfs, 2, "\n".join(
+            [str(x) for x in self.tr.internal_orfs]))
 
         self.assertEqual(self.tr.combined_cds_length, 1005)
         self.assertEqual(self.tr.selected_cds_length, 603)
@@ -332,96 +372,6 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
         self.assertEqual(new_transcripts[1].three_utr_length, 0)
         self.assertEqual(new_transcripts[1].end, 8737)
-
-
-    # def testDoubleOrfSameExon(self):
-    #     """
-    #     Test for those cases where the two ORFs share an exon.
-    #     :return:
-    #     """
-    #
-    #     self.tr.strip_cds()
-    #     self.tr.finalized = False
-    #
-    #     first_orf = mikado_lib.parsers.bed12.BED12()
-    #     first_orf.chrom = self.tr.id
-    #     first_orf.start = 1
-    #     first_orf.end = self.tr.cdna_length
-    #     first_orf.name = self.tr.id
-    #     first_orf.strand = "+"
-    #     first_orf.score = 0
-    #     first_orf.thickStart = 100
-    #     first_orf.thickEnd = 501
-    #     first_orf.blockCount = 1
-    #     first_orf.blockSize = self.tr.cdna_length
-    #     first_orf.blockStarts = 0
-    #     first_orf.has_start_codon = True
-    #     first_orf.has_stop_codon = True
-    #     first_orf.transcriptomic = True
-    #     self.assertFalse(first_orf.invalid, (len(first_orf), first_orf.cds_len))
-    #
-    #     # This should not be incorporated
-    #     second_orf = mikado_lib.parsers.bed12.BED12()
-    #     second_orf.chrom = self.tr.id
-    #     second_orf.start = 0
-    #     second_orf.end = self.tr.cdna_length
-    #     second_orf.name = "second"
-    #     second_orf.strand = "+"
-    #     second_orf.score = 1
-    #     second_orf.thickStart = 300
-    #     second_orf.thickEnd = 401
-    #     second_orf.blockCount = 1
-    #     second_orf.blockSize = self.tr.cdna_length
-    #     second_orf.blockStarts = 0
-    #     second_orf.has_start_codon = True
-    #     second_orf.has_stop_codon = True
-    #     second_orf.transcriptomic = True
-    #     self.assertFalse(second_orf.invalid, (len(second_orf), second_orf.cds_len))
-    #
-    #     self.assertTrue(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
-    #
-    #     # This should be added
-    #     third_orf = mikado_lib.parsers.bed12.BED12()
-    #     third_orf.chrom = self.tr.id
-    #     third_orf.start = 1
-    #     third_orf.end = self.tr.cdna_length
-    #     third_orf.name = "third"
-    #     third_orf.strand = "+"
-    #     third_orf.score = 0
-    #     third_orf.thickStart = 1000
-    #     third_orf.thickEnd = 1602
-    #     third_orf.blockCount = 1
-    #     third_orf.blockSize = self.tr.cdna_length
-    #     third_orf.blockStarts = 0
-    #     third_orf.has_start_codon = True
-    #     third_orf.has_stop_codon = True
-    #     third_orf.transcriptomic = True
-    #     self.assertFalse(third_orf.invalid, (len(third_orf), third_orf.cds_len))
-    #
-    #     self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, third_orf))
-    #     self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(second_orf, third_orf))
-    #
-    #     self.assertFalse(third_orf == second_orf)
-    #     self.assertFalse(first_orf == second_orf)
-    #     self.assertFalse(first_orf == third_orf)
-    #
-    #     candidates = [first_orf, second_orf, third_orf]
-    #     self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
-    #     self.tr.load_orfs(candidates)
-    #
-    #     self.assertTrue(self.tr.is_complete)
-    #     self.tr.finalize()
-    #
-    #     self.assertEqual(self.tr.number_internal_orfs, 2, "\n".join([str(x) for x in self.tr.internal_orfs]))
-    #
-    #     self.assertEqual(self.tr.combined_cds_length, 1005)
-    #     self.assertEqual(self.tr.selected_cds_length, 603)
-    #
-    #     new_transcripts = sorted(self.tr.split_by_cds())
-    #
-    #     self.assertEqual(len(new_transcripts), 2)
-    #     self.assertEqual(new_transcripts[1].five_utr_length, 0)
-    #     self.assertEqual(new_transcripts[0].three_utr_length, 0)
 
 
 if __name__ == '__main__':

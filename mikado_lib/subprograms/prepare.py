@@ -5,6 +5,8 @@
 Subprogram that constitutes the first step of the mikado_lib pipeline.
 """
 
+import sys
+import io
 import os
 import argparse
 import operator
@@ -93,7 +95,7 @@ def create_transcript(lines,
     return transcript_object
 
 
-def store_transcripts(exon_lines, fasta, logger, min_length=0):
+def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
 
     """
     Function that analyses the exon lines from the original file
@@ -133,9 +135,16 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0):
     logger.info("Starting to sort %d transcripts", len(exon_lines))
     keys = []
     for chrom in sorted(transcripts.keys()):
+        if cache is False:
+            logger.debug("Copying %s into memory", chrom)
+            chrom_seq = str(fasta[chrom].seq)
+        else:
+            chrom_seq = fasta[chrom]
+
+        logger.debug("Starting with %s", chrom)
         for key in sorted(transcripts[chrom].keys(),
                           key=operator.itemgetter(0, 1)):
-            seq = fasta[chrom][key[0]-1:key[1]]
+            seq = chrom_seq[key[0]-1:key[1]]
             keys.extend([tid, seq] for tid in transcripts[chrom][key])
     logger.info("Finished to sort %d transcripts", len(exon_lines))
 
@@ -385,7 +394,18 @@ def prepare(args):
 
     args, logger = setup(args)
 
-    assert os.path.exists(args.json_conf["prepare"]["fasta"])
+    if not isinstance(args.json_conf["prepare"]["fasta"], io.TextIOWrapper):
+        if not (isinstance(args.json_conf["prepare"]["fasta"], str) and
+                os.path.exists(args.json_conf["prepare"]["fasta"])):
+            logger.critical("Invalid FASTA file: %s",
+                            args.json_conf["prepare"]["fasta"])
+            sys.exit(1)
+        else:
+            pass
+    else:
+        args.json_conf["prepare"]["fasta"].close()
+        args.json_conf["prepare"]["fasta"] = args.json_conf["prepare"]["fasta"].name
+
     assert len(args.json_conf["prepare"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
 
@@ -408,7 +428,8 @@ def prepare(args):
     keys = store_transcripts(exon_lines,
                              args.json_conf["prepare"]["fasta"],
                              logger,
-                             min_length=args.json_conf["prepare"]["minimum_length"])
+                             min_length=args.json_conf["prepare"]["minimum_length"],
+                             cache=args.json_conf["prepare"]["cache"])
 
     perform_check(keys, exon_lines, args, logger)
 

@@ -92,19 +92,29 @@ class GffLine(GFAnnotation):
             attrs.append("ID={0}".format(self.id))
         if len(self.parent) > 0:
             attrs.append("Parent={0}".format(",".join(self.parent)))
+        if "Name" in self.attributes and self.attributes["Name"] is not None:
+            if "name" in self.attributes:
+                del self.attributes["name"]
+            attrs.append("Name={0}".format(self.name))
+        elif "name" in self.attributes and self.attributes["name"] is not None:
+            self.name = self.attributes["name"]
+            del self.attributes["name"]
+            attrs.append("Name={0}".format(self.name))
+
         if not self.attribute_order:
             self.attribute_order = sorted(list(key for key in self.attributes if
-                                               key not in ["ID", "Parent"]))
+                                               key not in ["ID", "Parent", "Name"]))
+
         for att in iter(key for key in self.attribute_order if
-                        key not in ["ID", "Parent"]):
+                        key not in ["ID", "Parent", "Name"]):
             if att in ("gene_id", "transcript_id"):
                 continue  # These are carryovers from GTF files
             if self.attributes[att] is not None:
-                try:
-                    attrs.append("{0}={1}".format(att.lower(), self.attributes[att]))
-                except KeyError:
-                    # Hack for those times when we modify the attributes at runtime
-                    continue
+                # try:
+                attrs.append("{0}={1}".format(att.lower(), self.attributes[att]))
+                # except KeyError:
+                #     # Hack for those times when we modify the attributes at runtime
+                #     continue
         attrs = "; ".join(attrs)
         return attrs
 

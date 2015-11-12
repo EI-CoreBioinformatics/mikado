@@ -93,6 +93,31 @@ class MonoBaseTester(unittest.TestCase):
         splitted_transcripts = [l for l in self.tr.split_by_cds()]
         self.assertEqual(len(splitted_transcripts), 2)
 
+    def test_print(self):
+
+        self.tr.finalize()
+        self.maxDiff = None
+
+        real_printed = """Chr5\tStringTie\ttranscript\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4; Parent=StringTie_DN.70115; Name=StringTie_DN.70115.4
+Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.exon1; Parent=StringTie_DN.70115.4
+Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.exon2; Parent=StringTie_DN.70115.4
+Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.exon3; Parent=StringTie_DN.70115.4"""
+
+        self.assertEqual(str(self.tr),
+                         real_printed,
+                         "\n\n".join(["\n" + str(self.tr), real_printed]))
+
+        real_printed_gtf = """Chr5\tStringTie\ttranscript\t22597965\t22602701\t1000\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";
+Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
+Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
+Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";"""
+
+        self.assertEqual(self.tr.__str__(to_gtf=True),
+                         real_printed_gtf,
+                         "\n\n".join(["\n" + self.tr.__str__(to_gtf=True), real_printed_gtf]))
+
+        pass
+
 
 class DrosoTester(unittest.TestCase):
 

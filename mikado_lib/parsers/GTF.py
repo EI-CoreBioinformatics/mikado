@@ -100,7 +100,7 @@ class GtfLine(GFAnnotation):
 
         for info in iter(key for key in self.attributes if
                          self.attributes[key] not in (None, "", []) and key not in order):
-            if info == ("Parent" and
+            if (info == "Parent" and
                         self.attributes[info] in (self.gene,
                                                   self.transcript,
                                                   self.parent)):
@@ -203,6 +203,8 @@ class GtfLine(GFAnnotation):
         if isinstance(parent, str):
             parent = parent.split(",")
         self.attributes["Parent"] = parent
+        if self.is_transcript is True:
+            self.gene = parent
 
     # pylint: disable=invalid-name
     @property
@@ -234,6 +236,9 @@ class GtfLine(GFAnnotation):
         Return the "gene_id" field.
         :rtype : str | None
         """
+
+        # if "gene_id" not in self.attributes and self.is_transcript is True:
+        #     self.attributes["gene_id"] = self.parent[0]
         return self.attributes["gene_id"]
 
     @gene.setter

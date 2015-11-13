@@ -95,10 +95,14 @@ class GffLine(GFAnnotation):
         if "Name" in self.attributes and self.attributes["Name"] is not None:
             if "name" in self.attributes:
                 del self.attributes["name"]
+            if "name" in self.attribute_order:
+                self.attribute_order.remove("name")
             attrs.append("Name={0}".format(self.name))
         elif "name" in self.attributes and self.attributes["name"] is not None:
             self.name = self.attributes["name"]
             del self.attributes["name"]
+            if "name" in self.attribute_order:
+                self.attribute_order.remove("name")
             attrs.append("Name={0}".format(self.name))
 
         if not self.attribute_order:

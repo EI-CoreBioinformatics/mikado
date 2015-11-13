@@ -20,8 +20,7 @@ class TranscriptTesterNegative(unittest.TestCase):
     logger = create_null_logger("null")
     logger.setLevel(logging.ERROR)
 
-    tr_gff = """
-Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020
+    tr_gff = """Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020
 Chr1    TAIR10    five_prime_UTR    8667    8737    .    -    .    Parent=AT1G01020.1
 Chr1    TAIR10    CDS    8571    8666    .    -    0    Parent=AT1G01020.1;
 Chr1    TAIR10    exon    8571    8737    .    -    .    Parent=AT1G01020.1
@@ -82,6 +81,35 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.orf.transcriptomic = False
         self.assertFalse(self.orf.invalid)
         self.assertEqual(len(self.tr), self.tr.end - self.tr.start + 1)
+
+    def test_print(self):
+
+        self.maxDiff = None
+        real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1; Parent=AT1G01020; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1; Parent=AT1G01020.1
+Chr1\tTAIR10\tthree_prime_UTR\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR1; Parent=AT1G01020.1
+Chr1\tTAIR10\tthree_prime_UTR\t6437\t6914\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR2; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t6915\t7069\t.\t-\t2\tID=AT1G01020.1.CDS1; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7157\t7232\t.\t-\t0\tID=AT1G01020.1.CDS2; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7384\t7450\t.\t-\t1\tID=AT1G01020.1.CDS3; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7564\t7649\t.\t-\t0\tID=AT1G01020.1.CDS4; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7762\t7835\t.\t-\t2\tID=AT1G01020.1.CDS5; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7942\t7987\t.\t-\t0\tID=AT1G01020.1.CDS6; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t8236\t8325\t.\t-\t0\tID=AT1G01020.1.CDS7; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t8417\t8464\t.\t-\t0\tID=AT1G01020.1.CDS8; Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t8571\t8666\t.\t-\t0\tID=AT1G01020.1.CDS9; Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10; Parent=AT1G01020.1
+Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR1; Parent=AT1G01020.1"""
+
+        self.assertEqual(real_printed, str(self.tr))
 
     def test_empty(self):
 
@@ -148,11 +176,13 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.assertEqual(self.tr.selected_cds_start, 8666)
         self.assertEqual(self.tr.selected_cds_end, 6915)
 
+    # @unittest.SkipTest
     def test_utr(self):
         self.assertEqual(self.tr.five_utr, [intervaltree.Interval(8667, 8737)])
         self.assertEqual(self.tr.three_utr, [intervaltree.Interval(5928, 6263),
                                              intervaltree.Interval(6437, 6914)])
 
+    # @unittest.SkipTest
     def test_utr_metrics(self):
 
         """Test for UTR exon num, start distance, etc."""
@@ -164,11 +194,16 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
         self.assertEqual(self.tr.five_utr_length, 8737 + 1 - 8667)
         self.assertEqual(self.tr.three_utr_length, 6263 + 1 - 5928 + 6914 + 1 - 6437)
-        self.assertEqual(self.tr.selected_start_distance_from_tss, 8738 - 8667, self.tr.selected_end_distance_from_tes)
-        self.assertEqual(self.tr.selected_end_distance_from_tes, 6263 + 1 - 5928 + 6915 - 6437,
+        self.assertEqual(self.tr.selected_start_distance_from_tss,
+                         8738 - 8667,
                          self.tr.selected_end_distance_from_tes)
-        self.assertEqual(self.tr.selected_end_distance_from_junction, 6915 - 6437 + 1)
-        self.assertEqual(self.tr.end_distance_from_junction, self.tr.selected_end_distance_from_junction)
+        self.assertEqual(self.tr.selected_end_distance_from_tes,
+                         6263 + 1 - 5928 + 6915 - 6437,
+                         self.tr.selected_end_distance_from_tes)
+        self.assertEqual(self.tr.selected_end_distance_from_junction,
+                         6915 - 6437 + 1)
+        self.assertEqual(self.tr.end_distance_from_junction,
+                         self.tr.selected_end_distance_from_junction)
 
     def test_introns(self):
 
@@ -193,6 +228,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
                          {intervaltree.Interval(*intron) for intron in _},
                          self.tr.selected_cds_introns)
 
+    # @unittest.SkipTest
     def test_strip_cds(self):
         """
         Test the "stip_cds" function which (as the name implies) removes completely the CDS
@@ -212,7 +248,11 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         """Test for CDS stripping. We remove the UTRs and verify that start/end
         have moved, no UTR is present, etc."""
 
+        # tr = deepcopy(self.tr)
         self.tr.remove_utrs()
+
+        # tr = deepcopy(self.tr)
+        # tr.remove_utrs()
         self.assertEqual(self.tr.selected_cds_start, self.tr.end)
         self.assertEqual(self.tr.selected_cds_end, self.tr.start)
         self.assertEqual(self.tr.three_utr, [])
@@ -237,6 +277,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
         self.tr.strip_cds()
         self.tr.load_orfs([self.orf])
+
         _ = [(6915, 7069), (7157, 7232), (7384, 7450), (7564, 7649), (7762, 7835), (7942, 7987),
              (8236, 8325), (8417, 8464), (8571, 8666)]
 
@@ -270,6 +311,40 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.assertEqual(self.tr.selected_cds_length, 738)
         self.assertAlmostEqual(self.tr.combined_cds_fraction, 738 / 1623, delta=0.01)
         self.assertAlmostEqual(self.tr.selected_cds_fraction, 738 / 1623, delta=0.01)
+
+    def test_print_no_cds(self):
+
+        self.maxDiff = None
+        # tr = deepcopy(self.tr)
+        # tr.finalize()
+
+        real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1; Parent=AT1G01020; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9; Parent=AT1G01020.1; Name=AT1G01020.1
+Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10; Parent=AT1G01020.1; Name=AT1G01020.1"""
+
+        self.assertEqual(real_printed, self.tr.__str__(print_cds=False))
+
+        real_printed_gtf = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
+Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";"""
+
+        self.assertEqual(real_printed_gtf, self.tr.__str__(print_cds=False, to_gtf=True))
 
     def testDoubleOrf(self):
 
@@ -372,7 +447,6 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
 
         self.assertEqual(new_transcripts[1].three_utr_length, 0)
         self.assertEqual(new_transcripts[1].end, 8737)
-
 
 if __name__ == '__main__':
     unittest.main()

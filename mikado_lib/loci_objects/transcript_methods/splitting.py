@@ -13,7 +13,7 @@ from mikado_lib.exceptions import InvalidTranscript
 from mikado_lib.parsers.blast_utils import merge
 from mikado_lib.parsers import bed12
 
-__author__ = 'luca'
+__author__ = 'Luca Venturini'
 
 
 def check_split_by_blast(transcript, cds_boundaries):
@@ -27,7 +27,7 @@ def check_split_by_blast(transcript, cds_boundaries):
     basically, we consider a HSP a hit only if the overlap is over a certain threshold
     and the HSP evalue under a certain threshold.
 
-    The split by CDS can be executed in three different ways - CLEMENT, LENIENT, STRINGENT:
+    The split by CDS can be executed in three different ways - PERMISSIVE, LENIENT, STRINGENT:
 
     - PERMISSIVE: split if two CDSs do not have hits in common,
     even when one or both do not have a hit at all.
@@ -39,7 +39,8 @@ def check_split_by_blast(transcript, cds_boundaries):
     :param transcript: the transcript instance
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
     :param cds_boundaries:
-    :return:
+    :return: cds_boundaries
+    :rtype: dict
     """
 
     # Establish the minimum overlap between an ORF and a BLAST hit to consider it

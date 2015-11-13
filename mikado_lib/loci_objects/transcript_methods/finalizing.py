@@ -57,40 +57,53 @@ def __check_cdna_vs_utr(transcript):
                                              key=operator.itemgetter(0, 1))
             for exon in transcript.exons:
                 assert isinstance(exon, intervaltree.Interval)
+                # If we have more than one CDS segment
                 if len(transcript.combined_cds) > 1:
                     assert isinstance(transcript.combined_cds[0], intervaltree.Interval),\
                         type(transcript.combined_cds[0])
+                # Ignore, this is a completely CDS ORF
                 if exon in transcript.combined_cds:
                     continue
+                # The end of the exon is before the first ORF start
+                # or the start is after the last ORF segment: UTR segment
                 elif (exon[1] < transcript.combined_cds[0][0] or
-                      exon[0] >
-                              transcript.combined_cds[-1][1]):
+                      exon[0] > transcript.combined_cds[-1][1]):
                     transcript.combined_utr.append(exon)
+
+                # The last base of the exon is the first ORF base
                 elif (exon[0] < transcript.combined_cds[0][0] and
                       exon[1] == transcript.combined_cds[0][1]):
                     transcript.combined_utr.append(intervaltree.Interval(
                         exon[0], transcript.combined_cds[0][0] - 1))
-
+                # The first base of the exon is the first base of the last ORF segment:
+                # UTR after
                 elif (exon[1] > transcript.combined_cds[-1][1] and
                       exon[0] == transcript.combined_cds[-1][0]):
                     transcript.combined_utr.append(intervaltree.Interval(
                         transcript.combined_cds[-1][1] + 1, exon[1]))
                 else:
+                    # If the ORF is contained inside a single exon, with UTR
+                    # at both sites, then we create the two UTR segments
                     if len(transcript.combined_cds) == 1:
                         transcript.combined_utr.append(intervaltree.Interval(
                             exon[0], transcript.combined_cds[0][0] - 1))
                         transcript.combined_utr.append(intervaltree.Interval(
                             transcript.combined_cds[-1][1] + 1, exon[1]))
                     else:
+                        # This means there is an INTERNAL UTR region between
+                        # two CDS segments: something is clearly wrong!
                         raise mikado_lib.exceptions.InvalidCDS(
                             "Error while inferring the UTR",
                             exon, transcript.id,
                             transcript.exons, transcript.combined_cds)
 
+            # If no CDS and no UTR are present, all good
             equality_one = (transcript.combined_cds_length == transcript.combined_utr_length == 0)
+            # Otherwise, if cDNA length == UTR + CDS, all good
             equality_two = (transcript.cdna_length ==
                             transcript.combined_utr_length + transcript.combined_cds_length)
             if not (equality_one or equality_two):
+                # Something fishy going on
                 raise mikado_lib.exceptions.InvalidCDS(
                     "Failed to create the UTR",
                     transcript.id, transcript.exons,

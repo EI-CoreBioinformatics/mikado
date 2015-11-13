@@ -60,16 +60,19 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     :param transcript: the transcript instance
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
-
     :param segment: a segment of the form (feature, start, end)
-    :type segment: list(str, int, int)
+    :type segment: list(str, intervaltree.Interval)
+
     :param counter: a Counter object that keeps track of how many exons,
     CDS, UTR segments we have already seen
     :type counter: Counter
+
     :param cds_begin: boolean flag that indicates whether the CDS has already begun
     :type cds_begin: bool
+
     :param tid: name of the transcript
     :param to_gtf: boolean flag
+
     :return: exon_line, counter, cds_begin
     :rtype: ((GtfLine | GffLine), Counter, bool)
     """
@@ -82,6 +85,8 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         constructor = GtfLine
         utr3_feature = "3UTR"
         utr5_feature = "5UTR"
+
+    assert segment[0] in ("UTR", "CDS", "exon"), segment
 
     if segment[0] == "UTR":
         if (cds_begin is True and transcript.strand == "-") or \

@@ -6,8 +6,8 @@ Minimal checks.
 """
 
 import logging
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.exceptions import InvalidTranscript, InvalidCDS
+from ..loci_objects.transcript import Transcript
+from ..exceptions import InvalidTranscript, InvalidCDS
 
 
 class Gene:

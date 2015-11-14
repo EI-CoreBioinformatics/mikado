@@ -7,8 +7,8 @@ Script to extract features from a GTF with certain coordinates.
 
 import sys
 import argparse
-from mikado_lib.parsers.GTF import GTF
-from mikado_lib.loci_objects.transcript import Transcript
+from ...parsers.GTF import GTF
+from ...loci_objects.transcript import Transcript
 
 
 __author__ = 'Luca Venturini'

@@ -5,10 +5,10 @@
 
 import argparse
 import sys
-import mikado_lib.loci_objects
-from mikado_lib.configuration.configurator import to_json
-from mikado_lib.subprograms import to_gff
-import mikado_lib.exceptions
+from ..loci_objects import Picker
+from ..configuration.configurator import to_json
+from . import to_gff
+from ..exceptions import UnsortedInput
 
 
 def check_log_settings(args):
@@ -91,11 +91,10 @@ def pick(args):
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
 
-    creator = mikado_lib.loci_objects.picker.Picker(
-        args.json_conf, commandline=" ".join(sys.argv))
+    creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
     try:
         creator()  # Run
-    except mikado_lib.exceptions.UnsortedInput as err:
+    except UnsortedInput as err:
         print(err, file=sys.stderr)
         sys.exit(1)
 

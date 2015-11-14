@@ -6,10 +6,10 @@ i.e. the locus.
 """
 
 import itertools
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.scales.assigner import Assigner
-from mikado_lib.loci_objects.monosublocus import Monosublocus
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
+from .transcript import Transcript
+from ..scales.assigner import Assigner
+from .monosublocus import Monosublocus
+from .abstractlocus import Abstractlocus
 
 
 class Locus(Monosublocus, Abstractlocus):

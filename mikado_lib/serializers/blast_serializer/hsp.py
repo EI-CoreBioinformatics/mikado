@@ -7,8 +7,8 @@ from sqlalchemy.sql.schema import PrimaryKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship, column_property
 from sqlalchemy import select
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
-from mikado_lib.utilities.dbutils import DBBASE
-from mikado_lib.serializers.blast_serializer import Query, Target, prepare_hsp
+from ...utilities.dbutils import DBBASE
+from . import Query, Target, prepare_hsp
 
 __author__ = 'Luca Venturini'
 

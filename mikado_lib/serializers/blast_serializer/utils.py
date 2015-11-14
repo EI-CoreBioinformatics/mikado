@@ -2,7 +2,7 @@
 Generic utilities used for BLAST serialising into a DB.
 """
 
-from mikado_lib.parsers.blast_utils import merge
+from ...parsers.blast_utils import merge
 import operator
 
 __author__ = 'Luca Venturini'

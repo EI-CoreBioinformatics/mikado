@@ -6,9 +6,8 @@
 
 import sys
 import argparse
-import mikado_lib.parsers
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.subprograms import to_gff
+from ...loci_objects import Transcript
+from .. import to_gff
 
 __author__ = 'Luca Venturini'
 
@@ -222,7 +221,7 @@ def launch(args):
         if record.is_transcript is True:
             if transcript is not None:
                 print(strip_terminal(transcript, args).__str__(to_gtf=args.as_gtf), file=args.out)
-            transcript = mikado_lib.loci_objects.transcript.Transcript(record)
+            transcript = Transcript(record)
         elif record.is_exon is True:
             transcript.add_exon(record)
 

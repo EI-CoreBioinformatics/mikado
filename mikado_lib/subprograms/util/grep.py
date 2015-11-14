@@ -6,8 +6,8 @@
 import sys
 import argparse
 import functools
-from mikado_lib.parsers import GFF, GTF
-from mikado_lib.subprograms import to_gff
+from ...parsers import GFF, GTF
+from ...subprograms import to_gff
 
 __author__ = 'Luca Venturini'
 

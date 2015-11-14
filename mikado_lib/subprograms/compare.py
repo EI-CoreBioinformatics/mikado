@@ -10,8 +10,8 @@ assembling or checking the expression.
 """
 
 import argparse
-from mikado_lib.scales.compare import compare
-from mikado_lib.subprograms import to_gff
+from ..scales.compare import compare
+from . import to_gff
 
 __author__ = "Luca Venturini"
 

@@ -12,9 +12,8 @@ import re
 import yaml
 import subprocess
 from distutils import spawn
-from mikado_lib.exceptions import InvalidJson
-from mikado_lib.loci_objects.transcript import Transcript
-import mikado_lib.exceptions
+from ..exceptions import InvalidJson, UnrecognizedRescaler
+from ..loci_objects.transcript import Transcript
 import json
 import sys
 import jsonschema
@@ -148,7 +147,7 @@ def check_scoring(json_conf):
     invalid_filter = set()
     available_metrics = Transcript.get_available_metrics()
     if "scoring" not in json_conf or len(json_conf["scoring"].keys()) == 0:
-        raise mikado_lib.exceptions.InvalidJson("No parameters specified for scoring!")
+        raise InvalidJson("No parameters specified for scoring!")
 
     validator = extend_with_default(jsonschema.Draft4Validator)
 
@@ -162,7 +161,7 @@ def check_scoring(json_conf):
                 json_conf["scoring"][parameter]):
             errors = list(jsonschema.Draft4Validator(scoring_schema).iter_errors(
                 json_conf["scoring"][parameter]))
-            raise mikado_lib.exceptions.InvalidJson("Invalid scoring for {}:\n{}".format(
+            raise InvalidJson("Invalid scoring for {}:\n{}".format(
                 parameter, "\n".join(errors)))
 
         try:
@@ -174,7 +173,7 @@ def check_scoring(json_conf):
                 message = """Target rescaling requested for {0} but no target value specified.
                     Please specify it with the \"value\" keyword.\n{1}"""
                 message = message.format(parameter, json_conf["scoring"][parameter])
-                raise mikado_lib.exceptions.UnrecognizedRescaler(message)
+                raise UnrecognizedRescaler(message)
 
     if len(parameters_not_found) > 0 or len(double_parameters) > 0 or len(invalid_filter) > 0:
         err_message = ''
@@ -189,7 +188,7 @@ def check_scoring(json_conf):
             err_message += """The following parameters have an invalid filter,
             please correct:
             \t{0}""".format("\n\t".join(list(invalid_filter)))
-        raise mikado_lib.exceptions.InvalidJson(err_message)
+        raise InvalidJson(err_message)
 
     return json_conf
 
@@ -253,7 +252,7 @@ def check_requirements(json_conf, require_schema):
     available_metrics = Transcript.get_available_metrics()
 
     if "parameters" not in json_conf["requirements"]:
-        raise mikado_lib.exceptions.InvalidJson(
+        raise InvalidJson(
             "The requirements field must have a \"parameters\" subfield!")
     for key in json_conf["requirements"]["parameters"]:
         key_name = key.split(".")[0]
@@ -265,13 +264,13 @@ def check_requirements(json_conf, require_schema):
             errors = list(jsonschema.Draft4Validator(require_schema).iter_errors(
                 json_conf["requirements"]["parameters"][key]
             ))
-            raise mikado_lib.exceptions.InvalidJson("Invalid parameter for {0}: \n{1}".format(
+            raise InvalidJson("Invalid parameter for {0}: \n{1}".format(
                 key, errors))
 
         json_conf["requirements"]["parameters"][key]["name"] = key_name
 
     if len(parameters_not_found) > 0:
-        raise mikado_lib.exceptions.InvalidJson(
+        raise InvalidJson(
             "The following parameters, selected for filtering, are invalid:\n\t{0}".format(
                 "\n\t".join(parameters_not_found)
             ))
@@ -287,7 +286,7 @@ def check_requirements(json_conf, require_schema):
         if not jsonschema.Draft4Validator(
                 require_schema["definitions"]["expression"]).is_valid(
                     json_conf["requirements"]["expression"]):
-            raise mikado_lib.exceptions.InvalidJson("Invalid expression field")
+            raise InvalidJson("Invalid expression field")
         expr = " ".join(json_conf["requirements"]["expression"])
         newexpr = expr[:]
 
@@ -298,7 +297,7 @@ def check_requirements(json_conf, require_schema):
             set(keys), set(json_conf["requirements"]["parameters"].keys()))
 
         if len(diff_params) > 0:
-            raise mikado_lib.exceptions.InvalidJson(
+            raise InvalidJson(
                 "Expression and required parameters mismatch:\n\t{0}".format(
                     "\n\t".join(list(diff_params))))
 
@@ -330,7 +329,7 @@ def check_blast(json_conf, json_file):
         json_conf["blast"]["program"])
 
     if "database" not in json_conf["blast"]:
-        raise mikado_lib.exceptions.InvalidJson("No BLAST database provided!")
+        raise InvalidJson("No BLAST database provided!")
     json_conf["blast"]["database"] = os.path.abspath(json_conf["blast"]["database"])
     if not os.path.exists(json_conf["blast"]["database"]):
         database = os.path.join(
@@ -341,10 +340,10 @@ def check_blast(json_conf, json_file):
             if os.path.exists("{0}.gz".format(database)):
                 retcode = subprocess.call("gzip -dc {0}.gz > {0}".format(database), shell=True)
                 if retcode != 0:
-                    raise mikado_lib.exceptions.InvalidJson(
+                    raise InvalidJson(
                         "Failed to decompress the BLAST database!")
             else:
-                raise mikado_lib.exceptions.InvalidJson(
+                raise InvalidJson(
                     """I need a valid BLAST database! This file does not exist:
                     {0}""".format(json_conf["blast"]["database"]))
         else:
@@ -384,11 +383,11 @@ def check_db(json_conf):
 
     if json_conf["db_settings"]["dbtype"] in ("mysql", "postgresql"):
         if "dbhost" not in json_conf["db_settings"]:
-            raise mikado_lib.exceptions.InvalidJson(
+            raise InvalidJson(
                 "No host specified for the {0} database!".format(
                     json_conf["db_settings"]["dbtype"]))
         if "dbuser" not in json_conf["db_settings"]:
-            raise mikado_lib.exceptions.InvalidJson(
+            raise InvalidJson(
                 "No user specified for the {0} database!".format(
                     json_conf["db_settings"]["dbtype"]))
         if json_conf["db_settings"]["dbport"] == 0:
@@ -480,7 +479,7 @@ def check_json(json_conf, simple=False):
                 config_folder,
                 json_conf["pick"]["scoring_file"])
         else:
-            raise mikado_lib.exceptions.InvalidJson(
+            raise InvalidJson(
                 "Scoring file not found: {0}".format(
                     json_conf["pick"]["scoring_file"]))
 

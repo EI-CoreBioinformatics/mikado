@@ -4,6 +4,6 @@ plus the JSON schemas for the configuration and scoring files.
 """
 
 
-import mikado_lib.configuration.configurator
+from . import configurator
 
 __author__ = 'Luca Venturini'

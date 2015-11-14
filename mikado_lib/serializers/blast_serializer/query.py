@@ -4,7 +4,7 @@ Basic module with the Query serialiser.
 
 import collections
 from sqlalchemy import Column, String, Integer
-from mikado_lib.utilities.dbutils import DBBASE
+from ...utilities.dbutils import DBBASE
 __author__ = 'Luca Venturini'
 
 

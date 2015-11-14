@@ -17,11 +17,11 @@ import logging.handlers
 import sqlalchemy
 from Bio import SeqIO
 
-from mikado_lib.configuration import configurator
-from mikado_lib.utilities.log_utils import create_default_logger
-from mikado_lib.utilities import dbutils
-from mikado_lib.serializers import orf, blast_serializer, junction
-import mikado_lib.exceptions
+from ..configuration import configurator
+from ..utilities.log_utils import create_default_logger
+from ..utilities import dbutils
+from ..serializers import orf, blast_serializer, junction
+from ..exceptions import InvalidJson
 
 __author__ = 'Luca Venturini'
 
@@ -79,7 +79,7 @@ def load_junctions(args, logger):
         if ("genome_fai" not in args.json_conf["serialise"]["files"] or
                 args.json_conf["serialise"]["files"]["genome_fai"] is None):
 
-            exc = mikado_lib.exceptions.InvalidJson(
+            exc = InvalidJson(
                 "Missing the genome FAI file for serialising the junctions. I cannot proceed with this step!")
             logger.exception(exc)
             raise exc

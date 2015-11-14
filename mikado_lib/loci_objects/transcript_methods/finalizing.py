@@ -5,7 +5,8 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 
 import intervaltree
 import operator
-import mikado_lib.exceptions
+from ...exceptions import InvalidCDS, InvalidTranscript
+# import mikado_lib.exceptions
 
 __author__ = 'Luca Venturini'
 
@@ -20,7 +21,7 @@ def __basic_final_checks(transcript):
     """
 
     if len(transcript.exons) == 0:
-        raise mikado_lib.exceptions.InvalidTranscript(
+        raise InvalidTranscript(
             "No exon defined for the transcript {0}. Aborting".format(transcript.id))
 
     if not isinstance(transcript.exons[0], intervaltree.Interval):
@@ -34,12 +35,12 @@ def __basic_final_checks(transcript):
                 for exon in transcript.exons]), transcript.exons
 
     if len(transcript.exons) > 1 and transcript.strand is None:
-        raise mikado_lib.exceptions.InvalidTranscript(
+        raise InvalidTranscript(
             "Multiexonic transcripts must have a defined strand! Error for {0}".format(
                 transcript.id))
 
     if transcript.combined_utr != [] and transcript.combined_cds == []:
-        raise mikado_lib.exceptions.InvalidTranscript(
+        raise InvalidTranscript(
             "Transcript {tid} has defined UTRs but no CDS feature!".format(
                 tid=transcript.id))
 
@@ -92,7 +93,7 @@ def __check_cdna_vs_utr(transcript):
                     else:
                         # This means there is an INTERNAL UTR region between
                         # two CDS segments: something is clearly wrong!
-                        raise mikado_lib.exceptions.InvalidCDS(
+                        raise InvalidCDS(
                             "Error while inferring the UTR",
                             exon, transcript.id,
                             transcript.exons, transcript.combined_cds)
@@ -104,7 +105,7 @@ def __check_cdna_vs_utr(transcript):
                             transcript.combined_utr_length + transcript.combined_cds_length)
             if not (equality_one or equality_two):
                 # Something fishy going on
-                raise mikado_lib.exceptions.InvalidCDS(
+                raise InvalidCDS(
                     "Failed to create the UTR",
                     transcript.id, transcript.exons,
                     transcript.combined_cds, transcript.combined_utr)
@@ -125,7 +126,7 @@ def __calculate_introns(transcript):
         for index in range(len(transcript.exons) - 1):
             exona, exonb = transcript.exons[index:index + 2]
             if exona[1] >= exonb[0]:
-                raise mikado_lib.exceptions.InvalidTranscript(
+                raise InvalidTranscript(
                     "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(
                         transcript.id, exona, exonb, transcript.exons))
             # Append the splice junction
@@ -173,7 +174,7 @@ def __verify_boundaries(transcript):
 
             if (transcript.exons[0][0] != transcript.start or
                     transcript.exons[-1][1] != transcript.end):
-                raise mikado_lib.exceptions.InvalidTranscript(
+                raise InvalidTranscript(
                     """The transcript {id} has coordinates {tstart}:{tend},
                 but its first and last exons define it up until {estart}:{eend}!
                 Exons: {exons}
@@ -184,7 +185,7 @@ def __verify_boundaries(transcript):
                            eend=transcript.exons[-1][1],
                            exons=transcript.exons))
     except IndexError as err:
-        raise mikado_lib.exceptions.InvalidTranscript(
+        raise InvalidTranscript(
             err, transcript.id, str(transcript.exons))
 
 
@@ -212,7 +213,7 @@ def __check_internal_orf(transcript, exons, orf):
         for exon_position, exon in enumerate(exons):
             if exon[0] <= orf_segment[0] <= orf_segment[1] <= exon[1]:
                 if previous_exon_index is not None and previous_exon_index + 1 != exon_position:
-                    exc = mikado_lib.exceptions.InvalidTranscript(
+                    exc = InvalidTranscript(
                         """Invalid ORF for {0}, invalid index: {1} (for {2}), expected {3}
                         {4} CDS vs. {5} exons""".format(
                             transcript.id,
@@ -229,7 +230,7 @@ def __check_internal_orf(transcript, exons, orf):
                     exon_found = True
                     break
         if exon_found is False:
-            exc = mikado_lib.exceptions.InvalidTranscript(
+            exc = InvalidTranscript(
                 "Invalid ORF for {0}, no exon found: {1} CDS vs. {2} exons".format(
                     transcript.id,
                     orf_segments,

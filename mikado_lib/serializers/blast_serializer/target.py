@@ -6,7 +6,7 @@ a table containing numeric ID, name and length.
 
 import collections
 from sqlalchemy import Column, String, Integer
-from mikado_lib.utilities.dbutils import DBBASE
+from ...utilities.dbutils import DBBASE
 __author__ = 'Luca Venturini'
 
 

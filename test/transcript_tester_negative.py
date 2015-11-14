@@ -18,7 +18,7 @@ from mikado_lib.utilities.log_utils import create_null_logger
 class TranscriptTesterNegative(unittest.TestCase):
 
     logger = create_null_logger("null")
-    logger.setLevel(logging.ERROR)
+    logger.setLevel(logging.DEBUG)
 
     tr_gff = """Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020
 Chr1    TAIR10    five_prime_UTR    8667    8737    .    -    .    Parent=AT1G01020.1
@@ -176,13 +176,11 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         self.assertEqual(self.tr.selected_cds_start, 8666)
         self.assertEqual(self.tr.selected_cds_end, 6915)
 
-    # @unittest.SkipTest
     def test_utr(self):
         self.assertEqual(self.tr.five_utr, [intervaltree.Interval(8667, 8737)])
         self.assertEqual(self.tr.three_utr, [intervaltree.Interval(5928, 6263),
                                              intervaltree.Interval(6437, 6914)])
 
-    # @unittest.SkipTest
     def test_utr_metrics(self):
 
         """Test for UTR exon num, start distance, etc."""
@@ -236,7 +234,10 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         :return:
         """
 
-        self.tr.strip_cds()
+        with self.assertLogs("null", level="DEBUG") as log_split:
+            self.tr.strip_cds()
+        self.assertIn("WARNING:null:Stripping CDS from AT1G01020.1", log_split.output)
+
         self.assertEqual(self.tr.selected_cds_length, 0)
         self.assertEqual(self.tr.three_utr, [])
         self.assertEqual(self.tr.five_utr, [])

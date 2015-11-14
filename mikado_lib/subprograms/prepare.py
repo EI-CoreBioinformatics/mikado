@@ -13,11 +13,11 @@ import operator
 import collections
 import logging
 import itertools
-from mikado_lib import exceptions
+from .. import exceptions
 import copy
-from mikado_lib.loci_objects.transcriptchecker import TranscriptChecker
-from mikado_lib.configuration.configurator import to_json
-from mikado_lib.subprograms import to_gff
+from ..loci_objects.transcriptchecker import TranscriptChecker
+from ..configuration.configurator import to_json
+from . import to_gff
 from Bio import SeqIO
 import functools
 import multiprocessing
@@ -111,6 +111,9 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
     :param min_length: minimal length of the transcript.
     If it is not met, the transcript will be discarded.
     :type min_length: int
+
+    :param cache: whether the FASTA file of the genome has been preloaded into RAM.
+    :type cache: bool
 
     :return: transcripts: dictionary which will be the final output
     :rtype: transcripts

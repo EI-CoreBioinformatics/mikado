@@ -6,8 +6,8 @@
 Module to serialize GFF files.
 """
 
-from mikado_lib.parsers import Parser
-from mikado_lib.parsers.gfannotation import GFAnnotation
+from . import Parser
+from .gfannotation import GFAnnotation
 
 
 # This class has exactly how many attributes I need it to have

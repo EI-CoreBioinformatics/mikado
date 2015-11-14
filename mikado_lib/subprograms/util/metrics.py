@@ -4,7 +4,7 @@
 """Quick script to automate the generation of metrics definition from the files."""
 
 import sys
-from mikado_lib.loci_objects.transcript import Transcript
+from ...loci_objects import Transcript
 import re
 import argparse
 

@@ -6,7 +6,7 @@ It is invoked when all transcripts in a locus have a score of 0 and the "purge"
 option has been enabled.
 """
 
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
+from .abstractlocus import Abstractlocus
 
 
 class Excluded(Abstractlocus):

@@ -10,13 +10,11 @@ from Bio import SeqIO
 import sqlalchemy.exc
 from Bio.Blast.NCBIXML import parse as xparser
 from sqlalchemy.orm.session import sessionmaker
-from mikado_lib.utilities.dbutils import DBBASE
-from mikado_lib.utilities.dbutils import connect
-from mikado_lib.parsers.blast_utils import XMLMerger, create_opener
-from mikado_lib.utilities.log_utils import create_null_logger, check_logger
-from mikado_lib.serializers.blast_serializer import Query, Target
-from mikado_lib.serializers.blast_serializer import Hsp, Hit
-from mikado_lib.serializers.blast_serializer import prepare_hit
+from ...utilities.dbutils import DBBASE
+from ...utilities.dbutils import connect
+from ...parsers.blast_utils import XMLMerger, create_opener
+from ...utilities.log_utils import create_null_logger, check_logger
+from . import Query, Target, Hsp, Hit, prepare_hit
 
 
 __author__ = 'Luca Venturini'

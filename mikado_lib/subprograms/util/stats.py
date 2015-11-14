@@ -8,17 +8,16 @@ import sys
 import argparse
 import re
 import csv
-from mikado_lib.exceptions import InvalidCDS
-from mikado_lib.subprograms import to_gff
-from mikado_lib.loci_objects import transcript
-from mikado_lib.parsers import GFF
+from ...exceptions import InvalidTranscript, InvalidCDS
+from .. import to_gff
+from ...loci_objects.transcript import Transcript
+from ...parsers import GFF
 # pylint: disable=E1101,no-name-in-module
 from numpy import array as num_array
 from numpy import mean, percentile
 import numpy
 # pylint: enable=E1101
 # import numpy
-import mikado_lib
 from collections import namedtuple, Counter
 from array import array as c_array
 
@@ -30,7 +29,7 @@ numpy.warnings.filterwarnings("ignore")
 # pylint: enable=E1101
 
 
-class TranscriptComputer(transcript.Transcript):
+class TranscriptComputer(Transcript):
     """
     Class that is used to calculate and store basic statistics about a transcript object.
     """
@@ -143,7 +142,7 @@ class GeneObject:
                     to_remove.add(tid)
                 if self.transcripts[tid].selected_cds_length > 0:
                     self.coding_transcripts.add(tid)
-            except mikado_lib.exceptions.InvalidTranscript as _:
+            except InvalidTranscript as _:
                 print("Invalid transcript: {0}".format(tid), file=sys.stderr)
                 to_remove.add(tid)
         if len(to_remove) == len(self.transcripts):

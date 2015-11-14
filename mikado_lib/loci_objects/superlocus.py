@@ -15,15 +15,16 @@ from sqlalchemy.sql.expression import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 import sqlalchemy.pool
-from mikado_lib.serializers.junction import Junction, Chrom
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
-from mikado_lib.loci_objects.monosublocus import Monosublocus
-from mikado_lib.loci_objects.excluded import Excluded
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.loci_objects.sublocus import Sublocus
-from mikado_lib.loci_objects.monosublocusholder import MonosublocusHolder
-from mikado_lib.parsers.GFF import GffLine
-import mikado_lib.exceptions
+from ..serializers.junction import Junction, Chrom
+from .abstractlocus import Abstractlocus
+from .monosublocus import Monosublocus
+from .excluded import Excluded
+from .transcript import Transcript
+from .sublocus import Sublocus
+from .monosublocusholder import MonosublocusHolder
+from ..parsers.GFF import GffLine
+from ..exceptions import NoJsonConfigError, NotInLocusError
+# import mikado_lib.exceptions
 
 
 # The number of attributes is something I need
@@ -87,9 +88,7 @@ class Superlocus(Abstractlocus):
         self.stranded = stranded
         self.feature = self.__name__
         if json_conf is None or not isinstance(json_conf, dict):
-            raise mikado_lib.exceptions.NoJsonConfigError(
-                "I am missing the configuration for prioritizing transcripts!"
-            )
+            raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
         self.json_conf = json_conf
         self.purge = self.json_conf["pick"]["run_options"]["purge"]
 
@@ -570,7 +569,7 @@ class Superlocus(Abstractlocus):
             for ttt in subl[1:]:
                 try:
                     new_sublocus.add_transcript_to_locus(ttt)
-                except mikado_lib.exceptions.NotInLocusError as orig_exc:
+                except NotInLocusError as orig_exc:
                     exc_text = """Sublocus: {0}
                     Offending transcript:{1}
                     In locus manual check: {2}
@@ -592,7 +591,7 @@ class Superlocus(Abstractlocus):
                         ),
                         orig_exc
                     )
-                    raise mikado_lib.exceptions.NotInLocusError(exc_text)
+                    raise NotInLocusError(exc_text)
 
             new_sublocus.parent = self.id
             self.subloci.append(new_sublocus)

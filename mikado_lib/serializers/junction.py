@@ -9,7 +9,6 @@ before loading.
 
 import io
 import os
-
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Integer
@@ -21,10 +20,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import relationship, column_property
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.ext.hybrid import hybrid_method
-from mikado_lib.utilities.dbutils import DBBASE, Inspector, connect
-
-from mikado_lib.parsers import bed12
-from mikado_lib.utilities.log_utils import check_logger, create_default_logger
+from ..utilities.dbutils import DBBASE, Inspector, connect
+from ..parsers import bed12
+from ..utilities.log_utils import check_logger, create_default_logger
 
 
 # pylint: disable=too-few-public-methods
@@ -153,7 +151,7 @@ class JunctionSerializer:
             self.logger = create_default_logger("junction")
 
         if handle is None:
-            self.logger.warn("No input file specified. Exiting.")
+            self.logger.warning("No input file specified. Exiting.")
             self.close()
             return
 
@@ -189,7 +187,7 @@ class JunctionSerializer:
 
         sequences = dict()
         if self.bed12_parser is None:
-            self.logger.warn("No input file specified. Exiting.")
+            self.logger.warning("No input file specified. Exiting.")
             return
 
         if self.fai is not None:
@@ -240,6 +238,10 @@ class JunctionSerializer:
         self.close()
 
     def close(self):
+        """
+        Closing method for with. It will close the handles, if they are defined.
+        :return:
+        """
 
         if self.bed12_parser is not None:
             self.bed12_parser.close()

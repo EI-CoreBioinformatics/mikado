@@ -8,8 +8,8 @@ and the final definition of loci.
 A Monosublocus is characterized by its containing one and only one transcript.
 """
 
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
-from mikado_lib.parsers.GFF import GffLine
+from .abstractlocus import Abstractlocus
+from ..parsers.GFF import GffLine
 
 
 # pylint: disable=too-many-instance-attributes,too-many-public-methods

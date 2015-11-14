@@ -7,7 +7,7 @@ Script to extract features from a GTF with certain coordinates.
 
 import sys
 import argparse
-from mikado_lib.parsers.blast_utils import XMLMerger, create_opener
+from ...parsers.blast_utils import XMLMerger, create_opener
 import logging
 
 __author__ = 'Luca Venturini'

@@ -7,11 +7,11 @@ before the definition of real loci.
 
 import collections
 import itertools
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
-from mikado_lib.loci_objects.sublocus import Sublocus
-from mikado_lib.loci_objects.locus import Locus
-from mikado_lib.loci_objects.monosublocus import Monosublocus
+from .transcript import Transcript
+from .abstractlocus import Abstractlocus
+from .sublocus import Sublocus
+from .locus import Locus
+from .monosublocus import Monosublocus
 
 
 # Resolution order is important here!

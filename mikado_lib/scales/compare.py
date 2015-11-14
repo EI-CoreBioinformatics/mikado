@@ -12,13 +12,12 @@ import collections
 import multiprocessing
 import logging
 from logging import handlers as log_handlers
-
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.scales.assigner import Assigner
-from mikado_lib.scales.reference_gene import Gene
-from mikado_lib.parsers.GFF import GFF3
-from mikado_lib.scales.accountant import Accountant
-from mikado_lib.utilities.log_utils import create_default_logger
+from ..loci_objects.transcript import Transcript
+from .assigner import Assigner
+from .reference_gene import Gene
+from ..parsers.GFF import GFF3
+from .accountant import Accountant
+from ..utilities.log_utils import create_default_logger
 
 __author__ = 'Luca Venturini'
 

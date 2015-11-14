@@ -9,17 +9,21 @@
     The creation of the loci is delegated to the "Creator" class.
 """
 
-import mikado_lib.loci_objects.abstractlocus
-import mikado_lib.loci_objects.picker
-import mikado_lib.loci_objects.excluded
-import mikado_lib.loci_objects.locus
-import mikado_lib.loci_objects.monosublocus
-import mikado_lib.loci_objects.sublocus
-import mikado_lib.loci_objects.superlocus
-import mikado_lib.loci_objects.transcript
-import mikado_lib.loci_objects.transcriptchecker
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.loci_objects.superlocus import Superlocus, Sublocus, Monosublocus
-from mikado_lib.loci_objects.monosublocusholder import MonosublocusHolder
-from mikado_lib.loci_objects.locus import Locus
-from mikado_lib.loci_objects.excluded import Excluded
+__title__ = "loci_objects"
+
+from .transcript import Transcript
+from .abstractlocus import Abstractlocus
+from .superlocus import Superlocus, Sublocus, Monosublocus
+from .monosublocusholder import MonosublocusHolder
+from .locus import Locus
+from .excluded import Excluded
+from .picker import Picker
+# from . import abstractlocus
+# from . import picker
+# from . import excluded
+# from . import locus
+# from . import monosublocus
+# from . import sublocus
+# from . import superlocus
+from . import transcript
+# from . import transcriptchecker

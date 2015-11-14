@@ -24,7 +24,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.end = 6000
         self.transcript.strand = "+"
         self.transcript.id = "transcript1"
-        self.transcript.id = "gene1"
+        self.transcript.parent = "gene1"
         self.transcript.source = "Mikado"
         self.transcript.exons = [(1001, 6000)]
         
@@ -104,16 +104,28 @@ class TestSplitMonoexonic(unittest.TestCase):
         hit1["hsps"] = []
         hit1["target"] = "target1"
         hit1["target_length"] = 3000
+        hit1["query_start"] = 50
+        hit1["query_end"] = 3200
+        hit1["evalue"] = 10**(-6)
+        hit1["global_identity"] = 100
+        hit1["query_aligned_length"] = 3200 - 500
+        hit1["target_aligned_length"] = 3000 - 1
 
         hsp1_1 = dict()
         hsp1_1["hsp_evalue"] = 10**(-6)
+        hsp1_1["hsp_bits"] = 1200
         hsp1_1["query_hsp_start"] = 50
         hsp1_1["query_hsp_end"] = 3200
         hsp1_1["target_hsp_start"] = 1
         hsp1_1["target_hsp_end"] = 3000
+        hsp1_1["match"] = "|" * (3200 - 500)
+
         hit1["hsps"] = [hsp1_1]
 
+        hits.append(hit1)
+
         self.transcript.blast_hits = hits
+        self.assertEqual(len(self.transcript.blast_hits), 1)
 
     def test_simple_split(self):
 
@@ -139,8 +151,6 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(new_transcripts[1].end, self.transcript.end)
 
     def test_lenient_split(self):
-
-        # TODO: this test is failing, it is of primary importance to understand why
 
         self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
 
@@ -187,6 +197,135 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2,
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
 
+    def get_second_hit(self):
+
+        hit1 = dict()
+        hit1["evalue"] = 10**-6
+        hit1["hsps"] = []
+        hit1["target"] = "target2"
+        hit1["target_length"] = 2000
+        hit1["query_start"] = 3700
+        hit1["query_end"] = 4850
+        hit1["evalue"] = 10**(-6)
+        hit1["global_identity"] = 100
+        hit1["query_aligned_length"] = 4850 - 3700
+        hit1["target_aligned_length"] = 1149
+
+        hsp1_1 = dict()
+        hsp1_1["hsp_evalue"] = 10**(-6)
+        hsp1_1["hsp_bits"] = 1200
+        hsp1_1["query_hsp_start"] = 3700
+        hsp1_1["query_hsp_end"] = 4850
+        hsp1_1["target_hsp_start"] = 1
+        hsp1_1["target_hsp_end"] = 2000
+        hsp1_1["match"] = "|" * (4850 - 3700)
+
+        hit1["hsps"] = [hsp1_1]
+        return hit1
+
+    def test_permissive_split_twohits(self):
+
+        hit2 = self.get_second_hit()
+        self.transcript.blast_hits.append(hit2)
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+
+        self.transcript.json_conf["pick"][
+            "chimera_split"]["blast_params"]["leniency"] = "PERMISSIVE"
+
+        self.assertEqual(2,
+                         len(list(splitting.split_by_cds(self.transcript))))
+
+    def test_stringent_split_twohits(self):
+
+        hit2 = self.get_second_hit()
+        self.transcript.blast_hits.append(hit2)
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+
+        self.transcript.json_conf["pick"][
+            "chimera_split"]["blast_params"]["leniency"] = "STRINGENT"
+
+        self.assertEqual(2,
+                         len(list(splitting.split_by_cds(self.transcript))))
+
+    def test_lenient_split_twohits(self):
+
+        hit2 = self.get_second_hit()
+        self.transcript.blast_hits.append(hit2)
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+
+        self.transcript.json_conf["pick"][
+            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+
+        self.assertEqual(2,
+                         len(list(splitting.split_by_cds(self.transcript))))
+
+    def get_spanning_hit(self):
+
+        hit1 = dict()
+        hit1["evalue"] = 10**-6
+        hit1["hsps"] = []
+        hit1["target"] = "target1"
+        hit1["target_length"] = 5000
+        hit1["query_start"] = 51
+        hit1["query_end"] = 5000
+        hit1["evalue"] = 10**(-6)
+        hit1["global_identity"] = 100
+        hit1["query_aligned_length"] = 4950
+        hit1["target_aligned_length"] = 4950
+
+        hsp1_1 = dict()
+        hsp1_1["hsp_evalue"] = 10**(-6)
+        hsp1_1["hsp_bits"] = 1200
+        hsp1_1["query_hsp_start"] = 51
+        hsp1_1["query_hsp_end"] = 5000
+        hsp1_1["target_hsp_start"] = 1
+        hsp1_1["target_hsp_end"] = 4950
+        hsp1_1["match"] = "|" * 4950
+
+        hit1["hsps"] = [hsp1_1]
+        return hit1
+
+    def test_spanning_hit_lenient(self):
+
+        self.transcript.blast_hits = [self.get_spanning_hit()]
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+
+        self.transcript.json_conf["pick"][
+            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+
+        self.assertEqual(1,
+                         len(list(splitting.split_by_cds(self.transcript))))
+
+    def test_spanning_hit_nocheck(self):
+        self.transcript.blast_hits = [self.get_spanning_hit()]
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
+        cds_boundaries = OrderedDict()
+        for orf in sorted(self.transcript.loaded_bed12,
+                          key=operator.attrgetter("thick_start", "thick_end")):
+            cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
+
+        self.assertEqual(len(cds_boundaries), 2)
+        self.assertEqual(self.transcript.number_internal_orfs, 2)
+        self.assertEqual(2,
+                         len(list(splitting.split_by_cds(self.transcript))))
+
+    def test_deleted_hits(self):
+
+        delattr(self.transcript, "blast_hits")
+        self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = True
+        self.transcript.json_conf["pick"][
+            "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
+        self.transcript.logger = self.logger
+        with self.assertLogs("test_mono", level="WARNING") as log_split:
+            self.assertEqual(2,
+                             len(list(splitting.split_by_cds(self.transcript))))
+
+        self.assertIn("WARNING:test_mono:BLAST hits store lost for transcript1! Creating a mock one to avoid a crash",
+                      log_split.output)
+
+    def test_duplication(self):
+
+        pass
 
 
 if __name__ == "__main__":

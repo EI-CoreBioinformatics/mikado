@@ -6,9 +6,9 @@ from the database/dictionary provided during the pick operation.
 
 from itertools import groupby
 from sqlalchemy.orm.session import sessionmaker
-import mikado_lib.utilities
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
-from mikado_lib.serializers.junction import Junction
+from ...utilities import dbutils
+from ..abstractlocus import Abstractlocus
+from ...serializers.junction import Junction
 from sqlalchemy import and_
 import operator
 import intervaltree
@@ -242,7 +242,7 @@ def __connect_to_db(transcript):
 
     """
 
-    transcript.engine = mikado_lib.utilities.dbutils.connect(
+    transcript.engine = dbutils.connect(
         transcript.json_conf, transcript.logger)
 
     transcript.sessionmaker = sessionmaker()

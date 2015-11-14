@@ -8,10 +8,10 @@ from collections import OrderedDict
 import collections
 import operator
 from intervaltree import IntervalTree, Interval
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
-from mikado_lib.exceptions import InvalidTranscript
-from mikado_lib.parsers.blast_utils import merge
-from mikado_lib.parsers import bed12
+from ..abstractlocus import Abstractlocus
+from ...exceptions import InvalidTranscript
+from ...parsers.blast_utils import merge
+from ...parsers import bed12
 
 __author__ = 'Luca Venturini'
 
@@ -60,6 +60,8 @@ def check_split_by_blast(transcript, cds_boundaries):
 
             transcript.id)
         transcript.blast_hits = []
+
+    transcript.logger.debug("%s has %d possible hits", transcript.id, len(transcript.blast_hits))
 
     # Determine for each CDS which are the hits available
     min_eval = transcript.json_conf["pick"]['chimera_split']['blast_params']['hsp_evalue']

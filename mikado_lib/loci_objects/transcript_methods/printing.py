@@ -6,8 +6,8 @@ GFFs/GTFs starting from the transcript class.
 
 from collections import Counter
 import functools
-from mikado_lib.parsers.GTF import GtfLine
-from mikado_lib.parsers.GFF import GffLine
+from ...parsers.GTF import GtfLine
+from ...parsers.GFF import GffLine
 
 __author__ = 'Luca Venturini'
 

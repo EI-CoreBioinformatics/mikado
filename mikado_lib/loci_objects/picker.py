@@ -20,15 +20,17 @@ from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 import sqlalchemy.pool
 import sqlalchemy
-import mikado_lib.loci_objects  # mikado_lib imports
-import mikado_lib.parsers
-from mikado_lib.serializers.blast_serializer import Hit, Query
-from mikado_lib.serializers.junction import Junction, Chrom
-from mikado_lib.serializers.orf import Orf
-from mikado_lib.loci_objects.superlocus import Superlocus
-from mikado_lib.configuration import configurator
-from mikado_lib.utilities import dbutils
-import mikado_lib.exceptions
+from ..parsers.GTF import GTF
+from ..parsers.GFF import GFF3
+from ..serializers.blast_serializer import Hit, Query
+from ..serializers.junction import Junction, Chrom
+from ..serializers.orf import Orf
+from .superlocus import Superlocus, Transcript
+from mikado_lib import configuration
+# from ..configuration import configurator
+from ..utilities import dbutils
+from ..exceptions import UnsortedInput, InvalidJson
+# import mikado_lib.exceptions
 
 
 # pylint: disable=no-name-in-module
@@ -237,7 +239,7 @@ class Picker:
         # Now we start the real work
         if isinstance(json_conf, str):
             assert os.path.exists(json_conf)
-            json_conf = configurator.to_json(json_conf)
+            json_conf = configuration.configurator.to_json(json_conf)
         else:
             assert isinstance(json_conf, dict)
 
@@ -293,7 +295,7 @@ class Picker:
             self.threads = self.json_conf["pick"]["threads"] = 1
 
         if self.locus_out is None:
-            raise mikado_lib.exceptions.InvalidJson(
+            raise InvalidJson(
                 "No output prefix specified for the final loci. Key: \"loci_out\"")
 
         self.printer_process = Process(target=self.printer)
@@ -303,9 +305,9 @@ class Picker:
         """Function to check that the input file exists and is valid. It returns the parser."""
 
         if self.input_file.endswith(".gtf"):
-            parser = mikado_lib.parsers.GTF.GTF
+            parser = GTF
         else:
-            parser = mikado_lib.parsers.GFF.GFF3
+            parser = GFF3
 
         verified = False
         for row in parser(self.input_file):
@@ -313,7 +315,7 @@ class Picker:
                 verified = True
                 break
         if verified is False:
-            raise mikado_lib.exceptions.InvalidJson(
+            raise InvalidJson(
                 "Invalid input file: {0}".format(self.input_file))
 
         return parser(self.input_file)
@@ -453,7 +455,7 @@ class Picker:
                                      re.sub(".gff.?$", "", self.sub_out))
             sub_metrics = csv.DictWriter(
                 open(sub_metrics_file, 'w'),
-                mikado_lib.loci_objects.superlocus.Superlocus.available_metrics,
+                Superlocus.available_metrics,
                 delimiter="\t")
             sub_metrics.writeheader()
             sub_scores = csv.DictWriter(
@@ -500,7 +502,7 @@ class Picker:
             ".gff.?$", "", self.locus_out))
         locus_metrics = csv.DictWriter(
             open(locus_metrics_file, 'w'),
-            mikado_lib.loci_objects.superlocus.Superlocus.available_metrics,
+            Superlocus.available_metrics,
             delimiter="\t")
 
         locus_metrics.writeheader()
@@ -849,7 +851,7 @@ class Picker:
         self.logger.critical(error_msg)
         error_msg = "CRITICAL - {0}".format(" ".join(
             [l.strip() for l in error_msg.split("\n")]))
-        raise mikado_lib.exceptions.UnsortedInput(error_msg)
+        raise UnsortedInput(error_msg)
 
     def __test_sortedness(self, row, current_transcript):
         """
@@ -898,7 +900,7 @@ class Picker:
             elif row.is_transcript is True:
                 if current_transcript is not None:
                     self.__test_sortedness(row, current_transcript)
-                    if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(
+                    if Superlocus.in_locus(
                             current_locus, current_transcript) is True:
                         current_locus.add_transcript_to_locus(current_transcript,
                                                               check_in_locus=False)
@@ -907,7 +909,7 @@ class Picker:
                         job = submit_locus(current_locus, counter)
                         if job is not None:
                             jobs.append(job)
-                        current_locus = mikado_lib.loci_objects.superlocus.Superlocus(
+                        current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
                             json_conf=self.json_conf)
@@ -918,13 +920,13 @@ class Picker:
                                          current_transcript.chrom)
                     self.logger.info("Starting chromosome %s", row.chrom)
 
-                current_transcript = mikado_lib.loci_objects.transcript.Transcript(
+                current_transcript = Transcript(
                     row,
                     source=self.json_conf["pick"]["output_format"]["source"],
                     intron_range=intron_range)
 
         if current_transcript is not None:
-            if mikado_lib.loci_objects.superlocus.Superlocus.in_locus(
+            if Superlocus.in_locus(
                     current_locus, current_transcript) is True:
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
@@ -932,7 +934,7 @@ class Picker:
                 counter += 1
                 jobs.append(submit_locus(current_locus, counter))
 
-                current_locus = mikado_lib.loci_objects.superlocus.Superlocus(
+                current_locus = Superlocus(
                     current_transcript,
                     stranded=False,
                     json_conf=self.json_conf)
@@ -969,7 +971,7 @@ class Picker:
 
         try:
             _ = self._parse_and_submit_input(pool, data_dict)
-        except mikado_lib.exceptions.UnsortedInput as _:
+        except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")
             sys.exit(1)

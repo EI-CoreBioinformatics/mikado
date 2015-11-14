@@ -8,7 +8,7 @@ import itertools
 import re
 import argparse
 import sys
-import mikado_lib
+from ..configuration import configurator
 
 
 __author__ = 'Luca Venturini'
@@ -78,8 +78,8 @@ def create_simple_config():
     :return:
     """
 
-    default = mikado_lib.configuration.configurator.to_json("", simple=True)
-    validator = mikado_lib.configuration.configurator.create_validator(simple=True)
+    default = configurator.to_json("", simple=True)
+    validator = configurator.create_validator(simple=True)
 
     del default["scoring"]
     del default["requirements"]
@@ -103,7 +103,7 @@ def create_simple_config():
         for k in reversed(ckey):
             val = {k: val}
 
-        new_dict = mikado_lib.configuration.configurator.merge_dictionaries(new_dict, val)
+        new_dict = configurator.merge_dictionaries(new_dict, val)
 
     return new_dict
 
@@ -161,7 +161,7 @@ def create_config(args):
     """
 
     if args.full is True:
-        default = mikado_lib.configuration.configurator.to_json("")
+        default = configurator.to_json("")
         del default["scoring"]
         del default["requirements"]
         config = default

@@ -11,23 +11,22 @@ import sys
 import re
 import inspect
 import intervaltree
-from mikado_lib.utilities.log_utils import create_null_logger
+from ..utilities.log_utils import create_null_logger
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
-import mikado_lib.utilities  # mikado_lib imports
-import mikado_lib.serializers.orf
-from mikado_lib.serializers.blast_serializer import Query, Hit
-from mikado_lib.serializers.orf import Orf
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
-from mikado_lib.parsers.GTF import GtfLine
-from mikado_lib.parsers.GFF import GffLine
-import mikado_lib.exceptions
-from mikado_lib.loci_objects.transcript_methods import splitting, retrieval
-from mikado_lib.loci_objects.transcript_methods.printing import create_lines_cds
-from mikado_lib.loci_objects.transcript_methods.printing import create_lines_no_cds
-from mikado_lib.loci_objects.transcript_methods.finalizing import finalize
+from ..exceptions import ModificationError, InvalidTranscript
+from ..serializers.blast_serializer import Query, Hit
+from ..serializers.orf import Orf
+from .abstractlocus import Abstractlocus
+from ..parsers.GTF import GtfLine
+from ..parsers.GFF import GffLine
+# import mikado_lib.exceptions
+from .transcript_methods import splitting, retrieval
+from .transcript_methods.printing import create_lines_cds
+from .transcript_methods.printing import create_lines_no_cds
+from .transcript_methods.finalizing import finalize
 
 
 class Metric(property):
@@ -89,9 +88,9 @@ class Transcript:
 
     orf_baked = bakery(lambda session: session.query(Orf))
     orf_baked += lambda q: q.filter(
-        mikado_lib.serializers.orf.Orf.query == bindparam("query"))
+        Orf.query == bindparam("query"))
     orf_baked += lambda q: q.filter(
-        mikado_lib.serializers.orf.Orf.cds_len >= bindparam("cds_len"))
+        Orf.cds_len >= bindparam("cds_len"))
     orf_baked += lambda q: q.order_by(desc(Orf.cds_len))
 
     # ######## Class special methods ####################
@@ -323,11 +322,10 @@ class Transcript:
         """
 
         if self.finalized is True:
-            raise mikado_lib.exceptions.ModificationError(
-                "You cannot add exons to a finalized transcript!")
+            raise ModificationError("You cannot add exons to a finalized transcript!")
 
         if self.id not in gffline.parent:
-            raise mikado_lib.exceptions.InvalidTranscript(
+            raise InvalidTranscript(
                 """Mismatch between transcript and exon:
                 {0}
                 {1}
@@ -350,8 +348,7 @@ class Transcript:
         elif gffline.feature == "intron":
             store = self.introns
         else:
-            raise mikado_lib.exceptions.InvalidTranscript(
-                "Unknown feature: {0}".format(gffline.feature))
+            raise InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
 
         start, end = sorted([gffline.start, gffline.end])
         assert isinstance(start, int) and isinstance(end, int)

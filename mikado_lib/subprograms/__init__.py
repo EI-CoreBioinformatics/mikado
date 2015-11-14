@@ -2,7 +2,7 @@
 
 """This module contains the ORM modules necessary to create the starting DB from the input data."""
 
-from mikado_lib.parsers import GTF, GFF
+from ..parsers import GTF, GFF
 
 
 def to_gff(string):
@@ -21,14 +21,14 @@ def to_gff(string):
 
 
 # noinspection PyPep8
-import mikado_lib.subprograms.configure
+from . import configure
 # noinspection PyPep8
-import mikado_lib.subprograms.compare
+from . import compare
 # noinspection PyPep8
-import mikado_lib.subprograms.pick
+from . import pick
 # noinspection PyPep8
-import mikado_lib.subprograms.prepare
+from . import prepare
 # noinspection PyPep8
-import mikado_lib.subprograms.serialise
+from . import serialise
 # noinspection PyPep8
-import mikado_lib.subprograms.util
+from . import util

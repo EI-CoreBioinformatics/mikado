@@ -14,11 +14,10 @@ import sqlalchemy.exc
 from sqlalchemy.orm import relationship, backref, column_property
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import select
-from mikado_lib.utilities.dbutils import DBBASE, Inspector, connect
-
-from mikado_lib.parsers import bed12
-from mikado_lib.serializers.blast_serializer import Query
-from mikado_lib.utilities.log_utils import create_null_logger, check_logger
+from ..utilities.dbutils import DBBASE, Inspector, connect
+from ..parsers import bed12
+from .blast_serializer import Query
+from ..utilities.log_utils import create_null_logger, check_logger
 
 
 # This is a serialization class, it must have a ton of attributes ...

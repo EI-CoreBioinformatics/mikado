@@ -7,11 +7,11 @@ or multiexonic and with at least one intron in common.
 """
 
 import itertools
-from mikado_lib.loci_objects.excluded import Excluded
-from mikado_lib.loci_objects.abstractlocus import Abstractlocus
-from mikado_lib.loci_objects.monosublocus import Monosublocus
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.parsers.GFF import GffLine
+from .abstractlocus import Abstractlocus
+from .excluded import Excluded
+from .monosublocus import Monosublocus
+from .transcript import Transcript
+from ..parsers.GFF import GffLine
 
 
 # pylint: disable=too-many-instance-attributes

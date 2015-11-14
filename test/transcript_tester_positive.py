@@ -250,11 +250,14 @@ class DrosoTester(unittest.TestCase):
         
     def test_code(self):
 
-        print(mikado_lib.scales.assigner.Assigner.compare(self.pred, self.ref))
+        # print(mikado_lib.scales.assigner.Assigner.compare(self.pred, self.ref))
         self.assertEqual(len(self.ref.combined_cds_introns), 7)
 
 
 class TranscriptTesterPositive(unittest.TestCase):
+
+    logger = create_null_logger("test_at")
+
     tr_gff = """Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380
 Chr2    TAIR10    exon    626642    626780    .    +    .    Parent=AT2G02380.1
 Chr2    TAIR10    five_prime_UTR    626642    626780    .    +    .    Parent=AT2G02380.1
@@ -301,6 +304,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
+        self.tr.logger = self.logger
 
         self.orf = mikado_lib.parsers.bed12.BED12()
         self.orf.chrom = self.tr.id
@@ -420,7 +424,11 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
     def test_strip_cds(self):
 
-        self.tr.strip_cds()
+        with self.assertLogs("test_at", level="DEBUG") as log_split:
+            self.tr.strip_cds()
+
+        self.assertIn("WARNING:test_at:Stripping CDS from AT2G02380.1", log_split.output)
+
         self.assertEqual(self.tr.selected_cds_length, 0)
         self.assertEqual(self.tr.three_utr, [])
         self.assertEqual(self.tr.five_utr, [])

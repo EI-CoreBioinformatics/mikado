@@ -10,7 +10,7 @@ import random
 import os
 from Bio import SeqIO
 import Bio.SeqRecord
-from mikado_lib.parsers import Parser
+from . import Parser
 
 
 # These classes do contain lots of things, it is correct like it is

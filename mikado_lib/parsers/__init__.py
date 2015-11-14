@@ -94,10 +94,10 @@ class Parser(metaclass=abc.ABCMeta):
 
 
 # noinspection PyPep8
-import mikado_lib.parsers.GFF
+from . import GFF
 # noinspection PyPep8
-import mikado_lib.parsers.GTF
+from . import GTF
 # noinspection PyPep8
-import mikado_lib.parsers.bed12
+from . import bed12
 # noinspection PyPep8
-import mikado_lib.parsers.blast_utils
+from . import blast_utils

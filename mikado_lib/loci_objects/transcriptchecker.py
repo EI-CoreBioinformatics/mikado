@@ -5,8 +5,8 @@ This module defines a child of the Transcript class, which is used
 to verify that e.g. the assigned strand is correct.
 """
 
-from mikado_lib.loci_objects.transcript import Transcript
-from mikado_lib.exceptions import IncorrectStrandError
+from .transcript import Transcript
+from ..exceptions import IncorrectStrandError
 from collections import Counter
 from functools import partial
 from itertools import zip_longest

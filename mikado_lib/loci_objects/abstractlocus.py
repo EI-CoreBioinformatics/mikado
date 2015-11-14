@@ -11,9 +11,8 @@ import logging
 from sys import maxsize
 import intervaltree
 import networkx
-
-from mikado_lib.exceptions import NotInLocusError
-from mikado_lib.utilities.log_utils import create_null_logger
+from ..exceptions import NotInLocusError
+from ..utilities.log_utils import create_null_logger
 
 
 # I do not care that there are too many attributes: this IS a massive class!

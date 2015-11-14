@@ -15,11 +15,11 @@ import argparse
 import operator
 import itertools
 from collections import namedtuple
-from mikado_lib.scales.resultstorer import ResultStorer
-from mikado_lib.scales import calc_f1
-from mikado_lib.loci_objects.transcript import Transcript
-import mikado_lib.exceptions
-from mikado_lib.scales.accountant import Accountant
+from .resultstorer import ResultStorer
+from . import calc_f1
+from ..loci_objects import Transcript
+from ..exceptions import InvalidTranscript, InvalidCDS
+from .accountant import Accountant
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -185,17 +185,17 @@ class Assigner:
             # noinspection PyUnresolvedReferences
             if self.args.exclude_utr is True:
                 prediction.remove_utrs()
-        except mikado_lib.exceptions.InvalidCDS:
+        except InvalidCDS:
             try:
                 prediction.strip_cds()
-            except mikado_lib.exceptions.InvalidTranscript as err:
+            except InvalidTranscript as err:
                 self.logger.warn("Invalid transcript (due to CDS): %s",
                                  prediction.id)
                 self.logger.warn("Error message: %s", err)
                 self.done += 1
                 self.print_tmap(None)
                 return None
-        except mikado_lib.exceptions.InvalidTranscript as err:
+        except InvalidTranscript as err:
             #         args.queue.put_nowait("mock")
             self.logger.warn("Invalid transcript: %s", prediction.id)
             self.logger.warn("Error message: %s", err)

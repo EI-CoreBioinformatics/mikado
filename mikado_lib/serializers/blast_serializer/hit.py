@@ -7,9 +7,8 @@ from sqlalchemy.sql.schema import PrimaryKeyConstraint
 from sqlalchemy.orm import relationship, column_property, backref
 from sqlalchemy import select
 from sqlalchemy.ext.hybrid import hybrid_property  # hybrid_method
-from mikado_lib.utilities.dbutils import DBBASE
-from mikado_lib.serializers.blast_serializer import Query, Target, prepare_hit
-from mikado_lib.serializers.blast_serializer import Hsp
+from ...utilities.dbutils import DBBASE
+from . import Query, Target, prepare_hit, Hsp
 
 __author__ = 'Luca Venturini'
 
@@ -70,7 +69,6 @@ class Hit(DBBASE):
         Target.target_id == target_id)
 
     __table_args__ = (qt_constraint, qt_index, query_index, target_index)
-
 
     # All arguments are necessary and it is more convenient to have them here
     # rather than in a struct/dict/whatever

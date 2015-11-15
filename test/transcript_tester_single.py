@@ -6,6 +6,7 @@ Unit test for monoexonic transcripts.
 
 import unittest
 import re
+import pickle
 import intervaltree
 import mikado_lib.parsers
 import mikado_lib.loci_objects
@@ -55,6 +56,13 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.orf.transcriptomic = True
         self.assertFalse(self.orf.invalid, self.orf.invalid_reason)
 
+    def test_invalid_inizialization(self):
+
+        with self.assertRaises(TypeError):
+            _ =  mikado_lib.loci_objects.Transcript(self.tr_lines[0])
+        with self.assertRaises(TypeError):
+            _ =  mikado_lib.loci_objects.Transcript(self.tr_gff_lines[1])
+
     def test_basics(self):
 
         self.assertEqual(self.tr.chrom, "Chr1")
@@ -82,6 +90,28 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertEqual(self.tr.selected_cds_end, 8666)
         self.assertEqual(self.tr.has_start_codon, False)
         self.assertEqual(self.tr.has_stop_codon, False)
+
+    def test_equality(self):
+
+        new_transcript = self.tr.deepcopy()
+
+        self.assertTrue(new_transcript == self.tr)
+
+        new_transcript.strand = "+"
+        self.assertFalse(new_transcript == self.tr)  # They have now a different strand
+
+        new_transcript.finalized = False
+        new_transcript.strand = "+"  # It becomes a multiexonic transcript, so it must have a strand
+        new_transcript.end = 9737
+        new_exon = mikado_lib.parsers.GFF.GffLine(self.tr_lines[-2])
+        new_exon.strand = "+"
+        new_exon.start = 9000
+        new_exon.end = 9737
+
+        new_transcript.add_exon(new_exon)
+        new_transcript.finalize()
+        self.assertTrue(new_transcript != self.tr)
+
 
     def test_utr(self):
 

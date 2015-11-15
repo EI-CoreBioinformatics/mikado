@@ -199,6 +199,8 @@
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
+            "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
+            "Default: 0% i.e. disabled, we check for the CDS overlap.",
             "- keep_retained_introns: Whether to consider as valid AS events where one intron",
             "is retained compared to the primary or any other valid AS. Default: false.",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
@@ -212,6 +214,8 @@
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
+            "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
+            "Default: 0% i.e. disabled, we check for the CDS overlap.",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3"
           ],
           "required": ["report", "max_isoforms"],
@@ -226,6 +230,12 @@
               "minimum": 0,
               "maximum": 1,
               "default": 0.6
+            },
+            "min_cdna_overlap": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0
             },
             "keep_retained_introns": {
               "type": "boolean",

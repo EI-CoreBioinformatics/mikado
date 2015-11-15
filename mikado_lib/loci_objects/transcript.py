@@ -7,6 +7,7 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 # pylint: disable=too-many-lines
 
 import logging
+import copy
 import sys
 import re
 import inspect
@@ -185,9 +186,10 @@ class Transcript:
 
         if not isinstance(transcript_row, (GffLine, GtfLine)):
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
-
+        if transcript_row.is_transcript is False:
+            raise TypeError("Invalid transcript line, the feature should be a transcript:\n{0}".format(
+                transcript_row))
         self.chrom = transcript_row.chrom
-        assert transcript_row.is_transcript is True
         self.feature = transcript_row.feature
         # pylint: disable=invalid-name
         self.id = transcript_row.id
@@ -302,9 +304,9 @@ class Transcript:
             del state["sessionmaker"]
             del state["engine"]
 
-        if "blast_baked" in state:
-            del state["blast_baked"]
-            del state["query_baked"]
+        # if "blast_baked" in state:
+        #     del state["blast_baked"]
+        #     del state["query_baked"]
 
         return state
 
@@ -411,6 +413,23 @@ class Transcript:
         self.combined_cds = []
         self.combined_utr = []
         self.finalize()
+
+    def copy(self):
+        """
+        Method to return a shallow copy of the current instance.
+        :return:
+        """
+
+        return copy.copy(self)
+
+    def deepcopy(self):
+        """
+        Method to return a deep copy of the current instance.
+        :return:
+        """
+
+        return copy.deepcopy(self)
+
 
     def finalize(self):
         """Function to calculate the internal introns from the exons.

@@ -430,7 +430,6 @@ class Transcript:
 
         return copy.deepcopy(self)
 
-
     def finalize(self):
         """Function to calculate the internal introns from the exons.
         In the first step, it will sort the exons by their internal coordinates.

@@ -16,18 +16,6 @@ class HeaderError(Exception):
     pass
 
 
-class SizeError(Exception):
-    """
-    Custom exception
-    """
-    def __init__(self, value=None):
-        self.value = value
-        Exception.__init__(self)
-
-    def __str__(self):
-        return str(self.value)
-
-
 class Parser(metaclass=abc.ABCMeta):
     """Generic parser iterator. Base parser class."""
 
@@ -36,8 +24,8 @@ class Parser(metaclass=abc.ABCMeta):
         if not isinstance(handle, io.IOBase):
             try:
                 handle = open(handle, "rt", buffering=1)
-            except:
-                raise TypeError
+            except FileNotFoundError:
+                raise FileNotFoundError("File not found: {0}".format(handle))
 
         self._handle = handle
         self.closed = False

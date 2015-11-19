@@ -85,29 +85,29 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     def test_print(self):
 
         self.maxDiff = None
-        real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1; Parent=AT1G01020; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1; Parent=AT1G01020.1
-Chr1\tTAIR10\tthree_prime_UTR\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR1; Parent=AT1G01020.1
-Chr1\tTAIR10\tthree_prime_UTR\t6437\t6914\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR2; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t6915\t7069\t.\t-\t2\tID=AT1G01020.1.CDS1; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t7157\t7232\t.\t-\t0\tID=AT1G01020.1.CDS2; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t7384\t7450\t.\t-\t1\tID=AT1G01020.1.CDS3; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t7564\t7649\t.\t-\t0\tID=AT1G01020.1.CDS4; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t7762\t7835\t.\t-\t2\tID=AT1G01020.1.CDS5; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t7942\t7987\t.\t-\t0\tID=AT1G01020.1.CDS6; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t8236\t8325\t.\t-\t0\tID=AT1G01020.1.CDS7; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t8417\t8464\t.\t-\t0\tID=AT1G01020.1.CDS8; Parent=AT1G01020.1
-Chr1\tTAIR10\tCDS\t8571\t8666\t.\t-\t0\tID=AT1G01020.1.CDS9; Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10; Parent=AT1G01020.1
-Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR1; Parent=AT1G01020.1"""
+        real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1;Parent=AT1G01020.1
+Chr1\tTAIR10\tthree_prime_UTR\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR1;Parent=AT1G01020.1
+Chr1\tTAIR10\tthree_prime_UTR\t6437\t6914\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR2;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t6915\t7069\t.\t-\t2\tID=AT1G01020.1.CDS1;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7157\t7232\t.\t-\t0\tID=AT1G01020.1.CDS2;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7384\t7450\t.\t-\t1\tID=AT1G01020.1.CDS3;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7564\t7649\t.\t-\t0\tID=AT1G01020.1.CDS4;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7762\t7835\t.\t-\t2\tID=AT1G01020.1.CDS5;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t7942\t7987\t.\t-\t0\tID=AT1G01020.1.CDS6;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t8236\t8325\t.\t-\t0\tID=AT1G01020.1.CDS7;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t8417\t8464\t.\t-\t0\tID=AT1G01020.1.CDS8;Parent=AT1G01020.1
+Chr1\tTAIR10\tCDS\t8571\t8666\t.\t-\t0\tID=AT1G01020.1.CDS9;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1
+Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR1;Parent=AT1G01020.1"""
 
         self.assertEqual(real_printed, str(self.tr))
 
@@ -319,17 +319,17 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         # tr = deepcopy(self.tr)
         # tr.finalize()
 
-        real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1; Parent=AT1G01020; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9; Parent=AT1G01020.1; Name=AT1G01020.1
-Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10; Parent=AT1G01020.1; Name=AT1G01020.1"""
+        real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9;Parent=AT1G01020.1;Name=AT1G01020.1
+Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1;Name=AT1G01020.1"""
 
         self.assertEqual(real_printed, self.tr.__str__(print_cds=False))
 

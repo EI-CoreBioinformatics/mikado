@@ -45,7 +45,7 @@ def __basic_final_checks(transcript):
                 tid=transcript.id))
 
 
-def __check_cdna_vs_utr(transcript):
+def _check_cdna_vs_utr(transcript):
 
     """
     Verify that cDNA + UTR in the transcript add up.
@@ -258,7 +258,7 @@ def finalize(transcript):
 
     transcript.exons = sorted(transcript.exons, key=operator.itemgetter(0, 1))
 
-    __check_cdna_vs_utr(transcript)
+    _check_cdna_vs_utr(transcript)
 
     __calculate_introns(transcript)
 

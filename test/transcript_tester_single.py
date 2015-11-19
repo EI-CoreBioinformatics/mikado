@@ -6,7 +6,7 @@ Unit test for monoexonic transcripts.
 
 import unittest
 import re
-import pickle
+from mikado_lib.loci_objects.transcript_methods.finalizing import _check_cdna_vs_utr
 import intervaltree
 import mikado_lib.parsers
 import mikado_lib.loci_objects
@@ -30,6 +30,8 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     for l in tr_gff_lines:
         assert l.header is False
     #         print(l)
+
+    logger = create_null_logger("null")
 
     def setUp(self):
         """Basic creation test."""
@@ -112,6 +114,41 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         new_transcript.finalize()
         self.assertTrue(new_transcript != self.tr)
 
+    def test_mono_finalising(self):
+
+        transcript_line = [line for line in self.tr_gff_lines if line.feature == "mRNA" ]
+        self.assertEqual(len(transcript_line), 1, "\n".join([str(line) for line in self.tr_gff_lines]))
+
+        tr = mikado_lib.loci_objects.Transcript(transcript_line[0])
+        exon_lines = [line for line in self.tr_gff_lines if
+                      line.is_exon is True and "UTR" not in line.feature.upper()]
+
+        for line in exon_lines:
+            tr.add_exon(line)
+
+        tr.finalize()
+        self.assertGreater(tr.three_utr_length, 0)
+        self.assertGreater(tr.five_utr_length, 0)
+
+    def test_invalid_transcript(self):
+        lines = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t.\t.\tID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1;Index=1
+Chr1\tTAIR10\tCDS\t8571\t7500\t.\t.\t0\tParent=AT1G01020.1;
+Chr1\tTAIR10\tCDS\t7503\t8666\t.\t.\t0\tParent=AT1G01020.1;
+Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
+
+        gff_lines = [mikado_lib.parsers.GFF.GffLine(line) for line in lines.split("\n")]
+        self.assertIsInstance(gff_lines[0], mikado_lib.parsers.GFF.GffLine)
+        checker = False
+        if gff_lines[0].feature.endswith("transcript") or "RNA" in gff_lines[0].feature.upper():
+            checker = True
+        self.assertTrue(checker)
+        self.assertTrue(gff_lines[0].is_transcript)
+        transcript = mikado_lib.loci_objects.Transcript(gff_lines[0])
+        for line in gff_lines[1:]:
+            transcript.add_exon(line)
+
+        with self.assertRaises(mikado_lib.exceptions.InvalidCDS):
+            mikado_lib.loci_objects.transcript_methods.finalizing._check_cdna_vs_utr(transcript)
 
     def test_utr(self):
 
@@ -283,8 +320,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
-        logger = create_null_logger("null")
-        self.tr.logger = logger
+        self.tr.logger = self.logger
 
         self.tr.load_orfs([first_orf, second_orf, third_orf])
 
@@ -385,8 +421,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         # self.assertEqual(len(mikado_lib.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
-        logger = create_null_logger("null")
-        self.tr.logger = logger
+        self.tr.logger = self.logger
 
         self.tr.load_orfs([first_orf, second_orf, third_orf])
 
@@ -404,6 +439,33 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.assertEqual(len(new_transcripts), 2)
         self.assertEqual(new_transcripts[0].five_utr_length, 0)
         self.assertEqual(new_transcripts[1].three_utr_length, 0)
+
+    def test_wrong_orf(self):
+        # This should be added
+        orf = mikado_lib.parsers.bed12.BED12()
+        orf.chrom = self.tr.id
+        orf.start = 1
+        orf.end = self.tr.cdna_length + 1
+        orf.name = "third"
+        orf.strand = "-"
+        orf.score = 0
+        orf.thick_start = 501
+        orf.thick_end = 800
+        orf.block_count = 1
+        orf.blockSize = self.tr.cdna_length
+        orf.block_sizes = [self.tr.cdna_length]
+        orf.block_starts = [0]
+        orf.rgb = 0
+        orf.has_start_codon = True
+        orf.has_stop_codon = True
+        orf.transcriptomic = True
+        self.assertFalse(orf.invalid)
+
+        self.tr.logger = self.logger
+        with self.assertLogs("null", level="WARNING") as cm_out:
+            self.tr.load_orfs([orf])
+
+        self.assertFalse(self.tr.is_coding)
 
 
 if __name__ == '__main__':

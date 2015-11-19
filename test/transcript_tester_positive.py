@@ -439,6 +439,52 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.selected_cds_start, None)
         self.assertEqual(self.tr.selected_cds_end, None)
 
+    def test_with_no_gff_utr(self):
+
+        """
+        Test the creation of the transcript without the UTR lines, verify that everything is still alright
+        :return:
+        """
+        tr_gff = """Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380
+Chr2    TAIR10    exon    626642    626780    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    exon    626842    626880    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    626878    626880    .    +    0    Parent=AT2G02380.1
+Chr2    TAIR10    exon    626963    627059    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    626963    627059    .    +    0    Parent=AT2G02380.1
+Chr2    TAIR10    exon    627137    627193    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    627137    627193    .    +    2    Parent=AT2G02380.1
+Chr2    TAIR10    exon    627312    627397    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    627312    627397    .    +    2    Parent=AT2G02380.1
+Chr2    TAIR10    exon    627488    627559    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    627488    627559    .    +    0    Parent=AT2G02380.1
+Chr2    TAIR10    exon    627696    627749    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    627696    627749    .    +    0    Parent=AT2G02380.1
+Chr2    TAIR10    exon    627840    627915    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    627840    627915    .    +    0    Parent=AT2G02380.1
+Chr2    TAIR10    exon    628044    628105    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    628044    628105    .    +    2    Parent=AT2G02380.1
+Chr2    TAIR10    exon    628182    628241    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    628182    628241    .    +    0    Parent=AT2G02380.1
+Chr2    TAIR10    exon    628465    628676    .    +    .    Parent=AT2G02380.1
+Chr2    TAIR10    CDS    628465    628569    .    +    0    Parent=AT2G02380.1
+Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"""
+
+        tr_lines = tr_gff.split("\n")
+        for pos, line in enumerate(tr_lines):
+            tr_lines[pos] = re.sub("\s+", "\t", line)
+            assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
+
+        tr_gff_lines = [mikado_lib.parsers.GFF.GffLine(line) for line in tr_lines]
+
+        transcript = mikado_lib.loci_objects.Transcript(tr_gff_lines[0])
+        for line in tr_gff_lines[1:]:
+            transcript.add_exon(line)
+
+        transcript.finalize()
+        self.assertEqual(transcript.exons, self.tr.exons)
+        self.assertEqual(transcript.three_utr, self.tr.three_utr)
+        self.assertEqual(transcript.five_utr, self.tr.five_utr)
+
     def test_remove_utr(self):
         """Test for CDS stripping. We remove the UTRs and verify that start/end have moved, no UTR is present, etc."""
 

@@ -38,6 +38,8 @@ def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False):
         exon_line, counter, cds_begin = line_creator(segment,
                                                      counter,
                                                      cds_begin)
+        assert exon_line.start >= transcript.start, (transcript.start, segment)
+        assert exon_line.end <= transcript.end
         exon_lines.append(exon_line)
 
     if to_gtf is False:
@@ -296,6 +298,8 @@ def create_lines_no_cds(transcript, to_gtf=False):
             setattr(exon_line, attr, getattr(transcript, attr))
         exon_line.feature = "exon"
         exon_line.start, exon_line.end = exon[0], exon[1]
+        assert exon_line.start >= transcript.start
+        assert exon_line.end <= transcript.end
         exon_line.score = None
         exon_line.phase = None
 

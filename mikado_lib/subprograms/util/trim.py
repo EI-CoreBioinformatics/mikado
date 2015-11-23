@@ -6,6 +6,7 @@
 
 import sys
 import argparse
+from intervaltree import Interval
 from ...loci_objects import Transcript
 from .. import to_gff
 
@@ -27,23 +28,25 @@ def trim_noncoding(transcript, max_length=0):
     """
 
     # Non-coding transcript: trim the terminal exons and the return
+
     first = transcript.exons[0]
     if (first[1] - first[0] + 1) > max_length:
-        newfirst = list(first)
-        newfirst[0] = first[1] - max_length
+        # newfirst = list(first)
+        # newfirst[0] = first[1] - max_length
+        newfirst = Interval(first.end - max_length, first.end)
         transcript.start = newfirst[0]
-        transcript.exons[0] = tuple(newfirst)
+        transcript.exons[0] = newfirst
     last = transcript.exons[-1]
     if (last[1] - last[0] + 1) > max_length:
         newlast = list(last[:])
         newlast[1] = last[0] + max_length
         transcript.end = newlast[1]
-        transcript.exons[-1] = tuple(newlast)
-        if transcript.selected_cds_length > 0:
-            last_utr = [segment for segment in transcript.combined_utr if
-                        segment[1] == last[1]][0]
-            transcript.combined_utr.remove(last_utr)
-            transcript.combined_utr.append(tuple(newlast))
+        transcript.exons[-1] = Interval(*newlast)
+        # if transcript.selected_cds_length > 0:
+        #     last_utr = [segment for segment in transcript.combined_utr if
+        #                 segment[1] == last[1]][0]
+        #     transcript.combined_utr.remove(last_utr)
+        #     transcript.combined_utr.append(tuple(newlast))
     return transcript
 
 
@@ -69,7 +72,7 @@ def trim_start(transcript, cds_start, max_length=0):
         if first[1] - first[0] + 1 > max_length:
             # First exon longer than max_length; trim it,
             # remove from UTR and exons, substitute with trimmed exon
-            newfirst = (first[1] - max_length, first[1])
+            newfirst = Interval(first[1] - max_length, first[1])
             transcript.combined_utr.remove(first)
             transcript.exons.remove(first)
             transcript.combined_utr.append(newfirst)
@@ -80,7 +83,7 @@ def trim_start(transcript, cds_start, max_length=0):
     elif first[0] < cds_start <= first[1]:
         # Partly UTR partly CDS
         if first[1] - first[0] + 1 > max_length:
-            newfirst = (min(cds_start, first[1] - max_length), first[1])
+            newfirst = Interval(min(cds_start, first[1] - max_length), first[1])
             # Retrieve and remove offending UTR segment
             utr_segment = [segment for segment in transcript.combined_utr
                            if segment[0] == first[0]][0]
@@ -89,7 +92,7 @@ def trim_start(transcript, cds_start, max_length=0):
             transcript.exons.append(newfirst)
             if newfirst[0] < cds_start:
                 # Create new UTR segment
-                newu = (newfirst[0], cds_start - 1)
+                newu = Interval(newfirst[0], cds_start - 1)
                 transcript.combined_utr.append(newu)
         else:
             newfirst = first
@@ -116,10 +119,11 @@ def trim_end(transcript, cds_end, max_length=0):
     :rtype: mikado_lib.loci_objects.transcript.Transcript
     """
 
-    last = transcript.exons[-1]
-    if last[0] > cds_end:
+    # We have to sort b/c we appended a new exon in trim_start
+    last = sorted(transcript.exons)[-1]
+    if last.begin > cds_end:
         if last[1] - last[0] + 1 > max_length:
-            newlast = (last[0], last[0] + max_length)
+            newlast = Interval(last[0], last[0] + max_length)
             transcript.combined_utr.remove(last)
             transcript.exons.remove(last)
             transcript.combined_utr.append(newlast)
@@ -128,14 +132,14 @@ def trim_end(transcript, cds_end, max_length=0):
             newlast = last
     elif last[0] <= cds_end < last[1]:
         if last[1] - last[0] + 1 > max_length:
-            newlast = (last[0], max(cds_end, last[0] + max_length))
+            newlast = Interval(last[0], max(cds_end, last[0] + max_length))
             utr_segment = [segment for segment in transcript.combined_utr if
                            segment[1] == last[1]][0]
             transcript.combined_utr.remove(utr_segment)
             transcript.exons.remove(last)
             transcript.exons.append(newlast)
             if newlast[1] > cds_end:
-                newu = (cds_end + 1, newlast[1])
+                newu = Interval(cds_end + 1, newlast[1])
                 transcript.combined_utr.append(newu)
         else:
             newlast = last
@@ -143,6 +147,7 @@ def trim_end(transcript, cds_end, max_length=0):
         newlast = last
 
     transcript.end = newlast[1]
+    assert all([(exon.end <= newlast.end for exon in transcript.exons)])
     return transcript
 
 
@@ -162,8 +167,10 @@ def trim_coding(transcript, max_length=0):
     """
     # Coding transcript
     # Order cds_start and end irrespectively of strand
-    cds_start, cds_end = sorted([transcript.selected_cds_end, transcript.selected_cds_start])
+    cds_start, cds_end = sorted([transcript.selected_cds_end,
+                                 transcript.selected_cds_start])
 
+    assert cds_start < cds_end
     transcript = trim_start(transcript, cds_start,
                             max_length=max_length)
     transcript = trim_end(transcript, cds_end,
@@ -192,6 +199,7 @@ def strip_terminal(transcript, args) -> Transcript:
         return transcript
 
     transcript.finalized = False
+    transcript.segments = []
 
     # noinspection PyUnresolvedReferences
     max_l = args.max_length
@@ -202,6 +210,8 @@ def strip_terminal(transcript, args) -> Transcript:
 
     # noinspection PyUnresolvedReferences
     transcript.finalize()
+    assert transcript.start == transcript.exons[0][0], (transcript.start, transcript.exons)
+    assert transcript.end == transcript.exons[-1][1], (transcript.end, transcript.exons)
     return transcript
 
 
@@ -217,10 +227,19 @@ def launch(args):
 
     transcript = None
 
+    if args.as_gtf is True:
+        format_name = "gtf"
+    else:
+        format_name = "gff3"
+
+    if format_name == "gff3":
+        print("WARNING: proper GFF3 format not implemented yet!")
+
     for record in args.ann:
         if record.is_transcript is True:
             if transcript is not None:
-                print(strip_terminal(transcript, args).__str__(to_gtf=args.as_gtf), file=args.out)
+                print(strip_terminal(transcript, args).format(format_name),
+                      file=args.out)
             transcript = Transcript(record)
         elif record.is_exon is True:
             transcript.add_exon(record)

@@ -358,6 +358,21 @@ class Transcript:
         assert isinstance(segment[0], int) and isinstance(segment[1], int)
         store.append(segment)
 
+    def format(self, format_name):
+
+        if format_name not in ("gff", "gtf", "gff3"):
+            raise ValueError(
+                "Invalid format: {0}. Accepted formats: gff/gff3 (equivalent), gtf".format(
+                    format_name))
+
+        self.finalize()  # Necessary to sort the exons
+        if format_name == "gtf":
+            lines = create_lines_cds(self, to_gtf=True, first_phase=self._first_phase)
+        else:
+            lines = create_lines_cds(self, to_gtf=False, first_phase=self._first_phase)
+
+        return "\n".join(lines)
+
     def split_by_cds(self):
         """This method is used for transcripts that have multiple ORFs.
         It will split them according to the CDS information into multiple transcripts.
@@ -368,6 +383,19 @@ class Transcript:
             yield new_transcript
 
         return
+
+    def remove_exon(self, exon):
+
+        """
+        Function to remove an exon properly from a Transcript instance.
+        :return:
+        """
+
+        if self.finalized is True:
+            raise ValueError("Cannot remove a segment from a finalised transcript!")
+
+
+
 
     def remove_utrs(self):
         """Method to strip a transcript from its UTRs.

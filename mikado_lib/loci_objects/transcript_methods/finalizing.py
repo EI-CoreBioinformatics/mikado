@@ -31,8 +31,16 @@ def __basic_final_checks(transcript):
 
     assert all([isinstance(exon, intervaltree.Interval)
                 for exon in transcript.exons]), transcript.exons
-    assert all([(isinstance(exon[0], int) and isinstance(exon[1], int))
-                for exon in transcript.exons]), transcript.exons
+    # assert all([(isinstance(exon[0], int) and isinstance(exon[1], int))
+    #             for exon in transcript.exons]), transcript.exons
+
+    if not all([(exon.begin >= transcript.start and exon.end <= transcript.end) for
+                exon in transcript.exons]):
+        raise InvalidTranscript("""Exons out of bounds of the transcript:
+        ({start}, {end})
+        Exons: {exons}""".format(start=transcript.start,
+                                 end=transcript.end,
+                                 exons=transcript.exons))
 
     if len(transcript.exons) > 1 and transcript.strand is None:
         raise InvalidTranscript(
@@ -253,10 +261,9 @@ def finalize(transcript):
     if transcript.finalized is True:
         return
 
+    transcript.exons = sorted(transcript.exons)
     __basic_final_checks(transcript)
     # Sort the exons by start then stop
-
-    transcript.exons = sorted(transcript.exons, key=operator.itemgetter(0, 1))
 
     _check_cdna_vs_utr(transcript)
 
@@ -270,7 +277,7 @@ def finalize(transcript):
     __check_completeness(transcript)
 
     # assert self.selected_internal_orf_index > -1
-    if len(transcript.internal_orfs) == 0:
+    if min(len(transcript.segments), len(transcript.internal_orfs)) == 0:
         # Define exons
         transcript.segments = [("exon", intervaltree.Interval(e[0], e[1]))
                                for e in transcript.exons]
@@ -286,6 +293,9 @@ def finalize(transcript):
         transcript.internal_orfs = [transcript.segments]
     else:
         assert len(transcript.internal_orfs) > 0
+
+    assert all([segment[1] in transcript.exons for segment in transcript.segments if
+                segment[0] == "exon"]), (transcript.exons, transcript.segments)
 
     for internal_orf in transcript.internal_orfs:
         __check_internal_orf(transcript, transcript.exons, internal_orf)
@@ -305,6 +315,7 @@ def finalize(transcript):
 
     if len(transcript.combined_cds) > 0:
         transcript.feature = "mRNA"
+
     else:
         transcript.feature = "transcript"
 
@@ -321,6 +332,9 @@ def finalize(transcript):
     # Create the interval tree
     transcript.cds_tree = intervaltree.IntervalTree([
         intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
+
+    # BUG somewhere ... I am not sorting this properly before (why?)
+    transcript.exons = sorted(transcript.exons)
 
     transcript.finalized = True
     transcript.logger.debug("Finished finalising %s", transcript.id)

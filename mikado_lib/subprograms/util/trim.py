@@ -172,10 +172,10 @@ def trim_coding(transcript, max_length=0):
     cds_start, cds_end = sorted([transcript.selected_cds_end,
                                  transcript.selected_cds_start])
 
-    if cds_start < cds_end:
+    if cds_start >= cds_end:
         raise InvalidTranscript("{0} has coincident CDS start and end coordinates".format(
             transcript.id))
-    assert cds_start < cds_end, "\n".join([str(_) for _ in (cds_start, cds_end, transcript)])
+    # assert cds_start < cds_end, "\n".join([str(_) for _ in (cds_start, cds_end, transcript)])
     transcript = trim_start(transcript, cds_start,
                             max_length=max_length)
     transcript = trim_end(transcript, cds_end,

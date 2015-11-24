@@ -440,6 +440,7 @@ class Transcript:
         assert len(self.exons) > 0
         self.combined_cds = []
         self.combined_utr = []
+        self.segments = []
         self.finalize()
 
     def copy(self):

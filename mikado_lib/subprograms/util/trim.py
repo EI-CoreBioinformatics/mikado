@@ -31,14 +31,15 @@ def trim_noncoding(transcript, max_length=0):
 
     # Non-coding transcript: trim the terminal exons and the return
 
-    first = transcript.exons[0]
+    exons = sorted(transcript.exons)
+    first, last = exons[0], exons[-1]
     if (first[1] - first[0] + 1) > max_length:
         # newfirst = list(first)
         # newfirst[0] = first[1] - max_length
         newfirst = Interval(first.end - max_length, first.end)
         transcript.start = newfirst[0]
         transcript.exons[0] = newfirst
-    last = transcript.exons[-1]
+    # last = transcript.exons[-1]
     if (last[1] - last[0] + 1) > max_length:
         newlast = list(last[:])
         newlast[1] = last[0] + max_length

@@ -6,8 +6,10 @@ Minimal checks.
 """
 
 import logging
-from ..loci_objects.transcript import Transcript
+import operator
+from .transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
+from ..parsers.GFF import GffLine
 
 
 class Gene:
@@ -20,11 +22,15 @@ class Gene:
 
     def __init__(self, transcr: Transcript, gid=None, logger=None):
 
-        self.chrom, self.start, self.end, self.strand = (transcr.chrom,
-                                                         transcr.start,
-                                                         transcr.end,
-                                                         transcr.strand)
-        self.id = gid
+        self.chrom, self.source, self.start, self.end, self.strand = (transcr.chrom,
+                                                                      transcr.source,
+                                                                      transcr.start,
+                                                                      transcr.end,
+                                                                      transcr.strand)
+        if gid is not None:
+            self.id = gid
+        else:
+            self.id = transcr.parent[0]
         self.transcripts = dict()
         self.transcripts[transcr.id] = transcr
         self.logger = None
@@ -136,3 +142,30 @@ class Gene:
                 self.end == other.end and self.strand == other.strand:
             return True
         return False
+
+    def format(self, format_name):
+
+        if format_name not in ("gff", "gtf", "gff3"):
+            raise ValueError(
+                "Invalid format: {0}. Accepted formats: gff/gff3 (equivalent), gtf".format(
+                    format_name))
+
+        self.finalize()  # Necessary to sort the exons
+        lines = []
+        if format_name != "gtf":
+            line = GffLine(None)
+            for attr in ["chrom",
+                         "start",
+                         "end",
+                         "strand"]:
+                setattr(line, attr, getattr(self, attr))
+
+            line.feature = "gene"
+            line.id = self.id
+            assert line.id is not None
+            lines.append(str(line))
+
+        for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
+            lines.append(transcript.format(format_name))
+
+        return "\n".join(lines)

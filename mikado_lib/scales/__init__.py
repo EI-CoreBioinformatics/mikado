@@ -13,7 +13,6 @@ This module defines the classes needed for the "compare" script, namely:
 - accountant:       This class calculates the final summary statistics for the comparison.
 """
 
-from . import reference_gene
 from . import resultstorer
 
 

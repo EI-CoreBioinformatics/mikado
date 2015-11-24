@@ -3,13 +3,15 @@
 
 """Script to trim down the terminal exons of multiexonic transcripts"""
 
-
-import sys
 import argparse
+import sys
+
 from intervaltree import Interval
-from ...loci_objects import Transcript
+
 from .. import to_gff
 from ...exceptions import InvalidTranscript
+from ...loci_objects import Transcript
+from ...loci_objects.reference_gene import Gene
 from ...utilities.log_utils import create_default_logger
 
 __author__ = 'Luca Venturini'
@@ -260,22 +262,52 @@ def launch(args):
         format_name = "gff3"
 
     if format_name == "gff3":
-        print("WARNING: proper GFF3 format not implemented yet!",
-              file=sys.stderr)
+        # print("WARNING: proper GFF3 format not implemented yet!",
+        #       file=sys.stderr)
+        current_gene = None
+        for record in args.ann:
+            if record.is_transcript is True:
+                if transcript is not None:
+                    trimmed = strip_terminal(transcript, args)
+                    if trimmed is not None:
+                        if current_gene is None:
+                            current_gene = Gene(trimmed)
+                        elif current_gene.id not in trimmed.parent:
+                            print(current_gene.format(format_name), file=args.out)
+                            current_gene = Gene(trimmed)
+                        else:
+                            current_gene.add(trimmed)
+                transcript = Transcript(record)
+            elif record.is_exon is True:
+                transcript.add_exon(record)
 
-    for record in args.ann:
-        if record.is_transcript is True:
-            if transcript is not None:
-                trimmed = strip_terminal(transcript, args)
-                if trimmed is not None:
-                    print(trimmed.format(format_name), file=args.out)
-            transcript = Transcript(record)
-        elif record.is_exon is True:
-            transcript.add_exon(record)
+        if transcript is not None:
+            trimmed = strip_terminal(transcript, args)
+            if trimmed is not None:
+                if current_gene is None:
+                    current_gene = Gene(trimmed)
+                elif current_gene.id not in trimmed.parent:
+                    print(current_gene.format(format_name), file=args.out)
+                    current_gene = Gene(trimmed)
+                else:
+                    current_gene.add(trimmed)
+        if current_gene is not None:
+            print(current_gene.format(format_name), file=args.out)
+    else:
+        # When outputting a GTF, we can blissfully ignore everything
+        for record in args.ann:
+            if record.is_transcript is True:
+                if transcript is not None:
+                    trimmed = strip_terminal(transcript, args)
+                    if trimmed is not None:
+                        print(trimmed.format(format_name), file=args.out)
+                transcript = Transcript(record)
+            elif record.is_exon is True:
+                transcript.add_exon(record)
 
-    if transcript is not None:
-        trimmed = strip_terminal(transcript, args)
-        print(trimmed.format(format_name), file=args.out)
+        if transcript is not None:
+            trimmed = strip_terminal(transcript, args)
+            print(trimmed.format(format_name), file=args.out)
 
 
 def trim_parser():

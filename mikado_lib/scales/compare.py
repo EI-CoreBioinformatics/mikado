@@ -5,18 +5,18 @@
 Launcher for the mikado_lib compare utility.
 """
 
-import sys
+import collections
+import logging
+import multiprocessing
 import os
 import re
-import collections
-import multiprocessing
-import logging
+import sys
 from logging import handlers as log_handlers
-from ..loci_objects.transcript import Transcript
-from .assigner import Assigner
-from .reference_gene import Gene
-from ..parsers.GFF import GFF3
+from ..loci_objects.reference_gene import Gene
 from .accountant import Accountant
+from .assigner import Assigner
+from ..loci_objects.transcript import Transcript
+from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
 
 __author__ = 'Luca Venturini'

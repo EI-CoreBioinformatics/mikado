@@ -50,6 +50,7 @@ def trim_noncoding(transcript, max_length=0):
         #                 segment[1] == last[1]][0]
         #     transcript.combined_utr.remove(last_utr)
         #     transcript.combined_utr.append(tuple(newlast))
+
     return transcript
 
 
@@ -180,7 +181,12 @@ def trim_coding(transcript, logger, max_length=0):
         logger.warning("{0} has coincident CDS start and end coordinates. Stripping CDS".format(
             transcript.id))
         transcript.strip_cds()
-        transcript = trim_noncoding(transcript, max_length=max_length)
+        # Now we have to re-deinitialise the transcript
+        transcript.internal_orfs = []
+        transcript.segments = []
+        transcript.finalized = False
+        transcript = trim_noncoding(transcript,
+                                    max_length=max_length)
         return transcript
 
     # assert cds_start < cds_end, "\n".join([str(_) for _ in (cds_start, cds_end, transcript)])

@@ -38,7 +38,7 @@ def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False):
         exon_line, counter, cds_begin = line_creator(segment,
                                                      counter,
                                                      cds_begin)
-        assert exon_line.start >= transcript.start, (transcript.start, segment)
+        assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
         assert exon_line.end <= transcript.end
         exon_lines.append(exon_line)
 

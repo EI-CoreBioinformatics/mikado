@@ -441,6 +441,7 @@ class Transcript:
         self.combined_cds = []
         self.combined_utr = []
         self.segments = []
+        self.internal_orfs = []
         self.finalize()
 
     def copy(self):

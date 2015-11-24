@@ -223,7 +223,8 @@ def launch(args):
     """
 
     if args.as_gtf is False:
-        print("##gff-version 3", file=args.out)
+        print("##gff-version 3",
+              file=args.out)
 
     transcript = None
 
@@ -233,7 +234,8 @@ def launch(args):
         format_name = "gff3"
 
     if format_name == "gff3":
-        print("WARNING: proper GFF3 format not implemented yet!")
+        print("WARNING: proper GFF3 format not implemented yet!",
+              file=sys.stderr)
 
     for record in args.ann:
         if record.is_transcript is True:

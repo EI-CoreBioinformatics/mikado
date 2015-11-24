@@ -29,13 +29,24 @@ def __basic_final_checks(transcript):
         transcript.logger.debug("Converting to interval objects")
         transcript.exons = _
 
-    assert all([isinstance(exon, intervaltree.Interval)
-                for exon in transcript.exons]), transcript.exons
-    # assert all([(isinstance(exon[0], int) and isinstance(exon[1], int))
-    #             for exon in transcript.exons]), transcript.exons
+    new_exons = []
+    invalid = False
+    for exon in transcript.exons:
+        if not isinstance(exon, intervaltree.Interval):
+            if (isinstance(exon, (tuple, list)) and len(exon) == 2 and
+                    isinstance(exon[0], int) and isinstance(exon[1], int)):
+                exon = intervaltree.Interval(*exon)
+            else:
+                raise ValueError("Invalid exon: {0}, type {1}".format(
+                    exon, type(exon)))
+        if exon.begin < transcript.start or exon.end > transcript.end:
+            invalid = True
+            break
+        new_exons.append(exon)
 
-    if not all([(exon.begin >= transcript.start and exon.end <= transcript.end) for
-                exon in transcript.exons]):
+    transcript.exons = sorted(new_exons)
+
+    if invalid:
         raise InvalidTranscript("""Exons out of bounds of the transcript:
         ({start}, {end})
         Exons: {exons}""".format(start=transcript.start,

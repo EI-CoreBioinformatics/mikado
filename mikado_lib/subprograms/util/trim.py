@@ -9,6 +9,8 @@ import argparse
 from intervaltree import Interval
 from ...loci_objects import Transcript
 from .. import to_gff
+from ...exceptions import InvalidTranscript
+from ...utilities.log_utils import create_default_logger
 
 __author__ = 'Luca Venturini'
 
@@ -170,7 +172,10 @@ def trim_coding(transcript, max_length=0):
     cds_start, cds_end = sorted([transcript.selected_cds_end,
                                  transcript.selected_cds_start])
 
-    assert cds_start < cds_end
+    if cds_start < cds_end:
+        raise InvalidTranscript("{0} has coincident CDS start and end coordinates".format(
+            transcript.id))
+    assert cds_start < cds_end, "\n".join([str(_) for _ in (cds_start, cds_end, transcript)])
     transcript = trim_start(transcript, cds_start,
                             max_length=max_length)
     transcript = trim_end(transcript, cds_end,
@@ -203,10 +208,14 @@ def strip_terminal(transcript, args) -> Transcript:
 
     # noinspection PyUnresolvedReferences
     max_l = args.max_length
-    if transcript.selected_cds_length == 0:
-        transcript = trim_noncoding(transcript, max_length=max_l)
-    else:
-        transcript = trim_coding(transcript, max_length=max_l)
+    try:
+        if transcript.selected_cds_length == 0:
+            transcript = trim_noncoding(transcript, max_length=max_l)
+        else:
+            transcript = trim_coding(transcript, max_length=max_l)
+    except InvalidTranscript as exc:
+        args.logger.exception(exc)
+        return None
 
     # noinspection PyUnresolvedReferences
     transcript.finalize()
@@ -237,16 +246,22 @@ def launch(args):
         print("WARNING: proper GFF3 format not implemented yet!",
               file=sys.stderr)
 
+    args.logger = create_default_logger("trimmer")
+    args.logger.setLevel("WARN")
+
     for record in args.ann:
         if record.is_transcript is True:
             if transcript is not None:
-                print(strip_terminal(transcript, args).format(format_name),
-                      file=args.out)
+                trimmed = strip_terminal(transcript, args)
+                if trimmed is not None:
+                    print(trimmed.format(format_name), file=args.out)
             transcript = Transcript(record)
         elif record.is_exon is True:
             transcript.add_exon(record)
 
-    print(strip_terminal(transcript, args).__str__(to_gtf=args.as_gtf), file=args.out)
+    if transcript is not None:
+        trimmed = strip_terminal(transcript, args)
+        print(trimmed.format(format_name), file=args.out)
 
 
 def trim_parser():

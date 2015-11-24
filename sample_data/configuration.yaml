@@ -93,7 +93,7 @@ serialise:
   #  - fai: genome 
   force: true
   files:
-    genome_fai: genome.fai
+#    genome_fai: genome.fai
     orfs: [mikado.bed]
     junctions: [junctions.bed]
     blast_targets: uniprot_sprot_plants.fasta

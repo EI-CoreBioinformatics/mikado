@@ -75,7 +75,7 @@ rule serialise:
         orfs="mikado.bed"
     output: "serialised.ok" #, config["db_settings"]["db"]
     run:
-        command = "mikado.py serialise --json-conf configuration.yaml"
+        command = "mikado.py serialise --json-conf configuration.yaml --genome_fai genome.fai"
         retcode = subprocess.call(command, shell=True)
         if retcode == 0:
             subprocess.call("touch serialised.ok", shell=True)

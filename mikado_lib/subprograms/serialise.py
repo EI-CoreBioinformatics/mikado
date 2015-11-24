@@ -183,7 +183,7 @@ def setup(args):
 
     if args.json_conf["serialise"]["files"]["log"] is not None:
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
-            args.json_conf["serialise"]["log"].close()
+            args.json_conf["serialise"]["files"]["log"].close()
             args.json_conf["serialise"]["files"]["log"] = \
                 args.json_conf["serialise"]["files"]["log"].name
         formatter = logger.handlers[0].formatter

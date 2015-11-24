@@ -153,13 +153,16 @@ def trim_end(transcript, cds_end, max_length=0):
     return transcript
 
 
-def trim_coding(transcript, max_length=0):
+def trim_coding(transcript, logger, max_length=0):
     """
     Function to trim the terminal exons for coding transcripts,
      i.e. the more complex case as we have to account for CDS
      as well.
     :param transcript: the transcript to analyse.
     :type transcript: Transcript
+
+    :param logger: a logger instance
+    :type logger: logging.Logger
 
     :param max_length: maximum length of terminal exons.
     :type max_length: int
@@ -173,8 +176,11 @@ def trim_coding(transcript, max_length=0):
                                  transcript.selected_cds_start])
 
     if cds_start >= cds_end:
-        raise InvalidTranscript("{0} has coincident CDS start and end coordinates".format(
+        logger.warning("{0} has coincident CDS start and end coordinates. Stripping CDS".format(
             transcript.id))
+        transcript.strip_cds()
+        transcript = trim_noncoding(transcript, max_length=max_length)
+
     # assert cds_start < cds_end, "\n".join([str(_) for _ in (cds_start, cds_end, transcript)])
     transcript = trim_start(transcript, cds_start,
                             max_length=max_length)
@@ -212,7 +218,7 @@ def strip_terminal(transcript, args) -> Transcript:
         if transcript.selected_cds_length == 0:
             transcript = trim_noncoding(transcript, max_length=max_l)
         else:
-            transcript = trim_coding(transcript, max_length=max_l)
+            transcript = trim_coding(transcript, args.logger, max_length=max_l)
     except InvalidTranscript as exc:
         args.logger.exception(exc)
         return None
@@ -231,6 +237,9 @@ def launch(args):
     :param args: the argparse Namespace.
     """
 
+    args.logger = create_default_logger("trimmer")
+    args.logger.setLevel("WARN")
+
     if args.as_gtf is False:
         print("##gff-version 3",
               file=args.out)
@@ -245,9 +254,6 @@ def launch(args):
     if format_name == "gff3":
         print("WARNING: proper GFF3 format not implemented yet!",
               file=sys.stderr)
-
-    args.logger = create_default_logger("trimmer")
-    args.logger.setLevel("WARN")
 
     for record in args.ann:
         if record.is_transcript is True:

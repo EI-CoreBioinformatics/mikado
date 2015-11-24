@@ -180,6 +180,7 @@ def trim_coding(transcript, logger, max_length=0):
             transcript.id))
         transcript.strip_cds()
         transcript = trim_noncoding(transcript, max_length=max_length)
+        return transcript
 
     # assert cds_start < cds_end, "\n".join([str(_) for _ in (cds_start, cds_end, transcript)])
     transcript = trim_start(transcript, cds_start,

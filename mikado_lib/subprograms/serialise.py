@@ -193,6 +193,15 @@ def setup(args):
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
+    if args.genome_fai is not None:
+        args.json_conf["serialise"]["files"]["genome_fai"] = args.genome_fai
+    else:
+        if (args.json_conf["serialise"]["files"]["junctions"] is not None and
+                ("genome_fai" not in args.json_conf["serialise"]["files"] or
+                    args.json_conf["serialise"]["files"]["genome_fai"] is None)):
+            logger.critical("Missing FAI file for junction loading!")
+            sys.exit(1)
+
     logger.setLevel(args.log_level)
     logger.info("Command line: %s",
                 " ".join(sys.argv))

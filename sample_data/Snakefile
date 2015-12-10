@@ -67,12 +67,13 @@ rule blast_complete:
 
 rule serialise:
     input:
-        junctions="junctions.bed",
-        fai="genome.fai",
-        transcripts="mikado_prepared.fasta",
-        targets="uniprot_sprot_plants.fasta",
-        xml="mikado.blast.xml",
-        orfs="mikado.bed"
+        [value for (key, value) in config["serialise"]["files"].items() if key != "log"]
+#        junctions="junctions.bed",  # Portcullis
+#        fai="genome.fai", # Samtools faidx
+#        transcripts="mikado_prepared.fasta", # Prepare
+#        targets="uniprot_sprot_plants.fasta", # BLAST DB
+#        xml="mikado.blast.xml", # BLAST
+#        orfs="mikado.bed" # TransDecoder
     output: "serialised.ok" #, config["db_settings"]["db"]
     run:
         command = "mikado.py serialise --json-conf configuration.yaml --genome_fai genome.fai"

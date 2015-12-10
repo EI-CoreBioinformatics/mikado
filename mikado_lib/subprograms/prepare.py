@@ -257,7 +257,10 @@ def setup(args):
     if args.gff:
         args.json_conf["prepare"]["gff"] = args.gff
     else:
-        assert args.json_conf["prepare"]["gff"]
+        if not args.json_conf["prepare"]["gff"]:
+            parser = prepare_parser()
+            print(parser.format_help())
+            sys.exit(0)
 
     if args.labels != '':
         args.labels = args.labels.split(",")
@@ -474,7 +477,7 @@ def prepare_parser():
     This function defines the parser for the command line interface
     of the program.
     :return: an argparse.Namespace object
-    :rtype: argparse.Namespace
+    :rtype: argparse.ArgumentParser
     """
 
     def to_cpu_count(string):

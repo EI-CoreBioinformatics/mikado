@@ -68,7 +68,7 @@ class TranscriptComputer(Transcript):
 
         self.exon_lengths = [e[1] - e[0] + 1 for e in self.exons]
         self.cds_exon_lengths = [c[1] - c[0] + 1 for c in self.selected_cds]
-        self.utr_exon_lengths = [u[2] - u[1] + 1 for u in self.three_utr + self.five_utr]
+        self.utr_exon_lengths = [u[1] - u[0] + 1 for u in self.three_utr + self.five_utr]
 
         self.intron_lengths = [i[1] - i[0] + 1 for i in self.introns]
         self.cds_intron_lengths = [i[1] - i[0] for i in self.selected_cds_introns]

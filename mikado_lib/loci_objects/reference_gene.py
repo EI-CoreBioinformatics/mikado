@@ -155,6 +155,7 @@ class Gene:
         if format_name != "gtf":
             line = GffLine(None)
             for attr in ["chrom",
+                         "source",
                          "start",
                          "end",
                          "strand"]:

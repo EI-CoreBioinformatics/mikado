@@ -2,7 +2,7 @@
 # coding=utf-8
 
 """
-This module defines the Creator class, which is the main workhorse for mikado_lib pick.
+This module defines the Picker class, which is the main workhorse for mikado pick.
 """
 
 import sys

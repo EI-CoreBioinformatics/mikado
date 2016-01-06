@@ -29,12 +29,20 @@ class TestTrimming(unittest.TestCase):
         transcript.exons = [Interval(*exon) for exon in exons]
         transcript.id = "ENST00000560636"
         transcript.parent = "ENSG00000137872"
-        cds_line = "15\tprotein_coding\tCDS\t48051996\t48051996\t.\t+\t0\tID=ENST00000560636.cds1;Parent=ENST00000560636"
+        cds_line = "\t".join(["15",
+                              "protein_coding",
+                              "CDS",
+                              "48051996",
+                              "48051996",
+                              ".",
+                              "+",
+                              "0",
+                              "ID=ENST00000560636.cds1;Parent=ENST00000560636"])
         cds_line = GffLine(cds_line)
         transcript.add_exon(cds_line)
-        transcript.finalize()
-
         logger = mikado_lib.utilities.log_utils.create_null_logger("wrong_cds")
+        transcript.logger = logger
+        transcript.finalize()
 
         trimmed = trim_coding(transcript, logger, max_length=50)
         self.assertEqual(trimmed.start, 47631366)
@@ -97,7 +105,7 @@ class TestTrimming(unittest.TestCase):
         transcript.strand = "+"
         transcript.finalize()
 
-        logger = mikado_lib.utilities.log_utils.create_null_logger("correct_cds")
+        logger = mikado_lib.utilities.log_utils.create_null_logger("correct_cds2")
 
         copied = transcript.deepcopy()
 

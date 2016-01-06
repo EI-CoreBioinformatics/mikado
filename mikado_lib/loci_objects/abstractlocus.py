@@ -737,3 +737,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if len(self.__cds_introntree) != len(self.combined_cds_introns):
             self.__cds_introntree = intervaltree.IntervalTree(self.combined_cds_introns)
         return self.__cds_introntree
+
+    @property
+    def longest_transcript(self):
+        return max([len(_) for _ in self.transcripts.values()])

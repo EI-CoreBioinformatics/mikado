@@ -208,7 +208,9 @@
             "   j, n, O, e, K, o, h. Default: j, O, n, h",
             "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
-            "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)"
+            "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
+            "- min_score_perc: Minimum score threshold for subsequent AS events.",
+            " Only transcripts with a score at least (best) * value are retained."
           ],
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
@@ -216,7 +218,9 @@
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
             "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
             "Default: 0% i.e. disabled, we check for the CDS overlap.",
-            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3"
+            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
+            "- min_score_perc: Minimum score threshold for subsequent AS events.",
+            " Only transcripts with a score at least (best) * value are retained. Default: 50% (0.5)"
           ],
           "required": ["report", "max_isoforms"],
           "type": "object",
@@ -281,6 +285,12 @@
                 "O",
                 "h"
               ]
+            },
+            "min_score_perc": {
+              "type": "number",
+              "default": 0.5,
+              "minimum": 0,
+              "maximum": 1
             }
           }
         },

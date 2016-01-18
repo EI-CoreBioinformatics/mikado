@@ -970,7 +970,9 @@ class Picker:
                           self.json_conf["pick"]["output_format"]["source"])
         if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
             self.queue_pool = sqlalchemy.pool.QueuePool(
-                self.db_connection, pool_size=1, max_overflow=2)
+                self.db_connection,
+                pool_size=self.threads,
+                max_overflow=0)
 
         try:
             self._parse_and_submit_input(data_dict)

@@ -810,7 +810,7 @@ class Picker:
             self.main_logger.debug("Submitting %s",
                                    current_locus.id)
 
-        if self.json_conf["single_thread"] is True:
+        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             analyse_locus(current_locus,
                           counter,
                           self.json_conf,

@@ -875,7 +875,7 @@ class Picker:
         if test is False:
             self.__unsorted_interrupt(row, current_transcript)
 
-    def _parse_and_submit_input(self, pool, data_dict):
+    def _parse_and_submit_input(self, data_dict):
 
         """
         This method does the parsing of the input and submission of the loci to the
@@ -888,6 +888,7 @@ class Picker:
         current_locus = None
         current_transcript = None
 
+        pool = multiprocessing.Pool(processes=self.threads)
         jobs = []
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
@@ -946,7 +947,8 @@ class Picker:
         counter += 1
         submit_locus(current_locus, counter)
         # jobs.append()
-        return jobs
+        pool.close()
+        pool.join()
 
     def __call__(self):
 
@@ -962,7 +964,6 @@ class Picker:
             # Use the preload function to create the data dictionary
             data_dict = self.preload()
         # pylint: disable=no-member
-        pool = multiprocessing.Pool(processes=self.threads)
         # pylint: enable=no-member
 
         self.logger.debug("Source: %s",
@@ -972,7 +973,7 @@ class Picker:
                 self.db_connection, pool_size=1, max_overflow=2)
 
         try:
-            _ = self._parse_and_submit_input(pool, data_dict)
+            self._parse_and_submit_input(data_dict)
         except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")
@@ -982,8 +983,8 @@ class Picker:
         # for job in iter(x for x in jobs if x is not None):
         #     job.get()
 
-        pool.close()
-        pool.join()
+        # pool.close()
+        # pool.join()
 
         self.printer_queue.join()
         self.printer_queue.put(("EXIT", float("inf")))

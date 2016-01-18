@@ -254,6 +254,11 @@ class DrosoTester(unittest.TestCase):
     def test_code(self):
 
         # print(mikado_lib.scales.assigner.Assigner.compare(self.pred, self.ref))
+        self.ref.finalize()
+        print(self.ref.combined_cds)
+        print(self.ref.combined_cds_introns)
+        self.assertGreater(len(self.ref.combined_cds), 0)
+        self.assertEqual(len(self.ref.selected_cds_introns), 7)
         self.assertEqual(len(self.ref.combined_cds_introns), 7)
 
 

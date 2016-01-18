@@ -128,6 +128,9 @@ class Transcript:
         self.__parent = []
         self.__combined_cds = []
         self.__selected_cds = []
+        self._combined_cds_introns = set()
+        self._selected_cds_introns = set()
+
         self.__combined_utr = []
         # pylint: enable=invalid-name
         self._selected_internal_orf_cds = []
@@ -903,40 +906,45 @@ class Transcript:
     def combined_cds_introns(self):
         """This property returns the introns which are located between CDS
         segments in the combined CDS."""
-        if self.number_internal_orfs < 2:
-            return self.selected_cds_introns
-        if self.number_internal_orfs == 0 or len(self.combined_cds) < 2:
-            return set()
 
-        cintrons = []
-        for position in range(len(self.combined_cds) - 1):
-            former = self.combined_cds[position]
-            latter = self.combined_cds[position + 1]
-            junc = intervaltree.Interval(former[1] + 1, latter[0] - 1)
-            if junc in self.introns:
-                cintrons.append(junc)
-        cintrons = set(cintrons)
-        return cintrons
+        return self._combined_cds_introns
+
+        # if self.number_internal_orfs < 2:
+        #     return self.selected_cds_introns
+        # if self.number_internal_orfs == 0 or len(self.combined_cds) < 2:
+        #     return set()
+        #
+        # cintrons = []
+        # for position in range(len(self.combined_cds) - 1):
+        #     former = self.combined_cds[position]
+        #     latter = self.combined_cds[position + 1]
+        #     junc = intervaltree.Interval(former[1] + 1, latter[0] - 1)
+        #     if junc in self.introns:
+        #         cintrons.append(junc)
+        # cintrons = set(cintrons)
+        # return cintrons
 
     @property
     def selected_cds_introns(self):
         """This property returns the introns which are located between
         CDS segments in the selected ORF."""
 
-        if len(self.selected_cds) < 2:
-            return set()
-        if self.number_internal_orfs == 0 or len(self.combined_cds) < 2:
-            return set()
+        return self._selected_cds_introns
 
-        cintrons = []
-        for first, second in zip(self.selected_cds[:-1], self.selected_cds[1:]):
-            cintrons.append(
-                intervaltree.Interval(first[1] + 1,
-                                      second[0] - 1)
-            )
-        cintrons = set(cintrons)
-        assert len(cintrons) > 0
-        return cintrons
+        # if len(self.selected_cds) < 2:
+        #     return set()
+        # if self.number_internal_orfs == 0 or len(self.combined_cds) < 2:
+        #     return set()
+        #
+        # cintrons = []
+        # for first, second in zip(self.selected_cds[:-1], self.selected_cds[1:]):
+        #     cintrons.append(
+        #         intervaltree.Interval(first[1] + 1,
+        #                               second[0] - 1)
+        #     )
+        # cintrons = set(cintrons)
+        # assert len(cintrons) > 0
+        # return cintrons
 
     @property
     def combined_cds_start(self):

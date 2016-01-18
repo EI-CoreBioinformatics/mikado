@@ -260,6 +260,48 @@ def __check_internal_orf(transcript, exons, orf):
     return
 
 
+def __calc_cds_introns(transcript):
+
+    """
+    Function to calculate and memorize the selected CDS and combined CDS introns.
+    :param transcript: the transcript instance.
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :return:
+    """
+
+    if transcript.number_internal_orfs == 0 or \
+                len(transcript.selected_cds) < 2 or \
+                len(transcript.combined_cds) < 2:
+        pass
+    else:
+        # Start calculating the selected CDS introns
+        cintrons = []
+        for first, second in zip(transcript.selected_cds[:-1], transcript.selected_cds[1:]):
+            cintrons.append(
+                intervaltree.Interval(first[1] + 1,
+                                      second[0] - 1)
+            )
+
+        cintrons = set(cintrons)
+        assert len(cintrons) > 0
+        transcript._selected_cds_introns = cintrons
+        transcript._combined_cds_introns = transcript._selected_cds_introns.copy()
+        if transcript.number_internal_orfs > 1:
+            cintrons = []
+            for position in range(len(transcript.combined_cds) - 1):
+                former = transcript.combined_cds[position]
+                latter = transcript.combined_cds[position + 1]
+                junc = intervaltree.Interval(former[1] + 1, latter[0] - 1)
+                if junc in transcript.introns:
+                    cintrons.append(junc)
+            cintrons = set(cintrons)
+            transcript._combined_cds_introns = cintrons
+        assert len(transcript._combined_cds_introns) > 0
+
+    assert len(transcript._combined_cds_introns) >= len(transcript._selected_cds_introns)
+    return transcript
+    
+
 def finalize(transcript):
     """Function to calculate the internal introns from the exons.
     In the first step, it will sort the exons by their internal coordinates.
@@ -346,6 +388,7 @@ def finalize(transcript):
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)
+    transcript = __calc_cds_introns(transcript)
 
     transcript.finalized = True
     transcript.logger.debug("Finished finalising %s", transcript.id)

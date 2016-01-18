@@ -279,10 +279,10 @@ class Picker:
 
         # Configure SQL logging
         sqllogger = logging.getLogger("sqlalchemy.engine")
-        if json_conf["log_settings"]["log_level"] == "DEBUG":
-            sqllogger.setLevel("DEBUG")
-        else:
-            sqllogger.setLevel(json_conf["log_settings"]["sql_level"])
+        # if json_conf["log_settings"]["log_level"] == "DEBUG":
+        #     sqllogger.setLevel("DEBUG")
+        # else:
+        sqllogger.setLevel(json_conf["log_settings"]["sql_level"])
         sqllogger.addHandler(self.logger_queue_handler)
 
         # We need to set this to the lowest possible level,

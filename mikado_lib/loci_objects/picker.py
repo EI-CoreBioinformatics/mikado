@@ -906,9 +906,9 @@ class Picker:
                                                               check_in_locus=False)
                     else:
                         counter += 1
-                        job = submit_locus(current_locus, counter)
-                        if job is not None:
-                            jobs.append(job)
+                        _ = submit_locus(current_locus, counter)
+                        # if job is not None:
+                        #     jobs.append(job)
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
@@ -932,7 +932,8 @@ class Picker:
                     current_transcript, check_in_locus=False)
             else:
                 counter += 1
-                jobs.append(submit_locus(current_locus, counter))
+                submit_locus(current_locus, counter)
+                # jobs.append(submit_locus(current_locus, counter))
 
                 current_locus = Superlocus(
                     current_transcript,
@@ -943,7 +944,8 @@ class Picker:
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
-        jobs.append(submit_locus(current_locus, counter))
+        submit_locus(current_locus, counter)
+        # jobs.append()
         return jobs
 
     def __call__(self):

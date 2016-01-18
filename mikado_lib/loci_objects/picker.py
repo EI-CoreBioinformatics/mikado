@@ -880,7 +880,6 @@ class Picker:
         """
         This method does the parsing of the input and submission of the loci to the
         _submit_locus method.
-        :param pool: The threading pool
         :param data_dict: The cached data from the database
         :return: jobs (the list of all jobs already submitted)
         """
@@ -889,7 +888,6 @@ class Picker:
         current_transcript = None
 
         pool = multiprocessing.Pool(processes=self.threads)
-        jobs = []
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,

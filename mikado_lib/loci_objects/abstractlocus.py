@@ -542,7 +542,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                   len(transcript.selected_cds))
 
         retained_introns = []
-        for exon in transcript.exons:
+        for exon in iter(_ for _ in transcript.exons if _ not in transcript.cds_tree):
             # Monobase exons are a problem
             if exon[0] == exon[1]:
                 self.logger.warning("Monobase exon found in %s: %s:%d-%d",

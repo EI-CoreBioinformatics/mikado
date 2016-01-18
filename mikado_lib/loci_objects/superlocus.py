@@ -361,6 +361,7 @@ class Superlocus(Abstractlocus):
                 if len(new_tr) > 1:
                     to_add.update(new_tr)
                     to_remove = True
+        del data_dict
         return to_remove, to_add
         # @profile
 
@@ -463,6 +464,7 @@ class Superlocus(Abstractlocus):
         if data_dict is None:
             self.session.close()
             self.sessionmaker.close_all()
+        del data_dict
 
         num_coding = 0
         for tid in self.transcripts:

@@ -449,7 +449,8 @@
             "  this length. Default: 100 bps.",
             "- threads: number of threads to use. Default: 1",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
-            "  using SQLite databases."
+            "  using SQLite databases.",
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "SimpleComment": [
             "Generic run options.",
@@ -459,7 +460,8 @@
             "  classified as P,x,i or p compared to another locus, will be removed from the output.",
             "- threads: number of threads to use. Default: 1",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
-            "  using SQLite databases."
+            "  using SQLite databases.",
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "properties": {
             "shm": {

@@ -431,7 +431,7 @@
         },
         "run_options": {
           "type": "object",
-          "required": ["threads", "preload"],
+          "required": ["threads", "preload", "single_thread"],
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
@@ -494,6 +494,10 @@
               "type": "integer",
               "default": 1,
               "minimum": 1
+            },
+            "single_thread": {
+              "type": "boolean",
+              "default": false
             },
             "preload": {
               "type": "boolean",

@@ -289,7 +289,7 @@ class Picker:
         # otherwise we overwrite the global configuration
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.queue_logger.propagate = False
-        if self.json_conf["single_thread"] is True:
+        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             # Reset threads to 1
             self.main_logger.warning("Reset number of threads to 1 as requested")
             self.threads = self.json_conf["pick"]["threads"] = 1

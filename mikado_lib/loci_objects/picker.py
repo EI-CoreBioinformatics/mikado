@@ -649,7 +649,20 @@ class Picker:
         gene_counter = 0
 
         while True:
-            if last_printed + 1 in self.result_dict:
+            try:
+                next_one = (last_printed + 1 in self.result_dict)
+            except EOFError as exc:
+                logger.exception(exc)
+                logger.error("Something has gone wrong with the dictionary, counter %d",
+                             last_printed + 1)
+                try:
+                    logger.error("Current counters: %s",
+                                 ", ".join(list(self.result_dict.keys())))
+                except:
+                    pass
+                continue
+
+            if next_one:
                 last_printed += 1
                 current = self.result_dict[last_printed]
                 if len(current) == 0:

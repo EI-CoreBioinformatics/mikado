@@ -31,7 +31,7 @@ from mikado_lib import configuration
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson
 # import mikado_lib.exceptions
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 # pylint: disable=no-name-in-module
 from multiprocessing import Process
@@ -897,7 +897,7 @@ class Picker:
         current_transcript = None
 
         # pool = multiprocessing.Pool(processes=self.threads)
-        with ThreadPoolExecutor(max_workers=self.threads) as pool:
+        with ProcessPoolExecutor(max_workers=self.threads) as pool:
             intron_range = self.json_conf["soft_requirements"]["intron_range"]
             self.logger.info("Intron range: %s", intron_range)
             submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,

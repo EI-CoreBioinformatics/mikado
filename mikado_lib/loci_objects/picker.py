@@ -954,8 +954,8 @@ class Picker:
 
         counter += 1
         submit_locus(current_locus, counter)
-
         self.result_dict[counter+1] = "EXIT"
+        self.printer_process.start()
         # jobs.append()
         pool.close()
         pool.join()
@@ -967,8 +967,6 @@ class Picker:
 
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
-
-        self.printer_process.start()
 
         data_dict = None
         if self.json_conf["pick"]["run_options"]["preload"] is True:

@@ -178,19 +178,7 @@ def analyse_locus(slocus: Superlocus,
             # printer_queue.put(([], counter))
             return
     else:
-        logger.debug("Loading data from dict for %s", slocus.id)
-        slocus.logger = logger
-        slocus.load_all_transcript_data(pool=None,
-                                        data_dict=data_dict)
-        # current_locus_id = current_locus.id
-        if slocus.initialized is False:
-            # This happens when we have removed all transcripts from the locus
-            # due to errors which should have been caught and logged
-            logger.warning(
-                "%s had all transcripts failing checks, ignoring it",
-                slocus.id)
-            # Exit
-            return None
+        pass
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -821,7 +809,7 @@ class Picker:
         self.main_logger.info("Finished to preload the database into memory")
         return data_dict
 
-    def _submit_locus(self, current_locus, counter, data_dict=None, pool=None):
+    def _submit_locus(self, slocus, counter, data_dict=None, pool=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
         :param current_locus: the locus to analyse.
@@ -832,11 +820,26 @@ class Picker:
 
         job = None
 
-        if current_locus is not None:
-            self.main_logger.debug("Submitting %s", current_locus.id)
+        if slocus is not None:
+            self.main_logger.debug("Submitting %s", slocus.id)
+            
+        if self.json_conf["pick"]["run_options"]["preload"] is True:
+            self.logger.debug("Loading data from dict for %s", slocus.id)
+            slocus.logger = self.logger
+            slocus.load_all_transcript_data(pool=None,
+                                            data_dict=data_dict)
+            # slocus_id = slocus.id
+            if slocus.initialized is False:
+                # This happens when we have removed all transcripts from the locus
+                # due to errors which should have been caught and logged
+                self.logger.warning(
+                    "%s had all transcripts failing checks, ignoring it",
+                    slocus.id)
+                # Exit
+                return None
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
-            analyse_locus(current_locus,
+            analyse_locus(slocus,
                           counter,
                           self.json_conf,
                           data_dict,
@@ -845,7 +848,7 @@ class Picker:
         else:
             job = pool.apply_async(analyse_locus,
                                    args=(
-                              current_locus,
+                              slocus,
                               counter,
                               self.json_conf,
                               data_dict,

@@ -34,7 +34,7 @@ from ..exceptions import UnsortedInput, InvalidJson
 from concurrent.futures import ProcessPoolExecutor
 
 # pylint: disable=no-name-in-module
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 # pylint: enable=no-name-in-module
 import multiprocessing.managers
 
@@ -821,12 +821,14 @@ class Picker:
                           self.result_dict,
                           self.logging_queue)
         else:
-            job = pool.submit(analyse_locus,
+            job = pool.apply_async(analyse_locus,
+                                   args=(
                               current_locus,
                               counter,
                               self.json_conf,
                               self.result_dict,
                               self.logging_queue)
+                                   )
         return job
 
     def __unsorted_interrupt(self, row, current_transcript, counter):
@@ -893,69 +895,70 @@ class Picker:
         current_locus = None
         current_transcript = None
 
-        # pool = multiprocessing.Pool(processes=self.threads)
-        with ProcessPoolExecutor(max_workers=self.threads) as pool:
-            intron_range = self.json_conf["soft_requirements"]["intron_range"]
-            self.logger.info("Intron range: %s", intron_range)
-            submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                    "pool": pool})
-            counter = -1
-            for row in self.define_input():
-                if row.is_exon is True:
-                    current_transcript.add_exon(row)
-                elif row.is_transcript is True:
+        pool = multiprocessing.Pool(processes=self.threads)
+
+        # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
+        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        self.logger.info("Intron range: %s", intron_range)
+        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
+                                                                "pool": pool})
+        counter = -1
+        for row in self.define_input():
+            if row.is_exon is True:
+                current_transcript.add_exon(row)
+            elif row.is_transcript is True:
+                if current_transcript is not None:
+                    self.__test_sortedness(row, current_transcript, counter)
+                    if Superlocus.in_locus(
+                            current_locus, current_transcript) is True:
+                        current_locus.add_transcript_to_locus(current_transcript,
+                                                              check_in_locus=False)
+                    else:
+                        counter += 1
+                        submit_locus(current_locus, counter)
+                        # if job is not None:
+                        #     jobs.append(job)
+                        current_locus = Superlocus(
+                            current_transcript,
+                            stranded=False,
+                            json_conf=self.json_conf)
+
+                if current_transcript is None or row.chrom != current_transcript.chrom:
                     if current_transcript is not None:
-                        self.__test_sortedness(row, current_transcript, counter)
-                        if Superlocus.in_locus(
-                                current_locus, current_transcript) is True:
-                            current_locus.add_transcript_to_locus(current_transcript,
-                                                                  check_in_locus=False)
-                        else:
-                            counter += 1
-                            submit_locus(current_locus, counter)
-                            # if job is not None:
-                            #     jobs.append(job)
-                            current_locus = Superlocus(
-                                current_transcript,
-                                stranded=False,
-                                json_conf=self.json_conf)
+                        self.logger.info("Finished chromosome %s",
+                                         current_transcript.chrom)
+                    self.logger.info("Starting chromosome %s", row.chrom)
 
-                    if current_transcript is None or row.chrom != current_transcript.chrom:
-                        if current_transcript is not None:
-                            self.logger.info("Finished chromosome %s",
-                                             current_transcript.chrom)
-                        self.logger.info("Starting chromosome %s", row.chrom)
+                current_transcript = Transcript(
+                    row,
+                    source=self.json_conf["pick"]["output_format"]["source"],
+                    intron_range=intron_range)
 
-                    current_transcript = Transcript(
-                        row,
-                        source=self.json_conf["pick"]["output_format"]["source"],
-                        intron_range=intron_range)
+        if current_transcript is not None:
+            if Superlocus.in_locus(
+                    current_locus, current_transcript) is True:
+                current_locus.add_transcript_to_locus(
+                    current_transcript, check_in_locus=False)
+            else:
+                counter += 1
+                submit_locus(current_locus, counter)
+                # jobs.append(submit_locus(current_locus, counter))
 
-            if current_transcript is not None:
-                if Superlocus.in_locus(
-                        current_locus, current_transcript) is True:
-                    current_locus.add_transcript_to_locus(
-                        current_transcript, check_in_locus=False)
-                else:
-                    counter += 1
-                    submit_locus(current_locus, counter)
-                    # jobs.append(submit_locus(current_locus, counter))
+                current_locus = Superlocus(
+                    current_transcript,
+                    stranded=False,
+                    json_conf=self.json_conf)
+                self.logger.debug("Created last locus %s",
+                                  current_locus)
+        self.logger.info("Finished chromosome %s", current_locus.chrom)
 
-                    current_locus = Superlocus(
-                        current_transcript,
-                        stranded=False,
-                        json_conf=self.json_conf)
-                    self.logger.debug("Created last locus %s",
-                                      current_locus)
-            self.logger.info("Finished chromosome %s", current_locus.chrom)
-
-            counter += 1
-            submit_locus(current_locus, counter)
+        counter += 1
+        submit_locus(current_locus, counter)
 
         self.result_dict[counter+1] = "EXIT"
         # jobs.append()
-        # pool.close()
-        # pool.join()
+        pool.close()
+        pool.join()
         # pool.shutdown(wait=True)
 
     def __call__(self):

@@ -321,6 +321,9 @@ class XmlSerializer:
 
         current_query, name = self.get_query(record)
 
+        current_evalue = -1
+        current_counter = 0
+
         for ccc, alignment in enumerate(record.alignments):
             if ccc > self.__max_target_seqs:
                 break
@@ -340,7 +343,11 @@ class XmlSerializer:
             hit_dict_params = dict()
             (hit_dict_params["query_multiplier"],
              hit_dict_params["target_multiplier"]) = self.__get_multipliers(record)
-            hit_dict_params["hit_number"] = ccc + 1
+            if current_evalue < record.descriptions[ccc].e:
+                current_counter += 1
+                current_evalue = record.descriptions[ccc].e
+
+            hit_dict_params["hit_number"] = current_counter
             hit_dict_params["evalue"] = record.descriptions[ccc].e
             hit_dict_params["bits"] = record.descriptions[ccc].bits
 

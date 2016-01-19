@@ -196,6 +196,13 @@ def analyse_locus(slocus: Superlocus,
 
     # Check if any locus is a fragment, if so, tag/remove it
     stranded_loci = sorted(list(remove_fragments(stranded_loci, json_conf, logger)))
+    try:
+        logger.debug("Size of the loci to send: {0}, for {1} loci".format(
+            sys.getsizeof(stranded_loci),
+            len(stranded_loci)))
+    except Exception as err:
+        logger.error(err)
+        pass
     printer_queue.put((stranded_loci, counter))
 
     # close up shop
@@ -668,8 +675,10 @@ class Picker:
 
         hit_counter = 0
         hits = engine.execute(
-            "select * from hit where evalue <= {0} order by query_id, evalue asc;".format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]))
+            " ".join(["select * from hit where evalue <= {0} and hit_number <= {1}",
+                      "order by query_id, evalue asc;"]).format(
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
         current_counter = 0
@@ -694,7 +703,7 @@ class Picker:
             my_target = targets[hit.target_id]
 
             # We HAVE to use the += approach because extend/append
-            # leave the original list empty
+            # leaves the original list empty
             hits_dict[my_query.query_name].append(
                 Hit.as_full_dict_static(
                     hit,

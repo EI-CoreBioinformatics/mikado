@@ -919,13 +919,11 @@ class Picker:
         current_locus = None
         current_transcript = None
 
-        pool = multiprocessing.Pool(processes=self.threads)
-
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                "pool": pool})
+                                                                "pool": self.pool})
         counter = -1
         for row in self.define_input():
             if row.is_exon is True:
@@ -985,8 +983,7 @@ class Picker:
         _ = ExitSignal()
         self.result_dict[counter+1] = [_]
         # jobs.append()
-        pool.close()
-        pool.join()
+
         # pool.shutdown(wait=True)
 
     def __call__(self):
@@ -998,6 +995,8 @@ class Picker:
 
         self.printer_process.start()
         data_dict = None
+        self.pool = multiprocessing.Pool(processes=self.threads,
+                                         maxtasksperchild=None)
         if self.json_conf["pick"]["run_options"]["preload"] is True:
             # Use the preload function to create the data dictionary
             data_dict = self.preload()
@@ -1023,11 +1022,10 @@ class Picker:
         # for job in iter(x for x in jobs if x is not None):
         #     job.get()
 
-        # pool.close()
-        # pool.join()
-
         # self.printer_queue.join()
         # self.printer_queue.put(("EXIT", float("inf")))
+        self.pool.close()
+        self.pool.join()
         self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:

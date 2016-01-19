@@ -99,7 +99,7 @@ def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
                   data_dict: multiprocessing.managers.DictProxy,
-                  printer_dict: multiprocessing.managers.DictProxy,
+                  printer_queue: multiprocessing.managers.AutoProxy,
                   logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
 
     """
@@ -115,8 +115,8 @@ def analyse_locus(slocus: Superlocus,
     :param logging_queue: the logging queue
     :type logging_queue: multiprocessing.managers.AutoProxy
 
-    :param printer_dict: the printing dictionary
-    :type printer_dict: multiprocessing.managers.DictProxy
+    :param printer_queue: the printing dictionary
+    :type printer_queue: multiprocessing.managers.AutoProxy
 
     # :param data_dict: a dictionary of preloaded data
     # :type data_dict: dict
@@ -132,8 +132,8 @@ def analyse_locus(slocus: Superlocus,
 
     # Define the logger
     if slocus is None:
-        printer_dict[counter] = []
-        # printer_queue.put(([], counter))
+        # printer_dict[counter] = []
+        printer_queue.put(([], counter))
         return
 
     handler = logging_handlers.QueueHandler(logging_queue)
@@ -174,13 +174,14 @@ def analyse_locus(slocus: Superlocus,
             logger.warning(
                 "%s had all transcripts failing checks, ignoring it",
                 slocus_id)
-            printer_dict[counter] = []
-            # printer_queue.put(([], counter))
+            # printer_dict[counter] = []
+            printer_queue.put(([], counter))
             return
     else:
         if slocus is None:
             logger.error("The locus has disappeared for counter %d", counter)
-            printer_dict[counter] = []
+            # printer_dict[counter] = []
+            printer_queue.put(([], counter))
             return
 
         logger.debug("Loading data from dict for %s", slocus.id)
@@ -195,7 +196,8 @@ def analyse_locus(slocus: Superlocus,
                 "%s had all transcripts failing checks, ignoring it",
                 slocus.id)
             # Exit
-            printer_dict[counter] = []
+            printer_queue.put(([], counter))
+            # printer_dict[counter] = []
             return
 
     # Split the superlocus in the stranded components
@@ -236,8 +238,8 @@ def analyse_locus(slocus: Superlocus,
     except Exception as err:
         logger.error(err)
         pass
-    printer_dict[counter] = stranded_loci
-    # printer_queue.put((stranded_loci, counter))
+    # printer_dict[counter] = stranded_loci
+    printer_queue.put((stranded_loci, counter))
 
     # close up shop
     logger.debug("Finished with %s, counter %d", slocus.id, counter)
@@ -303,8 +305,8 @@ class Picker:
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
         self.manager = self.context.Manager()
-        self.result_dict = self.manager.dict()
-        # self.printer_queue = self.manager.Queue(-1)
+        # self.result_dict = self.manager.dict()
+        self.printer_queue = self.manager.Queue(-1)
         self.logging_queue = self.manager.Queue(-1)
 
         # self.printer_queue = self.manager.Queue(-1)
@@ -644,44 +646,36 @@ class Picker:
                                           handles=handles)
 
         last_printed = -1
-        # cache = dict()
+        cache = dict()
         curr_chrom = None
         gene_counter = 0
 
         while True:
-            try:
-                next_one = (last_printed + 1 in self.result_dict)
-            except KeyboardInterrupt:
-                raise KeyboardInterrupt
-            except Exception as exc:
+            current = self.printer_queue.get()
+            stranded_loci, counter = current
 
-                print("Something has gone wrong with the dictionary, counter %d" %
-                             last_printed + 1, file=sys.stderr)
-                print("Exception: %s" % exc)
+            cache[counter] = stranded_loci
+            if counter == last_printed + 1 or stranded_loci == "EXIT":
+                cache[counter] = stranded_loci
+                for num in sorted(cache.keys()):
+                    if num > last_printed + 1:
+                        break
+                    else:
+                        if num % 1000 == 0 and num > 0:
+                            logger.info("Printed %d superloci", num)
+                        for stranded_locus in cache[num]:
+                            if stranded_locus.chrom != curr_chrom:
+                                curr_chrom = stranded_locus.chrom
+                                gene_counter = 0
+                            gene_counter = locus_printer(stranded_locus, gene_counter)
+                        last_printed += 1
+                        del cache[num]
+                if stranded_loci == "EXIT":
+                    self.printer_queue.task_done()
+                    logger.info("Final number of superloci: %d", last_printed)
+                    break
+            self.printer_queue.task_done()
 
-                sys.exit(10)
-
-            if next_one:
-                last_printed += 1
-                current = self.result_dict[last_printed]
-                if len(current) == 0:
-                    logger.debug("No results for %d, continuing", last_printed)
-                    continue
-                logger.debug("Retrieved hit %d (IDs: %s)",
-                             last_printed,
-                             ", ".join([_.id for _ in current]))
-                if current[0].id == "EXIT":
-                    logger.info("Final number of superloci: %d", last_printed - 1)
-                    return
-                if last_printed % 1000 == 0 and last_printed > 0:
-                    logger.info("Printed %d superloci", last_printed)
-                for stranded_locus in current:
-                    if stranded_locus.chrom != curr_chrom:
-                        curr_chrom = stranded_locus.chrom
-                        gene_counter = 0
-                    gene_counter = locus_printer(stranded_locus, gene_counter)
-                # Remove finished things from the dictionary
-                del self.result_dict[last_printed]
         return
     # pylint: enable=too-many-locals
 
@@ -842,7 +836,7 @@ class Picker:
     def _submit_locus(self, slocus, counter, data_dict=None, pool=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
-        :param current_locus: the locus to analyse.
+        :param slocus: the locus to analyse.
         :param data_dict: the preloaded data in memory
         :param pool: thread execution pool
         :return: job object / None
@@ -873,7 +867,7 @@ class Picker:
                           counter,
                           self.json_conf,
                           data_dict,
-                          self.result_dict,
+                          self.printer_queue,
                           self.logging_queue)
         else:
             job = pool.apply_async(analyse_locus,
@@ -882,7 +876,7 @@ class Picker:
                               counter,
                               self.json_conf,
                               data_dict,
-                              self.result_dict,
+                              self.printer_queue,
                               self.logging_queue)
                                    )
         return job
@@ -897,8 +891,8 @@ class Picker:
         """
 
         _ = ExitSignal()
-        self.result_dict[counter] = [_]
-        # self.printer_queue.put(("EXIT", float("inf")))
+        # self.result_dict[counter] = [_]
+        self.printer_queue.put(("EXIT", float("inf")))
         current = "\t".join([str(x) for x in [row.chrom,
                                               row.start,
                                               row.end,
@@ -953,10 +947,12 @@ class Picker:
         current_transcript = None
 
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
+        pool = multiprocessing.Pool(processes=self.threads, maxtasksperchild=None)
+
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                "pool": self.pool})
+                                                                "pool": pool})
         counter = -1
         for row in self.define_input():
             if row.is_exon is True:
@@ -1013,8 +1009,14 @@ class Picker:
         submit_locus(current_locus, counter)
         self.logger.debug("Submitting locus %s, counter %d",
                           current_locus.id, counter)
-        _ = ExitSignal()
-        self.result_dict[counter+1] = [_]
+
+        pool.close()
+        pool.join()
+
+        # _ = ExitSignal()
+        self.printer_queue.put(("EXIT", float("inf")))
+
+        # self.result_dict[counter+1] = [_]
         # jobs.append()
 
         # pool.shutdown(wait=True)
@@ -1028,8 +1030,7 @@ class Picker:
 
         self.printer_process.start()
         data_dict = None
-        self.pool = multiprocessing.Pool(processes=self.threads,
-                                         maxtasksperchild=None)
+
         if self.json_conf["pick"]["run_options"]["preload"] is True:
             # Use the preload function to create the data dictionary
             data_dict = self.preload()
@@ -1055,10 +1056,8 @@ class Picker:
         # for job in iter(x for x in jobs if x is not None):
         #     job.get()
 
-        # self.printer_queue.join()
-        # self.printer_queue.put(("EXIT", float("inf")))
-        self.pool.close()
-        self.pool.join()
+        self.printer_queue.join()
+        self.printer_queue.put(("EXIT", float("inf")))
         self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:

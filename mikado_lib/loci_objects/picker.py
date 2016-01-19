@@ -31,7 +31,7 @@ from mikado_lib import configuration
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson
 # import mikado_lib.exceptions
-from concurrent.futures import ProcessPoolExecutor
+# from concurrent.futures import ProcessPoolExecutor
 
 # pylint: disable=no-name-in-module
 from multiprocessing import Process, Pool
@@ -88,6 +88,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
 def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
+                  data_dict: multiprocessing.managers.DictProxy,
                   printer_dict: multiprocessing.managers.DictProxy,
                   logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
 
@@ -166,6 +167,20 @@ def analyse_locus(slocus: Superlocus,
             printer_dict[counter] = []
             # printer_queue.put(([], counter))
             return
+    else:
+        logger.debug("Loading data from dict for %s", slocus.id)
+        slocus.logger = logger
+        slocus.load_all_transcript_data(pool=None,
+                                        data_dict=data_dict)
+        # current_locus_id = current_locus.id
+        if slocus.initialized is False:
+            # This happens when we have removed all transcripts from the locus
+            # due to errors which should have been caught and logged
+            logger.warning(
+                "%s had all transcripts failing checks, ignoring it",
+                slocus.id)
+            # Exit
+            return None
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -734,16 +749,17 @@ class Picker:
 
         self.main_logger.info("Starting to preload the database into memory")
 
-        data_dict = dict()
+        data_dict = self.manager.dict()
         engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        data_dict["junctions"] = dict()
+        junc_dict = dict()
         for junc in session.query(Junction):
             key = (junc.chrom, junc.junction_start, junc.junction_end)
-            assert key not in data_dict["junctions"]
-            data_dict["junctions"][key] = junc.strand
+            assert key not in junc_dict
+            junc_dict[key] = junc.strand
+        data_dict["junctions"] = junc_dict
 
         # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
 
@@ -756,13 +772,18 @@ class Picker:
         queries = dict((que.query_id, que) for que in engine.execute("select * from query"))
 
         # Then load ORFs
-        data_dict["orfs"] = collections.defaultdict(list)
+        orf_dict = collections.defaultdict(list)
 
         for orf in engine.execute("select * from orf"):
+
             query_name = queries[orf.query_id].query_name
-            data_dict["orfs"][query_name].append(
+            orf_dict[query_name].append(
                 Orf.as_bed12_static(orf, query_name)
             )
+
+        data_dict["orfs"] = orf_dict
+        assert len(data_dict["orfs"]) == engine.execute(
+            "select count(distinct(query_id)) from orf").fetchone()[0]
 
         # data_dict['orf'] = self.manager.dict(orfs, lock=False)
 
@@ -794,30 +815,15 @@ class Picker:
         """
 
         job = None
-        if data_dict is not None and current_locus is not None:
-            self.main_logger.debug("Loading data from dict for %s",
-                                   current_locus.id)
-            current_locus.logger = self.queue_logger
-            current_locus.load_all_transcript_data(pool=self.queue_pool,
-                                                   data_dict=data_dict)
-            current_locus_id = current_locus.id
-            if current_locus.initialized is False:
-                # This happens when we have removed all transcripts from the locus
-                # due to errors which should have been caught and logged
-                self.main_logger.warning(
-                    "%s had all transcripts failing checks, ignoring it",
-                    current_locus_id)
-                # Exit
-                return None
 
         if current_locus is not None:
-            self.main_logger.debug("Submitting %s",
-                                   current_locus.id)
+            self.main_logger.debug("Submitting %s", current_locus.id)
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             analyse_locus(current_locus,
                           counter,
                           self.json_conf,
+                          data_dict,
                           self.result_dict,
                           self.logging_queue)
         else:
@@ -826,6 +832,7 @@ class Picker:
                               current_locus,
                               counter,
                               self.json_conf,
+                              data_dict,
                               self.result_dict,
                               self.logging_queue)
                                    )
@@ -955,7 +962,6 @@ class Picker:
         counter += 1
         submit_locus(current_locus, counter)
         self.result_dict[counter+1] = "EXIT"
-        self.printer_process.start()
         # jobs.append()
         pool.close()
         pool.join()
@@ -968,6 +974,7 @@ class Picker:
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
 
+        self.printer_process.start()
         data_dict = None
         if self.json_conf["pick"]["run_options"]["preload"] is True:
             # Use the preload function to create the data dictionary

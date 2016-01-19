@@ -98,7 +98,6 @@ def remove_fragments(stranded_loci, json_conf, logger):
 def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
-                  data_dict: multiprocessing.managers.DictProxy,
                   printer_queue: multiprocessing.managers.AutoProxy,
                   logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
 
@@ -177,28 +176,28 @@ def analyse_locus(slocus: Superlocus,
             # printer_dict[counter] = []
             printer_queue.put(([], counter))
             return
-    else:
-        if slocus is None:
-            logger.error("The locus has disappeared for counter %d", counter)
-            # printer_dict[counter] = []
-            printer_queue.put(([], counter))
-            return
-
-        logger.debug("Loading data from dict for %s", slocus.id)
-        slocus.logger = logger
-        slocus.load_all_transcript_data(pool=None,
-                                        data_dict=data_dict)
-        # slocus_id = slocus.id
-        if slocus.initialized is False:
-            # This happens when we have removed all transcripts from the locus
-            # due to errors which should have been caught and logged
-            logger.warning(
-                "%s had all transcripts failing checks, ignoring it",
-                slocus.id)
-            # Exit
-            printer_queue.put(([], counter))
-            # printer_dict[counter] = []
-            return
+    # else:
+    #     if slocus is None:
+    #         logger.error("The locus has disappeared for counter %d", counter)
+    #         # printer_dict[counter] = []
+    #         printer_queue.put(([], counter))
+    #         return
+    #
+    #     logger.debug("Loading data from dict for %s", slocus.id)
+    #     slocus.logger = logger
+    #     slocus.load_all_transcript_data(pool=None,
+    #                                     data_dict=data_dict)
+    #     # slocus_id = slocus.id
+    #     if slocus.initialized is False:
+    #         # This happens when we have removed all transcripts from the locus
+    #         # due to errors which should have been caught and logged
+    #         logger.warning(
+    #             "%s had all transcripts failing checks, ignoring it",
+    #             slocus.id)
+    #         # Exit
+    #         printer_queue.put(([], counter))
+    #         # printer_dict[counter] = []
+    #         return
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -848,26 +847,25 @@ class Picker:
         if slocus is not None:
             self.main_logger.debug("Submitting %s", slocus.id)
             
-        # if self.json_conf["pick"]["run_options"]["preload"] is True:
-        #     self.logger.debug("Loading data from dict for %s", slocus.id)
-        #     slocus.logger = self.logger
-        #     slocus.load_all_transcript_data(pool=None,
-        #                                     data_dict=data_dict)
-        #     # slocus_id = slocus.id
-        #     if slocus.initialized is False:
-        #         # This happens when we have removed all transcripts from the locus
-        #         # due to errors which should have been caught and logged
-        #         self.logger.warning(
-        #             "%s had all transcripts failing checks, ignoring it",
-        #             slocus.id)
-        #         # Exit
-        #         return None
+        if self.json_conf["pick"]["run_options"]["preload"] is True:
+            self.logger.debug("Loading data from dict for %s", slocus.id)
+            slocus.logger = self.logger
+            slocus.load_all_transcript_data(pool=None,
+                                            data_dict=data_dict)
+            # slocus_id = slocus.id
+            if slocus.initialized is False:
+                # This happens when we have removed all transcripts from the locus
+                # due to errors which should have been caught and logged
+                self.logger.warning(
+                    "%s had all transcripts failing checks, ignoring it",
+                    slocus.id)
+                # Exit
+                return None
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             analyse_locus(slocus,
                           counter,
                           self.json_conf,
-                          data_dict,
                           self.printer_queue,
                           self.logging_queue)
         else:
@@ -876,7 +874,6 @@ class Picker:
                               slocus,
                               counter,
                               self.json_conf,
-                              data_dict,
                               self.printer_queue,
                               self.logging_queue)
                                    )

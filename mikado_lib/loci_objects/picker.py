@@ -654,15 +654,11 @@ class Picker:
             except KeyboardInterrupt:
                 raise KeyboardInterrupt
             except Exception as exc:
-                logger.exception(exc)
-                logger.error("Something has gone wrong with the dictionary, counter %d",
-                             last_printed + 1)
-                try:
-                    logger.error("Current counters: %s",
-                                 ", ".join(list(self.result_dict.keys())))
-                except Exception as exc:
-                    logger.error("Exception while trying to recover the dictionary keys")
-                    logger.exception(exc)
+
+                print("Something has gone wrong with the dictionary, counter %d" %
+                             last_printed + 1, file=sys.stderr)
+                print("Exception: %s" % exc)
+
                 sys.exit(10)
 
             if next_one:

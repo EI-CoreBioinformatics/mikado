@@ -777,7 +777,8 @@ class Picker:
 
         self.main_logger.info("Starting to preload the database into memory")
 
-        data_dict = self.manager.dict()
+        # data_dict = self.manager.dict()
+        data_dict = dict()
         engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()

@@ -54,7 +54,7 @@ def check_run_options(args):
     if args.preload is True:
         args.json_conf["pick"]["run_options"]["preload"] = True
 
-    args.json_conf["single_thread"] = args.single
+    args.json_conf["pick"]["run_options"]["single_thread"] = args.single
 
     if args.no_cds is not None:
         args.json_conf["pick"]["run_options"]["exclude_cds"] = True

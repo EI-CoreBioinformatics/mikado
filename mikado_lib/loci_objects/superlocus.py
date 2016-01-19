@@ -16,6 +16,8 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 import sqlalchemy.pool
 from ..serializers.junction import Junction, Chrom
+from ..serializers.blast_serializer import Hit
+from ..serializers.orf import Orf
 from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
 from .excluded import Excluded
@@ -44,8 +46,10 @@ class Superlocus(Abstractlocus):
     junction_baked = bakery(lambda session: session.query(Junction))
     junction_baked += lambda q: q.filter(and_(
         Junction.chrom == bindparam("chrom"),
-        Junction.junction_start == bindparam("junctionStart"),
-        Junction.junction_end == bindparam("junctionEnd")))
+        Junction.junction_start == "junctionStart",
+        Junction.junction_end == "junctionEnds",
+        Junction.strand == bindparam("strand")
+    ))
     # Junction.strand == bindparam("strand")))
 
     # ###### Special methods ############
@@ -385,19 +389,23 @@ class Superlocus(Abstractlocus):
             if self.json_conf["db_settings"]["db"] is None:
                 return  # No data to load
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
+
+            ver_introns = set( (junc.junction_start, junc.junction_end) for junc in
+                            self.session.query(Junction).filter(and_(
+                                Junction.strand == self.strand,
+                                Junction.chrom == self.chrom,
+                                Junction.junction_start >= self.start,
+                                Junction.junction_end <= self.end)))
+
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
                                   self.chrom, self.strand, intron[0], intron[1])
-                for ver_intron in self.junction_baked(self.session).params(
-                        chrom=self.chrom,
-                        junctionStart=intron[0],
-                        junctionEnd=intron[1]):
+                if (intron.begin, intron.end) in ver_introns:
                     self.logger.debug("Verified intron %s:%d-%d",
-                                      self.chrom, intron[0], intron[1])
-                    self.locus_verified_introns.append((ver_intron.junction_start,
-                                                        ver_intron.junction_end,
-                                                        ver_intron.strand))
-                    break
+                                      self.chrom, intron.begin, intron.end)
+                    self.locus_verified_introns.append((intron.begin,
+                                                        intron.end,
+                                                        self.strand))
         else:
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
@@ -443,6 +451,25 @@ class Superlocus(Abstractlocus):
                           self.id)
         tid_keys = self.transcripts.keys()
         to_remove, to_add = set(), set()
+
+        if data_dict is None:
+            data_dict = {}
+            hits = self.session.query(Hit).filter(
+                Hit.query.in_(tid_keys),
+                Hit.evalue <= self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                Hit.hit_number <= self.json_conf["pick"][
+                    "chimera_split"]["blast_params"]["max_target_seqs"]
+            )
+            data_dict["hits"] = collections.defaultdict(list)
+            for hit in hits:
+                data_dict["hits"][hit.query].append(hit.as_dict())
+            orfs = self.session.query(Orf).filter(
+                Orf.query.in_(tid_keys)
+            )
+            data_dict["orfs"] = collections.defaultdict(list)
+            for orf in orfs:
+                data_dict["orfs"][orf.query].append(orf.as_bed12())
+
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
             if remove_flag is True:

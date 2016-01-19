@@ -39,6 +39,16 @@ from multiprocessing import Process, Pool
 import multiprocessing.managers
 
 
+class ExitSignal(object):
+
+    """
+    Just a mock object to signal the end of the run
+    """
+
+    def __init__(self):
+        self.id = "EXIT"
+
+
 def remove_fragments(stranded_loci, json_conf, logger):
 
     """This method checks which loci are possible fragments, according to the
@@ -636,7 +646,13 @@ class Picker:
             if last_printed + 1 in self.result_dict:
                 last_printed += 1
                 current = self.result_dict[last_printed]
-                if current == "EXIT":
+                if len(current) == 0:
+                    logger.debug("No results for %d, continuing", last_printed)
+                    continue
+                logger.debug("Retrieved hit %d (IDs: %s)",
+                             last_printed,
+                             ", ".join([_.id for _ in current]))
+                if current[0].id == "EXIT":
                     logger.info("Final number of superloci: %d", last_printed - 1)
                     return
                 if last_printed % 1000 == 0 and last_printed > 0:
@@ -847,7 +863,8 @@ class Picker:
         :return:
         """
 
-        self.result_dict[counter] = "EXIT"
+        _ = ExitSignal()
+        self.result_dict[counter] = [_]
         # self.printer_queue.put(("EXIT", float("inf")))
         current = "\t".join([str(x) for x in [row.chrom,
                                               row.start,
@@ -923,6 +940,7 @@ class Picker:
                     else:
                         counter += 1
                         submit_locus(current_locus, counter)
+                        self.logger.debug("Submitting locus # %d", counter)
                         # if job is not None:
                         #     jobs.append(job)
                         current_locus = Superlocus(
@@ -949,6 +967,7 @@ class Picker:
             else:
                 counter += 1
                 submit_locus(current_locus, counter)
+                self.logger.debug("Submitting locus # %d", counter)
                 # jobs.append(submit_locus(current_locus, counter))
 
                 current_locus = Superlocus(
@@ -961,7 +980,10 @@ class Picker:
 
         counter += 1
         submit_locus(current_locus, counter)
-        self.result_dict[counter+1] = "EXIT"
+        self.logger.debug("Submitting locus %s, counter %d",
+                          current_locus.id, counter)
+        _ = ExitSignal()
+        self.result_dict[counter+1] = [_]
         # jobs.append()
         pool.close()
         pool.join()
@@ -1013,7 +1035,7 @@ class Picker:
 
         # Clean up the DB copied to SHM
         if (self.json_conf["pick"]["run_options"]["shm"] is True and
-                self.json_conf["pick"]["shm_shared"] is False):
+                self.json_conf["pick"]["run_options"]["shm_shared"] is False):
             self.main_logger.info("Removing shared memory DB %s",
                                   self.json_conf["pick"]["run_options"]["shm_db"])
             os.remove(self.json_conf["pick"]["run_options"]["shm_db"])

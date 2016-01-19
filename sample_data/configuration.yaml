@@ -8,6 +8,15 @@ db_settings:
   #  dbport: Integer. It indicates the default port for the DB.
   db: mikado.db
   dbtype: sqlite
+log_settings:
+  #  Settings related to the logs. Keys:
+  #  - sql_level: verbosity for SQL calls. Default: WARNING.
+  #    In decreasing order: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  #  - log_level: verbosity. Default: WARNING.
+  #    In decreasing order: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log: mikado.log
+  log_level: DEBUG
+  sql_level: WARNING
 pick:
   alternative_splicing:
     #  Parameters related to alternative splicing reporting.
@@ -45,6 +54,7 @@ pick:
     #  no output
     #  - log: log file for this step.
     input: mikado_prepared.gtf
+    log: pick.log
     loci_out: mikado.loci.gff3
     subloci_out: mikado.subloci.gff3
     monoloci_out: mikado.monoloci.gff3
@@ -61,9 +71,9 @@ pick:
     #  - preload: boolean flag. If set, the whole database will be preloaded into
     #  memory for faster access. Useful when
     #    using SQLite databases.
-    preload: true
+    preload: false
     threads: 1
-    single_thread: false
+    single_thread: true
 prepare:
   #  Options related to the input data preparation.
   #  - gff: array of GFF3/GTF files containing the predictions. Required.

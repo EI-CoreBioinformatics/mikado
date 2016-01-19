@@ -31,7 +31,7 @@ from mikado_lib import configuration
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson
 # import mikado_lib.exceptions
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 
 # pylint: disable=no-name-in-module
 from multiprocessing import Process
@@ -88,7 +88,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
 def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
-                  printer_queue: multiprocessing.managers.AutoProxy,
+                  printer_dict: multiprocessing.managers.DictProxy,
                   logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
 
     """
@@ -104,8 +104,8 @@ def analyse_locus(slocus: Superlocus,
     :param logging_queue: the logging queue
     :type logging_queue: multiprocessing.managers.AutoProxy
 
-    :param printer_queue: the printing queue
-    :type printer_queue: multiprocessing.managers.AutoProxy
+    :param printer_dict: the printing dictionary
+    :type printer_dict: multiprocessing.managers.DictProxy
 
     # :param data_dict: a dictionary of preloaded data
     # :type data_dict: dict
@@ -121,7 +121,8 @@ def analyse_locus(slocus: Superlocus,
 
     # Define the logger
     if slocus is None:
-        printer_queue.put(([], counter))
+        printer_dict[counter] = []
+        # printer_queue.put(([], counter))
         return
 
     handler = logging_handlers.QueueHandler(logging_queue)
@@ -162,7 +163,8 @@ def analyse_locus(slocus: Superlocus,
             logger.warning(
                 "%s had all transcripts failing checks, ignoring it",
                 slocus_id)
-            printer_queue.put(([], counter))
+            printer_dict[counter] = []
+            # printer_queue.put(([], counter))
             return
 
     # Split the superlocus in the stranded components
@@ -203,7 +205,8 @@ def analyse_locus(slocus: Superlocus,
     except Exception as err:
         logger.error(err)
         pass
-    printer_queue.put((stranded_loci, counter))
+    printer_dict[counter] = stranded_loci
+    # printer_queue.put((stranded_loci, counter))
 
     # close up shop
     logger.debug("Finished with %s, counter %d", slocus.id, counter)
@@ -269,7 +272,8 @@ class Picker:
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
         self.manager = self.context.Manager()
-        self.printer_queue = self.manager.Queue(-1)
+        self.result_dict = self.manager.dict()
+        # self.printer_queue = self.manager.Queue(-1)
         self.logging_queue = self.manager.Queue(-1)
 
         # self.printer_queue = self.manager.Queue(-1)
@@ -609,35 +613,26 @@ class Picker:
                                           handles=handles)
 
         last_printed = -1
-        cache = dict()
+        # cache = dict()
         curr_chrom = None
         gene_counter = 0
 
         while True:
-            current = self.printer_queue.get()
-            stranded_loci, counter = current
-
-            cache[counter] = stranded_loci
-            if counter == last_printed + 1 or stranded_loci == "EXIT":
-                cache[counter] = stranded_loci
-                for num in sorted(cache.keys()):
-                    if num > last_printed + 1:
-                        break
-                    else:
-                        if num % 1000 == 0 and num > 0:
-                            logger.info("Printed %d superloci", num)
-                        for stranded_locus in cache[num]:
-                            if stranded_locus.chrom != curr_chrom:
-                                curr_chrom = stranded_locus.chrom
-                                gene_counter = 0
-                            gene_counter = locus_printer(stranded_locus, gene_counter)
-                        last_printed += 1
-                        del cache[num]
-                if stranded_loci == "EXIT":
-                    logger.info("Final number of superloci: %d", last_printed)
+            if last_printed + 1 in self.result_dict:
+                last_printed += 1
+                current = self.result_dict[last_printed]
+                if current == "EXIT":
+                    logger.info("Final number of superloci: %d", last_printed - 1)
                     return
-
-            self.printer_queue.task_done()
+                if last_printed % 1000 == 0 and last_printed > 0:
+                    logger.info("Printed %d superloci", last_printed)
+                for stranded_locus in current:
+                    if stranded_locus.chrom != curr_chrom:
+                        curr_chrom = stranded_locus.chrom
+                        gene_counter = 0
+                    gene_counter = locus_printer(stranded_locus, gene_counter)
+                # Remove finished things from the dictionary
+                del self.result_dict[last_printed]
         return
     # pylint: enable=too-many-locals
 
@@ -823,18 +818,18 @@ class Picker:
             analyse_locus(current_locus,
                           counter,
                           self.json_conf,
-                          self.printer_queue,
+                          self.result_dict,
                           self.logging_queue)
         else:
             job = pool.submit(analyse_locus,
                               current_locus,
                               counter,
                               self.json_conf,
-                              self.printer_queue,
+                              self.result_dict,
                               self.logging_queue)
         return job
 
-    def __unsorted_interrupt(self, row, current_transcript):
+    def __unsorted_interrupt(self, row, current_transcript, counter):
         """
         Private method that brings the program to a screeching halt
          if the GTF/GFF is not properly sorted.
@@ -842,7 +837,9 @@ class Picker:
         :param current_transcript:
         :return:
         """
-        self.printer_queue.put(("EXIT", float("inf")))
+
+        self.result_dict[counter] = "EXIT"
+        # self.printer_queue.put(("EXIT", float("inf")))
         current = "\t".join([str(x) for x in [row.chrom,
                                               row.start,
                                               row.end,
@@ -862,7 +859,7 @@ class Picker:
             [l.strip() for l in error_msg.split("\n")]))
         raise UnsortedInput(error_msg)
 
-    def __test_sortedness(self, row, current_transcript):
+    def __test_sortedness(self, row, current_transcript, counter):
         """
         Private method to test whether a row and the current transcript are actually in the expected
         sorted order.
@@ -882,7 +879,7 @@ class Picker:
             test = False
 
         if test is False:
-            self.__unsorted_interrupt(row, current_transcript)
+            self.__unsorted_interrupt(row, current_transcript, counter)
 
     def _parse_and_submit_input(self, data_dict):
 
@@ -908,7 +905,7 @@ class Picker:
                     current_transcript.add_exon(row)
                 elif row.is_transcript is True:
                     if current_transcript is not None:
-                        self.__test_sortedness(row, current_transcript)
+                        self.__test_sortedness(row, current_transcript, counter)
                         if Superlocus.in_locus(
                                 current_locus, current_transcript) is True:
                             current_locus.add_transcript_to_locus(current_transcript,
@@ -954,6 +951,8 @@ class Picker:
 
             counter += 1
             submit_locus(current_locus, counter)
+
+        self.result_dict[counter+1] = "EXIT"
         # jobs.append()
         # pool.close()
         # pool.join()
@@ -997,8 +996,8 @@ class Picker:
         # pool.close()
         # pool.join()
 
-        self.printer_queue.join()
-        self.printer_queue.put(("EXIT", float("inf")))
+        # self.printer_queue.join()
+        # self.printer_queue.put(("EXIT", float("inf")))
         self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:

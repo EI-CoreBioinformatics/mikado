@@ -45,16 +45,17 @@ class Hit(DBBASE):
     target_aligned_length = Column(Integer)
 
     query_object = relationship(Query, uselist=False,
-                                lazy="immediate",
+                                lazy="joined",
                                 backref=backref("hits"))
     target_object = relationship(Target,
                                  uselist=False,
-                                 lazy="immediate",
+                                 lazy="joined",
                                  backref=backref("hits"))
 
     join_condition = "and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)"
     hsps = relationship(Hsp, uselist=True,
                         # lazy="immediate",
+                        lazy="subquery",
                         backref=backref("hit_object", uselist=False),
                         foreign_keys=[query_id, target_id],
                         primaryjoin=join_condition)

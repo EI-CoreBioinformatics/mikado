@@ -847,7 +847,7 @@ class Picker:
         if slocus is not None:
             self.main_logger.debug("Submitting %s", slocus.id)
             
-        if self.json_conf["pick"]["run_options"]["preload"] is True:
+        if self.json_conf["pick"]["run_options"]["preload"] is True and slocus is not None:
             self.logger.debug("Loading data from dict for %s", slocus.id)
             slocus.logger = self.logger
             slocus.load_all_transcript_data(pool=None,

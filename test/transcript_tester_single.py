@@ -37,6 +37,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         """Basic creation test."""
 
         self.tr = mikado_lib.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
+        self.tr.logger = self.logger
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
@@ -144,6 +145,8 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertTrue(checker)
         self.assertTrue(gff_lines[0].is_transcript)
         transcript = mikado_lib.loci_objects.Transcript(gff_lines[0])
+
+        transcript.logger = self.logger
         for line in gff_lines[1:]:
             transcript.add_exon(line)
 

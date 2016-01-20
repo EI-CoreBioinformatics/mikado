@@ -2,7 +2,7 @@
 # coding=utf-8
 
 """
-This module defines the Creator class, which is the main workhorse for mikado_lib pick.
+This module defines the Picker class, which is the main workhorse for mikado pick.
 """
 
 import sys
@@ -31,10 +31,10 @@ from mikado_lib import configuration
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson
 # import mikado_lib.exceptions
-
+# from concurrent.futures import ProcessPoolExecutor
 
 # pylint: disable=no-name-in-module
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 # pylint: enable=no-name-in-module
 import multiprocessing.managers
 
@@ -121,7 +121,8 @@ def analyse_locus(slocus: Superlocus,
 
     # Define the logger
     if slocus is None:
-        printer_queue.put(([], counter))
+        # printer_dict[counter] = []
+        printer_queue.put_nowait(([], counter))
         return
 
     handler = logging_handlers.QueueHandler(logging_queue)
@@ -162,8 +163,31 @@ def analyse_locus(slocus: Superlocus,
             logger.warning(
                 "%s had all transcripts failing checks, ignoring it",
                 slocus_id)
-            printer_queue.put(([], counter))
+            # printer_dict[counter] = []
+            printer_queue.put_nowait(([], counter))
             return
+    # else:
+    #     if slocus is None:
+    #         logger.error("The locus has disappeared for counter %d", counter)
+    #         # printer_dict[counter] = []
+    #         printer_queue.put_nowait(([], counter))
+    #         return
+    #
+    #     logger.debug("Loading data from dict for %s", slocus.id)
+    #     slocus.logger = logger
+    #     slocus.load_all_transcript_data(pool=None,
+    #                                     data_dict=data_dict)
+    #     # slocus_id = slocus.id
+    #     if slocus.initialized is False:
+    #         # This happens when we have removed all transcripts from the locus
+    #         # due to errors which should have been caught and logged
+    #         logger.warning(
+    #             "%s had all transcripts failing checks, ignoring it",
+    #             slocus.id)
+    #         # Exit
+    #         printer_queue.put_nowait(([], counter))
+    #         # printer_dict[counter] = []
+    #         return
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -196,7 +220,15 @@ def analyse_locus(slocus: Superlocus,
 
     # Check if any locus is a fragment, if so, tag/remove it
     stranded_loci = sorted(list(remove_fragments(stranded_loci, json_conf, logger)))
-    printer_queue.put((stranded_loci, counter))
+    try:
+        logger.debug("Size of the loci to send: {0}, for {1} loci".format(
+            sys.getsizeof(stranded_loci),
+            len(stranded_loci)))
+    except Exception as err:
+        logger.error(err)
+        pass
+    # printer_dict[counter] = stranded_loci
+    printer_queue.put_nowait((stranded_loci, counter))
 
     # close up shop
     logger.debug("Finished with %s, counter %d", slocus.id, counter)
@@ -262,6 +294,7 @@ class Picker:
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
         self.manager = self.context.Manager()
+        # self.result_dict = self.manager.dict()
         self.printer_queue = self.manager.Queue(-1)
         self.logging_queue = self.manager.Queue(-1)
 
@@ -279,17 +312,17 @@ class Picker:
 
         # Configure SQL logging
         sqllogger = logging.getLogger("sqlalchemy.engine")
-        if json_conf["log_settings"]["log_level"] == "DEBUG":
-            sqllogger.setLevel("DEBUG")
-        else:
-            sqllogger.setLevel(json_conf["log_settings"]["sql_level"])
+        # if json_conf["log_settings"]["log_level"] == "DEBUG":
+        #     sqllogger.setLevel("DEBUG")
+        # else:
+        sqllogger.setLevel(json_conf["log_settings"]["sql_level"])
         sqllogger.addHandler(self.logger_queue_handler)
 
         # We need to set this to the lowest possible level,
         # otherwise we overwrite the global configuration
         self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.queue_logger.propagate = False
-        if self.json_conf["single_thread"] is True:
+        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             # Reset threads to 1
             self.main_logger.warning("Reset number of threads to 1 as requested")
             self.threads = self.json_conf["pick"]["threads"] = 1
@@ -627,10 +660,11 @@ class Picker:
                         last_printed += 1
                         del cache[num]
                 if stranded_loci == "EXIT":
+                    self.printer_queue.task_done()
                     logger.info("Final number of superloci: %d", last_printed)
-                    return
-
+                    break
             self.printer_queue.task_done()
+
         return
     # pylint: enable=too-many-locals
 
@@ -668,8 +702,10 @@ class Picker:
 
         hit_counter = 0
         hits = engine.execute(
-            "select * from hit where evalue <= {0} order by query_id, evalue asc;".format(
-                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]))
+            " ".join(["select * from hit where evalue <= {0} and hit_number <= {1}",
+                      "order by query_id, evalue asc;"]).format(
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
         current_counter = 0
@@ -694,7 +730,7 @@ class Picker:
             my_target = targets[hit.target_id]
 
             # We HAVE to use the += approach because extend/append
-            # leave the original list empty
+            # leaves the original list empty
             hits_dict[my_query.query_name].append(
                 Hit.as_full_dict_static(
                     hit,
@@ -730,16 +766,18 @@ class Picker:
 
         self.main_logger.info("Starting to preload the database into memory")
 
+        # data_dict = self.manager.dict(lock=False)
         data_dict = dict()
         engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
 
-        data_dict["junctions"] = dict()
+        junc_dict = dict()
         for junc in session.query(Junction):
             key = (junc.chrom, junc.junction_start, junc.junction_end)
-            assert key not in data_dict["junctions"]
-            data_dict["junctions"][key] = junc.strand
+            assert key not in junc_dict
+            junc_dict[key] = junc.strand
+        data_dict["junctions"] = junc_dict
 
         # data_dict["junctions"] = self.manager.dict(data_dict["junctions"], lock=False)
 
@@ -752,13 +790,18 @@ class Picker:
         queries = dict((que.query_id, que) for que in engine.execute("select * from query"))
 
         # Then load ORFs
-        data_dict["orfs"] = collections.defaultdict(list)
+        orf_dict = collections.defaultdict(list)
 
         for orf in engine.execute("select * from orf"):
+
             query_name = queries[orf.query_id].query_name
-            data_dict["orfs"][query_name].append(
+            orf_dict[query_name].append(
                 Orf.as_bed12_static(orf, query_name)
             )
+
+        data_dict["orfs"] = orf_dict
+        assert len(data_dict["orfs"]) == engine.execute(
+            "select count(distinct(query_id)) from orf").fetchone()[0]
 
         # data_dict['orf'] = self.manager.dict(orfs, lock=False)
 
@@ -780,52 +823,53 @@ class Picker:
         self.main_logger.info("Finished to preload the database into memory")
         return data_dict
 
-    def _submit_locus(self, current_locus, counter, data_dict=None, pool=None):
+    def _submit_locus(self, slocus, counter, data_dict=None, pool=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
-        :param current_locus: the locus to analyse.
+        :param slocus: the locus to analyse.
         :param data_dict: the preloaded data in memory
         :param pool: thread execution pool
         :return: job object / None
         """
 
         job = None
-        if data_dict is not None and current_locus is not None:
-            self.main_logger.debug("Loading data from dict for %s",
-                                   current_locus.id)
-            current_locus.logger = self.queue_logger
-            current_locus.load_all_transcript_data(pool=self.queue_pool,
-                                                   data_dict=data_dict)
-            current_locus_id = current_locus.id
-            if current_locus.initialized is False:
+
+        if slocus is not None:
+            self.main_logger.debug("Submitting %s", slocus.id)
+            
+        if self.json_conf["pick"]["run_options"]["preload"] is True and slocus is not None:
+            self.logger.debug("Loading data from dict for %s", slocus.id)
+            slocus.logger = self.logger
+            slocus.load_all_transcript_data(pool=None,
+                                            data_dict=data_dict)
+            # slocus_id = slocus.id
+            if slocus.initialized is False:
                 # This happens when we have removed all transcripts from the locus
                 # due to errors which should have been caught and logged
-                self.main_logger.warning(
+                self.logger.warning(
                     "%s had all transcripts failing checks, ignoring it",
-                    current_locus_id)
+                    slocus.id)
                 # Exit
                 return None
 
-        if current_locus is not None:
-            self.main_logger.debug("Submitting %s",
-                                   current_locus.id)
-
-        if self.json_conf["single_thread"] is True:
-            analyse_locus(current_locus,
+        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
+            analyse_locus(slocus,
                           counter,
                           self.json_conf,
                           self.printer_queue,
                           self.logging_queue)
         else:
             job = pool.apply_async(analyse_locus,
-                                   args=(current_locus,
-                                         counter,
-                                         self.json_conf,
-                                         self.printer_queue,
-                                         self.logging_queue))
+                                   args=(
+                              slocus,
+                              counter,
+                              self.json_conf,
+                              self.printer_queue,
+                              self.logging_queue)
+                                   )
         return job
 
-    def __unsorted_interrupt(self, row, current_transcript):
+    def __unsorted_interrupt(self, row, current_transcript, counter):
         """
         Private method that brings the program to a screeching halt
          if the GTF/GFF is not properly sorted.
@@ -833,7 +877,9 @@ class Picker:
         :param current_transcript:
         :return:
         """
-        self.printer_queue.put(("EXIT", float("inf")))
+
+        # self.result_dict[counter] = [_]
+        self.printer_queue.put_nowait(("EXIT", float("inf")))
         current = "\t".join([str(x) for x in [row.chrom,
                                               row.start,
                                               row.end,
@@ -853,7 +899,7 @@ class Picker:
             [l.strip() for l in error_msg.split("\n")]))
         raise UnsortedInput(error_msg)
 
-    def __test_sortedness(self, row, current_transcript):
+    def __test_sortedness(self, row, current_transcript, counter):
         """
         Private method to test whether a row and the current transcript are actually in the expected
         sorted order.
@@ -873,14 +919,13 @@ class Picker:
             test = False
 
         if test is False:
-            self.__unsorted_interrupt(row, current_transcript)
+            self.__unsorted_interrupt(row, current_transcript, counter)
 
-    def _parse_and_submit_input(self, pool, data_dict):
+    def _parse_and_submit_input(self, data_dict):
 
         """
         This method does the parsing of the input and submission of the loci to the
         _submit_locus method.
-        :param pool: The threading pool
         :param data_dict: The cached data from the database
         :return: jobs (the list of all jobs already submitted)
         """
@@ -888,7 +933,9 @@ class Picker:
         current_locus = None
         current_transcript = None
 
-        jobs = []
+        # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
+        pool = multiprocessing.Pool(processes=self.threads, maxtasksperchild=None)
+
         intron_range = self.json_conf["soft_requirements"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
@@ -899,16 +946,17 @@ class Picker:
                 current_transcript.add_exon(row)
             elif row.is_transcript is True:
                 if current_transcript is not None:
-                    self.__test_sortedness(row, current_transcript)
+                    self.__test_sortedness(row, current_transcript, counter)
                     if Superlocus.in_locus(
                             current_locus, current_transcript) is True:
                         current_locus.add_transcript_to_locus(current_transcript,
                                                               check_in_locus=False)
                     else:
                         counter += 1
-                        job = submit_locus(current_locus, counter)
-                        if job is not None:
-                            jobs.append(job)
+                        submit_locus(current_locus, counter)
+                        self.logger.debug("Submitting locus # %d", counter)
+                        # if job is not None:
+                        #     jobs.append(job)
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
@@ -932,7 +980,9 @@ class Picker:
                     current_transcript, check_in_locus=False)
             else:
                 counter += 1
-                jobs.append(submit_locus(current_locus, counter))
+                submit_locus(current_locus, counter)
+                self.logger.debug("Submitting locus # %d", counter)
+                # jobs.append(submit_locus(current_locus, counter))
 
                 current_locus = Superlocus(
                     current_transcript,
@@ -943,8 +993,20 @@ class Picker:
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
-        jobs.append(submit_locus(current_locus, counter))
-        return jobs
+        submit_locus(current_locus, counter)
+        self.logger.debug("Submitting locus %s, counter %d",
+                          current_locus.id, counter)
+
+        pool.close()
+        pool.join()
+
+        # _ = ExitSignal()
+        self.printer_queue.put_nowait(("EXIT", float("inf")))
+
+        # self.result_dict[counter+1] = [_]
+        # jobs.append()
+
+        # pool.shutdown(wait=True)
 
     def __call__(self):
 
@@ -954,23 +1016,24 @@ class Picker:
         # Otherwise it will raise all sorts of mistakes
 
         self.printer_process.start()
-
         data_dict = None
+
         if self.json_conf["pick"]["run_options"]["preload"] is True:
             # Use the preload function to create the data dictionary
             data_dict = self.preload()
         # pylint: disable=no-member
-        pool = multiprocessing.Pool(processes=self.threads)
         # pylint: enable=no-member
 
         self.logger.debug("Source: %s",
                           self.json_conf["pick"]["output_format"]["source"])
         if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
             self.queue_pool = sqlalchemy.pool.QueuePool(
-                self.db_connection, pool_size=1, max_overflow=2)
+                self.db_connection,
+                pool_size=self.threads,
+                max_overflow=0)
 
         try:
-            _ = self._parse_and_submit_input(pool, data_dict)
+            self._parse_and_submit_input(data_dict)
         except UnsortedInput as _:
             self.logger.error(
                 "The input files were not properly sorted! Please run prepare and retry.")
@@ -980,11 +1043,8 @@ class Picker:
         # for job in iter(x for x in jobs if x is not None):
         #     job.get()
 
-        pool.close()
-        pool.join()
-
         self.printer_queue.join()
-        self.printer_queue.put(("EXIT", float("inf")))
+        self.printer_queue.put_nowait(("EXIT", float("inf")))
         self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:
@@ -992,7 +1052,7 @@ class Picker:
 
         # Clean up the DB copied to SHM
         if (self.json_conf["pick"]["run_options"]["shm"] is True and
-                self.json_conf["pick"]["shm_shared"] is False):
+                self.json_conf["pick"]["run_options"]["shm_shared"] is False):
             self.main_logger.info("Removing shared memory DB %s",
                                   self.json_conf["pick"]["run_options"]["shm_db"])
             os.remove(self.json_conf["pick"]["run_options"]["shm_db"])

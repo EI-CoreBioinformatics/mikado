@@ -70,6 +70,16 @@ class Locus(Monosublocus, Abstractlocus):
             self.logger.debug("%s not added because the Locus has already too many transcripts.",
                               transcript.id)
             to_be_added = False
+
+        if to_be_added and transcript.score < self.primary_transcript.score * self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]:
+            self.logger.debug(
+                "%s not added because its score (%.2f) is less than %.2f%% of the primary score (%.2f)",
+                transcript.id,
+                transcript.score,
+                self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * 100,
+                self.primary_transcript.score)
+            to_be_added = False
+
         if to_be_added and transcript.strand != self.strand:
             self.logger.debug("%s not added because it has a different strand from %s (%s vs. %s)",
                               transcript.id, self.id, transcript.strand, self.strand)

@@ -208,7 +208,9 @@
             "   j, n, O, e, K, o, h. Default: j, O, n, h",
             "- max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
-            "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)"
+            "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
+            "- min_score_perc: Minimum score threshold for subsequent AS events.",
+            " Only transcripts with a score at least (best) * value are retained."
           ],
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
@@ -216,7 +218,9 @@
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
             "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
             "Default: 0% i.e. disabled, we check for the CDS overlap.",
-            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3"
+            "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
+            "- min_score_perc: Minimum score threshold for subsequent AS events.",
+            " Only transcripts with a score at least (best) * value are retained. Default: 50% (0.5)"
           ],
           "required": ["report", "max_isoforms"],
           "type": "object",
@@ -281,6 +285,12 @@
                 "O",
                 "h"
               ]
+            },
+            "min_score_perc": {
+              "type": "number",
+              "default": 0.5,
+              "minimum": 0,
+              "maximum": 1
             }
           }
         },
@@ -421,7 +431,7 @@
         },
         "run_options": {
           "type": "object",
-          "required": ["threads", "preload"],
+          "required": ["threads", "preload", "single_thread"],
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
@@ -439,7 +449,8 @@
             "  this length. Default: 100 bps.",
             "- threads: number of threads to use. Default: 1",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
-            "  using SQLite databases."
+            "  using SQLite databases.",
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "SimpleComment": [
             "Generic run options.",
@@ -449,7 +460,8 @@
             "  classified as P,x,i or p compared to another locus, will be removed from the output.",
             "- threads: number of threads to use. Default: 1",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
-            "  using SQLite databases."
+            "  using SQLite databases.",
+            "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
           ],
           "properties": {
             "shm": {
@@ -484,6 +496,10 @@
               "type": "integer",
               "default": 1,
               "minimum": 1
+            },
+            "single_thread": {
+              "type": "boolean",
+              "default": false
             },
             "preload": {
               "type": "boolean",

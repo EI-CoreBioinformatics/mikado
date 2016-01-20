@@ -719,6 +719,8 @@ def split_by_cds(transcript):
 
     assert len(new_transcripts) > 0, str(transcript)
     for new_transc in new_transcripts:
+        new_transc.verified_introns = set.intersection(set(new_transc.introns),
+                                                       transcript.verified_introns)
         yield new_transc
 
     return

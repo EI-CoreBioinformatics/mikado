@@ -68,7 +68,7 @@ class TranscriptComputer(Transcript):
 
         self.exon_lengths = [e[1] - e[0] + 1 for e in self.exons]
         self.cds_exon_lengths = [c[1] - c[0] + 1 for c in self.selected_cds]
-        self.utr_exon_lengths = [u[2] - u[1] + 1 for u in self.three_utr + self.five_utr]
+        self.utr_exon_lengths = [u[1] - u[0] + 1 for u in self.three_utr + self.five_utr]
 
         self.intron_lengths = [i[1] - i[0] + 1 for i in self.introns]
         self.cds_intron_lengths = [i[1] - i[0] for i in self.selected_cds_introns]
@@ -193,6 +193,10 @@ class GeneObject:
         :rtype : bool
         """
         return any(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
+
+    @property
+    def monoexonic(self):
+        return all(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
 
     @property
     def num_transcripts(self):
@@ -367,8 +371,8 @@ class Calculator:
         :return:
         """
 
-        self.__arrays["Number of transcripts"] = num_array(
-            [self.genes[x].num_transcripts for x in self.genes])
+        # self.__arrays["Number of transcripts"] = num_array(
+        #     [self.genes[x].num_transcripts for x in self.genes])
         self.__arrays["Transcripts per gene"] = num_array(
             [self.genes[_].num_transcripts for _ in self.genes])
         self.__arrays["Coding transcripts per gene"] = num_array(
@@ -477,9 +481,11 @@ class Calculator:
                              len(self.genes))
         self.__write_statrow("Number of genes (coding)",
                              len(self.coding_genes))
-
-        self.__write_statrow('Number of transcripts',
-                             total=sum)
+        self.__write_statrow("Number of monoexonic genes",
+                             len([_ for _ in self.genes if self.genes[_].monoexonic is True])
+                             )
+        # self.__write_statrow('Number of transcripts',
+        #                      total=sum)
         self.__write_statrow('Transcripts per gene',
                              total=sum(self.genes[x].num_transcripts for x in self.genes))
         self.__write_statrow("Number of coding transcripts",

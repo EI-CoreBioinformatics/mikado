@@ -55,6 +55,7 @@ class Hit(DBBASE):
     join_condition = "and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)"
     hsps = relationship(Hsp, uselist=True,
                         # lazy="immediate",
+                        lazy="subquery",
                         backref=backref("hit_object", uselist=False),
                         foreign_keys=[query_id, target_id],
                         primaryjoin=join_condition)

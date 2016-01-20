@@ -155,6 +155,7 @@ class Gene:
         if format_name != "gtf":
             line = GffLine(None)
             for attr in ["chrom",
+                         "source",
                          "start",
                          "end",
                          "strand"]:
@@ -169,3 +170,14 @@ class Gene:
             lines.append(transcript.format(format_name))
 
         return "\n".join(lines)
+
+    @property
+    def monoexonic(self):
+        """
+        Boolean property. False if at least one transcript is multiexonic,
+        True otherwise.
+        :return: bool
+        :rtype: bool
+        """
+
+        return any(transcript.monoexonic is False for transcript in self.transcripts.values())

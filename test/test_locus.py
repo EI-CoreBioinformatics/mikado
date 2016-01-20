@@ -35,6 +35,7 @@ class TestLocus(unittest.TestCase):
         self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = False
         self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0
         self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0
+        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] = 0.1
         self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "n", "O", "h"]
 
         t1 = """Chr1\tfoo\ttranscript\t1000\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
@@ -54,6 +55,7 @@ class TestLocus(unittest.TestCase):
             if exon.header:
                 continue
             self.t1.add_exon(exon)
+        self.t1.score = 20
         self.t1.finalize()
 
         # Just a fragment of the best
@@ -70,6 +72,7 @@ class TestLocus(unittest.TestCase):
             if exon.header:
                 continue
             self.t1_contained.add_exon(exon)
+        self.t1_contained.score = 15
         self.t1_contained.finalize()
 
         # Valid AS event
@@ -90,6 +93,7 @@ class TestLocus(unittest.TestCase):
             if exon.header:
                 continue
             self.t1_as.add_exon(exon)
+        self.t1_as.score = 19
         self.t1_as.finalize()
 
         # Retained intron AS event
@@ -108,6 +112,7 @@ class TestLocus(unittest.TestCase):
             if exon.header:
                 continue
             self.t1_retained.add_exon(exon)
+        self.t1_retained.score = 10
         self.t1_retained.finalize()
 
         # self.logger = logging.getLogger("tester")

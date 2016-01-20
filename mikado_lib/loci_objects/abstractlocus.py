@@ -542,7 +542,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                   len(transcript.selected_cds))
 
         retained_introns = []
-        for exon in transcript.exons:
+        for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
             # Monobase exons are a problem
             if exon[0] == exon[1]:
                 self.logger.warning("Monobase exon found in %s: %s:%d-%d",
@@ -737,3 +737,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if len(self.__cds_introntree) != len(self.combined_cds_introns):
             self.__cds_introntree = intervaltree.IntervalTree(self.combined_cds_introns)
         return self.__cds_introntree
+
+    @property
+    def longest_transcript(self):
+        return max([len(_) for _ in self.transcripts.values()])

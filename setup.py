@@ -41,7 +41,7 @@ setup(
 
     packages=find_packages(),
 
-    scripts=glob.glob("bin/*.py"),
+    scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),
 
     install_requires=["pyyaml",
                       "jsonschema",

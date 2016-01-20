@@ -98,7 +98,6 @@ def remove_fragments(stranded_loci, json_conf, logger):
 def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
-                  data_dict: multiprocessing.managers.DictProxy,
                   printer_queue: multiprocessing.managers.AutoProxy,
                   logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
 
@@ -111,9 +110,6 @@ def analyse_locus(slocus: Superlocus,
 
     :param json_conf: the configuration dictionary
     :type json_conf: dict
-
-    :param data_dict: the dictionary of preloaded data
-    :type data_dict: multiprocessing.managers.DictProxy
 
     :param logging_queue: the logging queue
     :type logging_queue: multiprocessing.managers.AutoProxy
@@ -136,7 +132,7 @@ def analyse_locus(slocus: Superlocus,
     # Define the logger
     if slocus is None:
         # printer_dict[counter] = []
-        printer_queue.put(([], counter))
+        printer_queue.put_nowait(([], counter))
         return
 
     handler = logging_handlers.QueueHandler(logging_queue)
@@ -178,30 +174,30 @@ def analyse_locus(slocus: Superlocus,
                 "%s had all transcripts failing checks, ignoring it",
                 slocus_id)
             # printer_dict[counter] = []
-            printer_queue.put(([], counter))
+            printer_queue.put_nowait(([], counter))
             return
-    else:
-        if slocus is None:
-            logger.error("The locus has disappeared for counter %d", counter)
-            # printer_dict[counter] = []
-            printer_queue.put(([], counter))
-            return
-
-        logger.debug("Loading data from dict for %s", slocus.id)
-        slocus.logger = logger
-        slocus.load_all_transcript_data(pool=None,
-                                        data_dict=data_dict)
-        # slocus_id = slocus.id
-        if slocus.initialized is False:
-            # This happens when we have removed all transcripts from the locus
-            # due to errors which should have been caught and logged
-            logger.warning(
-                "%s had all transcripts failing checks, ignoring it",
-                slocus.id)
-            # Exit
-            printer_queue.put(([], counter))
-            # printer_dict[counter] = []
-            return
+    # else:
+    #     if slocus is None:
+    #         logger.error("The locus has disappeared for counter %d", counter)
+    #         # printer_dict[counter] = []
+    #         printer_queue.put_nowait(([], counter))
+    #         return
+    #
+    #     logger.debug("Loading data from dict for %s", slocus.id)
+    #     slocus.logger = logger
+    #     slocus.load_all_transcript_data(pool=None,
+    #                                     data_dict=data_dict)
+    #     # slocus_id = slocus.id
+    #     if slocus.initialized is False:
+    #         # This happens when we have removed all transcripts from the locus
+    #         # due to errors which should have been caught and logged
+    #         logger.warning(
+    #             "%s had all transcripts failing checks, ignoring it",
+    #             slocus.id)
+    #         # Exit
+    #         printer_queue.put_nowait(([], counter))
+    #         # printer_dict[counter] = []
+    #         return
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -242,7 +238,7 @@ def analyse_locus(slocus: Superlocus,
         logger.error(err)
         pass
     # printer_dict[counter] = stranded_loci
-    printer_queue.put((stranded_loci, counter))
+    printer_queue.put_nowait((stranded_loci, counter))
 
     # close up shop
     logger.debug("Finished with %s, counter %d", slocus.id, counter)
@@ -780,8 +776,8 @@ class Picker:
 
         self.main_logger.info("Starting to preload the database into memory")
 
-        data_dict = self.manager.dict(lock=False)
-        # data_dict = dict()
+        # data_dict = self.manager.dict(lock=False)
+        data_dict = dict()
         engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
@@ -851,26 +847,25 @@ class Picker:
         if slocus is not None:
             self.main_logger.debug("Submitting %s", slocus.id)
             
-        # if self.json_conf["pick"]["run_options"]["preload"] is True and slocus is not None:
-        #     self.logger.debug("Loading data from dict for %s", slocus.id)
-        #     slocus.logger = self.logger
-        #     slocus.load_all_transcript_data(pool=None,
-        #                                     data_dict=data_dict)
-        #     # slocus_id = slocus.id
-        #     if slocus.initialized is False:
-        #         # This happens when we have removed all transcripts from the locus
-        #         # due to errors which should have been caught and logged
-        #         self.logger.warning(
-        #             "%s had all transcripts failing checks, ignoring it",
-        #             slocus.id)
-        #         # Exit
-        #         return None
+        if self.json_conf["pick"]["run_options"]["preload"] is True and slocus is not None:
+            self.logger.debug("Loading data from dict for %s", slocus.id)
+            slocus.logger = self.logger
+            slocus.load_all_transcript_data(pool=None,
+                                            data_dict=data_dict)
+            # slocus_id = slocus.id
+            if slocus.initialized is False:
+                # This happens when we have removed all transcripts from the locus
+                # due to errors which should have been caught and logged
+                self.logger.warning(
+                    "%s had all transcripts failing checks, ignoring it",
+                    slocus.id)
+                # Exit
+                return None
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             analyse_locus(slocus,
                           counter,
                           self.json_conf,
-                          data_dict,
                           self.printer_queue,
                           self.logging_queue)
         else:
@@ -879,7 +874,6 @@ class Picker:
                               slocus,
                               counter,
                               self.json_conf,
-                              data_dict,
                               self.printer_queue,
                               self.logging_queue)
                                    )
@@ -896,7 +890,7 @@ class Picker:
 
         _ = ExitSignal()
         # self.result_dict[counter] = [_]
-        self.printer_queue.put(("EXIT", float("inf")))
+        self.printer_queue.put_nowait(("EXIT", float("inf")))
         current = "\t".join([str(x) for x in [row.chrom,
                                               row.start,
                                               row.end,
@@ -1018,7 +1012,7 @@ class Picker:
         pool.join()
 
         # _ = ExitSignal()
-        self.printer_queue.put(("EXIT", float("inf")))
+        self.printer_queue.put_nowait(("EXIT", float("inf")))
 
         # self.result_dict[counter+1] = [_]
         # jobs.append()
@@ -1061,7 +1055,7 @@ class Picker:
         #     job.get()
 
         self.printer_queue.join()
-        self.printer_queue.put(("EXIT", float("inf")))
+        self.printer_queue.put_nowait(("EXIT", float("inf")))
         self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:

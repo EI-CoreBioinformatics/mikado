@@ -128,6 +128,7 @@ class Transcript:
         self.__parent = []
         self.__combined_cds = []
         self.__selected_cds = []
+        self.__cdna_length = None
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
 
@@ -1242,10 +1243,12 @@ class Transcript:
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        try:
-            return sum([e.length() + 1 for e in self.exons])
-        except TypeError:
-            raise TypeError(self.exons)
+        if self.__cdna_length is None:
+            try:
+                self.__cdna_length = sum([e.length() + 1 for e in self.exons])
+            except TypeError:
+                raise TypeError(self.exons)
+        return self.__cdna_length
 
     @Metric
     def number_internal_orfs(self):

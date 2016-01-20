@@ -813,12 +813,12 @@ class Picker:
 
         # Finally load BLAST
 
-        if self.json_conf["pick"]["chimera_split"]["execute"] is True and \
-                self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
-            data_dict["hits"] = self.__preload_blast(engine, queries)
-        else:
-            data_dict["hits"] = dict()
-            self.main_logger.info("Skipping BLAST loading")
+        # if self.json_conf["pick"]["chimera_split"]["execute"] is True and \
+        #         self.json_conf["pick"]["chimera_split"]["blast_check"] is True:
+        data_dict["hits"] = self.__preload_blast(engine, queries)
+        # else:
+        #     data_dict["hits"] = dict()
+        #     self.main_logger.info("Skipping BLAST loading")
 
         self.main_logger.info("Finished to preload the database into memory")
         return data_dict

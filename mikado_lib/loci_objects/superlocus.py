@@ -46,8 +46,8 @@ class Superlocus(Abstractlocus):
     junction_baked = bakery(lambda session: session.query(Junction))
     junction_baked += lambda q: q.filter(and_(
         Junction.chrom == bindparam("chrom"),
-        Junction.junction_start == "junctionStart",
-        Junction.junction_end == "junctionEnds",
+        Junction.junction_start >= bindparam("junctionStart"),
+        Junction.junction_end <= bindparam("junctionEnd"),
         Junction.strand == bindparam("strand")
     ))
     # Junction.strand == bindparam("strand")))
@@ -389,13 +389,16 @@ class Superlocus(Abstractlocus):
             if self.json_conf["db_settings"]["db"] is None:
                 return  # No data to load
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
+            ver_introns = set((junc.junction_start, junc.junction_end) for junc in
+                              self.junction_baked(self.session).params(
+                                  chrom=self.chrom,
+                                  strand=self.strand,
+                                  junctionStart=self.start,
+                                  junctionEnd=self.end
+                                ))
 
-            ver_introns = set( (junc.junction_start, junc.junction_end) for junc in
-                            self.session.query(Junction).filter(and_(
-                                Junction.strand == self.strand,
-                                Junction.chrom == self.chrom,
-                                Junction.junction_start >= self.start,
-                                Junction.junction_end <= self.end)))
+            self.logger.debug("Found %d verifiable introns for %s",
+                              len(ver_introns), self.id)
 
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",

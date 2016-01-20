@@ -297,9 +297,9 @@ def serialise_parser():
     junctions.add_argument("--junctions", type=str)
     generic = parser.add_argument_group()
     generic.add_argument("-mo", "--max-objects", dest="max_objects",
-                         type=int, default=10 ** 5,
+                         type=int, default=0,  # So it can actually be set through the JSON
                          help="""Maximum number of objects to cache in memory before
-                         committing to the database. Default: %(default)s i.e.
+                         committing to the database. Default: 100,000 i.e.
                          approximately 450MB RAM usage for Drosophila.""")
     generic.add_argument("-f", "--force", action="store_true", default=False,
                          help="""Flag. If set, an existing databse will be deleted (sqlite)

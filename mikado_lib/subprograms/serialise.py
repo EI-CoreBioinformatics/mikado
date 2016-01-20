@@ -176,7 +176,7 @@ def setup(args):
                     args.json_conf["serialise"]["files"][key] = getattr(args, key)
         else:
             if getattr(args, key) or getattr(args, key) == 0:
-                if getattr(args, key) is False:
+                if getattr(args, key) is False or getattr(args, key) is None:
                     continue
                 else:
                     args.json_conf["serialise"][key] = getattr(args, key)
@@ -297,7 +297,7 @@ def serialise_parser():
     junctions.add_argument("--junctions", type=str)
     generic = parser.add_argument_group()
     generic.add_argument("-mo", "--max-objects", dest="max_objects",
-                         type=int, default=0,  # So it can actually be set through the JSON
+                         type=int, default=None,  # So it can actually be set through the JSON
                          help="""Maximum number of objects to cache in memory before
                          committing to the database. Default: 100,000 i.e.
                          approximately 450MB RAM usage for Drosophila.""")

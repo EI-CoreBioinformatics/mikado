@@ -349,25 +349,25 @@ def retrieve_from_dict(transcript, data_dict):
 
     load_orfs(transcript, candidate_orfs)
 
-    if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
-        transcript.logger.debug("Retrieving BLAST hits for %s",
-                                transcript.id)
-        maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
+    # if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
+    transcript.logger.debug("Retrieving BLAST hits for %s",
+                            transcript.id)
+    maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
 
-        if transcript.id in data_dict["hits"]:
-            # this is a dictionary full of lists of dictionary
-            hits = data_dict["hits"][transcript.id]
-        else:
-            hits = list()
+    if transcript.id in data_dict["hits"]:
+        # this is a dictionary full of lists of dictionary
+        hits = data_dict["hits"][transcript.id]
+    else:
+        hits = list()
 
-        transcript.logger.debug("Found %d potential BLAST hits for %s with evalue <= %f",
-                                len(hits),
-                                transcript.id,
-                                maximum_evalue)
+    transcript.logger.debug("Found %d potential BLAST hits for %s with evalue <= %f",
+                            len(hits),
+                            transcript.id,
+                            maximum_evalue)
 
-        transcript.blast_hits.extend(hits)
-        transcript.logger.debug("Loaded %d BLAST hits for %s",
-                                len(transcript.blast_hits), transcript.id)
+    transcript.blast_hits.extend(hits)
+    transcript.logger.debug("Loaded %d BLAST hits for %s",
+                            len(transcript.blast_hits), transcript.id)
 
     transcript.logger.debug("Retrieved information from DB dictionary for %s",
                             transcript.id)

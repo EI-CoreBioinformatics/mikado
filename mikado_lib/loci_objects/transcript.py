@@ -408,6 +408,7 @@ class Transcript:
         """
 
         self.finalize()
+
         if self.selected_cds_length == 0:
             print("No CDS")
             return
@@ -431,6 +432,8 @@ class Transcript:
         self.start = cds_start
         self.end = cds_end
         self.internal_orfs, self.combined_utr = [], []
+        # Need to recalculate it
+        self.__cdna_length = None
         self.finalize()
         assert self.combined_utr == self.three_utr == self.five_utr == [], (
             self.combined_utr, self.three_utr, self.five_utr, self.start, self.end)

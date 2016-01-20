@@ -39,16 +39,6 @@ from multiprocessing import Process, Pool
 import multiprocessing.managers
 
 
-class ExitSignal(object):
-
-    """
-    Just a mock object to signal the end of the run
-    """
-
-    def __init__(self):
-        self.id = "EXIT"
-
-
 def remove_fragments(stranded_loci, json_conf, logger):
 
     """This method checks which loci are possible fragments, according to the
@@ -888,7 +878,6 @@ class Picker:
         :return:
         """
 
-        _ = ExitSignal()
         # self.result_dict[counter] = [_]
         self.printer_queue.put_nowait(("EXIT", float("inf")))
         current = "\t".join([str(x) for x in [row.chrom,

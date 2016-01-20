@@ -315,6 +315,7 @@ def finalize(transcript):
         return
 
     transcript.exons = sorted(transcript.exons)
+    transcript.__cdna_length = None
     __basic_final_checks(transcript)
     # Sort the exons by start then stop
 

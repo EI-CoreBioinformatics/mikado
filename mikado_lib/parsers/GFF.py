@@ -191,7 +191,7 @@ class GffLine(GFAnnotation):
         :type name: str
         """
 
-        if not isinstance(name, str):
+        if not isinstance(name, (type(None), str)):
             raise TypeError("Invalid value for name: {0}".format(name))
         self.attributes["Name"] = name
 

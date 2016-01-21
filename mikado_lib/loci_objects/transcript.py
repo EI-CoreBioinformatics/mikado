@@ -398,9 +398,6 @@ class Transcript:
         if self.finalized is True:
             raise ValueError("Cannot remove a segment from a finalised transcript!")
 
-
-
-
     def remove_utrs(self):
         """Method to strip a transcript from its UTRs.
         It will not execute anything if the transcript lacks a CDS or
@@ -410,16 +407,16 @@ class Transcript:
         self.finalize()
 
         if self.selected_cds_length == 0:
-            print("No CDS")
+            self.logger.debug("No CDS")
             return
         elif self.three_utr_length + self.five_utr_length == 0:
-            print("No UTR")
+            self.logger.debug("No UTR")
             return  # No UTR to strip
 
         elif self.number_internal_orfs > 1:
             return
         elif re.search(r"\.orf[0-9]+$", self.id):
-            print("Multiple ORFs already")
+            self.logger.debug("Multiple ORFs already")
             return
 
         self.finalized = False

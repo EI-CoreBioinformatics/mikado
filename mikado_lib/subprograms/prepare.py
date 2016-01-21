@@ -85,7 +85,8 @@ def create_transcript(lines,
         transcript_object.check_strand()
     except exceptions.IncorrectStrandError:
         logger.info("Discarded %s because of incorrect fusions of splice junctions",
-                    lines[0].transcript)
+                    lines[0].transcript[0] if type(lines[0].transcript) is list
+                    else lines[0].transcript)
         transcript_object = None
     except exceptions.InvalidTranscript:
         logger.info("Discarded generically invalid transcript %s",

@@ -88,7 +88,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
 def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
-                  printer_queue: multiprocessing.managers.AutoProxy,
+                  printer_queue: [multiprocessing.managers.AutoProxy, None],
                   logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
 
     """
@@ -122,8 +122,11 @@ def analyse_locus(slocus: Superlocus,
     # Define the logger
     if slocus is None:
         # printer_dict[counter] = []
-        printer_queue.put_nowait(([], counter))
-        return
+        if printer_queue:
+            printer_queue.put_nowait(([], counter))
+            return
+        else:
+            return []
 
     handler = logging_handlers.QueueHandler(logging_queue)
     logger = logging.getLogger("{0}:{1}-{2}".format(
@@ -164,8 +167,11 @@ def analyse_locus(slocus: Superlocus,
                 "%s had all transcripts failing checks, ignoring it",
                 slocus_id)
             # printer_dict[counter] = []
-            printer_queue.put_nowait(([], counter))
-            return
+            if printer_queue:
+                printer_queue.put_nowait(([], counter))
+                return
+            else:
+                return []
     # else:
     #     if slocus is None:
     #         logger.error("The locus has disappeared for counter %d", counter)
@@ -228,14 +234,17 @@ def analyse_locus(slocus: Superlocus,
         logger.error(err)
         pass
     # printer_dict[counter] = stranded_loci
-    printer_queue.put_nowait((stranded_loci, counter))
-
-    # close up shop
-    logger.debug("Finished with %s, counter %d", slocus.id, counter)
-    logger.removeHandler(handler)
-    handler.close()
-    return
-
+    if printer_queue:
+        printer_queue.put_nowait((stranded_loci, counter))
+        logger.debug("Finished with %s, counter %d", slocus.id, counter)
+        logger.removeHandler(handler)
+        handler.close()
+        return
+    else:
+        logger.debug("Finished with %s, counter %d", slocus.id, counter)
+        logger.removeHandler(handler)
+        handler.close()
+        return stranded_loci
 
 # pylint: disable=too-many-instance-attributes
 class Picker:
@@ -324,8 +333,16 @@ class Picker:
         self.queue_logger.propagate = False
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             # Reset threads to 1
-            self.main_logger.warning("Reset number of threads to 1 as requested")
-            self.threads = self.json_conf["pick"]["threads"] = 1
+            if self.json_conf["pick"]["run_options"]["threads"] > 1:
+                self.main_logger.warning("Reset number of threads to 1 as requested")
+                self.threads = 1
+        elif self.json_conf["pick"]["run_options"]["threads"] == 1:
+            self.json_conf["pick"]["run_options"]["single_thread"] = True
+
+        if self.json_conf["pick"]["run_options"]["preload"] is True:
+            self.logger.warning("In preload mode, multiprocessing is disabled")
+            self.json_conf["pick"]["run_options"]["threads"] = 1
+            self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -832,8 +849,6 @@ class Picker:
         :return: job object / None
         """
 
-        job = None
-
         if slocus is not None:
             self.main_logger.debug("Submitting %s", slocus.id)
             
@@ -853,21 +868,21 @@ class Picker:
                 return None
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
-            analyse_locus(slocus,
-                          counter,
-                          self.json_conf,
-                          self.printer_queue,
-                          self.logging_queue)
+            return analyse_locus(slocus,
+                                 counter,
+                                 self.json_conf,
+                                 None,
+                                 self.logging_queue)
         else:
             job = pool.apply_async(analyse_locus,
                                    args=(
-                              slocus,
-                              counter,
-                              self.json_conf,
-                              self.printer_queue,
-                              self.logging_queue)
-                                   )
-        return job
+                                      slocus,
+                                      counter,
+                                      self.json_conf,
+                                      self.printer_queue,
+                                      self.logging_queue)
+                                        )
+            return job
 
     def __unsorted_interrupt(self, row, current_transcript, counter):
         """
@@ -921,23 +936,25 @@ class Picker:
         if test is False:
             self.__unsorted_interrupt(row, current_transcript, counter)
 
-    def _parse_and_submit_input(self, data_dict):
+    def __submit_multi_threading(self, data_dict):
 
         """
-        This method does the parsing of the input and submission of the loci to the
-        _submit_locus method.
-        :param data_dict: The cached data from the database
-        :return: jobs (the list of all jobs already submitted)
+        Method to execute mikado pick in multi threaded mode.
+
+        :param data_dict: The data dictionary
+        :return:
         """
+
+        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        self.logger.info("Intron range: %s", intron_range)
 
         current_locus = None
         current_transcript = None
 
+        self.printer_process.start()
+
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
         pool = multiprocessing.Pool(processes=self.threads, maxtasksperchild=None)
-
-        intron_range = self.json_conf["soft_requirements"]["intron_range"]
-        self.logger.info("Intron range: %s", intron_range)
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
                                                                 "pool": pool})
         counter = -1
@@ -1000,13 +1017,124 @@ class Picker:
         pool.close()
         pool.join()
 
-        # _ = ExitSignal()
+        self.printer_queue.join()
         self.printer_queue.put_nowait(("EXIT", float("inf")))
+        self.printer_process.join()
 
-        # self.result_dict[counter+1] = [_]
-        # jobs.append()
+    def __submit_single_threaded(self, data_dict):
 
-        # pool.shutdown(wait=True)
+        """
+        Method to execute mikado pick in single threaded mode.
+        :param data_dict:
+        :return:
+        """
+
+        current_locus = None
+        current_transcript = None
+        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
+                                                                "pool": None})
+
+        handler = logging_handlers.QueueHandler(self.logging_queue)
+        logger = logging.getLogger("queue_listener")
+        logger.propagate = False
+        logger.addHandler(handler)
+        logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        logger.debug("Begun single-threaded run")
+
+        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        logger.info("Intron range: %s", intron_range)
+
+        handles = self.__get_output_files()
+
+        locus_printer = functools.partial(self._print_locus,
+                                          logger=logger,
+                                          handles=handles)
+
+        last_printed = -1
+        curr_chrom = None
+        gene_counter = 0
+
+        counter = -1
+        for row in self.define_input():
+            if row.is_exon is True:
+                current_transcript.add_exon(row)
+            elif row.is_transcript is True:
+                if current_transcript is not None:
+                    self.__test_sortedness(row, current_transcript, counter)
+                    if Superlocus.in_locus(
+                            current_locus, current_transcript) is True:
+                        current_locus.add_transcript_to_locus(current_transcript,
+                                                              check_in_locus=False)
+                    else:
+                        counter += 1
+                        self.logger.debug("Analysing locus # %d", counter)
+                        for stranded_locus in submit_locus(current_locus, counter):
+                            if stranded_locus.chrom != curr_chrom:
+                                curr_chrom = stranded_locus.chrom
+                                gene_counter = 0
+                            gene_counter = locus_printer(stranded_locus, gene_counter)
+                        current_locus = Superlocus(
+                            current_transcript,
+                            stranded=False,
+                            json_conf=self.json_conf)
+
+                if current_transcript is None or row.chrom != current_transcript.chrom:
+                    if current_transcript is not None:
+                        self.logger.info("Finished chromosome %s",
+                                         current_transcript.chrom)
+                    self.logger.info("Starting chromosome %s", row.chrom)
+
+                current_transcript = Transcript(
+                    row,
+                    source=self.json_conf["pick"]["output_format"]["source"],
+                    intron_range=intron_range)
+
+        if current_transcript is not None:
+            if Superlocus.in_locus(
+                    current_locus, current_transcript) is True:
+                current_locus.add_transcript_to_locus(
+                    current_transcript, check_in_locus=False)
+            else:
+                counter += 1
+                self.logger.debug("Analysing locus # %d", counter)
+                for stranded_locus in submit_locus(current_locus, counter):
+                                if stranded_locus.chrom != curr_chrom:
+                                    curr_chrom = stranded_locus.chrom
+                                    gene_counter = 0
+                                gene_counter = locus_printer(stranded_locus, gene_counter)
+
+                current_locus = Superlocus(
+                    current_transcript,
+                    stranded=False,
+                    json_conf=self.json_conf)
+                self.logger.debug("Created last locus %s",
+                                  current_locus)
+        self.logger.info("Finished chromosome %s", current_locus.chrom)
+
+        counter += 1
+        self.logger.debug("Analysing locus # %d", counter)
+        for stranded_locus in submit_locus(current_locus, counter):
+            if stranded_locus.chrom != curr_chrom:
+                curr_chrom = stranded_locus.chrom
+                gene_counter = 0
+            gene_counter = locus_printer(stranded_locus, gene_counter)
+        # submit_locus(current_locus, counter)
+        logger.info("Final number of superloci: %d", last_printed)
+
+    def _parse_and_submit_input(self, data_dict):
+
+        """
+        This method does the parsing of the input and submission of the loci to the
+        _submit_locus method.
+        :param data_dict: The cached data from the database
+        :return: jobs (the list of all jobs already submitted)
+        """
+
+        if self.json_conf["pick"]["run_options"]["single_thread"] is False:
+            self.__submit_multi_threading(data_dict)
+        else:
+            self.__submit_single_threaded(data_dict)
+        return
 
     def __call__(self):
 
@@ -1015,7 +1143,6 @@ class Picker:
         # NOTE: Pool, Process and Manager must NOT become instance attributes!
         # Otherwise it will raise all sorts of mistakes
 
-        self.printer_process.start()
         data_dict = None
 
         if self.json_conf["pick"]["run_options"]["preload"] is True:
@@ -1043,9 +1170,6 @@ class Picker:
         # for job in iter(x for x in jobs if x is not None):
         #     job.get()
 
-        self.printer_queue.join()
-        self.printer_queue.put_nowait(("EXIT", float("inf")))
-        self.printer_process.join()
         self.log_writer.stop()
         if self.queue_pool is not None:
             self.queue_pool.dispose()

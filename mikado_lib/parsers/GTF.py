@@ -145,10 +145,12 @@ class GtfLine(GFAnnotation):
     @property
     def name(self):
         """
-        Alias for id.
-        :rtype: str
+        Returns the name of the feature. It defaults to the ID if missing.
+        :rtype str
         """
-        return self.id
+        if "Name" not in self.attributes:
+            self.name = self.id
+        return self.attributes["Name"]
 
     @name.setter
     def name(self, *args):
@@ -159,7 +161,7 @@ class GtfLine(GFAnnotation):
         """
         if not isinstance(args[0], str):
             raise TypeError("Invalid value for name: {0}".format(args[0]))
-        self.id = args[0]
+        self.attributes["Name"] = name
 
     @property
     def is_transcript(self):

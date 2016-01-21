@@ -159,9 +159,10 @@ class GtfLine(GFAnnotation):
         :param args:
         :type args: list[(str)] | str
         """
-        if not isinstance(args[0], str):
+
+        if not isinstance(args[0], (type(None), str)):
             raise TypeError("Invalid value for name: {0}".format(args[0]))
-        self.attributes["Name"] = name
+        self.attributes["Name"] = args[0]
 
     @property
     def is_transcript(self):

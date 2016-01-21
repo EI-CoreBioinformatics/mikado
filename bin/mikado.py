@@ -7,6 +7,7 @@ Main launcher of the pipeline.
 import argparse
 import sys
 import mikado_lib.subprograms
+from mikado_lib.utilities.log_utils import create_default_logger
 
 
 def main(call_args=None):
@@ -65,13 +66,23 @@ def main(call_args=None):
     subparsers.choices["util"] = mikado_lib.subprograms.util.util_parser()
     subparsers.choices["util"].prog = "mikado_lib util"
 
-    args = parser.parse_args(call_args)
-    if hasattr(args, "func"):
-        args.func(args)
-    elif len(call_args) > 0 and call_args[0] == "util":
-        mikado_lib.subprograms.util.util_parser().print_help()
-    else:
-        parser.print_help()
+    try:
+        args = parser.parse_args(call_args)
+        if hasattr(args, "func"):
+            args.func(args)
+        elif len(call_args) > 0 and call_args[0] == "util":
+            mikado_lib.subprograms.util.util_parser().print_help()
+        else:
+            parser.print_help()
+    except KeyboardInterrupt:
+        raise KeyboardInterrupt
+    except BrokenPipeError:
+        pass
+    except Exception as exc:
+        logger = create_default_logger("main")
+        logger.error("Mikado crashed, cause:")
+        logger.exception(exc)
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()

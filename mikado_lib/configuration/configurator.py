@@ -518,6 +518,8 @@ def to_json(string, simple=False):
         string = os.path.join(os.path.abspath(os.getcwd()), "mikado_lib.json")
     else:
         string = os.path.abspath(string)
+        if not os.path.exists(string) or os.stat(string).st_size == 0:
+            raise InvalidJson("JSON file {} not found!".format(string))
         with open(string) as json_file:
             if string.endswith(".yaml"):
                 json_dict = yaml.load(json_file)

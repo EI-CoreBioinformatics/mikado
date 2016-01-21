@@ -43,27 +43,32 @@ def main():
     if args.field > 0:
         args.field -= 1
 
-    for line in args.target:
-        fields = line.rstrip().split(args.separator)
-        if len(fields) <= args.field:
-            continue
-            # print("Too few fields ({0}), you asked for field n. {1}".format(len(fields), args.field), file=sys.stderr)
-            # print(fields, file=sys.stderr)
-            # raise ValueError("Wrong number of fields")
-        else:
-            try:
-                idl = fields[args.field]
-            except IndexError:
-                raise IndexError(fields)
+    try:
+        for line in args.target:
+            fields = line.rstrip().split(args.separator)
+            if len(fields) <= args.field:
+                continue
+                # print("Too few fields ({0}), you asked for field n. {1}".format(len(fields), args.field), file=sys.stderr)
+                # print(fields, file=sys.stderr)
+                # raise ValueError("Wrong number of fields")
+            else:
+                try:
+                    idl = fields[args.field]
+                except IndexError:
+                    raise IndexError(fields)
 
-        if args.reverse:
-            if idl not in ids_d:
+            if args.reverse:
+                if idl not in ids_d:
+                    print(line, file=args.out, end='')
+            else:
+                if idl in ids_d:
+                    print(line, file=args.out, end='')
+            if not line.strip():
                 print(line, file=args.out, end='')
-        else:
-            if idl in ids_d:
-                print(line, file=args.out, end='')
-        if not line.strip():
-            print(line, file=args.out, end='')
+    except BrokenPipeError:
+        pass
+    except KeyboardInterrupt:
+        pass
 
     if not args.quiet:
         print(time.ctime(), 'Finished', file=sys.stderr)

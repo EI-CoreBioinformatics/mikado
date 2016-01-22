@@ -150,6 +150,6 @@ def pick_parser():
     log_options.add_argument("-lv", "--log-level", dest="log_level",
                              choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,
                              help="Logging level. Default: retrieved by the configuration file.")
-    parser.add_argument("gff", type=to_gff, nargs="?", default=None)
+    parser.add_argument("gff", nargs="?", default=None)
     parser.set_defaults(func=pick)
     return parser

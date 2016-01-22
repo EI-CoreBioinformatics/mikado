@@ -1119,7 +1119,7 @@ class Picker:
                 gene_counter = 0
             gene_counter = locus_printer(stranded_locus, gene_counter)
         # submit_locus(current_locus, counter)
-        logger.info("Final number of superloci: %d", last_printed)
+        logger.info("Final number of superloci: %d", counter)
 
     def _parse_and_submit_input(self, data_dict):
 

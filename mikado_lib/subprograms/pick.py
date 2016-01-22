@@ -64,8 +64,9 @@ def check_run_options(args):
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
-                key = "input"  # Redefine it for loading into the dictionary
-            args.json_conf["pick"]["files"][key] = getattr(args, key)
+                args.json_conf["pick"]["files"]["input"] = getattr(args, key)
+            else:
+                args.json_conf["pick"]["files"][key] = getattr(args, key)
 
     return args
 

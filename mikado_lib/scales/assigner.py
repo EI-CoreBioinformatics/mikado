@@ -261,6 +261,8 @@ class Assigner:
             best_fusion_results.append(m_res[0])
 
         if len(results) == 0:
+            self.logger.debug("Filtered out all results for %s, using the dubious ones",
+                              prediction.id)
             # I have filtered out all the results,
             # because I only match partially the reference genes
             dubious = sorted(dubious, key=self.dubious_getter)

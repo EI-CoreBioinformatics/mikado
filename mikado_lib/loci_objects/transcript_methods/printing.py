@@ -8,6 +8,7 @@ from collections import Counter
 import functools
 from ...parsers.GTF import GtfLine
 from ...parsers.GFF import GffLine
+from ...parsers.bed12 import BED12
 
 __author__ = 'Luca Venturini'
 
@@ -183,6 +184,35 @@ def create_lines_cds(transcript, to_gtf=False, first_phase=0):
         lines.append(str(parent_line))
         lines.extend(exon_lines)
     return lines
+
+
+def create_lines_bed(transcript):
+
+    """
+    Method to create a BED12 object for printing
+    :param transcript: mikado_lib.loci_objects.transcript.Transcript
+    :return:
+    """
+
+    bed12 = BED12()
+    bed12.transcriptomic = True
+    bed12.chrom = transcript.chrom
+    bed12.start = transcript.start
+    bed12.end = transcript.end
+    bed12.name = transcript.id
+    bed12.score = transcript.score
+    bed12.strand = transcript.strand
+    if transcript.is_coding:
+        bed12.thick_start = transcript.combined_cds[0][0]
+        bed12.thick_end = transcript.combined_cds[-1][1]
+    else:
+        bed12.thick_start = bed12.thick_end = bed12.start
+    bed12.block_count = transcript.exon_num
+    bed12.block_sizes = [exon.end - exon.begin + 1 for exon in transcript.exons]
+    bed12.block_starts = [0]
+    for pos, intron in enumerate(transcript.introns):
+        bed12.block_starts.append(bed12.block_sizes[pos] + intron.end - intron.begin + 1)
+    return str(bed12)
 
 
 def __add_phase(transcript, exon_lines, first_phase=0):

@@ -24,6 +24,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def __init__(self, line, my_line='', header=False):
         self.attributes = dict()
+        self.header = True
         self.chrom, self.source, self.feature = None, None, None
         # pylint: disable=invalid-name
         self.id = None

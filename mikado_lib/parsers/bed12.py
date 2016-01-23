@@ -261,7 +261,11 @@ class BED12:
 
     def __str__(self):
 
-        line = [self.chrom, self.start - 1, self.end, self.name, self.score]
+        line = [self.chrom, self.start - 1, self.end, self.name]
+        if not self.score:
+            line.append(".")
+        else:
+            line.append(self.score)
         if self.strand is None:
             line.append(".")
         else:

@@ -18,7 +18,7 @@ import functools
 import multiprocessing
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
-import sqlalchemy.pool
+from sqlalchemy.pool import QueuePool as SqlPool
 import sqlalchemy
 from ..parsers.GTF import GTF
 from ..parsers.GFF import GFF3
@@ -26,7 +26,7 @@ from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from .superlocus import Superlocus, Transcript
-from mikado_lib import configuration
+from .. import configuration
 # from ..configuration import configurator
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson
@@ -34,7 +34,7 @@ from ..exceptions import UnsortedInput, InvalidJson
 # from concurrent.futures import ProcessPoolExecutor
 
 # pylint: disable=no-name-in-module
-from multiprocessing import Process, Pool
+from multiprocessing import Process  # , Pool
 # pylint: enable=no-name-in-module
 import multiprocessing.managers
 
@@ -246,6 +246,60 @@ def analyse_locus(slocus: Superlocus,
         handler.close()
         return stranded_loci
 
+
+class LociProcesser(Process):
+
+    def __init__(self, json_conf, data_dict, locus_queue, printer_queue, logging_queue):
+
+        self.logging_queue = logging_queue
+        self.json_conf = json_conf
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger("LociProcesser")
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.logger.debug("Starting Process")
+
+
+        self.data_dict = data_dict
+        self.locus_queue = locus_queue
+        self.printer_queue = printer_queue
+        super(LociProcesser, self).__init__()
+
+        self.logger.debug("Starting the pool for {0}".format(self.name))
+        try:
+            if self.json_conf["pick"]["run_options"]["preload"] is False:
+                self.connection_pool = SqlPool(dbutils.create_connector(self.json_conf,
+                                                                    self.logger),
+                                               pool_size=1,
+                                               max_overflow=2)
+            else:
+                self.connection_pool = None
+        except KeyboardInterrupt:
+            raise
+        except EOFError:
+            raise
+        except Exception as exc:
+            self.logger.exception(exc)
+            return
+
+    def run(self):
+
+        self.logger.debug("Starting to parse data for {0}".format(self.name))
+        while True:
+            slocus, counter = self.locus_queue.get()
+            if slocus == "EXIT":
+                self.locus_queue.put((slocus, counter))
+                return
+
+            if slocus is not None:
+                slocus.load_all_transcript_data(pool=self.connection_pool,
+                                                data_dict=self.data_dict)
+            analyse_locus(slocus, counter,
+                          self.json_conf,
+                          self.printer_queue,
+                          self.logging_queue)
+
+
 # pylint: disable=too-many-instance-attributes
 class Picker:
 
@@ -339,10 +393,10 @@ class Picker:
         elif self.json_conf["pick"]["run_options"]["threads"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
-        if self.json_conf["pick"]["run_options"]["preload"] is True:
-            self.logger.warning("In preload mode, multiprocessing is disabled")
-            self.json_conf["pick"]["run_options"]["threads"] = 1
-            self.json_conf["pick"]["run_options"]["single_thread"] = True
+        # if self.json_conf["pick"]["run_options"]["preload"] is True:
+        #     self.logger.warning("In preload mode, multiprocessing is disabled")
+        #     self.json_conf["pick"]["run_options"]["threads"] = 1
+        #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -655,12 +709,18 @@ class Picker:
         cache = dict()
         curr_chrom = None
         gene_counter = 0
+        logger.debug("Starting to wait for loci to print")
 
         while True:
             current = self.printer_queue.get()
             stranded_loci, counter = current
 
             cache[counter] = stranded_loci
+            if stranded_loci != "EXIT":
+                logger.warning("Received one locus, counter: %d, total %d. names %s",
+                               counter,
+                               len(stranded_loci),
+                               ", ".join([_.id for _ in stranded_loci]))
             if counter == last_printed + 1 or stranded_loci == "EXIT":
                 cache[counter] = stranded_loci
                 for num in sorted(cache.keys()):
@@ -953,10 +1013,21 @@ class Picker:
 
         self.printer_process.start()
 
+        locus_queue = self.manager.Queue(-1)
+
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
-        pool = multiprocessing.Pool(processes=self.threads, maxtasksperchild=None)
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                "pool": pool})
+        working_processes = [LociProcesser(self.json_conf,
+                                           data_dict,
+                                           locus_queue,
+                                           self.printer_queue, self.logging_queue)
+                             for _ in range(self.threads)]
+        # Start all processes
+        [_.start() for _ in working_processes]
+
+        # pool = multiprocessing.Pool(processes=self.threads, maxtasksperchild=None)
+        # submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
+        #                                                         "pool": pool})
+
         counter = -1
         for row in self.define_input():
             if row.is_exon is True:
@@ -970,8 +1041,9 @@ class Picker:
                                                               check_in_locus=False)
                     else:
                         counter += 1
-                        submit_locus(current_locus, counter)
                         self.logger.debug("Submitting locus # %d", counter)
+                        locus_queue.put((current_locus, counter))
+                        # submit_locus(current_locus, counter)
                         # if job is not None:
                         #     jobs.append(job)
                         current_locus = Superlocus(
@@ -997,8 +1069,9 @@ class Picker:
                     current_transcript, check_in_locus=False)
             else:
                 counter += 1
-                submit_locus(current_locus, counter)
                 self.logger.debug("Submitting locus # %d", counter)
+                locus_queue.put((current_locus, counter))
+
                 # jobs.append(submit_locus(current_locus, counter))
 
                 current_locus = Superlocus(
@@ -1010,15 +1083,18 @@ class Picker:
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
-        submit_locus(current_locus, counter)
+        locus_queue.put((current_locus, counter))
+        # submit_locus(current_locus, counter)
         self.logger.debug("Submitting locus %s, counter %d",
                           current_locus.id, counter)
-
-        pool.close()
-        pool.join()
+        locus_queue.put(("EXIT", float("inf")))
+        [_.join() for _ in working_processes]
+        # pool.close()
+        # pool.join()
 
         self.printer_queue.join()
         self.printer_queue.put_nowait(("EXIT", float("inf")))
+
         self.printer_process.join()
 
     def __submit_single_threaded(self, data_dict):
@@ -1050,7 +1126,7 @@ class Picker:
                                           logger=logger,
                                           handles=handles)
 
-        last_printed = -1
+        # last_printed = -1
         curr_chrom = None
         gene_counter = 0
 

@@ -228,8 +228,8 @@ class LociProcesser(Process):
                                                   self.json_conf,
                                                   self.logger)
                 self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-                                                            pool_size=1,
-                                                            max_overflow=2)
+                                                                 pool_size=1,
+                                                                 max_overflow=2)
 
             else:
                 self.connection_pool = None

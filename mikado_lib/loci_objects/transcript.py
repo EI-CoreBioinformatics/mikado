@@ -148,8 +148,8 @@ class Transcript:
         self.attributes = dict()
         self.exons, self.combined_cds, self.combined_utr = [], [], []
         self.logger = logger
-        self.introns = []
-        self.splices = []
+        self.introns = set()
+        self.splices = set()
         self.finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self.selected_internal_orf_index = None
         self.non_overlapping_cds = None

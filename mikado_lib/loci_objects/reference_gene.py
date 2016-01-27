@@ -35,6 +35,7 @@ class Gene:
         self.transcripts[transcr.id] = transcr
         self.logger = None
         self.set_logger(logger)
+        self.__introns = None
         self.exception_message = ''
 
     def set_logger(self, logger):
@@ -181,3 +182,10 @@ class Gene:
         """
 
         return any(transcript.monoexonic is False for transcript in self.transcripts.values())
+
+    @property
+    def introns(self):
+        if self.__introns is None:
+            self.__introns = set.union(*[_.introns for _ in self.transcripts.values()])
+
+        return self.__introns

@@ -26,8 +26,9 @@ from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from .superlocus import Superlocus, Transcript
-from .. import configuration
-# from ..configuration import configurator
+# I have to use an absolute import to make nosetests import function ... strange
+from mikado_lib.configuration.configurator import to_json
+# from .. import configuration
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson
 # import mikado_lib.exceptions
@@ -253,8 +254,15 @@ class LociProcesser(Process):
                 return
 
             if slocus is not None:
-                slocus.load_all_transcript_data(pool=self.connection_pool,
-                                                data_dict=self.data_dict)
+                try:
+                    slocus.load_all_transcript_data(pool=self.connection_pool,
+                                                    data_dict=self.data_dict)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    self.logger.error("Error while loading data for %s",
+                                      slocus.id)
+                    self.logger.exception(exc)
                 self.logger.debug("Loading transcript data for %s", slocus.id)
             analyse_locus(slocus, counter,
                           self.json_conf,
@@ -296,7 +304,7 @@ class Picker:
         # Now we start the real work
         if isinstance(json_conf, str):
             assert os.path.exists(json_conf)
-            json_conf = configuration.configurator.to_json(json_conf)
+            json_conf = to_json(json_conf)
         else:
             assert isinstance(json_conf, dict)
 
@@ -306,15 +314,37 @@ class Picker:
         self.threads = self.json_conf["pick"]["run_options"]["threads"]
         self.input_file = self.json_conf["pick"]["files"]["input"]
         _ = self.define_input()  # Check the input file
+        if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
+            try:
+                os.makedirs(self.json_conf["pick"]["files"]["output_dir"])
+            except (OSError,PermissionError) as exc:
+                self.logger.error("Failed to create the output directory!")
+                self.logger.exception(exc)
+                raise
+        elif not os.path.isdir(self.json_conf["pick"]["files"]["output_dir"]):
+            self.logger.error(
+                "The specified output directory %s exists and is not a file; aborting",
+                self.json_conf["pick"]["files"]["output_dir"])
+            raise OSError("The specified output directory %s exists and is not a file; aborting" %
+                          self.json_conf["pick"]["files"]["output_dir"])
+
         if self.json_conf["pick"]["files"]["subloci_out"]:
-            self.sub_out = self.json_conf["pick"]["files"]["subloci_out"]
+            self.sub_out = os.path.join(
+                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf["pick"]["files"]["subloci_out"]
+            )
         else:
             self.sub_out = ""
         if self.json_conf["pick"]["files"]["monoloci_out"]:
-            self.monolocus_out = self.json_conf["pick"]["files"]["monoloci_out"]
+            self.monolocus_out = os.path.join(
+                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf["pick"]["files"]["monoloci_out"]
+            )
         else:
             self.monolocus_out = ""
-        self.locus_out = self.json_conf["pick"]["files"]["loci_out"]
+        self.locus_out = os.path.join(
+            self.json_conf["pick"]["files"]["output_dir"],
+            self.json_conf["pick"]["files"]["loci_out"])
         # pylint: disable=no-member
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
@@ -355,8 +385,9 @@ class Picker:
         elif self.json_conf["pick"]["run_options"]["threads"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
-        # if self.json_conf["pick"]["run_options"]["preload"] is True:
-        #     self.logger.warning("In preload mode, multiprocessing is disabled")
+        if self.json_conf["pick"]["run_options"]["preload"] is True and self.threads > 1:
+            self.logger.warning("Preloading using multiple threads can be extremely \
+                                memory intensive, proceed with caution!")
         #     self.json_conf["pick"]["run_options"]["threads"] = 1
         #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 

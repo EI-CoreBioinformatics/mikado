@@ -92,6 +92,9 @@ def pick(args):
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
 
+    if args.output_dir is not None:
+        args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
+
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
     try:
         creator()  # Run
@@ -135,6 +138,9 @@ def pick_parser():
                         help='''Flag. If set, the mikado_lib DB will be pre-loaded
                         into memory for faster access. WARNING: this option will
                         increase memory usage and the preloading might be quite slow.''')
+    parser.add_argument("-d", "--output-dir", dest="output_dir",
+                        type=str, default=None,
+                        help="Output directory. Default: current working directory")
     parser.add_argument("--single", action="store_true", default=False,
                         help="""Flag. If set, Creator will be launched with a single process.
                         Useful for debugging purposes only.""")

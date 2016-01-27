@@ -110,7 +110,7 @@ def load_blast(args, logger):
 
     """
     if args.json_conf["serialise"]["files"]["xml"]:
-        assert isinstance(args.json_conf["serialise"]["files"]["blast_targets"], str)
+        # assert isinstance(args.json_conf["serialise"]["files"]["blast_targets"], str)
         logger.info("Starting to load BLAST data")
         filenames = []
 
@@ -172,8 +172,8 @@ def setup(args):
             for file_key in args.json_conf["serialise"]["files"]:
                 if getattr(args, file_key):
                     if file_key in ("xml", "junctions", "orfs"):
-                        setattr(args, key, getattr(args, key).split(","))
-                    args.json_conf["serialise"]["files"][key] = getattr(args, key)
+                        setattr(args, file_key, getattr(args, file_key).split(","))
+                    args.json_conf["serialise"]["files"][file_key] = getattr(args, file_key)
         else:
             if getattr(args, key) or getattr(args, key) == 0:
                 if getattr(args, key) is False or getattr(args, key) is None:

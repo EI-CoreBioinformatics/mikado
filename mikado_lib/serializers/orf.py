@@ -15,7 +15,7 @@ from sqlalchemy.orm import relationship, backref, column_property
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
-from ..parsers import bed12
+from ..parsers import bed12, GFF, GTF
 from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
 
@@ -151,8 +151,7 @@ class OrfSerializer:
         as it will make the population of the Query table much faster.
 
         :param handle: the input BED12 file
-        :type handle: io.IOBase
-        :type handle: str
+        :type handle: (io.TextIOWrapper|str)
 
         :param json_conf: a configuration dictionary
         :type json_conf: dict
@@ -175,9 +174,18 @@ class OrfSerializer:
             assert "SeqIO.index" in repr(fasta_index)
             self.fasta_index = fasta_index
 
-        self.bed12_parser = bed12.Bed12Parser(handle,
-                                              fasta_index=fasta_index,
-                                              transcriptomic=True)
+        if isinstance(handle, str):
+            self.is_bed12 = (handle.endswith("bed12") or handle.endswith("bed"))
+        else:
+            self.is_bed12 = (handle.name.endswith("bed12") or handle.name.endswith("bed"))
+
+        if self.is_bed12:
+            self.bed12_parser = bed12.Bed12Parser(handle,
+                                                  fasta_index=fasta_index,
+                                                  transcriptomic=True)
+        else:
+            self.bed12_parser = GFF.GFF3(handle)
+
         self.engine = connect(json_conf, logger)
 
         session = sessionmaker()
@@ -188,6 +196,22 @@ class OrfSerializer:
             DBBASE.metadata.create_all(self.engine)
         self.session = session()
         self.maxobjects = json_conf["serialise"]["max_objects"]
+
+    def parse_gf_as_bed12(self, handle, fasta_index):
+
+        # TODO: work on a functioning parser for TD long orfs GFF3 files
+        raise NotImplementedError("I am still working on this!")
+
+        if isinstance(handle, str):
+            if handle.endswith("gtf"):
+                parser = GTF.GTF(handle)
+            else:
+                parser = GFF.GFF3(handle)
+        else:
+            if handle.name.endswith("gtf"):
+                parser = GTF.GTF(handle)
+            else:
+                parser = GFF.GFF3(handle)
 
     def load_fasta(self, cache):
 

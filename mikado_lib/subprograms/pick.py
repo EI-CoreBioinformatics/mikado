@@ -64,8 +64,9 @@ def check_run_options(args):
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
-                key = "input"  # Redefine it for loading into the dictionary
-            args.json_conf["pick"]["files"][key] = getattr(args, key)
+                args.json_conf["pick"]["files"]["input"] = getattr(args, key)
+            else:
+                args.json_conf["pick"]["files"][key] = getattr(args, key)
 
     return args
 
@@ -90,6 +91,9 @@ def pick(args):
 
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
+
+    if args.output_dir is not None:
+        args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
 
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
     try:
@@ -134,6 +138,9 @@ def pick_parser():
                         help='''Flag. If set, the mikado_lib DB will be pre-loaded
                         into memory for faster access. WARNING: this option will
                         increase memory usage and the preloading might be quite slow.''')
+    parser.add_argument("-d", "--output-dir", dest="output_dir",
+                        type=str, default=None,
+                        help="Output directory. Default: current working directory")
     parser.add_argument("--single", action="store_true", default=False,
                         help="""Flag. If set, Creator will be launched with a single process.
                         Useful for debugging purposes only.""")
@@ -149,6 +156,6 @@ def pick_parser():
     log_options.add_argument("-lv", "--log-level", dest="log_level",
                              choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,
                              help="Logging level. Default: retrieved by the configuration file.")
-    parser.add_argument("gff", type=to_gff, nargs="?", default=None)
+    parser.add_argument("gff", nargs="?", default=None)
     parser.set_defaults(func=pick)
     return parser

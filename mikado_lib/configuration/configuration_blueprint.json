@@ -526,6 +526,10 @@
             "- log: log file for this step."],
           "required": ["input", "loci_out"],
           "properties": {
+            "output_dir": {
+              "type": "string",
+              "default": "."
+            },
             "input": {
               "type": "string",
               "default": "mikado_prepared.gtf"

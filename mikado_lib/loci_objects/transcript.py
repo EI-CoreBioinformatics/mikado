@@ -26,7 +26,7 @@ from ..parsers.GFF import GffLine
 # import mikado_lib.exceptions
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.printing import create_lines_cds
-from .transcript_methods.printing import create_lines_no_cds
+from .transcript_methods.printing import create_lines_no_cds, create_lines_bed
 from .transcript_methods.finalizing import finalize
 
 
@@ -148,8 +148,8 @@ class Transcript:
         self.attributes = dict()
         self.exons, self.combined_cds, self.combined_utr = [], [], []
         self.logger = logger
-        self.introns = []
-        self.splices = []
+        self.introns = set()
+        self.splices = set()
         self.finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self.selected_internal_orf_index = None
         self.non_overlapping_cds = None
@@ -364,13 +364,15 @@ class Transcript:
 
     def format(self, format_name):
 
-        if format_name not in ("gff", "gtf", "gff3"):
+        if format_name not in ("gff", "gtf", "gff3", "bed", "bed12"):
             raise ValueError(
                 "Invalid format: {0}. Accepted formats: gff/gff3 (equivalent), gtf".format(
                     format_name))
 
         self.finalize()  # Necessary to sort the exons
-        if format_name == "gtf":
+        if format_name in ("bed", "bed12"):
+            lines = [create_lines_bed(self)]
+        elif format_name == "gtf":
             lines = create_lines_cds(self, to_gtf=True, first_phase=self._first_phase)
         else:
             lines = create_lines_cds(self, to_gtf=False, first_phase=self._first_phase)

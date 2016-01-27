@@ -261,12 +261,21 @@ class BED12:
 
     def __str__(self):
 
-        line = [self.chrom, self.start - 1, self.end, self.name, self.score]
+        line = [self.chrom, self.start - 1, self.end, self.name]
+        if not self.score:
+            line.append(".")
+        else:
+            line.append(self.score)
         if self.strand is None:
             line.append(".")
         else:
             line.append(self.strand)
-        line.extend([self.thick_start - 1, self.thick_end, self.rgb, self.block_count])
+        line.extend([self.thick_start - 1, self.thick_end])
+        if not self.rgb:
+            line.append(0)
+        else:
+            line.append(self.rgb)
+        line.append(self.block_count)
         line.append(",".join([str(x) for x in self.block_sizes]))
         line.append(",".join([str(x) for x in self.block_starts]))
         return "\t".join([str(x) for x in line])

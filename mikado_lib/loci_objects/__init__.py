@@ -9,8 +9,6 @@
     The creation of the loci is delegated to the "Creator" class.
 """
 
-__title__ = "loci_objects"
-
 from .transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .superlocus import Superlocus, Sublocus, Monosublocus
@@ -18,6 +16,7 @@ from .monosublocusholder import MonosublocusHolder
 from .locus import Locus
 from .excluded import Excluded
 from .picker import Picker
+# from .picker import Picker
 # from . import abstractlocus
 # from . import picker
 # from . import excluded
@@ -25,5 +24,7 @@ from .picker import Picker
 # from . import monosublocus
 # from . import sublocus
 # from . import superlocus
-from . import transcript
+# from . import transcript
 # from . import transcriptchecker
+
+__title__ = "loci_objects"

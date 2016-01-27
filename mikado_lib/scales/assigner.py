@@ -216,10 +216,21 @@ class Assigner:
 
         new_matches = []
 
+        gid_groups = []
+
+        self.logger.debug("Matches for %s: %s",
+                          prediction.id,
+                          matches)
+
         for match in matches:
             gene_matches = self.positions[prediction.chrom][match[0]]
+            self.logger.debug("Match for %s: %s",
+                              match,
+                              [_.id for _ in gene_matches])
+            gid_groups.append(tuple(gene.id for gene in gene_matches))
             temp_results = []
             # This will result in calculating the matches twice unfortunately
+
             for gene_match in gene_matches:
                 best_res = sorted(
                     [self.calc_compare(prediction, tra) for tra in gene_match],
@@ -228,10 +239,23 @@ class Assigner:
 
                 temp_results.append((gene_match, best_res))
             self.logger.debug("Temp results: %s", temp_results)
-            best_res = sorted(temp_results, key=lambda x: self.get_f1(x[1]),
-                              reverse=True)[0]
-            self.logger.debug("Best result: %s", best_res)
-            new_matches.append(best_res[0])
+
+            genes = collections.defaultdict(list)
+            for res in temp_results:
+                try:
+                    genes[res[1].ref_gene].append(res)
+                except AttributeError as exc:
+                    self.logger.exception(exc)
+                    self.logger.error("Repr: %s,\nType:\n%s,\n",
+                                      repr(res),
+                                      type(res))
+                    raise AttributeError(exc)
+
+            for gene in genes:
+                best_res = sorted(genes[gene], key=lambda x: self.get_f1(x[1]),
+                                  reverse=True)[0]
+                self.logger.debug("Best result: %s", best_res)
+                new_matches.append(best_res[0])
 
         matches = sorted(new_matches)
 
@@ -261,6 +285,8 @@ class Assigner:
             best_fusion_results.append(m_res[0])
 
         if len(results) == 0:
+            self.logger.debug("Filtered out all results for %s, using the dubious ones",
+                              prediction.id)
             # I have filtered out all the results,
             # because I only match partially the reference genes
             dubious = sorted(dubious, key=self.dubious_getter)
@@ -269,26 +295,34 @@ class Assigner:
 
         # Create the fusion best result
         values = []
-        for key in ResultStorer.__slots__:
-            if key in ["gid", "tid", "distance"]:
-                values.append(getattr(best_fusion_results[0], key))
-            elif key == "ccode":
-                if len(best_fusion_results) > 1:
-                    # Add the "f" ccode for fusions
-                    ccode = ["f"]
-                    ccode += [getattr(x, key)[0] for x in best_fusion_results]
-                    for result in results:
-                        result.ccode = ("f", result.ccode[0])
-                    values.append(tuple(ccode))
-                else:
-                    values.append(tuple(getattr(best_fusion_results[0], key)))
-            else:
-                val = tuple([getattr(x, key)[0] for x in best_fusion_results])
-                assert len(val) == len(best_fusion_results)
-                assert not isinstance(val[0], tuple), val
-                values.append(val)
+        fused_group = tuple(_.ref_gene[0] for _ in best_fusion_results)
+        self.logger.debug("Fused group: %s; GID_groups: %s",
+                          fused_group,
+                          gid_groups)
 
-        best_result = ResultStorer(*values)
+        if fused_group not in gid_groups:
+            for key in ResultStorer.__slots__:
+                if key in ["gid", "tid", "distance"]:
+                    values.append(getattr(best_fusion_results[0], key))
+                elif key == "ccode":
+                    if len(best_fusion_results) > 1:
+                        # Add the "f" ccode for fusions
+                        ccode = ["f"]
+                        ccode += [getattr(x, key)[0] for x in best_fusion_results]
+                        for result in results:
+                            result.ccode = ("f", result.ccode[0])
+                        values.append(tuple(ccode))
+                    else:
+                        values.append(tuple(getattr(best_fusion_results[0], key)))
+                else:
+                    val = tuple([getattr(x, key)[0] for x in best_fusion_results])
+                    assert len(val) == len(best_fusion_results)
+                    assert not isinstance(val[0], tuple), val
+                    values.append(val)
+            best_result = ResultStorer(*values)
+        else:
+            best_result = sorted(best_fusion_results, reverse=True, key=self.get_f1)[0]
+
         # Finished creating the fusion result
 
         return results, best_result

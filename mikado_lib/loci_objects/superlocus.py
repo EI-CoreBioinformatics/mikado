@@ -473,6 +473,10 @@ class Superlocus(Abstractlocus):
             for orf in orfs:
                 data_dict["orfs"][orf.query].append(orf.as_bed12())
 
+            self.session.close()
+            self.sessionmaker.close_all()
+            self.engine.dispose()
+
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
             if remove_flag is True:
@@ -491,9 +495,7 @@ class Superlocus(Abstractlocus):
             for tid in to_remove:
                 self.remove_transcript_from_locus(tid)
 
-        if data_dict is None:
-            self.session.close()
-            self.sessionmaker.close_all()
+
         del data_dict
 
         num_coding = 0

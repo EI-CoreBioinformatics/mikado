@@ -18,7 +18,7 @@ import functools
 import multiprocessing
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
-import sqlalchemy.pool
+from sqlalchemy.pool import QueuePool as SqlPool
 import sqlalchemy
 from ..parsers.GTF import GTF
 from ..parsers.GFF import GFF3
@@ -26,15 +26,16 @@ from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from .superlocus import Superlocus, Transcript
-from mikado_lib import configuration
-# from ..configuration import configurator
+# I have to use an absolute import to make nosetests import function ... strange
+from mikado_lib.configuration.configurator import to_json
+# from .. import configuration
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson
 # import mikado_lib.exceptions
 # from concurrent.futures import ProcessPoolExecutor
 
 # pylint: disable=no-name-in-module
-from multiprocessing import Process, Pool
+from multiprocessing import Process  # , Pool
 # pylint: enable=no-name-in-module
 import multiprocessing.managers
 
@@ -147,53 +148,18 @@ def analyse_locus(slocus: Superlocus,
     slocus.logger = logger
 
     # Load the CDS information if necessary
-    if json_conf["pick"]["run_options"]["preload"] is False:
-        slocus_id = slocus.id
-        logger.debug(
-            "Loading transcript data for %s",
+    if slocus.initialized is False:
+        # This happens when all transcripts have been removed from the locus,
+        # due to errors that have been hopefully logged
+        logger.warning(
+            "%s had all transcripts failing checks, ignoring it",
             slocus.id)
-        db_connection = functools.partial(dbutils.create_connector,
-                                          json_conf,
-                                          logger)
-        connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-                                                    pool_size=1,
-                                                    max_overflow=2)
-        slocus.load_all_transcript_data(pool=connection_pool)
-        connection_pool.dispose()
-        if slocus.initialized is False:
-            # This happens when all transcripts have been removed from the locus,
-            # due to errors that have been hopefully logged
-            logger.warning(
-                "%s had all transcripts failing checks, ignoring it",
-                slocus_id)
-            # printer_dict[counter] = []
-            if printer_queue:
-                printer_queue.put_nowait(([], counter))
-                return
-            else:
-                return []
-    # else:
-    #     if slocus is None:
-    #         logger.error("The locus has disappeared for counter %d", counter)
-    #         # printer_dict[counter] = []
-    #         printer_queue.put_nowait(([], counter))
-    #         return
-    #
-    #     logger.debug("Loading data from dict for %s", slocus.id)
-    #     slocus.logger = logger
-    #     slocus.load_all_transcript_data(pool=None,
-    #                                     data_dict=data_dict)
-    #     # slocus_id = slocus.id
-    #     if slocus.initialized is False:
-    #         # This happens when we have removed all transcripts from the locus
-    #         # due to errors which should have been caught and logged
-    #         logger.warning(
-    #             "%s had all transcripts failing checks, ignoring it",
-    #             slocus.id)
-    #         # Exit
-    #         printer_queue.put_nowait(([], counter))
-    #         # printer_dict[counter] = []
-    #         return
+        # printer_dict[counter] = []
+        if printer_queue:
+            printer_queue.put_nowait(([], counter))
+            return
+        else:
+            return []
 
     # Split the superlocus in the stranded components
     logger.debug("Splitting by strand")
@@ -208,14 +174,6 @@ def analyse_locus(slocus: Superlocus,
                      stranded_locus.start,
                      stranded_locus.end,
                      stranded_locus.strand)
-        # except Exception as err:
-        #     logger.exception("Error in defining loci for %s:%d-%d, strand: %s",
-        #                      stranded_locus.chrom,
-        #                      stranded_locus.start,
-        #                      stranded_locus.end,
-        #                      stranded_locus.strand)
-        #     logger.exception("Exception: %s", err)
-        #     stranded_loci.remove(stranded_locus)
 
     # Remove overlapping fragments.
     loci_to_check = {True: set(), False: set()}
@@ -245,6 +203,72 @@ def analyse_locus(slocus: Superlocus,
         logger.removeHandler(handler)
         handler.close()
         return stranded_loci
+
+
+class LociProcesser(Process):
+
+    def __init__(self, json_conf, data_dict, locus_queue, printer_queue, logging_queue):
+
+        self.logging_queue = logging_queue
+        self.json_conf = json_conf
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger("LociProcesser")
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.logger.debug("Starting Process")
+
+        self.data_dict = data_dict
+        self.locus_queue = locus_queue
+        self.printer_queue = printer_queue
+        super(LociProcesser, self).__init__()
+
+        self.logger.debug("Starting the pool for {0}".format(self.name))
+        try:
+            if self.json_conf["pick"]["run_options"]["preload"] is False:
+                db_connection = functools.partial(dbutils.create_connector,
+                                                  self.json_conf,
+                                                  self.logger)
+                self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
+                                                                 pool_size=1,
+                                                                 max_overflow=2)
+
+            else:
+                self.connection_pool = None
+        except KeyboardInterrupt:
+            raise
+        except EOFError:
+            raise
+        except Exception as exc:
+            self.logger.exception(exc)
+            return
+
+    def run(self):
+
+        self.logger.debug("Starting to parse data for {0}".format(self.name))
+        while True:
+            slocus, counter = self.locus_queue.get()
+            if slocus == "EXIT":
+                self.locus_queue.put((slocus, counter))
+                if self.connection_pool is not None:
+                    self.connection_pool.dispose()
+                return
+
+            if slocus is not None:
+                try:
+                    slocus.load_all_transcript_data(pool=self.connection_pool,
+                                                    data_dict=self.data_dict)
+                except KeyboardInterrupt:
+                    raise
+                except Exception as exc:
+                    self.logger.error("Error while loading data for %s",
+                                      slocus.id)
+                    self.logger.exception(exc)
+                self.logger.debug("Loading transcript data for %s", slocus.id)
+            analyse_locus(slocus, counter,
+                          self.json_conf,
+                          self.printer_queue,
+                          self.logging_queue)
+
 
 # pylint: disable=too-many-instance-attributes
 class Picker:
@@ -280,7 +304,7 @@ class Picker:
         # Now we start the real work
         if isinstance(json_conf, str):
             assert os.path.exists(json_conf)
-            json_conf = configuration.configurator.to_json(json_conf)
+            json_conf = to_json(json_conf)
         else:
             assert isinstance(json_conf, dict)
 
@@ -290,15 +314,37 @@ class Picker:
         self.threads = self.json_conf["pick"]["run_options"]["threads"]
         self.input_file = self.json_conf["pick"]["files"]["input"]
         _ = self.define_input()  # Check the input file
+        if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
+            try:
+                os.makedirs(self.json_conf["pick"]["files"]["output_dir"])
+            except (OSError,PermissionError) as exc:
+                self.logger.error("Failed to create the output directory!")
+                self.logger.exception(exc)
+                raise
+        elif not os.path.isdir(self.json_conf["pick"]["files"]["output_dir"]):
+            self.logger.error(
+                "The specified output directory %s exists and is not a file; aborting",
+                self.json_conf["pick"]["files"]["output_dir"])
+            raise OSError("The specified output directory %s exists and is not a file; aborting" %
+                          self.json_conf["pick"]["files"]["output_dir"])
+
         if self.json_conf["pick"]["files"]["subloci_out"]:
-            self.sub_out = self.json_conf["pick"]["files"]["subloci_out"]
+            self.sub_out = os.path.join(
+                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf["pick"]["files"]["subloci_out"]
+            )
         else:
             self.sub_out = ""
         if self.json_conf["pick"]["files"]["monoloci_out"]:
-            self.monolocus_out = self.json_conf["pick"]["files"]["monoloci_out"]
+            self.monolocus_out = os.path.join(
+                self.json_conf["pick"]["files"]["output_dir"],
+                self.json_conf["pick"]["files"]["monoloci_out"]
+            )
         else:
             self.monolocus_out = ""
-        self.locus_out = self.json_conf["pick"]["files"]["loci_out"]
+        self.locus_out = os.path.join(
+            self.json_conf["pick"]["files"]["output_dir"],
+            self.json_conf["pick"]["files"]["loci_out"])
         # pylint: disable=no-member
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
@@ -339,10 +385,11 @@ class Picker:
         elif self.json_conf["pick"]["run_options"]["threads"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
-        if self.json_conf["pick"]["run_options"]["preload"] is True:
-            self.logger.warning("In preload mode, multiprocessing is disabled")
-            self.json_conf["pick"]["run_options"]["threads"] = 1
-            self.json_conf["pick"]["run_options"]["single_thread"] = True
+        if self.json_conf["pick"]["run_options"]["preload"] is True and self.threads > 1:
+            self.logger.warning("Preloading using multiple threads can be extremely \
+                                memory intensive, proceed with caution!")
+        #     self.json_conf["pick"]["run_options"]["threads"] = 1
+        #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -655,12 +702,18 @@ class Picker:
         cache = dict()
         curr_chrom = None
         gene_counter = 0
+        logger.debug("Starting to wait for loci to print")
 
         while True:
             current = self.printer_queue.get()
             stranded_loci, counter = current
 
             cache[counter] = stranded_loci
+            if stranded_loci != "EXIT":
+                logger.debug("Received one locus, counter: %d, total %d. names %s",
+                               counter,
+                               len(stranded_loci),
+                               ", ".join([_.id for _ in stranded_loci]))
             if counter == last_printed + 1 or stranded_loci == "EXIT":
                 cache[counter] = stranded_loci
                 for num in sorted(cache.keys()):
@@ -953,10 +1006,19 @@ class Picker:
 
         self.printer_process.start()
 
+        locus_queue = self.manager.Queue(-1)
+
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
-        pool = multiprocessing.Pool(processes=self.threads, maxtasksperchild=None)
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                "pool": pool})
+        working_processes = [LociProcesser(self.json_conf,
+                                           data_dict,
+                                           locus_queue,
+                                           self.printer_queue, self.logging_queue)
+                             for _ in range(self.threads)]
+        # Start all processes
+        [_.start() for _ in working_processes]
+        # No sense in keeping this data available on the main thread now
+        del data_dict
+
         counter = -1
         for row in self.define_input():
             if row.is_exon is True:
@@ -970,8 +1032,9 @@ class Picker:
                                                               check_in_locus=False)
                     else:
                         counter += 1
-                        submit_locus(current_locus, counter)
                         self.logger.debug("Submitting locus # %d", counter)
+                        locus_queue.put((current_locus, counter))
+                        # submit_locus(current_locus, counter)
                         # if job is not None:
                         #     jobs.append(job)
                         current_locus = Superlocus(
@@ -997,8 +1060,9 @@ class Picker:
                     current_transcript, check_in_locus=False)
             else:
                 counter += 1
-                submit_locus(current_locus, counter)
                 self.logger.debug("Submitting locus # %d", counter)
+                locus_queue.put((current_locus, counter))
+
                 # jobs.append(submit_locus(current_locus, counter))
 
                 current_locus = Superlocus(
@@ -1010,15 +1074,18 @@ class Picker:
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
-        submit_locus(current_locus, counter)
+        locus_queue.put((current_locus, counter))
+        # submit_locus(current_locus, counter)
         self.logger.debug("Submitting locus %s, counter %d",
                           current_locus.id, counter)
-
-        pool.close()
-        pool.join()
+        locus_queue.put(("EXIT", float("inf")))
+        [_.join() for _ in working_processes]
+        # pool.close()
+        # pool.join()
 
         self.printer_queue.join()
         self.printer_queue.put_nowait(("EXIT", float("inf")))
+
         self.printer_process.join()
 
     def __submit_single_threaded(self, data_dict):
@@ -1050,9 +1117,19 @@ class Picker:
                                           logger=logger,
                                           handles=handles)
 
-        last_printed = -1
+        # last_printed = -1
         curr_chrom = None
         gene_counter = 0
+
+        if self.json_conf["pick"]["run_options"]["preload"] is False:
+            db_connection = functools.partial(dbutils.create_connector,
+                                              self.json_conf,
+                                              self.logger)
+            self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
+                                                             pool_size=1,
+                                                             max_overflow=2)
+        else:
+            self.connection_pool = None
 
         counter = -1
         for row in self.define_input():
@@ -1068,6 +1145,8 @@ class Picker:
                     else:
                         counter += 1
                         self.logger.debug("Analysing locus # %d", counter)
+                        current_locus.load_all_transcript_data(pool=self.connection_pool,
+                                                               data_dict=data_dict)
                         for stranded_locus in submit_locus(current_locus, counter):
                             if stranded_locus.chrom != curr_chrom:
                                 curr_chrom = stranded_locus.chrom
@@ -1097,6 +1176,8 @@ class Picker:
             else:
                 counter += 1
                 self.logger.debug("Analysing locus # %d", counter)
+                current_locus.load_all_transcript_data(pool=self.connection_pool,
+                                                       data_dict=data_dict)
                 for stranded_locus in submit_locus(current_locus, counter):
                                 if stranded_locus.chrom != curr_chrom:
                                     curr_chrom = stranded_locus.chrom
@@ -1113,13 +1194,15 @@ class Picker:
 
         counter += 1
         self.logger.debug("Analysing locus # %d", counter)
+        current_locus.load_all_transcript_data(pool=self.connection_pool,
+                                               data_dict=data_dict)
         for stranded_locus in submit_locus(current_locus, counter):
             if stranded_locus.chrom != curr_chrom:
                 curr_chrom = stranded_locus.chrom
                 gene_counter = 0
             gene_counter = locus_printer(stranded_locus, gene_counter)
         # submit_locus(current_locus, counter)
-        logger.info("Final number of superloci: %d", last_printed)
+        logger.info("Final number of superloci: %d", counter)
 
     def _parse_and_submit_input(self, data_dict):
 

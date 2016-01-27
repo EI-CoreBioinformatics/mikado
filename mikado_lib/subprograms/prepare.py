@@ -15,6 +15,7 @@ import logging
 import itertools
 from .. import exceptions
 import copy
+from ..utilities import path_join
 from ..loci_objects.transcriptchecker import TranscriptChecker
 from ..configuration.configurator import to_json
 from . import to_gff
@@ -235,20 +236,43 @@ def setup(args):
     :param args: the ArgumentParser-derived namespace.
     """
 
+    logger = logging.getLogger("main")
+    formatter = logging.Formatter(
+        "{asctime}:{levelname} - {filename}:{lineno} - {funcName} - {message}",
+        style="{")
+    logger.setLevel(logging.INFO)
+
+    args.json_conf["prepare"]["output_dir"] = getattr(args,
+                                                      "output_dir",
+                                                      args.json_conf["prepare"]["output_dir"])
+
+    if not os.path.exists(args.json_conf["prepare"]["output_dir"]):
+        try:
+            os.makedirs(args.json_conf["prepare"]["output_dir"])
+        except (OSError,PermissionError) as exc:
+            logger.error("Failed to create the output directory!")
+            logger.exception(exc)
+            raise
+    elif not os.path.isdir(args.json_conf["prepare"]["output_dir"]):
+        logger.error(
+            "The specified output directory %s exists and is not a file; aborting",
+            args.json_conf["prepare"]["output_dir"])
+        raise OSError("The specified output directory %s exists and is not a file; aborting" %
+                      args.json_conf["prepare"]["output_dir"])
+
     if args.json_conf["prepare"]["log"]:
         handler = logging.FileHandler(
-            args.json_conf["prepare"]["log"],
+            path_join(
+                args.json_conf["prepare"]["output_dir"],
+                args.json_conf["prepare"]["log"]),
             "w")
     else:
         handler = logging.StreamHandler()
 
-    formatter = logging.Formatter(
-        "{asctime}:{levelname} - {filename}:{lineno} - {funcName} - {message}",
-        style="{")
     handler.setFormatter(formatter)
-    logger = logging.getLogger("main")
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+
+    logger.info("Command line: %s",  " ".join(sys.argv))
 
     if args.verbose is True:
         logger.setLevel(logging.DEBUG)
@@ -416,8 +440,12 @@ def prepare(args):
     assert len(args.json_conf["prepare"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
 
-    args.json_conf["prepare"]["out_fasta"] = open(args.json_conf["prepare"]["out_fasta"], 'w')
-    args.json_conf["prepare"]["out"] = open(args.json_conf["prepare"]["out"], 'w')
+    args.json_conf["prepare"]["out_fasta"] = open(
+        path_join(args.json_conf["prepare"]["output_dir"],
+        args.json_conf["prepare"]["out_fasta"]), 'w')
+    args.json_conf["prepare"]["out"] = open(path_join(
+        args.json_conf["prepare"]["output_dir"],
+        args.json_conf["prepare"]["out"]), 'w')
 
     to_seqio = functools.partial(to_seqio_complete,
                                  cache=args.json_conf["prepare"]["cache"],
@@ -532,6 +560,9 @@ def prepare_parser():
                         separated by comma.""")
     parser.add_argument("--single", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
+    parser.add_argument("-od", "--output-dir", dest="output_dir",
+                        type=str, default=None,
+                        help="Output directory. Default: current working directory")
     parser.add_argument("-o", "--out", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
     parser.add_argument("-of", "--out_fasta", default=None,

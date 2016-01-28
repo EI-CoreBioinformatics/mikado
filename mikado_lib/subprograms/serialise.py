@@ -211,10 +211,12 @@ def setup(args):
     if args.json_conf["serialise"]["files"]["log"] is not None:
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
             args.json_conf["serialise"]["files"]["log"].close()
-            args.json_conf["serialise"]["files"]["log"] = \
-                path_join(
-                    args.json_conf["serialise"]["files"]["output_dir"],
-                    args.json_conf["serialise"]["files"]["log"].name)
+            args.json_conf["serialise"]["files"]["log"] = args.json_conf[
+                "serialise"]["files"]["log"].name
+        args.json_conf["serialise"]["files"]["log"] = \
+            path_join(
+                args.json_conf["serialise"]["files"]["output_dir"],
+                args.json_conf["serialise"]["files"]["log"])
         formatter = logger.handlers[0].formatter
         logger.removeHandler(logger.handlers[0])
         handler = logging.FileHandler(
@@ -337,7 +339,7 @@ def serialise_parser():
     generic.add_argument("--json-conf", default=None,
                          dest="json_conf", type=configurator.to_json,
                          required=True)
-    generic.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
+    generic.add_argument("-l", "--log", type=str, default=None,
                          nargs='?',
                          help="Optional log file. Default: stderr")
     parser.add_argument("-od", "--output-dir", dest="output_dir",

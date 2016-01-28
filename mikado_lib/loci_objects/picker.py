@@ -374,8 +374,9 @@ class Picker:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.json_conf["pick"]["run_options"]["preload"] is True and self.threads > 1:
-            self.logger.warning("Preloading using multiple threads can be extremely \
-                                memory intensive, proceed with caution!")
+            self.logger.warning(
+                "Preloading using multiple threads can be extremely \
+memory intensive, proceed with caution!")
         #     self.json_conf["pick"]["run_options"]["threads"] = 1
         #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 

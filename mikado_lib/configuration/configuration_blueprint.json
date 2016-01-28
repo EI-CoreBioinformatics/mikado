@@ -528,7 +528,7 @@
             "- subloci_out: optional GFF file with the intermediate subloci. Default: no output",
             "- monoloci_out: optional GFF file with the intermediate monoloci. Default: no output",
             "- log: log file for this step."],
-          "required": ["input", "loci_out"],
+          "required": ["input"],
           "properties": {
             "output_dir": {
               "type": "string",

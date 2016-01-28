@@ -9,7 +9,10 @@ import unittest
 import mikado_lib.loci_objects
 import mikado_lib.scales
 import intervaltree
-
+import argparse
+import os
+import mikado_lib.parsers
+import csv
 
 class AssignerTester(unittest.TestCase):
     """
@@ -571,13 +574,13 @@ class AssignerTester(unittest.TestCase):
         reference.finalize()
 
         prediction = mikado_lib.loci_objects.Transcript()
-        prediction.start = 50
+        prediction.start = 200
         prediction.end = 3000
         prediction.strand = "+"
         prediction.chrom = "Chr1"
         prediction.id = "P1.1"
         prediction.parent = "P1"
-        prediction.exons = [(50, 300), (500, 1000), (1500, 2050), (2200, 3000)]
+        prediction.exons = [(200, 300), (500, 1000), (1500, 2050), (2200, 3000)]
         prediction.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
@@ -858,7 +861,6 @@ class AssignerTester(unittest.TestCase):
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
 
-
     def test_mono_overlap_nostrand(self):
 
         reference = mikado_lib.loci_objects.Transcript()
@@ -939,6 +941,39 @@ class AssignerTester(unittest.TestCase):
                          keys, (5350,5500), distance=10000),
                          [((350, 500), 4850), ((10, 200), 5150)]
                          )
+
+    def test_false_fusion(self):
+
+        """
+        System test to verify that the false fusion is not called.
+        :return:
+        """
+
+        master = os.path.dirname(os.path.abspath(__file__))
+        args = argparse.Namespace()
+        args.reference = mikado_lib.parsers.GFF.GFF3(
+            os.path.join(master, "fusion_test", "fusion_test_ref.gff3"))
+        args.prediction = mikado_lib.parsers.GTF.GTF(
+            os.path.join(master, "fusion_test", "fusion_test_pred.gtf"))
+        args.log = os.path.join(master, "fusion_test", "fusion_test.log")
+        args.out = os.path.join(master, "fusion_test", "fusion_test")
+        args.distance = 2000
+        args.verbose = True
+        args.exclude_utr = False
+        args.protein_coding = False
+
+        mikado_lib.scales.compare.compare(args)
+
+        out_refmap = os.path.join(master, "fusion_test", "fusion_test.refmap")
+        self.assertTrue(os.path.exists(out_refmap))
+        self.assertGreater(os.stat(out_refmap).st_size, 0)
+        with open(out_refmap) as refmap:
+            for line in csv.DictReader(refmap, delimiter="\t"):
+                if line["ref_id"] not in ("AT1G78880.1", "AT1G78882.1"):
+                    continue
+                self.assertEqual(line["ccode"], "=", line)
+        args.reference.close()
+        args.prediction.close()
 
 if __name__ == '__main__':
     unittest.main()

@@ -227,7 +227,7 @@ class Assigner:
             self.logger.debug("Match for %s: %s",
                               match,
                               [_.id for _ in gene_matches])
-            gid_groups.append(tuple(gene.id for gene in gene_matches))
+            gid_groups.append(tuple(sorted([gene.id for gene in gene_matches])))
             temp_results = []
             # This will result in calculating the matches twice unfortunately
 
@@ -295,11 +295,12 @@ class Assigner:
 
         # Create the fusion best result
         values = []
-        fused_group = tuple(_.ref_gene[0] for _ in best_fusion_results)
+        fused_group = tuple(sorted([_.ref_gene[0] for _ in best_fusion_results]))
         self.logger.debug("Fused group: %s; GID_groups: %s",
                           fused_group,
                           gid_groups)
 
+        # TODO: this is a very stuypid way of checking, it must be improved
         if fused_group not in gid_groups:
             for key in ResultStorer.__slots__:
                 if key in ["gid", "tid", "distance"]:
@@ -454,6 +455,7 @@ class Assigner:
                          self.done, "s" if self.done > 1 else "")
         self.refmap_printer()
         self.stat_calculator.print_stats()
+        self.tmap_out.close()
 
     def calc_compare(self, prediction: Transcript, reference: Transcript) -> ResultStorer:
         """Thin layer around the calc_compare class method.
@@ -606,16 +608,16 @@ class Assigner:
                 if junction_recall == 1 and junction_precision < 1:
                     # Check if this is an extension
                     new_splices = set(prediction.splices) - set(reference.splices)
+                    # If one of the new splices is internal to the intron chain, it's a j
                     if any(min(reference.splices) <
                            splice <
                            max(reference.splices) for splice in new_splices):
                         ccode = "j"
                     else:
                         if any(reference.start < splice < reference.end for splice in new_splices):
-                            assert nucl_recall < 1
+                            # if nucl_recall < 1:
                             ccode = "J"
                         else:
-                            assert nucl_recall == 1
                             ccode = "n"
                 elif 0 < junction_recall < 1 and 0 < junction_precision < 1:
                     # if one_intron_confirmed is True:
@@ -623,28 +625,47 @@ class Assigner:
                     # else:
                     #     ccode = "o"
                 elif junction_precision == 1 and junction_recall < 1:
-                    ccode = "c"
-                    if nucl_precision < 1:
-                        # missed_splices = set(reference.splices) - set(reference.splices)
+                    if nucl_precision == 1:
+                        assert nucl_recall < 1
+                        ccode = "c"
+                    else:
+                        missed_introns = reference.introns - prediction.introns
+                        start_in = any([True for intron in missed_introns if
+                                        (prediction.start < intron[0] and
+                                         intron[1] < min(prediction.splices))])
+                        end_in = any([True for intron in missed_introns if
+                                        (prediction.end > intron[1] and
+                                         intron[0] > max(prediction.splices))])
 
-                        ref_only_introns = sorted(list(reference.introns - prediction.introns))
-                        pred_introns = sorted(prediction.introns)
-                        min_pred_intron = pred_introns[0][0]
-                        max_pred_intron = pred_introns[-1][1]
-                        assert ref_only_introns != set(), (prediction, reference)
-                        left = sorted(
-                            [_[0] for _ in ref_only_introns if _[1] < min_pred_intron])
-                        if left:
-                            left = left[-1]
-                        right = sorted(
-                            [_[1] for _ in ref_only_introns if _[0] > max_pred_intron])
-                        if right:
-                            right = right[0]
-                        if ((left and left > prediction.start) or
-                                (right and right < prediction.end)):
-                            ccode = "j"  # Retained intron
+                        if start_in or end_in:
+                            ccode = "j"
                         else:
                             ccode = "C"
+
+                        # end_in = any(prediction.end in intron for intron in missed_introns)
+                        #
+                        #
+                        #
+                        #
+                        #
+                        # ref_only_introns = sorted(list(reference.introns - prediction.introns))
+                        # pred_introns = sorted(prediction.introns)
+                        # min_pred_intron = pred_introns[0][0]
+                        # max_pred_intron = pred_introns[-1][1]
+                        # assert ref_only_introns != set(), (prediction, reference)
+                        # left = sorted(
+                        #     [_[0] for _ in ref_only_introns if _[1] < min_pred_intron])
+                        # if left:
+                        #     left = left[-1]
+                        # right = sorted(
+                        #     [_[1] for _ in ref_only_introns if _[0] > max_pred_intron])
+                        # if right:
+                        #     right = right[0]
+                        # if ((left and left > prediction.start) or
+                        #         (right and right < prediction.end)):
+                        #     ccode = "j"  # Retained intron
+                        # else:
+                        #     ccode = "C"
                 elif junction_recall == 0 and junction_precision == 0:
                     if nucl_f1 > 0:
                         ccode = "o"

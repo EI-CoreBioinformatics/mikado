@@ -38,3 +38,4 @@ def calc_f1(recall, precision):
 from . import accountant
 # noinspection PyPep8
 from . import assigner
+from . import compare

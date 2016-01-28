@@ -20,6 +20,7 @@ from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import QueuePool as SqlPool
 import sqlalchemy
+from ..utilities import path_join
 from ..parsers.GTF import GTF
 from ..parsers.GFF import GFF3
 from ..serializers.blast_serializer import Hit, Query
@@ -314,35 +315,22 @@ class Picker:
         self.threads = self.json_conf["pick"]["run_options"]["threads"]
         self.input_file = self.json_conf["pick"]["files"]["input"]
         _ = self.define_input()  # Check the input file
-        if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
-            try:
-                os.makedirs(self.json_conf["pick"]["files"]["output_dir"])
-            except (OSError,PermissionError) as exc:
-                self.logger.error("Failed to create the output directory!")
-                self.logger.exception(exc)
-                raise
-        elif not os.path.isdir(self.json_conf["pick"]["files"]["output_dir"]):
-            self.logger.error(
-                "The specified output directory %s exists and is not a file; aborting",
-                self.json_conf["pick"]["files"]["output_dir"])
-            raise OSError("The specified output directory %s exists and is not a file; aborting" %
-                          self.json_conf["pick"]["files"]["output_dir"])
 
         if self.json_conf["pick"]["files"]["subloci_out"]:
-            self.sub_out = os.path.join(
+            self.sub_out = path_join(
                 self.json_conf["pick"]["files"]["output_dir"],
                 self.json_conf["pick"]["files"]["subloci_out"]
             )
         else:
             self.sub_out = ""
         if self.json_conf["pick"]["files"]["monoloci_out"]:
-            self.monolocus_out = os.path.join(
+            self.monolocus_out = path_join(
                 self.json_conf["pick"]["files"]["output_dir"],
                 self.json_conf["pick"]["files"]["monoloci_out"]
             )
         else:
             self.monolocus_out = ""
-        self.locus_out = os.path.join(
+        self.locus_out = path_join(
             self.json_conf["pick"]["files"]["output_dir"],
             self.json_conf["pick"]["files"]["loci_out"])
         # pylint: disable=no-member
@@ -386,8 +374,9 @@ class Picker:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.json_conf["pick"]["run_options"]["preload"] is True and self.threads > 1:
-            self.logger.warning("Preloading using multiple threads can be extremely \
-                                memory intensive, proceed with caution!")
+            self.logger.warning(
+                "Preloading using multiple threads can be extremely \
+memory intensive, proceed with caution!")
         #     self.json_conf["pick"]["run_options"]["threads"] = 1
         #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 
@@ -471,6 +460,20 @@ class Picker:
             style="{"
             )
         self.main_logger = logging.getLogger("main_logger")
+        if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
+            try:
+                os.makedirs(self.json_conf["pick"]["files"]["output_dir"])
+            except (OSError,PermissionError) as exc:
+                self.logger.error("Failed to create the output directory!")
+                self.logger.exception(exc)
+                raise
+        elif not os.path.isdir(self.json_conf["pick"]["files"]["output_dir"]):
+            self.logger.error(
+                "The specified output directory %s exists and is not a file; aborting",
+                self.json_conf["pick"]["files"]["output_dir"])
+            raise OSError("The specified output directory %s exists and is not a file; aborting" %
+                          self.json_conf["pick"]["files"]["output_dir"])
+
         self.logger = logging.getLogger("listener")
         self.logger.propagate = False
         if (self.json_conf["pick"]["files"]["log"] is None or
@@ -478,7 +481,9 @@ class Picker:
             self.log_handler = logging.StreamHandler()
         else:
             self.log_handler = logging.FileHandler(
-                self.json_conf["pick"]["files"]["log"], 'w')
+                path_join(
+                    self.json_conf["pick"]["files"]["output_dir"],
+                    self.json_conf["pick"]["files"]["log"]), 'w')
         # For the main logger I want to keep it at the "INFO" level
         self.log_level = self.json_conf["log_settings"]["log_level"]
 

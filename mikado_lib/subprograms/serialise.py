@@ -18,6 +18,7 @@ import sqlalchemy
 from Bio import SeqIO
 
 from ..configuration import configurator
+from ..utilities import path_join
 from ..utilities.log_utils import create_default_logger
 from ..utilities import dbutils
 from ..serializers import orf, blast_serializer, junction
@@ -181,11 +182,41 @@ def setup(args):
                 else:
                     args.json_conf["serialise"][key] = getattr(args, key)
 
+    if not os.path.exists(args.json_conf["serialise"]["files"]["output_dir"]):
+        try:
+            os.makedirs(args.json_conf["serialise"]["files"]["output_dir"])
+        except (OSError,PermissionError) as exc:
+            logger.error("Failed to create the output directory!")
+            logger.exception(exc)
+            raise
+    elif not os.path.isdir(args.json_conf["serialise"]["files"]["output_dir"]):
+        logger.error(
+            "The specified output directory %s exists and is not a file; aborting",
+            args.json_conf["serialise"]["output_dir"])
+        raise OSError("The specified output directory %s exists and is not a file; aborting" %
+                      args.json_conf["prepare"]["output_dir"])
+
+    if args.db is not None:
+        args.json_conf["db_settings"]["db"] = path_join(
+            args.json_conf["serialise"]["files"]["output_dir"],
+            args.db)
+        args.json_conf["dbtype"] = "sqlite"
+    else:
+        if args.json_conf["db_settings"]["dbtype"] == "sqlite":
+            args.json_conf["db_settings"]["db"] = path_join(
+                args.json_conf["serialise"]["files"]["output_dir"],
+                args.json_conf["db_settings"]["db"]
+            )
+
     if args.json_conf["serialise"]["files"]["log"] is not None:
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
             args.json_conf["serialise"]["files"]["log"].close()
-            args.json_conf["serialise"]["files"]["log"] = \
-                args.json_conf["serialise"]["files"]["log"].name
+            args.json_conf["serialise"]["files"]["log"] = args.json_conf[
+                "serialise"]["files"]["log"].name
+        args.json_conf["serialise"]["files"]["log"] = \
+            path_join(
+                args.json_conf["serialise"]["files"]["output_dir"],
+                args.json_conf["serialise"]["files"]["log"])
         formatter = logger.handlers[0].formatter
         logger.removeHandler(logger.handlers[0])
         handler = logging.FileHandler(
@@ -308,9 +339,12 @@ def serialise_parser():
     generic.add_argument("--json-conf", default=None,
                          dest="json_conf", type=configurator.to_json,
                          required=True)
-    generic.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
+    generic.add_argument("-l", "--log", type=str, default=None,
                          nargs='?',
                          help="Optional log file. Default: stderr")
+    parser.add_argument("-od", "--output-dir", dest="output_dir",
+                        type=str, default=None,
+                        help="Output directory. Default: current working directory")
     generic.add_argument("-lv", "--log_level", default="INFO",
                          choices=["DEBUG", "INFO", "WARN", "ERROR"],
                          nargs='?',

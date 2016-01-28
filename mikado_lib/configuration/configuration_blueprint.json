@@ -136,7 +136,10 @@
             "blast_targets": {
               "type": "string",
               "default": ""
-            }
+            },
+            "output_dir": {
+              "type": "string",
+              "default": "."}
           }
         },
         "max_objects": {"type": "integer", "default": 100000, "minimum": 1},
@@ -177,6 +180,7 @@
         "log": {"type": "string", "default": "prepare.log"},
         "threads": {"type": "integer", "default": 1},
         "labels": {"type": "array", "default": []},
+        "output_dir": {"type": "string", "default": "."},
         "out": {"type": "string", "default": "mikado_prepared.gtf"},
         "out_fasta": {"type": "string", "default": "mikado_prepared.fasta"},
         "strip_cds": {"type": "boolean", "default": false},
@@ -524,7 +528,7 @@
             "- subloci_out: optional GFF file with the intermediate subloci. Default: no output",
             "- monoloci_out: optional GFF file with the intermediate monoloci. Default: no output",
             "- log: log file for this step."],
-          "required": ["input", "loci_out"],
+          "required": ["input"],
           "properties": {
             "output_dir": {
               "type": "string",

@@ -134,24 +134,23 @@ def prepare_reference(args, queue_logger, ref_gff=False):
         # Assume we are going to use GTF for the moment
         if row.is_transcript is True:
             queue_logger.debug("Transcript\n%s", str(row))
-            transcr = Transcript(row)
+            transcript = Transcript(row)
             transcript2gene[row.id] = row.gene
             if row.gene not in genes:
-                genes[row.gene] = Gene(transcr, gid=row.gene)
-            genes[row.gene].add(transcr)
-            assert transcr.id in genes[row.gene].transcripts
+                genes[row.gene] = Gene(transcript, gid=row.gene)
+            genes[row.gene].add(transcript)
+            assert transcript.id in genes[row.gene].transcripts
         elif row.is_exon is True:
             if ref_gff is True:
                 found = False
-                for transcr in row.transcript:
-
-                    if transcr in transcript2gene:
+                for transcript in row.transcript:
+                    if transcript in transcript2gene:
                         # We have to perform the check because there are some GFFs
                         # e.g. TAIR
                         # where CDSs are defined within a spurious "Protein" feature
                         found = True
-                        gid = transcript2gene[transcr]
-                        genes[gid][transcr].add_exon(row)
+                        gid = transcript2gene[transcript]
+                        genes[gid][transcript].add_exon(row)
                 if found is False:
                     queue_logger.warn("This feature has no corresponding transcript! %s",
                                       str(row))

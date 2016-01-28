@@ -61,12 +61,20 @@ def check_run_options(args):
     if args.purge is not None:
         args.json_conf["pick"]["run_options"]["purge"] = True
 
+    if args.output_dir is not None:
+        args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
+
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
-                args.json_conf["pick"]["files"]["input"] = getattr(args, key)
+                args.json_conf["pick"]["files"]["input"] = getattr(
+                    args,
+                    key,
+                    args.json_conf["pick"]["files"]["input"])
             else:
-                args.json_conf["pick"]["files"][key] = getattr(args, key)
+                args.json_conf["pick"]["files"][key] = getattr(args,
+                                                               key,
+                                                               args.json_conf["pick"]["files"][key])
 
     return args
 
@@ -92,8 +100,9 @@ def pick(args):
     if args.source is not None:
         args.json_conf["output_format"]["source"] = args.source
 
-    if args.output_dir is not None:
-        args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
+    if args.sqlite_db is not None:
+        args.json_conf["db_settings"]["db"] = args.sqlite_db
+        args.json_conf["db_settings"]["dbtype"] = "sqlite"
 
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
     try:
@@ -138,7 +147,11 @@ def pick_parser():
                         help='''Flag. If set, the mikado_lib DB will be pre-loaded
                         into memory for faster access. WARNING: this option will
                         increase memory usage and the preloading might be quite slow.''')
-    parser.add_argument("-d", "--output-dir", dest="output_dir",
+    parser.add_argument("-db", "--sqlite-db", dest="sqlite_db",
+                        default=None, type=str,
+                        help="Location of an SQLite database to overwrite what is specified \
+                             in the configuration file.")
+    parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,
                         help="Output directory. Default: current working directory")
     parser.add_argument("--single", action="store_true", default=False,

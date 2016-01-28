@@ -245,6 +245,7 @@ def setup(args):
     args.json_conf["prepare"]["output_dir"] = getattr(args,
                                                       "output_dir",
                                                       args.json_conf["prepare"]["output_dir"])
+    assert args.json_conf["prepare"]["output_dir"] is not None
 
     if not os.path.exists(args.json_conf["prepare"]["output_dir"]):
         try:
@@ -561,7 +562,7 @@ def prepare_parser():
     parser.add_argument("--single", action="store_true", default=False,
                         help="Disable multi-threading. Useful for debugging.")
     parser.add_argument("-od", "--output-dir", dest="output_dir",
-                        type=str, default=None,
+                        type=str, default=".",
                         help="Output directory. Default: current working directory")
     parser.add_argument("-o", "--out", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")

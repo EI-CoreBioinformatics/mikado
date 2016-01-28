@@ -17,7 +17,7 @@ class AssignerTester(unittest.TestCase):
     """
 
     def test_self(self):
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -38,7 +38,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.j_recall, (100,))
 
     def test_mono_self(self):
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -58,7 +58,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.j_recall, (100,))
 
     def test_equal(self):
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -68,7 +68,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 1800
         prediction.strand = "+"
@@ -93,7 +93,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_equal(self):
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -103,7 +103,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 105
         prediction.end = 995
         prediction.chrom = "Chr1"
@@ -126,7 +126,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_semiequal(self):
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -136,7 +136,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 900
         prediction.chrom = "Chr1"
@@ -163,7 +163,7 @@ class AssignerTester(unittest.TestCase):
 
         """Test that two monoexonic overlapping genes get a m"""
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -173,7 +173,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 1200
         prediction.chrom = "Chr1"
@@ -193,7 +193,7 @@ class AssignerTester(unittest.TestCase):
 
     def test_contained(self):
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -203,7 +203,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 600
         prediction.end = 1800
         prediction.strand = "+"
@@ -226,7 +226,7 @@ class AssignerTester(unittest.TestCase):
 
     def test_alternative(self):
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -236,7 +236,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 100
         prediction.end = 2000
         prediction.strand = "+"
@@ -265,7 +265,7 @@ class AssignerTester(unittest.TestCase):
         Expected class code: i
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -275,7 +275,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 1100
         prediction.end = 1400
         prediction.strand = "+"
@@ -314,7 +314,7 @@ class AssignerTester(unittest.TestCase):
         Expected class code: I
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -324,7 +324,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 1100
         prediction.end = 1400
         prediction.strand = "+"
@@ -350,7 +350,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.ccode, ("I",))
 
         # Now the reference spans two introns
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 350
         prediction.end = 1400
         prediction.strand = "+"
@@ -385,7 +385,7 @@ class AssignerTester(unittest.TestCase):
         
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -395,7 +395,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 1300
         prediction.strand = "+"
@@ -432,7 +432,7 @@ class AssignerTester(unittest.TestCase):
         
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -442,7 +442,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 400
         prediction.strand = "+"
@@ -478,7 +478,7 @@ class AssignerTester(unittest.TestCase):
         Exonic overlap only
         
         """
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -488,7 +488,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 310
         prediction.strand = "+"
@@ -520,11 +520,11 @@ class AssignerTester(unittest.TestCase):
         R   |=======|-------|=====|
         P     |=====|-------|====|-------|====|
         
-        Expected ccode: n
+        Expected ccode: j
         
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -534,7 +534,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 1800
         prediction.strand = "+"
@@ -542,6 +542,42 @@ class AssignerTester(unittest.TestCase):
         prediction.id = "P1.1"
         prediction.parent = "P1"
         prediction.exons = [(50, 150), (200, 300), (500, 1000), (1500, 1800)]
+        prediction.finalize()
+
+        result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(result.ccode, ("J",))
+        self.assertEqual(result.j_f1, (4 / 5 * 100,))
+        self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
+        self.assertEqual(result.j_recall, (100,))
+
+    def test_left_extension_n(self):
+
+        """
+        R   |=======|-------|=====|
+        P     |=====|-------|=====|-------|====|
+
+        Expected ccode: j
+
+        """
+
+        reference = mikado_lib.loci_objects.Transcript()
+        reference.start = 100
+        reference.end = 2000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
+        reference.finalize()
+
+        prediction = mikado_lib.loci_objects.Transcript()
+        prediction.start = 50
+        prediction.end = 3000
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(50, 300), (500, 1000), (1500, 2050), (2200, 3000)]
         prediction.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
@@ -555,10 +591,10 @@ class AssignerTester(unittest.TestCase):
         R                |=======|-------|=====|
         P     |=====|-------|====|-------|====|
         
-        Expected ccode: n
+        Expected ccode: j
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -568,7 +604,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 3000
         prediction.strand = "+"
@@ -579,7 +615,7 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("n",))
+        self.assertEqual(result.ccode, ("J",))
         self.assertEqual(result.j_f1, (4 / 5 * 100,))
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
         self.assertEqual(result.j_recall, (100,))
@@ -589,10 +625,10 @@ class AssignerTester(unittest.TestCase):
         R                |=======|-------|=====|
         P     |=====|-------|====|-------|====|------|=====|
         
-        Expected ccode: n
+        Expected ccode: j
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -602,7 +638,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 3000
         prediction.strand = "+"
@@ -610,6 +646,40 @@ class AssignerTester(unittest.TestCase):
         prediction.id = "P1.1"
         prediction.parent = "P1"
         prediction.exons = [(50, 150), (200, 300), (500, 1000), (1500, 1800), (2500, 3000)]
+        prediction.finalize()
+
+        result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(result.ccode, ("J",))
+        self.assertAlmostEqual(result.j_f1[0], 2 / 3 * 100, delta=0.1)
+        self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
+        self.assertEqual(result.j_recall, (100,))
+
+    def test_left_right_extension_novel(self):
+        """
+        R                   |====|-------|====|
+        P     |=====|----|=======|-------|=====|------|=====|
+
+        Expected ccode: n
+        """
+
+        reference = mikado_lib.loci_objects.Transcript()
+        reference.start = 1000
+        reference.end = 3000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(1000, 1300), (1500, 2000), (2500, 3000)]
+        reference.finalize()
+
+        prediction = mikado_lib.loci_objects.Transcript()
+        prediction.start = 500
+        prediction.end = 3500
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(500, 700), (900, 1300), (1500, 2000), (2500, 3100), (3200, 3500)]
         prediction.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
@@ -627,7 +697,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: j, junction recall: 100%
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -637,7 +707,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 2100
         prediction.strand = "+"
@@ -662,7 +732,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: j, junction recall: 100%
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -672,7 +742,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 3000
         prediction.strand = "+"
@@ -688,9 +758,110 @@ class AssignerTester(unittest.TestCase):
         self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
         self.assertEqual(result.j_recall, (100,))
 
+    def test_left_right_internal_extension_novel(self):
+        """
+        R                   |====|-------|====|
+        P     |=====|----|=======|--|=|--|=====|------|=====|
+
+        Expected ccode: j
+        """
+
+        reference = mikado_lib.loci_objects.Transcript()
+        reference.start = 1000
+        reference.end = 3000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(1000, 1300), (1500, 2000), (2500, 3000)]
+        reference.finalize()
+
+        prediction = mikado_lib.loci_objects.Transcript()
+        prediction.start = 500
+        prediction.end = 3500
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(500, 700), (900, 1300), (1500, 2000),
+                            (2200,2300),
+                            (2500, 3100), (3200, 3500)]
+        prediction.finalize()
+
+        result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(result.ccode, ("j",))
+        self.assertAlmostEqual(result.j_f1[0], 2 * 0.4 / 1.4 * 100, delta=0.1)
+        self.assertAlmostEqual(result.j_prec[0], 2 / 5 * 100, delta=0.1)
+        self.assertEqual(result.j_recall, (100,))
+
+    def test_contained_bleeding(self):
+
+        """
+        R     |=======|--------|======|----|====|--------|=======|
+        P                  |==========|----|======|
+
+        Expected class code: C
+        :return:
+        """
+        reference = mikado_lib.loci_objects.Transcript()
+        reference.start = 1000
+        reference.end = 3000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(1000, 1300), (1500, 2000), (2200, 2400), (2500, 3000)]
+        reference.finalize()
+
+        prediction = mikado_lib.loci_objects.Transcript()
+        prediction.start = 1400
+        prediction.end = 2450
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(1400, 2000), (2200, 2450)]
+        prediction.finalize()
+
+        result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(result.ccode, ("C",))
+
+    def test_contained_alternative(self):
+
+        """
+        R     |=======|--------|======|----|====|--------|=======|
+        P           |=================|----|======|
+
+        Expected class code: C
+        :return:
+        """
+        reference = mikado_lib.loci_objects.Transcript()
+        reference.start = 1000
+        reference.end = 3000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(1000, 1300), (1500, 2000), (2200, 2400), (2500, 3000)]
+        reference.finalize()
+
+        prediction = mikado_lib.loci_objects.Transcript()
+        prediction.start = 1200
+        prediction.end = 2450
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(1200, 2000), (2200, 2450)]
+        prediction.finalize()
+
+        result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(result.ccode, ("j",))
+
+
     def test_mono_overlap_nostrand(self):
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "-"
@@ -700,7 +871,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 300
         prediction.end = 2300
         prediction.strand = "."
@@ -722,7 +893,7 @@ class AssignerTester(unittest.TestCase):
          to verify the assignment of correct ccodes (o and O)
         """
 
-        reference = mikado_lib.loci_objects.transcript.Transcript()
+        reference = mikado_lib.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -732,7 +903,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 700), (1000, 2000)]
         reference.finalize()
 
-        prediction = mikado_lib.loci_objects.transcript.Transcript()
+        prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 600
         prediction.strand = "."

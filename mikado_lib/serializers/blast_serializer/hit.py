@@ -46,17 +46,18 @@ class Hit(DBBASE):
 
     query_object = relationship(Query, uselist=False,
                                 lazy="immediate",
-                                backref=backref("hits"))
+                                backref=backref("hits", cascade="all, delete-orphan"))
     target_object = relationship(Target,
                                  uselist=False,
                                  lazy="immediate",
-                                 backref=backref("hits"))
+                                 backref=backref("hits", cascade="all, delete-orphan"))
 
     join_condition = "and_(Hit.query_id==Hsp.query_id, Hit.target_id==Hsp.target_id)"
     hsps = relationship(Hsp, uselist=True,
                         # lazy="immediate",
                         lazy="subquery",
                         backref=backref("hit_object", uselist=False),
+                        cascade="all, delete-orphan",
                         foreign_keys=[query_id, target_id],
                         primaryjoin=join_condition)
 

@@ -242,9 +242,9 @@ def setup(args):
         style="{")
     logger.setLevel(logging.INFO)
 
-    args.json_conf["prepare"]["output_dir"] = getattr(args,
-                                                      "output_dir",
-                                                      args.json_conf["prepare"]["output_dir"])
+    if args.output_dir is not None:
+        args.json_conf["prepare"]["output_dir"] = getattr(args,
+                                                          "output_dir")
 
     if not os.path.exists(args.json_conf["prepare"]["output_dir"]):
         try:

@@ -2,6 +2,7 @@ import os,sys
 import glob
 import itertools
 import mikado_lib.configuration.configurator
+from mikado_lib.utilities import path_join
 import subprocess
 
 swissprot = "uniprot_sprot_plants.fasta"
@@ -41,6 +42,7 @@ rule test_json:
 
 rule prepare:
     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gtf", "mikado.bed", "chr5.fas"
+    log: config["prepare"]["log"]
     output: "mikado_prepared.gtf", "mikado_prepared.fasta"
     shell: "mikado.py prepare --json-conf configuration.yaml"
 
@@ -74,16 +76,18 @@ rule serialise:
 #        targets="uniprot_sprot_plants.fasta", # BLAST DB
 #        xml="mikado.blast.xml", # BLAST
 #        orfs="mikado.bed" # TransDecoder
-    output: "serialised.ok" #, config["db_settings"]["db"]
+    log: config["serialise"]["files"]["log"]
+    output: "serialised.ok"  #, config["db_settings"]["db"]
     run:
         command = "mikado.py serialise --json-conf configuration.yaml --genome_fai genome.fai"
         retcode = subprocess.call(command, shell=True)
         if retcode == 0:
-            subprocess.call("touch serialised.ok", shell=True)
+             subprocess.call("touch serialised.ok", shell=True)
 
 rule pick:
     params: prefix="all"
     input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
+    log: config["pick"]["files"]["log"]
     output: "mikado.loci.gff3", "mikado.subloci.gff3"
     shell: "mikado.py pick --json-conf configuration.yaml -lv DEBUG --preload"
 

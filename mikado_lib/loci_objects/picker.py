@@ -909,8 +909,10 @@ memory intensive, proceed with caution!")
 
         if slocus is not None:
             self.main_logger.debug("Submitting %s", slocus.id)
+        else:
+            return []
             
-        if self.json_conf["pick"]["run_options"]["preload"] is True and slocus is not None:
+        if self.json_conf["pick"]["run_options"]["preload"] is True:
             self.logger.debug("Loading data from dict for %s", slocus.id)
             slocus.logger = self.logger
             slocus.load_all_transcript_data(pool=None,
@@ -923,7 +925,7 @@ memory intensive, proceed with caution!")
                     "%s had all transcripts failing checks, ignoring it",
                     slocus.id)
                 # Exit
-                return None
+                return []
 
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             return analyse_locus(slocus,
@@ -1103,8 +1105,6 @@ memory intensive, proceed with caution!")
 
         current_locus = None
         current_transcript = None
-        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                "pool": None})
 
         handler = logging_handlers.QueueHandler(self.logging_queue)
         logger = logging.getLogger("queue_listener")
@@ -1136,6 +1136,9 @@ memory intensive, proceed with caution!")
         else:
             self.connection_pool = None
 
+        submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
+                                                                "pool": self.connection_pool})
+
         counter = -1
         for row in self.define_input():
             if row.is_exon is True:
@@ -1150,8 +1153,7 @@ memory intensive, proceed with caution!")
                     else:
                         counter += 1
                         self.logger.debug("Analysing locus # %d", counter)
-                        current_locus.load_all_transcript_data(pool=self.connection_pool,
-                                                               data_dict=data_dict)
+
                         for stranded_locus in submit_locus(current_locus, counter):
                             if stranded_locus.chrom != curr_chrom:
                                 curr_chrom = stranded_locus.chrom
@@ -1181,13 +1183,11 @@ memory intensive, proceed with caution!")
             else:
                 counter += 1
                 self.logger.debug("Analysing locus # %d", counter)
-                current_locus.load_all_transcript_data(pool=self.connection_pool,
-                                                       data_dict=data_dict)
                 for stranded_locus in submit_locus(current_locus, counter):
-                                if stranded_locus.chrom != curr_chrom:
-                                    curr_chrom = stranded_locus.chrom
-                                    gene_counter = 0
-                                gene_counter = locus_printer(stranded_locus, gene_counter)
+                    if stranded_locus.chrom != curr_chrom:
+                        curr_chrom = stranded_locus.chrom
+                        gene_counter = 0
+                    gene_counter = locus_printer(stranded_locus, gene_counter)
 
                 current_locus = Superlocus(
                     current_transcript,
@@ -1199,8 +1199,9 @@ memory intensive, proceed with caution!")
 
         counter += 1
         self.logger.debug("Analysing locus # %d", counter)
-        current_locus.load_all_transcript_data(pool=self.connection_pool,
-                                               data_dict=data_dict)
+        # if current_locus is not None:
+        #     current_locus.load_all_transcript_data(pool=self.connection_pool,
+        #                                            data_dict=data_dict)
         for stranded_locus in submit_locus(current_locus, counter):
             if stranded_locus.chrom != curr_chrom:
                 curr_chrom = stranded_locus.chrom

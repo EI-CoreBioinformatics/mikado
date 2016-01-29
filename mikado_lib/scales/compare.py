@@ -228,7 +228,7 @@ def parse_prediction(args, genes, positions, queue_logger):
 
     # Finish everything, including printing refmap and stats
     assigner_instance.finish()
-
+    args.prediction.close()
 
 def compare(args):
     """

@@ -43,4 +43,13 @@ build/*
 shanghai.egg-info/
 dist/*
 Mikado.egg-info/*
-.idea/*
+.idea/*sample_data/configuration2.yaml
+.idea/codeStyleSettings.xml
+.idea/dictionaries
+.idea/encodings.xml
+.idea/inspectionProfiles
+.idea/Mikado.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/workspace.xml

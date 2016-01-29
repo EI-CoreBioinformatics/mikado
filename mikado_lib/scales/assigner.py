@@ -227,7 +227,7 @@ class Assigner:
             self.logger.debug("Match for %s: %s",
                               match,
                               [_.id for _ in gene_matches])
-            gid_groups.append(tuple(gene.id for gene in gene_matches))
+            gid_groups.append(tuple(sorted([gene.id for gene in gene_matches])))
             temp_results = []
             # This will result in calculating the matches twice unfortunately
 
@@ -295,11 +295,12 @@ class Assigner:
 
         # Create the fusion best result
         values = []
-        fused_group = tuple(_.ref_gene[0] for _ in best_fusion_results)
+        fused_group = tuple(sorted([_.ref_gene[0] for _ in best_fusion_results]))
         self.logger.debug("Fused group: %s; GID_groups: %s",
                           fused_group,
                           gid_groups)
 
+        # TODO: this is a very stuypid way of checking, it must be improved
         if fused_group not in gid_groups:
             for key in ResultStorer.__slots__:
                 if key in ["gid", "tid", "distance"]:
@@ -454,6 +455,7 @@ class Assigner:
                          self.done, "s" if self.done > 1 else "")
         self.refmap_printer()
         self.stat_calculator.print_stats()
+        self.tmap_out.close()
 
     def calc_compare(self, prediction: Transcript, reference: Transcript) -> ResultStorer:
         """Thin layer around the calc_compare class method.
@@ -490,7 +492,7 @@ class Assigner:
         Available ccodes (from Cufflinks documentation):
 
         - =    Complete intron chain match
-        - c    Contained
+        - c    Contained (perfect junction recall and precision, imperfect recall)
         - j    Potentially novel isoform (fragment): at least one splice junction is shared
         with a reference transcript
         - e    Single exon transfrag overlapping a reference exon and at least
@@ -512,7 +514,11 @@ class Assigner:
         - _    Complete match, for monoexonic transcripts
         (nucleotide F1>=95% - i.e. min(precision,recall)>=90.4%
         - m    Exon overlap between two monoexonic transcripts
-        - n    Potentially novel isoform, where all the known junctions
+        - n    Potential extension of the reference - we have added new splice junctions
+        *outside* the boundaries of the transcript itself
+        - C    Contained transcript with overextensions on either side
+        (perfect junction recall, imperfect nucleotide specificity)
+        - J    Potentially novel isoform, where all the known junctions
         have been confirmed and we have added others as well *externally*
         - I    *multiexonic* transcript falling completely inside a known transcript
         - h    the transcript is multiexonic and extends a monoexonic reference transcript
@@ -600,36 +606,66 @@ class Assigner:
         if ccode is None:
             if min(prediction.exon_num, reference.exon_num) > 1:
                 if junction_recall == 1 and junction_precision < 1:
-                    new_splices = set.difference(set(prediction.splices),
-                                                 set(reference.splices))
-
+                    # Check if this is an extension
+                    new_splices = set(prediction.splices) - set(reference.splices)
+                    # If one of the new splices is internal to the intron chain, it's a j
                     if any(min(reference.splices) <
                            splice <
                            max(reference.splices) for splice in new_splices):
                         ccode = "j"
                     else:
-                        # we have recovered all the junctions AND
-                        # added some reference junctions of our own
-                        ccode = "n"
-                elif junction_recall > 0 and 0 < junction_precision < 1:
-                    if one_intron_confirmed is True:
-                        ccode = "j"
+                        if any(reference.start < splice < reference.end for splice in new_splices):
+                            # if nucl_recall < 1:
+                            ccode = "J"
+                        else:
+                            ccode = "n"
+                elif 0 < junction_recall < 1 and 0 < junction_precision < 1:
+                    # if one_intron_confirmed is True:
+                    ccode = "j"
+                    # else:
+                    #     ccode = "o"
+                elif junction_precision == 1 and junction_recall < 1:
+                    if nucl_precision == 1:
+                        assert nucl_recall < 1
+                        ccode = "c"
                     else:
-                        ccode = "o"
-                elif junction_precision == 1:
-                    ccode = "c"
-                    if nucl_precision < 1:
-                        for intron in reference.introns:
-                            if intron in prediction.introns:
-                                continue
-                            if intron[1] < prediction.start:
-                                continue
-                            elif intron[0] > prediction.end:
-                                continue
-                            if prediction.start < intron[0] and intron[1] < prediction.end:
-                                ccode = "j"
-                                break
+                        missed_introns = reference.introns - prediction.introns
+                        start_in = any([True for intron in missed_introns if
+                                        (prediction.start < intron[0] and
+                                         intron[1] < min(prediction.splices))])
+                        end_in = any([True for intron in missed_introns if
+                                        (prediction.end > intron[1] and
+                                         intron[0] > max(prediction.splices))])
 
+                        if start_in or end_in:
+                            ccode = "j"
+                        else:
+                            ccode = "C"
+
+                        # end_in = any(prediction.end in intron for intron in missed_introns)
+                        #
+                        #
+                        #
+                        #
+                        #
+                        # ref_only_introns = sorted(list(reference.introns - prediction.introns))
+                        # pred_introns = sorted(prediction.introns)
+                        # min_pred_intron = pred_introns[0][0]
+                        # max_pred_intron = pred_introns[-1][1]
+                        # assert ref_only_introns != set(), (prediction, reference)
+                        # left = sorted(
+                        #     [_[0] for _ in ref_only_introns if _[1] < min_pred_intron])
+                        # if left:
+                        #     left = left[-1]
+                        # right = sorted(
+                        #     [_[1] for _ in ref_only_introns if _[0] > max_pred_intron])
+                        # if right:
+                        #     right = right[0]
+                        # if ((left and left > prediction.start) or
+                        #         (right and right < prediction.end)):
+                        #     ccode = "j"  # Retained intron
+                        # else:
+                        #     ccode = "C"
                 elif junction_recall == 0 and junction_precision == 0:
                     if nucl_f1 > 0:
                         ccode = "o"

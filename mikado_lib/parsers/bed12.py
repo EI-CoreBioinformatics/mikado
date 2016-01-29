@@ -263,7 +263,7 @@ class BED12:
 
         line = [self.chrom, self.start - 1, self.end, self.name]
         if not self.score:
-            line.append(".")
+            line.append(0)
         else:
             line.append(self.score)
         if self.strand is None:

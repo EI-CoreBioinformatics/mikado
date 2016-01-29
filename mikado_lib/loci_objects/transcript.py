@@ -364,6 +364,15 @@ class Transcript:
 
     def format(self, format_name):
 
+        """
+        Method to format the string representation of the object. Available formats:
+        - GFF3 ("gff3", "gff")
+        - GTF ("gtf")
+        - BED12 ("bed", "bed12")
+        :param format_name:
+        :return:
+        """
+
         if format_name not in ("gff", "gtf", "gff3", "bed", "bed12"):
             raise ValueError(
                 "Invalid format: {0}. Accepted formats: gff/gff3 (equivalent), gtf".format(

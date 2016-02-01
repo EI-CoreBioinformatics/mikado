@@ -69,7 +69,7 @@ rule blast_complete:
 
 rule serialise:
     input:
-        [value for (key, value) in config["serialise"]["files"].items() if key != "log"]
+        [value for (key, value) in config["serialise"]["files"].items() if key not in ("log", "output_dir")]
 #        junctions="junctions.bed",  # Portcullis
 #        fai="genome.fai", # Samtools faidx
 #        transcripts="mikado_prepared.fasta", # Prepare

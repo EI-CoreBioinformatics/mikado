@@ -790,6 +790,17 @@ class Assigner:
 
         return orderer
 
+    @classmethod
+    def result_sorter(cls, result):
+
+        """
+        Public interface of __result_sorter
+        :param result: a result
+        :return:
+        """
+
+        return cls.__result_sorter(result)
+
     def refmap_printer(self) -> None:
 
         """Function to print out the best match for each gene."""

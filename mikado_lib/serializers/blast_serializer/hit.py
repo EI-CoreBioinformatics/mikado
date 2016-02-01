@@ -58,6 +58,7 @@ class Hit(DBBASE):
                         lazy="subquery",
                         backref=backref("hit_object", uselist=False),
                         cascade="all, delete-orphan",
+                        single_parent=True,
                         foreign_keys=[query_id, target_id],
                         primaryjoin=join_condition)
 

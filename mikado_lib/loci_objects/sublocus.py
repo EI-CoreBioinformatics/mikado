@@ -237,7 +237,6 @@ class Sublocus(Abstractlocus):
         """
 
         self.logger.debug("Calculating metrics for %s", tid)
-        transcript_instance = self.transcripts[tid]
         # The transcript must be finalized before we can calculate the score.
         self.transcripts[tid].finalize()
 
@@ -247,45 +246,44 @@ class Sublocus(Abstractlocus):
         self.transcripts[tid].exon_fraction = fraction
 
         if len(self.introns) > 0:
-            _ = len(set.intersection(transcript_instance.introns, self.introns))
+            _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
             fraction = _ / len(self.introns)
-            transcript_instance.intron_fraction = fraction
+            self.transcripts[tid].intron_fraction = fraction
         else:
-            transcript_instance.intron_fraction = 0
+            self.transcripts[tid].intron_fraction = 0
         if len(self.selected_cds_introns) > 0:
             intersecting_introns = len(set.intersection(
-                transcript_instance.selected_cds_introns,
+                self.transcripts[tid].selected_cds_introns,
                 set(self.selected_cds_introns)))
             fraction = intersecting_introns / len(self.selected_cds_introns)
-            transcript_instance.selected_cds_intron_fraction = fraction
+            self.transcripts[tid].selected_cds_intron_fraction = fraction
         else:
-            transcript_instance.selected_cds_intron_fraction = 0
+            self.transcripts[tid].selected_cds_intron_fraction = 0
 
         if len(self.combined_cds_introns) > 0:
             intersecting_introns = len(
                 set.intersection(
-                    set(transcript_instance.combined_cds_introns),
+                    set(self.transcripts[tid].combined_cds_introns),
                     set(self.combined_cds_introns)))
             fraction = intersecting_introns / len(self.combined_cds_introns)
-            transcript_instance.combined_cds_intron_fraction = fraction
+            self.transcripts[tid].combined_cds_intron_fraction = fraction
         else:
-            transcript_instance.combined_cds_intron_fraction = 0
+            self.transcripts[tid].combined_cds_intron_fraction = 0
 
-        self.find_retained_introns(transcript_instance)
-        assert isinstance(transcript_instance, Transcript)
+        self.find_retained_introns(self.transcripts[tid])
+        assert isinstance(self.transcripts[tid], Transcript)
         retained_bases = sum(e[1] - e[0] + 1
-                             for e in transcript_instance.retained_introns)
-        fraction = retained_bases / transcript_instance.cdna_length
-        transcript_instance.retained_fraction = fraction
+                             for e in self.transcripts[tid].retained_introns)
+        fraction = retained_bases / self.transcripts[tid].cdna_length
+        self.transcripts[tid].retained_fraction = fraction
         if len(self.locus_verified_introns) > 0:
             verified = len(
-                set.intersection(transcript_instance.verified_introns,
+                set.intersection(self.transcripts[tid].verified_introns,
                                  self.locus_verified_introns))
             fraction = verified / len(self.locus_verified_introns)
-            transcript_instance.proportion_verified_introns_inlocus = fraction
+            self.transcripts[tid].proportion_verified_introns_inlocus = fraction
         else:
-            transcript_instance.proportion_verified_introns_inlocus = 0
-        self.transcripts[tid] = transcript_instance
+            self.transcripts[tid].proportion_verified_introns_inlocus = 0
         self.logger.debug("Calculated metrics for {0}".format(tid))
 
     def load_scores(self, scores):
@@ -468,7 +466,7 @@ class Sublocus(Abstractlocus):
             row = dict().fromkeys(keys)
             row["tid"] = tid
             row["parent"] = self.id
-            row["score"] = self.scores[tid]["score"]
+            row["score"] = round(self.scores[tid]["score"],2)
             for key in score_keys:
                 row[key] = round(self.scores[tid][key], 2)
             score_sum = sum(row[key] for key in score_keys)
@@ -483,8 +481,8 @@ class Sublocus(Abstractlocus):
 
         """Quick wrapper to calculate the metrics for all the transcripts."""
 
-        if self.metrics_calculated is True:
-            return
+        # if self.metrics_calculated is True:
+        #     return
 
         # self.logger.info("Calculating the intron tree for %s", self.id)
         assert len(self._cds_introntree) == len(self.combined_cds_introns)
@@ -492,12 +490,12 @@ class Sublocus(Abstractlocus):
         # self.logger.info("Calculated the intron tree for %s, length %d",
         #                  self.id, len(self._cds_introntree))
 
-        for tid in self.transcripts:
+        for tid in sorted(self.transcripts):
             self.calculate_metrics(tid)
 
         # self.logger.info("Finished to calculate the metrics for %s", self.id)
 
-        self.metrics_calculated = True
+        # self.metrics_calculated = True
         return
 
     # ############## Class methods ################

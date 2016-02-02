@@ -20,6 +20,7 @@ from ..loci_objects.transcriptchecker import TranscriptChecker
 from ..configuration.configurator import to_json
 from . import to_gff
 from Bio import SeqIO
+import random
 import functools
 import multiprocessing
 import multiprocessing.connection
@@ -147,8 +148,28 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
             chrom_seq = fasta[chrom]
 
         logger.debug("Starting with %s", chrom)
+
+
         for key in sorted(transcripts[chrom].keys(),
                           key=operator.itemgetter(0, 1)):
+            if len(transcripts[chrom][key]) > 1:
+                exons = collections.defaultdict(list)
+                for tid in transcripts[chrom][key]:
+                    exon_set = tuple(sorted([(exon.start, exon.end, exon.strand) for exon in
+                                       exon_lines[tid]], key=operator.itemgetter(0,1)))
+                    exons[exon_set].append(tid)
+                tids = []
+                for tid_list in exons.values():
+                    if len(tid_list) > 1:
+                        logger.warning("The following transcripts are redundant: %s",
+                                       ",".join(tid_list))
+                        to_keep = random.choice(tid_list)
+                        logger.warning("Keeping only %s out of the list",
+                                       to_keep)
+                        tids.append(to_keep)
+            else:
+                tids = transcripts[chrom][key]
+
             seq = chrom_seq[key[0]-1:key[1]]
             keys.extend([tid, seq] for tid in transcripts[chrom][key])
     logger.info("Finished to sort %d transcripts", len(exon_lines))
@@ -217,7 +238,7 @@ def perform_check(keys, exon_lines, args, logger):
                     logger.info("Retrieved %d transcript positions", counter)
                 elif counter >= 10**3 and counter % (10**3) == 0:
                     logger.debug("Retrieved %d transcript positions", counter)
-                print(transcript_object.__str__(to_gtf=True),
+                print(transcript_object.format("gtf"),
                       file=args.json_conf["prepare"]["out"])
                 print(transcript_object.fasta,
                       file=args.json_conf["prepare"]["out_fasta"])

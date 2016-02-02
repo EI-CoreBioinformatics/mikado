@@ -31,8 +31,10 @@ def path_join(output_dir, output_file):
 def memoize(obj):
 
     """
-    Function to memorize the results of objects in memory for fast access
-    :param obj:
+    Function to memorize the results of functions/properties in memory for fast access.
+    Source: https://wiki.python.org/moin/PythonDecoratorLibrary#Memoize
+
+    :param obj: the object/function to memoize
     :return:
     """
 

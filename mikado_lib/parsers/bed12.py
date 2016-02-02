@@ -115,6 +115,7 @@ class BED12:
         self.block_count = 1
         self.invalid_reason = ''
         self.fasta_length = None
+        self.__in_index = True
 
         if len(args) == 0:
             self.header = True
@@ -188,7 +189,10 @@ class BED12:
             return
 
         if transcriptomic is True and fasta_index is not None:
-            assert self.id in fasta_index
+            if self.id not in fasta_index:
+                self.__in_index = False
+                return
+
             self.fasta_length = len(fasta_index[self.id])
             if self.invalid is True:
                 return
@@ -403,6 +407,9 @@ class BED12:
         """
 
         if self.__internal_stop_codons >= 1:
+            return True
+
+        if self.transcriptomic is True and self.__in_index is False:
             return True
 
         if self.thick_start < self.start or self.thick_end > self.end:

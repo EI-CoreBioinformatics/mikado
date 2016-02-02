@@ -70,19 +70,20 @@ def create_transcript(lines,
     logger = logging.getLogger("main")
     logger.debug("Starting with %s", lines[0].transcript)
 
-    transcript_line = copy.deepcopy(lines[0])
-    transcript_line.feature = "transcript"
-    transcript_line.start = min(r.start for r in lines)
-    transcript_line.end = max(r.end for r in lines)
-    transcript_object = TranscriptChecker(transcript_line,
+    try:
+        transcript_line = copy.deepcopy(lines[0])
+        transcript_line.feature = "transcript"
+        transcript_line.start = min(r.start for r in lines)
+        transcript_line.end = max(r.end for r in lines)
+        transcript_object = TranscriptChecker(transcript_line,
                                           fasta_seq, lenient=lenient,
                                           strand_specific=strand_specific,
                                           canonical_splices=canonical_splices)
 
-    transcript_object.logger = logger
-    for line in lines:
-        transcript_object.add_exon(line)
-    try:
+        transcript_object.logger = logger
+        for line in lines:
+            transcript_object.add_exon(line)
+        logger.debug("Finished adding exon lines to %s", lines[0].transcript)
         transcript_object.finalize()
         transcript_object.check_strand()
     except exceptions.IncorrectStrandError:
@@ -94,6 +95,12 @@ def create_transcript(lines,
         logger.info("Discarded generically invalid transcript %s",
                     lines[0].transcript)
         transcript_object = None
+    except KeyboardInterrupt:
+        raise KeyboardInterrupt
+    except Exception as exc:
+        logger.exception(exc)
+        raise
+
     logger.debug("Finished with %s", lines[0].transcript)
     return transcript_object
 
@@ -141,23 +148,28 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
     logger.info("Starting to sort %d transcripts", len(exon_lines))
     keys = []
     for chrom in sorted(transcripts.keys()):
+
         if cache is False:
             logger.debug("Copying %s into memory", chrom)
             chrom_seq = str(fasta[chrom].seq)
         else:
             chrom_seq = fasta[chrom]
 
-        logger.debug("Starting with %s", chrom)
+        logger.debug("Starting with %s (%d positions)", chrom, len(transcripts[chrom]))
 
         for key in sorted(transcripts[chrom].keys(),
                           key=operator.itemgetter(0, 1)):
-            if len(transcripts[chrom][key]) > 1:
+            tids = transcripts[chrom][key]
+            if len(tids) > 1:
                 exons = collections.defaultdict(list)
-                for tid in transcripts[chrom][key]:
+                for tid in tids:
                     exon_set = tuple(sorted([(exon.start, exon.end, exon.strand) for exon in
-                                       exon_lines[tid]], key=operator.itemgetter(0,1)))
+                                              exon_lines[tid]],
+                                            key=operator.itemgetter(0,1)))
                     exons[exon_set].append(tid)
                 tids = []
+                logger.debug("%d intron chains for pos %s",
+                             len(exons), "{}:{}-{}".format(chrom, key[0], key[1]))
                 for tid_list in exons.values():
                     if len(tid_list) > 1:
                         logger.warning("The following transcripts are redundant: %s",
@@ -166,13 +178,13 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
                         logger.warning("Keeping only %s out of the list",
                                        to_keep)
                         tids.append(to_keep)
-            else:
-                tids = transcripts[chrom][key]
+                    else:
+                        tids.extend(tid_list)
 
             seq = chrom_seq[key[0]-1:key[1]]
             keys.extend([tid, seq] for tid in tids)
-            
-    logger.info("Finished to sort %d transcripts", len(exon_lines))
+
+    logger.info("Finished to sort %d transcripts, %d remain", len(exon_lines), len(keys))
 
     return keys
 
@@ -205,7 +217,8 @@ def perform_check(keys, exon_lines, args, logger):
         lenient=args.json_conf["prepare"]["lenient"],
         strand_specific=args.json_conf["prepare"]["strand_specific"])
 
-    logger.info("Starting to analyse the transcripts looking at the underlying sequence")
+    logger.info("Starting to analyse %d surviving transcripts looking at the underlying sequence",
+                len(keys))
     if args.json_conf["prepare"]["single"] is True:
         for tid, seq in keys:
             transcript_object = partial_checker(exon_lines[tid], seq)

@@ -66,6 +66,7 @@ class TranscriptChecker(Transcript):
         self.mixed_splices = False
         self.reversed = False
         self.canonical_splices = canonical_splices
+        self.canonical_junctions = []
     # pylint: enable=too-many-arguments
 
     @property
@@ -109,7 +110,7 @@ class TranscriptChecker(Transcript):
             raise TypeError("Invalid value for boolean property: {0}".format(value))
         self.__strand_specific = value
 
-    def __str__(self, print_cds=True, to_gtf=False):
+    def __str__(self, print_cds=True, to_gtf=False, introns = False):
 
         self.check_strand()
         if self.mixed_splices is True:
@@ -180,11 +181,19 @@ class TranscriptChecker(Transcript):
             # self.attributes["canonical_splices"] = ",".join(
             #     str(k) for k in canonical_index.keys() if
             #     canonical_index[k] in ("+", "-"))
-            # self.attributes["canonical_number"] = max(canonical_counter["+"],
-            #                                           canonical_counter["-"])
+            if canonical_counter["+"] >= canonical_counter["-"]:
+                strand = "+"
+            else:
+                strand = "-"
+
+            self.attributes["canonical_number"] = canonical_counter[strand]
             self.attributes[
-                "canonical_proportion"] = max(canonical_counter["+"],
-                                              canonical_counter["-"]) / len(self.introns)
+                "canonical_proportion"] = canonical_counter[strand] / len(self.introns)
+
+            self.canonical_junctions = [_ for _ in canonical_index if
+                                        canonical_index[_] == strand]
+            self.attributes["canonical_junctions"] = ",".join([str(_) for _
+                                                               in self.canonical_junctions])
 
         self.checked = True
         return

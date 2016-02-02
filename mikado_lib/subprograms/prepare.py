@@ -149,7 +149,6 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
 
         logger.debug("Starting with %s", chrom)
 
-
         for key in sorted(transcripts[chrom].keys(),
                           key=operator.itemgetter(0, 1)):
             if len(transcripts[chrom][key]) > 1:
@@ -171,7 +170,8 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
                 tids = transcripts[chrom][key]
 
             seq = chrom_seq[key[0]-1:key[1]]
-            keys.extend([tid, seq] for tid in transcripts[chrom][key])
+            keys.extend([tid, seq] for tid in tids)
+            
     logger.info("Finished to sort %d transcripts", len(exon_lines))
 
     return keys

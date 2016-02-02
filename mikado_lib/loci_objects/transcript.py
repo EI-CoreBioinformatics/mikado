@@ -1819,8 +1819,8 @@ class Transcript:
         Current: best bit score.
         :return:
         """
-        return self.snowy_blast_score
-        # return self.best_bits
+        # return self.snowy_blast_score
+        return self.best_bits
 
     @Metric
     def canonical_intron_proportion(self):

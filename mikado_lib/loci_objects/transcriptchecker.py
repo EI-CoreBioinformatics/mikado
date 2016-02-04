@@ -156,8 +156,7 @@ class TranscriptChecker(Transcript):
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
                 # if self.lenient is False:
-                err_messg = """Transcript {0} has {1} positive and {2} negative
-                splice junctions. Aborting.""".format(
+                err_messg = """Transcript {0} has {1} positive and {2} negative splice junctions. Aborting.""".format(
                     self.id,
                     canonical_counter["+"],
                     canonical_counter["-"])

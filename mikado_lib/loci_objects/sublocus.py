@@ -481,6 +481,9 @@ class Sublocus(Abstractlocus):
 
         """Quick wrapper to calculate the metrics for all the transcripts."""
 
+        # TODO: Find an intelligent way ot restoring this check
+        # I disabled it because otherwise the values for surviving transcripts would be wrong
+        # But this effectively leads to a doubling of run time. A possibility would be to cache the results.
         # if self.metrics_calculated is True:
         #     return
 

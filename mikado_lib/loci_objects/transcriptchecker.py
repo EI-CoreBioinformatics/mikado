@@ -149,10 +149,10 @@ class TranscriptChecker(Transcript):
             canonical_counter.update(canonical_index.values())
 
             if canonical_counter[None] == len(self.introns):
+                self.logger.warning("Transcript %s only has non-canonical splices!")
                 if self.lenient is False:
                     raise IncorrectStrandError("No correct strand found for {0}".format(
                         self.id))
-                self.logger.warning("Transcript %s only has non-canonical splices!")
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
                 # if self.lenient is False:

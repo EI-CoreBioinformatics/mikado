@@ -78,7 +78,8 @@ def create_transcript(lines,
         transcript_object = TranscriptChecker(transcript_line,
                                           fasta_seq, lenient=lenient,
                                           strand_specific=strand_specific,
-                                          canonical_splices=canonical_splices)
+                                          canonical_splices=canonical_splices,
+                                              logger = logger)
 
         transcript_object.logger = logger
         for line in lines:

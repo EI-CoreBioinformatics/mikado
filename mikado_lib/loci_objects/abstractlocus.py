@@ -408,11 +408,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.start = min(self.start, transcript.start)
         self.end = max(self.end, transcript.end)
 
-        # Copying the transcript ensures that the modifications we make DOWNSTREAM
-        # will not be passed back upstream; e.g., eventual metrics which are set from outside multiple times
-        # (intron/exon fraction, etc) will stay stable at each point.
-        # This increases slighlty memory usage but is worth it for my sanity when analysing the tables.
-        self.transcripts[transcript.id] = copy(transcript)
+        self.transcripts[transcript.id] = transcript
         self.splices.update(transcript.splices)
         self.introns.update(transcript.introns)
         if transcript.monoexonic is False:

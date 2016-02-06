@@ -85,6 +85,8 @@ class Sublocus(Abstractlocus):
 
         self.monosubloci = []
         self.logger.debug("Initialized {0}".format(self.id))
+        self.metric_lines_store = []  # This list will contain the lines to be printed in the metrics file
+
         self.scores = dict()
 
     # pylint: disable=arguments-differ
@@ -390,6 +392,7 @@ class Sublocus(Abstractlocus):
                 )
             self.scores[tid]["score"] = self.transcripts[tid].score
 
+        self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         self.scores_calculated = True
 
     def _calculate_score(self, param):
@@ -440,12 +443,11 @@ class Sublocus(Abstractlocus):
             self.logger.warning("All transcripts have a score of 0 for %s in %s",
                                 param, self.id)
 
-    def print_metrics(self):
+    def prepare_metrics(self):
 
-        """This method yields dictionary "rows" that will be given to a csv.DictWriter class."""
+        """This method prepares the dictionary "rows" that will be given to a csv.DictWriter class."""
 
         # Check that rower is an instance of the csv.DictWriter class
-        self.calculate_scores()
 
         # The rower is an instance of the DictWriter class from the standard CSV module
 
@@ -455,6 +457,18 @@ class Sublocus(Abstractlocus):
             for row in self.excluded.print_metrics():
                 yield row
         return
+
+    def print_metrics(self):
+
+        """
+        THis method yields the dictionary "rows" that will be given to a csv.DictWriter class.
+        :return:
+        """
+
+        self.calculate_scores()
+
+        for row in self.metric_lines_store:
+            yield row
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""

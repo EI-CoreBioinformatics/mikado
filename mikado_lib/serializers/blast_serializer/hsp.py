@@ -84,6 +84,7 @@ class Hsp(DBBASE):
                                          name="hsp_constraint")
     query_index = Index("hsp_query_idx", "query_id", unique=False)
     target_index = Index("hsp_target_idx", "target_id", unique=False)
+    hsp_evalue_index = Index('hsp_evalue_idx', 'hsp_evalue', unique=False)
     combined_index = Index("hsp_combined_idx",
                            "query_id",
                            "target_id", unique=False)
@@ -115,7 +116,7 @@ class Hsp(DBBASE):
     target_length = select([Target.target_length]).where(
         Target.target_id == target_id)
 
-    __table_args__ = (pk_constraint, query_index, target_index, combined_index)
+    __table_args__ = (pk_constraint, query_index, target_index, combined_index, hsp_evalue_index)
 
     def __init__(self, hsp, counter, query_id, target_id):
 

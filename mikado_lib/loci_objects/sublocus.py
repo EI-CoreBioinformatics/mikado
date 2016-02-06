@@ -484,8 +484,8 @@ class Sublocus(Abstractlocus):
         # TODO: Find an intelligent way ot restoring this check
         # I disabled it because otherwise the values for surviving transcripts would be wrong
         # But this effectively leads to a doubling of run time. A possibility would be to cache the results.
-        # if self.metrics_calculated is True:
-        #     return
+        if self.metrics_calculated is True:
+            return
 
         # self.logger.info("Calculating the intron tree for %s", self.id)
         assert len(self._cds_introntree) == len(self.combined_cds_introns)
@@ -496,9 +496,9 @@ class Sublocus(Abstractlocus):
         for tid in sorted(self.transcripts):
             self.calculate_metrics(tid)
 
-        # self.logger.info("Finished to calculate the metrics for %s", self.id)
+        self.logger.debug("Finished to calculate the metrics for %s", self.id)
 
-        # self.metrics_calculated = True
+        self.metrics_calculated = True
         return
 
     # ############## Class methods ################

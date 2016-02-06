@@ -766,7 +766,9 @@ memory intensive, proceed with caution!")
 
         hits_dict = collections.defaultdict(list)
         hsps = dict()
-        for hsp in engine.execute("select * from hsp"):
+        for hsp in engine.execute("select * from hsp where hsp_evalue <= {0}".format(
+            self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"]
+        )):
             if hsp.query_id not in hsps:
                 hsps[hsp.query_id] = collections.defaultdict(list)
             hsps[hsp.query_id][hsp.target_id].append(hsp)

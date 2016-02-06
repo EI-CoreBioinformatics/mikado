@@ -30,6 +30,7 @@ class Hit(DBBASE):
     qt_index = Index("qt_index", "query_id", "target_id", unique=True)
     query_index = Index("hit_query_idx", "query_id", unique=False)
     target_index = Index("hit_target_idx", "target_id", unique=False)
+    evalue_index = Index('hit_evalue_idx', 'evalue', unique=False)
     evalue = Column(Float)
     bits = Column(Float)
     global_identity = Column(Float)
@@ -71,7 +72,7 @@ class Hit(DBBASE):
     target_length = select([Target.target_length]).where(
         Target.target_id == target_id)
 
-    __table_args__ = (qt_constraint, qt_index, query_index, target_index)
+    __table_args__ = (qt_constraint, qt_index, query_index, target_index, evalue_index)
 
     # All arguments are necessary and it is more convenient to have them here
     # rather than in a struct/dict/whatever

@@ -139,7 +139,7 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
         tlength = sum(exon.end + 1 - exon.start for exon in exon_lines[tid])
         # Discard transcript under a certain size
         if tlength < min_length:
-            logger.warning("Discarding %s because its size (%d) is under the minimum of %d",
+            logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
                            tid, tlength, min_length)
             continue
         start, end = min(x.start for x in tlines), max(x.end for x in tlines)
@@ -149,7 +149,8 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
         transcripts[chrom][(start, end)].append(tid)
 
     logger.info("Starting to sort %d transcripts", len(exon_lines))
-    keys = []
+    # keys = []
+    counter = 0
     for chrom in sorted(transcripts.keys()):
 
         if cache is False:
@@ -175,21 +176,24 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
                              len(exons), "{}:{}-{}".format(chrom, key[0], key[1]))
                 for tid_list in exons.values():
                     if len(tid_list) > 1:
-                        logger.warning("The following transcripts are redundant: %s",
+                        logger.debug("The following transcripts are redundant: %s",
                                        ",".join(tid_list))
                         to_keep = random.choice(tid_list)
-                        logger.warning("Keeping only %s out of the list",
+                        logger.debug("Keeping only %s out of the list",
                                        to_keep)
                         tids.append(to_keep)
                     else:
                         tids.extend(tid_list)
 
             seq = chrom_seq[key[0]-1:key[1]]
-            keys.extend([tid, seq] for tid in tids)
+            for tid in tids:
+                counter += 1
+                yield [tid, seq]
+            # keys.extend([tid, seq] for tid in tids)
 
-    logger.info("Finished to sort %d transcripts, %d remain", len(exon_lines), len(keys))
+    logger.info("Finished to sort %d transcripts, %d remain", len(exon_lines), counter)
 
-    return keys
+    # return keys
 
 
 def perform_check(keys, exon_lines, args, logger):
@@ -220,8 +224,8 @@ def perform_check(keys, exon_lines, args, logger):
         lenient=args.json_conf["prepare"]["lenient"],
         strand_specific=args.json_conf["prepare"]["strand_specific"])
 
-    logger.info("Starting to analyse %d surviving transcripts looking at the underlying sequence",
-                len(keys))
+    # logger.info("Starting to analyse %d surviving transcripts looking at the underlying sequence",
+    #             len(keys))
     if args.json_conf["prepare"]["single"] is True:
         for tid, seq in keys:
             transcript_object = partial_checker(exon_lines[tid], seq)
@@ -499,13 +503,15 @@ def prepare(args):
     logger.info("Finished loading exon lines")
 
     # Prepare the sorted data structure
-    keys = store_transcripts(exon_lines,
-                             args.json_conf["prepare"]["fasta"],
-                             logger,
-                             min_length=args.json_conf["prepare"]["minimum_length"],
-                             cache=args.json_conf["prepare"]["cache"])
+    sorter = functools.partial(
+        store_transcripts,
+        fasta=args.json_conf["prepare"]["fasta"],
+        logger=logger,
+        min_length=args.json_conf["prepare"]["minimum_length"],
+        cache=args.json_conf["prepare"]["cache"]
+    )
 
-    perform_check(keys, exon_lines, args, logger)
+    perform_check(sorter(exon_lines), exon_lines, args, logger)
 
     logger.info("Finished")
 

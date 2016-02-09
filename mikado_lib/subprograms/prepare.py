@@ -12,7 +12,6 @@ import argparse
 import operator
 import collections
 import logging
-import itertools
 from .. import exceptions
 import copy
 from ..utilities import path_join
@@ -30,25 +29,29 @@ import pyfaidx
 __author__ = 'Luca Venturini'
 
 
-def grouper(iterable, num, fillvalue=(None, None, None)):
-    """Collect data into fixed-length chunks or blocks.
-    Source: itertools standard library documentation
-    https://docs.python.org/3/library/itertools.html?highlight=itertools#itertools-recipes
+def grouper(iterable, num=100):
 
-    :param iterable: the iterable to be considered for grouping.
-    :param num: length of the chunks.
-    :type num: int
-
-    :param fillvalue: the default filler for missing positions while grouping.
-    :type fillvalue: tuple
     """
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * num
-    return itertools.zip_longest(*args, fillvalue=fillvalue)
+    Simple function to prechunk an iterable into groups of fixed size.
+    :param iterable: the iterable to chunk.
+    :param num: Maximum number of elements per chunk. Default: 100.
+    :return:
+    """
+
+    cache = []
+
+    for el in iterable:
+        cache.append(el)
+        if len(cache) >= num:
+            yield cache
+            cache = []
+    yield cache
 
 
 def create_transcript(lines,
-                      fasta_seq,
+                      chrom,
+                      key,
+                      fasta_index_name,
                       lenient=False,
                       strand_specific=False,
                       canonical_splices=(("GT", "AG"),
@@ -59,7 +62,7 @@ def create_transcript(lines,
     :param lines: all the exon lines for an object
     :type lines: list[GTF.GtfLine]
 
-    :param fasta_seq: Genomic sequence for the transcript
+    :param fasta_index_name: Name of the genomic file for retrieving the sequence.
 
     :type lenient: bool
     :type strand_specific: bool
@@ -71,8 +74,8 @@ def create_transcript(lines,
     logger = logging.getLogger("main")
     logger.debug("Starting with %s", lines[0].transcript)
 
-    # with pyfaidx.Fasta(fasta_index_name) as fasta_index:
-    #     fasta_seq = fasta_index[chrom][key[0]-1:key[1]].seq
+    with pyfaidx.Fasta(fasta_index_name) as fasta_index:
+        fasta_seq = fasta_index[chrom][key[0]-1:key[1]].seq
 
     try:
         transcript_line = copy.deepcopy(lines[0])
@@ -80,10 +83,11 @@ def create_transcript(lines,
         transcript_line.start = min(r.start for r in lines)
         transcript_line.end = max(r.end for r in lines)
         transcript_object = TranscriptChecker(transcript_line,
-                                          fasta_seq, lenient=lenient,
-                                          strand_specific=strand_specific,
-                                          canonical_splices=canonical_splices,
-                                          logger = logger)
+                                              fasta_seq,
+                                              lenient=lenient,
+                                              strand_specific=strand_specific,
+                                              canonical_splices=canonical_splices,
+                                              logger=logger)
 
         transcript_object.logger = logger
         for line in lines:
@@ -95,7 +99,7 @@ def create_transcript(lines,
         logger.info("Discarded %s because of incorrect fusions of splice junctions",
                     lines[0].transcript[0] if type(lines[0].transcript) is list
                     else lines[0].transcript)
-        logger.exception(exc)
+        # logger.exception(exc)
         transcript_object = None
     except exceptions.InvalidTranscript:
         logger.info("Discarded generically invalid transcript %s",
@@ -216,10 +220,11 @@ def perform_check(keys, exon_lines, args, logger):
     # Use functools to pre-configure the function
     # with all necessary arguments aside for the lines
 
-#    args.json_conf["prepare"]["fasta"].close()
-    fasta_index = args.json_conf["prepare"]["fasta"]
+    args.json_conf["prepare"]["fasta"].close()
+    # fasta_index = args.json_conf["prepare"]["fasta"]
     partial_checker = functools.partial(
         create_transcript,
+        fasta_index_name=args.json_conf["prepare"]["fasta"].filename,
         lenient=args.json_conf["prepare"]["lenient"],
         strand_specific=args.json_conf["prepare"]["strand_specific"])
 
@@ -229,7 +234,8 @@ def perform_check(keys, exon_lines, args, logger):
     if args.json_conf["prepare"]["single"] is True:
         for tid, chrom, key in keys:
             transcript_object = partial_checker(exon_lines[tid],
-                                                str(fasta_index[chrom][key[0]-1:key[1]].seq))
+                                                chrom,
+                                                key)
             if transcript_object is None:
                 continue
             counter += 1
@@ -242,25 +248,15 @@ def perform_check(keys, exon_lines, args, logger):
             print(transcript_object.fasta,
                   file=args.json_conf["prepare"]["out_fasta"])
     else:
+
+        cache = []
         for group in grouper(keys, 100):
-            if group is None:
-                continue
-
-            inputs = []
-
-            for el in group:
-                try:
-                    tid, chrom, key = el
-                except ValueError:
-                    raise ValueError(el)
-                if tid is None:
-                    continue
-                inputs.append((tid, str(fasta_index[chrom][key[0]-1:key[1]].seq)))
 
             results = [
                 pool.apply_async(partial_checker, args=(exon_lines[tid],
-                                                        seq))
-                for (tid, seq) in iter(inputs)
+                                                        chrom,
+                                                        key))
+                for (tid, chrom, key) in iter(group)
             ]
             for transcript_object in results:
                 transcript_object = transcript_object.get()
@@ -283,7 +279,7 @@ def perform_check(keys, exon_lines, args, logger):
 
     logger.info("Finished to analyse %d transcripts (%d retained)",
                 len(exon_lines), counter)
-    fasta_index.close()
+    # fasta_index.close()
     return
 
 
@@ -528,6 +524,9 @@ def prepare(args):
     )
 
     perform_check(sorter(exon_lines), exon_lines, args, logger)
+
+    args.json_conf["prepare"]["out"].close()
+    args.json_conf["prepare"]["out_fasta"].close()
 
     logger.info("Finished")
 

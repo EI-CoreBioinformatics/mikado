@@ -74,9 +74,8 @@ def create_transcript(lines,
     logger.debug("Starting with %s", lines[0].transcript)
     logger.warning("Chromosome %s, index %s", chrom, key)
 
-    fasta_index = pyfaidx.Fasta(fasta_index_name)
-
-    fasta_seq = fasta_index[chrom][key[0]-1:key[1]].seq
+    with pyfaidx.Fasta(fasta_index_name) as fasta_index:
+        fasta_seq = fasta_index[chrom][key[0]-1:key[1]].seq
 
     try:
         transcript_line = copy.deepcopy(lines[0])
@@ -112,7 +111,7 @@ def create_transcript(lines,
         raise
 
     logger.debug("Finished with %s", lines[0].transcript)
-    fasta_index.close()
+
     return transcript_object
 
 
@@ -219,6 +218,8 @@ def perform_check(keys, exon_lines, args, logger):
 
     # Use functools to pre-configure the function
     # with all necessary arguments aside for the lines
+
+    args.json_conf["prepare"]["fasta"].close()
     partial_checker = functools.partial(
         create_transcript,
         fasta_index_name=args.json_conf["prepare"]["fasta"].filename,

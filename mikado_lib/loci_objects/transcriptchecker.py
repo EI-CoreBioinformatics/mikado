@@ -55,7 +55,7 @@ class TranscriptChecker(Transcript):
         self.mixed_attribute = ""
 
         if seq is None:
-            raise ValueError()
+            raise ValueError("No sequence provided!")
         super().__init__(gffline)
         self.original_strand = gffline.strand
         assert self.original_strand == self.strand

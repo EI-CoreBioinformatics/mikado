@@ -48,7 +48,9 @@ def grouper(iterable, num, fillvalue=(None, None)):
 
 
 def create_transcript(lines,
-                      fasta_seq,
+                      chrom,
+                      key,
+                      fasta_index_name,
                       lenient=False,
                       strand_specific=False,
                       canonical_splices=(("GT", "AG"),
@@ -59,7 +61,7 @@ def create_transcript(lines,
     :param lines: all the exon lines for an object
     :type lines: list[GTF.GtfLine]
 
-    :param fasta_seq: str
+    :param fasta_index_name: name of the FAIDX file.
 
     :type lenient: bool
     :type strand_specific: bool
@@ -70,6 +72,11 @@ def create_transcript(lines,
     """
     logger = logging.getLogger("main")
     logger.debug("Starting with %s", lines[0].transcript)
+    logger.warning("Chromosome %s, index %s", chrom, key)
+
+    fasta_index = pyfaidx.Fasta(fasta_index_name)
+
+    fasta_seq = fasta_index[chrom][key[0]-1:key[1]].seq
 
     try:
         transcript_line = copy.deepcopy(lines[0])
@@ -105,18 +112,17 @@ def create_transcript(lines,
         raise
 
     logger.debug("Finished with %s", lines[0].transcript)
+    fasta_index.close()
     return transcript_object
 
 
-def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
+def store_transcripts(exon_lines, logger, min_length=0, cache=False):
 
     """
     Function that analyses the exon lines from the original file
     and organises the data into a proper dictionary.
     :param exon_lines: dictionary of exon lines, ordered by TID
     :type exon_lines: dict
-
-    :param fasta: the FASTA sequence to use for the transcript.
 
     :param logger: logger instance.
     :type logger: logging.Logger
@@ -153,12 +159,6 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
     counter = 0
     for chrom in sorted(transcripts.keys()):
 
-        if cache is False:
-            logger.debug("Copying %s into memory", chrom)
-            chrom_seq = str(fasta[chrom][0:len(fasta[chrom])].seq)
-        else:
-            chrom_seq = fasta[chrom]
-
         logger.debug("Starting with %s (%d positions)", chrom, len(transcripts[chrom]))
 
         for key in sorted(transcripts[chrom].keys(),
@@ -185,13 +185,13 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
                     else:
                         tids.extend(tid_list)
 
-            seq = chrom_seq[key[0]-1:key[1]]
+            # seq = chrom_seq[key[0]-1:key[1]]
             for tid in tids:
                 counter += 1
-                yield [tid, seq]
+                yield [tid, chrom, key]
             # keys.extend([tid, seq] for tid in tids)
 
-    logger.info("Finished to sort %d transcripts, %d remain", len(exon_lines), counter)
+    # logger.info("Finished to sort %d transcripts, %d remain", len(exon_lines), counter)
 
     # return keys
 
@@ -221,14 +221,16 @@ def perform_check(keys, exon_lines, args, logger):
     # with all necessary arguments aside for the lines
     partial_checker = functools.partial(
         create_transcript,
+        fasta_index_name=args.json_conf["prepare"]["fasta"].filename,
         lenient=args.json_conf["prepare"]["lenient"],
         strand_specific=args.json_conf["prepare"]["strand_specific"])
 
     # logger.info("Starting to analyse %d surviving transcripts looking at the underlying sequence",
     #             len(keys))
+
     if args.json_conf["prepare"]["single"] is True:
-        for tid, seq in keys:
-            transcript_object = partial_checker(exon_lines[tid], seq)
+        for tid, chrom, key in keys:
+            transcript_object = partial_checker(exon_lines[tid], chrom, key)
             if transcript_object is None:
                 continue
             counter += 1
@@ -245,8 +247,8 @@ def perform_check(keys, exon_lines, args, logger):
             if group is None:
                 continue
             results = [
-                pool.apply_async(partial_checker, args=(exon_lines[tid], seq))
-                for (tid, seq) in iter(x for x in group if x != (None, None))
+                pool.apply_async(partial_checker, args=(exon_lines[tid], chrom, key))
+                for (tid, chrom, key) in iter(x for x in group if x != (None, None))
             ]
             for transcript_object in results:
                 transcript_object = transcript_object.get()
@@ -505,7 +507,6 @@ def prepare(args):
     # Prepare the sorted data structure
     sorter = functools.partial(
         store_transcripts,
-        fasta=args.json_conf["prepare"]["fasta"],
         logger=logger,
         min_length=args.json_conf["prepare"]["minimum_length"],
         cache=args.json_conf["prepare"]["cache"]

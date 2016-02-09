@@ -28,8 +28,6 @@ import pyfaidx
 
 __author__ = 'Luca Venturini'
 
-__spec__ = "prepare"
-
 
 def grouper(iterable, num=100):
 
@@ -240,7 +238,7 @@ def perform_check(keys, exon_lines, args, logger):
     else:
         # pylint: disable=no-member
         context = multiprocessing.get_context('forkserver')
-        pool = multiprocessing.Pool(args.threads)
+        pool = context.Pool(args.threads)
         # pylint: enable=no-member
 
         for group in grouper(keys, args.threads):

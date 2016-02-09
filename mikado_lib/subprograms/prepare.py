@@ -28,6 +28,8 @@ import pyfaidx
 
 __author__ = 'Luca Venturini'
 
+__spec__ = "prepare"
+
 
 def grouper(iterable, num=100):
 
@@ -237,6 +239,7 @@ def perform_check(keys, exon_lines, args, logger):
                   file=args.json_conf["prepare"]["out_fasta"])
     else:
         # pylint: disable=no-member
+        context = multiprocessing.get_context('forkserver')
         pool = multiprocessing.Pool(args.threads)
         # pylint: enable=no-member
 

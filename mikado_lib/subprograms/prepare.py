@@ -30,7 +30,7 @@ import pyfaidx
 __author__ = 'Luca Venturini'
 
 
-def grouper(iterable, num, fillvalue=(None, None)):
+def grouper(iterable, num, fillvalue=(None, None, None)):
     """Collect data into fixed-length chunks or blocks.
     Source: itertools standard library documentation
     https://docs.python.org/3/library/itertools.html?highlight=itertools#itertools-recipes
@@ -246,11 +246,21 @@ def perform_check(keys, exon_lines, args, logger):
             if group is None:
                 continue
 
+            inputs = []
+
+            for el in group:
+                try:
+                    tid, chrom, key = el
+                except ValueError:
+                    raise ValueError(el)
+                if tid is None:
+                    continue
+                inputs.append((tid, str(fasta_index[chrom][key[0]-1:key[1]].seq)))
+
             results = [
                 pool.apply_async(partial_checker, args=(exon_lines[tid],
-                                                        str(fasta_index[chrom][key[0]-1:key[1]].seq)
-                                                        ))
-                for (tid, chrom, key) in iter(x for x in group if x != (None, None))
+                                                        seq))
+                for (tid, seq) in iter(inputs)
             ]
             for transcript_object in results:
                 transcript_object = transcript_object.get()
@@ -266,6 +276,8 @@ def perform_check(keys, exon_lines, args, logger):
                       file=args.json_conf["prepare"]["out"])
                 print(transcript_object.fasta,
                       file=args.json_conf["prepare"]["out_fasta"])
+            del results
+
         pool.close()
         pool.join()
 

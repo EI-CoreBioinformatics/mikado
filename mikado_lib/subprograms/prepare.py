@@ -242,17 +242,14 @@ def perform_check(keys, exon_lines, args, logger):
 
         for group in grouper(keys, args.threads):
 
-            results = [
-                pool.apply_async(
-                    partial_checker,
-                    args=(
-                        exon_lines[tid],
-                        str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]].seq)
-                    )) for (tid, chrom, key) in group
-            ]
+            results = pool.starmap_async(
+                partial_checker,
+                [(exon_lines[tid],
+                  str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]].seq))
+                 for (tid, chrom, key) in group]
+            )
 
-            for transcript_object in results:
-                transcript_object = transcript_object.get()
+            for transcript_object in results.get():
 
                 if transcript_object is None:
                     continue
@@ -265,7 +262,6 @@ def perform_check(keys, exon_lines, args, logger):
                       file=args.json_conf["prepare"]["out"])
                 print(transcript_object.fasta,
                       file=args.json_conf["prepare"]["out_fasta"])
-            del results
 
         pool.close()
         pool.join()

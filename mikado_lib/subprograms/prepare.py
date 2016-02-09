@@ -25,6 +25,7 @@ import functools
 import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
+import pyfaidx
 
 __author__ = 'Luca Venturini'
 
@@ -153,7 +154,7 @@ def store_transcripts(exon_lines, fasta, logger, min_length=0, cache=False):
 
         if cache is False:
             logger.debug("Copying %s into memory", chrom)
-            chrom_seq = str(fasta[chrom].seq)
+            chrom_seq = str(fasta[chrom][0:len(fasta[chrom])].seq)
         else:
             chrom_seq = fasta[chrom]
 
@@ -533,7 +534,8 @@ def to_seqio_complete(string, cache=False, logger_instance=None):
         seqdict = SeqIO.to_dict(SeqIO.parse(open(string), 'fasta'))
         seqdict = dict((seq, str(seqdict[seq].seq)) for seq in seqdict)
     else:
-        seqdict = SeqIO.index(string, "fasta")
+        # seqdict = SeqIO.index(string, "fasta")
+        seqdict = pyfaidx.Fasta(string)
 
     logger_instance.info("Finished loading reference file")
     return seqdict

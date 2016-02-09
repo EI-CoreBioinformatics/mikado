@@ -19,7 +19,7 @@ rule clean:
     run:
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
-                                    ["mikado.gtf", "mikado.fasta", "chr5.fas"],
+                                    ["mikado_prepared.gtf", "mikado_prepared.fasta", "chr5.fas"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
                                     glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"]):
             if os.path.exists(filename):

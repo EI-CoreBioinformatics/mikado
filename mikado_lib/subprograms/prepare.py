@@ -240,7 +240,7 @@ def perform_check(keys, exon_lines, args, logger):
         pool = multiprocessing.Pool(args.threads)
         # pylint: enable=no-member
 
-        for group in grouper(keys, 100):
+        for group in grouper(keys, args.threads):
 
             results = [
                 pool.apply_async(

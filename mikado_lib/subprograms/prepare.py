@@ -79,7 +79,8 @@ def create_transcript(lines,
         transcript_object = TranscriptChecker(transcript_line,
                                           fasta_seq, lenient=lenient,
                                           strand_specific=strand_specific,
-                                          canonical_splices=canonical_splices)
+                                          canonical_splices=canonical_splices,
+                                          logger = logger)
 
         transcript_object.logger = logger
         for line in lines:
@@ -87,10 +88,11 @@ def create_transcript(lines,
         logger.debug("Finished adding exon lines to %s", lines[0].transcript)
         transcript_object.finalize()
         transcript_object.check_strand()
-    except exceptions.IncorrectStrandError:
+    except exceptions.IncorrectStrandError as exc:
         logger.info("Discarded %s because of incorrect fusions of splice junctions",
                     lines[0].transcript[0] if type(lines[0].transcript) is list
                     else lines[0].transcript)
+        logger.exception(exc)
         transcript_object = None
     except exceptions.InvalidTranscript:
         logger.info("Discarded generically invalid transcript %s",
@@ -341,6 +343,9 @@ def setup(args):
                 getattr(args, option) is not False):
             args.json_conf["prepare"][option] = getattr(args, option)
 
+    if args.lenient is not None:
+        args.json_conf["prepare"]["lenient"] = True
+
     return args, logger
 
 
@@ -579,7 +584,7 @@ def prepare_parser():
                         help="""Flag. If set, monoexonic transcripts
                         will be left on their strand rather than being
                         moved to the unknown strand.""")
-    parser.add_argument("-l", "--lenient", action="store_true", default=False,
+    parser.add_argument("-l", "--lenient", action="store_true", default=None,
                         help="""Flag. If set, transcripts with mixed +/-
                         splices will not cause exceptions but rather
                         be annotated as problematic.""")

@@ -295,9 +295,9 @@ class Transcript:
         state = self.__dict__.copy()
         self.logger = logger
 
-        if hasattr(self, "json_conf") and self.json_conf is not None:
-            if "requirements" in self.json_conf and "compiled" in self.json_conf["requirements"]:
-                del state["json_conf"]["requirements"]["compiled"]
+        # if hasattr(self, "json_conf") and self.json_conf is not None:
+        #     if "requirements" in self.json_conf and "compiled" in self.json_conf["requirements"]:
+        #         del state["json_conf"]["requirements"]["compiled"]
 
         if hasattr(self, "session"):
             if state["session"] is not None:

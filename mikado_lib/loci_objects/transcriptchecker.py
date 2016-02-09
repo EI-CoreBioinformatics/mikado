@@ -33,7 +33,8 @@ class TranscriptChecker(Transcript):
     # pylint: disable=too-many-arguments
     def __init__(self, gffline, seq,
                  strand_specific=False, lenient=False,
-                 canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC"))):
+                 canonical_splices=(("GT", "AG"), ("GC", "AG"), ("AT", "AC")),
+                 logger = None):
 
         """
         Constructor method. It inherits from Transcript, with some modifications.
@@ -67,6 +68,7 @@ class TranscriptChecker(Transcript):
         self.reversed = False
         self.canonical_splices = canonical_splices
         self.canonical_junctions = []
+        self.logger = logger
     # pylint: enable=too-many-arguments
 
     @property
@@ -147,18 +149,20 @@ class TranscriptChecker(Transcript):
             canonical_counter.update(canonical_index.values())
 
             if canonical_counter[None] == len(self.introns):
+                self.logger.warning("Transcript %s only has non-canonical splices!", self.id)
                 if self.lenient is False:
                     raise IncorrectStrandError("No correct strand found for {0}".format(
                         self.id))
 
             elif canonical_counter["+"] > 0 and canonical_counter["-"] > 0:
                 # if self.lenient is False:
-                err_messg = """Transcript {0} has {1} positive and {2} negative
-                splice junctions. Aborting.""".format(
+                err_messg = """Transcript {0} has {1} positive and {2} negative splice junctions. Aborting.""".format(
                     self.id,
                     canonical_counter["+"],
                     canonical_counter["-"])
+                self.logger.warning(err_messg)
                 raise IncorrectStrandError(err_messg)
+
                 # else:
                 #     self.mixed_splices = True
                 #

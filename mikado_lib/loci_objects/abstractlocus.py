@@ -9,6 +9,7 @@ import abc
 import random
 import logging
 from sys import maxsize
+from copy import copy, deepcopy
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
@@ -406,6 +407,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.start = min(self.start, transcript.start)
         self.end = max(self.end, transcript.end)
+
         self.transcripts[transcript.id] = transcript
         self.splices.update(transcript.splices)
         self.introns.update(transcript.introns)

@@ -1,155 +1,155 @@
-2016-01-28 19:00:28,403 - INFO:259 - compare - MainProcess - Start
-2016-01-28 19:00:28,404 - INFO:261 - compare - MainProcess - Command line: setup.py nosetests
-2016-01-28 19:00:28,405 - INFO:263 - compare - MainProcess - Starting parsing the reference
-2016-01-28 19:00:28,406 - DEBUG:136 - prepare_reference - MainProcess - Transcript
+2016-02-06 17:44:55,608 - INFO:259 - compare - MainProcess - Start
+2016-02-06 17:44:55,609 - INFO:261 - compare - MainProcess - Command line: setup.py nosetests
+2016-02-06 17:44:55,610 - INFO:263 - compare - MainProcess - Starting parsing the reference
+2016-02-06 17:44:55,610 - DEBUG:136 - prepare_reference - MainProcess - Transcript
 Chr1	TAIR10	mRNA	29650455	29652593	.	+	.	ID=AT1G78870.3;Parent=AT1G78870;Name=AT1G78870.3;index=1
-2016-01-28 19:00:28,407 - DEBUG:136 - prepare_reference - MainProcess - Transcript
+2016-02-06 17:44:55,612 - DEBUG:136 - prepare_reference - MainProcess - Transcript
 Chr1	TAIR10	mRNA	29650463	29652517	.	+	.	ID=AT1G78870.1;Parent=AT1G78870;Name=AT1G78870.1;index=1
-2016-01-28 19:00:28,408 - DEBUG:136 - prepare_reference - MainProcess - Transcript
+2016-02-06 17:44:55,613 - DEBUG:136 - prepare_reference - MainProcess - Transcript
 Chr1	TAIR10	mRNA	29650454	29652517	.	+	.	ID=AT1G78870.2;Parent=AT1G78870;Name=AT1G78870.2;index=1
-2016-01-28 19:00:28,409 - DEBUG:136 - prepare_reference - MainProcess - Transcript
+2016-02-06 17:44:55,613 - DEBUG:136 - prepare_reference - MainProcess - Transcript
 Chr1	TAIR10	mRNA	29652633	29655949	.	-	.	ID=AT1G78880.1;Parent=AT1G78880;Name=AT1G78880.1;index=1
-2016-01-28 19:00:28,410 - DEBUG:136 - prepare_reference - MainProcess - Transcript
+2016-02-06 17:44:55,614 - DEBUG:136 - prepare_reference - MainProcess - Transcript
 Chr1	TAIR10	mRNA	29652633	29655949	.	-	.	ID=AT1G78882.1;Parent=AT1G78882;Name=AT1G78882.1;index=1
-2016-01-28 19:00:28,411 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78882.1
-2016-01-28 19:00:28,412 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78870.1
-2016-01-28 19:00:28,412 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78870.2
-2016-01-28 19:00:28,416 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78870.3
-2016-01-28 19:00:28,416 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78880.1
-2016-01-28 19:00:28,417 - INFO:273 - compare - MainProcess - Finished preparation; found 3 reference genes
-2016-01-28 19:00:28,417 - DEBUG:275 - compare - MainProcess - Gene names (first 20): AT1G78882
-	AT1G78870
+2016-02-06 17:44:55,615 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78870.1
+2016-02-06 17:44:55,616 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78870.2
+2016-02-06 17:44:55,617 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78870.3
+2016-02-06 17:44:55,617 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78882.1
+2016-02-06 17:44:55,618 - DEBUG:395 - finalize - MainProcess - Finished finalising AT1G78880.1
+2016-02-06 17:44:55,619 - INFO:273 - compare - MainProcess - Finished preparation; found 3 reference genes
+2016-02-06 17:44:55,619 - DEBUG:275 - compare - MainProcess - Gene names (first 20): AT1G78870
+	AT1G78882
 	AT1G78880
-2016-01-28 19:00:28,417 - DEBUG:37 - __init__ - MainProcess - Started with stat printing
-2016-01-28 19:00:28,418 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29636920	29638666	1000	.	.	gene_id "Stringtie_STAR.5600"; transcript_id "Stringtie_STAR.5600.1"; FPKM "inf"; cov "774.058960";
-2016-01-28 19:00:28,419 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5600.1: Chr1	StringTie	exon	29636920	29638666	1000	.	.	gene_id "Stringtie_STAR.5600"; transcript_id "Stringtie_STAR.5600.1"; exon_number "1"; cov "774.058960";
-2016-01-28 19:00:28,419 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29640126	29640902	1000	-	.	gene_id "Stringtie_STAR.5601"; transcript_id "Stringtie_STAR.5601.1"; FPKM "inf"; cov "2.574003";
-2016-01-28 19:00:28,419 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5600.1
-2016-01-28 19:00:28,420 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5600.1
-2016-01-28 19:00:28,420 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5600.1: []
-2016-01-28 19:00:28,420 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5600.1
-2016-01-28 19:00:28,421 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5601.1: Chr1	StringTie	exon	29640126	29640902	1000	-	.	gene_id "Stringtie_STAR.5601"; transcript_id "Stringtie_STAR.5601.1"; exon_number "1"; cov "2.574003";
-2016-01-28 19:00:28,421 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29641937	29643580	1000	.	.	gene_id "Stringtie_STAR.5602"; transcript_id "Stringtie_STAR.5602.1"; FPKM "inf"; cov "339.368622";
-2016-01-28 19:00:28,421 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5601.1
-2016-01-28 19:00:28,421 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5601.1
-2016-01-28 19:00:28,422 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5601.1: []
-2016-01-28 19:00:28,422 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5601.1
-2016-01-28 19:00:28,422 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5602.1: Chr1	StringTie	exon	29641937	29643580	1000	.	.	gene_id "Stringtie_STAR.5602"; transcript_id "Stringtie_STAR.5602.1"; exon_number "1"; cov "339.368622";
-2016-01-28 19:00:28,422 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29647889	29649941	1000	-	.	gene_id "Stringtie_STAR.5603"; transcript_id "Stringtie_STAR.5603.1"; FPKM "inf"; cov "58.747589";
-2016-01-28 19:00:28,423 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5602.1
-2016-01-28 19:00:28,423 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5602.1
-2016-01-28 19:00:28,423 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5602.1: []
-2016-01-28 19:00:28,423 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5602.1
-2016-01-28 19:00:28,424 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5603.1: Chr1	StringTie	exon	29647889	29649941	1000	-	.	gene_id "Stringtie_STAR.5603"; transcript_id "Stringtie_STAR.5603.1"; exon_number "1"; cov "58.747589";
-2016-01-28 19:00:28,424 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29646118	29647489	1000	.	.	gene_id "Stringtie_STAR.5604"; transcript_id "Stringtie_STAR.5604.1"; FPKM "inf"; cov "12.463557";
-2016-01-28 19:00:28,424 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5603.1
-2016-01-28 19:00:28,425 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5603.1
-2016-01-28 19:00:28,425 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5603.1: [((29650454, 29652593), 513)]
-2016-01-28 19:00:28,426 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5603.1
-2016-01-28 19:00:28,426 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5604.1: Chr1	StringTie	exon	29646118	29647489	1000	.	.	gene_id "Stringtie_STAR.5604"; transcript_id "Stringtie_STAR.5604.1"; exon_number "1"; cov "12.463557";
-2016-01-28 19:00:28,427 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29650921	29655926	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; FPKM "inf"; cov "320.544067";
-2016-01-28 19:00:28,427 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5604.1
-2016-01-28 19:00:28,427 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5604.1
-2016-01-28 19:00:28,427 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5604.1: []
-2016-01-28 19:00:28,428 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5604.1
-2016-01-28 19:00:28,428 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29650921	29653260	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "1"; cov "205.339417";
-2016-01-28 19:00:28,428 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29653359	29653570	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "2"; cov "1213.482056";
-2016-01-28 19:00:28,428 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29653672	29653827	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "3"; cov "480.359528";
-2016-01-28 19:00:28,429 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29653974	29654903	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "4"; cov "388.026947";
-2016-01-28 19:00:28,429 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29655630	29655926	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "5"; cov "295.580170";
-2016-01-28 19:00:28,429 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29650158	29654909	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; FPKM "inf"; cov "334.589081";
-2016-01-28 19:00:28,429 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5605.1
-2016-01-28 19:00:28,430 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5605.1
-2016-01-28 19:00:28,430 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,430 - DEBUG:343 - __prepare_result - MainProcess - Matches for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,430 - DEBUG:348 - __prepare_result - MainProcess - More than one match for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,431 - DEBUG:223 - __check_for_fusions - MainProcess - Matches for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,431 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29652633, 29655949), 0): ['AT1G78882', 'AT1G78880']
-2016-01-28 19:00:28,432 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45aa240>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), )), (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a3048>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), ))]
-2016-01-28 19:00:28,433 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a3048>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), ))
-2016-01-28 19:00:28,433 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45aa240>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), ))
-2016-01-28 19:00:28,434 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29650454, 29652593), 0): ['AT1G78870']
-2016-01-28 19:00:28,435 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a9780>, result( ref_id=('AT1G78870.3',), ref_gene=('AT1G78870',), ccode=('x',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(22.64,), n_recall=(81.82,), n_f1=(35.47,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))]
-2016-01-28 19:00:28,435 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a9780>, result( ref_id=('AT1G78870.3',), ref_gene=('AT1G78870',), ccode=('x',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(22.64,), n_recall=(81.82,), n_f1=(35.47,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))
-2016-01-28 19:00:28,437 - DEBUG:301 - __check_for_fusions - MainProcess - Fused group: ('AT1G78880', 'AT1G78882'); GID_groups: [('AT1G78880', 'AT1G78882'), ('AT1G78870',)]
-2016-01-28 19:00:28,437 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5605.1
-2016-01-28 19:00:28,438 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29650158	29650624	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "1"; cov "77.501740";
-2016-01-28 19:00:28,438 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29650723	29650750	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "2"; cov "626.775879";
-2016-01-28 19:00:28,438 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29650929	29651015	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "3"; cov "845.618958";
-2016-01-28 19:00:28,439 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651316	29651374	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "4"; cov "665.273193";
-2016-01-28 19:00:28,439 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651648	29651689	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "5"; cov "643.467041";
-2016-01-28 19:00:28,439 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651772	29651845	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "6"; cov "962.549438";
-2016-01-28 19:00:28,439 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651949	29652046	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "7"; cov "1075.958984";
-2016-01-28 19:00:28,440 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29652166	29654909	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "8"; cov "303.908478";
-2016-01-28 19:00:28,440 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29656599	29659237	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; FPKM "inf"; cov "135.296432";
-2016-01-28 19:00:28,440 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5606.1
-2016-01-28 19:00:28,441 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5606.1
-2016-01-28 19:00:28,441 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,441 - DEBUG:343 - __prepare_result - MainProcess - Matches for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,441 - DEBUG:348 - __prepare_result - MainProcess - More than one match for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,441 - DEBUG:223 - __check_for_fusions - MainProcess - Matches for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
-2016-01-28 19:00:28,442 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29652633, 29655949), 0): ['AT1G78882', 'AT1G78880']
-2016-01-28 19:00:28,443 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45aa240>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), )), (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a3048>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))]
-2016-01-28 19:00:28,443 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a3048>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))
-2016-01-28 19:00:28,444 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45aa240>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))
-2016-01-28 19:00:28,444 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29650454, 29652593), 0): ['AT1G78870']
-2016-01-28 19:00:28,446 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a9780>, result( ref_id=('AT1G78870.2',), ref_gene=('AT1G78870',), ccode=('=',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(25.31,), n_recall=(100.0,), n_f1=(40.4,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(75.0,), e_recall=(75.0,), e_f1=(75.0,), distance=(0,), ))]
-2016-01-28 19:00:28,446 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f5af45a9780>, result( ref_id=('AT1G78870.2',), ref_gene=('AT1G78870',), ccode=('=',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(25.31,), n_recall=(100.0,), n_f1=(40.4,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(75.0,), e_recall=(75.0,), e_f1=(75.0,), distance=(0,), ))
-2016-01-28 19:00:28,448 - DEBUG:301 - __check_for_fusions - MainProcess - Fused group: ('AT1G78870',); GID_groups: [('AT1G78880', 'AT1G78882'), ('AT1G78870',)]
-2016-01-28 19:00:28,448 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5606.1
-2016-01-28 19:00:28,448 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5607.1: Chr1	StringTie	exon	29656599	29657019	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; exon_number "1"; cov "245.904984";
-2016-01-28 19:00:28,449 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5607.1: Chr1	StringTie	exon	29657467	29657555	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; exon_number "2"; cov "401.343536";
-2016-01-28 19:00:28,449 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5607.1: Chr1	StringTie	exon	29657796	29659237	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; exon_number "3"; cov "86.237511";
-2016-01-28 19:00:28,449 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29657467	29659924	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; FPKM "inf"; cov "189.397232";
-2016-01-28 19:00:28,449 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5607.1
-2016-01-28 19:00:28,450 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5607.1
-2016-01-28 19:00:28,450 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5607.1: [((29652633, 29655949), 650)]
-2016-01-28 19:00:28,451 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5607.1
-2016-01-28 19:00:28,451 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29657467	29658428	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "1"; cov "106.872856";
-2016-01-28 19:00:28,451 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29658806	29658875	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "2"; cov "575.209290";
-2016-01-28 19:00:28,452 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29659094	29659235	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "3"; cov "511.846405";
-2016-01-28 19:00:28,452 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29659700	29659924	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "4"; cov "346.965668";
-2016-01-28 19:00:28,452 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
-Chr1	StringTie	transcript	29666248	29666646	1000	-	.	gene_id "Stringtie_STAR.5609"; transcript_id "Stringtie_STAR.5609.1"; FPKM "inf"; cov "7.835483";
-2016-01-28 19:00:28,452 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5608.1
-2016-01-28 19:00:28,453 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5608.1
-2016-01-28 19:00:28,453 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5608.1: [((29652633, 29655949), 1518)]
-2016-01-28 19:00:28,453 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5608.1
-2016-01-28 19:00:28,454 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5609.1: Chr1	StringTie	exon	29666248	29666646	1000	-	.	gene_id "Stringtie_STAR.5609"; transcript_id "Stringtie_STAR.5609.1"; exon_number "1"; cov "7.835483";
-2016-01-28 19:00:28,454 - DEBUG:389 - get_best - MainProcess - Started with Stringtie_STAR.5609.1
-2016-01-28 19:00:28,454 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5609.1
-2016-01-28 19:00:28,455 - DEBUG:416 - get_best - MainProcess - Distances for Stringtie_STAR.5609.1: []
-2016-01-28 19:00:28,455 - DEBUG:442 - get_best - MainProcess - Finished with Stringtie_STAR.5609.1
-2016-01-28 19:00:28,455 - INFO:454 - finish - MainProcess - Finished parsing, total: 10 transcripts.
-2016-01-28 19:00:28,455 - INFO:795 - refmap_printer - MainProcess - Starting printing RefMap
-2016-01-28 19:00:28,457 - INFO:855 - refmap_printer - MainProcess - Finished printing RefMap
-2016-01-28 19:00:28,457 - DEBUG:325 - __extract_terminal_stats - MainProcess - Starts [2, 2, 4]
-2016-01-28 19:00:28,457 - DEBUG:338 - __extract_terminal_stats - MainProcess - Ends [2, 2, 4]
-2016-01-28 19:00:28,460 - DEBUG:283 - __calculate_intron_stats - MainProcess - Intron chains:        	reference 5	4
+2016-02-06 17:44:55,620 - DEBUG:37 - __init__ - MainProcess - Started with stat printing
+2016-02-06 17:44:55,621 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29636920	29638666	1000	.	.	gene_id "Stringtie_STAR.5600"; transcript_id "Stringtie_STAR.5600.1"; cov "774.058960"; FPKM "inf";
+2016-02-06 17:44:55,622 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5600.1: Chr1	StringTie	exon	29636920	29638666	1000	.	.	gene_id "Stringtie_STAR.5600"; transcript_id "Stringtie_STAR.5600.1"; exon_number "1"; cov "774.058960";
+2016-02-06 17:44:55,622 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29640126	29640902	1000	-	.	gene_id "Stringtie_STAR.5601"; transcript_id "Stringtie_STAR.5601.1"; cov "2.574003"; FPKM "inf";
+2016-02-06 17:44:55,623 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5600.1
+2016-02-06 17:44:55,623 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5600.1
+2016-02-06 17:44:55,623 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5600.1: []
+2016-02-06 17:44:55,624 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5600.1
+2016-02-06 17:44:55,624 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5601.1: Chr1	StringTie	exon	29640126	29640902	1000	-	.	gene_id "Stringtie_STAR.5601"; transcript_id "Stringtie_STAR.5601.1"; exon_number "1"; cov "2.574003";
+2016-02-06 17:44:55,624 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29641937	29643580	1000	.	.	gene_id "Stringtie_STAR.5602"; transcript_id "Stringtie_STAR.5602.1"; cov "339.368622"; FPKM "inf";
+2016-02-06 17:44:55,625 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5601.1
+2016-02-06 17:44:55,625 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5601.1
+2016-02-06 17:44:55,626 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5601.1: []
+2016-02-06 17:44:55,626 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5601.1
+2016-02-06 17:44:55,626 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5602.1: Chr1	StringTie	exon	29641937	29643580	1000	.	.	gene_id "Stringtie_STAR.5602"; transcript_id "Stringtie_STAR.5602.1"; exon_number "1"; cov "339.368622";
+2016-02-06 17:44:55,627 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29647889	29649941	1000	-	.	gene_id "Stringtie_STAR.5603"; transcript_id "Stringtie_STAR.5603.1"; cov "58.747589"; FPKM "inf";
+2016-02-06 17:44:55,627 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5602.1
+2016-02-06 17:44:55,627 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5602.1
+2016-02-06 17:44:55,628 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5602.1: []
+2016-02-06 17:44:55,628 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5602.1
+2016-02-06 17:44:55,629 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5603.1: Chr1	StringTie	exon	29647889	29649941	1000	-	.	gene_id "Stringtie_STAR.5603"; transcript_id "Stringtie_STAR.5603.1"; exon_number "1"; cov "58.747589";
+2016-02-06 17:44:55,629 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29646118	29647489	1000	.	.	gene_id "Stringtie_STAR.5604"; transcript_id "Stringtie_STAR.5604.1"; cov "12.463557"; FPKM "inf";
+2016-02-06 17:44:55,630 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5603.1
+2016-02-06 17:44:55,630 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5603.1
+2016-02-06 17:44:55,631 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5603.1: [((29650454, 29652593), 513)]
+2016-02-06 17:44:55,632 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5603.1
+2016-02-06 17:44:55,632 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5604.1: Chr1	StringTie	exon	29646118	29647489	1000	.	.	gene_id "Stringtie_STAR.5604"; transcript_id "Stringtie_STAR.5604.1"; exon_number "1"; cov "12.463557";
+2016-02-06 17:44:55,633 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29650921	29655926	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; cov "320.544067"; FPKM "inf";
+2016-02-06 17:44:55,633 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5604.1
+2016-02-06 17:44:55,633 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5604.1
+2016-02-06 17:44:55,633 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5604.1: []
+2016-02-06 17:44:55,634 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5604.1
+2016-02-06 17:44:55,634 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29650921	29653260	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "1"; cov "205.339417";
+2016-02-06 17:44:55,635 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29653359	29653570	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "2"; cov "1213.482056";
+2016-02-06 17:44:55,635 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29653672	29653827	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "3"; cov "480.359528";
+2016-02-06 17:44:55,635 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29653974	29654903	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "4"; cov "388.026947";
+2016-02-06 17:44:55,636 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5605.1: Chr1	StringTie	exon	29655630	29655926	1000	-	.	gene_id "Stringtie_STAR.5605"; transcript_id "Stringtie_STAR.5605.1"; exon_number "5"; cov "295.580170";
+2016-02-06 17:44:55,636 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29650158	29654909	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; cov "334.589081"; FPKM "inf";
+2016-02-06 17:44:55,637 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5605.1
+2016-02-06 17:44:55,637 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5605.1
+2016-02-06 17:44:55,637 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,638 - DEBUG:344 - __prepare_result - MainProcess - Matches for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,638 - DEBUG:349 - __prepare_result - MainProcess - More than one match for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,638 - DEBUG:223 - __check_for_fusions - MainProcess - Matches for Stringtie_STAR.5605.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,639 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29652633, 29655949), 0): ['AT1G78882', 'AT1G78880']
+2016-02-06 17:44:55,640 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d7b8>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), )), (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d5c0>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), ))]
+2016-02-06 17:44:55,640 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d7b8>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), ))
+2016-02-06 17:44:55,641 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d5c0>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('=',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(56.49,), n_recall=(98.98,), n_f1=(71.93,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(60.0,), e_recall=(60.0,), e_f1=(60.0,), distance=(0,), ))
+2016-02-06 17:44:55,641 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29650454, 29652593), 0): ['AT1G78870']
+2016-02-06 17:44:55,642 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a95e978>, result( ref_id=('AT1G78870.3',), ref_gene=('AT1G78870',), ccode=('x',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(22.64,), n_recall=(81.82,), n_f1=(35.47,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))]
+2016-02-06 17:44:55,643 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a95e978>, result( ref_id=('AT1G78870.3',), ref_gene=('AT1G78870',), ccode=('x',), tid=Stringtie_STAR.5605.1, gid=Stringtie_STAR.5605, n_prec=(22.64,), n_recall=(81.82,), n_f1=(35.47,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))
+2016-02-06 17:44:55,644 - DEBUG:301 - __check_for_fusions - MainProcess - Fused group: ('AT1G78880', 'AT1G78882'); GID_groups: [('AT1G78880', 'AT1G78882'), ('AT1G78870',)]
+2016-02-06 17:44:55,645 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5605.1
+2016-02-06 17:44:55,645 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29650158	29650624	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "1"; cov "77.501740";
+2016-02-06 17:44:55,645 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29650723	29650750	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "2"; cov "626.775879";
+2016-02-06 17:44:55,646 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29650929	29651015	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "3"; cov "845.618958";
+2016-02-06 17:44:55,646 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651316	29651374	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "4"; cov "665.273193";
+2016-02-06 17:44:55,647 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651648	29651689	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "5"; cov "643.467041";
+2016-02-06 17:44:55,647 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651772	29651845	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "6"; cov "962.549438";
+2016-02-06 17:44:55,647 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29651949	29652046	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "7"; cov "1075.958984";
+2016-02-06 17:44:55,648 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5606.1: Chr1	StringTie	exon	29652166	29654909	1000	+	.	gene_id "Stringtie_STAR.5606"; transcript_id "Stringtie_STAR.5606.1"; exon_number "8"; cov "303.908478";
+2016-02-06 17:44:55,648 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29656599	29659237	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; cov "135.296432"; FPKM "inf";
+2016-02-06 17:44:55,648 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5606.1
+2016-02-06 17:44:55,649 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5606.1
+2016-02-06 17:44:55,649 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,650 - DEBUG:344 - __prepare_result - MainProcess - Matches for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,650 - DEBUG:349 - __prepare_result - MainProcess - More than one match for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,650 - DEBUG:223 - __check_for_fusions - MainProcess - Matches for Stringtie_STAR.5606.1: [((29652633, 29655949), 0), ((29650454, 29652593), 0)]
+2016-02-06 17:44:55,651 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29652633, 29655949), 0): ['AT1G78882', 'AT1G78880']
+2016-02-06 17:44:55,652 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d7b8>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), )), (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d5c0>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))]
+2016-02-06 17:44:55,652 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d7b8>, result( ref_id=('AT1G78882.1',), ref_gene=('AT1G78882',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))
+2016-02-06 17:44:55,653 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a94d5c0>, result( ref_id=('AT1G78880.1',), ref_gene=('AT1G78880',), ccode=('x',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(53.51,), n_recall=(85.75,), n_f1=(65.9,), j_prec=(0.0,), j_recall=(0.0,), j_f1=(0,), e_prec=(0.0,), e_recall=(0.0,), e_f1=(0,), distance=(0,), ))
+2016-02-06 17:44:55,653 - DEBUG:229 - __check_for_fusions - MainProcess - Match for ((29650454, 29652593), 0): ['AT1G78870']
+2016-02-06 17:44:55,655 - DEBUG:241 - __check_for_fusions - MainProcess - Temp results: [(<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a95e978>, result( ref_id=('AT1G78870.2',), ref_gene=('AT1G78870',), ccode=('=',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(25.31,), n_recall=(100.0,), n_f1=(40.4,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(75.0,), e_recall=(75.0,), e_f1=(75.0,), distance=(0,), ))]
+2016-02-06 17:44:55,655 - DEBUG:257 - __check_for_fusions - MainProcess - Best result: (<mikado_lib.loci_objects.reference_gene.Gene object at 0x7f011a95e978>, result( ref_id=('AT1G78870.2',), ref_gene=('AT1G78870',), ccode=('=',), tid=Stringtie_STAR.5606.1, gid=Stringtie_STAR.5606, n_prec=(25.31,), n_recall=(100.0,), n_f1=(40.4,), j_prec=(100.0,), j_recall=(100.0,), j_f1=(100.0,), e_prec=(75.0,), e_recall=(75.0,), e_f1=(75.0,), distance=(0,), ))
+2016-02-06 17:44:55,657 - DEBUG:301 - __check_for_fusions - MainProcess - Fused group: ('AT1G78870',); GID_groups: [('AT1G78880', 'AT1G78882'), ('AT1G78870',)]
+2016-02-06 17:44:55,657 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5606.1
+2016-02-06 17:44:55,658 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5607.1: Chr1	StringTie	exon	29656599	29657019	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; exon_number "1"; cov "245.904984";
+2016-02-06 17:44:55,658 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5607.1: Chr1	StringTie	exon	29657467	29657555	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; exon_number "2"; cov "401.343536";
+2016-02-06 17:44:55,659 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5607.1: Chr1	StringTie	exon	29657796	29659237	1000	+	.	gene_id "Stringtie_STAR.5607"; transcript_id "Stringtie_STAR.5607.1"; exon_number "3"; cov "86.237511";
+2016-02-06 17:44:55,659 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29657467	29659924	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; cov "189.397232"; FPKM "inf";
+2016-02-06 17:44:55,659 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5607.1
+2016-02-06 17:44:55,660 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5607.1
+2016-02-06 17:44:55,660 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5607.1: [((29652633, 29655949), 650)]
+2016-02-06 17:44:55,661 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5607.1
+2016-02-06 17:44:55,661 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29657467	29658428	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "1"; cov "106.872856";
+2016-02-06 17:44:55,662 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29658806	29658875	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "2"; cov "575.209290";
+2016-02-06 17:44:55,662 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29659094	29659235	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "3"; cov "511.846405";
+2016-02-06 17:44:55,662 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5608.1: Chr1	StringTie	exon	29659700	29659924	1000	-	.	gene_id "Stringtie_STAR.5608"; transcript_id "Stringtie_STAR.5608.1"; exon_number "4"; cov "346.965668";
+2016-02-06 17:44:55,663 - DEBUG:208 - parse_prediction - MainProcess - Transcript row:
+Chr1	StringTie	transcript	29666248	29666646	1000	-	.	gene_id "Stringtie_STAR.5609"; transcript_id "Stringtie_STAR.5609.1"; cov "7.835483"; FPKM "inf";
+2016-02-06 17:44:55,663 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5608.1
+2016-02-06 17:44:55,664 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5608.1
+2016-02-06 17:44:55,664 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5608.1: [((29652633, 29655949), 1518)]
+2016-02-06 17:44:55,664 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5608.1
+2016-02-06 17:44:55,665 - DEBUG:218 - parse_prediction - MainProcess - Adding exon to transcript Stringtie_STAR.5609.1: Chr1	StringTie	exon	29666248	29666646	1000	-	.	gene_id "Stringtie_STAR.5609"; transcript_id "Stringtie_STAR.5609.1"; exon_number "1"; cov "7.835483";
+2016-02-06 17:44:55,665 - DEBUG:390 - get_best - MainProcess - Started with Stringtie_STAR.5609.1
+2016-02-06 17:44:55,666 - DEBUG:395 - finalize - MainProcess - Finished finalising Stringtie_STAR.5609.1
+2016-02-06 17:44:55,666 - DEBUG:417 - get_best - MainProcess - Distances for Stringtie_STAR.5609.1: []
+2016-02-06 17:44:55,666 - DEBUG:443 - get_best - MainProcess - Finished with Stringtie_STAR.5609.1
+2016-02-06 17:44:55,667 - INFO:455 - finish - MainProcess - Finished parsing, total: 10 transcripts.
+2016-02-06 17:44:55,667 - INFO:807 - refmap_printer - MainProcess - Starting printing RefMap
+2016-02-06 17:44:55,669 - INFO:867 - refmap_printer - MainProcess - Finished printing RefMap
+2016-02-06 17:44:55,669 - DEBUG:325 - __extract_terminal_stats - MainProcess - Starts [2, 2, 4]
+2016-02-06 17:44:55,670 - DEBUG:338 - __extract_terminal_stats - MainProcess - Ends [2, 2, 4]
+2016-02-06 17:44:55,671 - DEBUG:283 - __calculate_intron_stats - MainProcess - Intron chains:        	reference 5	4
         	prediction	4
         	4
         	common	2 3 2
-2016-01-28 19:00:28,460 - DEBUG:197 - __retrieve_gene_stats - MainProcess - Found ref transcripts:
+2016-02-06 17:44:55,672 - DEBUG:197 - __retrieve_gene_stats - MainProcess - Found ref transcripts:
         	stringent	0
         	lenient	0
         	total	5
-2016-01-28 19:00:28,460 - DEBUG:197 - __retrieve_gene_stats - MainProcess - Found pred transcripts:
+2016-02-06 17:44:55,672 - DEBUG:197 - __retrieve_gene_stats - MainProcess - Found pred transcripts:
         	stringent	0
         	lenient	0
         	total	10
-2016-01-28 19:00:28,461 - DEBUG:654 - print_stats - MainProcess - Exon stringent [9, 26, 18]
-2016-01-28 19:00:28,461 - DEBUG:655 - print_stats - MainProcess - Exon lenient [13, 20, 15]
-2016-01-28 19:00:28,461 - DEBUG:662 - print_stats - MainProcess - Bases:
+2016-02-06 17:44:55,672 - DEBUG:654 - print_stats - MainProcess - Exon stringent [9, 26, 18]
+2016-02-06 17:44:55,673 - DEBUG:655 - print_stats - MainProcess - Exon lenient [13, 20, 15]
+2016-02-06 17:44:55,673 - DEBUG:662 - print_stats - MainProcess - Bases:
             	reference	3197
             	prediction	18851
             	common	3327
-2016-01-28 19:00:28,462 - INFO:287 - compare - MainProcess - Finished
+2016-02-06 17:44:55,674 - INFO:287 - compare - MainProcess - Finished

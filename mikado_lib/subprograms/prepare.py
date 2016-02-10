@@ -49,7 +49,9 @@ def grouper(iterable, num=100):
 
 
 def create_transcript(lines,
-                      fasta_seq,
+                      chrom,
+                      key,
+                      fasta_index_name,
                       lenient=False,
                       strand_specific=False,
                       canonical_splices=(("GT", "AG"),
@@ -72,6 +74,9 @@ def create_transcript(lines,
     logger = logging.getLogger("main")
     logger.debug("Starting with %s", lines[0].transcript)
 
+    with pyfaidx.Fasta(fasta_index_name) as fasta_index:
+        fasta_seq = str(fasta_index[chrom][key[0]-1:key[1]])
+
     try:
         transcript_line = copy.deepcopy(lines[0])
         transcript_line.feature = "transcript"
@@ -90,7 +95,7 @@ def create_transcript(lines,
         logger.debug("Finished adding exon lines to %s", lines[0].transcript)
         transcript_object.finalize()
         transcript_object.check_strand()
-    except exceptions.IncorrectStrandError as exc:
+    except exceptions.IncorrectStrandError:
         logger.info("Discarded %s because of incorrect fusions of splice junctions",
                     lines[0].transcript[0] if type(lines[0].transcript) is list
                     else lines[0].transcript)
@@ -111,7 +116,7 @@ def create_transcript(lines,
     return transcript_object
 
 
-def store_transcripts(exon_lines, logger, min_length=0, cache=False):
+def store_transcripts(exon_lines, logger, min_length=0):
 
     """
     Function that analyses the exon lines from the original file
@@ -125,9 +130,6 @@ def store_transcripts(exon_lines, logger, min_length=0, cache=False):
     :param min_length: minimal length of the transcript.
     If it is not met, the transcript will be discarded.
     :type min_length: int
-
-    :param cache: whether the FASTA file of the genome has been preloaded into RAM.
-    :type cache: bool
 
     :return: transcripts: dictionary which will be the final output
     :rtype: transcripts
@@ -164,7 +166,7 @@ def store_transcripts(exon_lines, logger, min_length=0, cache=False):
                 for tid in tids:
                     exon_set = tuple(sorted([(exon.start, exon.end, exon.strand) for exon in
                                               exon_lines[tid]],
-                                            key=operator.itemgetter(0,1)))
+                                            key=operator.itemgetter(0, 1)))
                     exons[exon_set].append(tid)
                 tids = []
                 logger.debug("%d intron chains for pos %s",
@@ -213,6 +215,7 @@ def perform_check(keys, exon_lines, args, logger):
 
     partial_checker = functools.partial(
         create_transcript,
+        fasta_index_name = args.json_conf["prepare"]["fasta"].filename,
         lenient=args.json_conf["prepare"]["lenient"],
         strand_specific=args.json_conf["prepare"]["strand_specific"])
 
@@ -223,7 +226,7 @@ def perform_check(keys, exon_lines, args, logger):
         for tid, chrom, key in keys:
             transcript_object = partial_checker(
                 exon_lines[tid],
-                str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]].seq))
+                chrom, key)
             if transcript_object is None:
                 continue
             counter += 1
@@ -231,7 +234,7 @@ def perform_check(keys, exon_lines, args, logger):
                 logger.info("Retrieved %d transcript positions", counter)
             elif counter >= 10**3 and counter % (10**3) == 0:
                 logger.debug("Retrieved %d transcript positions", counter)
-            print(transcript_object.__str__(to_gtf=True),
+            print(transcript_object.format("gtf"),
                   file=args.json_conf["prepare"]["out"])
             print(transcript_object.fasta,
                   file=args.json_conf["prepare"]["out_fasta"])
@@ -246,7 +249,7 @@ def perform_check(keys, exon_lines, args, logger):
             results = pool.starmap_async(
                 partial_checker,
                 [(exon_lines[tid],
-                  str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]].seq))
+                  chrom, key)
                  for (tid, chrom, key) in group]
             )
 
@@ -292,7 +295,7 @@ def setup(args):
     if not os.path.exists(args.json_conf["prepare"]["output_dir"]):
         try:
             os.makedirs(args.json_conf["prepare"]["output_dir"])
-        except (OSError,PermissionError) as exc:
+        except (OSError, PermissionError) as exc:
             logger.error("Failed to create the output directory!")
             logger.exception(exc)
             raise

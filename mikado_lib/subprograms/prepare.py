@@ -512,8 +512,7 @@ def prepare(args):
     sorter = functools.partial(
         store_transcripts,
         logger=logger,
-        min_length=args.json_conf["prepare"]["minimum_length"],
-        cache=args.json_conf["prepare"]["cache"]
+        min_length=args.json_conf["prepare"]["minimum_length"]
     )
 
     perform_check(sorter(exon_lines), exon_lines, args, logger)

@@ -98,7 +98,7 @@ def pick(args):
         args.json_conf["pick"]["files"]["loci_out"] = args.loci_out
 
     if args.source is not None:
-        args.json_conf["output_format"]["source"] = args.source
+        args.json_conf["pick"]["output_format"]["source"] = args.source
 
     if args.sqlite_db is not None:
         args.json_conf["db_settings"]["db"] = args.sqlite_db

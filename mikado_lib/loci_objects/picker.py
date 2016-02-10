@@ -1155,12 +1155,18 @@ memory intensive, proceed with caution!")
                     else:
                         counter += 1
                         self.logger.debug("Analysing locus # %d", counter)
+                        try:
+                            for stranded_locus in submit_locus(current_locus, counter):
+                                if stranded_locus.chrom != curr_chrom:
+                                    curr_chrom = stranded_locus.chrom
+                                    gene_counter = 0
+                                gene_counter = locus_printer(stranded_locus, gene_counter)
+                        except KeyboardInterrupt:
+                            raise
+                        except Exception as exc:
+                            self.logger.exception("Superlocus %s failed with exception: %s",
+                                                  current_locus.id, exc)
 
-                        for stranded_locus in submit_locus(current_locus, counter):
-                            if stranded_locus.chrom != curr_chrom:
-                                curr_chrom = stranded_locus.chrom
-                                gene_counter = 0
-                            gene_counter = locus_printer(stranded_locus, gene_counter)
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,

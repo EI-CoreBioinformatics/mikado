@@ -276,6 +276,7 @@ def serialise(args):
     load_junctions(args, logger)
     load_blast(args, logger)
     load_orfs(args, logger)
+    logger.info("Finished")
 
 
 def serialise_parser():
@@ -322,11 +323,11 @@ def serialise_parser():
     enclose the filename pattern in double quotes.
 
     Multiple folders/file patterns can be given, separated by a comma.
-    """)
+    """, default=[])
 
     junctions = parser.add_argument_group()
     junctions.add_argument("--genome_fai", default=None)
-    junctions.add_argument("--junctions", type=str)
+    junctions.add_argument("--junctions", type=str, default=None)
     generic = parser.add_argument_group()
     generic.add_argument("-mo", "--max-objects", dest="max_objects",
                          type=int, default=None,  # So it can actually be set through the JSON

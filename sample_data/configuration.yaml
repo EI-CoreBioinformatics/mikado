@@ -98,6 +98,8 @@ prepare:
   out: mikado_prepared.gtf
   out_fasta: mikado_prepared.fasta
   cache: false
+  threads: 5
+  single: false
 serialise:
   #  Options related to serialisation
   #  - force: whether to drop and reload everything into the DB

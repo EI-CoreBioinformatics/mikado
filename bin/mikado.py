@@ -10,11 +10,16 @@ import mikado_lib.subprograms
 from mikado_lib.utilities.log_utils import create_default_logger
 
 
+__spec__ = "mikado"
+
 def main(call_args=None):
 
     """
     Main launcher function for the pipeline.
     """
+
+    __spec__ = "mikado"
+
     if call_args is None:
         call_args = sys.argv[1:]
 
@@ -85,4 +90,5 @@ def main(call_args=None):
         sys.exit(1)
 
 if __name__ == '__main__':
+    __spec__ = "mikado"
     main()

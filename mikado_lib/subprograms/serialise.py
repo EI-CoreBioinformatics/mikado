@@ -129,11 +129,12 @@ def load_blast(args, logger):
             else:
                 filenames.extend(glob.glob(xml))
 
-        if len(filenames) == 0:
-            raise ValueError("No valid BLAST file specified!")
+        if len(filenames) > 0:
 
-        part_launcher(filenames)
-        logger.info("Finished to load BLAST data")
+            part_launcher(filenames)
+            logger.info("Finished to load BLAST data")
+        else:
+            logger.warning("No valid BLAST file specified, skipping this phase")
 
 
 def load_orfs(args, logger):

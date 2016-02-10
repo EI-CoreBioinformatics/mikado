@@ -12,7 +12,7 @@ import argparse
 import operator
 import collections
 import logging
-import itertools
+import logging.handlers
 from .. import exceptions
 import copy
 from ..utilities import path_join
@@ -30,38 +30,39 @@ import pyfaidx
 __author__ = 'Luca Venturini'
 
 
-def grouper(iterable, num, fillvalue=(None, None)):
-    """Collect data into fixed-length chunks or blocks.
-    Source: itertools standard library documentation
-    https://docs.python.org/3/library/itertools.html?highlight=itertools#itertools-recipes
+def grouper(iterable, num=100):
 
-    :param iterable: the iterable to be considered for grouping.
-    :param num: length of the chunks.
-    :type num: int
-
-    :param fillvalue: the default filler for missing positions while grouping.
-    :type fillvalue: tuple
     """
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * num
-    return itertools.zip_longest(*args, fillvalue=fillvalue)
+    Simple function to prechunk an iterable into groups of fixed size.
+    :param iterable: the iterable to chunk.
+    :param num: Maximum number of elements per chunk. Default: 100.
+    :return:
+    """
+
+    cache = []
+
+    for el in iterable:
+        cache.append(el)
+        if len(cache) >= num:
+            yield cache
+            cache = []
+    yield cache
 
 
 def create_transcript(lines,
-                      chrom,
-                      key,
-                      fasta_index_name,
+                      fasta_seq,
                       lenient=False,
                       strand_specific=False,
                       canonical_splices=(("GT", "AG"),
                                          ("GC", "AG"),
-                                         ("AT", "AC"))):
+                                         ("AT", "AC")),
+                      log_queue=None):
     """Function to create the checker.
 
     :param lines: all the exon lines for an object
     :type lines: list[GTF.GtfLine]
 
-    :param fasta_index_name: name of the FAIDX file.
+    :param fasta_seq: genomic sequence of the transcript
 
     :type lenient: bool
     :type strand_specific: bool
@@ -69,14 +70,14 @@ def create_transcript(lines,
     :param canonical_splices: the splices considered as canonical for the species.
     :type canonical_splices: list[tuple]
 
+    :param log_queue: the optional Queue to use for logging (during multiprocessing)
     """
     logger = logging.getLogger("main")
+    if log_queue is not None:
+        handler = logging.handlers.QueueHandler(log_queue)
+        logger.addHandler(handler)
+
     logger.debug("Starting with %s", lines[0].transcript)
-    logger.warning("Chromosome %s, index %s", chrom, key)
-
-    fasta_index = pyfaidx.Fasta(fasta_index_name)
-
-    fasta_seq = fasta_index[chrom][key[0]-1:key[1]].seq
 
     try:
         transcript_line = copy.deepcopy(lines[0])
@@ -84,10 +85,11 @@ def create_transcript(lines,
         transcript_line.start = min(r.start for r in lines)
         transcript_line.end = max(r.end for r in lines)
         transcript_object = TranscriptChecker(transcript_line,
-                                          fasta_seq, lenient=lenient,
-                                          strand_specific=strand_specific,
-                                          canonical_splices=canonical_splices,
-                                          logger = logger)
+                                              fasta_seq,
+                                              lenient=lenient,
+                                              strand_specific=strand_specific,
+                                              canonical_splices=canonical_splices,
+                                              logger=logger)
 
         transcript_object.logger = logger
         for line in lines:
@@ -95,11 +97,11 @@ def create_transcript(lines,
         logger.debug("Finished adding exon lines to %s", lines[0].transcript)
         transcript_object.finalize()
         transcript_object.check_strand()
-    except exceptions.IncorrectStrandError as exc:
+    except exceptions.IncorrectStrandError:
         logger.info("Discarded %s because of incorrect fusions of splice junctions",
                     lines[0].transcript[0] if type(lines[0].transcript) is list
                     else lines[0].transcript)
-        logger.exception(exc)
+        # logger.exception(exc)
         transcript_object = None
     except exceptions.InvalidTranscript:
         logger.info("Discarded generically invalid transcript %s",
@@ -112,11 +114,11 @@ def create_transcript(lines,
         raise
 
     logger.debug("Finished with %s", lines[0].transcript)
-    fasta_index.close()
+
     return transcript_object
 
 
-def store_transcripts(exon_lines, logger, min_length=0, cache=False):
+def store_transcripts(exon_lines, logger, min_length=0):
 
     """
     Function that analyses the exon lines from the original file
@@ -130,9 +132,6 @@ def store_transcripts(exon_lines, logger, min_length=0, cache=False):
     :param min_length: minimal length of the transcript.
     If it is not met, the transcript will be discarded.
     :type min_length: int
-
-    :param cache: whether the FASTA file of the genome has been preloaded into RAM.
-    :type cache: bool
 
     :return: transcripts: dictionary which will be the final output
     :rtype: transcripts
@@ -156,7 +155,7 @@ def store_transcripts(exon_lines, logger, min_length=0, cache=False):
 
     logger.info("Starting to sort %d transcripts", len(exon_lines))
     # keys = []
-    counter = 0
+    # counter = 0
     for chrom in sorted(transcripts.keys()):
 
         logger.debug("Starting with %s (%d positions)", chrom, len(transcripts[chrom]))
@@ -169,7 +168,7 @@ def store_transcripts(exon_lines, logger, min_length=0, cache=False):
                 for tid in tids:
                     exon_set = tuple(sorted([(exon.start, exon.end, exon.strand) for exon in
                                               exon_lines[tid]],
-                                            key=operator.itemgetter(0,1)))
+                                            key=operator.itemgetter(0, 1)))
                     exons[exon_set].append(tid)
                 tids = []
                 logger.debug("%d intron chains for pos %s",
@@ -187,7 +186,7 @@ def store_transcripts(exon_lines, logger, min_length=0, cache=False):
 
             # seq = chrom_seq[key[0]-1:key[1]]
             for tid in tids:
-                counter += 1
+                # counter += 1
                 yield [tid, chrom, key]
             # keys.extend([tid, seq] for tid in tids)
 
@@ -213,24 +212,23 @@ def perform_check(keys, exon_lines, args, logger):
 
     counter = 0
 
-    # pylint: disable=no-member
-    pool = multiprocessing.Pool(args.threads)
-    # pylint: enable=no-member
-
-    # Use functools to pre-configure the function
-    # with all necessary arguments aside for the lines
-    partial_checker = functools.partial(
-        create_transcript,
-        fasta_index_name=args.json_conf["prepare"]["fasta"].filename,
-        lenient=args.json_conf["prepare"]["lenient"],
-        strand_specific=args.json_conf["prepare"]["strand_specific"])
-
-    # logger.info("Starting to analyse %d surviving transcripts looking at the underlying sequence",
-    #             len(keys))
+    # FASTA extraction *has* to be done at the main process level, it's too slow
+    # to create an index in each process.
 
     if args.json_conf["prepare"]["single"] is True:
+
+        # Use functools to pre-configure the function
+        # with all necessary arguments aside for the lines
+        partial_checker = functools.partial(
+            create_transcript,
+            lenient=args.json_conf["prepare"]["lenient"],
+            strand_specific=args.json_conf["prepare"]["strand_specific"],
+            log_queue=None)
+
         for tid, chrom, key in keys:
-            transcript_object = partial_checker(exon_lines[tid], chrom, key)
+            transcript_object = partial_checker(
+                exon_lines[tid],
+                str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]))
             if transcript_object is None:
                 continue
             counter += 1
@@ -238,20 +236,38 @@ def perform_check(keys, exon_lines, args, logger):
                 logger.info("Retrieved %d transcript positions", counter)
             elif counter >= 10**3 and counter % (10**3) == 0:
                 logger.debug("Retrieved %d transcript positions", counter)
-            print(transcript_object.__str__(to_gtf=True),
+            print(transcript_object.format("gtf"),
                   file=args.json_conf["prepare"]["out"])
             print(transcript_object.fasta,
                   file=args.json_conf["prepare"]["out_fasta"])
     else:
-        for group in grouper(keys, 100):
-            if group is None:
-                continue
-            results = [
-                pool.apply_async(partial_checker, args=(exon_lines[tid], chrom, key))
-                for (tid, chrom, key) in iter(x for x in group if x != (None, None))
-            ]
-            for transcript_object in results:
-                transcript_object = transcript_object.get()
+        # pylint: disable=no-member
+        context = multiprocessing.get_context('forkserver')
+        manager = context.Manager()
+        logging_queue = manager.Queue(-1)
+        queue_handler = logging.handlers.QueueHandler(logging_queue)
+        logger.addHandler(queue_handler)
+
+        partial_checker = functools.partial(
+            create_transcript,
+            lenient=args.json_conf["prepare"]["lenient"],
+            strand_specific=args.json_conf["prepare"]["strand_specific"],
+            log_queue=logging_queue)
+
+        pool = context.Pool(args.threads)
+
+        # pylint: enable=no-member
+
+        for group in grouper(keys, args.threads):
+
+            results = pool.starmap_async(
+                partial_checker,
+                [(exon_lines[tid],
+                  str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]))
+                 for (tid, chrom, key) in group]
+            )
+
+            for transcript_object in results.get():
 
                 if transcript_object is None:
                     continue
@@ -264,11 +280,13 @@ def perform_check(keys, exon_lines, args, logger):
                       file=args.json_conf["prepare"]["out"])
                 print(transcript_object.fasta,
                       file=args.json_conf["prepare"]["out_fasta"])
+
         pool.close()
         pool.join()
 
     logger.info("Finished to analyse %d transcripts (%d retained)",
                 len(exon_lines), counter)
+    args.json_conf["prepare"]["fasta"].close()
     return
 
 
@@ -291,7 +309,7 @@ def setup(args):
     if not os.path.exists(args.json_conf["prepare"]["output_dir"]):
         try:
             os.makedirs(args.json_conf["prepare"]["output_dir"])
-        except (OSError,PermissionError) as exc:
+        except (OSError, PermissionError) as exc:
             logger.error("Failed to create the output directory!")
             logger.exception(exc)
             raise
@@ -508,11 +526,13 @@ def prepare(args):
     sorter = functools.partial(
         store_transcripts,
         logger=logger,
-        min_length=args.json_conf["prepare"]["minimum_length"],
-        cache=args.json_conf["prepare"]["cache"]
+        min_length=args.json_conf["prepare"]["minimum_length"]
     )
 
     perform_check(sorter(exon_lines), exon_lines, args, logger)
+
+    args.json_conf["prepare"]["out"].close()
+    args.json_conf["prepare"]["out_fasta"].close()
 
     logger.info("Finished")
 

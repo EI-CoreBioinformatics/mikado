@@ -104,7 +104,7 @@
       "SimpleComment": ["Options related to serialisation",
         "- force: whether to drop and reload everything into the DB",
         "- orfs: BED12 file(s) with the ORFs.",
-        "- fai: genome "
+        "- genome_fai: genome FAI file"
       ],
       "properties": {
         "files": {

@@ -12,6 +12,7 @@ import argparse
 import operator
 import collections
 import logging
+import logging.handlers
 from .. import exceptions
 import copy
 from ..utilities import path_join
@@ -49,14 +50,13 @@ def grouper(iterable, num=100):
 
 
 def create_transcript(lines,
-                      chrom,
-                      key,
-                      fasta_index_name,
+                      fasta_seq,
                       lenient=False,
                       strand_specific=False,
                       canonical_splices=(("GT", "AG"),
                                          ("GC", "AG"),
-                                         ("AT", "AC"))):
+                                         ("AT", "AC")),
+                      log_queue=None):
     """Function to create the checker.
 
     :param lines: all the exon lines for an object
@@ -70,12 +70,14 @@ def create_transcript(lines,
     :param canonical_splices: the splices considered as canonical for the species.
     :type canonical_splices: list[tuple]
 
+    :param log_queue: the optional Queue to use for logging (during multiprocessing)
     """
     logger = logging.getLogger("main")
-    logger.debug("Starting with %s", lines[0].transcript)
+    if log_queue is not None:
+        handler = logging.handlers.QueueHandler(log_queue)
+        logger.addHandler(handler)
 
-    with pyfaidx.Fasta(fasta_index_name) as fasta_index:
-        fasta_seq = str(fasta_index[chrom][key[0]-1:key[1]])
+    logger.debug("Starting with %s", lines[0].transcript)
 
     try:
         transcript_line = copy.deepcopy(lines[0])
@@ -210,23 +212,23 @@ def perform_check(keys, exon_lines, args, logger):
 
     counter = 0
 
-    # Use functools to pre-configure the function
-    # with all necessary arguments aside for the lines
-
-    partial_checker = functools.partial(
-        create_transcript,
-        fasta_index_name = args.json_conf["prepare"]["fasta"].filename,
-        lenient=args.json_conf["prepare"]["lenient"],
-        strand_specific=args.json_conf["prepare"]["strand_specific"])
-
-    # logger.info("Starting to analyse %d surviving transcripts looking at the underlying sequence",
-    #             len(keys))
+    # FASTA extraction *has* to be done at the main process level, it's too slow
+    # to create an index in each process.
 
     if args.json_conf["prepare"]["single"] is True:
+
+        # Use functools to pre-configure the function
+        # with all necessary arguments aside for the lines
+        partial_checker = functools.partial(
+            create_transcript,
+            lenient=args.json_conf["prepare"]["lenient"],
+            strand_specific=args.json_conf["prepare"]["strand_specific"],
+            log_queue=None)
+
         for tid, chrom, key in keys:
             transcript_object = partial_checker(
                 exon_lines[tid],
-                chrom, key)
+                str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]))
             if transcript_object is None:
                 continue
             counter += 1
@@ -241,7 +243,19 @@ def perform_check(keys, exon_lines, args, logger):
     else:
         # pylint: disable=no-member
         context = multiprocessing.get_context('forkserver')
+        manager = context.Manager()
+        logging_queue = manager.Queue(-1)
+        queue_handler = logging.handlers.QueueHandler(logging_queue)
+        logger.addHandler(queue_handler)
+
+        partial_checker = functools.partial(
+            create_transcript,
+            lenient=args.json_conf["prepare"]["lenient"],
+            strand_specific=args.json_conf["prepare"]["strand_specific"],
+            log_queue=logging_queue)
+
         pool = context.Pool(args.threads)
+
         # pylint: enable=no-member
 
         for group in grouper(keys, args.threads):
@@ -249,7 +263,7 @@ def perform_check(keys, exon_lines, args, logger):
             results = pool.starmap_async(
                 partial_checker,
                 [(exon_lines[tid],
-                  chrom, key)
+                  str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]))
                  for (tid, chrom, key) in group]
             )
 

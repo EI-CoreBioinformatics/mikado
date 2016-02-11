@@ -41,6 +41,7 @@ class Accountant:
         self.starts = dict()
         self.ends = dict()
         self.intron_chains = collections.Counter()
+        self.monoexonic_matches = (set(), set())
         self.ref_genes = dict()
         self.pred_genes = dict()
         self.__setup_reference_data(genes)
@@ -55,7 +56,11 @@ class Accountant:
         for gene in genes:
             self.ref_genes[gene] = dict()
             for transcr in genes[gene]:
-                self.ref_genes[gene][transcr.id] = 0b00
+                # 0b000, indicating:
+                # First bit: stringent match (100% F1)
+                # Second bit: normal match (95% F1)
+                # Third bit: lenient match (80% F1)
+                self.ref_genes[gene][transcr.id] = 0b000
                 #                 self.ref_transcript_num+=1
                 if transcr.chrom not in self.introns:
                     self.exons[transcr.chrom] = dict([("+", dict()), ("-", dict())])
@@ -157,10 +162,12 @@ class Accountant:
                    }
         """
 
-        found_transcripts_stringent = 0
-        found_transcripts_lenient = 0
-        found_genes_stringent = 0
-        found_genes_lenient = 0
+        found_transcripts_stringent = 0  # 100% match
+        found_transcripts = 0  # 95% match
+        found_transcripts_lenient = 0  # 80% match
+        found_genes_stringent = 0  # 100% match
+        found_genes = 0  # 95% match
+        found_genes_lenient = 0  # 80% match
         private_genes = 0
         private_transcripts = 0
         total_transcripts = 0
@@ -177,14 +184,18 @@ class Accountant:
             gene_not_found = 0b0
             for _, val in store[gene].items():
                 total_transcripts += 1
-                found_transcripts_lenient += (0b10 & val) >> 1
+                found_transcripts_lenient += (0b100 & val) >> 2
+                found_transcripts += (0b10 & val) >> 1
                 found_transcripts_stringent += 0b1 & val
                 # Will evaluate to 1 if the transcript has at least one match
-                private_transcripts += (0b100 & val) >> 2 ^ 0b1
-                gene_not_found ^= (0b100 & val) >> 2 ^ 0b1
+                private_transcripts += (0b1000 & val) >> 3 ^ 0b1
+                gene_not_found ^= (0b1000 & val) >> 3 ^ 0b1
                 gene_match |= val
             found_genes_stringent += gene_match & 0b1
-            found_genes_lenient += (gene_match & 0b10) >> 1
+            # Shift back by 1
+            found_genes += (gene_match & 0b10) >> 1
+            # Shift back by 2
+            found_genes_lenient += (gene_match & 0b100) >> 2
             private_genes += gene_not_found
 
         self.logger.debug("""Found %s transcripts:
@@ -198,6 +209,7 @@ class Accountant:
 
         result = dict()
         result["stringent"] = (found_transcripts_stringent, found_genes_stringent)
+        result["standard"] = (found_transcripts, found_genes)
         result["lenient"] = (found_transcripts_lenient, found_genes_lenient)
         result["total"] = total_transcripts
         result["private"] = (private_transcripts, private_genes)
@@ -483,7 +495,7 @@ class Accountant:
             else:
                 self.exons[transcr.chrom][strand][exon] |= 0b01000
 
-    def __store_monoexonic_result(self, transcr, strand, other_exon=None):
+    def __store_monoexonic_result(self, transcr, strand, result: ResultStorer, other_exon=None):
         """
         Private procedure to store the comparison of a monoexonic
         transcript with the reference.
@@ -498,6 +510,10 @@ class Accountant:
             self.exons[transcr.chrom][strand][exon] = 0b0
         self.exons[transcr.chrom][strand][exon] |= 0b10
         self.exons[transcr.chrom][strand][exon] |= 0b100
+        if result.ccode == ("_",):
+            self.monoexonic_matches[0].add(result.ref_id)
+            self.monoexonic_matches[1].add(transcr.id)
+
         if other_exon is not None:
             assert isinstance(other_exon, tuple)
             assert other_exon in self.exons[transcr.chrom][strand],\
@@ -527,7 +543,7 @@ class Accountant:
             if parent not in self.pred_genes:
                 self.pred_genes[parent] = dict()
             if transcr.id not in self.pred_genes[parent]:
-                self.pred_genes[parent][transcr.id] = 0b00
+                self.pred_genes[parent][transcr.id] = 0b0000
 
         if transcr.strand is None:
             strand = "+"
@@ -536,19 +552,23 @@ class Accountant:
 
         if result.ccode != ("u",):
             for parent in transcr.parent:
-                self.pred_genes[parent][transcr.id] |= 0b100
+                self.pred_genes[parent][transcr.id] |= 0b1000
             for refid, refgene in zip(result.ref_id, result.ref_gene):
-                self.ref_genes[refgene][refid] |= 0b100
+                self.ref_genes[refgene][refid] |= 0b1000
 
             if len(result.j_f1) == 1:
                 zipper = zip(result.ref_id, result.ref_gene, result.j_f1, result.n_f1)
                 for refid, refgene, junc_f1, nucl_f1 in zipper:
-                    if junc_f1 == 100 and nucl_f1 >= 95:
+                    if junc_f1 == 100 and nucl_f1 >= 80:
                         for parent in transcr.parent:
+                            self.pred_genes[parent][transcr.id] |= 0b100
+                            if nucl_f1 >= 95:
+                                self.pred_genes[parent][transcr.id] |= 0b10
                             if nucl_f1 == 100:
                                 self.pred_genes[parent][transcr.id] |= 0b01
-                            self.pred_genes[parent][transcr.id] |= 0b10
-                        self.ref_genes[refgene][refid] |= 0b10
+                        self.ref_genes[refgene][refid] |= 0b100
+                        if nucl_f1 >= 95:
+                            self.ref_genes[refgene][refid] |= 0b10
                         if nucl_f1 == 100:
                             self.ref_genes[refgene][refid] |= 0b01
 
@@ -562,7 +582,7 @@ class Accountant:
         if transcr.exon_num > 1:
             self.__store_multiexonic_result(transcr, strand, result)
         else:
-            self.__store_monoexonic_result(transcr, strand, other_exon=other_exon)
+            self.__store_monoexonic_result(transcr, strand, result, other_exon=other_exon)
 
     @staticmethod
     def __calculate_statistics(common, pred, ref):
@@ -595,7 +615,7 @@ class Accountant:
         :return:
         """
 
-        total_length = 32
+        total_length = 35
         return " " * (total_length-len(stru)-1) + "{}:".format(stru.rstrip(":"))
 
     @classmethod
@@ -687,6 +707,12 @@ class Accountant:
                 gene_transcript_results["pred"]["total"],
                 gene_transcript_results["ref"]["total"]))
 
+        (tr_precision_standard, tr_recall_standard, tr_f1_standard) = (
+            self.__calculate_statistics(
+                gene_transcript_results["ref"]["standard"][0],
+                gene_transcript_results["pred"]["total"],
+                gene_transcript_results["ref"]["total"]))
+
         # noinspection PyTypeChecker
         (tr_precision_lenient, tr_recall_lenient, tr_f1_lenient) = (
             self.__calculate_statistics(
@@ -701,6 +727,13 @@ class Accountant:
         (gene_precision_stringent, gene_recall_stringent, gene_f1_stringent) = (
             self.__calculate_statistics(
                 gene_transcript_results["ref"]["stringent"][1],
+                pred_genes,
+                ref_genes))
+
+        # noinspection PyTypeChecker
+        (gene_precision_standard, gene_recall_standard, gene_f1_standard) = (
+            self.__calculate_statistics(
+                gene_transcript_results["ref"]["standard"][1],
                 pred_genes,
                 ref_genes))
 
@@ -721,7 +754,7 @@ class Accountant:
             print(gene_transcript_results["pred"]["total"], "predicted RNAs in ",
                   len(self.pred_genes), "genes", file=out)
 
-            print("-" * 30, "|   Sn |   Pr |   F1 |", file=out)
+            print("-" * 33, "|   Sn |   Pr |   F1 |", file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Base level"),
                 bases_recall * 100,
@@ -751,17 +784,27 @@ class Accountant:
                 tr_precision_stringent * 100,
                 tr_f1_stringent * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
-                self.__format_rowname("Transcript level (lenient)"),
+                self.__format_rowname("Transcript level (>=95% base F1)"),
+                tr_recall_standard * 100,
+                tr_precision_standard * 100,
+                tr_f1_standard * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Transcript level (>=80% base F1)"),
                 tr_recall_lenient * 100,
                 tr_precision_lenient * 100,
                 tr_f1_lenient * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
-                self.__format_rowname("Gene level (stringent)"),
+                self.__format_rowname("Gene level (100% base F1)"),
                 gene_recall_stringent * 100,
                 gene_precision_stringent * 100,
                 gene_f1_stringent * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
-                self.__format_rowname("Gene level (lenient)"),
+                self.__format_rowname("Gene level (>=95% base F1)"),
+                gene_recall_standard * 100,
+                gene_precision_standard * 100,
+                gene_f1_standard * 100), file=out)
+            print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
+                self.__format_rowname("Gene level (>=80% base F1)"),
                 gene_recall_lenient * 100,
                 gene_precision_lenient * 100,
                 gene_f1_lenient * 100), file=out)
@@ -772,6 +815,20 @@ class Accountant:
             print("{0} {1}".format(
                 self.__format_rowname("Matched intron chains"),
                 intron_results["intron_chains"]["redundant"][1]), file=out)
+            print("{0} {1}".format(
+                self.__format_rowname("Matching monoexonic transcripts"),
+                len(self.monoexonic_matches[1])), file=out)
+            print("{0} {1}".format(
+                self.__format_rowname("Matched monoexonic transcripts"),
+                len(self.monoexonic_matches[0])), file=out)
+            print("{0} {1}".format(
+                self.__format_rowname("Total matching transcripts"),
+                intron_results["intron_chains"]["redundant"][0] + len(self.monoexonic_matches[1])),
+                file=out)
+            print("{0} {1}".format(
+                self.__format_rowname("Total matched transcripts"),
+                intron_results["intron_chains"]["redundant"][1] + len(self.monoexonic_matches[0])),
+                file=out)
 
             print("", file=out)
 

@@ -130,6 +130,8 @@ class TranscriptChecker(Transcript):
         The finalize method is called preliminarly before any operation.
         """
         self.finalize()
+        assert self.exons[0][0] - self.start == 0
+        assert self.exons[-1][1] - self.start + 1 == len(self.fasta_seq)
         if self.checked is True:
             return
 

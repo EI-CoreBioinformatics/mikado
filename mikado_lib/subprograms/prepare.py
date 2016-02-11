@@ -71,6 +71,8 @@ def create_transcript(lines,
     :type canonical_splices: list[tuple]
 
     :param log_queue: the optional Queue to use for logging (during multiprocessing)
+
+    :rtype: (None|TranscriptChecker)
     """
     logger = logging.getLogger("main")
     if log_queue is not None:

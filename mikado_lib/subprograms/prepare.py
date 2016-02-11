@@ -111,7 +111,7 @@ def create_transcript(lines,
         raise KeyboardInterrupt
     except Exception as exc:
         logger.exception(exc)
-        raise
+        transcript_object = None
 
     logger.debug("Finished with %s", lines[0].transcript)
 

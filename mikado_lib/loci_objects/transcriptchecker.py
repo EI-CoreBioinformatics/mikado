@@ -254,8 +254,6 @@ class TranscriptChecker(Transcript):
         self.check_strand()
         fasta = [">{0}".format(self.id)]
         sequence = ''
-        assert self.exons[0][0] - self.start == 0
-        assert self.exons[-1][1] - self.start + 1 == len(self.fasta_seq)
 
         for exon in self.exons:
             start = exon[0] - self.start
@@ -282,11 +280,7 @@ class TranscriptChecker(Transcript):
 
         sequence = self.grouper(sequence, 60)
         fasta.extend(sequence)
-        assert isinstance(fasta, list)
-        try:
-            fasta = "\n".join(fasta)
-        except TypeError as err:
-            raise TypeError("{0}\n{1}".format(err, fasta))
+        fasta = "\n".join(fasta)
         return fasta
 
     @staticmethod

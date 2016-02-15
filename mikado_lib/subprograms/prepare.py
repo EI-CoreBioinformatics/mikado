@@ -288,7 +288,8 @@ def perform_check(keys, exon_lines, args, logger):
 
     logger.info("Finished to analyse %d transcripts (%d retained)",
                 len(exon_lines), counter)
-    args.json_conf["prepare"]["fasta"].close()
+    if args.json_conf["prepare"]["cache"] is False:
+        args.json_conf["prepare"]["fasta"].close()
     return
 
 

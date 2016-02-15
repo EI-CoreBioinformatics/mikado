@@ -76,19 +76,10 @@ class XmlSerializer:
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
         self.session = session()
         self.logger.debug("Created the session")
-        if isinstance(xml, str):
-            self.xml_parser = xparser(create_opener(xml))
-        else:
-            assert isinstance(xml, (list, set))
-            if len(xml) < 1:
-                raise ValueError("No input file provided!")
-            elif len(xml) == 1:
-                self.xml_parser = xparser(create_opener(list(xml)[0]))
-            else:
-                self.xml_parser = xparser(XMLMerger(xml))  # Merge in memory
 
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
+        self.xml = xml
         # Just a mock definition
         self.get_query = functools.partial(self.__get_query_for_blast)
 
@@ -211,14 +202,14 @@ class XmlSerializer:
             #
             # objects.append(Target(record, len(self.target_seqs[record])))
             if len(objects) >= self.maxobjects:
-                counter += len(objects)
+                # counter += len(objects)
                 self.logger.info("Loading %d objects into the \"target\" table",
                                  counter)
                 # self.session.bulk_insert_mappings(Target, objects)
+                self.engine.execute(Target.__table__.insert(), objects)
                 self.session.commit()
                 objects = []
                 # pylint: disable=no-member
-                self.engine.execute(Target.__table__.insert(), objects)
                 # pylint: enable=no-member
                 # self.logger.info("Loaded %d objects into the \"target\" table",
                 #                  len(objects))
@@ -368,6 +359,16 @@ class XmlSerializer:
 
         # Load sequences in DB, precache IDs
         queries, targets = self.__serialise_sequences()
+        if isinstance(self.xml, str):
+            self.xml_parser = xparser(create_opener(self.xml))
+        else:
+            assert isinstance(self.xml, (list, set))
+            if len(self.xml) < 1:
+                raise ValueError("No input file provided!")
+            elif len(self.xml) == 1:
+                self.xml_parser = xparser(create_opener(list(self.xml)[0]))
+            else:
+                self.xml_parser = xparser(XMLMerger(self.xml))  # Merge in memory
 
         # Create the function that will retrieve the query_id given the name
         self.get_query = functools.partial(self.__get_query_for_blast,

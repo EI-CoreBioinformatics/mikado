@@ -323,6 +323,10 @@ def setup(args):
         raise OSError("The specified output directory %s exists and is not a file; aborting" %
                       args.json_conf["prepare"]["output_dir"])
 
+    if args.log is not None:
+        args.log.close()
+        args.json_conf["prepare"]["log"] = args.log.name
+
     if args.json_conf["prepare"]["log"]:
         handler = logging.FileHandler(
             path_join(
@@ -614,10 +618,11 @@ def prepare_parser():
                         help="""Flag. If set, monoexonic transcripts
                         will be left on their strand rather than being
                         moved to the unknown strand.""")
+    parser.add_argument("--log", type=argparse.FileType("w"), default=None,
+                        help="Log file. Optional.")
     parser.add_argument("-l", "--lenient", action="store_true", default=None,
-                        help="""Flag. If set, transcripts with mixed +/-
-                        splices will not cause exceptions but rather
-                        be annotated as problematic.""")
+                        help="""Flag. If set, transcripts with only non-canonical
+                        splices will be output as well.""")
     parser.add_argument("-m", "--minimum_length", default=200, type=positive,
                         help="Minimum length for transcripts. Default: 200 bps.")
     parser.add_argument("-t", "--threads",

@@ -12,7 +12,8 @@ from Bio.Blast.NCBIXML import parse as xparser
 from sqlalchemy.orm.session import sessionmaker
 from ...utilities.dbutils import DBBASE
 from ...utilities.dbutils import connect
-from ...parsers.blast_utils import XMLMerger, create_opener
+from ...parsers.blast_utils import create_opener  # , XMLMerger
+from ...parsers import HeaderError
 from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit
 
@@ -360,15 +361,16 @@ class XmlSerializer:
         # Load sequences in DB, precache IDs
         queries, targets = self.__serialise_sequences()
         if isinstance(self.xml, str):
-            self.xml_parser = xparser(create_opener(self.xml))
+            self.xml = [self.xml]
+            # self.xml_parser = xparser(create_opener(self.xml))
         else:
             assert isinstance(self.xml, (list, set))
-            if len(self.xml) < 1:
-                raise ValueError("No input file provided!")
-            elif len(self.xml) == 1:
-                self.xml_parser = xparser(create_opener(list(self.xml)[0]))
-            else:
-                self.xml_parser = xparser(XMLMerger(self.xml))  # Merge in memory
+            # if len(self.xml) < 1:
+            #     raise ValueError("No input file provided!")
+            # elif len(self.xml) == 1:
+            #     self.xml_parser = xparser(create_opener(list(self.xml)[0]))
+            # else:
+            #     self.xml_parser = xparser(XMLMerger(self.xml))  # Merge in memory
 
         # Create the function that will retrieve the query_id given the name
         self.get_query = functools.partial(self.__get_query_for_blast,
@@ -377,18 +379,63 @@ class XmlSerializer:
         hits, hsps = [], []
         hit_counter, record_counter = 0, 0
 
-        for record in self.xml_parser:
-            record_counter += 1
-            if record_counter > 0 and record_counter % 10000 == 0:
-                self.logger.info("Parsed %d queries", record_counter)
+        self.header = None
+        for filename in self.xml:
+            handle = create_opener(filename)
+            header = []
+            exc = None
+            while True:
+                line = next(handle)
 
-            hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
-                                                                               hits,
-                                                                               hsps,
-                                                                               targets)
-            hit_counter += partial_hit_counter
-            if hit_counter > 0 and hit_counter % 10000 == 0:
-                self.logger.info("Serialized %d alignments", hit_counter)
+                if "<Iteration>" in line:
+                    break
+                line = line.rstrip()
+                if not line:
+                    exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                        filename,
+                        "\n".join(header)
+                    ))
+                    break
+                if len(header) > 10**3:
+                    exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
+                        len(header),
+                        filename,
+                        "\n".join(header)
+                    ))
+                    break
+                header.append(line)
+            if not any(iter(True if "BlastOutput" in x else False for x in header)):
+                exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                    filename, "\n".join(header)))
+
+            if self.header is not None and exc is None:
+                    checker = [header_line for header_line in header if
+                               "BlastOutput_query" not in header_line]
+                    previous_header = [header_line for header_line in self.header if
+                                       "BlastOutput_query" not in header_line]
+                    if checker != previous_header:
+                        exc = HeaderError("BLAST XML header does not match for {0}".format(
+                            filename))
+            elif exc is None:
+                self.header = header
+            handle.close()
+
+            if exc is not None:
+                self.logger.error("Invalid header for %s, excluding it", filename)
+                continue
+
+            for record in xparser(create_opener(filename)):
+                record_counter += 1
+                if record_counter > 0 and record_counter % 10000 == 0:
+                    self.logger.info("Parsed %d queries", record_counter)
+
+                hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
+                                                                                   hits,
+                                                                                   hsps,
+                                                                                   targets)
+                hit_counter += partial_hit_counter
+                if hit_counter > 0 and hit_counter % 10000 == 0:
+                    self.logger.info("Serialized %d alignments", hit_counter)
 
         _, _ = self.__load_into_db(hits, hsps, force=True)
 

@@ -318,6 +318,7 @@ class XmlSerializer:
         current_counter = 0
 
         for ccc, alignment in enumerate(record.alignments):
+            ccc += 1
             if ccc > self.__max_target_seqs:
                 break
 
@@ -437,6 +438,7 @@ class XmlSerializer:
                 hit_counter += partial_hit_counter
                 if hit_counter > 0 and hit_counter % 10000 == 0:
                     self.logger.info("Serialized %d alignments", hit_counter)
+            self.logger.info("Finished with %s", filename)
 
         _, _ = self.__load_into_db(hits, hsps, force=True)
 

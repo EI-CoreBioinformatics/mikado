@@ -53,3 +53,6 @@ Mikado.egg-info/*
 .idea/modules.xml
 .idea/vcs.xml
 .idea/workspace.xml
+sample_data/mikado_prepared.fasta.fai
+sample_data/chr5.fas.fai
+sample_data/all.fasta.fai

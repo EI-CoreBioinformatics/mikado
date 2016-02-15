@@ -6,7 +6,7 @@ import os
 import functools
 
 import sqlalchemy
-from Bio import SeqIO
+# from Bio import SeqIO
 import sqlalchemy.exc
 from Bio.Blast.NCBIXML import parse as xparser
 from sqlalchemy.orm.session import sessionmaker

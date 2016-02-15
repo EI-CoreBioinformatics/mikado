@@ -512,7 +512,7 @@ class Assigner:
         - f    gene fusion - in this case, this ccode will be followed by the
         ccodes of the matches for each gene, separated by comma
         - _    Complete match, for monoexonic transcripts
-        (nucleotide F1>=95% - i.e. min(precision,recall)>=90.4%
+        (nucleotide F1>=80% - i.e. min(precision,recall)>=66.7%
         - m    Exon overlap between two monoexonic transcripts
         - n    Potential extension of the reference - we have added new splice junctions
         *outside* the boundaries of the transcript itself
@@ -583,7 +583,7 @@ class Assigner:
             else:
                 ccode = "c"  # We will set this to x at the end of the function
 
-        elif junction_f1 == 1 and nucl_f1 >= 0.95:
+        elif junction_f1 == 1 and nucl_f1 >= 0.80:
             reference_exon = reference.exons[0]
             ccode = "_"  # We have recovered all the junctions
             # if prediction.strand == reference.strand or prediction.strand is None:

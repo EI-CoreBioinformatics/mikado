@@ -309,7 +309,7 @@ def serialise_parser():
                       """)
 
     blast = parser.add_argument_group()
-    blast.add_argument("--max_target_seqs", type=int, default=sys.maxsize,
+    blast.add_argument("--max_target_seqs", type=int, default=None,
                        help="Maximum number of target sequences.")
     blast.add_argument("--blast_targets", default=None, type=to_seqio, help="Target sequences")
     blast.add_argument("--discard-definition", action="store_true", default=False,

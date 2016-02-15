@@ -11,6 +11,7 @@ import sqlalchemy.exc
 from Bio.Blast.NCBIXML import parse as xparser
 from sqlalchemy.orm.session import sessionmaker
 from ...utilities.dbutils import DBBASE
+import pyfaidx
 from ...utilities.dbutils import connect
 from ...parsers.blast_utils import create_opener  # , XMLMerger
 from ...parsers import HeaderError
@@ -95,24 +96,24 @@ class XmlSerializer:
 
         if isinstance(query_seqs, str):
             assert os.path.exists(query_seqs)
-            self.query_seqs = SeqIO.index(query_seqs, "fasta")
+            self.query_seqs = pyfaidx.Fasta(query_seqs)
         elif query_seqs is None:
             self.query_seqs = None
         else:
             self.logger.warn("Query type: %s", type(query_seqs))
-            assert "SeqIO.index" in repr(query_seqs)
+            # assert "SeqIO.index" in repr(query_seqs)
             self.query_seqs = query_seqs
 
         if isinstance(target_seqs, str):
             assert os.path.exists(target_seqs)
-            self.target_seqs = SeqIO.index(target_seqs, "fasta")
+            self.target_seqs = pyfaidx.Fasta(target_seqs)
         elif target_seqs is None:
             self.target_seqs = None
         else:
             self.logger.warn("Target (%s) type: %s",
                              target_seqs,
                              type(target_seqs))
-            assert "SeqIO.index" in repr(target_seqs)
+            # assert "SeqIO.index" in repr(target_seqs)
             self.target_seqs = target_seqs
         return
 
@@ -125,12 +126,12 @@ class XmlSerializer:
         counter = 0
         self.logger.info("Started to serialise the queries")
         objects = []
-        for record in self.query_seqs:
+        for record in self.query_seqs.records:
             if record in queries and queries[record][1] is not None:
                 continue
             elif record in queries:
                 self.session.query(Query).filter(Query.query_name == record).update(
-                    {"query_length": record.query_length})
+                    {"query_length": len(self.query_seqs[record])})
                 queries[record] = (queries[record][0], len(self.query_seqs[record]))
                 continue
 
@@ -186,12 +187,12 @@ class XmlSerializer:
         counter = 0
         objects = []
         self.logger.info("Started to serialise the targets")
-        for record in self.target_seqs:
+        for record in self.target_seqs.records:
             if record in targets and targets[record][1] is True:
                 continue
             elif record in targets:
                 self.session.query(Target).filter(Target.target_name == record).update(
-                    {"target_length": record.query_length})
+                    {"target_length": len(self.target_seqs[record])})
                 targets[record] = (targets[record][0], True)
                 continue
 

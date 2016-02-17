@@ -588,10 +588,14 @@ class Superlocus(Abstractlocus):
             return
 
         cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
+        self.logger.debug("Calculating the transcript graph")
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
                                              cds_only=cds_only)
-        _, subloci = self.find_communities(transcript_graph)
+        self.logger.debug("Calculated the transcript graph")
+        self.logger.debug("Calculating the transcript communities")
+        _, subloci = self.find_communities(transcript_graph, logger=self.logger)
+        self.logger.debug("Calculated the transcript communities")
 
         # Now we should define each sublocus and store it in a permanent structure of the class
         for subl in subloci:
@@ -648,7 +652,11 @@ class Superlocus(Abstractlocus):
         if self.monosubloci_defined is True:
             return
 
+        self.logger.debug("Calculating subloci for %s, %d transcripts",
+                          self.id, len(self.transcripts))
         self.define_subloci()
+        self.logger.debug("Calculated subloci for %s, %d transcripts",
+                          self.id, len(self.transcripts))
         self.monosubloci = []
         # Extract the relevant transcripts
         for sublocus_instance in sorted(self.subloci):
@@ -729,7 +737,11 @@ class Superlocus(Abstractlocus):
         if self.loci_defined is True:
             return
 
+        self.logger.debug("Calculating monosubloci for %s, %d transcripts",
+                          self.id, len(self.transcripts))
         self.define_monosubloci()
+        self.logger.debug("Calculated monosubloci for %s, %d transcripts",
+                          self.id, len(self.transcripts))
         self.calculate_mono_metrics()
 
         self.loci = collections.OrderedDict()
@@ -774,7 +786,7 @@ class Superlocus(Abstractlocus):
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only)
-        cliques, _ = self.find_communities(t_graph)
+        cliques, _ = self.find_communities(t_graph, logger=self.logger)
 
         loci_cliques = dict()
 

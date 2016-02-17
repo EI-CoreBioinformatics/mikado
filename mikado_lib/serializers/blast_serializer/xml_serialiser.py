@@ -318,7 +318,7 @@ class XmlSerializer:
         current_counter = 0
 
         for ccc, alignment in enumerate(record.alignments):
-            if ccc > self.__max_target_seqs:
+            if ccc + 1 > self.__max_target_seqs:
                 break
 
             self.logger.debug("Started the hit %s vs. %s",

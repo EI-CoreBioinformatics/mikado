@@ -141,12 +141,12 @@ class AssignerTester(unittest.TestCase):
 
         prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
-        prediction.end = 900
+        prediction.end = 500
         prediction.chrom = "Chr1"
         prediction.id = "G1.1"
         prediction.parent = "G1"
         prediction.strand = "+"
-        prediction.exons = [(200, 900)]
+        prediction.exons = [(200, 500)]
         prediction.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
@@ -155,7 +155,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.j_prec, (100,))
         self.assertEqual(result.j_recall, (100,))
         self.assertAlmostEqual(result.n_prec[0], 100, delta=0.1)
-        self.assertAlmostEqual(result.n_recall[0], 100 * (900 - 200 + 1) / reference.cdna_length,
+        self.assertAlmostEqual(result.n_recall[0], 100 * (500 - 200 + 1) / reference.cdna_length,
                                delta=0.1)
 
         prediction.strand = "-"
@@ -178,12 +178,12 @@ class AssignerTester(unittest.TestCase):
 
         prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 200
-        prediction.end = 1200
+        prediction.end = 3000
         prediction.chrom = "Chr1"
         prediction.id = "G1.1"
         prediction.parent = "G1"
         prediction.strand = "+"
-        prediction.exons = [(200, 1200)]
+        prediction.exons = [(200, 3000)]
         prediction.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
@@ -875,12 +875,12 @@ class AssignerTester(unittest.TestCase):
 
         prediction = mikado_lib.loci_objects.Transcript()
         prediction.start = 300
-        prediction.end = 2300
+        prediction.end = 3000
         prediction.strand = "."
         prediction.chrom = "Chr1"
         prediction.id = "G1.1"
         prediction.parent = "G1"
-        prediction.exons = [(300, 2300)]
+        prediction.exons = [(300, 3000)]
         prediction.finalize()
 
         result, _ = mikado_lib.scales.assigner.Assigner.compare(prediction, reference)
@@ -974,6 +974,10 @@ class AssignerTester(unittest.TestCase):
                 self.assertEqual(line["ccode"], "=", line)
         args.reference.close()
         args.prediction.close()
+        os.remove(args.log)
+        os.remove(out_refmap)
+        os.remove(os.path.join(master, "fusion_test", "fusion_test.stats"))
+        os.remove(os.path.join(master, "fusion_test", "fusion_test.tmap"))
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,6 +1,0 @@
-ref_id	ccode	tid	gid	ref_gene	best_ccode	best_tid	best_gid
-AT1G78870.1	j	Stringtie_STAR.5606.1	Stringtie_STAR.5606	AT1G78870	=	Stringtie_STAR.5606.1	Stringtie_STAR.5606
-AT1G78870.2	=	Stringtie_STAR.5606.1	Stringtie_STAR.5606	AT1G78870	=	Stringtie_STAR.5606.1	Stringtie_STAR.5606
-AT1G78870.3	j	Stringtie_STAR.5606.1	Stringtie_STAR.5606	AT1G78870	=	Stringtie_STAR.5606.1	Stringtie_STAR.5606
-AT1G78880.1	=	Stringtie_STAR.5605.1	Stringtie_STAR.5605	AT1G78880	=	Stringtie_STAR.5605.1	Stringtie_STAR.5605
-AT1G78882.1	=	Stringtie_STAR.5605.1	Stringtie_STAR.5605	AT1G78882	=	Stringtie_STAR.5605.1	Stringtie_STAR.5605

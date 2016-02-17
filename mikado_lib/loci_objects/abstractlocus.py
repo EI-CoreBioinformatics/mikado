@@ -9,12 +9,96 @@ import abc
 import random
 import logging
 from sys import maxsize
-from copy import copy, deepcopy
+# import itertools
+from collections import defaultdict
+# from copy import copy, deepcopy
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
-from ..utilities.log_utils import create_null_logger
+from ..utilities.log_utils import create_null_logger, create_default_logger
 
+
+def reid_daid_hurley(graph, k, cliques=None, logger=None):
+
+    """
+    Implementation of the Reid-Daid-Hurley algorithm for clique percolation
+    published in http://arxiv.org/pdf/1205.0038.pdf
+
+    :param graph:
+    :param k:
+    :param cliques:
+    :return:
+    """
+
+    if k < 2:
+        raise networkx.NetworkXError("k=%d, k must be greater than 1." % k)
+    if cliques is None:
+        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
+
+    if logger is None:
+        logger = create_null_logger("null")
+
+    nodes_to_clique_dict = defaultdict(set)
+    # Create the dictionary that links each node to its clique
+    logger.debug("Creating the node dictionary")
+    for clique in cliques:
+        for node in clique:
+            nodes_to_clique_dict[node].add(clique)
+
+    current_component = 0
+
+    logger.debug("Starting to explore the clique graph")
+    cliques_to_components_dict = dict()
+    counter = 0
+    for clique in cliques:
+        counter += 1
+        logger.debug("Exploring clique %d out of %d", counter, len(cliques))
+        if not clique in cliques_to_components_dict:
+            current_component += 1
+            cliques_to_components_dict[clique] = current_component
+            frontier = set()
+            frontier.add(clique)
+            cycle = 0
+            while len(frontier) > 0:
+                current_clique = frontier.pop()
+                cycle += 1
+                logger.debug("Cycle %d for clique %d", cycle, counter)
+                for neighbour in _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
+                    if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
+                        cliques_to_components_dict[neighbour] = current_component
+                        frontier.add(neighbour)
+                        for node in neighbour:
+                            nodes_to_clique_dict[node].remove(neighbour)
+                logger.debug("Found %d neighbours of clique %d in cycle %d",
+                             len(frontier), counter, cycle)
+
+    logger.debug("Finished exploring the clique graph")
+    communities = dict()
+    for clique in cliques_to_components_dict:
+        if cliques_to_components_dict[clique] not in communities:
+            communities[cliques_to_components_dict[clique]] = set()
+        communities[cliques_to_components_dict[clique]].update(set(clique))
+
+    logger.debug("Reporting the results")
+    return [frozenset(x) for x in communities.values()]
+
+
+def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
+
+    """
+
+    :param current_clique:
+    :param nodes_to_clique_dict:
+    :return:
+    """
+
+    neighbours = set()
+    for node in current_clique:
+        for clique in nodes_to_clique_dict[node]:
+            if clique != current_clique:
+                neighbours.add(clique)
+
+    return neighbours
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -289,11 +373,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return graph
 
     @classmethod
-    def find_communities(cls, graph: networkx.Graph) -> (list, list):
+    def find_communities(cls, graph: networkx.Graph, logger=None) -> (list, list):
         """
 
         :param graph: a Graph instance from networkx
         :type graph: networkx.Graph
+
+        :param logger: optional logger. A default null one will be created if none is provided.
+        :type logger: (None|logging.Logger)
 
         This function is a wrapper around the networkX methods to find
         cliques and communities inside a graph.
@@ -302,9 +389,59 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             - cliques
             - communities
         """
-        cliques = [frozenset(x) for x in networkx.find_cliques(graph)]
-        communities = list(networkx.k_clique_communities(graph, 2, cliques))
-        communities += [frozenset(x) for x in cliques if len(x) == 1]
+        if logger is None:
+            logger = create_default_logger("comms")
+
+        # graph = deepcopy(graph)
+        # logger.debug("Creating the cliques for %s", logger.name)
+        # # cliques = []
+        # # counter = 0
+        # # communities = []
+        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
+        #
+
+        logger.debug("Created %d cliques for %s", len(cliques), logger.name)
+        logger.debug("Creating the communities for %s", logger.name)
+
+        # nx_comms = [frozenset(x) for x in networkx.k_clique_communities(graph, 2, cliques)]
+        # rdh_comms = reid_daid_hurley(graph, 2, cliques)
+        #
+        # for comm in rdh_comms:
+        #     if len(comm) == 1:
+        #         continue
+        #     if not any([comm == _ for _ in nx_comms]):
+        #         logger.error("Discrepant communities for %s;\n%s\n%s",
+        #                      logger.name, nx_comms, rdh_comms)
+        #         raise AssertionError
+
+        communities = set()
+        for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
+            communities.add(comm)
+
+        # communities = set(frozenset(x) for x in cliques if len(x) == 1)
+        # for comm in networkx.k_clique_communities(graph, 2, cliques):
+        #     communities.add(comm)
+
+        # for clique in cliques:
+        #     if len(clique) == 1:
+        #         communities.add(frozenset(clique))
+        # total_found = set()
+        # for _ in communities:
+        #     total_found.update(set(_))
+
+        # for comm in communities:
+        #     graph.remove_nodes_from(comm)
+        #
+        # if len(graph) > 0:
+        #     logger.error("Incomplete graph analysis for %s", logger.name)
+        #     logger.error(graph.nodes())
+        #     logger.error(graph.edges())
+        #     logger.error(cliques)
+        #     logger.error(communities)
+        #     raise AssertionError("Incomplete graph analysis for %s" % logger.name)
+
+        logger.debug("Communities for %s:\n\t\t%s", logger.name, "\n\t\t".join(
+            [str(_) for _ in communities]))
         return cliques, communities
 
     @classmethod

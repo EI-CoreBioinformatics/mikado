@@ -28,6 +28,7 @@ pick:
     max_isoforms: 3
     min_score_perc: 0.6
     report: true
+    keep_retained_introns: false
   chimera_split:
     #  Parameters related to the splitting of transcripts in the presence of
     #  two or more ORFs. Parameters:

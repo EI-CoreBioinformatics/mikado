@@ -135,7 +135,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
 
         loci = []
         while len(graph) > 0:
-            cliques, communities = self.find_communities(graph)
+            cliques, communities = self.find_communities(graph, logger=self.logger)
             to_remove = set()
             for locus_comm in communities:
                 locus_comm = dict((x, self.transcripts[x]) for x in locus_comm)

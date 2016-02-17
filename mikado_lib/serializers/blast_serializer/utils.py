@@ -115,12 +115,25 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
 
     best_hsp = (float("inf"), float("-inf"))  # E-Value, BitS
 
+    def hsp_sorter(val):
+        """
+        :param val: Evalue, Bit-Score
+        :return:
+        """
+
+        evalue, bits = val
+        return -evalue, bits
+
     for counter, hsp in enumerate(hit.hsps):
         hsp_dict, ident, posit = prepare_hsp(hsp, counter)
         identical_positions.update(ident)
         positives.update(posit)
-        if hsp_dict["hsp_evalue"] < best_hsp[0]:
-            best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
+        best_hsp = sorted([best_hsp,
+                           (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])],
+                          key=hsp_sorter, reverse=True)[0]
+
+        # if hsp_dict["hsp_evalue"] < best_hsp[0] and hsp_dict["hsp_bits"] > best_hsp[1]:
+        #     best_hsp = (hsp_dict["hsp_evalue"], hsp_dict["hsp_bits"])
         hsp_dict["query_id"] = query_id
         hsp_dict["target_id"] = target_id
         hsp_dict_list.append(hsp_dict)
@@ -145,7 +158,9 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
     hit_dict["global_positives"] = len(positives) * 100 / q_aligned
     if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
-        raise ValueError("Discrepant evalue/bits for hsps and hit; best: {0}, reported {1}".format(
+        raise ValueError("Discrepant evalue/bits for hsps and hit for {0}; \
+        best: {1}, reported {2}".format(
+            hit_dict["target_id"],
             best_hsp,
             (hit_dict["evalue"], hit_dict["bits"])
         ))

@@ -11,14 +11,14 @@ import logging
 from sys import maxsize
 # import itertools
 from collections import defaultdict
-from copy import copy, deepcopy
+# from copy import copy, deepcopy
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities.log_utils import create_null_logger, create_default_logger
 
 
-def reid_daid_hurley(graph, k, cliques=None):
+def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
     """
     Implementation of the Reid-Daid-Hurley algorithm for clique percolation
@@ -35,16 +35,24 @@ def reid_daid_hurley(graph, k, cliques=None):
     if cliques is None:
         cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
 
+    if logger is None:
+        logger = create_null_logger("null")
+
     nodes_to_clique_dict = defaultdict(set)
     # Create the dictionary that links each node to its clique
+    logger.debug("Creating the node dictionary")
     for clique in cliques:
         for node in clique:
             nodes_to_clique_dict[node].add(clique)
 
     current_component = 0
 
+    logger.debug("Starting to explore the clique graph")
     cliques_to_components_dict = dict()
+    counter = 0
     for clique in cliques:
+        counter += 1
+        logger.debug("Exploring clique %d out of %d", counter, len(cliques))
         if not clique in cliques_to_components_dict:
             current_component += 1
             cliques_to_components_dict[clique] = current_component
@@ -59,12 +67,14 @@ def reid_daid_hurley(graph, k, cliques=None):
                         for node in neighbour:
                             nodes_to_clique_dict[node].remove(neighbour)
 
+    logger.debug("Finished exploring the clique graph")
     communities = dict()
     for clique in cliques_to_components_dict:
         if cliques_to_components_dict[clique] not in communities:
             communities[cliques_to_components_dict[clique]] = set()
         communities[cliques_to_components_dict[clique]].update(set(clique))
 
+    logger.debug("Reporting the results")
     return [frozenset(x) for x in communities.values()]
 
 
@@ -400,7 +410,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #         raise AssertionError
 
         communities = set()
-        for comm in reid_daid_hurley(graph, 2, cliques):
+        for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
             communities.add(comm)
 
         # communities = set(frozenset(x) for x in cliques if len(x) == 1)

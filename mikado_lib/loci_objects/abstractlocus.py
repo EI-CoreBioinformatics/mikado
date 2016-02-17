@@ -9,11 +9,12 @@ import abc
 import random
 import logging
 from sys import maxsize
-from copy import copy, deepcopy
+import itertools
+# from copy import copy, deepcopy
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
-from ..utilities.log_utils import create_null_logger
+from ..utilities.log_utils import create_null_logger, create_default_logger
 
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -289,11 +290,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return graph
 
     @classmethod
-    def find_communities(cls, graph: networkx.Graph) -> (list, list):
+    def find_communities(cls, graph: networkx.Graph, logger=None) -> (list, list):
         """
 
         :param graph: a Graph instance from networkx
         :type graph: networkx.Graph
+
+        :param logger: optional logger. A default null one will be created if none is provided.
+        :type logger: (None|logging.Logger)
 
         This function is a wrapper around the networkX methods to find
         cliques and communities inside a graph.
@@ -302,9 +306,63 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             - cliques
             - communities
         """
-        cliques = [frozenset(x) for x in networkx.find_cliques(graph)]
-        communities = list(networkx.k_clique_communities(graph, 2, cliques))
-        communities += [frozenset(x) for x in cliques if len(x) == 1]
+        if logger is None:
+            logger = create_default_logger("comms")
+
+        logger.debug("Creating the cliques for %s", logger.name)
+        cliques = []
+        counter = 0
+        communities = []
+        for x in networkx.find_cliques_recursive(graph):
+            counter += 1
+            modulo = counter % 10
+            if modulo > 3 or modulo == 0 or counter in (11, 12, 13):
+                suffix = "th"
+            elif modulo == 1:
+                suffix = "st"
+            elif modulo == 2:
+                suffix = "nd"
+            elif modulo == 3:
+                suffix = "rd"
+            else:
+                raise ValueError(modulo)
+
+            logger.debug("Found the %d%s clique for %s", counter, suffix, logger.name)
+            if len(x) == 1:
+                communities.append(frozenset(x))
+            cliques.append(frozenset(x))
+
+        logger.debug("Created %d cliques for %s", len(cliques), logger.name)
+        logger.debug("Creating the communities for %s", logger.name)
+
+        # Remove from the graph the singletons
+        graph.remove_nodes_from(itertools.chain(*communities))
+
+        k_length = len(graph)
+
+        cycle_num = 0
+        expendable_cliques = cliques[:]
+
+        while k_length > 1:
+            cycle_num += 1
+            logger.debug("K length: %d; cycle_num %d", k_length, cycle_num)
+            new_comms = []
+            for comm in networkx.k_clique_communities(graph, k_length, cliques=expendable_cliques):
+                new_comms.append(comm)
+            expendable_cliques = [clique for clique in expendable_cliques if
+                                  not any([frozenset.intersection(clique,_) == clique
+                                           for _ in new_comms])]
+            communities.extend(new_comms)
+            k_length -= 1
+
+        graph.remove_nodes_from(itertools.chain(*communities))
+        if len(graph) > 0:
+            logger.error("Incomplete graph analysis for %s", logger.name)
+            logger.error(graph.nodes())
+            logger.error(graph.edges())
+            logger.error(cliques)
+            logger.error(communities)
+            raise AssertionError("Incomplete graph analysis for %s" % logger.name)
         return cliques, communities
 
     @classmethod

@@ -785,8 +785,8 @@ class Assigner:
 
         orderer = (len(set.intersection(bad_ccodes, set(result.ccode))) == 0,
                    result.j_f1, result.e_f1,
-                   "f" in result.ccode,
-                   result.n_f1)
+                   result.n_f1,
+                   "f" in result.ccode)
 
         return orderer
 

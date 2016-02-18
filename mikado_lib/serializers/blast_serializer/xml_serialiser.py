@@ -558,7 +558,7 @@ class XmlSerializer:
             self.logger.info("Creating a pool with %d processes",
                              min(self.threads, len(self.xml)))
 
-            pool = self.manager.Pool(min(self.threads, len(self.xml)))
+            pool = multiprocessing.Pool(min(self.threads, len(self.xml)))
             args = zip(
                 self.xml,
                 [self.header] * len(self.xml),

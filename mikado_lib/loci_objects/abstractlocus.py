@@ -27,6 +27,7 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
     :param graph:
     :param k:
     :param cliques:
+    :param logger: optional logger for the function
     :return:
     """
 
@@ -41,9 +42,14 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
     nodes_to_clique_dict = defaultdict(set)
     # Create the dictionary that links each node to its clique
     logger.debug("Creating the node dictionary")
-    for clique in iter(_ for _ in cliques if len(_) >= k):
+    cliques = [_ for _ in cliques if len(_) >= k]
+    for clique in cliques:
         for node in clique:
             nodes_to_clique_dict[node].add(clique)
+
+    if len(nodes_to_clique_dict) > 100 or len(cliques) > 500:
+        logger.warning("Complex locus at %s, with %d nodes and %d cliques with length >= %d",
+                       logger.name, len(nodes_to_clique_dict), len(cliques), k)
 
     current_component = 0
 

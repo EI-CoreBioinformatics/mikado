@@ -324,6 +324,13 @@ def serialise_parser():
 
     Multiple folders/file patterns can be given, separated by a comma.
     """, default=[])
+    blast.add_argument("--threads", type=int, help="""Number of threads to use for
+    analysing the BLAST files. This number should not be higher than the total number of XML files.
+    """, default=None)
+    blast.add_argument("--single-thread", action="store_true",
+                       default=None, dest="single_thread",
+                       help="""Force serialise to run with a single thread, irrespective of
+                       other configuration options.""")
 
     junctions = parser.add_argument_group()
     junctions.add_argument("--genome_fai", default=None)

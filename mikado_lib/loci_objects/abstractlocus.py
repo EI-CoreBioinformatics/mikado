@@ -41,7 +41,7 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
     nodes_to_clique_dict = defaultdict(set)
     # Create the dictionary that links each node to its clique
     logger.debug("Creating the node dictionary")
-    for clique in cliques:
+    for clique in iter(_ for _ in cliques if len(_) >= k):
         for node in clique:
             nodes_to_clique_dict[node].add(clique)
 
@@ -414,11 +414,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                      logger.name, nx_comms, rdh_comms)
         #         raise AssertionError
 
-        communities = set()
+        communities = set(frozenset(x) for x in cliques if len(x) == 1)
         for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
             communities.add(comm)
 
-        # communities = set(frozenset(x) for x in cliques if len(x) == 1)
+
         # for comm in networkx.k_clique_communities(graph, 2, cliques):
         #     communities.add(comm)
 

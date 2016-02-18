@@ -4,9 +4,10 @@ XML serialisation class.
 
 import os
 import functools
-
+import tempfile
+import pickle
+import itertools
 import sqlalchemy
-# from Bio import SeqIO
 import sqlalchemy.exc
 from Bio.Blast.NCBIXML import parse as xparser
 from sqlalchemy.orm.session import sessionmaker
@@ -17,7 +18,7 @@ from ...parsers.blast_utils import create_opener  # , XMLMerger
 from ...parsers import HeaderError
 from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit
-
+import multiprocessing
 
 __author__ = 'Luca Venturini'
 
@@ -61,12 +62,15 @@ class XmlSerializer:
             self.logger = check_logger(logger)
 
         # Runtime arguments
+        self.threads = json_conf["serialise"]["threads"]
+        self.single_thread = json_conf["serialise"]["single_thread"]
         self.discard_definition = json_conf["serialise"]["discard_definition"]
         self.__max_target_seqs = json_conf["serialise"]["max_target_seqs"]
         self.maxobjects = json_conf["serialise"]["max_objects"]
         target_seqs = json_conf["serialise"]["files"]["blast_targets"]
         query_seqs = json_conf["serialise"]["files"]["transcripts"]
 
+        self.header = None
         if xml is None:
             self.logger.warning("No BLAST XML provided. Exiting.")
             return
@@ -78,12 +82,24 @@ class XmlSerializer:
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
         self.session = session()
         self.logger.debug("Created the session")
-
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
         self.xml = xml
         # Just a mock definition
         self.get_query = functools.partial(self.__get_query_for_blast)
+        self.not_pickable = ["queue_logger", "manager", "printer_process",
+                             "log_process", "pool", "main_logger",
+                             "log_handler", "log_writer", "logger", "session",
+                             "get_query", "engine", "query_seqs", "target_seqs"]
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        for not_pickable in self.not_pickable:
+            if not_pickable in state:
+                del state[not_pickable]
+
+        return state
 
     def __determine_sequences(self, query_seqs, target_seqs):
 
@@ -354,6 +370,93 @@ class XmlSerializer:
 
         return hits, hsps, hit_counter, targets
 
+    def _pickle_xml(self, filename):
+
+        """
+        Private method to load the records from an XML file into a pickled file,
+        for faster loading.
+        :param filename:
+        :return: a list of the
+        """
+
+        records = []
+        pfiles = []
+
+        # Check the header is alright
+        assert self.header is not None
+        if not self._sniff(filename):
+            return pfiles
+
+        for record in xparser(create_opener(filename)):
+            if len(record.descriptions) > 0:
+                records.append(record)
+            if len(records) > self.maxobjects:
+                pickle_temp = tempfile.mkstemp(suffix=".pickle")
+                pfiles.append(pickle_temp[1])
+                with open(pickle_temp[1], "wb") as pickled:
+                    pickle.dump(records, pickled)
+                records = []
+
+        pickle_temp = tempfile.mkstemp(suffix=".pickle")
+        pfiles.append(pickle_temp[1])
+        with open(pickle_temp[1], "wb") as pickled:
+            pickle.dump(records, pickled)
+        del records
+        return pfiles
+
+    def _sniff(self, filename):
+
+        """
+        Function that either derives the default XML header for the instance (if undefined)
+        or checks that the given file is compatible with it.
+        :param filename: The filename to check for consistency.
+        :return: boolean (passed or not passed)
+        """
+
+        handle = create_opener(filename)
+        header = []
+        exc = None
+        while True:
+            line = next(handle)
+
+            if "<Iteration>" in line:
+                break
+            line = line.rstrip()
+            if not line:
+                exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                    filename,
+                    "\n".join(header)
+                ))
+                break
+            if len(header) > 10**3:
+                exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
+                    len(header),
+                    filename,
+                    "\n".join(header)
+                ))
+                break
+            header.append(line)
+        if not any(iter(True if "BlastOutput" in x else False for x in header)):
+            exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                filename, "\n".join(header)))
+
+        if self.header is not None and exc is None:
+                checker = [header_line for header_line in header if
+                           "BlastOutput_query" not in header_line]
+                previous_header = [header_line for header_line in self.header if
+                                   "BlastOutput_query" not in header_line]
+                if checker != previous_header:
+                    exc = HeaderError("BLAST XML header does not match for {0}".format(
+                        filename))
+        elif exc is None:
+            self.header = header
+        handle.close()
+
+        if exc is not None:
+            self.logger.error("Invalid header for %s, excluding it", filename)
+            return False
+        return True
+
     def serialize(self):
 
         """Method to serialize the BLAST XML file into a database
@@ -380,65 +483,49 @@ class XmlSerializer:
         hits, hsps = [], []
         hit_counter, record_counter = 0, 0
 
-        self.header = None
         for filename in self.xml:
-            handle = create_opener(filename)
-            header = []
-            exc = None
-            while True:
-                line = next(handle)
+            if self._sniff(filename) is True:
+                break
 
-                if "<Iteration>" in line:
-                    break
-                line = line.rstrip()
-                if not line:
-                    exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
-                        filename,
-                        "\n".join(header)
-                    ))
-                    break
-                if len(header) > 10**3:
-                    exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
-                        len(header),
-                        filename,
-                        "\n".join(header)
-                    ))
-                    break
-                header.append(line)
-            if not any(iter(True if "BlastOutput" in x else False for x in header)):
-                exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
-                    filename, "\n".join(header)))
+        if self.threads == 1 or self.single_thread is True:
+            for filename in self.xml:
+                if not self._sniff(filename):
+                    continue
+                for record in xparser(create_opener(filename)):
+                    record_counter += 1
+                    if record_counter > 0 and record_counter % 10000 == 0:
+                        self.logger.info("Parsed %d queries", record_counter)
 
-            if self.header is not None and exc is None:
-                    checker = [header_line for header_line in header if
-                               "BlastOutput_query" not in header_line]
-                    previous_header = [header_line for header_line in self.header if
-                                       "BlastOutput_query" not in header_line]
-                    if checker != previous_header:
-                        exc = HeaderError("BLAST XML header does not match for {0}".format(
-                            filename))
-            elif exc is None:
-                self.header = header
-            handle.close()
+                    hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
+                                                                                       hits,
+                                                                                       hsps,
+                                                                                       targets)
+                    hit_counter += partial_hit_counter
+                    if hit_counter > 0 and hit_counter % 10000 == 0:
+                        self.logger.info("Serialized %d alignments", hit_counter)
 
-            if exc is not None:
-                self.logger.error("Invalid header for %s, excluding it", filename)
-                continue
+            _, _ = self.__load_into_db(hits, hsps, force=True)
 
-            for record in xparser(create_opener(filename)):
-                record_counter += 1
-                if record_counter > 0 and record_counter % 10000 == 0:
-                    self.logger.info("Parsed %d queries", record_counter)
+        else:
+            pool = multiprocessing.Pool(min(self.threads, len(self.xml)))
+            pickle_results = pool.map_async(self._pickle_xml, self.xml)
+            for pickle_file in itertools.chain(*pickle_results.get()):
+                with open(pickle_file, "rb") as pickled:
+                    for record in pickle.load(pickled):
+                        record_counter += 1
+                        if record_counter > 0 and record_counter % 10000 == 0:
+                            self.logger.info("Parsed %d queries", record_counter)
 
-                hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
-                                                                                   hits,
-                                                                                   hsps,
-                                                                                   targets)
-                hit_counter += partial_hit_counter
-                if hit_counter > 0 and hit_counter % 10000 == 0:
-                    self.logger.info("Serialized %d alignments", hit_counter)
+                        hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
+                                                                                           hits,
+                                                                                           hsps,
+                                                                                           targets)
+                        hit_counter += partial_hit_counter
+                        if hit_counter > 0 and hit_counter % 10000 == 0:
+                            self.logger.info("Serialized %d alignments", hit_counter)
+                os.remove(pickle_file)
 
-        _, _ = self.__load_into_db(hits, hsps, force=True)
+            _, _ = self.__load_into_db(hits, hsps, force=True)
 
         self.logger.info("Loaded %d alignments for %d queries",
                          hit_counter, record_counter)

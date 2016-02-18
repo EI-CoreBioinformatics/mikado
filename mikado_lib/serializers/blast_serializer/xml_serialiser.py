@@ -44,7 +44,7 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
     pfiles = []
 
     handler = logging_handlers.QueueHandler(logging_queue)
-    logger = logging.getLogger("{0}:{1}-{2}".format(filename))
+    logger = logging.getLogger("pickle_{0}".format(os.path.basename(filename)))
     logger.addHandler(handler)
     logger.setLevel("DEBUG")
 

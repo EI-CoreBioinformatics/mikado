@@ -89,6 +89,7 @@ class Superlocus(Abstractlocus):
         """
 
         super().__init__()
+        self.complex = False
         self.stranded = stranded
         self.feature = self.__name__
         if json_conf is None or not isinstance(json_conf, dict):
@@ -231,6 +232,8 @@ class Superlocus(Abstractlocus):
         superlocus_line.phase, superlocus_line.score = None, None
         new_id = "{0}_{1}".format(self.source, self.id)
         superlocus_line.id, superlocus_line.name = new_id, self.name
+        if self.complex is True:
+            superlocus_line.attributes["approximate"] = "true"
 
         lines = []
         if level not in (None, "loci", "subloci", "monosubloci"):
@@ -594,6 +597,9 @@ class Superlocus(Abstractlocus):
                                              cds_only=cds_only)
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
+        if len(transcript_graph) > 250:
+            self.complex = True
+
         _, subloci = self.find_communities(transcript_graph, logger=self.logger)
         self.logger.debug("Calculated the transcript communities")
 

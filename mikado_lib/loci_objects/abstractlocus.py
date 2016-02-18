@@ -402,24 +402,26 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # counter = 0
         # # communities = []
 
-        if len(graph) > 200:
+        if len(graph) > 250:
             logger.warning("Complex locus in %s, switching to approximate algorithm",
                            logger.name)
             new_graph = graph.copy()
             cliques = []
             cycle = 0
-            while len(new_graph) > 200:
+            while len(new_graph) > 250:
                 cycle += 1
-                logger.warning("In cycle no. %d of approximate algorithm for %s, graph length: %d",
+                logger.debug("In cycle no. %d of approximate algorithm for %s, graph length: %d",
                                cycle, logger.name, len(new_graph))
                 maximum_clique = frozenset(max_clique(new_graph))
-                logger.warning("Found a clique with %d elements", len(maximum_clique))
+                logger.debug("Found a clique with %d elements", len(maximum_clique))
                 cliques.append(maximum_clique)
                 to_remove = []
                 for node in maximum_clique:
                     to_remove.append(node)
                 new_graph.remove_nodes_from(to_remove)
-            logger.warning("Finished with the approximate algorithm for %s", logger.name)
+            logger.info("Finished with the approximate algorithm for %s, %d transcripts remaining",
+                        len(new_graph),
+                        logger.name)
             cliques.extend([frozenset(x) for x in networkx.find_cliques_recursive(new_graph)])
             del new_graph
         else:

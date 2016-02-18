@@ -410,8 +410,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             cycle = 0
             while len(new_graph) > 200:
                 cycle += 1
-                logger.warning("In cycle no. %d of approximate algorithm for %s",
-                               cycle, logger.name)
+                logger.warning("In cycle no. %d of approximate algorithm for %s, graph length: %d",
+                               cycle, logger.name, len(new_graph))
                 maximum_clique = frozenset(max_clique(new_graph))
                 cliques.append(maximum_clique)
                 to_remove = []

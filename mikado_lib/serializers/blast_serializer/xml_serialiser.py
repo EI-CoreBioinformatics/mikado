@@ -103,6 +103,8 @@ class XmlSerializer:
         # Just a mock definition
         self.get_query = functools.partial(self.__get_query_for_blast)
         self.not_pickable = ["manager", "printer_process",
+                             "context", "logger_queue_handler", "queue_logger",
+                             "log_writer",
                              "log_process", "pool", "main_logger",
                              "log_handler", "log_writer", "logger", "session",
                              "get_query", "engine", "query_seqs", "target_seqs"]

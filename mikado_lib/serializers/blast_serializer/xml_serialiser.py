@@ -28,6 +28,114 @@ __author__ = 'Luca Venturini'
 
 # A serialisation class must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
+
+def _pickle_xml(filename, default_header, maxobjects, logging_queue):
+
+    """
+    Private method to load the records from an XML file into a pickled file,
+    for faster loading.
+    :param filename:
+    :param logging_queue: the queue to be used for logging
+
+    :return: a list of the
+    """
+
+    records = []
+    pfiles = []
+
+    handler = logging_handlers.QueueHandler(logging_queue)
+    logger = logging.getLogger("{0}:{1}-{2}".format(filename))
+    logger.addHandler(handler)
+    logger.setLevel("DEBUG")
+
+    # Check the header is alright
+    assert default_header is not None
+    valid, _, exc = _sniff(filename, default_header=default_header)
+    if not valid:
+        logger.warning("Invalid BLAST file: %s", filename)
+        return pfiles
+
+    logger.info("Starting to pickle %s", filename)
+    try:
+        for record in xparser(create_opener(filename)):
+            if len(record.descriptions) > 0:
+                records.append(record)
+            if len(records) > maxobjects:
+                pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                                               dir=os.path.dirname(filename))
+                with open(pickle_temp[1], "wb") as pickled:
+                    pickle.dump(records, pickled)
+                pfiles.append(pickle_temp[1])
+                records = []
+    except ExpatError:
+        logger.error("%s is an invalid BLAST file, sending back anything salvageable",
+                     filename)
+
+    pickle_temp = tempfile.mkstemp(suffix=".pickle")
+    with open(pickle_temp[1], "wb") as pickled:
+        pickle.dump(records, pickled)
+    pfiles.append(pickle_temp[1])
+    logger.info("Finished pickling %s", filename)
+    del records
+    return pfiles
+
+
+def _sniff(filename, default_header=None):
+
+    """
+    Function that either derives the default XML header for the instance (if undefined)
+    or checks that the given file is compatible with it.
+    :param filename: The filename to check for consistency.
+    :return: boolean (passed or not passed)
+    :rtype: (bool, list, str)
+    """
+
+    handle = create_opener(filename)
+    header = []
+    exc = None
+    valid = True
+    while True:
+        line = next(handle)
+
+        if "<Iteration>" in line:
+            break
+        line = line.rstrip()
+        if not line:
+            exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                filename,
+                "\n".join(header)
+            ))
+            break
+        if len(header) > 10**3:
+            exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
+                len(header),
+                filename,
+                "\n".join(header)
+            ))
+            break
+        header.append(line)
+    if not any(iter(True if "BlastOutput" in x else False for x in header)):
+        exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+            filename, "\n".join(header)))
+
+    if default_header is not None and exc is None:
+            checker = [header_line for header_line in header if
+                       "BlastOutput_query" not in header_line]
+            previous_header = [header_line for header_line in default_header if
+                               "BlastOutput_query" not in header_line]
+            if checker != previous_header:
+                exc = HeaderError("BLAST XML header does not match for {0}".format(
+                    filename))
+    elif exc is None:
+        default_header = header
+    handle.close()
+
+    if exc is not None:
+        valid = False
+
+    return valid, default_header, exc
+
+
 class XmlSerializer:
     """This class has the role of taking in input a blast XML file and (partially)
     serialise it into a database. We are using SQLalchemy, so the database type
@@ -387,108 +495,6 @@ class XmlSerializer:
 
         return hits, hsps, hit_counter, targets
 
-    def _pickle_xml(self, filename, logging_queue):
-
-        """
-        Private method to load the records from an XML file into a pickled file,
-        for faster loading.
-        :param filename:
-        :param logging_queue: the queue to be used for logging
-
-        :return: a list of the
-        """
-
-        records = []
-        pfiles = []
-
-        handler = logging_handlers.QueueHandler(logging_queue)
-        logger = logging.getLogger("{0}:{1}-{2}".format(filename))
-        logger.addHandler(handler)
-        logger.setLevel("DEBUG")
-
-        # Check the header is alright
-        assert self.header is not None
-        if not self._sniff(filename):
-            logger.warning("Invalid BLAST file: %s", filename)
-            return pfiles
-
-        logger.info("Starting to pickle %s", filename)
-        try:
-            for record in xparser(create_opener(filename)):
-                if len(record.descriptions) > 0:
-                    records.append(record)
-                if len(records) > self.maxobjects:
-                    pickle_temp = tempfile.mkstemp(suffix=".pickle",
-                                                   dir=os.path.dirname(filename))
-                    with open(pickle_temp[1], "wb") as pickled:
-                        pickle.dump(records, pickled)
-                    pfiles.append(pickle_temp[1])
-                    records = []
-        except ExpatError:
-            logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                         filename)
-
-        pickle_temp = tempfile.mkstemp(suffix=".pickle")
-        with open(pickle_temp[1], "wb") as pickled:
-            pickle.dump(records, pickled)
-        pfiles.append(pickle_temp[1])
-        logger.info("Finished pickling %s", filename)
-        del records
-        return pfiles
-
-    def _sniff(self, filename):
-
-        """
-        Function that either derives the default XML header for the instance (if undefined)
-        or checks that the given file is compatible with it.
-        :param filename: The filename to check for consistency.
-        :return: boolean (passed or not passed)
-        """
-
-        handle = create_opener(filename)
-        header = []
-        exc = None
-        while True:
-            line = next(handle)
-
-            if "<Iteration>" in line:
-                break
-            line = line.rstrip()
-            if not line:
-                exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
-                    filename,
-                    "\n".join(header)
-                ))
-                break
-            if len(header) > 10**3:
-                exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
-                    len(header),
-                    filename,
-                    "\n".join(header)
-                ))
-                break
-            header.append(line)
-        if not any(iter(True if "BlastOutput" in x else False for x in header)):
-            exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
-                filename, "\n".join(header)))
-
-        if self.header is not None and exc is None:
-                checker = [header_line for header_line in header if
-                           "BlastOutput_query" not in header_line]
-                previous_header = [header_line for header_line in self.header if
-                                   "BlastOutput_query" not in header_line]
-                if checker != previous_header:
-                    exc = HeaderError("BLAST XML header does not match for {0}".format(
-                        filename))
-        elif exc is None:
-            self.header = header
-        handle.close()
-
-        if exc is not None:
-            self.logger.error("Invalid header for %s, excluding it", filename)
-            return False
-        return True
-
     def serialize(self):
 
         """Method to serialize the BLAST XML file into a database
@@ -516,12 +522,18 @@ class XmlSerializer:
         hit_counter, record_counter = 0, 0
 
         for filename in self.xml:
-            if self._sniff(filename) is True:
-                break
+            valid, header, exc = _sniff(filename)
+            if valid is True:
+                self.header = header
+            else:
+                self.logger.error(exc)
+                self.xml.remove(filename)
 
         if self.threads == 1 or self.single_thread is True:
             for filename in self.xml:
-                if not self._sniff(filename):
+                valid, _, exc = _sniff(filename, default_header=self.header)
+                if not valid:
+                    self.logger.error(exc)
                     continue
                 try:
                     for record in xparser(create_opener(filename)):
@@ -547,10 +559,14 @@ class XmlSerializer:
                              min(self.threads, len(self.xml)))
 
             pool = self.manager.Pool(min(self.threads, len(self.xml)))
-            pickle_results = pool.starmap_async(self._pickle_xml,
-                                                zip(self.xml,
-                                                    [self.logging_queue] * len(self.xml)
-                                                    ))
+            args = zip(
+                self.xml,
+                [self.header] * len(self.xml),
+                [self.maxobjects] * len(self.xml),
+                [self.logging_queue] * len(self.xml)
+            )
+
+            pickle_results = pool.starmap_async(_pickle_xml, args)
             self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
             for pickle_file in itertools.chain(*pickle_results.get()):
                 with open(pickle_file, "rb") as pickled:

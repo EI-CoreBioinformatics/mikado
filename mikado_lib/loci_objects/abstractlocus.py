@@ -402,13 +402,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # counter = 0
         # # communities = []
 
-        if len(graph) > 250:
+        if len(graph) > 350:
             logger.warning("Complex locus in %s, switching to approximate algorithm",
                            logger.name)
             new_graph = graph.copy()
             cliques = []
             cycle = 0
-            while len(new_graph) > 250:
+            while len(new_graph) > 350:
                 cycle += 1
                 logger.debug("In cycle no. %d of approximate algorithm for %s, graph length: %d",
                                cycle, logger.name, len(new_graph))

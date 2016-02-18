@@ -597,7 +597,7 @@ class Superlocus(Abstractlocus):
                                              cds_only=cds_only)
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        if len(transcript_graph) > 250:
+        if len(transcript_graph) > 350:
             self.complex = True
 
         _, subloci = self.find_communities(transcript_graph, logger=self.logger)

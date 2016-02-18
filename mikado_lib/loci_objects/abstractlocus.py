@@ -9,14 +9,78 @@ import abc
 import random
 import logging
 from sys import maxsize
-# import itertools
-from collections import defaultdict
-# from copy import copy, deepcopy
+import itertools
+from collections import defaultdict, deque
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities.log_utils import create_null_logger, create_default_logger
 
+
+def enumerate_all_cliques(G):
+    """Returns all cliques in an undirected graph.
+
+    This method returns cliques of size (cardinality)
+    k = 1, 2, 3, ..., maxDegree - 1.
+
+    Where maxDegree is the maximal degree of any node in the graph.
+
+    Parameters
+    ----------
+    G: undirected graph
+
+    Returns
+    -------
+    generator of lists: generator of list for each clique.
+
+    Notes
+    -----
+    To obtain a list of all cliques, use
+    :samp:`list(enumerate_all_cliques(G))`.
+
+    Based on the algorithm published by Zhang et al. (2005) [1]_
+    and adapted to output all cliques discovered.
+
+    This algorithm is not applicable on directed graphs.
+
+    This algorithm ignores self-loops and parallel edges as
+    clique is not conventionally defined with such edges.
+
+    There are often many cliques in graphs.
+    This algorithm however, hopefully, does not run out of memory
+    since it only keeps candidate sublists in memory and
+    continuously removes exhausted sublists.
+
+    References
+    ----------
+    .. [1] Yun Zhang, Abu-Khzam, F.N., Baldwin, N.E., Chesler, E.J.,
+           Langston, M.A., Samatova, N.F.,
+           Genome-Scale Computational Approaches to Memory-Intensive
+           Applications in Systems Biology.
+           Supercomputing, 2005. Proceedings of the ACM/IEEE SC 2005
+           Conference, pp. 12, 12-18 Nov. 2005.
+           doi: 10.1109/SC.2005.29.
+           http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=1559964&isnumber=33129
+    """
+    index = {}
+    nbrs = {}
+    for u in G:
+        index[u] = len(index)
+        # Neighbors of u that appear after u in the iteration order of G.
+        nbrs[u] = {v for v in G[u] if v not in index}
+
+    queue = deque(([u], sorted(nbrs[u], key=index.__getitem__)) for u in G)
+    # Loop invariants:
+    # 1. len(base) is nondecreasing.
+    # 2. (base + cnbrs) is sorted with respect to the iteration order of G.
+    # 3. cnbrs is a set of common neighbors of nodes in base.
+    while queue:
+        base, cnbrs = map(list, queue.popleft())
+        yield base
+        for i, u in enumerate(cnbrs):
+            # Use generators to reduce memory consumption.
+            queue.append((itertools.chain(base, [u]),
+                          filter(nbrs[u].__contains__, itertools.islice(cnbrs, i + 1, None))))
 
 def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
@@ -403,7 +467,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # cliques = []
         # # counter = 0
         # # communities = []
-        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
+        if len(graph) > 200:
+            logger.warning("Complex locus in %s, switching to Zhang's algorithm",
+                           logger.name)
+            cliques = [frozenset(x) for x in enumerate_all_cliques(graph)]
+        else:
+            cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
         #
 
         logger.debug("Created %d cliques for %s", len(cliques), logger.name)

@@ -19,7 +19,7 @@ from ...utilities.dbutils import connect
 from ...parsers.blast_utils import create_opener  # , XMLMerger
 from ...parsers import HeaderError
 from ...utilities.log_utils import create_null_logger, check_logger
-from . import Query, Target, Hsp, Hit, prepare_hit
+from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import multiprocessing
 
@@ -71,11 +71,12 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
         logger.error("%s is an invalid BLAST file, sending back anything salvageable",
                      filename)
 
-    pickle_temp = tempfile.mkstemp(suffix=".pickle")
+    pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                                   dir=os.path.dirname(filename))
     with open(pickle_temp[1], "wb") as pickled:
         pickle.dump(records, pickled)
     pfiles.append(pickle_temp[1])
-    logger.info("Finished pickling %s", filename)
+    logger.info("Finished pickling %s in %s", filename, pfiles)
     del records
     return pfiles
 
@@ -486,8 +487,12 @@ class XmlSerializer:
             hit_dict_params["bits"] = record.descriptions[ccc].bits
 
             # Prepare for bulk load
-            hit, hit_hsps = prepare_hit(alignment, current_query, current_target,
-                                        **hit_dict_params)
+            try:
+                hit, hit_hsps = prepare_hit(alignment, current_query, current_target,
+                                            **hit_dict_params)
+            except InvalidHit as exc:
+                self.logger.error(exc)
+                continue
             hits.append(hit)
             hsps.extend(hit_hsps)
 

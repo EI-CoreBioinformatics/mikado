@@ -87,6 +87,12 @@ def prepare_hsp(hsp, counter):
 # Splitting this function would make it less clear, and the internal variables
 # are all necessary for a correct serialisation.
 # pylint: disable=too-many-locals
+
+class InvalidHit(ValueError):
+
+    pass
+
+
 def prepare_hit(hit, query_id, target_id, **kwargs):
     """Prepare the dictionary for fast loading of Hit and Hsp objects.
     global_positives: the similarity rate for the global hit *using the query perspective*
@@ -158,9 +164,10 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     hit_dict["global_identity"] = len(identical_positions) * 100 / q_aligned
     hit_dict["global_positives"] = len(positives) * 100 / q_aligned
     if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
-        raise ValueError("Discrepant evalue/bits for hsps and hit for {0}; \
-        best: {1}, reported {2}".format(
-            hit_dict["target_id"],
+        raise InvalidHit("Discrepant evalue/bits for hsps and hit for {0} vs. {1}; \
+        best: {2}, reported {3}".format(
+            hit.hit_def,
+            query_id,
             best_hsp,
             (hit_dict["evalue"], hit_dict["bits"])
         ))

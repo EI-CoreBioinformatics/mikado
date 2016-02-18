@@ -510,8 +510,11 @@ class XmlSerializer:
             _, _ = self.__load_into_db(hits, hsps, force=True)
 
         else:
+            self.logger.info("Creating a pool with %d processes",
+                             min(self.threads, len(self.xml)))
             pool = multiprocessing.Pool(min(self.threads, len(self.xml)))
             pickle_results = pool.map_async(self._pickle_xml, self.xml)
+            self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
             for pickle_file in itertools.chain(*pickle_results.get()):
                 with open(pickle_file, "rb") as pickled:
                     for record in pickle.load(pickled):

@@ -420,7 +420,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     to_remove.append(node)
                 new_graph.remove_nodes_from(to_remove)
             logger.warning("Finished with the approximate algorithm for %s", logger.name)
-            cliques.extend([frozenset(x) for x in networkx.find_cliques_recursive(graph)])
+            cliques.extend([frozenset(x) for x in networkx.find_cliques_recursive(new_graph)])
+            del new_graph
         else:
             cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
         #

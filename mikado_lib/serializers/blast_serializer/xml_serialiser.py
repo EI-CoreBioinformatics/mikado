@@ -387,20 +387,23 @@ class XmlSerializer:
         if not self._sniff(filename):
             return pfiles
 
+        self.logger.info("Starting to pickle %s", filename)
         for record in xparser(create_opener(filename)):
             if len(record.descriptions) > 0:
                 records.append(record)
             if len(records) > self.maxobjects:
-                pickle_temp = tempfile.mkstemp(suffix=".pickle")
-                pfiles.append(pickle_temp[1])
+                pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                                               dir=os.path.dirname(filename))
                 with open(pickle_temp[1], "wb") as pickled:
                     pickle.dump(records, pickled)
+                pfiles.append(pickle_temp[1])
                 records = []
 
         pickle_temp = tempfile.mkstemp(suffix=".pickle")
-        pfiles.append(pickle_temp[1])
         with open(pickle_temp[1], "wb") as pickled:
             pickle.dump(records, pickled)
+        pfiles.append(pickle_temp[1])
+        self.logger.info("Finished pickling %s", filename)
         del records
         return pfiles
 

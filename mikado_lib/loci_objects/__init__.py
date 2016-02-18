@@ -9,6 +9,7 @@
     The creation of the loci is delegated to the "Creator" class.
 """
 
+from . import transcript_methods
 from .transcript import Transcript
 from .abstractlocus import Abstractlocus
 from .superlocus import Superlocus, Sublocus, Monosublocus

@@ -14,7 +14,7 @@ import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities.log_utils import create_null_logger, create_default_logger
-
+from .clique_methods import max_clique
 
 def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
@@ -401,10 +401,27 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # cliques = []
         # # counter = 0
         # # communities = []
+
         if len(graph) > 200:
-            logger.warning("Complex locus in %s, switching to non-recursive algorithm",
+            logger.warning("Complex locus in %s, switching to approximate algorithm",
                            logger.name)
-            cliques = [frozenset(x) for x in networkx.find_cliques(graph)]
+            new_graph = graph.copy()
+            cliques = []
+            cycle = 0
+            while len(new_graph) > 200:
+                cycle += 1
+                logger.warning("In cycle no. %d of approximate algorithm for %s",
+                               cycle, logger.name)
+                maximum_clique = frozenset(max_clique(new_graph))
+                cliques.append(maximum_clique)
+                to_remove = []
+                for node in maximum_clique:
+                    if frozenset.intersection(frozenset(new_graph[node].keys()),
+                                              maximum_clique) == frozenset(new_graph[node].keys()):
+                        to_remove.append(node)
+                new_graph.remove_nodes_from(to_remove)
+            logger.warning("Finished with the approximate algorithm for %s", logger.name)
+            cliques.extend([frozenset(x) for x in networkx.find_cliques_recursive(graph)])
         else:
             cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
         #

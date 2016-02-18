@@ -413,12 +413,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 logger.warning("In cycle no. %d of approximate algorithm for %s, graph length: %d",
                                cycle, logger.name, len(new_graph))
                 maximum_clique = frozenset(max_clique(new_graph))
+                logger.warning("Found a clique with %d elements", len(maximum_clique))
                 cliques.append(maximum_clique)
                 to_remove = []
                 for node in maximum_clique:
-                    if frozenset.intersection(frozenset(new_graph[node].keys()),
-                                              maximum_clique) == frozenset(new_graph[node].keys()):
-                        to_remove.append(node)
+                    to_remove.append(node)
                 new_graph.remove_nodes_from(to_remove)
             logger.warning("Finished with the approximate algorithm for %s", logger.name)
             cliques.extend([frozenset(x) for x in networkx.find_cliques_recursive(graph)])

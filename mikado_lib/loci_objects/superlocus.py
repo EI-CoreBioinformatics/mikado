@@ -8,14 +8,15 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
-import sqlalchemy
+# import sqlalchemy
 import networkx
-from sqlalchemy.engine import create_engine
+from sqlalchemy.engine import Engine
+from ..utilities import dbutils
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
-import sqlalchemy.pool
+# import sqlalchemy.pool
 from ..serializers.junction import Junction, Chrom
 from ..serializers.blast_serializer import Hit
 from ..serializers.orf import Orf
@@ -155,6 +156,7 @@ class Superlocus(Abstractlocus):
         # Excluded object
         self.excluded_transcripts = None
         self.__retained_sources = set()
+        self.__data_loaded = False
 
     def __create_locus_lines(self, superlocus_line, new_id, print_cds=True):
 
@@ -354,26 +356,20 @@ class Superlocus(Abstractlocus):
         raise StopIteration
 
     # @profile
-    def connect_to_db(self, pool):
+    def connect_to_db(self, engine):
 
         """
-        :param pool: the connection pool
-        :type pool: sqlalchemy.pool.QueuePool
+        :param engine: the connection pool
+        :type engine: Engine
 
         This method will connect to the database using the information
         contained in the JSON configuration.
         """
 
-        database = self.json_conf["db_settings"]["db"]
-        dbtype = self.json_conf["db_settings"]["dbtype"]
-
-        if pool is None:
-            self.engine = create_engine("{dbtype}:///{db}".format(
-                db=database,
-                dbtype=dbtype), poolclass=sqlalchemy.pool.StaticPool)
+        if engine is None:
+            self.engine = dbutils.connect(self.json_conf)
         else:
-            self.engine = create_engine("{dbtype}://".format(dbtype=dbtype),
-                                        pool=pool)
+            self.engine = engine
 
         self.sessionmaker = sessionmaker()
         self.sessionmaker.configure(bind=self.engine)
@@ -465,7 +461,7 @@ class Superlocus(Abstractlocus):
                                                         intron[1],
                                                         data_dict["junctions"][key]))
 
-    def load_all_transcript_data(self, pool=None, data_dict=None):
+    def load_all_transcript_data(self, engine=None, data_dict=None):
 
         """
         This method will load data into the transcripts instances,
@@ -473,8 +469,8 @@ class Superlocus(Abstractlocus):
         by the configuration.
         Asyncio coroutines are used to decrease runtime.
 
-        :param pool: a connection pool
-        :type pool: sqlalchemy.pool.QueuePool
+        :param engine: a connection engine
+        :type engine: Engine
 
         :param data_dict: the dictionary to use for data retrieval, if specified.
         If None, a DB connection will be established to retrieve the necessary data.
@@ -482,8 +478,12 @@ class Superlocus(Abstractlocus):
 
         """
 
+        if self.__data_loaded is True:
+            return
+
         if data_dict is None:
-            self.connect_to_db(pool)
+            self.connect_to_db(engine)
+
         self.logger.debug("Type of data dict: %s",
                           type(data_dict))
         if isinstance(data_dict, dict):
@@ -519,7 +519,6 @@ class Superlocus(Abstractlocus):
                               len(tid_keys))
             self.session.close()
             self.sessionmaker.close_all()
-            self.engine.dispose()
 
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
@@ -557,6 +556,7 @@ class Superlocus(Abstractlocus):
             self.id)
 
         self.session = None
+        self.__data_loaded = True
         self.sessionmaker = None
         self.stranded = False
 

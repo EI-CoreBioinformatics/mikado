@@ -92,7 +92,7 @@ def analyse_locus(slocus: Superlocus,
                   json_conf: dict,
                   printer_queue: [multiprocessing.managers.AutoProxy, None],
                   logging_queue: multiprocessing.managers.AutoProxy,
-                  connection_pool=None,
+                  engine=None,
                   data_dict=None) -> [Superlocus]:
 
     """
@@ -152,7 +152,7 @@ def analyse_locus(slocus: Superlocus,
     slocus.source = json_conf["pick"]["output_format"]["source"]
 
     try:
-        slocus.load_all_transcript_data(pool=connection_pool,
+        slocus.load_all_transcript_data(engine=engine,
                                         data_dict=data_dict)
     except KeyboardInterrupt:
         raise
@@ -239,6 +239,7 @@ class LociProcesser(Process):
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.logger.debug("Starting Process")
+        self.logger.propagate = False
 
         self.data_dict = data_dict
         self.locus_queue = locus_queue
@@ -248,15 +249,15 @@ class LociProcesser(Process):
         self.logger.debug("Starting the pool for {0}".format(self.name))
         try:
             if self.json_conf["pick"]["run_options"]["preload"] is False:
-                db_connection = functools.partial(dbutils.create_connector,
-                                                  self.json_conf,
-                                                  self.logger)
-                self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-                                                                 pool_size=1,
-                                                                 max_overflow=2)
-
+                # db_connection = functools.partial(dbutils.create_connector,
+                #                                   self.json_conf,
+                #                                   self.logger)
+                self.engine = dbutils.connect(json_conf, self.logger)
+                # self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
+                #                                                  pool_size=1,
+                #                                                  max_overflow=2)
             else:
-                self.connection_pool = None
+                self.engine = None
         except KeyboardInterrupt:
             raise
         except EOFError:
@@ -268,7 +269,7 @@ class LociProcesser(Process):
                                                printer_queue=self.printer_queue,
                                                json_conf=self.json_conf,
                                                data_dict=self.data_dict,
-                                               connection_pool=self.connection_pool,
+                                               engine=self.engine,
                                                logging_queue=self.logging_queue)
 
     def run(self):
@@ -278,8 +279,8 @@ class LociProcesser(Process):
             slocus, counter = self.locus_queue.get()
             if slocus == "EXIT":
                 self.locus_queue.put((slocus, counter))
-                if self.connection_pool is not None:
-                    self.connection_pool.dispose()
+                if self.engine is not None:
+                    self.engine.dispose()
                 return
             if slocus is not None:
                 self.analyse_locus(slocus, counter)
@@ -314,7 +315,7 @@ class Picker:
         # Things that have to be deleted upon serialisation
         self.not_pickable = ["queue_logger", "manager", "printer_process",
                              "log_process", "pool", "main_logger",
-                             "log_handler", "log_writer", "logger"]
+                             "log_handler", "log_writer", "logger", "engine"]
 
         # Now we start the real work
         if isinstance(json_conf, str):
@@ -942,12 +943,12 @@ memory intensive, proceed with caution!")
         self.main_logger.info("Finished to preload the database into memory")
         return data_dict
 
-    def _submit_locus(self, slocus, counter, data_dict=None, pool=None):
+    def _submit_locus(self, slocus, counter, data_dict=None, engine=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
         :param slocus: the locus to analyse.
         :param data_dict: the preloaded data in memory
-        :param pool: thread execution pool
+        :param engine: connection engine
         :return: job object / None
         """
 
@@ -956,37 +957,27 @@ memory intensive, proceed with caution!")
         else:
             return []
             
-        if self.json_conf["pick"]["run_options"]["preload"] is True:
-            self.logger.debug("Loading data from dict for %s", slocus.id)
-            slocus.logger = self.logger
-            slocus.load_all_transcript_data(pool=None,
-                                            data_dict=data_dict)
-            # slocus_id = slocus.id
-            if slocus.initialized is False:
-                # This happens when we have removed all transcripts from the locus
-                # due to errors which should have been caught and logged
-                self.logger.warning(
-                    "%s had all transcripts failing checks, ignoring it",
-                    slocus.id)
-                # Exit
-                return []
+        self.logger.debug("Loading data for %s", slocus.id)
+        slocus.logger = self.logger
+        slocus.load_all_transcript_data(engine=engine,
+                                        data_dict=data_dict)
+        # slocus_id = slocus.id
+        if slocus.initialized is False:
+            # This happens when we have removed all transcripts from the locus
+            # due to errors which should have been caught and logged
+            self.logger.warning(
+                "%s had all transcripts failing checks, ignoring it",
+                slocus.id)
+            # Exit
+            return []
 
-        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
-            return analyse_locus(slocus,
-                                 counter,
-                                 self.json_conf,
-                                 None,
-                                 self.logging_queue)
-        else:
-            job = pool.apply_async(analyse_locus,
-                                   args=(
-                                      slocus,
-                                      counter,
-                                      self.json_conf,
-                                      self.printer_queue,
-                                      self.logging_queue)
-                                        )
-            return job
+        return analyse_locus(slocus=slocus,
+                             counter=counter,
+                             json_conf=self.json_conf,
+                             printer_queue=None,
+                             logging_queue=self.logging_queue,
+                             data_dict=None,
+                             engine=None)
 
     def __unsorted_interrupt(self, row, current_transcript, counter):
         """
@@ -1170,17 +1161,18 @@ memory intensive, proceed with caution!")
         gene_counter = 0
 
         if self.json_conf["pick"]["run_options"]["preload"] is False:
-            db_connection = functools.partial(dbutils.create_connector,
-                                              self.json_conf,
-                                              self.logger)
-            self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-                                                             pool_size=1,
-                                                             max_overflow=2)
+            # db_connection = functools.partial(dbutils.create_connector,
+            #                                   self.json_conf,
+            #                                   self.logger)
+            # self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
+            #                                                  pool_size=1,
+            #                                                  max_overflow=2)
+            self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
         else:
             self.connection_pool = None
 
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                "pool": self.connection_pool})
+                                                                "engine": self.engine})
 
         counter = -1
         for row in self.define_input():
@@ -1205,8 +1197,9 @@ memory intensive, proceed with caution!")
                         except KeyboardInterrupt:
                             raise
                         except Exception as exc:
-                            self.logger.exception("Superlocus %s failed with exception: %s",
-                                                  current_locus.id, exc)
+                            self.logger.exception(
+                                "Superlocus %s failed with exception: %s",
+                                None if current_locus is None else current_locus.id, exc)
 
                         current_locus = Superlocus(
                             current_transcript,

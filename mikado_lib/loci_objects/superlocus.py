@@ -22,6 +22,7 @@ from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
 from .excluded import Excluded
 from .transcript import Transcript
+from .abstractlocus import TooComplexLocus
 from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
@@ -597,10 +598,13 @@ class Superlocus(Abstractlocus):
                                              cds_only=cds_only)
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        if len(transcript_graph) > 350:
+        if len(transcript_graph) > self._complex_limit:
             self.complex = True
 
-        _, subloci = self.find_communities(transcript_graph, logger=self.logger)
+        try:
+            _, subloci = self.find_communities(transcript_graph, logger=self.logger)
+        except TooComplexLocus as exc:
+            raise TooComplexLocus(exc)
         self.logger.debug("Calculated the transcript communities")
 
         # Now we should define each sublocus and store it in a permanent structure of the class

@@ -9,12 +9,14 @@ import abc
 import random
 import logging
 from sys import maxsize
-from collections import defaultdict, deque
+from collections import defaultdict
+import time
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities.log_utils import create_null_logger, create_default_logger
 from .clique_methods import max_clique
+
 
 def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
@@ -104,6 +106,10 @@ def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
 
     return neighbours
 
+
+class TooComplexLocus(TypeError):
+    pass
+
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 class Abstractlocus(metaclass=abc.ABCMeta):
@@ -114,6 +120,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     __name__ = "Abstractlocus"
     available_metrics = []
+    _complex_limit = 400
+    _time_limit = 600
 
     # ##### Special methods #########
 
@@ -402,13 +410,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # counter = 0
         # # communities = []
 
-        if len(graph) > 350:
-            logger.warning("Complex locus in %s, switching to approximate algorithm",
-                           logger.name)
+        if len(graph) > cls._complex_limit:
+            logger.warning("Complex locus in %s with %d transcripts, using approximate algorithm",
+                           logger.name, len(graph))
             new_graph = graph.copy()
             cliques = []
             cycle = 0
-            while len(new_graph) > 350:
+            start = time.time()
+            while len(new_graph) > cls._complex_limit:
+                curr_time = time.time()
+                if curr_time - start > cls._time_limit:
+                    raise TooComplexLocus("It is taking too long for finding the cliques. Exiting.")
                 cycle += 1
                 logger.debug("In cycle no. %d of approximate algorithm for %s, graph length: %d",
                                cycle, logger.name, len(new_graph))

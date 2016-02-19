@@ -169,7 +169,16 @@ def analyse_locus(slocus: Superlocus,
     logger.debug("Divided into %d loci", len(stranded_loci))
 
     for stranded_locus in stranded_loci:
-        stranded_locus.define_loci()
+        try:
+            stranded_locus.define_loci()
+        except KeyboardInterrupt:
+            raise
+        except OSError:
+            raise
+        except Exception as exc:
+            logger.exception(exc)
+            logger.error("Removing failed locus %s", stranded_locus.name)
+            stranded_loci.remove(stranded_locus)
         logger.debug("Defined loci for %s:%f-%f, strand: %s",
                      stranded_locus.chrom,
                      stranded_locus.start,

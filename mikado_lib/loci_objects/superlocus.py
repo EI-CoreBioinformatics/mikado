@@ -54,7 +54,7 @@ class Superlocus(Abstractlocus):
         Junction.strand == bindparam("strand")
     ))
 
-    _complex_limit = (350, 300)
+    _complex_limit = (200, 150)
 
     # Junction.strand == bindparam("strand")))
 

@@ -583,7 +583,7 @@ class Superlocus(Abstractlocus):
         :return:
         """
 
-        max_edges = max(len([transcript_graph[_] for _ in transcript_graph]))
+        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
         self.approximation_level = 0
         if len(transcript_graph) < self._complex_limit[0] or max_edges < self._complex_limit[1]:
             return transcript_graph

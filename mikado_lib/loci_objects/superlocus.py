@@ -585,8 +585,11 @@ class Superlocus(Abstractlocus):
 
         max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
         self.approximation_level = 0
-        if len(transcript_graph) < self._complex_limit[0] or max_edges < self._complex_limit[1]:
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
             return transcript_graph
+        self.logger.warning("Complex superlocus with %d nodes \
+        with the most connected having %d edges",
+                            len(transcript_graph), max_edges)
 
         self.approximation_level = 1
         multiexonic_groups = []
@@ -606,9 +609,14 @@ class Superlocus(Abstractlocus):
                         to_remove.add(current.id)
                         break
         transcript_graph.remove_nodes_from(to_remove)
-        if len(transcript_graph) < self._complex_limit[0] or max_edges < self._complex_limit[1]:
+        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
             self.logger.warning("Approximation level 1 for %s", self.id)
             return transcript_graph
+
+        self.logger.warning("Still %d nodes with the most connected with %d edges \
+        after approximation 1",
+                            len(transcript_graph), max_edges)
 
         self.approximation_level = 2
         to_remove = set()
@@ -624,7 +632,8 @@ class Superlocus(Abstractlocus):
                 if result.ccode[0] == "c":
                     to_remove.add(neighbour.id)
         transcript_graph.remove_nodes_from(to_remove)
-        if len(transcript_graph) < self._complex_limit[0] or max_edges < self._complex_limit[1]:
+        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
             self.logger.warning("Approximation level 2 for %s", self.id)
             return transcript_graph
 
@@ -636,21 +645,29 @@ class Superlocus(Abstractlocus):
         new_graph = networkx.Graph()
         retained_sources = set()
 
+        counter = dict()
+        for source in sources:
+            counter[source] = len(sources[source])
+        self.logger.debug("Sources to consider: %s", counter)
         for source in sorted(sources, key=lambda key: len(sources[key])):
+            self.logger.debug("Considering source %s, counter: %d",
+                              source, counter[source])
             nodes = sources[source]
             edges = transcript_graph.edges(nbunch=set.union(
                 set(new_graph.nodes()),
                 nodes))
-
-            if (len(nodes) + len(new_graph) > self._complex_limit[0] or
-                len(edges) + len(new_graph.edges()) > self._complex_limit[1]):
+            if ((len(nodes) + len(new_graph)) > self._complex_limit[0] or
+                        (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
+                self.logger.debug("Reached the limit with source %s", source)
                 break
             new_graph.add_nodes_from(nodes)
             new_graph.add_edges_from(edges)
+            self.logger.debug("Retained source %s", source)
             retained_sources.add(source)
 
         self.approximation_level = 3
-        self.logger.warning("Approximation level 3 for %s", self.id)
+        self.logger.warning("Approximation level 3 for %s; retained sources: %s",
+                            self.id, ",".join(retained_sources))
         return new_graph
 
     def define_subloci(self):
@@ -691,6 +708,7 @@ class Superlocus(Abstractlocus):
 
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
+            self.logger.warning("Discarded all transcripts from %s", self.id)
             self.subloci_defined = True
             return
 

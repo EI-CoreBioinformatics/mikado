@@ -511,10 +511,10 @@ class Superlocus(Abstractlocus):
             tid_corrs = dict((query.query_name, query.query_id) for query in
                              self.session.query(Query).filter(
                                  Query.query_name.in_(tid_keys)))
-
-            orfs = self.session.query(Orf).filter(Orf.query_id.in_(tid_corrs))
-            for orf in orfs:
-                data_dict["orfs"][tid_corrs[orf.query_id]].append(orf.as_bed12())
+            for tid_group in grouper(tid_corrs.values(), 100):
+                orfs = self.session.query(Orf).filter(Orf.query_id.in_(tid_group))
+                for orf in orfs:
+                    data_dict["orfs"][tid_corrs[orf.query_id]].append(orf.as_bed12())
 
             for tid in tid_keys:
                 tid_id = tid_corrs[tid]

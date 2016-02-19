@@ -45,6 +45,8 @@ pick:
       leniency: LENIENT
       min_overlap_duplication: 0.8
     execute: true
+  output_format:
+    source: test
   files:
     #  Input and output files for Mikado pick.
     #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf

@@ -122,10 +122,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     # ##### Special methods #########
 
     @abc.abstractmethod
-    def __init__(self):
+    def __init__(self, source=""):
 
         # Mock values
-        self.__source = ""
+        self.__source = source
 
         self.__logger = None
         self.__stranded = False
@@ -139,7 +139,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.initialized = False
         self.monoexonic = True
         self.chrom = None
-        self.source = None
         self.cds_introns = set()
         self.json_conf = dict()
         self.__cds_introntree = intervaltree.IntervalTree()
@@ -568,7 +567,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.initialized is False:
             self.initialized = True
-        self.source = transcript.source
+        # self.source = transcript.source
         #         self.source = "mikado_lib"
         return
 

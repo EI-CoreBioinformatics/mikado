@@ -54,13 +54,18 @@ class Superlocus(Abstractlocus):
         Junction.strand == bindparam("strand")
     ))
 
-    _complex_limit = (200, 150)
+    _complex_limit = (350, 300)
 
     # Junction.strand == bindparam("strand")))
 
     # ###### Special methods ############
 
-    def __init__(self, transcript_instance, stranded=True, json_conf=None, logger=None):
+    def __init__(self,
+                 transcript_instance,
+                 stranded=True,
+                 json_conf=None,
+                 source="",
+                 logger=None):
 
         """
 
@@ -71,6 +76,8 @@ class Superlocus(Abstractlocus):
         :type stranded: bool
         :param json_conf: a configuration dictionary derived from JSON/YAML config files
         :type json_conf: dict
+        :param source: optional source for the locus
+        :type source: str
         :param logger: the logger for the class
         :type logger: logging.Logger
 
@@ -94,7 +101,7 @@ class Superlocus(Abstractlocus):
         from further consideration.
         """
 
-        super().__init__()
+        super().__init__(source=source)
         self.approximation_level = 0
         self.stranded = stranded
         self.feature = self.__name__
@@ -300,6 +307,7 @@ class Superlocus(Abstractlocus):
                     new_locus = Superlocus(strand[0],
                                            stranded=True,
                                            json_conf=self.json_conf,
+                                           source=self.source,
                                            logger=self.logger)
                     assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     for cdna in strand[1:]:
@@ -713,6 +721,10 @@ class Superlocus(Abstractlocus):
             self.logger.warning("Discarded all transcripts from %s", self.id)
             self.subloci_defined = True
             return
+
+        # Reset the source with the correct value
+        for tid in self.transcripts:
+            self.transcripts[tid].source = self.source
 
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")

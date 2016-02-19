@@ -147,6 +147,7 @@ def analyse_locus(slocus: Superlocus,
         slocus.stranded = False
 
     slocus.logger = logger
+    slocus.source = json_conf["pick"]["output_format"]["source"]
 
     # Load the CDS information if necessary
     if slocus.initialized is False:
@@ -1068,7 +1069,6 @@ memory intensive, proceed with caution!")
 
                 current_transcript = Transcript(
                     row,
-                    source=self.json_conf["pick"]["output_format"]["source"],
                     intron_range=intron_range)
 
         if current_transcript is not None:
@@ -1189,7 +1189,6 @@ memory intensive, proceed with caution!")
 
                 current_transcript = Transcript(
                     row,
-                    source=self.json_conf["pick"]["output_format"]["source"],
                     intron_range=intron_range)
 
         if current_transcript is not None:

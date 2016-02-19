@@ -54,7 +54,7 @@ class Superlocus(Abstractlocus):
         Junction.strand == bindparam("strand")
     ))
 
-    _complex_limit = (200, 150)
+    _complex_limit = (250, 200)
 
     # Junction.strand == bindparam("strand")))
 
@@ -603,8 +603,6 @@ class Superlocus(Abstractlocus):
         to_remove = set()
         for tid in transcript_graph:
             current = self.transcripts[tid]
-            if current.monoexonic is True:
-                continue
             for neighbour in transcript_graph.neighbors_iter(tid):
                 if neighbour in to_remove:
                     continue
@@ -629,8 +627,6 @@ class Superlocus(Abstractlocus):
         to_remove = set()
         for tid in transcript_graph:
             current = self.transcripts[tid]
-            if current.monoexonic is True:
-                continue
             for neighbour in transcript_graph.neighbors_iter(tid):
                 if neighbour in to_remove:
                     continue
@@ -690,19 +686,6 @@ class Superlocus(Abstractlocus):
             and store them inside the instance store "subloci"
         """
 
-        self.compile_requirements()
-        if self.subloci_defined is True:
-            return
-        self.subloci = []
-
-        # Check whether there is something to remove
-        self.__prefilter_transcripts()
-
-        if len(self.transcripts) == 0:
-            # we have removed all transcripts from the Locus. Set the flag to True and exit.
-            self.subloci_defined = True
-            return
-
         cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
         self.logger.debug("Calculating the transcript graph")
         transcript_graph = self.define_graph(self.transcripts,
@@ -720,6 +703,18 @@ class Superlocus(Abstractlocus):
         if len(self.transcripts) == 0:
             # we have removed all transcripts from the Locus. Set the flag to True and exit.
             self.logger.warning("Discarded all transcripts from %s", self.id)
+            self.subloci_defined = True
+            return
+        self.compile_requirements()
+        if self.subloci_defined is True:
+            return
+        self.subloci = []
+
+        # Check whether there is something to remove
+        self.__prefilter_transcripts()
+
+        if len(self.transcripts) == 0:
+            # we have removed all transcripts from the Locus. Set the flag to True and exit.
             self.subloci_defined = True
             return
 

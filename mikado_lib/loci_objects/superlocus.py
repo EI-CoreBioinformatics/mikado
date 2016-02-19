@@ -8,6 +8,7 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
+import itertools
 import sqlalchemy
 import networkx
 from sqlalchemy.engine import create_engine
@@ -33,6 +34,13 @@ from ..scales.assigner import Assigner
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
+    args = [iter(iterable)] * n
+    return itertools.zip_longest(*args, fillvalue=fillvalue)
+
 class Superlocus(Abstractlocus):
     """The superlocus class is used to define overlapping regions
     on the genome, and it receives as input transcript class instances.
@@ -477,22 +485,26 @@ class Superlocus(Abstractlocus):
         to_remove, to_add = set(), set()
 
         if data_dict is None:
-            data_dict = {}
-            hits = self.session.query(Hit).filter(
-                Hit.query.in_(tid_keys),
-                Hit.evalue <= self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                Hit.hit_number <= self.json_conf["pick"][
-                    "chimera_split"]["blast_params"]["max_target_seqs"]
-            )
+            data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
-            for hit in hits:
-                data_dict["hits"][hit.query].append(hit.as_dict())
-            orfs = self.session.query(Orf).filter(
-                Orf.query.in_(tid_keys)
-            )
             data_dict["orfs"] = collections.defaultdict(list)
-            for orf in orfs:
-                data_dict["orfs"][orf.query].append(orf.as_bed12())
+
+            for tid_group in grouper(tid_keys, 100):
+                hits = self.session.query(Hit).filter(
+                    Hit.query.in_(tid_group),
+                    Hit.evalue <= self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                    Hit.hit_number <= self.json_conf["pick"][
+                        "chimera_split"]["blast_params"]["max_target_seqs"]
+                    )
+
+                for hit in hits:
+                    data_dict["hits"][hit.query].append(hit.as_dict())
+                orfs = self.session.query(Orf).filter(
+                    Orf.query.in_(tid_group)
+                )
+
+                for orf in orfs:
+                    data_dict["orfs"][orf.query].append(orf.as_bed12())
 
             self.session.close()
             self.sessionmaker.close_all()

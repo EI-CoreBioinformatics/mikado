@@ -136,6 +136,7 @@ class Superlocus(Abstractlocus):
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
         self.excluded_transcripts = None
+        self.__retained_sources = set()
 
     def __create_locus_lines(self, superlocus_line, new_id, print_cds=True):
 
@@ -247,6 +248,10 @@ class Superlocus(Abstractlocus):
         superlocus_line.id, superlocus_line.name = new_id, self.name
         if self.approximation_level > 0:
             superlocus_line.attributes["approximation_level"] = self.approximation_level
+        if len(self.__retained_sources) > 0:
+            superlocus_line.attributes["retained_sources"] = ",".join(
+                sorted(list(self.__retained_sources))
+            )
 
         lines = []
         if level not in (None, "loci", "subloci", "monosubloci"):
@@ -648,7 +653,6 @@ class Superlocus(Abstractlocus):
             sources[self.transcripts[tid].source].add(tid)
 
         new_graph = networkx.Graph()
-        retained_sources = set()
 
         counter = dict()
         for source in sources:
@@ -670,11 +674,11 @@ class Superlocus(Abstractlocus):
             new_graph.add_nodes_from(nodes)
             new_graph.add_edges_from(edges)
             self.logger.debug("Retained source %s", source)
-            retained_sources.add(source)
+            self.retained_sources.add(source)
 
         self.approximation_level = 3
         self.logger.warning("Approximation level 3 for %s; retained sources: %s",
-                            self.id, ",".join(retained_sources))
+                            self.id, ",".join(self.retained_sources))
         return new_graph
 
     def define_subloci(self):

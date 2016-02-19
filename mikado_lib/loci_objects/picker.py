@@ -731,12 +731,11 @@ memory intensive, proceed with caution!")
         the analyse_locus function."""
 
         handler = logging_handlers.QueueHandler(self.logging_queue)
-        handler.setLevel(logging.DEBUG)
         logger = logging.getLogger("queue_listener")
         logger.name = "printer_logger"
         logger.propagate = False
         logger.addHandler(handler)
-        logger.setLevel(logging.DEBUG)
+        logger.setLevel(self.json_conf["log_settings"]["log_level"])
 
         handles = self.__get_output_files()
 

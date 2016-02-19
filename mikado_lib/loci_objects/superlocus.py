@@ -8,7 +8,6 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
-import itertools
 import sqlalchemy
 import networkx
 from sqlalchemy.engine import create_engine
@@ -35,11 +34,23 @@ from ..scales.assigner import Assigner
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
 
-def grouper(iterable, n, fillvalue=None):
-    "Collect data into fixed-length chunks or blocks"
-    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
-    args = [iter(iterable)] * n
-    return itertools.zip_longest(*args, fillvalue=fillvalue)
+def grouper(iterable, n):
+    """
+    Function to chunk an iterable into slices of at most n elements.
+    :param iterable:
+    :param n:
+    :return:
+    """
+
+    temp = []
+    for val in iterable:
+        temp.append(val)
+        if len(val) >= n:
+            yield temp
+            temp = []
+
+    yield temp
+
 
 class Superlocus(Abstractlocus):
     """The superlocus class is used to define overlapping regions

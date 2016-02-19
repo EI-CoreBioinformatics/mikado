@@ -46,7 +46,7 @@ def grouper(iterable, n):
     temp = []
     for val in iterable:
         temp.append(val)
-        if len(val) >= n:
+        if len(temp) >= n:
             yield temp
             temp = []
 

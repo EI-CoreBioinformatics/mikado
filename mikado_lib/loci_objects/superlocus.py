@@ -351,6 +351,7 @@ class Superlocus(Abstractlocus):
                             new_locus = Superlocus(cdna,
                                                    stranded=True,
                                                    json_conf=self.json_conf,
+                                                   source=self.source,
                                                    logger=self.logger)
                     assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     new_loci.append(new_locus)

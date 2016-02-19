@@ -496,27 +496,33 @@ class Superlocus(Abstractlocus):
         to_remove, to_add = set(), set()
 
         if data_dict is None:
+            self.logger.debug("Starting to load hits and orfs")
             data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
             data_dict["orfs"] = collections.defaultdict(list)
 
             for tid_group in grouper(tid_keys, 100):
+                self.logger.debug("Retrieving %d keys", len(tid_group))
                 hits = self.session.query(Hit).filter(
                     Hit.query.in_(tid_group),
                     Hit.evalue <= self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
                     Hit.hit_number <= self.json_conf["pick"][
                         "chimera_split"]["blast_params"]["max_target_seqs"]
                     )
-
+                self.logger.debug("Retrieving hits for %d keys", len(tid_group))
                 for hit in hits:
                     data_dict["hits"][hit.query].append(hit.as_dict())
+                self.logger.debug("Retrieved hits for %d keys", len(tid_group))
+                self.logger.debug("Retrieving orfs for %d keys", len(tid_group))
                 orfs = self.session.query(Orf).filter(
                     Orf.query.in_(tid_group)
                 )
 
                 for orf in orfs:
                     data_dict["orfs"][orf.query].append(orf.as_bed12())
+                self.logger.debug("Retrieved orfs for %d keys", len(tid_group))
 
+            self.logger.debug("Finished retrieving data for %d transcripts", len(tid_keys))
             self.session.close()
             self.sessionmaker.close_all()
             self.engine.dispose()

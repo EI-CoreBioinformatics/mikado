@@ -600,7 +600,6 @@ class Superlocus(Abstractlocus):
                             len(transcript_graph), max_edges)
 
         self.approximation_level = 1
-        multiexonic_groups = []
         to_remove = set()
         for tid in transcript_graph:
             current = self.transcripts[tid]
@@ -663,10 +662,12 @@ class Superlocus(Abstractlocus):
             self.logger.debug("Considering source %s, counter: %d",
                               source, counter[source])
             nodes = sources[source]
-            edges = transcript_graph.edges(nbunch=set.union(
-                set(new_graph.nodes()),
-                nodes))
-            if ((len(nodes) + len(new_graph)) > self._complex_limit[0] or
+            acceptable = set.union(nodes, set(new_graph.nodes()))
+            edges = set([edge for edge in transcript_graph.edges(
+                nbunch=set.union(set(new_graph.nodes()),nodes)) if
+                         edge[0] in acceptable and edge[1] in acceptable])
+
+            if (len(acceptable) > self._complex_limit[0] or
                         (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
                 self.logger.debug("Reached the limit with source %s", source)
                 break

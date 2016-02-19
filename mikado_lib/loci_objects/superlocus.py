@@ -517,7 +517,6 @@ class Superlocus(Abstractlocus):
             for tid in to_remove:
                 self.remove_transcript_from_locus(tid)
 
-
         del data_dict
 
         num_coding = 0
@@ -664,21 +663,21 @@ class Superlocus(Abstractlocus):
             nodes = sources[source]
             acceptable = set.union(nodes, set(new_graph.nodes()))
             edges = set([edge for edge in transcript_graph.edges(
-                nbunch=set.union(set(new_graph.nodes()),nodes)) if
+                nbunch=set.union(set(new_graph.nodes()), nodes)) if
                          edge[0] in acceptable and edge[1] in acceptable])
 
             if (len(acceptable) > self._complex_limit[0] or
-                        (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
+                    (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
                 self.logger.debug("Reached the limit with source %s", source)
                 break
             new_graph.add_nodes_from(nodes)
             new_graph.add_edges_from(edges)
             self.logger.debug("Retained source %s", source)
-            self.retained_sources.add(source)
+            self.__retained_sources.add(source)
 
         self.approximation_level = 3
         self.logger.warning("Approximation level 3 for %s; retained sources: %s",
-                            self.id, ",".join(self.retained_sources))
+                            self.id, ",".join(self.__retained_sources))
         return new_graph
 
     def define_subloci(self):

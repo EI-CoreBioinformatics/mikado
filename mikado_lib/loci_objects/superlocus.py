@@ -501,17 +501,16 @@ class Superlocus(Abstractlocus):
             data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
             data_dict["orfs"] = collections.defaultdict(list)
-            for tid in tid_keys:
+            for tid_group in grouper(tid_keys, 100):
                 hits = self.session.query(Hit).filter(
-                    Hit.query == tid,
+                    Hit.query.in_(tid_group),
                     Hit.evalue <= self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
                     Hit.hit_number <= self.json_conf["pick"][
                         "chimera_split"]["blast_params"]["max_target_seqs"]
                     )
                 for hit in hits:
                     data_dict["hits"][hit.query].append(hit.as_dict())
-                orfs = self.session.query(Orf).filter(Orf.query == tid)
-
+                orfs = self.session.query(Orf).filter(Orf.query.in_(tid_group))
                 for orf in orfs:
                     data_dict["orfs"][orf.query].append(orf.as_bed12())
 

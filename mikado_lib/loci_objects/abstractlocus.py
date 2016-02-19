@@ -105,9 +105,6 @@ def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
     return neighbours
 
 
-class TooComplexLocus(TypeError):
-    pass
-
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
 class Abstractlocus(metaclass=abc.ABCMeta):

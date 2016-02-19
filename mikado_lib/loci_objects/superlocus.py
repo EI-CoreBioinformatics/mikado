@@ -23,7 +23,6 @@ from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
 from .excluded import Excluded
 from .transcript import Transcript
-from .abstractlocus import TooComplexLocus
 from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
@@ -689,6 +688,19 @@ class Superlocus(Abstractlocus):
             and store them inside the instance store "subloci"
         """
 
+        self.compile_requirements()
+        if self.subloci_defined is True:
+            return
+        self.subloci = []
+
+        # Check whether there is something to remove
+        self.__prefilter_transcripts()
+
+        if len(self.transcripts) == 0:
+            # we have removed all transcripts from the Locus. Set the flag to True and exit.
+            self.subloci_defined = True
+            return
+
         cds_only = self.json_conf["pick"]["run_options"]["subloci_from_cds_only"]
         self.logger.debug("Calculating the transcript graph")
         transcript_graph = self.define_graph(self.transcripts,
@@ -708,18 +720,6 @@ class Superlocus(Abstractlocus):
             self.logger.warning("Discarded all transcripts from %s", self.id)
             self.subloci_defined = True
             return
-        self.compile_requirements()
-        if self.subloci_defined is True:
-            return
-        self.subloci = []
-
-        # Check whether there is something to remove
-        self.__prefilter_transcripts()
-
-        if len(self.transcripts) == 0:
-            # we have removed all transcripts from the Locus. Set the flag to True and exit.
-            self.subloci_defined = True
-            return
 
         # Reset the source with the correct value
         for tid in self.transcripts:
@@ -727,10 +727,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        try:
-            _, subloci = self.find_communities(transcript_graph, logger=self.logger)
-        except TooComplexLocus as exc:
-            raise TooComplexLocus(exc)
+        _, subloci = self.find_communities(transcript_graph, logger=self.logger)
         self.logger.debug("Calculated the transcript communities")
 
         # Now we should define each sublocus and store it in a permanent structure of the class

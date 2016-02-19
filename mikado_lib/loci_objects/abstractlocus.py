@@ -10,12 +10,10 @@ import random
 import logging
 from sys import maxsize
 from collections import defaultdict
-import time
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities.log_utils import create_null_logger, create_default_logger
-from .clique_methods import max_clique
 
 
 def reid_daid_hurley(graph, k, cliques=None, logger=None):
@@ -120,8 +118,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     __name__ = "Abstractlocus"
     available_metrics = []
-    _complex_limit = 400
-    _time_limit = 600
 
     # ##### Special methods #########
 
@@ -410,36 +406,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # counter = 0
         # # communities = []
 
-        if len(graph) > cls._complex_limit:
-            logger.warning("Complex locus in %s with %d transcripts, using approximate algorithm",
-                           logger.name, len(graph))
-            new_graph = graph.copy()
-            cliques = []
-            cycle = 0
-            start = time.time()
-            while len(new_graph) > cls._complex_limit:
-                curr_time = time.time()
-                if curr_time - start > cls._time_limit:
-                    raise TooComplexLocus("It is taking too long for finding the cliques. Exiting.")
-                cycle += 1
-                logger.debug("In cycle no. %d of approximate algorithm for %s, graph length: %d",
-                               cycle, logger.name, len(new_graph))
-                maximum_clique = frozenset(max_clique(new_graph))
-                logger.debug("Found a clique with %d elements", len(maximum_clique))
-                cliques.append(maximum_clique)
-                to_remove = []
-                for node in maximum_clique:
-                    to_remove.append(node)
-                new_graph.remove_nodes_from(to_remove)
-            logger.info("Finished with the approximate algorithm for %s, %d transcripts remaining",
-                        len(new_graph),
-                        logger.name)
-            cliques.extend([frozenset(x) for x in networkx.find_cliques_recursive(new_graph)])
-            del new_graph
-        else:
-            cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
-        #
-
+        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
         logger.debug("Created %d cliques for %s", len(cliques), logger.name)
         logger.debug("Creating the communities for %s", logger.name)
 

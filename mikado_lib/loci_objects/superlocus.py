@@ -9,6 +9,7 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 # Core imports
 import collections
 import sqlalchemy
+import networkx
 from sqlalchemy.engine import create_engine
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
@@ -27,6 +28,7 @@ from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
 from ..exceptions import NoJsonConfigError, NotInLocusError
+from ..scales.assigner import Assigner
 # import mikado_lib.exceptions
 
 
@@ -51,6 +53,9 @@ class Superlocus(Abstractlocus):
         Junction.junction_end <= bindparam("junctionEnd"),
         Junction.strand == bindparam("strand")
     ))
+
+    _complex_limit = (200, 150)
+
     # Junction.strand == bindparam("strand")))
 
     # ###### Special methods ############
@@ -90,7 +95,7 @@ class Superlocus(Abstractlocus):
         """
 
         super().__init__()
-        self.complex = False
+        self.approximation_level = 0
         self.stranded = stranded
         self.feature = self.__name__
         if json_conf is None or not isinstance(json_conf, dict):
@@ -233,8 +238,8 @@ class Superlocus(Abstractlocus):
         superlocus_line.phase, superlocus_line.score = None, None
         new_id = "{0}_{1}".format(self.source, self.id)
         superlocus_line.id, superlocus_line.name = new_id, self.name
-        if self.complex is True:
-            superlocus_line.attributes["approximate"] = "true"
+        if self.approximation_level > 0:
+            superlocus_line.attributes["approximation_level"] = self.approximation_level
 
         lines = []
         if level not in (None, "loci", "subloci", "monosubloci"):
@@ -569,6 +574,85 @@ class Superlocus(Abstractlocus):
                 self.remove_transcript_from_locus(tid)
         return
 
+    def __reduce_complex_loci(self, transcript_graph):
+
+        """
+        Method which checks whether a locus has too many transcripts and tries to reduce them.
+
+        :param transcript_graph: the transcript graph to analyse for redundancies
+        :return:
+        """
+
+        max_edges = max(len([transcript_graph[_] for _ in transcript_graph]))
+        self.approximation_level = 0
+        if len(transcript_graph) < self._complex_limit[0] or max_edges < self._complex_limit[1]:
+            return transcript_graph
+
+        self.approximation_level = 1
+        multiexonic_groups = []
+        to_remove = set()
+        for tid in transcript_graph:
+            current = self.transcripts[tid]
+            if current.monoexonic is True:
+                continue
+            for neighbour in transcript_graph.neighbors_iter(tid):
+                if neighbour in to_remove:
+                    continue
+                neighbour = self.transcripts[neighbour]
+                if neighbour.introns == current.introns:
+                    if neighbour.start >= current.start and neighbour.end <= current.end:
+                        to_remove.add(neighbour.id)
+                    elif neighbour.start <= current.start and neighbour.end >= current.end:
+                        to_remove.add(current.id)
+                        break
+        transcript_graph.remove_nodes_from(to_remove)
+        if len(transcript_graph) < self._complex_limit[0] or max_edges < self._complex_limit[1]:
+            self.logger.warning("Approximation level 1 for %s", self.id)
+            return transcript_graph
+
+        self.approximation_level = 2
+        to_remove = set()
+        for tid in transcript_graph:
+            current = self.transcripts[tid]
+            if current.monoexonic is True:
+                continue
+            for neighbour in transcript_graph.neighbors_iter(tid):
+                if neighbour in to_remove:
+                    continue
+                neighbour = self.transcripts[neighbour]
+                result, _ = Assigner.compare(neighbour, current)
+                if result.ccode[0] == "c":
+                    to_remove.add(neighbour.id)
+        transcript_graph.remove_nodes_from(to_remove)
+        if len(transcript_graph) < self._complex_limit[0] or max_edges < self._complex_limit[1]:
+            self.logger.warning("Approximation level 2 for %s", self.id)
+            return transcript_graph
+
+        # Now we are going to collapse by method
+        sources = collections.defaultdict(set)
+        for tid in transcript_graph:
+            sources[self.transcripts[tid].source].add(tid)
+
+        new_graph = networkx.Graph()
+        retained_sources = set()
+
+        for source in sorted(sources, key=lambda key: len(sources[key])):
+            nodes = sources[source]
+            edges = transcript_graph.edges(nbunch=set.union(
+                set(new_graph.nodes()),
+                nodes))
+
+            if (len(nodes) + len(new_graph) > self._complex_limit[0] or
+                len(edges) + len(new_graph.edges()) > self._complex_limit[1]):
+                break
+            new_graph.add_nodes_from(nodes)
+            new_graph.add_edges_from(edges)
+            retained_sources.add(source)
+
+        self.approximation_level = 3
+        self.logger.warning("Approximation level 3 for %s", self.id)
+        return new_graph
+
     def define_subloci(self):
         """This method will define all subloci inside the superlocus.
         Steps:
@@ -596,6 +680,20 @@ class Superlocus(Abstractlocus):
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
                                              cds_only=cds_only)
+        transcript_graph = self.__reduce_complex_loci(transcript_graph)
+        if len(self.transcripts) > len(transcript_graph):
+            self.logger.warning("Discarded %d transcripts from %s due to approximation level %d",
+                                len(self.transcripts) - len(transcript_graph),
+                                self.id,
+                                self.approximation_level)
+            for tid in set.difference(set(self.transcripts.keys()), set(transcript_graph.nodes())):
+                del self.transcripts[tid]
+
+        if len(self.transcripts) == 0:
+            # we have removed all transcripts from the Locus. Set the flag to True and exit.
+            self.subloci_defined = True
+            return
+
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
         if len(transcript_graph) > self._complex_limit:

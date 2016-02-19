@@ -636,7 +636,9 @@ class Superlocus(Abstractlocus):
         if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
             self.logger.warning("Approximation level 2 for %s", self.id)
             return transcript_graph
-
+        self.logger.warning("Still %d nodes with the most connected with %d edges \
+        after approximation 2",
+                            len(transcript_graph), max_edges)
         # Now we are going to collapse by method
         sources = collections.defaultdict(set)
         for tid in transcript_graph:

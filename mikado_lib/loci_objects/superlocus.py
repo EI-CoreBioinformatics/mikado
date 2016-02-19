@@ -696,9 +696,6 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        if len(transcript_graph) > self._complex_limit:
-            self.complex = True
-
         try:
             _, subloci = self.find_communities(transcript_graph, logger=self.logger)
         except TooComplexLocus as exc:

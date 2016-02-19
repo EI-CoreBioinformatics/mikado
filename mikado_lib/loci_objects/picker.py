@@ -91,7 +91,9 @@ def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
                   printer_queue: [multiprocessing.managers.AutoProxy, None],
-                  logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
+                  logging_queue: multiprocessing.managers.AutoProxy,
+                  connection_pool=None,
+                  data_dict=None) -> [Superlocus]:
 
     """
     :param slocus: a superlocus instance
@@ -148,6 +150,16 @@ def analyse_locus(slocus: Superlocus,
 
     slocus.logger = logger
     slocus.source = json_conf["pick"]["output_format"]["source"]
+
+    try:
+        slocus.load_all_transcript_data(pool=connection_pool,
+                                        data_dict=data_dict)
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:
+        logger.error("Error while loading data for %s", slocus.id)
+        logger.exception(exc)
+    logger.debug("Loading transcript data for %s", slocus.id)
 
     # Load the CDS information if necessary
     if slocus.initialized is False:
@@ -252,6 +264,12 @@ class LociProcesser(Process):
         except Exception as exc:
             self.logger.exception(exc)
             return
+        self.analyse_locus = functools.partial(analyse_locus,
+                                               printer_queue=self.printer_queue,
+                                               json_conf=self.json_conf,
+                                               data_dict=self.data_dict,
+                                               connection_pool=self.connection_pool,
+                                               logging_queue=self.logging_queue)
 
     def run(self):
 
@@ -263,22 +281,8 @@ class LociProcesser(Process):
                 if self.connection_pool is not None:
                     self.connection_pool.dispose()
                 return
-
             if slocus is not None:
-                try:
-                    slocus.load_all_transcript_data(pool=self.connection_pool,
-                                                    data_dict=self.data_dict)
-                except KeyboardInterrupt:
-                    raise
-                except Exception as exc:
-                    self.logger.error("Error while loading data for %s",
-                                      slocus.id)
-                    self.logger.exception(exc)
-                self.logger.debug("Loading transcript data for %s", slocus.id)
-            analyse_locus(slocus, counter,
-                          self.json_conf,
-                          self.printer_queue,
-                          self.logging_queue)
+                self.analyse_locus(slocus, counter)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -713,7 +717,7 @@ memory intensive, proceed with caution!")
                                           logger=logger,
                                           handles=handles)
 
-        last_printed = -1
+        last_printed = 0
         cache = dict()
         curr_chrom = None
         gene_counter = 0
@@ -726,9 +730,9 @@ memory intensive, proceed with caution!")
             cache[counter] = stranded_loci
             if stranded_loci != "EXIT":
                 logger.debug("Received one locus, counter: %d, total %d. names %s",
-                               counter,
-                               len(stranded_loci),
-                               ", ".join([_.id for _ in stranded_loci]))
+                             counter,
+                             len(stranded_loci),
+                             ", ".join([_.id for _ in stranded_loci]))
             if counter == last_printed + 1 or stranded_loci == "EXIT":
                 cache[counter] = stranded_loci
                 for num in sorted(cache.keys()):

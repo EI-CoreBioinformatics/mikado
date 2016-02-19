@@ -74,7 +74,7 @@ pick:
     #  - preload: boolean flag. If set, the whole database will be preloaded into
     #  memory for faster access. Useful when
     #    using SQLite databases.
-    preload: true
+    preload: false
     threads: 5
     single_thread: true
 prepare:

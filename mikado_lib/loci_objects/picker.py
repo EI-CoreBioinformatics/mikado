@@ -1082,7 +1082,8 @@ memory intensive, proceed with caution!")
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
-                            json_conf=self.json_conf)
+                            json_conf=self.json_conf,
+                            source=self.json_conf["pick"]["output_format"]["source"])
 
                 if current_transcript is None or row.chrom != current_transcript.chrom:
                     if current_transcript is not None:
@@ -1109,7 +1110,8 @@ memory intensive, proceed with caution!")
                 current_locus = Superlocus(
                     current_transcript,
                     stranded=False,
-                    json_conf=self.json_conf)
+                    json_conf=self.json_conf,
+                    source=self.json_conf["pick"]["output_format"]["source"])
                 self.logger.debug("Created last locus %s",
                                   current_locus)
         self.logger.info("Finished chromosome %s", current_locus.chrom)
@@ -1204,7 +1206,8 @@ memory intensive, proceed with caution!")
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
-                            json_conf=self.json_conf)
+                            json_conf=self.json_conf,
+                            source=self.json_conf["pick"]["output_format"]["source"])
 
                 if current_transcript is None or row.chrom != current_transcript.chrom:
                     if current_transcript is not None:
@@ -1233,7 +1236,8 @@ memory intensive, proceed with caution!")
                 current_locus = Superlocus(
                     current_transcript,
                     stranded=False,
-                    json_conf=self.json_conf)
+                    json_conf=self.json_conf,
+                    source=self.json_conf["pick"]["output_format"]["source"])
                 self.logger.debug("Created last locus %s",
                                   current_locus)
         self.logger.info("Finished chromosome %s", current_locus.chrom)

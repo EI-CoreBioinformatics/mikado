@@ -18,7 +18,7 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 # import sqlalchemy.pool
 from ..serializers.junction import Junction, Chrom
-from ..serializers.blast_serializer import Hit
+from ..serializers.blast_serializer import Hit, Query
 from ..serializers.orf import Orf
 from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
@@ -71,6 +71,13 @@ class Superlocus(Abstractlocus):
         Junction.junction_start >= bindparam("junctionStart"),
         Junction.junction_end <= bindparam("junctionEnd"),
         Junction.strand == bindparam("strand")
+    ))
+
+    hit_baked = bakery(lambda session: session.query(Hit))
+    hit_baked += lambda q: q.filter(and_(
+        Hit.query_id == bindparam("query_id"),
+        Hit.evalue <= bindparam("evalue"),
+        Hit.hit_number <= bindparam("hit_number")
     ))
 
     _complex_limit = (250, 200)
@@ -501,18 +508,26 @@ class Superlocus(Abstractlocus):
             data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
             data_dict["orfs"] = collections.defaultdict(list)
-            for tid_group in grouper(tid_keys, 100):
-                hits = self.session.query(Hit).filter(
-                    Hit.query.in_(tid_group),
-                    Hit.evalue <= self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                    Hit.hit_number <= self.json_conf["pick"][
-                        "chimera_split"]["blast_params"]["max_target_seqs"]
+            tid_corrs = dict((query.query_name, query.query_id) for query in
+                             self.session.query(Query).filter(
+                                 Query.query_name.in_(tid_keys)))
+
+            orfs = self.session.query(Orf).filter(Orf.query_id.in_(tid_corrs))
+            for orf in orfs:
+                data_dict["orfs"][tid_corrs[orf.query_id]].append(orf.as_bed12())
+
+            for tid in tid_keys:
+                tid_id = tid_corrs[tid]
+                hits = self.hit_baked(self.session).params(
+                    query_id=tid_id,
+                    evalue=self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                    hit_number=self.json_conf[
+                        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
                     )
-                for hit in hits:
+                self.logger.debug("Starting to load hits for %s",
+                                  tid)
+                for ccc, hit in enumerate(hits):
                     data_dict["hits"][hit.query].append(hit.as_dict())
-                orfs = self.session.query(Orf).filter(Orf.query.in_(tid_group))
-                for orf in orfs:
-                    data_dict["orfs"][orf.query].append(orf.as_bed12())
 
             self.logger.debug("Finished retrieving data for %d transcripts",
                               len(tid_keys))

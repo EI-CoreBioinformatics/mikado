@@ -562,27 +562,36 @@ memory intensive, proceed with caution!")
         for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
             print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                   file=locus_out)
+            locus_out.flush()
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
-            sub_metrics_file = re.sub("$", ".metrics.tsv",
-                                      re.sub(".gff.?$", "", self.sub_out))
-            sub_scores_file = re.sub("$", ".scores.tsv",
-                                     re.sub(".gff.?$", "", self.sub_out))
+            sub_metrics_file = open(re.sub("$", ".metrics.tsv",
+                                      re.sub(".gff.?$", "", self.sub_out)), "w")
+            sub_scores_file = open(re.sub("$", ".scores.tsv",
+                                     re.sub(".gff.?$", "", self.sub_out)), "w")
             sub_metrics = csv.DictWriter(
-                open(sub_metrics_file, 'w'),
+                sub_metrics_file,
                 Superlocus.available_metrics,
                 delimiter="\t")
             sub_metrics.writeheader()
             sub_scores = csv.DictWriter(
-                open(sub_scores_file, 'w'), score_keys, delimiter="\t")
+                sub_scores_file, score_keys, delimiter="\t")
             sub_scores.writeheader()
+            # Not a very clean wya to do things ... attaching the handles as properties
+            sub_scores.handle = sub_scores_file
+            sub_scores.flush = sub_scores.handle.flush
+            sub_metrics.handle = sub_metrics_file
+            sub_metrics.flush = sub_metrics.handle.flush
             sub_out = open(self.sub_out, 'w')
             print('##gff-version 3', file=sub_out)
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=sub_out)
-            sub_files = [sub_metrics, sub_scores, sub_out]
+
+            sub_files = [sub_metrics,
+                         sub_scores,
+                         sub_out]
         else:
             sub_files = [None, None, None]
 
@@ -592,6 +601,7 @@ memory intensive, proceed with caution!")
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=mono_out)
+            mono_out.flush()
         else:
             mono_out = None
 
@@ -612,22 +622,30 @@ memory intensive, proceed with caution!")
         score_keys = ["tid", "parent", "score"]
         score_keys += sorted(list(self.json_conf["scoring"].keys()))
         # Define mandatory output files
-        locus_metrics_file = re.sub("$", ".metrics.tsv", re.sub(
-            ".gff.?$", "", self.locus_out))
-        locus_scores_file = re.sub("$", ".scores.tsv", re.sub(
-            ".gff.?$", "", self.locus_out))
+        locus_metrics_file = open(re.sub("$", ".metrics.tsv", re.sub(
+            ".gff.?$", "", self.locus_out)), "w")
+        locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
+            ".gff.?$", "", self.locus_out)), "w")
         locus_metrics = csv.DictWriter(
-            open(locus_metrics_file, 'w'),
+            locus_metrics_file,
             Superlocus.available_metrics,
             delimiter="\t")
 
         locus_metrics.writeheader()
-        locus_scores = csv.DictWriter(open(locus_scores_file, 'w'), score_keys, delimiter="\t")
+        locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t")
         locus_scores.writeheader()
+
+        locus_metrics.handle = locus_metrics_file
+        locus_metrics.flush = locus_metrics.handle.flush
+        locus_scores.handle = locus_scores_file
+        locus_scores.flush = locus_scores.handle.flush
+
         locus_out = open(self.locus_out, 'w')
         sub_files, mono_out = self.__print_gff_headers(locus_out, score_keys)
 
-        return ((locus_metrics, locus_scores, locus_out),
+        return ((locus_metrics,
+                 locus_scores,
+                 locus_out),
                 sub_files, mono_out)
 
     # This method has many local variables, but most (9!) are
@@ -657,20 +675,24 @@ memory intensive, proceed with caution!")
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if sub_lines != '':
                 print(sub_lines, file=sub_out)
+                sub_out.flush()
             sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
                                 if x != {} and "tid" in x]
             sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
                                if x != {} and "tid" in x]
             for row in sub_metrics_rows:
                 sub_metrics.writerow(row)
+                sub_metrics.flush()
             for row in sub_scores_rows:
                 sub_scores.writerow(row)
+                sub_scores.flush()
         if self.monolocus_out != '':
             mono_lines = stranded_locus.__str__(
                 level="monosubloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if mono_lines != '':
                 print(mono_lines, file=mono_out)
+                mono_out.flush()
         locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
                               if x != {} and "tid" in x]
         locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
@@ -693,11 +715,14 @@ memory intensive, proceed with caution!")
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
         for row in locus_metrics_rows:
             locus_metrics.writerow(row)
+            locus_metrics.flush()
         for row in locus_scores_rows:
             locus_scores.writerow(row)
+            locus_scores.flush()
 
         if locus_lines != '':
             print(locus_lines, file=locus_out)
+            locus_out.flush()
         return gene_counter
 
     def printer(self):
@@ -706,10 +731,12 @@ memory intensive, proceed with caution!")
         the analyse_locus function."""
 
         handler = logging_handlers.QueueHandler(self.logging_queue)
+        handler.setLevel(logging.DEBUG)
         logger = logging.getLogger("queue_listener")
+        logger.name = "printer_logger"
         logger.propagate = False
         logger.addHandler(handler)
-        logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        logger.setLevel(logging.DEBUG)
 
         handles = self.__get_output_files()
 
@@ -726,7 +753,6 @@ memory intensive, proceed with caution!")
         while True:
             current = self.printer_queue.get()
             stranded_loci, counter = current
-
             cache[counter] = stranded_loci
             if stranded_loci != "EXIT":
                 logger.debug("Received one locus, counter: %d, total %d. names %s",
@@ -749,6 +775,9 @@ memory intensive, proceed with caution!")
                         last_printed += 1
                         del cache[num]
                 if stranded_loci == "EXIT":
+                    assert (len(cache) == 1 and
+                            list(cache.keys()) == [float("inf")] and
+                            list(cache.values()) == ["EXIT"])
                     self.printer_queue.task_done()
                     logger.info("Final number of superloci: %d", last_printed)
                     break

@@ -9,100 +9,11 @@ import abc
 import random
 import logging
 from sys import maxsize
-from collections import defaultdict
+from .clique_methods import reid_daid_hurley
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities.log_utils import create_null_logger, create_default_logger
-
-
-def reid_daid_hurley(graph, k, cliques=None, logger=None):
-
-    """
-    Implementation of the Reid-Daid-Hurley algorithm for clique percolation
-    published in http://arxiv.org/pdf/1205.0038.pdf
-
-    :param graph:
-    :param k:
-    :param cliques:
-    :param logger: optional logger for the function
-    :return:
-    """
-
-    if k < 2:
-        raise networkx.NetworkXError("k=%d, k must be greater than 1." % k)
-    if cliques is None:
-        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
-
-    if logger is None:
-        logger = create_null_logger("null")
-
-    nodes_to_clique_dict = defaultdict(set)
-    # Create the dictionary that links each node to its clique
-    logger.debug("Creating the node dictionary")
-    cliques = [_ for _ in cliques if len(_) >= k]
-    for clique in cliques:
-        for node in clique:
-            nodes_to_clique_dict[node].add(clique)
-
-    if len(nodes_to_clique_dict) > 100 or len(cliques) > 500:
-        logger.warning("Complex locus at %s, with %d nodes and %d cliques with length >= %d",
-                       logger.name, len(nodes_to_clique_dict), len(cliques), k)
-
-    current_component = 0
-
-    logger.debug("Starting to explore the clique graph")
-    cliques_to_components_dict = dict()
-    counter = 0
-    for clique in cliques:
-        counter += 1
-        logger.debug("Exploring clique %d out of %d", counter, len(cliques))
-        if not clique in cliques_to_components_dict:
-            current_component += 1
-            cliques_to_components_dict[clique] = current_component
-            frontier = set()
-            frontier.add(clique)
-            cycle = 0
-            while len(frontier) > 0:
-                current_clique = frontier.pop()
-                cycle += 1
-                logger.debug("Cycle %d for clique %d", cycle, counter)
-                for neighbour in _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
-                    if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
-                        cliques_to_components_dict[neighbour] = current_component
-                        frontier.add(neighbour)
-                        for node in neighbour:
-                            nodes_to_clique_dict[node].remove(neighbour)
-                logger.debug("Found %d neighbours of clique %d in cycle %d",
-                             len(frontier), counter, cycle)
-
-    logger.debug("Finished exploring the clique graph")
-    communities = dict()
-    for clique in cliques_to_components_dict:
-        if cliques_to_components_dict[clique] not in communities:
-            communities[cliques_to_components_dict[clique]] = set()
-        communities[cliques_to_components_dict[clique]].update(set(clique))
-
-    logger.debug("Reporting the results")
-    return [frozenset(x) for x in communities.values()]
-
-
-def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
-
-    """
-
-    :param current_clique:
-    :param nodes_to_clique_dict:
-    :return:
-    """
-
-    neighbours = set()
-    for node in current_clique:
-        for clique in nodes_to_clique_dict[node]:
-            if clique != current_clique:
-                neighbours.add(clique)
-
-    return neighbours
 
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -306,10 +217,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def in_locus(cls, locus_instance, transcript, flank=0) -> bool:
         """
         :param locus_instance: an inheritor of this class
-        :type locus_instance: Abstractlocus
-
         :param transcript: a transcript instance
-        :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int

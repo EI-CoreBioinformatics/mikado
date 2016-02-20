@@ -8,30 +8,51 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
-import sqlalchemy
-from sqlalchemy.engine import create_engine
+# import sqlalchemy
+import networkx
+from sqlalchemy.engine import Engine
+from ..utilities import dbutils
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
-import sqlalchemy.pool
+# import sqlalchemy.pool
 from ..serializers.junction import Junction, Chrom
-from ..serializers.blast_serializer import Hit
+from ..serializers.blast_serializer import Hit, Query
 from ..serializers.orf import Orf
 from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
 from .excluded import Excluded
 from .transcript import Transcript
-from .abstractlocus import TooComplexLocus
 from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
 from ..exceptions import NoJsonConfigError, NotInLocusError
+from ..scales.assigner import Assigner
 # import mikado_lib.exceptions
 
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
+
+def grouper(iterable, n):
+    """
+    Function to chunk an iterable into slices of at most n elements.
+    :param iterable:
+    :param n:
+    :return:
+    """
+
+    temp = []
+    for val in iterable:
+        temp.append(val)
+        if len(temp) >= n:
+            yield temp
+            temp = []
+
+    yield temp
+
+
 class Superlocus(Abstractlocus):
     """The superlocus class is used to define overlapping regions
     on the genome, and it receives as input transcript class instances.
@@ -51,11 +72,26 @@ class Superlocus(Abstractlocus):
         Junction.junction_end <= bindparam("junctionEnd"),
         Junction.strand == bindparam("strand")
     ))
+
+    hit_baked = bakery(lambda session: session.query(Hit))
+    hit_baked += lambda q: q.filter(and_(
+        Hit.query_id == bindparam("query_id"),
+        Hit.evalue <= bindparam("evalue"),
+        Hit.hit_number <= bindparam("hit_number")
+    ))
+
+    _complex_limit = (250, 200)
+
     # Junction.strand == bindparam("strand")))
 
     # ###### Special methods ############
 
-    def __init__(self, transcript_instance, stranded=True, json_conf=None, logger=None):
+    def __init__(self,
+                 transcript_instance,
+                 stranded=True,
+                 json_conf=None,
+                 source="",
+                 logger=None):
 
         """
 
@@ -66,6 +102,8 @@ class Superlocus(Abstractlocus):
         :type stranded: bool
         :param json_conf: a configuration dictionary derived from JSON/YAML config files
         :type json_conf: dict
+        :param source: optional source for the locus
+        :type source: str
         :param logger: the logger for the class
         :type logger: logging.Logger
 
@@ -89,8 +127,8 @@ class Superlocus(Abstractlocus):
         from further consideration.
         """
 
-        super().__init__()
-        self.complex = False
+        super().__init__(source=source)
+        self.approximation_level = 0
         self.stranded = stranded
         self.feature = self.__name__
         if json_conf is None or not isinstance(json_conf, dict):
@@ -124,6 +162,8 @@ class Superlocus(Abstractlocus):
         self.engine = self.sessionmaker = self.session = None
         # Excluded object
         self.excluded_transcripts = None
+        self.__retained_sources = set()
+        self.__data_loaded = False
 
     def __create_locus_lines(self, superlocus_line, new_id, print_cds=True):
 
@@ -233,8 +273,12 @@ class Superlocus(Abstractlocus):
         superlocus_line.phase, superlocus_line.score = None, None
         new_id = "{0}_{1}".format(self.source, self.id)
         superlocus_line.id, superlocus_line.name = new_id, self.name
-        if self.complex is True:
-            superlocus_line.attributes["approximate"] = "true"
+        if self.approximation_level > 0:
+            superlocus_line.attributes["approximation_level"] = self.approximation_level
+        if len(self.__retained_sources) > 0:
+            superlocus_line.attributes["retained_sources"] = ",".join(
+                sorted(list(self.__retained_sources))
+            )
 
         lines = []
         if level not in (None, "loci", "subloci", "monosubloci"):
@@ -295,6 +339,7 @@ class Superlocus(Abstractlocus):
                     new_locus = Superlocus(strand[0],
                                            stranded=True,
                                            json_conf=self.json_conf,
+                                           source=self.source,
                                            logger=self.logger)
                     assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     for cdna in strand[1:]:
@@ -306,6 +351,7 @@ class Superlocus(Abstractlocus):
                             new_locus = Superlocus(cdna,
                                                    stranded=True,
                                                    json_conf=self.json_conf,
+                                                   source=self.source,
                                                    logger=self.logger)
                     assert len(new_locus.introns) > 0 or new_locus.monoexonic is True
                     new_loci.append(new_locus)
@@ -318,26 +364,20 @@ class Superlocus(Abstractlocus):
         raise StopIteration
 
     # @profile
-    def connect_to_db(self, pool):
+    def connect_to_db(self, engine):
 
         """
-        :param pool: the connection pool
-        :type pool: sqlalchemy.pool.QueuePool
+        :param engine: the connection pool
+        :type engine: Engine
 
         This method will connect to the database using the information
         contained in the JSON configuration.
         """
 
-        database = self.json_conf["db_settings"]["db"]
-        dbtype = self.json_conf["db_settings"]["dbtype"]
-
-        if pool is None:
-            self.engine = create_engine("{dbtype}:///{db}".format(
-                db=database,
-                dbtype=dbtype), poolclass=sqlalchemy.pool.StaticPool)
+        if engine is None:
+            self.engine = dbutils.connect(self.json_conf)
         else:
-            self.engine = create_engine("{dbtype}://".format(dbtype=dbtype),
-                                        pool=pool)
+            self.engine = engine
 
         self.sessionmaker = sessionmaker()
         self.sessionmaker.configure(bind=self.engine)
@@ -429,7 +469,7 @@ class Superlocus(Abstractlocus):
                                                         intron[1],
                                                         data_dict["junctions"][key]))
 
-    def load_all_transcript_data(self, pool=None, data_dict=None):
+    def load_all_transcript_data(self, engine=None, data_dict=None):
 
         """
         This method will load data into the transcripts instances,
@@ -437,8 +477,8 @@ class Superlocus(Abstractlocus):
         by the configuration.
         Asyncio coroutines are used to decrease runtime.
 
-        :param pool: a connection pool
-        :type pool: sqlalchemy.pool.QueuePool
+        :param engine: a connection engine
+        :type engine: Engine
 
         :param data_dict: the dictionary to use for data retrieval, if specified.
         If None, a DB connection will be established to retrieve the necessary data.
@@ -446,8 +486,12 @@ class Superlocus(Abstractlocus):
 
         """
 
+        if self.__data_loaded is True:
+            return
+
         if data_dict is None:
-            self.connect_to_db(pool)
+            self.connect_to_db(engine)
+
         self.logger.debug("Type of data dict: %s",
                           type(data_dict))
         if isinstance(data_dict, dict):
@@ -456,30 +500,43 @@ class Superlocus(Abstractlocus):
         self.logger.debug("Verified %d introns for %s",
                           len(self.locus_verified_introns),
                           self.id)
-        tid_keys = self.transcripts.keys()
+        tid_keys = list(self.transcripts.keys())
         to_remove, to_add = set(), set()
 
         if data_dict is None:
-            data_dict = {}
-            hits = self.session.query(Hit).filter(
-                Hit.query.in_(tid_keys),
-                Hit.evalue <= self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                Hit.hit_number <= self.json_conf["pick"][
-                    "chimera_split"]["blast_params"]["max_target_seqs"]
-            )
+            self.logger.debug("Starting to load hits and orfs for %d transcripts",
+                              len(tid_keys))
+            data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
-            for hit in hits:
-                data_dict["hits"][hit.query].append(hit.as_dict())
-            orfs = self.session.query(Orf).filter(
-                Orf.query.in_(tid_keys)
-            )
             data_dict["orfs"] = collections.defaultdict(list)
-            for orf in orfs:
-                data_dict["orfs"][orf.query].append(orf.as_bed12())
+            tid_corrs = dict()
+            for tid_group in grouper(tid_keys, 100):
 
+                new_ids = dict((query.query_name, query.query_id) for query in
+                                 self.session.query(Query).filter(
+                                     Query.query_name.in_(tid_group)))
+                tid_corrs.update(new_ids)
+                orfs = self.session.query(Orf).filter(Orf.query_id.in_(new_ids.values()))
+                for orf in orfs:
+                    data_dict["orfs"][orf.query].append(orf.as_bed12())
+
+            for tid in tid_keys:
+                tid_id = tid_corrs[tid]
+                hits = self.hit_baked(self.session).params(
+                    query_id=tid_id,
+                    evalue=self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                    hit_number=self.json_conf[
+                        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+                    )
+                self.logger.debug("Starting to load hits for %s",
+                                  tid)
+                for ccc, hit in enumerate(hits):
+                    data_dict["hits"][hit.query].append(hit.as_dict())
+
+            self.logger.debug("Finished retrieving data for %d transcripts",
+                              len(tid_keys))
             self.session.close()
             self.sessionmaker.close_all()
-            self.engine.dispose()
 
         for tid in tid_keys:
             remove_flag, new_transcripts = self.load_transcript_data(tid, data_dict)
@@ -499,7 +556,6 @@ class Superlocus(Abstractlocus):
             for tid in to_remove:
                 self.remove_transcript_from_locus(tid)
 
-
         del data_dict
 
         num_coding = 0
@@ -518,6 +574,7 @@ class Superlocus(Abstractlocus):
             self.id)
 
         self.session = None
+        self.__data_loaded = True
         self.sessionmaker = None
         self.stranded = False
 
@@ -569,6 +626,100 @@ class Superlocus(Abstractlocus):
                 self.remove_transcript_from_locus(tid)
         return
 
+    def __reduce_complex_loci(self, transcript_graph):
+
+        """
+        Method which checks whether a locus has too many transcripts and tries to reduce them.
+
+        :param transcript_graph: the transcript graph to analyse for redundancies
+        :return:
+        """
+
+        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
+        self.approximation_level = 0
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
+            return transcript_graph
+        self.logger.warning("Complex superlocus with %d nodes \
+        with the most connected having %d edges",
+                            len(transcript_graph), max_edges)
+
+        self.approximation_level = 1
+        to_remove = set()
+        for tid in transcript_graph:
+            current = self.transcripts[tid]
+            for neighbour in transcript_graph.neighbors_iter(tid):
+                if neighbour in to_remove:
+                    continue
+                neighbour = self.transcripts[neighbour]
+                if neighbour.introns == current.introns:
+                    if neighbour.start >= current.start and neighbour.end <= current.end:
+                        to_remove.add(neighbour.id)
+                    elif neighbour.start <= current.start and neighbour.end >= current.end:
+                        to_remove.add(current.id)
+                        break
+        transcript_graph.remove_nodes_from(to_remove)
+        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
+            self.logger.warning("Approximation level 1 for %s", self.id)
+            return transcript_graph
+
+        self.logger.warning("Still %d nodes with the most connected with %d edges \
+        after approximation 1",
+                            len(transcript_graph), max_edges)
+
+        self.approximation_level = 2
+        to_remove = set()
+        for tid in transcript_graph:
+            current = self.transcripts[tid]
+            for neighbour in transcript_graph.neighbors_iter(tid):
+                if neighbour in to_remove:
+                    continue
+                neighbour = self.transcripts[neighbour]
+                result, _ = Assigner.compare(neighbour, current)
+                if result.ccode[0] == "c":
+                    to_remove.add(neighbour.id)
+        transcript_graph.remove_nodes_from(to_remove)
+        max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
+        if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
+            self.logger.warning("Approximation level 2 for %s", self.id)
+            return transcript_graph
+        self.logger.warning("Still %d nodes with the most connected with %d edges \
+        after approximation 2",
+                            len(transcript_graph), max_edges)
+        # Now we are going to collapse by method
+        sources = collections.defaultdict(set)
+        for tid in transcript_graph:
+            sources[self.transcripts[tid].source].add(tid)
+
+        new_graph = networkx.Graph()
+
+        counter = dict()
+        for source in sources:
+            counter[source] = len(sources[source])
+        self.logger.debug("Sources to consider: %s", counter)
+        for source in sorted(sources, key=lambda key: len(sources[key])):
+            self.logger.debug("Considering source %s, counter: %d",
+                              source, counter[source])
+            nodes = sources[source]
+            acceptable = set.union(nodes, set(new_graph.nodes()))
+            edges = set([edge for edge in transcript_graph.edges(
+                nbunch=set.union(set(new_graph.nodes()), nodes)) if
+                         edge[0] in acceptable and edge[1] in acceptable])
+
+            if (len(acceptable) > self._complex_limit[0] or
+                    (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
+                self.logger.debug("Reached the limit with source %s", source)
+                break
+            new_graph.add_nodes_from(nodes)
+            new_graph.add_edges_from(edges)
+            self.logger.debug("Retained source %s", source)
+            self.__retained_sources.add(source)
+
+        self.approximation_level = 3
+        self.logger.warning("Approximation level 3 for %s; retained sources: %s",
+                            self.id, ",".join(self.__retained_sources))
+        return new_graph
+
     def define_subloci(self):
         """This method will define all subloci inside the superlocus.
         Steps:
@@ -596,15 +747,28 @@ class Superlocus(Abstractlocus):
         transcript_graph = self.define_graph(self.transcripts,
                                              inters=self.is_intersecting,
                                              cds_only=cds_only)
+        transcript_graph = self.__reduce_complex_loci(transcript_graph)
+        if len(self.transcripts) > len(transcript_graph):
+            self.logger.warning("Discarded %d transcripts from %s due to approximation level %d",
+                                len(self.transcripts) - len(transcript_graph),
+                                self.id,
+                                self.approximation_level)
+            for tid in set.difference(set(self.transcripts.keys()), set(transcript_graph.nodes())):
+                del self.transcripts[tid]
+
+        if len(self.transcripts) == 0:
+            # we have removed all transcripts from the Locus. Set the flag to True and exit.
+            self.logger.warning("Discarded all transcripts from %s", self.id)
+            self.subloci_defined = True
+            return
+
+        # Reset the source with the correct value
+        for tid in self.transcripts:
+            self.transcripts[tid].source = self.source
+
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        if len(transcript_graph) > self._complex_limit:
-            self.complex = True
-
-        try:
-            _, subloci = self.find_communities(transcript_graph, logger=self.logger)
-        except TooComplexLocus as exc:
-            raise TooComplexLocus(exc)
+        _, subloci = self.find_communities(transcript_graph, logger=self.logger)
         self.logger.debug("Calculated the transcript communities")
 
         # Now we should define each sublocus and store it in a permanent structure of the class

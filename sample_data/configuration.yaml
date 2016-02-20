@@ -45,6 +45,8 @@ pick:
       leniency: LENIENT
       min_overlap_duplication: 0.8
     execute: true
+  output_format:
+    source: test
   files:
     #  Input and output files for Mikado pick.
     #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf
@@ -72,7 +74,7 @@ pick:
     #  - preload: boolean flag. If set, the whole database will be preloaded into
     #  memory for faster access. Useful when
     #    using SQLite databases.
-    preload: true
+    preload: false
     threads: 5
     single_thread: true
 prepare:

@@ -91,7 +91,9 @@ def analyse_locus(slocus: Superlocus,
                   counter: int,
                   json_conf: dict,
                   printer_queue: [multiprocessing.managers.AutoProxy, None],
-                  logging_queue: multiprocessing.managers.AutoProxy) -> [Superlocus]:
+                  logging_queue: multiprocessing.managers.AutoProxy,
+                  engine=None,
+                  data_dict=None) -> [Superlocus]:
 
     """
     :param slocus: a superlocus instance
@@ -147,6 +149,17 @@ def analyse_locus(slocus: Superlocus,
         slocus.stranded = False
 
     slocus.logger = logger
+    slocus.source = json_conf["pick"]["output_format"]["source"]
+
+    try:
+        slocus.load_all_transcript_data(engine=engine,
+                                        data_dict=data_dict)
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:
+        logger.error("Error while loading data for %s", slocus.id)
+        logger.exception(exc)
+    logger.debug("Loading transcript data for %s", slocus.id)
 
     # Load the CDS information if necessary
     if slocus.initialized is False:
@@ -226,6 +239,7 @@ class LociProcesser(Process):
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.logger.debug("Starting Process")
+        self.logger.propagate = False
 
         self.data_dict = data_dict
         self.locus_queue = locus_queue
@@ -235,15 +249,15 @@ class LociProcesser(Process):
         self.logger.debug("Starting the pool for {0}".format(self.name))
         try:
             if self.json_conf["pick"]["run_options"]["preload"] is False:
-                db_connection = functools.partial(dbutils.create_connector,
-                                                  self.json_conf,
-                                                  self.logger)
-                self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-                                                                 pool_size=1,
-                                                                 max_overflow=2)
-
+                # db_connection = functools.partial(dbutils.create_connector,
+                #                                   self.json_conf,
+                #                                   self.logger)
+                self.engine = dbutils.connect(json_conf, self.logger)
+                # self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
+                #                                                  pool_size=1,
+                #                                                  max_overflow=2)
             else:
-                self.connection_pool = None
+                self.engine = None
         except KeyboardInterrupt:
             raise
         except EOFError:
@@ -251,6 +265,12 @@ class LociProcesser(Process):
         except Exception as exc:
             self.logger.exception(exc)
             return
+        self.analyse_locus = functools.partial(analyse_locus,
+                                               printer_queue=self.printer_queue,
+                                               json_conf=self.json_conf,
+                                               data_dict=self.data_dict,
+                                               engine=self.engine,
+                                               logging_queue=self.logging_queue)
 
     def run(self):
 
@@ -259,25 +279,11 @@ class LociProcesser(Process):
             slocus, counter = self.locus_queue.get()
             if slocus == "EXIT":
                 self.locus_queue.put((slocus, counter))
-                if self.connection_pool is not None:
-                    self.connection_pool.dispose()
+                if self.engine is not None:
+                    self.engine.dispose()
                 return
-
             if slocus is not None:
-                try:
-                    slocus.load_all_transcript_data(pool=self.connection_pool,
-                                                    data_dict=self.data_dict)
-                except KeyboardInterrupt:
-                    raise
-                except Exception as exc:
-                    self.logger.error("Error while loading data for %s",
-                                      slocus.id)
-                    self.logger.exception(exc)
-                self.logger.debug("Loading transcript data for %s", slocus.id)
-            analyse_locus(slocus, counter,
-                          self.json_conf,
-                          self.printer_queue,
-                          self.logging_queue)
+                self.analyse_locus(slocus, counter)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -309,7 +315,7 @@ class Picker:
         # Things that have to be deleted upon serialisation
         self.not_pickable = ["queue_logger", "manager", "printer_process",
                              "log_process", "pool", "main_logger",
-                             "log_handler", "log_writer", "logger"]
+                             "log_handler", "log_writer", "logger", "engine"]
 
         # Now we start the real work
         if isinstance(json_conf, str):
@@ -557,27 +563,36 @@ memory intensive, proceed with caution!")
         for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
             print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                   file=locus_out)
+            locus_out.flush()
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
-            sub_metrics_file = re.sub("$", ".metrics.tsv",
-                                      re.sub(".gff.?$", "", self.sub_out))
-            sub_scores_file = re.sub("$", ".scores.tsv",
-                                     re.sub(".gff.?$", "", self.sub_out))
+            sub_metrics_file = open(re.sub("$", ".metrics.tsv",
+                                      re.sub(".gff.?$", "", self.sub_out)), "w")
+            sub_scores_file = open(re.sub("$", ".scores.tsv",
+                                     re.sub(".gff.?$", "", self.sub_out)), "w")
             sub_metrics = csv.DictWriter(
-                open(sub_metrics_file, 'w'),
+                sub_metrics_file,
                 Superlocus.available_metrics,
                 delimiter="\t")
             sub_metrics.writeheader()
             sub_scores = csv.DictWriter(
-                open(sub_scores_file, 'w'), score_keys, delimiter="\t")
+                sub_scores_file, score_keys, delimiter="\t")
             sub_scores.writeheader()
+            # Not a very clean wya to do things ... attaching the handles as properties
+            sub_scores.handle = sub_scores_file
+            sub_scores.flush = sub_scores.handle.flush
+            sub_metrics.handle = sub_metrics_file
+            sub_metrics.flush = sub_metrics.handle.flush
             sub_out = open(self.sub_out, 'w')
             print('##gff-version 3', file=sub_out)
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=sub_out)
-            sub_files = [sub_metrics, sub_scores, sub_out]
+
+            sub_files = [sub_metrics,
+                         sub_scores,
+                         sub_out]
         else:
             sub_files = [None, None, None]
 
@@ -587,6 +602,7 @@ memory intensive, proceed with caution!")
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=mono_out)
+            mono_out.flush()
         else:
             mono_out = None
 
@@ -607,22 +623,30 @@ memory intensive, proceed with caution!")
         score_keys = ["tid", "parent", "score"]
         score_keys += sorted(list(self.json_conf["scoring"].keys()))
         # Define mandatory output files
-        locus_metrics_file = re.sub("$", ".metrics.tsv", re.sub(
-            ".gff.?$", "", self.locus_out))
-        locus_scores_file = re.sub("$", ".scores.tsv", re.sub(
-            ".gff.?$", "", self.locus_out))
+        locus_metrics_file = open(re.sub("$", ".metrics.tsv", re.sub(
+            ".gff.?$", "", self.locus_out)), "w")
+        locus_scores_file = open(re.sub("$", ".scores.tsv", re.sub(
+            ".gff.?$", "", self.locus_out)), "w")
         locus_metrics = csv.DictWriter(
-            open(locus_metrics_file, 'w'),
+            locus_metrics_file,
             Superlocus.available_metrics,
             delimiter="\t")
 
         locus_metrics.writeheader()
-        locus_scores = csv.DictWriter(open(locus_scores_file, 'w'), score_keys, delimiter="\t")
+        locus_scores = csv.DictWriter(locus_scores_file, score_keys, delimiter="\t")
         locus_scores.writeheader()
+
+        locus_metrics.handle = locus_metrics_file
+        locus_metrics.flush = locus_metrics.handle.flush
+        locus_scores.handle = locus_scores_file
+        locus_scores.flush = locus_scores.handle.flush
+
         locus_out = open(self.locus_out, 'w')
         sub_files, mono_out = self.__print_gff_headers(locus_out, score_keys)
 
-        return ((locus_metrics, locus_scores, locus_out),
+        return ((locus_metrics,
+                 locus_scores,
+                 locus_out),
                 sub_files, mono_out)
 
     # This method has many local variables, but most (9!) are
@@ -652,20 +676,24 @@ memory intensive, proceed with caution!")
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if sub_lines != '':
                 print(sub_lines, file=sub_out)
+                sub_out.flush()
             sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
                                 if x != {} and "tid" in x]
             sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
                                if x != {} and "tid" in x]
             for row in sub_metrics_rows:
                 sub_metrics.writerow(row)
+                sub_metrics.flush()
             for row in sub_scores_rows:
                 sub_scores.writerow(row)
+                sub_scores.flush()
         if self.monolocus_out != '':
             mono_lines = stranded_locus.__str__(
                 level="monosubloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if mono_lines != '':
                 print(mono_lines, file=mono_out)
+                mono_out.flush()
         locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
                               if x != {} and "tid" in x]
         locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
@@ -688,11 +716,14 @@ memory intensive, proceed with caution!")
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
         for row in locus_metrics_rows:
             locus_metrics.writerow(row)
+            locus_metrics.flush()
         for row in locus_scores_rows:
             locus_scores.writerow(row)
+            locus_scores.flush()
 
         if locus_lines != '':
             print(locus_lines, file=locus_out)
+            locus_out.flush()
         return gene_counter
 
     def printer(self):
@@ -702,6 +733,7 @@ memory intensive, proceed with caution!")
 
         handler = logging_handlers.QueueHandler(self.logging_queue)
         logger = logging.getLogger("queue_listener")
+        logger.name = "printer_logger"
         logger.propagate = False
         logger.addHandler(handler)
         logger.setLevel(self.json_conf["log_settings"]["log_level"])
@@ -712,7 +744,7 @@ memory intensive, proceed with caution!")
                                           logger=logger,
                                           handles=handles)
 
-        last_printed = -1
+        last_printed = 0
         cache = dict()
         curr_chrom = None
         gene_counter = 0
@@ -721,13 +753,12 @@ memory intensive, proceed with caution!")
         while True:
             current = self.printer_queue.get()
             stranded_loci, counter = current
-
             cache[counter] = stranded_loci
             if stranded_loci != "EXIT":
                 logger.debug("Received one locus, counter: %d, total %d. names %s",
-                               counter,
-                               len(stranded_loci),
-                               ", ".join([_.id for _ in stranded_loci]))
+                             counter,
+                             len(stranded_loci),
+                             ", ".join([_.id for _ in stranded_loci]))
             if counter == last_printed + 1 or stranded_loci == "EXIT":
                 cache[counter] = stranded_loci
                 for num in sorted(cache.keys()):
@@ -744,6 +775,9 @@ memory intensive, proceed with caution!")
                         last_printed += 1
                         del cache[num]
                 if stranded_loci == "EXIT":
+                    assert (len(cache) == 1 and
+                            list(cache.keys()) == [float("inf")] and
+                            list(cache.values()) == ["EXIT"])
                     self.printer_queue.task_done()
                     logger.info("Final number of superloci: %d", last_printed)
                     break
@@ -909,12 +943,12 @@ memory intensive, proceed with caution!")
         self.main_logger.info("Finished to preload the database into memory")
         return data_dict
 
-    def _submit_locus(self, slocus, counter, data_dict=None, pool=None):
+    def _submit_locus(self, slocus, counter, data_dict=None, engine=None):
         """
         Private method to submit / start the analysis of a superlocus in input.
         :param slocus: the locus to analyse.
         :param data_dict: the preloaded data in memory
-        :param pool: thread execution pool
+        :param engine: connection engine
         :return: job object / None
         """
 
@@ -923,37 +957,27 @@ memory intensive, proceed with caution!")
         else:
             return []
             
-        if self.json_conf["pick"]["run_options"]["preload"] is True:
-            self.logger.debug("Loading data from dict for %s", slocus.id)
-            slocus.logger = self.logger
-            slocus.load_all_transcript_data(pool=None,
-                                            data_dict=data_dict)
-            # slocus_id = slocus.id
-            if slocus.initialized is False:
-                # This happens when we have removed all transcripts from the locus
-                # due to errors which should have been caught and logged
-                self.logger.warning(
-                    "%s had all transcripts failing checks, ignoring it",
-                    slocus.id)
-                # Exit
-                return []
+        self.logger.debug("Loading data for %s", slocus.id)
+        slocus.logger = self.logger
+        slocus.load_all_transcript_data(engine=engine,
+                                        data_dict=data_dict)
+        # slocus_id = slocus.id
+        if slocus.initialized is False:
+            # This happens when we have removed all transcripts from the locus
+            # due to errors which should have been caught and logged
+            self.logger.warning(
+                "%s had all transcripts failing checks, ignoring it",
+                slocus.id)
+            # Exit
+            return []
 
-        if self.json_conf["pick"]["run_options"]["single_thread"] is True:
-            return analyse_locus(slocus,
-                                 counter,
-                                 self.json_conf,
-                                 None,
-                                 self.logging_queue)
-        else:
-            job = pool.apply_async(analyse_locus,
-                                   args=(
-                                      slocus,
-                                      counter,
-                                      self.json_conf,
-                                      self.printer_queue,
-                                      self.logging_queue)
-                                        )
-            return job
+        return analyse_locus(slocus=slocus,
+                             counter=counter,
+                             json_conf=self.json_conf,
+                             printer_queue=None,
+                             logging_queue=self.logging_queue,
+                             data_dict=None,
+                             engine=None)
 
     def __unsorted_interrupt(self, row, current_transcript, counter):
         """
@@ -1058,7 +1082,8 @@ memory intensive, proceed with caution!")
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
-                            json_conf=self.json_conf)
+                            json_conf=self.json_conf,
+                            source=self.json_conf["pick"]["output_format"]["source"])
 
                 if current_transcript is None or row.chrom != current_transcript.chrom:
                     if current_transcript is not None:
@@ -1068,7 +1093,6 @@ memory intensive, proceed with caution!")
 
                 current_transcript = Transcript(
                     row,
-                    source=self.json_conf["pick"]["output_format"]["source"],
                     intron_range=intron_range)
 
         if current_transcript is not None:
@@ -1086,7 +1110,8 @@ memory intensive, proceed with caution!")
                 current_locus = Superlocus(
                     current_transcript,
                     stranded=False,
-                    json_conf=self.json_conf)
+                    json_conf=self.json_conf,
+                    source=self.json_conf["pick"]["output_format"]["source"])
                 self.logger.debug("Created last locus %s",
                                   current_locus)
         self.logger.info("Finished chromosome %s", current_locus.chrom)
@@ -1138,17 +1163,18 @@ memory intensive, proceed with caution!")
         gene_counter = 0
 
         if self.json_conf["pick"]["run_options"]["preload"] is False:
-            db_connection = functools.partial(dbutils.create_connector,
-                                              self.json_conf,
-                                              self.logger)
-            self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-                                                             pool_size=1,
-                                                             max_overflow=2)
+            # db_connection = functools.partial(dbutils.create_connector,
+            #                                   self.json_conf,
+            #                                   self.logger)
+            # self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
+            #                                                  pool_size=1,
+            #                                                  max_overflow=2)
+            self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
         else:
             self.connection_pool = None
 
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
-                                                                "pool": self.connection_pool})
+                                                                "engine": self.engine})
 
         counter = -1
         for row in self.define_input():
@@ -1173,13 +1199,15 @@ memory intensive, proceed with caution!")
                         except KeyboardInterrupt:
                             raise
                         except Exception as exc:
-                            self.logger.exception("Superlocus %s failed with exception: %s",
-                                                  current_locus.id, exc)
+                            self.logger.exception(
+                                "Superlocus %s failed with exception: %s",
+                                None if current_locus is None else current_locus.id, exc)
 
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
-                            json_conf=self.json_conf)
+                            json_conf=self.json_conf,
+                            source=self.json_conf["pick"]["output_format"]["source"])
 
                 if current_transcript is None or row.chrom != current_transcript.chrom:
                     if current_transcript is not None:
@@ -1189,7 +1217,6 @@ memory intensive, proceed with caution!")
 
                 current_transcript = Transcript(
                     row,
-                    source=self.json_conf["pick"]["output_format"]["source"],
                     intron_range=intron_range)
 
         if current_transcript is not None:
@@ -1209,7 +1236,8 @@ memory intensive, proceed with caution!")
                 current_locus = Superlocus(
                     current_transcript,
                     stranded=False,
-                    json_conf=self.json_conf)
+                    json_conf=self.json_conf,
+                    source=self.json_conf["pick"]["output_format"]["source"])
                 self.logger.debug("Created last locus %s",
                                   current_locus)
         self.logger.info("Finished chromosome %s", current_locus.chrom)

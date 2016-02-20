@@ -9,106 +9,12 @@ import abc
 import random
 import logging
 from sys import maxsize
-from collections import defaultdict
-import time
+from .clique_methods import reid_daid_hurley
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities.log_utils import create_null_logger, create_default_logger
-from .clique_methods import max_clique
 
-
-def reid_daid_hurley(graph, k, cliques=None, logger=None):
-
-    """
-    Implementation of the Reid-Daid-Hurley algorithm for clique percolation
-    published in http://arxiv.org/pdf/1205.0038.pdf
-
-    :param graph:
-    :param k:
-    :param cliques:
-    :param logger: optional logger for the function
-    :return:
-    """
-
-    if k < 2:
-        raise networkx.NetworkXError("k=%d, k must be greater than 1." % k)
-    if cliques is None:
-        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
-
-    if logger is None:
-        logger = create_null_logger("null")
-
-    nodes_to_clique_dict = defaultdict(set)
-    # Create the dictionary that links each node to its clique
-    logger.debug("Creating the node dictionary")
-    cliques = [_ for _ in cliques if len(_) >= k]
-    for clique in cliques:
-        for node in clique:
-            nodes_to_clique_dict[node].add(clique)
-
-    if len(nodes_to_clique_dict) > 100 or len(cliques) > 500:
-        logger.warning("Complex locus at %s, with %d nodes and %d cliques with length >= %d",
-                       logger.name, len(nodes_to_clique_dict), len(cliques), k)
-
-    current_component = 0
-
-    logger.debug("Starting to explore the clique graph")
-    cliques_to_components_dict = dict()
-    counter = 0
-    for clique in cliques:
-        counter += 1
-        logger.debug("Exploring clique %d out of %d", counter, len(cliques))
-        if not clique in cliques_to_components_dict:
-            current_component += 1
-            cliques_to_components_dict[clique] = current_component
-            frontier = set()
-            frontier.add(clique)
-            cycle = 0
-            while len(frontier) > 0:
-                current_clique = frontier.pop()
-                cycle += 1
-                logger.debug("Cycle %d for clique %d", cycle, counter)
-                for neighbour in _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
-                    if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
-                        cliques_to_components_dict[neighbour] = current_component
-                        frontier.add(neighbour)
-                        for node in neighbour:
-                            nodes_to_clique_dict[node].remove(neighbour)
-                logger.debug("Found %d neighbours of clique %d in cycle %d",
-                             len(frontier), counter, cycle)
-
-    logger.debug("Finished exploring the clique graph")
-    communities = dict()
-    for clique in cliques_to_components_dict:
-        if cliques_to_components_dict[clique] not in communities:
-            communities[cliques_to_components_dict[clique]] = set()
-        communities[cliques_to_components_dict[clique]].update(set(clique))
-
-    logger.debug("Reporting the results")
-    return [frozenset(x) for x in communities.values()]
-
-
-def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
-
-    """
-
-    :param current_clique:
-    :param nodes_to_clique_dict:
-    :return:
-    """
-
-    neighbours = set()
-    for node in current_clique:
-        for clique in nodes_to_clique_dict[node]:
-            if clique != current_clique:
-                neighbours.add(clique)
-
-    return neighbours
-
-
-class TooComplexLocus(TypeError):
-    pass
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -120,16 +26,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
     __name__ = "Abstractlocus"
     available_metrics = []
-    _complex_limit = 400
-    _time_limit = 600
 
     # ##### Special methods #########
 
     @abc.abstractmethod
-    def __init__(self):
+    def __init__(self, source=""):
 
         # Mock values
-        self.__source = ""
+        self.__source = source
 
         self.__logger = None
         self.__stranded = False
@@ -143,7 +47,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.initialized = False
         self.monoexonic = True
         self.chrom = None
-        self.source = None
         self.cds_introns = set()
         self.json_conf = dict()
         self.__cds_introntree = intervaltree.IntervalTree()
@@ -314,10 +217,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def in_locus(cls, locus_instance, transcript, flank=0) -> bool:
         """
         :param locus_instance: an inheritor of this class
-        :type locus_instance: Abstractlocus
-
         :param transcript: a transcript instance
-        :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
         :param flank: an optional extending parameter to check for neighbours
         :type flank: int
@@ -410,36 +310,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # counter = 0
         # # communities = []
 
-        if len(graph) > cls._complex_limit:
-            logger.warning("Complex locus in %s with %d transcripts, using approximate algorithm",
-                           logger.name, len(graph))
-            new_graph = graph.copy()
-            cliques = []
-            cycle = 0
-            start = time.time()
-            while len(new_graph) > cls._complex_limit:
-                curr_time = time.time()
-                if curr_time - start > cls._time_limit:
-                    raise TooComplexLocus("It is taking too long for finding the cliques. Exiting.")
-                cycle += 1
-                logger.debug("In cycle no. %d of approximate algorithm for %s, graph length: %d",
-                               cycle, logger.name, len(new_graph))
-                maximum_clique = frozenset(max_clique(new_graph))
-                logger.debug("Found a clique with %d elements", len(maximum_clique))
-                cliques.append(maximum_clique)
-                to_remove = []
-                for node in maximum_clique:
-                    to_remove.append(node)
-                new_graph.remove_nodes_from(to_remove)
-            logger.info("Finished with the approximate algorithm for %s, %d transcripts remaining",
-                        len(new_graph),
-                        logger.name)
-            cliques.extend([frozenset(x) for x in networkx.find_cliques_recursive(new_graph)])
-            del new_graph
-        else:
-            cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
-        #
-
+        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
         logger.debug("Created %d cliques for %s", len(cliques), logger.name)
         logger.debug("Creating the communities for %s", logger.name)
 
@@ -601,7 +472,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.initialized is False:
             self.initialized = True
-        self.source = transcript.source
+        # self.source = transcript.source
         #         self.source = "mikado_lib"
         return
 

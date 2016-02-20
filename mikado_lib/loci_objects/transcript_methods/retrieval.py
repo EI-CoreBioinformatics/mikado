@@ -284,12 +284,18 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
         else:
             transcript.session = session
         candidate_orfs = []
+        transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
         for orf in retrieve_orfs(transcript):
             candidate_orfs.append(orf)
+        transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
 
+        transcript.logger.debug("Loading the ORFs for %s", transcript.id)
         load_orfs(transcript, candidate_orfs)
-        __load_blast(transcript)
+        transcript.logger.debug("Loaded the ORFs for %s", transcript.id)
 
+        transcript.logger.debug("Loading the BLAST data for %s", transcript.id)
+        __load_blast(transcript)
+        transcript.logger.debug("Loaded the BLAST data for %s", transcript.id)
     # Finally load introns, separately
     __load_verified_introns(transcript, data_dict, introns)
     transcript.logger.debug("Loaded data for %s", transcript.id)

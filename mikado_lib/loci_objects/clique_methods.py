@@ -1,100 +1,100 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python3
+
 """
-Cliques.
+Module that implements the Reid/Daid/Hurley algorithm for community finding.
 """
-#   Copyright (C) 2011-2012 by
-#   Nicholas Mancuso <nick.mancuso@gmail.com>
-#   All rights reserved.
-#   BSD license.
 
-import networkx as nx
-from networkx.algorithms.approximation import ramsey
-__author__ = """Nicholas Mancuso (nick.mancuso@gmail.com)"""
-__all__ = ["clique_removal","max_clique"]
+import networkx
+from ..utilities.log_utils import create_null_logger
+from collections import defaultdict
+
+__all__ = ["reid_daid_hurley"]
 
 
-def max_clique(G):
-    r"""Find the Maximum Clique
+def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
-    Finds the `O(|V|/(log|V|)^2)` apx of maximum clique/independent set
-    in the worst case.
-
-    Parameters
-    ----------
-    G : NetworkX graph
-        Undirected graph
-
-    Returns
-    -------
-    clique : set
-        The apx-maximum clique of the graph
-
-    Notes
-    ------
-    A clique in an undirected graph G = (V, E) is a subset of the vertex set
-    `C \subseteq V`, such that for every two vertices in C, there exists an edge
-    connecting the two. This is equivalent to saying that the subgraph
-    induced by C is complete (in some cases, the term clique may also refer
-    to the subgraph).
-
-    A maximum clique is a clique of the largest possible size in a given graph.
-    The clique number `\omega(G)` of a graph G is the number of
-    vertices in a maximum clique in G. The intersection number of
-    G is the smallest number of cliques that together cover all edges of G.
-
-    http://en.wikipedia.org/wiki/Maximum_clique
-
-    References
-    ----------
-    .. [1] Boppana, R., & Halldórsson, M. M. (1992).
-        Approximating maximum independent sets by excluding subgraphs.
-        BIT Numerical Mathematics, 32(2), 180–196. Springer.
-        doi:10.1007/BF01994876
     """
-    if G is None:
-        raise ValueError("Expected NetworkX graph!")
+    Implementation of the Reid-Daid-Hurley algorithm for clique percolation
+    published in http://arxiv.org/pdf/1205.0038.pdf
 
-    # finding the maximum clique in a graph is equivalent to finding
-    # the independent set in the complementary graph
-    cgraph = nx.complement(G)
-    iset, _ = clique_removal(cgraph)
-    return iset
-
-
-def clique_removal(G):
-    """ Repeatedly remove cliques from the graph.
-
-    Results in a `O(|V|/(\log |V|)^2)` approximation of maximum clique
-    & independent set. Returns the largest independent set found, along
-    with found maximal cliques.
-
-    Parameters
-    ----------
-    G : NetworkX graph
-        Undirected graph
-
-    Returns
-    -------
-    max_ind_cliques : (set, list) tuple
-        Maximal independent set and list of maximal cliques (sets) in the graph.
-
-    References
-    ----------
-    .. [1] Boppana, R., & Halldórsson, M. M. (1992).
-        Approximating maximum independent sets by excluding subgraphs.
-        BIT Numerical Mathematics, 32(2), 180–196. Springer.
+    :param graph:
+    :param k:
+    :param cliques:
+    :param logger: optional logger for the function
+    :return:
     """
-    graph = G.copy()
-    c_i, i_i = ramsey.ramsey_R2(graph)
-    cliques = [c_i]
-    isets = [i_i]
-    while graph:
-        graph.remove_nodes_from(c_i)
-        c_i, i_i = ramsey.ramsey_R2(graph)
-        if c_i:
-            cliques.append(c_i)
-        if i_i:
-            isets.append(i_i)
 
-    maxiset = max(isets)
-    return maxiset, cliques
+    if k < 2:
+        raise networkx.NetworkXError("k=%d, k must be greater than 1." % k)
+    if cliques is None:
+        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
+
+    if logger is None:
+        logger = create_null_logger("null")
+
+    nodes_to_clique_dict = defaultdict(set)
+    # Create the dictionary that links each node to its clique
+    logger.debug("Creating the node dictionary")
+    cliques = [_ for _ in cliques if len(_) >= k]
+    for clique in cliques:
+        for node in clique:
+            nodes_to_clique_dict[node].add(clique)
+
+    if len(nodes_to_clique_dict) > 100 or len(cliques) > 500:
+        logger.debug("Complex locus at %s, with %d nodes and %d cliques with length >= %d",
+                       logger.name, len(nodes_to_clique_dict), len(cliques), k)
+
+    current_component = 0
+
+    logger.debug("Starting to explore the clique graph")
+    cliques_to_components_dict = dict()
+    counter = 0
+    for clique in cliques:
+        counter += 1
+        logger.debug("Exploring clique %d out of %d", counter, len(cliques))
+        if not clique in cliques_to_components_dict:
+            current_component += 1
+            cliques_to_components_dict[clique] = current_component
+            frontier = set()
+            frontier.add(clique)
+            cycle = 0
+            while len(frontier) > 0:
+                current_clique = frontier.pop()
+                cycle += 1
+                logger.debug("Cycle %d for clique %d", cycle, counter)
+                for neighbour in _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
+                    if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
+                        cliques_to_components_dict[neighbour] = current_component
+                        frontier.add(neighbour)
+                        for node in neighbour:
+                            nodes_to_clique_dict[node].remove(neighbour)
+                logger.debug("Found %d neighbours of clique %d in cycle %d",
+                             len(frontier), counter, cycle)
+
+    logger.debug("Finished exploring the clique graph")
+    communities = dict()
+    for clique in cliques_to_components_dict:
+        if cliques_to_components_dict[clique] not in communities:
+            communities[cliques_to_components_dict[clique]] = set()
+        communities[cliques_to_components_dict[clique]].update(set(clique))
+
+    logger.debug("Reporting the results")
+    return [frozenset(x) for x in communities.values()]
+
+
+def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
+
+    """
+
+    :param current_clique:
+    :param nodes_to_clique_dict:
+    :return:
+    """
+
+    neighbours = set()
+    for node in current_clique:
+        for clique in nodes_to_clique_dict[node]:
+            if clique != current_clique:
+                neighbours.add(clique)
+
+    return neighbours

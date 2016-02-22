@@ -28,7 +28,7 @@ from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
 from ..exceptions import NoJsonConfigError, NotInLocusError
-from ..scales.assigner import Assigner
+# from ..scales.assigner import Assigner
 # import mikado_lib.exceptions
 
 
@@ -817,7 +817,7 @@ class Superlocus(Abstractlocus):
                 edges_most_connected = 0
             else:
                 edges_most_connected = counter.most_common(1)[0][1]
-                
+
             if (len(acceptable) > self._complex_limit[0] or
                     edges_most_connected > self._complex_limit[1]):
                 self.logger.debug("Reached the limit with source %s, %d nodes, %d max edges",

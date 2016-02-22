@@ -42,17 +42,18 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
     if len(nodes_to_clique_dict) > 100 or len(cliques) > 500:
         logger.debug("Complex locus at %s, with %d nodes and %d cliques with length >= %d",
-                       logger.name, len(nodes_to_clique_dict), len(cliques), k)
+                     logger.name, len(nodes_to_clique_dict), len(cliques), k)
 
     current_component = 0
 
     logger.debug("Starting to explore the clique graph")
     cliques_to_components_dict = dict()
     counter = 0
+    visited = set()
     for clique in cliques:
         counter += 1
         logger.debug("Exploring clique %d out of %d", counter, len(cliques))
-        if not clique in cliques_to_components_dict:
+        if clique not in cliques_to_components_dict:
             current_component += 1
             cliques_to_components_dict[clique] = current_component
             frontier = set()
@@ -60,9 +61,15 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
             cycle = 0
             while len(frontier) > 0:
                 current_clique = frontier.pop()
+                if current_clique in visited:
+                    continue
                 cycle += 1
-                logger.debug("Cycle %d for clique %d", cycle, counter)
+                logger.debug("Cycle %d for clique %d woth %d nodes",
+                             cycle,
+                             counter,
+                             len(current_clique))
                 for neighbour in _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
+                    visited.add(neighbour)
                     if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
                         cliques_to_components_dict[neighbour] = current_component
                         frontier.add(neighbour)

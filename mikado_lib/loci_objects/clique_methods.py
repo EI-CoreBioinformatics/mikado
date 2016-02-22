@@ -6,7 +6,7 @@ Module that implements the Reid/Daid/Hurley algorithm for community finding.
 
 import networkx
 from ..utilities.log_utils import create_null_logger
-from collections import defaultdict
+from collections import defaultdict, deque
 
 __all__ = ["reid_daid_hurley"]
 
@@ -49,30 +49,32 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
     logger.debug("Starting to explore the clique graph")
     cliques_to_components_dict = dict()
     counter = 0
-    visited = set()
     for clique in cliques:
+        # visited = set()
         counter += 1
         logger.debug("Exploring clique %d out of %d", counter, len(cliques))
         if clique not in cliques_to_components_dict:
             current_component += 1
             cliques_to_components_dict[clique] = current_component
-            frontier = set()
-            frontier.add(clique)
+            frontier = deque()
+            frontier.append(clique)
             cycle = 0
             while len(frontier) > 0:
-                current_clique = frontier.pop()
-                if current_clique in visited:
-                    continue
+                current_clique = frontier.popleft()
+                # if current_clique in visited:
+                #     continue
                 cycle += 1
-                logger.debug("Cycle %d for clique %d woth %d nodes",
+                logger.debug("Cycle %d for clique %d with %d nodes",
                              cycle,
                              counter,
                              len(current_clique))
+
                 for neighbour in _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
-                    visited.add(neighbour)
+                    # visited.add(neighbour)
                     if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
                         cliques_to_components_dict[neighbour] = current_component
-                        frontier.add(neighbour)
+                        if neighbour not in frontier:
+                            frontier.append(neighbour)
                         for node in neighbour:
                             nodes_to_clique_dict[node].remove(neighbour)
                 logger.debug("Found %d neighbours of clique %d in cycle %d",

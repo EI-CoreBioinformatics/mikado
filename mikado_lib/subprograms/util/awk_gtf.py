@@ -34,7 +34,7 @@ def launch(args):
                 if row.is_transcript is True:
                     if transcript is not None and \
                             transcript.start >= args.start and transcript.end <= args.end:
-                        print(transcript.__str__(to_gtf=True), file=args.out)
+                        print(transcript.format("gtf"), file=args.out)
                     if args.assume_sorted is True and row.end > args.end:
                         break
                     transcript = Transcript(row)
@@ -42,7 +42,7 @@ def launch(args):
                     transcript.add_exon(row)
 
     if transcript is not None and transcript.start >= args.start and transcript.end <= args.end:
-        print(transcript.__str__(to_gtf=True), file=args.out)
+        print(transcript.format("gtf"), file=args.out)
 
 
 def awk_parser():

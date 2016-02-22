@@ -6,7 +6,7 @@ Module that implements the Reid/Daid/Hurley algorithm for community finding.
 
 import networkx
 from ..utilities.log_utils import create_null_logger
-from collections import defaultdict, deque
+from collections import defaultdict
 
 __all__ = ["reid_daid_hurley"]
 
@@ -62,7 +62,7 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
             cycle = 0
             while len(frontier) > 0:
                 current_clique = frontier.pop()
-                # if current_clique in visited:
+                # if current_clique in visited_cliques:
                 #     continue
                 cycle += 1
                 logger.debug("Cycle %d for clique %d with %d nodes",
@@ -104,8 +104,5 @@ def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
 
     neighbours = set()
     for node in current_clique:
-        for clique in nodes_to_clique_dict[node]:
-            if clique != current_clique:
-                neighbours.add(clique)
-
-    return neighbours
+        neighbours.update(nodes_to_clique_dict[node])
+    return frozenset(neighbours - {current_clique})

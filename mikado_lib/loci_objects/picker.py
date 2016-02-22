@@ -31,7 +31,7 @@ from .superlocus import Superlocus, Transcript
 from mikado_lib.configuration.configurator import to_json
 # from .. import configuration
 from ..utilities import dbutils
-from ..exceptions import UnsortedInput, InvalidJson
+from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 # import mikado_lib.exceptions
 # from concurrent.futures import ProcessPoolExecutor
 
@@ -1062,11 +1062,19 @@ memory intensive, proceed with caution!")
         del data_dict
 
         counter = -1
+        invalid = False
         for row in self.define_input():
-            if row.is_exon is True:
-                current_transcript.add_exon(row)
+
+            if row.is_exon is True and invalid is False:
+                try:
+                    current_transcript.add_exon(row)
+                except InvalidTranscript as exc:
+                    self.logger.error("Transcript %s is invalid;\n%s",
+                                      current_transcript.id,
+                                      exc)
+                    invalid = True
             elif row.is_transcript is True:
-                if current_transcript is not None:
+                if current_transcript is not None and invalid is False:
                     self.__test_sortedness(row, current_transcript, counter)
                     if Superlocus.in_locus(
                             current_locus, current_transcript) is True:
@@ -1091,11 +1099,12 @@ memory intensive, proceed with caution!")
                                          current_transcript.chrom)
                     self.logger.info("Starting chromosome %s", row.chrom)
 
+                invalid = False
                 current_transcript = Transcript(
                     row,
                     intron_range=intron_range)
 
-        if current_transcript is not None:
+        if current_transcript is not None and invalid is False:
             if Superlocus.in_locus(
                     current_locus, current_transcript) is True:
                 current_locus.add_transcript_to_locus(
@@ -1114,6 +1123,11 @@ memory intensive, proceed with caution!")
                     source=self.json_conf["pick"]["output_format"]["source"])
                 self.logger.debug("Created last locus %s",
                                   current_locus)
+        elif invalid is True and current_locus is not None:
+            counter += 1
+            self.logger.debug("Submitting locus # %d", counter)
+            locus_queue.put((current_locus, counter))
+
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
@@ -1177,11 +1191,18 @@ memory intensive, proceed with caution!")
                                                                 "engine": self.engine})
 
         counter = -1
+        invalid = False
         for row in self.define_input():
-            if row.is_exon is True:
-                current_transcript.add_exon(row)
+            if row.is_exon is True and invalid is False:
+                try:
+                    current_transcript.add_exon(row)
+                except InvalidTranscript as exc:
+                    self.logger.error("Transcript %s is invalid;\n%s",
+                                      current_transcript.id,
+                                      exc)
+                    invalid = True
             elif row.is_transcript is True:
-                if current_transcript is not None:
+                if current_transcript is not None and invalid is False:
                     self.__test_sortedness(row, current_transcript, counter)
                     if Superlocus.in_locus(
                             current_locus, current_transcript) is True:
@@ -1215,11 +1236,12 @@ memory intensive, proceed with caution!")
                                          current_transcript.chrom)
                     self.logger.info("Starting chromosome %s", row.chrom)
 
+                invalid = False
                 current_transcript = Transcript(
                     row,
                     intron_range=intron_range)
 
-        if current_transcript is not None:
+        if current_transcript is not None and invalid is False:
             if Superlocus.in_locus(
                     current_locus, current_transcript) is True:
                 current_locus.add_transcript_to_locus(
@@ -1240,6 +1262,16 @@ memory intensive, proceed with caution!")
                     source=self.json_conf["pick"]["output_format"]["source"])
                 self.logger.debug("Created last locus %s",
                                   current_locus)
+        elif current_transcript is not None and invalid is True:
+            if current_locus is not None:
+                counter += 1
+                self.logger.debug("Analysing locus # %d", counter)
+                for stranded_locus in submit_locus(current_locus, counter):
+                    if stranded_locus.chrom != curr_chrom:
+                        curr_chrom = stranded_locus.chrom
+                        gene_counter = 0
+                    gene_counter = locus_printer(stranded_locus, gene_counter)
+
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1

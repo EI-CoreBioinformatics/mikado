@@ -733,14 +733,42 @@ class Superlocus(Abstractlocus):
                 if neighbour in to_remove:
                     continue
                 neighbour = self.transcripts[neighbour]
-                result, _ = Assigner.compare(neighbour, current)
-                if result.j_prec == 1 and result.n_prec == 1:
-                    # Neighbour completely contained
-                    to_remove.add(neighbour.id)
-                elif result.j_recall == 1 and result.n_recall == 1:
-                    # Current completely contained
-                    to_remove.add(current)
+                inters = set.intersection(current.introns, neighbour.introns)
+                if inters == current.introns:
+                    neigh_first_corr = [_ for _ in neighbour.exons if
+                                        _[1] == sorted(current.exons)[0][1]]
+                    assert len(neigh_first_corr) == 1
+                    if neigh_first_corr[0][0] > current.start:
+                        continue
+                    neigh_last_corr = [_ for _ in neighbour.exons if
+                                        _[1] == sorted(current.exons)[-1][0]]
+                    if neigh_last_corr[0][1] < current.end:
+                        continue
+                    to_remove.add(current.id)
                     break
+                elif inters == neighbour.introns:
+                    curr_first_corr = [_ for _ in current.exons if
+                                        _[1] == sorted(neighbour.exons)[0][1]]
+                    assert len(curr_first_corr) == 1
+                    if curr_first_corr[0][0] > neighbour.start:
+                        continue
+                    curr_last_corr = [_ for _ in current.exons if
+                                        _[1] == sorted(neighbour.exons)[-1][0]]
+                    if curr_last_corr[0][1] < neighbour.end:
+                        continue
+                    to_remove.add(current.id)
+                    continue
+                else:
+                    continue
+
+                # result, _ = Assigner.compare(neighbour, current)
+                # if result.j_prec == 1 and result.n_prec == 1:
+                #     # Neighbour completely contained
+                #     to_remove.add(neighbour.id)
+                # elif result.j_recall == 1 and result.n_recall == 1:
+                #     # Current completely contained
+                #     to_remove.add(current)
+                #     break
 
         transcript_graph.remove_nodes_from(to_remove)
         max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])

@@ -1171,7 +1171,7 @@ memory intensive, proceed with caution!")
             #                                                  max_overflow=2)
             self.engine = dbutils.connect(json_conf=self.json_conf, logger=self.logger)
         else:
-            self.connection_pool = None
+            self.engine = None
 
         submit_locus = functools.partial(self._submit_locus, **{"data_dict": data_dict,
                                                                 "engine": self.engine})

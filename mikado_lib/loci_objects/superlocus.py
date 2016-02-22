@@ -18,7 +18,7 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 # import sqlalchemy.pool
 from ..serializers.junction import Junction, Chrom
-from ..serializers.blast_serializer import Hit, Query
+from ..serializers.blast_serializer import Hit, Query, Target
 from ..serializers.orf import Orf
 from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
@@ -504,34 +504,92 @@ class Superlocus(Abstractlocus):
         to_remove, to_add = set(), set()
 
         if data_dict is None:
+            assert engine is not None
             self.logger.debug("Starting to load hits and orfs for %d transcripts",
                               len(tid_keys))
             data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
             data_dict["orfs"] = collections.defaultdict(list)
-            tid_corrs = dict()
             for tid_group in grouper(tid_keys, 100):
-
-                new_ids = dict((query.query_name, query.query_id) for query in
+                query_ids = dict((query.query_id, query) for query in
                                  self.session.query(Query).filter(
                                      Query.query_name.in_(tid_group)))
-                tid_corrs.update(new_ids)
-                orfs = self.session.query(Orf).filter(Orf.query_id.in_(new_ids.values()))
+                orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
                 for orf in orfs:
                     data_dict["orfs"][orf.query].append(orf.as_bed12())
 
-            for tid in tid_keys:
-                tid_id = tid_corrs[tid]
-                hits = self.hit_baked(self.session).params(
-                    query_id=tid_id,
-                    evalue=self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                    hit_number=self.json_conf[
-                        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+                hsp_command = " ".join([
+                    "select * from hsp where",
+                    "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"],
+                    "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
+                )
+
+                hsps = dict()
+                targets = set()
+
+                for hsp in engine.execute(hsp_command):
+                    if hsp.query_id not in hsps:
+                        hsps[hsp.query_id] = collections.defaultdict(list)
+                    hsps[hsp.query_id][hsp.target_id].append(hsp)
+                    targets.add(hsp.target_id)
+
+                hit_command = " ".join([
+                    "select * from hit where evalue <= {0}",
+                    "and hit_number <= {1} and query_id in {2}",
+                    "order by query_id, evalue asc;"
+                ]).format(
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"],
+                    "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
+
+                target_ids = dict((target.target_id, target) for target in
+                                  self.session.query(Target).filter(
+                                      Target.target_id.in_(targets)))
+
+                current_hit = None
+                for hit in engine.execute(hit_command):
+                    if current_hit != hit.query_id:
+                        current_hit = hit.query_id
+                    current_counter = 0
+
+                    current_counter += 1
+
+                    my_query = query_ids[hit.query_id]
+                    my_target = target_ids[hit.target_id]
+
+                    data_dict["hits"][my_query.query_name].append(
+                        Hit.as_full_dict_static(
+                            hit,
+                            hsps[hit.query_id][hit.target_id],
+                            my_query,
+                            my_target
+                        )
                     )
-                self.logger.debug("Starting to load hits for %s",
-                                  tid)
-                for ccc, hit in enumerate(hits):
-                    data_dict["hits"][hit.query].append(hit.as_dict())
+                    # hit_counter += 1
+                    # if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
+                    #     self.main_logger.debug("Loaded %d BLAST hits in database",
+                    #                            hit_counter)
+
+                # " ".join(
+                #     ["select * from hit where evalue <= {0}",
+                #      "and hit_number <= {1} and query_id in {2}",
+                #      "order by query_id, evalue asc;"]).format(
+                #     self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                #     self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"])))
+
+
+                #
+                # hits = self.hit_baked(self.session).params(
+                #     query_id=tid_id,
+                #     evalue=self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                #     hit_number=self.json_conf[
+                #         "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+                #     )
+                # self.logger.debug("Starting to load hits for %s",
+                #                   tid)
+                # for ccc, hit in enumerate(hits):
+                #     data_dict["hits"][hit.query].append(hit.as_dict())
 
             self.logger.debug("Finished retrieving data for %d transcripts",
                               len(tid_keys))

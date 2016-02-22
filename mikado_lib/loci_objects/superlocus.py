@@ -811,7 +811,10 @@ class Superlocus(Abstractlocus):
 
             if (len(acceptable) > self._complex_limit[0] or
                     (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
-                self.logger.debug("Reached the limit with source %s", source)
+                self.logger.debug("Reached the limit with source %s, %d nodes, %d max edges",
+                                  source,
+                                  len(acceptable),
+                                  len(edges) + len(new_graph.edges()))
                 break
             new_graph.add_nodes_from(nodes)
             new_graph.add_edges_from(edges)

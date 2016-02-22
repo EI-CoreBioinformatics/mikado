@@ -734,8 +734,14 @@ class Superlocus(Abstractlocus):
                     continue
                 neighbour = self.transcripts[neighbour]
                 result, _ = Assigner.compare(neighbour, current)
-                if result.ccode[0] == "c":
+                if result.j_prec == 1 and result.n_prec == 1:
+                    # Neighbour completely contained
                     to_remove.add(neighbour.id)
+                elif result.j_recall == 1 and result.n_recall == 1:
+                    # Current completely contained
+                    to_remove.add(current)
+                    break
+
         transcript_graph.remove_nodes_from(to_remove)
         max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
         if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
@@ -747,7 +753,16 @@ class Superlocus(Abstractlocus):
         # Now we are going to collapse by method
         sources = collections.defaultdict(set)
         for tid in transcript_graph:
-            sources[self.transcripts[tid].source].add(tid)
+            for tag in self.json_conf["prepare"]["labels"]:
+                found = False
+                if tag != '' and tag in tid:
+                    sources[tag].add(tid)
+                    found = True
+                    break
+                if found is False:
+                    # Fallback
+                    self.logger.debug("Label not found for %s", tid)
+                    sources[self.transcripts[tid].source].add(tid)
 
         new_graph = networkx.Graph()
 

@@ -809,12 +809,17 @@ class Superlocus(Abstractlocus):
                 nbunch=set.union(set(new_graph.nodes()), nodes)) if
                          edge[0] in acceptable and edge[1] in acceptable])
 
+            counter = collections.Counter()
+            for edge in edges:
+                counter.update(edge)
+
+            edges_most_connected = counter.most_common(1)[0][1]
             if (len(acceptable) > self._complex_limit[0] or
-                    (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
+                    edges_most_connected > self._complex_limit[1]):
                 self.logger.debug("Reached the limit with source %s, %d nodes, %d max edges",
                                   source,
                                   len(acceptable),
-                                  len(edges) + len(new_graph.edges()))
+                                  edges_most_connected)
                 break
             new_graph.add_nodes_from(nodes)
             new_graph.add_edges_from(edges)

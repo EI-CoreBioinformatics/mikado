@@ -741,7 +741,7 @@ class Superlocus(Abstractlocus):
                     if neigh_first_corr[0][0] > current.start:
                         continue
                     neigh_last_corr = [_ for _ in neighbour.exons if
-                                        _[1] == sorted(current.exons)[-1][0]]
+                                        _[0] == sorted(current.exons)[-1][0]]
                     assert len(neigh_last_corr) == 1
                     if neigh_last_corr[0][1] < current.end:
                         continue
@@ -754,7 +754,7 @@ class Superlocus(Abstractlocus):
                     if curr_first_corr[0][0] > neighbour.start:
                         continue
                     curr_last_corr = [_ for _ in current.exons if
-                                      _[1] == sorted(neighbour.exons)[-1][0]]
+                                      _[0] == sorted(neighbour.exons)[-1][0]]
                     assert len(curr_last_corr) == 1
                     if curr_last_corr[0][1] < neighbour.end:
                         continue

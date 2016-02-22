@@ -783,16 +783,16 @@ class Superlocus(Abstractlocus):
         # Now we are going to collapse by method
         sources = collections.defaultdict(set)
         for tid in transcript_graph:
+            found = False
             for tag in self.json_conf["prepare"]["labels"]:
-                found = False
                 if tag != '' and tag in tid:
                     sources[tag].add(tid)
                     found = True
                     break
-                if found is False:
-                    # Fallback
-                    self.logger.debug("Label not found for %s", tid)
-                    sources[self.transcripts[tid].source].add(tid)
+            if found is False:
+                # Fallback
+                self.logger.debug("Label not found for %s", tid)
+                sources[self.transcripts[tid].source].add(tid)
 
         new_graph = networkx.Graph()
 

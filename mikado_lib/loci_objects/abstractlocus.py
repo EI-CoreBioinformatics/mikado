@@ -310,6 +310,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # counter = 0
         # # communities = []
 
+        logger.debug("Creating cliques for %s", logger.name)
         cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
         logger.debug("Created %d cliques for %s", len(cliques), logger.name)
         logger.debug("Creating the communities for %s", logger.name)

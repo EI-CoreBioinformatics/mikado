@@ -48,6 +48,7 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
     logger.debug("Starting to explore the clique graph")
     cliques_to_components_dict = dict()
+    visited_cliques = set()
     counter = 0
     for clique in cliques:
         # visited = set()
@@ -56,11 +57,11 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
         if clique not in cliques_to_components_dict:
             current_component += 1
             cliques_to_components_dict[clique] = current_component
-            frontier = deque()
-            frontier.append(clique)
+            frontier = set()
+            frontier.add(clique)
             cycle = 0
             while len(frontier) > 0:
-                current_clique = frontier.popleft()
+                current_clique = frontier.pop()
                 # if current_clique in visited:
                 #     continue
                 cycle += 1
@@ -73,12 +74,13 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
                     # visited.add(neighbour)
                     if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
                         cliques_to_components_dict[neighbour] = current_component
-                        if neighbour not in frontier:
-                            frontier.append(neighbour)
+                        frontier.add(neighbour)
+                        visited_cliques.add(neighbour)
                         for node in neighbour:
                             nodes_to_clique_dict[node].remove(neighbour)
-                logger.debug("Found %d neighbours of clique %d in cycle %d",
-                             len(frontier), counter, cycle)
+
+                logger.debug("Found %d neighbours of clique %d in cycle %d; visited %d cliques",
+                             len(frontier), counter, cycle, len(visited_cliques))
 
     logger.debug("Finished exploring the clique graph")
     communities = dict()

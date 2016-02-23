@@ -326,11 +326,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                      logger.name, nx_comms, rdh_comms)
         #         raise AssertionError
 
-        communities = set(frozenset(x) for x in cliques if len(x) == 1)
+        communities = set(frozenset(comm) for comm in networkx.connected_components(graph))
+
+        # communities = set(frozenset(x) for x in cliques if len(x) == 1)
         # for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
-        if len(communities) < len(graph):
-            for comm in networkx.k_components(graph)[1]:
-                communities.add(frozenset(comm))
+        #     communities.add(comm)
 
         logger.debug("Communities for %s:\n\t\t%s", logger.name, "\n\t\t".join(
             [str(_) for _ in communities]))

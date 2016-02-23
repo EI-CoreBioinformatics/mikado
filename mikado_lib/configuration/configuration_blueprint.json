@@ -216,7 +216,9 @@
             "- max_fiveutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- max_threeutr_length: Maximum length of the 5'UTR for AS events. Default: 10e6 (i.e. no limit)",
             "- min_score_perc: Minimum score threshold for subsequent AS events.",
-            " Only transcripts with a score at least (best) * value are retained."
+            " Only transcripts with a score at least (best) * value are retained.",
+            "- only_confirmed_introns: bring back AS events only when their introns are either",
+            " present in the primary transcript or in the set of confirmed introns."
           ],
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
@@ -226,7 +228,9 @@
             "Default: 0% i.e. disabled, we check for the CDS overlap.",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
             "- min_score_perc: Minimum score threshold for subsequent AS events.",
-            " Only transcripts with a score at least (best) * value are retained. Default: 50% (0.5)"
+            " Only transcripts with a score at least (best) * value are retained. Default: 50% (0.5)",
+            "- only_confirmed_introns: bring back AS events only when their introns are either",
+            " present in the primary transcript or in the set of confirmed introns."
           ],
           "required": ["report", "max_isoforms"],
           "type": "object",
@@ -288,6 +292,7 @@
               },
               "default": [
                 "j",
+                "J",
                 "O",
                 "h"
               ]
@@ -297,6 +302,10 @@
               "default": 0.5,
               "minimum": 0,
               "maximum": 1
+            },
+            "only_confirmed_introns":{
+              "type": "boolean",
+              "default": false
             }
           }
         },

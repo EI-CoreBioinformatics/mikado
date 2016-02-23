@@ -1075,6 +1075,7 @@ class Superlocus(Abstractlocus):
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only)
+        
         cliques = self.find_cliques(t_graph, logger=self.logger)
 
         loci_cliques = dict()

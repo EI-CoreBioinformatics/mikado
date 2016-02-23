@@ -9,7 +9,7 @@ import abc
 import random
 import logging
 from sys import maxsize
-from .clique_methods import reid_daid_hurley
+# from .clique_methods import reid_daid_hurley
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
@@ -285,7 +285,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         return graph
 
     @classmethod
-    def find_communities(cls, graph: networkx.Graph, logger=None) -> (list, list):
+    def find_communities(cls, graph: networkx.Graph, logger=None) -> list:
         """
 
         :param graph: a Graph instance from networkx
@@ -310,10 +310,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # # counter = 0
         # # communities = []
 
-        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
-        logger.debug("Created %d cliques for %s", len(cliques), logger.name)
-        logger.debug("Creating the communities for %s", logger.name)
-
         # nx_comms = [frozenset(x) for x in networkx.k_clique_communities(graph, 2, cliques)]
         # rdh_comms = reid_daid_hurley(graph, 2, cliques)
         #
@@ -325,44 +321,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                      logger.name, nx_comms, rdh_comms)
         #         raise AssertionError
 
-        communities = set(frozenset(x) for x in cliques if len(x) == 1)
-        for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
-            communities.add(comm)
+        logger.debug("Creating the communities for %s", logger.name)
+        communities = set(frozenset(comm) for comm in networkx.connected_components(graph))
 
-
-        # for comm in networkx.k_clique_communities(graph, 2, cliques):
+        # communities = set(frozenset(x) for x in cliques if len(x) == 1)
+        # for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
         #     communities.add(comm)
-
-        # for clique in cliques:
-        #     if len(clique) == 1:
-        #         communities.add(frozenset(clique))
-        # total_found = set()
-        # for _ in communities:
-        #     total_found.update(set(_))
-
-        # for comm in communities:
-        #     graph.remove_nodes_from(comm)
-        #
-        # if len(graph) > 0:
-        #     logger.error("Incomplete graph analysis for %s", logger.name)
-        #     logger.error(graph.nodes())
-        #     logger.error(graph.edges())
-        #     logger.error(cliques)
-        #     logger.error(communities)
-        #     raise AssertionError("Incomplete graph analysis for %s" % logger.name)
 
         logger.debug("Communities for %s:\n\t\t%s", logger.name, "\n\t\t".join(
             [str(_) for _ in communities]))
-        return cliques, communities
+        return communities
 
     @classmethod
-    def find_cliques(cls, objects: list, inters=None) -> (networkx.Graph, list):
+    def find_cliques(cls, graph: networkx.Graph, logger=None) -> (networkx.Graph, list):
         """
-        :param objects: list of objects to find the cliques of.
-        :type objects: list
 
-        :param inters: the intersecting function to be used
-        :type inters: function
+        :param graph: graph to which it is necessary to call the cliques for.
+
+        :param logger: optional logger for the function
 
         Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
         It is the new interface for the BronKerbosch function, which is not called directly
@@ -370,27 +346,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         The "inters" keyword provides the function used to determine
         whether two vertices are connected or not in the graph.
         """
-        if inters is None:
-            inters = cls.is_intersecting
-        assert hasattr(inters, "__call__")
 
-        graph = dict()
-        for obj in objects:
-            graph[obj] = [other_obj for other_obj in objects
-                          if (obj != other_obj) and inters(obj, other_obj) is True]
+        if logger is None:
+            logger = create_default_logger("cliques")
 
-        ngraph = networkx.Graph()
-        ngraph.add_nodes_from(list(graph.keys()))
-        for node in graph:
-            for other_node in graph[node]:
-                ngraph.add_edge(node, other_node)
-        graph = ngraph
-        del ngraph
+        logger.debug("Creating cliques for %s", logger.name)
+        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
+        logger.debug("Created %d cliques for %s", len(cliques), logger.name)
 
-        final_cliques = list(networkx.find_cliques(graph))
-        final_cliques = [set(x) for x in final_cliques]
-
-        return graph, final_cliques
+        return cliques
 
     @classmethod
     def choose_best(cls, transcripts: dict) -> str:

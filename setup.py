@@ -15,7 +15,7 @@ with open(path.join(here, "DESCRIPTION.md"), encoding="utf-8") as description:
 setup(
 
     name="Mikado",
-    version="0.14.0",
+    version="0.15.0",
 
     description="A Python3 annotation program to select the best gene model in each locus",
     long_description=long_description,
@@ -46,7 +46,7 @@ setup(
     install_requires=["pyyaml",
                       "jsonschema",
                       "numpy",
-                      "networkx",
+                      "networkx>=1.10",
                       "sqlalchemy>=1",
                       "sqlalchemy_utils",
                       "biopython>=1.6",

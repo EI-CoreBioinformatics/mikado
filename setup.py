@@ -46,7 +46,7 @@ setup(
     install_requires=["pyyaml",
                       "jsonschema",
                       "numpy",
-                      "networkx",
+                      "networkx>=1.10",
                       "sqlalchemy>=1",
                       "sqlalchemy_utils",
                       "biopython>=1.6",

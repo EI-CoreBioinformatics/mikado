@@ -327,30 +327,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #         raise AssertionError
 
         communities = set(frozenset(x) for x in cliques if len(x) == 1)
-        for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
-            communities.add(comm)
-
-
-        # for comm in networkx.k_clique_communities(graph, 2, cliques):
-        #     communities.add(comm)
-
-        # for clique in cliques:
-        #     if len(clique) == 1:
-        #         communities.add(frozenset(clique))
-        # total_found = set()
-        # for _ in communities:
-        #     total_found.update(set(_))
-
-        # for comm in communities:
-        #     graph.remove_nodes_from(comm)
-        #
-        # if len(graph) > 0:
-        #     logger.error("Incomplete graph analysis for %s", logger.name)
-        #     logger.error(graph.nodes())
-        #     logger.error(graph.edges())
-        #     logger.error(cliques)
-        #     logger.error(communities)
-        #     raise AssertionError("Incomplete graph analysis for %s" % logger.name)
+        # for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
+        if len(communities) < len(graph):
+            for comm in networkx.k_components(graph)[1]:
+                communities.add(frozenset(comm))
 
         logger.debug("Communities for %s:\n\t\t%s", logger.name, "\n\t\t".join(
             [str(_) for _ in communities]))

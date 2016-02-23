@@ -80,7 +80,7 @@ class Superlocus(Abstractlocus):
         Hit.hit_number <= bindparam("hit_number")
     ))
 
-    _complex_limit = (250, 200)
+    _complex_limit = (1000, 1000)
 
     # Junction.strand == bindparam("strand")))
 

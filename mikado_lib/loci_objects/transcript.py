@@ -600,7 +600,7 @@ class Transcript:
         data = dict((obj, obj) for obj in objects)
         communities = Abstractlocus.find_communities(
             Abstractlocus.define_graph(data,
-                                       inters=cls.is_intersecting))[1]
+                                       inters=cls.is_intersecting))
 
         return communities
 

@@ -42,7 +42,7 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
 
     if len(nodes_to_clique_dict) > 100 or len(cliques) > 500:
         logger.debug("Complex locus at %s, with %d nodes and %d cliques with length >= %d",
-                       logger.name, len(nodes_to_clique_dict), len(cliques), k)
+                     logger.name, len(nodes_to_clique_dict), len(cliques), k)
 
     current_component = 0
 
@@ -50,9 +50,10 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
     cliques_to_components_dict = dict()
     counter = 0
     for clique in cliques:
+        # visited = set()
         counter += 1
         logger.debug("Exploring clique %d out of %d", counter, len(cliques))
-        if not clique in cliques_to_components_dict:
+        if clique not in cliques_to_components_dict:
             current_component += 1
             cliques_to_components_dict[clique] = current_component
             frontier = set()
@@ -60,14 +61,21 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
             cycle = 0
             while len(frontier) > 0:
                 current_clique = frontier.pop()
+                # if current_clique in visited_cliques:
+                #     continue
                 cycle += 1
-                logger.debug("Cycle %d for clique %d", cycle, counter)
+                logger.debug("Cycle %d for clique %d with %d nodes",
+                             cycle,
+                             counter,
+                             len(current_clique))
+
                 for neighbour in _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
                     if len(frozenset.intersection(current_clique, neighbour)) >= (k-1):
                         cliques_to_components_dict[neighbour] = current_component
                         frontier.add(neighbour)
                         for node in neighbour:
                             nodes_to_clique_dict[node].remove(neighbour)
+
                 logger.debug("Found %d neighbours of clique %d in cycle %d",
                              len(frontier), counter, cycle)
 
@@ -93,8 +101,5 @@ def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):
 
     neighbours = set()
     for node in current_clique:
-        for clique in nodes_to_clique_dict[node]:
-            if clique != current_clique:
-                neighbours.add(clique)
-
-    return neighbours
+        neighbours.update(nodes_to_clique_dict[node])
+    return frozenset(neighbours - {current_clique})

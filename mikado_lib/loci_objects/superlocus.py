@@ -18,7 +18,7 @@ from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
 # import sqlalchemy.pool
 from ..serializers.junction import Junction, Chrom
-from ..serializers.blast_serializer import Hit, Query
+from ..serializers.blast_serializer import Hit, Query, Target
 from ..serializers.orf import Orf
 from .abstractlocus import Abstractlocus
 from .monosublocus import Monosublocus
@@ -28,7 +28,7 @@ from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
 from ..exceptions import NoJsonConfigError, NotInLocusError
-from ..scales.assigner import Assigner
+# from ..scales.assigner import Assigner
 # import mikado_lib.exceptions
 
 
@@ -80,7 +80,7 @@ class Superlocus(Abstractlocus):
         Hit.hit_number <= bindparam("hit_number")
     ))
 
-    _complex_limit = (250, 200)
+    _complex_limit = (1000, 1000)
 
     # Junction.strand == bindparam("strand")))
 
@@ -504,34 +504,92 @@ class Superlocus(Abstractlocus):
         to_remove, to_add = set(), set()
 
         if data_dict is None:
+            assert engine is not None
             self.logger.debug("Starting to load hits and orfs for %d transcripts",
                               len(tid_keys))
             data_dict = dict()
             data_dict["hits"] = collections.defaultdict(list)
             data_dict["orfs"] = collections.defaultdict(list)
-            tid_corrs = dict()
             for tid_group in grouper(tid_keys, 100):
-
-                new_ids = dict((query.query_name, query.query_id) for query in
+                query_ids = dict((query.query_id, query) for query in
                                  self.session.query(Query).filter(
                                      Query.query_name.in_(tid_group)))
-                tid_corrs.update(new_ids)
-                orfs = self.session.query(Orf).filter(Orf.query_id.in_(new_ids.values()))
+                orfs = self.session.query(Orf).filter(Orf.query_id.in_(query_ids.keys()))
                 for orf in orfs:
                     data_dict["orfs"][orf.query].append(orf.as_bed12())
 
-            for tid in tid_keys:
-                tid_id = tid_corrs[tid]
-                hits = self.hit_baked(self.session).params(
-                    query_id=tid_id,
-                    evalue=self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                    hit_number=self.json_conf[
-                        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+                hsp_command = " ".join([
+                    "select * from hsp where",
+                    "hsp_evalue <= {0} and query_id in {1} order by query_id;"]).format(
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["hsp_evalue"],
+                    "({0})".format(", ".join([str(_) for _ in query_ids.keys()]))
+                )
+
+                hsps = dict()
+                targets = set()
+
+                for hsp in engine.execute(hsp_command):
+                    if hsp.query_id not in hsps:
+                        hsps[hsp.query_id] = collections.defaultdict(list)
+                    hsps[hsp.query_id][hsp.target_id].append(hsp)
+                    targets.add(hsp.target_id)
+
+                hit_command = " ".join([
+                    "select * from hit where evalue <= {0}",
+                    "and hit_number <= {1} and query_id in {2}",
+                    "order by query_id, evalue asc;"
+                ]).format(
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                    self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"],
+                    "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
+
+                target_ids = dict((target.target_id, target) for target in
+                                  self.session.query(Target).filter(
+                                      Target.target_id.in_(targets)))
+
+                current_hit = None
+                for hit in engine.execute(hit_command):
+                    if current_hit != hit.query_id:
+                        current_hit = hit.query_id
+                    current_counter = 0
+
+                    current_counter += 1
+
+                    my_query = query_ids[hit.query_id]
+                    my_target = target_ids[hit.target_id]
+
+                    data_dict["hits"][my_query.query_name].append(
+                        Hit.as_full_dict_static(
+                            hit,
+                            hsps[hit.query_id][hit.target_id],
+                            my_query,
+                            my_target
+                        )
                     )
-                self.logger.debug("Starting to load hits for %s",
-                                  tid)
-                for ccc, hit in enumerate(hits):
-                    data_dict["hits"][hit.query].append(hit.as_dict())
+                    # hit_counter += 1
+                    # if hit_counter >= 2*10**4 and hit_counter % (2*10**4) == 0:
+                    #     self.main_logger.debug("Loaded %d BLAST hits in database",
+                    #                            hit_counter)
+
+                # " ".join(
+                #     ["select * from hit where evalue <= {0}",
+                #      "and hit_number <= {1} and query_id in {2}",
+                #      "order by query_id, evalue asc;"]).format(
+                #     self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                #     self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"])))
+
+
+                #
+                # hits = self.hit_baked(self.session).params(
+                #     query_id=tid_id,
+                #     evalue=self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                #     hit_number=self.json_conf[
+                #         "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+                #     )
+                # self.logger.debug("Starting to load hits for %s",
+                #                   tid)
+                # for ccc, hit in enumerate(hits):
+                #     data_dict["hits"][hit.query].append(hit.as_dict())
 
             self.logger.debug("Finished retrieving data for %d transcripts",
                               len(tid_keys))
@@ -675,9 +733,45 @@ class Superlocus(Abstractlocus):
                 if neighbour in to_remove:
                     continue
                 neighbour = self.transcripts[neighbour]
-                result, _ = Assigner.compare(neighbour, current)
-                if result.ccode[0] == "c":
+                inters = set.intersection(current.introns, neighbour.introns)
+                if inters == current.introns:
+                    neigh_first_corr = [_ for _ in neighbour.exons if
+                                        _[1] == sorted(current.exons)[0][1]]
+                    assert len(neigh_first_corr) == 1
+                    if neigh_first_corr[0][0] > current.start:
+                        continue
+                    neigh_last_corr = [_ for _ in neighbour.exons if
+                                        _[0] == sorted(current.exons)[-1][0]]
+                    assert len(neigh_last_corr) == 1
+                    if neigh_last_corr[0][1] < current.end:
+                        continue
+                    to_remove.add(current.id)
+                    break
+                elif inters == neighbour.introns:
+                    curr_first_corr = [_ for _ in current.exons if
+                                        _[1] == sorted(neighbour.exons)[0][1]]
+                    assert len(curr_first_corr) == 1
+                    if curr_first_corr[0][0] > neighbour.start:
+                        continue
+                    curr_last_corr = [_ for _ in current.exons if
+                                      _[0] == sorted(neighbour.exons)[-1][0]]
+                    assert len(curr_last_corr) == 1
+                    if curr_last_corr[0][1] < neighbour.end:
+                        continue
                     to_remove.add(neighbour.id)
+                    continue
+                else:
+                    continue
+
+                # result, _ = Assigner.compare(neighbour, current)
+                # if result.j_prec == 1 and result.n_prec == 1:
+                #     # Neighbour completely contained
+                #     to_remove.add(neighbour.id)
+                # elif result.j_recall == 1 and result.n_recall == 1:
+                #     # Current completely contained
+                #     to_remove.add(current)
+                #     break
+
         transcript_graph.remove_nodes_from(to_remove)
         max_edges = max([transcript_graph.degree(node) for node in transcript_graph.nodes()])
         if len(transcript_graph) < self._complex_limit[0] and max_edges < self._complex_limit[1]:
@@ -689,7 +783,16 @@ class Superlocus(Abstractlocus):
         # Now we are going to collapse by method
         sources = collections.defaultdict(set)
         for tid in transcript_graph:
-            sources[self.transcripts[tid].source].add(tid)
+            found = False
+            for tag in self.json_conf["prepare"]["labels"]:
+                if tag != '' and tag in tid:
+                    sources[tag].add(tid)
+                    found = True
+                    break
+            if found is False:
+                # Fallback
+                self.logger.debug("Label not found for %s", tid)
+                sources[self.transcripts[tid].source].add(tid)
 
         new_graph = networkx.Graph()
 
@@ -706,9 +809,21 @@ class Superlocus(Abstractlocus):
                 nbunch=set.union(set(new_graph.nodes()), nodes)) if
                          edge[0] in acceptable and edge[1] in acceptable])
 
+            counter = collections.Counter()
+            for edge in edges:
+                counter.update(edge)
+
+            if len(counter.most_common()) == 0:
+                edges_most_connected = 0
+            else:
+                edges_most_connected = counter.most_common(1)[0][1]
+
             if (len(acceptable) > self._complex_limit[0] or
-                    (len(edges) + len(new_graph.edges())) > self._complex_limit[1]):
-                self.logger.debug("Reached the limit with source %s", source)
+                    edges_most_connected > self._complex_limit[1]):
+                self.logger.debug("Reached the limit with source %s, %d nodes, %d max edges",
+                                  source,
+                                  len(acceptable),
+                                  edges_most_connected)
                 break
             new_graph.add_nodes_from(nodes)
             new_graph.add_edges_from(edges)
@@ -768,7 +883,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        _, subloci = self.find_communities(transcript_graph, logger=self.logger)
+        subloci = self.find_communities(transcript_graph, logger=self.logger)
         self.logger.debug("Calculated the transcript communities")
 
         # Now we should define each sublocus and store it in a permanent structure of the class
@@ -960,7 +1075,7 @@ class Superlocus(Abstractlocus):
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only)
-        cliques, _ = self.find_communities(t_graph, logger=self.logger)
+        cliques = self.find_cliques(t_graph, logger=self.logger)
 
         loci_cliques = dict()
 

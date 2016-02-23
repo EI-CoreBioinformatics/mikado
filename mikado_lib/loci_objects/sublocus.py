@@ -193,7 +193,8 @@ class Sublocus(Abstractlocus):
                                              logger=self.logger)
 
         while len(transcript_graph) > 0:
-            cliques, communities = self.find_communities(transcript_graph, logger=self.logger)
+            cliques = self.find_cliques(transcript_graph, logger=self.logger)
+            communities = self.find_communities(transcript_graph, logger=self.logger)
             self.logger.debug("Cliques: {0}".format(cliques))
             self.logger.debug("Communities: {0}".format(communities))
             to_remove = set()

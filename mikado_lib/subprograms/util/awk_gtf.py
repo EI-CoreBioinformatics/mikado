@@ -35,7 +35,7 @@ def launch(args):
                     if transcript is not None and \
                             transcript.start >= args.start and transcript.end <= args.end:
                         print(transcript.format("gtf"), file=args.out)
-                    if args.assume_sorted is True and row.end > args.end:
+                    if args.assume_sorted is True and row.start > args.end:
                         break
                     transcript = Transcript(row)
                 else:

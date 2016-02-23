@@ -618,7 +618,8 @@ def find_candidate_orfs(transcript, graph, orf_dictionary) -> list:
     candidate_orfs = []
 
     while len(graph) > 0:
-        cliques, communities = Abstractlocus.find_communities(graph, logger=transcript.logger)
+        cliques = Abstractlocus.find_cliques(graph, logger=transcript.logger)
+        communities = Abstractlocus.find_communities(graph, logger=transcript.logger)
         clique_str = []
         for clique in cliques:
             clique_str.append(str([(orf_dictionary[x].thick_start,

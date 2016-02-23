@@ -883,7 +883,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        _, subloci = self.find_communities(transcript_graph, logger=self.logger)
+        subloci = self.find_communities(transcript_graph, logger=self.logger)
         self.logger.debug("Calculated the transcript communities")
 
         # Now we should define each sublocus and store it in a permanent structure of the class
@@ -1075,7 +1075,7 @@ class Superlocus(Abstractlocus):
         t_graph = self.define_graph(self.transcripts,
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only)
-        cliques, _ = self.find_communities(t_graph, logger=self.logger)
+        cliques = self.find_cliques(t_graph, logger=self.logger)
 
         loci_cliques = dict()
 

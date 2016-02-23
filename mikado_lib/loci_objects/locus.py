@@ -71,6 +71,17 @@ class Locus(Monosublocus, Abstractlocus):
                               transcript.id)
             to_be_added = False
 
+        if self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] is True:
+            to_check = transcript.introns - self.primary_transcript.introns
+            to_check -= transcript.verified_introns
+            if len(to_check) > 0:
+                self.logger.debug(
+                    "%s not added because it has %d non-confirmed intron%s",
+                    transcript.id,
+                    len(to_check),
+                    "s" * min(1, len(to_check) - 1))
+                to_be_added = False
+
         if (to_be_added and transcript.score <
                         self.primary_transcript.score *
                         self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
@@ -245,13 +256,11 @@ class Locus(Monosublocus, Abstractlocus):
 
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
 
-        # if is_valid is False:
-        #     return is_valid, main_ccode
-        # else:
         ccodes = []
         main_result, _ = Assigner.compare(other, self.primary_transcript)
         main_ccode = main_result.ccode[0]
         results = [main_result]
+
         if main_ccode not in valid_ccodes:
             self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
                               other.id,
@@ -265,13 +274,20 @@ class Locus(Monosublocus, Abstractlocus):
                 ccodes.append(result.ccode[0])
                 self.logger.debug("Comparing secondary transcripts %s vs %s. Ccode: %s",
                                   tid, other.id, result.ccode[0])
-
-            if (("_" in ccodes and "_" not in valid_ccodes) or
-                    ("=" in ccodes and "_" not in valid_ccodes)):
-                self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
-                                  other.id,
-                                  main_result.ccode[0])
+            if any(_ not in valid_ccodes for _ in ccodes):
+                not_valid = set(_ for _ in ccodes if _ not in valid_ccodes)
+                self.logger.debug(
+                    "%s not a valid AS event. Non valid ccodes: %s",
+                    other.id,
+                    ", ".join(list(not_valid)))
                 is_valid = False
+
+            # if (("_" in ccodes and "_" not in valid_ccodes) or
+            #         ("=" in ccodes and "_" not in valid_ccodes)):
+            #     self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
+            #                       other.id,
+            #                       main_result.ccode[0])
+            #     is_valid = False
         return is_valid, main_ccode
 
     @property

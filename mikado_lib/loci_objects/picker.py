@@ -241,7 +241,7 @@ class LociProcesser(Process):
 
     """This process class takes care of getting from the queue the loci to analyse and send them back."""
 
-    def __init__(self, json_conf, data_dict, locus_queue, printer_queue, logging_queue):
+    def __init__(self, json_conf, data_dict, locus_queue, printer_queue, logging_queue, lock, output_files):
 
         self.logging_queue = logging_queue
         self.json_conf = json_conf
@@ -255,6 +255,17 @@ class LociProcesser(Process):
         self.data_dict = data_dict
         self.locus_queue = locus_queue
         self.printer_queue = printer_queue
+        self.lock = lock
+        self.handles = output_files
+        self.locus_metrics, self.locus_scores, self.locus_out = [open(_, "a") for _ in self.handles[0]]
+
+        self.sub_metrics, self.sub_scores, self.sub_out = self.handles[1]
+        if self.sub_out != '':
+            self.sub_metrics, self.sub_scores, self.sub_out = [open(_, "a") for _ in self.handles[1]]
+        self.monolocus_out = self.handles[2]
+        if self.monolocus_out:
+            self.monolocus_out = open(self.handles[2], "a")
+
         super(LociProcesser, self).__init__()
 
         self.logger.debug("Starting the pool for {0}".format(self.name))
@@ -277,7 +288,7 @@ class LociProcesser(Process):
             self.logger.exception(exc)
             return
         self.analyse_locus = functools.partial(analyse_locus,
-                                               printer_queue=self.printer_queue,
+                                               printer_queue=None,
                                                json_conf=self.json_conf,
                                                data_dict=self.data_dict,
                                                engine=self.engine,
@@ -286,6 +297,7 @@ class LociProcesser(Process):
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
+        cache = dict()
         while True:
             slocus, counter = self.locus_queue.get()
             if slocus == "EXIT":
@@ -294,8 +306,80 @@ class LociProcesser(Process):
                     self.engine.dispose()
                 return
             if slocus is not None:
-                self.analyse_locus(slocus, counter)
+                stranded_loci = self.analyse_locus(slocus, counter)
+                cache[counter] = stranded_loci
+            while self.cur
+
+
             # self.locus_queue.task_done()
+
+    def _print_locus(self, stranded_locus, gene_counter):
+
+        """
+        Private method that handles a single superlocus for printing.
+        It also detects and flags/discard fragmentary loci.
+        :param stranded_locus: the stranded locus to analyse
+        :param gene_counter: A counter used to rename the genes/transcripts progressively
+        :param logger: logger instance
+        :param handles: the handles to print to
+        :return:
+        """
+
+        if self.sub_out != '':  # Skip this section if no sub_out is defined
+            sub_lines = stranded_locus.__str__(
+                level="subloci",
+                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
+            if sub_lines != '':
+                print(sub_lines, file=self.sub_out)
+                # sub_out.flush()
+            sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
+                                if x != {} and "tid" in x]
+            sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
+                               if x != {} and "tid" in x]
+            for row in sub_metrics_rows:
+                self.sub_metrics.writerow(row)
+                # sub_metrics.flush()
+            for row in sub_scores_rows:
+                self.sub_scores.writerow(row)
+                # sub_scores.flush()
+        if self.monolocus_out != '':
+            mono_lines = stranded_locus.__str__(
+                level="monosubloci",
+                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
+            if mono_lines != '':
+                print(mono_lines, file=self.monolocus_out)
+                # mono_out.flush()
+        locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
+                              if x != {} and "tid" in x]
+        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
+                             if x != {} and "tid" in x]
+
+        for locus in stranded_locus.loci:
+            gene_counter += 1
+            fragment_test = (
+                self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
+                is True and stranded_locus.loci[locus].is_fragment is True)
+
+            if fragment_test is True:
+                continue
+            new_id = "{0}.{1}G{2}".format(
+                self.json_conf["pick"]["output_format"]["id_prefix"],
+                stranded_locus.chrom, gene_counter)
+            stranded_locus.loci[locus].id = new_id
+
+        locus_lines = stranded_locus.__str__(
+            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
+        for row in locus_metrics_rows:
+            self.locus_metrics.writerow(row)
+            # locus_metrics.flush()
+        for row in locus_scores_rows:
+            self.locus_scores.writerow(row)
+            # locus_scores.flush()
+
+        if locus_lines != '':
+            print(locus_lines, file=self.locus_out)
+            # locus_out.flush()
+        return gene_counter
 
 
 # pylint: disable=too-many-instance-attributes

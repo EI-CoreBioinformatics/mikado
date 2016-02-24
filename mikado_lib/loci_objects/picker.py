@@ -30,6 +30,7 @@ from .superlocus import Superlocus, Transcript
 from mikado_lib.configuration.configurator import to_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
+from queue import Empty
 # import mikado_lib.exceptions
 # from concurrent.futures import ProcessPoolExecutor
 
@@ -128,6 +129,8 @@ def analyse_locus(slocus: Superlocus,
     if slocus is None:
         # printer_dict[counter] = []
         if printer_queue:
+            while printer_queue.qsize() >= 100:
+                continue
             printer_queue.put_nowait(([], counter))
             # printer_queue.put(([], counter))
             return
@@ -172,6 +175,8 @@ def analyse_locus(slocus: Superlocus,
             slocus.id)
         # printer_dict[counter] = []
         if printer_queue:
+            while printer_queue.qsize >= 100:
+                continue
             printer_queue.put_nowait(([], counter))
             # printer_queue.put(([], counter))
             return
@@ -219,6 +224,8 @@ def analyse_locus(slocus: Superlocus,
         pass
     # printer_dict[counter] = stranded_loci
     if printer_queue:
+        while printer_queue.qsize() >= 100:
+            continue
         printer_queue.put_nowait((stranded_loci, counter))
         # printer_queue.put((stranded_loci, counter))
         logger.debug("Finished with %s, counter %d", slocus.id, counter)
@@ -290,6 +297,7 @@ class LociProcesser(Process):
                 return
             if slocus is not None:
                 self.analyse_locus(slocus, counter)
+            # self.locus_queue.task_done()
 
 
 # pylint: disable=too-many-instance-attributes
@@ -758,37 +766,32 @@ memory intensive, proceed with caution!")
         logger.debug("Starting to wait for loci to print")
 
         while True:
-            current = self.printer_queue.get()
-            stranded_loci, counter = current
+            while self.printer_queue.empty() is True:
+                continue
+            stranded_loci, counter = self.printer_queue.get_nowait()
             cache[counter] = stranded_loci
             if stranded_loci != "EXIT":
                 logger.debug("Received one locus, counter: %d, total %d. names %s",
                              counter,
                              len(stranded_loci),
                              ", ".join([_.id for _ in stranded_loci]))
-            if counter == last_printed + 1 or stranded_loci == "EXIT":
-                cache[counter] = stranded_loci
-                for num in sorted(cache.keys()):
-                    if num > last_printed + 1 or stranded_loci == "EXIT":
-                        if stranded_loci == "EXIT":
-                            assert (len(cache) == 1 and
-                                    list(cache.keys()) == [num] and
-                                    list(cache.values()) == ["EXIT"])
-                            # self.printer_queue.task_done()
-                            logger.info("Final number of superloci: %d", last_printed)
-                            return
-                        break
-                    else:
-                        if num % 1000 == 0 and num > 0:
-                            logger.info("Printed %d superloci", num)
-                        for stranded_locus in cache[num]:
-                            if stranded_locus.chrom != curr_chrom:
-                                curr_chrom = stranded_locus.chrom
-                                gene_counter = 0
-                            gene_counter = locus_printer(stranded_locus, gene_counter)
-                        last_printed += 1
-                        del cache[num]
-            # self.printer_queue.task_done()
+            for num in sorted(cache.keys()):
+                if num == last_printed + 1:
+                    if num % 1000 == 0 and num > 0:
+                        logger.info("Printed %d superloci", num)
+                    for stranded_locus in cache[num]:
+                        if stranded_locus.chrom != curr_chrom:
+                            curr_chrom = stranded_locus.chrom
+                            gene_counter = 0
+                        gene_counter = locus_printer(stranded_locus, gene_counter)
+                    last_printed += 1
+                    del cache[num]
+                else:
+                    break
+            if len(cache) == 1 and float("inf") in cache:
+                assert list(cache.values()) == ["EXIT"]
+                logger.info("Final number of superloci: %d", last_printed)
+                return
 
         return
     # pylint: enable=too-many-locals
@@ -1092,6 +1095,8 @@ memory intensive, proceed with caution!")
                     else:
                         counter += 1
                         self.logger.debug("Submitting locus # %d", counter)
+                        while locus_queue.qsize() >= 100:
+                            continue
                         locus_queue.put((current_locus, counter))
                         # submit_locus(current_locus, counter)
                         # if job is not None:
@@ -1121,6 +1126,8 @@ memory intensive, proceed with caution!")
             else:
                 counter += 1
                 self.logger.debug("Submitting locus # %d", counter)
+                while locus_queue.qsize() >= 100:
+                    continue
                 locus_queue.put((current_locus, counter))
 
                 # jobs.append(submit_locus(current_locus, counter))
@@ -1135,6 +1142,8 @@ memory intensive, proceed with caution!")
         elif invalid is True and current_locus is not None:
             counter += 1
             self.logger.debug("Submitting locus # %d", counter)
+            while locus_queue.qsize() >= 100:
+                continue
             locus_queue.put((current_locus, counter))
 
         self.logger.info("Finished chromosome %s", current_locus.chrom)
@@ -1144,12 +1153,14 @@ memory intensive, proceed with caution!")
         # submit_locus(current_locus, counter)
         self.logger.debug("Submitting locus %s, counter %d",
                           current_locus.id, counter)
-        locus_queue.put(("EXIT", counter + 1))
+        locus_queue.put(("EXIT", float("inf")))
         [_.join() for _ in working_processes]
         # pool.close()
         # pool.join()
 
         # self.printer_queue.join()
+        while self.printer_queue.qsize() >= 100:
+            continue
         self.printer_queue.put_nowait(("EXIT", float("inf")))
         # self.printer_queue.put(("EXIT", counter + 1))
 

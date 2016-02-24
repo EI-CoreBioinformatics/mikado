@@ -775,23 +775,24 @@ memory intensive, proceed with caution!")
                              counter,
                              len(stranded_loci),
                              ", ".join([_.id for _ in stranded_loci]))
-            for num in sorted(cache.keys()):
-                if num == last_printed + 1:
-                    if num % 1000 == 0 and num > 0:
-                        logger.info("Printed %d superloci", num)
-                    for stranded_locus in cache[num]:
-                        if stranded_locus.chrom != curr_chrom:
-                            curr_chrom = stranded_locus.chrom
-                            gene_counter = 0
-                        gene_counter = locus_printer(stranded_locus, gene_counter)
-                    last_printed += 1
-                    del cache[num]
-                else:
-                    break
-            if len(cache) == 1 and float("inf") in cache:
-                assert list(cache.values()) == ["EXIT"]
-                logger.info("Final number of superloci: %d", last_printed)
-                return
+            if len(cache) > self.threads * 10 or stranded_loci == "EXIT":
+                for num in sorted(cache.keys()):
+                    if num == last_printed + 1:
+                        if num % 1000 == 0 and num > 0:
+                            logger.info("Printed %d superloci", num)
+                        for stranded_locus in cache[num]:
+                            if stranded_locus.chrom != curr_chrom:
+                                curr_chrom = stranded_locus.chrom
+                                gene_counter = 0
+                            gene_counter = locus_printer(stranded_locus, gene_counter)
+                        last_printed += 1
+                        del cache[num]
+                    else:
+                        break
+                if len(cache) == 1 and float("inf") in cache:
+                    assert list(cache.values()) == ["EXIT"]
+                    logger.info("Final number of superloci: %d", last_printed)
+                    return
 
         return
     # pylint: enable=too-many-locals

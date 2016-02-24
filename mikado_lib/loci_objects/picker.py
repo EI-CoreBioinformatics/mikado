@@ -1056,7 +1056,8 @@ memory intensive, proceed with caution!")
 
         self.printer_process.start()
 
-        locus_queue = self.manager.Queue(-1)
+        # locus_queue = self.manager.Queue(-1)
+        locus_queue = multiprocessing.Queue(-1)
 
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
         working_processes = [LociProcesser(self.json_conf,

@@ -436,7 +436,7 @@ class Superlocus(Abstractlocus):
 
             ver_introns = self.engine.execute(" ".join([
                 "select junction_start, junction_end from junctions where",
-                "chrom_id = (select chrom_id from chrom where chrom = {chrom})",
+                "chrom_id = (select chrom_id from chrom where name = \"{chrom}\")",
                 "and junction_start > {start} and junction_end < {end}"]).format(
                     chrom=self.chrom, start=self.start, end=self.end
             ))

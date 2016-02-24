@@ -683,24 +683,24 @@ memory intensive, proceed with caution!")
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if sub_lines != '':
                 print(sub_lines, file=sub_out)
-                sub_out.flush()
+                # sub_out.flush()
             sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
                                 if x != {} and "tid" in x]
             sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
                                if x != {} and "tid" in x]
             for row in sub_metrics_rows:
                 sub_metrics.writerow(row)
-                sub_metrics.flush()
+                # sub_metrics.flush()
             for row in sub_scores_rows:
                 sub_scores.writerow(row)
-                sub_scores.flush()
+                # sub_scores.flush()
         if self.monolocus_out != '':
             mono_lines = stranded_locus.__str__(
                 level="monosubloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if mono_lines != '':
                 print(mono_lines, file=mono_out)
-                mono_out.flush()
+                # mono_out.flush()
         locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
                               if x != {} and "tid" in x]
         locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
@@ -723,14 +723,14 @@ memory intensive, proceed with caution!")
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
         for row in locus_metrics_rows:
             locus_metrics.writerow(row)
-            locus_metrics.flush()
+            # locus_metrics.flush()
         for row in locus_scores_rows:
             locus_scores.writerow(row)
-            locus_scores.flush()
+            # locus_scores.flush()
 
         if locus_lines != '':
             print(locus_lines, file=locus_out)
-            locus_out.flush()
+            # locus_out.flush()
         return gene_counter
 
     def printer(self):

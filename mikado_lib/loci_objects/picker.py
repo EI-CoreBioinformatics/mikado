@@ -129,7 +129,7 @@ def analyse_locus(slocus: Superlocus,
     if slocus is None:
         # printer_dict[counter] = []
         if printer_queue:
-            while printer_queue.qsize() >= 100:
+            while printer_queue.qsize() >= json_conf["pick"]["run_options"]["threads"] * 10:
                 continue
             printer_queue.put_nowait(([], counter))
             # printer_queue.put(([], counter))
@@ -175,7 +175,7 @@ def analyse_locus(slocus: Superlocus,
             slocus.id)
         # printer_dict[counter] = []
         if printer_queue:
-            while printer_queue.qsize >= 100:
+            while printer_queue.qsize >= json_conf["pick"]["run_options"]["threads"] * 10:
                 continue
             printer_queue.put_nowait(([], counter))
             # printer_queue.put(([], counter))
@@ -224,7 +224,7 @@ def analyse_locus(slocus: Superlocus,
         pass
     # printer_dict[counter] = stranded_loci
     if printer_queue:
-        while printer_queue.qsize() >= 100:
+        while printer_queue.qsize() >= json_conf["pick"]["run_options"]["threads"] * 10:
             continue
         printer_queue.put_nowait((stranded_loci, counter))
         # printer_queue.put((stranded_loci, counter))
@@ -1095,7 +1095,7 @@ memory intensive, proceed with caution!")
                     else:
                         counter += 1
                         self.logger.debug("Submitting locus # %d", counter)
-                        while locus_queue.qsize() >= 100:
+                        while locus_queue.qsize() >= self.threads * 10:
                             continue
                         locus_queue.put((current_locus, counter))
                         # submit_locus(current_locus, counter)
@@ -1126,7 +1126,7 @@ memory intensive, proceed with caution!")
             else:
                 counter += 1
                 self.logger.debug("Submitting locus # %d", counter)
-                while locus_queue.qsize() >= 100:
+                while locus_queue.qsize() >= self.threads * 10:
                     continue
                 locus_queue.put((current_locus, counter))
 
@@ -1142,7 +1142,7 @@ memory intensive, proceed with caution!")
         elif invalid is True and current_locus is not None:
             counter += 1
             self.logger.debug("Submitting locus # %d", counter)
-            while locus_queue.qsize() >= 100:
+            while locus_queue.qsize() >= self.threads * 10:
                 continue
             locus_queue.put((current_locus, counter))
 
@@ -1159,7 +1159,7 @@ memory intensive, proceed with caution!")
         # pool.join()
 
         # self.printer_queue.join()
-        while self.printer_queue.qsize() >= 100:
+        while self.printer_queue.qsize() >= self.threads * 10:
             continue
         self.printer_queue.put_nowait(("EXIT", float("inf")))
         # self.printer_queue.put(("EXIT", counter + 1))

@@ -33,10 +33,6 @@ from ..configuration.configurator import to_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser
-# from concurrent.futures import ProcessPoolExecutor
-# pylint: disable=no-name-in-module
-from multiprocessing import Process  # , Pool
-# pylint: enable=no-name-in-module
 import multiprocessing.managers
 
 
@@ -154,7 +150,7 @@ memory intensive, proceed with caution!")
             raise InvalidJson(
                 "No output prefix specified for the final loci. Key: \"loci_out\"")
 
-        self.printer_process = Process(target=self.printer)
+        # self.printer_process = Process(target=self.printer)
         self.queue_pool = None
 
     def define_input(self):
@@ -489,59 +485,59 @@ memory intensive, proceed with caution!")
             # locus_out.flush()
         return gene_counter
 
-    def printer(self):
-
-        """Listener process that will print out the loci recovered by
-        the analyse_locus function."""
-
-        handler = logging_handlers.QueueHandler(self.logging_queue)
-        logger = logging.getLogger("queue_listener")
-        logger.name = "printer_logger"
-        logger.propagate = False
-        logger.addHandler(handler)
-        logger.setLevel(self.json_conf["log_settings"]["log_level"])
-
-        handles = self.__get_output_files()
-
-        locus_printer = functools.partial(self._print_locus,
-                                          logger=logger,
-                                          handles=handles)
-
-        last_printed = 0
-        cache = dict()
-        curr_chrom = None
-        gene_counter = 0
-        logger.debug("Starting to wait for loci to print")
-
-        while True:
-            while self.printer_queue.empty() is True:
-                continue
-            stranded_loci, counter = self.printer_queue.get_nowait()
-            cache[counter] = stranded_loci
-            if stranded_loci != "EXIT":
-                logger.debug("Received one locus, counter: %d, total %d. names %s",
-                             counter,
-                             len(stranded_loci),
-                             ", ".join([_.id for _ in stranded_loci]))
-            for num in sorted(cache.keys()):
-                if num == last_printed + 1:
-                    if num % 1000 == 0 and num > 0:
-                        logger.info("Printed %d superloci", num)
-                    for stranded_locus in cache[num]:
-                        if stranded_locus.chrom != curr_chrom:
-                            curr_chrom = stranded_locus.chrom
-                            gene_counter = 0
-                        gene_counter = locus_printer(stranded_locus, gene_counter)
-                    last_printed += 1
-                    del cache[num]
-                else:
-                    break
-            if len(cache) == 1 and float("inf") in cache:
-                assert list(cache.values()) == ["EXIT"]
-                logger.info("Final number of superloci: %d", last_printed)
-                return
-
-        return
+    # def printer(self):
+    #
+    #     """Listener process that will print out the loci recovered by
+    #     the analyse_locus function."""
+    #
+    #     handler = logging_handlers.QueueHandler(self.logging_queue)
+    #     logger = logging.getLogger("queue_listener")
+    #     logger.name = "printer_logger"
+    #     logger.propagate = False
+    #     logger.addHandler(handler)
+    #     logger.setLevel(self.json_conf["log_settings"]["log_level"])
+    #
+    #     handles = self.__get_output_files()
+    #
+    #     locus_printer = functools.partial(self._print_locus,
+    #                                       logger=logger,
+    #                                       handles=handles)
+    #
+    #     last_printed = 0
+    #     cache = dict()
+    #     curr_chrom = None
+    #     gene_counter = 0
+    #     logger.debug("Starting to wait for loci to print")
+    #
+    #     while True:
+    #         while self.printer_queue.empty() is True:
+    #             continue
+    #         stranded_loci, counter = self.printer_queue.get_nowait()
+    #         cache[counter] = stranded_loci
+    #         if stranded_loci != "EXIT":
+    #             logger.debug("Received one locus, counter: %d, total %d. names %s",
+    #                          counter,
+    #                          len(stranded_loci),
+    #                          ", ".join([_.id for _ in stranded_loci]))
+    #         for num in sorted(cache.keys()):
+    #             if num == last_printed + 1:
+    #                 if num % 1000 == 0 and num > 0:
+    #                     logger.info("Printed %d superloci", num)
+    #                 for stranded_locus in cache[num]:
+    #                     if stranded_locus.chrom != curr_chrom:
+    #                         curr_chrom = stranded_locus.chrom
+    #                         gene_counter = 0
+    #                     gene_counter = locus_printer(stranded_locus, gene_counter)
+    #                 last_printed += 1
+    #                 del cache[num]
+    #             else:
+    #                 break
+    #         if len(cache) == 1 and float("inf") in cache:
+    #             assert list(cache.values()) == ["EXIT"]
+    #             logger.info("Final number of superloci: %d", last_printed)
+    #             return
+    #
+    #     return
     # pylint: enable=too-many-locals
 
     def __getstate__(self):
@@ -862,8 +858,11 @@ memory intensive, proceed with caution!")
                     else:
                         counter += 1
                         self.logger.debug("Submitting locus # %d", counter)
-                        # while locus_queue.qsize() >= self.threads * 10:
-                        #     continue
+                        while ((counter -
+                                current_counter.value -
+                                sum(_.cache_length for _ in working_processes)) >=
+                                self.threads * 10):
+                            continue
                         locus_queue.put((current_locus, counter))
                         # submit_locus(current_locus, counter)
                         # if job is not None:
@@ -895,6 +894,11 @@ memory intensive, proceed with caution!")
                 self.logger.debug("Submitting locus # %d", counter)
                 # while locus_queue.qsize() >= self.threads * 10:
                 #     continue
+                while ((counter -
+                        current_counter.value -
+                        sum(_.cache_length for _ in working_processes)) >=
+                        self.threads * 10):
+                    continue
                 locus_queue.put((current_locus, counter))
 
                 # jobs.append(submit_locus(current_locus, counter))
@@ -911,11 +915,21 @@ memory intensive, proceed with caution!")
             self.logger.debug("Submitting locus # %d", counter)
             # while locus_queue.qsize() >= self.threads * 10:
             #     continue
+            while ((counter -
+                   current_counter.value -
+                   sum(_.cache_length for _ in working_processes)) >=
+                   self.threads * 10):
+                continue
             locus_queue.put((current_locus, counter))
 
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
+        while ((counter -
+               current_counter.value -
+               sum(_.cache_length for _ in working_processes)) >=
+               self.threads * 10):
+            continue
         locus_queue.put((current_locus, counter))
         # submit_locus(current_locus, counter)
         self.logger.debug("Submitting locus %s, counter %d",
@@ -925,16 +939,6 @@ memory intensive, proceed with caution!")
         [_.join() for _ in working_processes]
         self.logger.info("Joined children processes")
         [_.terminate() for _ in working_processes]
-        # pool.close()
-        # pool.join()
-
-        # self.printer_queue.join()
-        # while self.printer_queue.qsize() >= self.threads * 10:
-        #     continue
-        # self.printer_queue.put_nowait(("EXIT", float("inf")))
-        # self.printer_queue.put(("EXIT", counter + 1))
-
-        # self.printer_process.join()
 
     def __submit_single_threaded(self, data_dict):
 

@@ -232,16 +232,17 @@ class LociProcesser(Process):
         self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.logger.propagate = False
 
-        self.data_dict = data_dict
+        self.__data_dict = data_dict
+        self.__cache = dict()
         self.locus_queue = locus_queue
         self.lock = lock
-        self.handles = []
+        self.__handles = []
         self.locus_metrics, self.locus_scores, self.locus_out = [None] * 3
         self.sub_metrics, self.sub_scores, self.sub_out = [None] * 3
         self.monolocus_out = [None] * 3
-        self.handles = []
+        self.__handles = []
         self._create_handles(output_files)
-        self.current_counter = current_counter
+        self.__current_counter = current_counter
         self.gene_counter = gene_counter
         self.current_chrom = current_chrom
         assert self.locus_out is not None
@@ -263,7 +264,7 @@ class LociProcesser(Process):
         self.analyse_locus = functools.partial(analyse_locus,
                                                printer_queue=None,
                                                json_conf=self.json_conf,
-                                               data_dict=self.data_dict,
+                                               data_dict=self.__data_dict,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
 
@@ -292,7 +293,7 @@ class LociProcesser(Process):
         self.locus_scores.close = self.locus_scores.handle.close
 
         self.locus_out = open(locus_out_file, 'a')
-        self.handles.extend((self.locus_out, self.locus_metrics, self.locus_out))
+        self.__handles.extend((self.locus_out, self.locus_metrics, self.locus_out))
 
         sub_metrics_file, sub_scores_file, sub_out_file = handles[1]
         if sub_metrics_file:
@@ -311,18 +312,21 @@ class LociProcesser(Process):
             self.sub_scores.flush = self.sub_scores.handle.flush
             self.sub_scores.close = self.sub_scores.handle.close
             self.sub_out = open(sub_out_file, "a")
-            self.handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
+            self.__handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
         monolocus_out_file = handles[2]
         if monolocus_out_file:
             self.monolocus_out = open(monolocus_out_file, "a")
-            self.handles.append(self.monolocus_out)
+            self.__handles.append(self.monolocus_out)
 
         return
+
+    @property
+    def cache_length(self):
+        return len(self.__cache)
 
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
-        cache = dict()
         exit_received = False
         while True:
             if exit_received is False:
@@ -336,16 +340,16 @@ class LociProcesser(Process):
                 else:
                     if slocus is not None:
                         stranded_loci = self.analyse_locus(slocus, counter)
-                        cache[counter] = stranded_loci
+                        self.__cache[counter] = stranded_loci
                     else:
-                        cache[counter] = []
-            if self.current_counter.value + 1 in cache:
+                        self.__cache[counter] = []
+            if self.__current_counter.value + 1 in self.__cache:
                 with self.lock:
-                    while self.current_counter.value + 1 in cache:
+                    while self.__current_counter.value + 1 in self.__cache:
                         self.logger.debug("Printing %d counter in %s",
-                                            self.current_counter.value,
-                                            self.name)
-                        stranded_loci = cache[self.current_counter.value + 1]
+                                          self.__current_counter.value,
+                                          self.name)
+                        stranded_loci = self.__cache[self.__current_counter.value + 1]
                         if len(stranded_loci) > 0:
                             if stranded_loci[0].chrom != self.current_chrom.value:
                                 self.logger.warning(
@@ -357,19 +361,19 @@ class LociProcesser(Process):
                             for stranded_locus in sorted(stranded_loci):
                                 self.logger.debug("Printing %s", stranded_locus.id)
                                 self._print_locus(stranded_locus)
-                        del cache[self.current_counter.value + 1]
-                        self.current_counter.value += 1
-                    [_.flush() for _ in self.handles]
+                        del self.__cache[self.__current_counter.value + 1]
+                        self.__current_counter.value += 1
+                    [_.flush() for _ in self.__handles]
             if exit_received is True:
-                if len(cache) > 0:
+                if len(self.__cache) > 0:
                     self.logger.debug("Still %d loci to print for %s, current value %d (%s)",
-                                      len(cache),
+                                      self.cache_length,
                                       self.name,
-                                      self.current_counter.value,
-                                      ", ".join([str(_) for _ in sorted(cache.keys())]))
+                                      self.__current_counter.value,
+                                      ", ".join([str(_) for _ in sorted(self.__cache.keys())]))
                     continue
                 else:
-                    [_.close() for _ in self.handles]
+                    [_.close() for _ in self.__handles]
                     return
 
     def _print_locus(self, stranded_locus):

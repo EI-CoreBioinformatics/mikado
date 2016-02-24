@@ -161,8 +161,8 @@ def check_loaded_orfs(transcript):
 
         # This code snippet using groupby is massively more efficient
         # than the previous naive implementation
+        getter = operator.itemgetter(1)
         for _, group in groupby(enumerate(utr_pos), lambda items: items[0] - items[1]):
-            getter = operator.itemgetter(1)
             group = [getter(element) for element in group]
             # group = list(map(operator.itemgetter(1), group))
             if len(group) > 1:

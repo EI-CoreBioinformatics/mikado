@@ -27,9 +27,7 @@ from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
 from .superlocus import Superlocus, Transcript
-# I have to use an absolute import to make nosetests import function ... strange
-from mikado_lib.configuration.configurator import to_json
-# from .. import configuration
+from mikado_lib.configuration.configurator import to_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 # import mikado_lib.exceptions
@@ -111,8 +109,11 @@ def analyse_locus(slocus: Superlocus,
     :param printer_queue: the printing queue
     :type printer_queue: multiprocessing.managers.AutoProxy
 
-    # :param data_dict: a dictionary of preloaded data
-    # :type data_dict: dict
+    :param engine: an optional engine to connect to the database.
+    :type data_dict: sqlalchemy.engine.engine
+
+    :param data_dict: a dictionary of preloaded data
+    :type data_dict: (None|dict)
 
     This function takes as input a "superlocus" instance and the pipeline configuration.
     It also accepts as optional keywords a dictionary with the CDS information
@@ -128,6 +129,7 @@ def analyse_locus(slocus: Superlocus,
         # printer_dict[counter] = []
         if printer_queue:
             printer_queue.put_nowait(([], counter))
+            # printer_queue.put(([], counter))
             return
         else:
             return []
@@ -171,6 +173,7 @@ def analyse_locus(slocus: Superlocus,
         # printer_dict[counter] = []
         if printer_queue:
             printer_queue.put_nowait(([], counter))
+            # printer_queue.put(([], counter))
             return
         else:
             return []
@@ -217,6 +220,7 @@ def analyse_locus(slocus: Superlocus,
     # printer_dict[counter] = stranded_loci
     if printer_queue:
         printer_queue.put_nowait((stranded_loci, counter))
+        # printer_queue.put((stranded_loci, counter))
         logger.debug("Finished with %s, counter %d", slocus.id, counter)
         logger.removeHandler(handler)
         handler.close()
@@ -229,6 +233,8 @@ def analyse_locus(slocus: Superlocus,
 
 
 class LociProcesser(Process):
+
+    """This process class takes care of getting from the queue the loci to analyse and send them back."""
 
     def __init__(self, json_conf, data_dict, locus_queue, printer_queue, logging_queue):
 
@@ -273,7 +279,7 @@ class LociProcesser(Process):
                                                logging_queue=self.logging_queue)
 
     def run(self):
-
+        """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
         while True:
             slocus, counter = self.locus_queue.get()
@@ -353,8 +359,9 @@ class Picker:
         # pylint: enable=no-member
         self.manager = self.context.Manager()
         # self.result_dict = self.manager.dict()
-        self.printer_queue = self.manager.Queue(-1)
-        self.logging_queue = self.manager.Queue(-1)
+        # self.printer_queue = self.manager.Queue(-1)
+        self.logging_queue = multiprocessing.Queue(-1)
+        self.printer_queue = multiprocessing.Queue(-1)
 
         # self.printer_queue = self.manager.Queue(-1)
         # self.logging_queue = self.manager.Queue(-1)  # queue for logging
@@ -478,7 +485,7 @@ memory intensive, proceed with caution!")
         if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
             try:
                 os.makedirs(self.json_conf["pick"]["files"]["output_dir"])
-            except (OSError,PermissionError) as exc:
+            except (OSError, PermissionError) as exc:
                 self.logger.error("Failed to create the output directory!")
                 self.logger.exception(exc)
                 raise
@@ -568,9 +575,9 @@ memory intensive, proceed with caution!")
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)
             sub_metrics_file = open(re.sub("$", ".metrics.tsv",
-                                      re.sub(".gff.?$", "", self.sub_out)), "w")
+                                    re.sub(".gff.?$", "", self.sub_out)), "w")
             sub_scores_file = open(re.sub("$", ".scores.tsv",
-                                     re.sub(".gff.?$", "", self.sub_out)), "w")
+                                   re.sub(".gff.?$", "", self.sub_out)), "w")
             sub_metrics = csv.DictWriter(
                 sub_metrics_file,
                 Superlocus.available_metrics,
@@ -762,7 +769,14 @@ memory intensive, proceed with caution!")
             if counter == last_printed + 1 or stranded_loci == "EXIT":
                 cache[counter] = stranded_loci
                 for num in sorted(cache.keys()):
-                    if num > last_printed + 1:
+                    if num > last_printed + 1 or stranded_loci == "EXIT":
+                        if stranded_loci == "EXIT":
+                            assert (len(cache) == 1 and
+                                    list(cache.keys()) == [num] and
+                                    list(cache.values()) == ["EXIT"])
+                            # self.printer_queue.task_done()
+                            logger.info("Final number of superloci: %d", last_printed)
+                            return
                         break
                     else:
                         if num % 1000 == 0 and num > 0:
@@ -774,14 +788,7 @@ memory intensive, proceed with caution!")
                             gene_counter = locus_printer(stranded_locus, gene_counter)
                         last_printed += 1
                         del cache[num]
-                if stranded_loci == "EXIT":
-                    assert (len(cache) == 1 and
-                            list(cache.keys()) == [float("inf")] and
-                            list(cache.values()) == ["EXIT"])
-                    self.printer_queue.task_done()
-                    logger.info("Final number of superloci: %d", last_printed)
-                    break
-            self.printer_queue.task_done()
+            # self.printer_queue.task_done()
 
         return
     # pylint: enable=too-many-locals
@@ -824,8 +831,8 @@ memory intensive, proceed with caution!")
         hits = engine.execute(
             " ".join(["select * from hit where evalue <= {0} and hit_number <= {1}",
                       "order by query_id, evalue asc;"]).format(
-                    self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
-                    self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]))
+                self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
+                self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"]))
 
         # self.main_logger.info("{0} BLAST hits to analyse".format(hits))
         current_counter = 0
@@ -990,6 +997,7 @@ memory intensive, proceed with caution!")
 
         # self.result_dict[counter] = [_]
         self.printer_queue.put_nowait(("EXIT", float("inf")))
+        # self.printer_queue.put(("EXIT", counter + 1))
         current = "\t".join([str(x) for x in [row.chrom,
                                               row.start,
                                               row.end,
@@ -1135,13 +1143,14 @@ memory intensive, proceed with caution!")
         # submit_locus(current_locus, counter)
         self.logger.debug("Submitting locus %s, counter %d",
                           current_locus.id, counter)
-        locus_queue.put(("EXIT", float("inf")))
+        locus_queue.put(("EXIT", counter + 1))
         [_.join() for _ in working_processes]
         # pool.close()
         # pool.join()
 
-        self.printer_queue.join()
+        # self.printer_queue.join()
         self.printer_queue.put_nowait(("EXIT", float("inf")))
+        # self.printer_queue.put(("EXIT", counter + 1))
 
         self.printer_process.join()
 

@@ -2,7 +2,7 @@
 
 """Setup file for PyPI"""
 
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 from codecs import open
 from os import path
 import glob
@@ -52,7 +52,7 @@ setup(
                       "biopython>=1.6",
                       "intervaltree",
                       "nose",
-                      "pyfaidx"
+                      "pyfaidx",
                       ],
 
     extras_require={

@@ -433,13 +433,22 @@ class Superlocus(Abstractlocus):
             if self.json_conf["db_settings"]["db"] is None:
                 return  # No data to load
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
-            ver_introns = set((junc.junction_start, junc.junction_end) for junc in
-                              self.junction_baked(self.session).params(
-                                  chrom=self.chrom,
-                                  strand=self.strand,
-                                  junctionStart=self.start,
-                                  junctionEnd=self.end
-                                ))
+
+            ver_introns = self.engine.execute(" ".join([
+                "select junction_start, junction_end from junctions where",
+                "chrom_id = (select chrom_id from chrom where chrom = {chrom})",
+                "and junction_start > {start} and junction_end < {end}"]).format(
+                    chrom=self.chrom, start=self.start, end=self.end
+            ))
+            ver_introns = [(junc.junction_start, junc.junction_end) for junc in ver_introns]
+
+            # ver_introns = set((junc.junction_start, junc.junction_end) for junc in
+            #                   self.junction_baked(self.session).params(
+            #                       chrom=self.chrom,
+            #                       strand=self.strand,
+            #                       junctionStart=self.start,
+            #                       junctionEnd=self.end
+            #                     ))
 
             self.logger.debug("Found %d verifiable introns for %s",
                               len(ver_introns), self.id)

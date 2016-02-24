@@ -16,6 +16,8 @@ from logging import handlers as logging_handlers
 import collections
 import functools
 import multiprocessing
+import multiprocessing.sharedctypes
+import ctypes
 from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import QueuePool as SqlPool
@@ -26,360 +28,16 @@ from ..parsers.GFF import GFF3
 from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
-from .superlocus import Superlocus, Transcript
-from mikado_lib.configuration.configurator import to_json  # Necessary for nosetests
+from ..loci_objects.superlocus import Superlocus, Transcript
+from ..configuration.configurator import to_json  # Necessary for nosetests
 from ..utilities import dbutils
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
-from queue import Empty
-# import mikado_lib.exceptions
+from .loci_processer import analyse_locus, LociProcesser
 # from concurrent.futures import ProcessPoolExecutor
-
 # pylint: disable=no-name-in-module
 from multiprocessing import Process  # , Pool
 # pylint: enable=no-name-in-module
 import multiprocessing.managers
-
-
-def remove_fragments(stranded_loci, json_conf, logger):
-
-    """This method checks which loci are possible fragments, according to the
-    parameters provided in the configuration file, and tags/remove them according
-    to the configuration specification.
-
-    :param stranded_loci: a list of the loci to consider for fragment removal
-    :type stranded_loci: list[Superlocus]
-
-    :param json_conf: the configuration dictionary
-    :type json_conf: dict
-
-    :param logger: the logger
-    :type logger: logging.Logger
-
-    """
-
-    loci_to_check = {True: set(), False: set()}
-    for stranded_locus in stranded_loci:
-        for _, locus_instance in stranded_locus.loci.items():
-            locus_instance.logger = logger
-            loci_to_check[locus_instance.monoexonic].add(locus_instance)
-
-    mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
-    bool_remove_fragments = json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
-    for stranded_locus in stranded_loci:
-        to_remove = set()
-        for locus_id, locus_instance in stranded_locus.loci.items():
-            if locus_instance in loci_to_check[True]:
-                logger.debug("Checking if %s is a fragment", locus_instance.id)
-
-                for other_locus in loci_to_check[False]:
-                    if other_locus.other_is_fragment(locus_instance,
-                                                     minimal_cds_length=mcdl) is True:
-                        if bool_remove_fragments is False:
-                            # Just mark it as a fragment
-                            stranded_locus.loci[locus_id].is_fragment = True
-                        else:
-                            to_remove.add(locus_id)
-                            # del stranded_locus.loci[locus_id]
-                        break
-        for locus_id in to_remove:
-            del stranded_locus.loci[locus_id]
-        yield stranded_locus
-
-
-def analyse_locus(slocus: Superlocus,
-                  counter: int,
-                  json_conf: dict,
-                  printer_queue: [multiprocessing.managers.AutoProxy, None],
-                  logging_queue: multiprocessing.managers.AutoProxy,
-                  engine=None,
-                  data_dict=None) -> [Superlocus]:
-
-    """
-    :param slocus: a superlocus instance
-    :type slocus: mikado_lib.loci_objects.superlocus.Superlocus
-
-    :param counter: an integer which is used to create the proper name for the locus.
-    :type counter: int
-
-    :param json_conf: the configuration dictionary
-    :type json_conf: dict
-
-    :param logging_queue: the logging queue
-    :type logging_queue: multiprocessing.managers.AutoProxy
-
-    :param printer_queue: the printing queue
-    :type printer_queue: multiprocessing.managers.AutoProxy
-
-    :param engine: an optional engine to connect to the database.
-    :type data_dict: sqlalchemy.engine.engine
-
-    :param data_dict: a dictionary of preloaded data
-    :type data_dict: (None|dict)
-
-    This function takes as input a "superlocus" instance and the pipeline configuration.
-    It also accepts as optional keywords a dictionary with the CDS information
-    (derived from a Bed12Parser) and a "lock" used for avoiding writing collisions
-    during multithreading.
-    The function splits the superlocus into its strand components and calls the relevant methods
-    to define the loci.
-    When it is finished, it transmits the superloci to the printer function.
-    """
-
-    # Define the logger
-    if slocus is None:
-        # printer_dict[counter] = []
-        if printer_queue:
-            while printer_queue.qsize() >= json_conf["pick"]["run_options"]["threads"] * 10:
-                continue
-            # printer_queue.put_nowait(([], counter))
-            return
-        else:
-            return []
-
-    handler = logging_handlers.QueueHandler(logging_queue)
-    logger = logging.getLogger("{0}:{1}-{2}".format(
-        slocus.chrom, slocus.start, slocus.end))
-    logger.addHandler(handler)
-
-    # We need to set this to the lowest possible level,
-    # otherwise we overwrite the global configuration
-    logger.setLevel(json_conf["log_settings"]["log_level"])
-    logger.propagate = False
-    logger.debug("Started with %s, counter %d",
-                 slocus.id, counter)
-    if slocus.stranded is True:
-        logger.warn("%s is stranded already! Resetting",
-                    slocus.id)
-        slocus.stranded = False
-
-    slocus.logger = logger
-    slocus.source = json_conf["pick"]["output_format"]["source"]
-
-    try:
-        slocus.load_all_transcript_data(engine=engine,
-                                        data_dict=data_dict)
-    except KeyboardInterrupt:
-        raise
-    except Exception as exc:
-        logger.error("Error while loading data for %s", slocus.id)
-        logger.exception(exc)
-    logger.debug("Loading transcript data for %s", slocus.id)
-
-    # Load the CDS information if necessary
-    if slocus.initialized is False:
-        # This happens when all transcripts have been removed from the locus,
-        # due to errors that have been hopefully logged
-        logger.warning(
-            "%s had all transcripts failing checks, ignoring it",
-            slocus.id)
-        # printer_dict[counter] = []
-        if printer_queue:
-            while printer_queue.qsize >= json_conf["pick"]["run_options"]["threads"] * 10:
-                continue
-            # printer_queue.put_nowait(([], counter))
-            return
-        else:
-            return []
-
-    # Split the superlocus in the stranded components
-    logger.debug("Splitting by strand")
-    stranded_loci = sorted(list(slocus.split_strands()))
-    # Define the loci
-    logger.debug("Divided into %d loci", len(stranded_loci))
-
-    for stranded_locus in stranded_loci:
-        try:
-            stranded_locus.define_loci()
-        except KeyboardInterrupt:
-            raise
-        except OSError:
-            raise
-        except Exception as exc:
-            logger.exception(exc)
-            logger.error("Removing failed locus %s", stranded_locus.name)
-            stranded_loci.remove(stranded_locus)
-        logger.debug("Defined loci for %s:%f-%f, strand: %s",
-                     stranded_locus.chrom,
-                     stranded_locus.start,
-                     stranded_locus.end,
-                     stranded_locus.strand)
-
-    # Remove overlapping fragments.
-    loci_to_check = {True: set(), False: set()}
-    for stranded_locus in stranded_loci:
-        for _, locus_instance in stranded_locus.loci.items():
-            locus_instance.logger = logger
-            loci_to_check[locus_instance.monoexonic].add(locus_instance)
-
-    # Check if any locus is a fragment, if so, tag/remove it
-    stranded_loci = sorted(list(remove_fragments(stranded_loci, json_conf, logger)))
-    try:
-        logger.debug("Size of the loci to send: {0}, for {1} loci".format(
-            sys.getsizeof(stranded_loci),
-            len(stranded_loci)))
-    except Exception as err:
-        logger.error(err)
-        pass
-    # printer_dict[counter] = stranded_loci
-    if printer_queue:
-        while printer_queue.qsize() >= json_conf["pick"]["run_options"]["threads"] * 10:
-            continue
-        # printer_queue.put_nowait((stranded_loci, counter))
-        # printer_queue.put((stranded_loci, counter))
-        logger.debug("Finished with %s, counter %d", slocus.id, counter)
-        logger.removeHandler(handler)
-        handler.close()
-        return
-    else:
-        logger.debug("Finished with %s, counter %d", slocus.id, counter)
-        logger.removeHandler(handler)
-        handler.close()
-        return stranded_loci
-
-
-class LociProcesser(Process):
-
-    """This process class takes care of getting from the queue the loci to analyse and send them back."""
-
-    def __init__(self, json_conf, data_dict, locus_queue, printer_queue, logging_queue, lock, output_files):
-
-        self.logging_queue = logging_queue
-        self.json_conf = json_conf
-        self.handler = logging_handlers.QueueHandler(self.logging_queue)
-        self.logger = logging.getLogger("LociProcesser")
-        self.logger.addHandler(self.handler)
-        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
-        self.logger.debug("Starting Process")
-        self.logger.propagate = False
-
-        self.data_dict = data_dict
-        self.locus_queue = locus_queue
-        self.printer_queue = printer_queue
-        self.lock = lock
-        self.handles = output_files
-        self.locus_metrics, self.locus_scores, self.locus_out = [open(_, "a") for _ in self.handles[0]]
-
-        self.sub_metrics, self.sub_scores, self.sub_out = self.handles[1]
-        if self.sub_out != '':
-            self.sub_metrics, self.sub_scores, self.sub_out = [open(_, "a") for _ in self.handles[1]]
-        self.monolocus_out = self.handles[2]
-        if self.monolocus_out:
-            self.monolocus_out = open(self.handles[2], "a")
-
-        super(LociProcesser, self).__init__()
-
-        self.logger.debug("Starting the pool for {0}".format(self.name))
-        try:
-            if self.json_conf["pick"]["run_options"]["preload"] is False:
-                # db_connection = functools.partial(dbutils.create_connector,
-                #                                   self.json_conf,
-                #                                   self.logger)
-                self.engine = dbutils.connect(json_conf, self.logger)
-                # self.connection_pool = sqlalchemy.pool.QueuePool(db_connection,
-                #                                                  pool_size=1,
-                #                                                  max_overflow=2)
-            else:
-                self.engine = None
-        except KeyboardInterrupt:
-            raise
-        except EOFError:
-            raise
-        except Exception as exc:
-            self.logger.exception(exc)
-            return
-        self.analyse_locus = functools.partial(analyse_locus,
-                                               printer_queue=None,
-                                               json_conf=self.json_conf,
-                                               data_dict=self.data_dict,
-                                               engine=self.engine,
-                                               logging_queue=self.logging_queue)
-
-    def run(self):
-        """Start polling the queue, analyse the loci, and send them to the printer process."""
-        self.logger.debug("Starting to parse data for {0}".format(self.name))
-        cache = dict()
-        while True:
-            slocus, counter = self.locus_queue.get()
-            if slocus == "EXIT":
-                self.locus_queue.put((slocus, counter))
-                if self.engine is not None:
-                    self.engine.dispose()
-                return
-            if slocus is not None:
-                stranded_loci = self.analyse_locus(slocus, counter)
-                cache[counter] = stranded_loci
-            while self.cur
-
-
-            # self.locus_queue.task_done()
-
-    def _print_locus(self, stranded_locus, gene_counter):
-
-        """
-        Private method that handles a single superlocus for printing.
-        It also detects and flags/discard fragmentary loci.
-        :param stranded_locus: the stranded locus to analyse
-        :param gene_counter: A counter used to rename the genes/transcripts progressively
-        :param logger: logger instance
-        :param handles: the handles to print to
-        :return:
-        """
-
-        if self.sub_out != '':  # Skip this section if no sub_out is defined
-            sub_lines = stranded_locus.__str__(
-                level="subloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if sub_lines != '':
-                print(sub_lines, file=self.sub_out)
-                # sub_out.flush()
-            sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
-                                if x != {} and "tid" in x]
-            sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
-                               if x != {} and "tid" in x]
-            for row in sub_metrics_rows:
-                self.sub_metrics.writerow(row)
-                # sub_metrics.flush()
-            for row in sub_scores_rows:
-                self.sub_scores.writerow(row)
-                # sub_scores.flush()
-        if self.monolocus_out != '':
-            mono_lines = stranded_locus.__str__(
-                level="monosubloci",
-                print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-            if mono_lines != '':
-                print(mono_lines, file=self.monolocus_out)
-                # mono_out.flush()
-        locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
-                              if x != {} and "tid" in x]
-        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
-                             if x != {} and "tid" in x]
-
-        for locus in stranded_locus.loci:
-            gene_counter += 1
-            fragment_test = (
-                self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
-                is True and stranded_locus.loci[locus].is_fragment is True)
-
-            if fragment_test is True:
-                continue
-            new_id = "{0}.{1}G{2}".format(
-                self.json_conf["pick"]["output_format"]["id_prefix"],
-                stranded_locus.chrom, gene_counter)
-            stranded_locus.loci[locus].id = new_id
-
-        locus_lines = stranded_locus.__str__(
-            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
-        for row in locus_metrics_rows:
-            self.locus_metrics.writerow(row)
-            # locus_metrics.flush()
-        for row in locus_scores_rows:
-            self.locus_scores.writerow(row)
-            # locus_scores.flush()
-
-        if locus_lines != '':
-            print(locus_lines, file=self.locus_out)
-            # locus_out.flush()
-        return gene_counter
 
 
 # pylint: disable=too-many-instance-attributes
@@ -679,8 +337,12 @@ memory intensive, proceed with caution!")
             # Not a very clean wya to do things ... attaching the handles as properties
             sub_scores.handle = sub_scores_file
             sub_scores.flush = sub_scores.handle.flush
+            sub_scores.close = sub_scores.handle.close
+            sub_scores.name = sub_scores.handle.name
             sub_metrics.handle = sub_metrics_file
             sub_metrics.flush = sub_metrics.handle.flush
+            sub_metrics.close = sub_metrics.handle.close
+            sub_metrics.name = sub_metrics.handle.name
             sub_out = open(self.sub_out, 'w')
             print('##gff-version 3', file=sub_out)
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
@@ -735,8 +397,12 @@ memory intensive, proceed with caution!")
 
         locus_metrics.handle = locus_metrics_file
         locus_metrics.flush = locus_metrics.handle.flush
+        locus_metrics.close = locus_metrics.handle.close
+        locus_metrics.name = locus_metrics.handle.name
         locus_scores.handle = locus_scores_file
         locus_scores.flush = locus_scores.handle.flush
+        locus_scores.close = locus_scores.handle.close
+        locus_scores.name = locus_scores.handle.name
 
         locus_out = open(self.locus_out, 'w')
         sub_files, mono_out = self.__print_gff_headers(locus_out, score_keys)
@@ -1139,23 +805,42 @@ memory intensive, proceed with caution!")
         current_locus = None
         current_transcript = None
 
-        self.printer_process.start()
+        # self.printer_process.start()
 
         # locus_queue = self.manager.Queue(-1)
         locus_queue = multiprocessing.Queue(-1)
 
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
+        current_counter = multiprocessing.Value("i", 0)
+        gene_counter = multiprocessing.Value("i", 0)
+        lock = multiprocessing.RLock()
+        current_chrom = self.manager.Value(ctypes.c_wchar_p, None)
+        shared_values = (current_counter, gene_counter, current_chrom)
+        handles = list(self.__get_output_files())
+        [_.close() for _ in handles[0]]
+        handles[0] = [_.name for _ in handles[0]]
+
+        if handles[1][0] is not None:
+            [_.close() for _ in handles[1]]
+            handles[1] = [_.name for _ in handles[1]]
+        if handles[2] is not None:
+            handles[2].close()
+            handles[2] = handles[2].name
+
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
                                            locus_queue,
-                                           self.printer_queue, self.logging_queue)
+                                           self.logging_queue,
+                                           lock,
+                                           handles,
+                                           shared_values)
                              for _ in range(self.threads)]
         # Start all processes
         [_.start() for _ in working_processes]
         # No sense in keeping this data available on the main thread now
         del data_dict
 
-        counter = -1
+        counter = 0
         invalid = False
         for row in self.define_input():
 
@@ -1236,17 +921,20 @@ memory intensive, proceed with caution!")
         self.logger.debug("Submitting locus %s, counter %d",
                           current_locus.id, counter)
         locus_queue.put(("EXIT", float("inf")))
+        self.logger.info("Joining children processes")
         [_.join() for _ in working_processes]
+        self.logger.info("Joined children processes")
+        [_.terminate() for _ in working_processes]
         # pool.close()
         # pool.join()
 
         # self.printer_queue.join()
-        while self.printer_queue.qsize() >= self.threads * 10:
-            continue
-        self.printer_queue.put_nowait(("EXIT", float("inf")))
+        # while self.printer_queue.qsize() >= self.threads * 10:
+        #     continue
+        # self.printer_queue.put_nowait(("EXIT", float("inf")))
         # self.printer_queue.put(("EXIT", counter + 1))
 
-        self.printer_process.join()
+        # self.printer_process.join()
 
     def __submit_single_threaded(self, data_dict):
 
@@ -1451,5 +1139,5 @@ memory intensive, proceed with caution!")
             os.remove(self.json_conf["pick"]["run_options"]["shm_db"])
 
         self.main_logger.info("Finished analysis of %s", self.input_file)
-        return 0
+        sys.exit(0)
 # pylint: enable=too-many-instance-attributes

@@ -24,7 +24,7 @@ from .abstractlocus import Abstractlocus
 from ..parsers.GTF import GtfLine
 from ..parsers.GFF import GffLine
 # import mikado_lib.exceptions
-from ..utilities import memoize
+# from ..utilities import memoize
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed

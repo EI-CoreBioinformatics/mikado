@@ -96,7 +96,12 @@ def _sniff(filename, default_header=None):
     exc = None
     valid = True
     while True:
-        line = next(handle)
+        try:
+            line = next(handle)
+        except StopIteration:
+            # Hack for empty files
+            valid = False
+            break
 
         if "<Iteration>" in line:
             break

@@ -412,7 +412,6 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
                 labels to tag each file.""")
             assert row.transcript not in attributes
             attributes[row.transcript] = row.attributes.copy()
-
         elif not row.is_exon:
             continue
         elif row.is_exon is True:

@@ -11,6 +11,7 @@ import csv
 import os
 import shutil
 import tempfile
+import time
 import logging
 from logging import handlers as logging_handlers
 import collections
@@ -99,6 +100,7 @@ class Picker:
             self.json_conf["pick"]["files"]["output_dir"],
             self.json_conf["pick"]["files"]["loci_out"])
         # pylint: disable=no-member
+        multiprocessing.set_start_method("spawn")
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
         self.manager = self.context.Manager()
@@ -547,6 +549,7 @@ memory intensive, proceed with caution!")
             if not_pickable in state:
                 del state[not_pickable]
 
+        print(state)
         return state
 
     # pylint: disable=too-many-locals
@@ -858,10 +861,8 @@ memory intensive, proceed with caution!")
                     else:
                         counter += 1
                         self.logger.debug("Submitting locus # %d", counter)
-                        while ((counter -
-                                current_counter.value -
-                                sum(_.cache_length for _ in working_processes)) >=
-                                self.threads * 10):
+                        while (counter - current_counter.value) >= self.threads * 10:
+                            time.sleep(0.01)
                             continue
                         locus_queue.put((current_locus, counter))
                         # submit_locus(current_locus, counter)
@@ -894,10 +895,8 @@ memory intensive, proceed with caution!")
                 self.logger.debug("Submitting locus # %d", counter)
                 # while locus_queue.qsize() >= self.threads * 10:
                 #     continue
-                while ((counter -
-                        current_counter.value -
-                        sum(_.cache_length for _ in working_processes)) >=
-                        self.threads * 10):
+                while (counter - current_counter.value) >= self.threads * 10:
+                    time.sleep(0.01)
                     continue
                 locus_queue.put((current_locus, counter))
 
@@ -915,10 +914,8 @@ memory intensive, proceed with caution!")
             self.logger.debug("Submitting locus # %d", counter)
             # while locus_queue.qsize() >= self.threads * 10:
             #     continue
-            while ((counter -
-                   current_counter.value -
-                   sum(_.cache_length for _ in working_processes)) >=
-                   self.threads * 10):
+            while (counter - current_counter.value) >= self.threads * 10:
+                time.sleep(0.01)
                 continue
             locus_queue.put((current_locus, counter))
 

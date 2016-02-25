@@ -236,12 +236,12 @@ class LociProcesser(Process):
         self.__cache = dict()
         self.locus_queue = locus_queue
         self.lock = lock
-        self.__handles = []
+        self.__output_files = output_files
         self.locus_metrics, self.locus_scores, self.locus_out = [None] * 3
         self.sub_metrics, self.sub_scores, self.sub_out = [None] * 3
         self.monolocus_out = [None] * 3
-        self.__handles = []
-        self._create_handles(output_files)
+        self._handles = []
+        self._create_handles(self.__output_files)
         self.__current_counter = current_counter
         self.gene_counter = gene_counter
         self.current_chrom = current_chrom
@@ -251,7 +251,7 @@ class LociProcesser(Process):
         self.logger.debug("Starting the pool for {0}".format(self.name))
         try:
             if self.json_conf["pick"]["run_options"]["preload"] is False:
-                self.engine = dbutils.connect(json_conf, self.logger)
+                self.engine = dbutils.connect(self.json_conf, self.logger)
             else:
                 self.engine = None
         except KeyboardInterrupt:
@@ -261,6 +261,56 @@ class LociProcesser(Process):
         except Exception as exc:
             self.logger.exception(exc)
             return
+        self.analyse_locus = functools.partial(analyse_locus,
+                                               printer_queue=None,
+                                               json_conf=self.json_conf,
+                                               data_dict=self.__data_dict,
+                                               engine=self.engine,
+                                               logging_queue=self.logging_queue)
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+        for h in state["_handles"]:
+            h.close()
+
+        state["_handles"] = []
+
+        for name in ["locus_metrics", "locus_scores", "locus_out",
+                     "sub_metrics", "sub_scores", "sub_out", "monolocus_out"]:
+            state[name] = None
+        state["engine"] = None
+        state["analyse_locus"] = None
+        del state["handler"]
+        del state["logger"]
+        import pickle
+        keys = list(state.keys())[:]
+        for key in keys:
+            item = (key, state[key])
+            try:
+                pickle.dumps(item[1])
+            except TypeError as exc:
+                print("Error in pickling for", item[0], ":", item[1])
+                del state[item[0]]
+
+            # print(*item, sep=":\t")
+
+        return state
+
+    def __setstate__(self, state):
+
+        self.__dict__.update(state)
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger(self.name)
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.logger.propagate = False
+
+        self._create_handles(self.__output_files)
+        if self.json_conf["pick"]["run_options"]["preload"] is False:
+            self.engine = dbutils.connect(self.json_conf, self.logger)
+        else:
+            self.engine = None
         self.analyse_locus = functools.partial(analyse_locus,
                                                printer_queue=None,
                                                json_conf=self.json_conf,
@@ -293,7 +343,7 @@ class LociProcesser(Process):
         self.locus_scores.close = self.locus_scores.handle.close
 
         self.locus_out = open(locus_out_file, 'a')
-        self.__handles.extend((self.locus_out, self.locus_metrics, self.locus_out))
+        self._handles.extend((self.locus_out, self.locus_metrics, self.locus_out))
 
         sub_metrics_file, sub_scores_file, sub_out_file = handles[1]
         if sub_metrics_file:
@@ -312,11 +362,11 @@ class LociProcesser(Process):
             self.sub_scores.flush = self.sub_scores.handle.flush
             self.sub_scores.close = self.sub_scores.handle.close
             self.sub_out = open(sub_out_file, "a")
-            self.__handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
+            self._handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
         monolocus_out_file = handles[2]
         if monolocus_out_file:
             self.monolocus_out = open(monolocus_out_file, "a")
-            self.__handles.append(self.monolocus_out)
+            self._handles.append(self.monolocus_out)
 
         return
 
@@ -356,14 +406,16 @@ class LociProcesser(Process):
                                     "Resetting the gene counter for chrom %s; old value %s",
                                     stranded_loci[0].chrom,
                                     str(self.current_chrom.value))
-                                self.gene_counter.value = 0
+                                with self.gene_counter.get_lock():
+                                    self.gene_counter.value = 0
                                 self.current_chrom.value = stranded_loci[0].chrom
                             for stranded_locus in sorted(stranded_loci):
                                 self.logger.debug("Printing %s", stranded_locus.id)
                                 self._print_locus(stranded_locus)
                         del self.__cache[self.__current_counter.value + 1]
-                        self.__current_counter.value += 1
-                    [_.flush() for _ in self.__handles]
+                        with self.__current_counter.get_lock():
+                            self.__current_counter.value += 1
+                    [_.flush() for _ in self._handles]
             if exit_received is True:
                 if len(self.__cache) > 0:
                     self.logger.debug("Still %d loci to print for %s, current value %d (%s)",
@@ -373,7 +425,7 @@ class LociProcesser(Process):
                                       ", ".join([str(_) for _ in sorted(self.__cache.keys())]))
                     continue
                 else:
-                    [_.close() for _ in self.__handles]
+                    [_.close() for _ in self._handles]
                     return
 
     def _print_locus(self, stranded_locus):
@@ -415,7 +467,8 @@ class LociProcesser(Process):
                              if x != {} and "tid" in x]
 
         for locus in stranded_locus.loci:
-            self.gene_counter.value += 1
+            with self.gene_counter.get_lock():
+                self.gene_counter.value += 1
             fragment_test = (
                 self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
                 is True and stranded_locus.loci[locus].is_fragment is True)

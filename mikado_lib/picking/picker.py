@@ -807,8 +807,8 @@ memory intensive, proceed with caution!")
         locus_queue = multiprocessing.Queue(-1)
 
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
-        current_counter = multiprocessing.RawValue("i", 0, lock=False)
-        gene_counter = multiprocessing.RawValue("i", 0, lock=False)
+        current_counter = self.context.RawValue("i", 0)
+        gene_counter = self.context.RawValue("i", 0)
         lock = multiprocessing.RLock()
         current_chrom = self.manager.Value(ctypes.c_wchar_p, None)
         shared_values = (current_counter, gene_counter, current_chrom)

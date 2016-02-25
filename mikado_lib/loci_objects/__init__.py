@@ -5,18 +5,17 @@
     location on the genome. The most basic construct is the transcript, which holds
     information about a single RNA molecule.
     Transcripts can then be gathered in superloci, subloci, monosubloci or loci;
-    all of these are defined as implemenations of the blueprint "abstractlocus" class.
+    all of these are defined as implementations of the blueprint "abstractlocus" class.
     The creation of the loci is delegated to the "Creator" class.
 """
 
-from . import transcript_methods
-from .transcript import Transcript
+from mikado_lib.loci_objects import transcript_methods
 from .abstractlocus import Abstractlocus
-from .superlocus import Superlocus, Sublocus, Monosublocus
-from .monosublocusholder import MonosublocusHolder
-from .locus import Locus
+from .transcript import Transcript
 from .excluded import Excluded
-from .picker import Picker
+from .locus import Locus
+from .monosublocusholder import MonosublocusHolder
+from .superlocus import Superlocus, Sublocus, Monosublocus
 
 # from .picker import Picker
 # from . import abstractlocus

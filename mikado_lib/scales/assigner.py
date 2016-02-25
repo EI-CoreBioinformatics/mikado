@@ -17,7 +17,7 @@ import itertools
 from collections import namedtuple
 from .resultstorer import ResultStorer
 from . import calc_f1
-from ..loci_objects import Transcript
+from ..loci_objects.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
 
@@ -710,7 +710,7 @@ class Assigner:
 
         if (prediction.strand != reference.strand and
                 all([x is not None for x in (prediction.strand, reference.strand)])):
-            if ccode in ("e", "o", "c", "m", "_"):
+            if ccode in ("e", "o", "c", "m", "_", "C"):
                 ccode = "x"
             elif ccode not in ("u", "i", "I", "p", "P", "x"):
                 # print(ccode)

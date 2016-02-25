@@ -5,9 +5,9 @@
 
 import argparse
 import sys
-from ..loci_objects import Picker
+from ..picking import Picker
 from ..configuration.configurator import to_json
-from . import to_gff
+# from . import to_gff
 from ..exceptions import UnsortedInput
 
 

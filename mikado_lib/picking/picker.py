@@ -100,19 +100,16 @@ class Picker:
             self.json_conf["pick"]["files"]["output_dir"],
             self.json_conf["pick"]["files"]["loci_out"])
         # pylint: disable=no-member
-        multiprocessing.set_start_method("spawn")
+        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"])
+        self.logging_queue = multiprocessing.Queue(-1)
+        self.printer_queue = multiprocessing.Queue(-1)
+        self.setup_logger()
+        self.logger.info("Multiprocessing method: %s",
+                         self.json_conf["multiprocessing_method"])
         self.context = multiprocessing.get_context()
         # pylint: enable=no-member
         self.manager = self.context.Manager()
-        # self.result_dict = self.manager.dict()
-        # self.printer_queue = self.manager.Queue(-1)
-        self.logging_queue = multiprocessing.Queue(-1)
-        self.printer_queue = multiprocessing.Queue(-1)
 
-        # self.printer_queue = self.manager.Queue(-1)
-        # self.logging_queue = self.manager.Queue(-1)  # queue for logging
-
-        self.setup_logger()
         self.db_connection = functools.partial(
             dbutils.create_connector,
             self.json_conf,

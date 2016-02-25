@@ -4,6 +4,11 @@
     ""
   ],
   "properties": {
+    "multiprocessing_method": {
+      "type": "string",
+      "default": "fork",
+      "enum": ["fork", "spawn", "forkserver"]
+    },
     "log_settings": {
       "Comment": [
         "Settings related to the logs. Keys:",

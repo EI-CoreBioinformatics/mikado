@@ -406,15 +406,13 @@ class LociProcesser(Process):
                                     "Resetting the gene counter for chrom %s; old value %s",
                                     stranded_loci[0].chrom,
                                     str(self.current_chrom.value))
-                                with self.gene_counter.get_lock():
-                                    self.gene_counter.value = 0
+                                self.gene_counter.value = 0
                                 self.current_chrom.value = stranded_loci[0].chrom
                             for stranded_locus in sorted(stranded_loci):
                                 self.logger.debug("Printing %s", stranded_locus.id)
                                 self._print_locus(stranded_locus)
                         del self.__cache[self.__current_counter.value + 1]
-                        with self.__current_counter.get_lock():
-                            self.__current_counter.value += 1
+                        self.__current_counter.value += 1
                     [_.flush() for _ in self._handles]
             if exit_received is True:
                 if len(self.__cache) > 0:
@@ -467,8 +465,7 @@ class LociProcesser(Process):
                              if x != {} and "tid" in x]
 
         for locus in stranded_locus.loci:
-            with self.gene_counter.get_lock():
-                self.gene_counter.value += 1
+            self.gene_counter.value += 1
             fragment_test = (
                 self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
                 is True and stranded_locus.loci[locus].is_fragment is True)

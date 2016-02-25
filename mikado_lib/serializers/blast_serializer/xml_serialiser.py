@@ -101,12 +101,16 @@ def _sniff(filename, default_header=None):
         except StopIteration:
             # Hack for empty files
             valid = False
+            exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                filename,
+                "\n".join(header)
+            ))
             break
-
         if "<Iteration>" in line:
             break
         line = line.rstrip()
         if not line:
+            valid = False
             exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
                 filename,
                 "\n".join(header)

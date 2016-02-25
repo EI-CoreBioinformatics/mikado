@@ -807,8 +807,8 @@ memory intensive, proceed with caution!")
         locus_queue = multiprocessing.Queue(-1)
 
         # with Pool(processes=self.threads, maxtasksperchild=None) as pool:
-        current_counter = multiprocessing.Value("i", 0)
-        gene_counter = multiprocessing.Value("i", 0)
+        current_counter = multiprocessing.Value("i", 0, lock=False)
+        gene_counter = multiprocessing.Value("i", 0, lock=False)
         lock = multiprocessing.RLock()
         current_chrom = self.manager.Value(ctypes.c_wchar_p, None)
         shared_values = (current_counter, gene_counter, current_chrom)
@@ -838,6 +838,8 @@ memory intensive, proceed with caution!")
 
         counter = 0
         invalid = False
+        wait_message = " ".join(["Waited already %d seconds before",
+                                 "sending data to the queue, counter %d, current_counter %d"])
         for row in self.define_input():
 
             if row.is_exon is True and invalid is False:
@@ -858,9 +860,14 @@ memory intensive, proceed with caution!")
                     else:
                         counter += 1
                         self.logger.debug("Submitting locus # %d", counter)
+                        wait_counter = 0
                         while (counter - current_counter.value) >= self.threads * 10:
-                            time.sleep(0.01)
-                            continue
+                            if wait_counter % 10 == 0:
+                                self.logger.warn(wait_message,
+                                                 wait_counter,
+                                                 counter,
+                                                 current_counter.value)
+                            time.sleep(1)
                         locus_queue.put((current_locus, counter))
                         # submit_locus(current_locus, counter)
                         # if job is not None:
@@ -890,8 +897,14 @@ memory intensive, proceed with caution!")
             else:
                 counter += 1
                 self.logger.debug("Submitting locus # %d", counter)
+                wait_counter = 0
                 while (counter - current_counter.value) >= self.threads * 10:
-                    time.sleep(0.01)
+                    if wait_counter % 10 == 0:
+                        self.logger.warn(wait_message,
+                                         wait_counter,
+                                         counter,
+                                         current_counter.value)
+                    time.sleep(1)
                     continue
                 locus_queue.put((current_locus, counter))
 
@@ -907,18 +920,28 @@ memory intensive, proceed with caution!")
         elif invalid is True and current_locus is not None:
             counter += 1
             self.logger.debug("Submitting locus # %d", counter)
+            wait_counter = 0
             while (counter - current_counter.value) >= self.threads * 10:
-                time.sleep(0.01)
+                if wait_counter % 10 == 0:
+                    self.logger.warn(wait_message,
+                                     wait_counter,
+                                     counter,
+                                     current_counter.value)
+                time.sleep(1)
                 continue
             locus_queue.put((current_locus, counter))
 
         self.logger.info("Finished chromosome %s", current_locus.chrom)
 
         counter += 1
-        while ((counter -
-               current_counter.value -
-               sum(_.cache_length for _ in working_processes)) >=
-               self.threads * 10):
+        wait_counter = 0
+        while (counter - current_counter.value) >= self.threads * 10:
+            if wait_counter % 10 == 0:
+                self.logger.warn(wait_message,
+                                 wait_counter,
+                                 counter,
+                                 current_counter.value)
+            time.sleep(1)
             continue
         locus_queue.put((current_locus, counter))
         # submit_locus(current_locus, counter)

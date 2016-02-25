@@ -395,12 +395,24 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     """
     transcript2genes = dict()
     new_ids = set()
+    attributes = dict()
     for row in gff_handle:
         if row.is_transcript is True:
             if label != '':
                 row.id = "{0}_{1}".format(label, row.id)
             transcript2genes[row.id] = row.parent[0]
             continue
+        elif row.is_transcript:
+            if label != '':
+                row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
+            if row.transcript in found_ids:
+                assert label == ''
+                raise ValueError("""{0} has already been found in another file,
+                this will cause unsolvable collisions. Please rerun preparation using
+                labels to tag each file.""")
+            assert row.transcript not in attributes
+            attributes[row.transcript] = row.attributes.copy()
+
         elif not row.is_exon:
             continue
         elif row.is_exon is True:
@@ -416,6 +428,8 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
                         labels to tag each file.""")
                     new_ids.add(tid)
                     new_row = copy.deepcopy(row)
+                    if tid in attributes:
+                        new_row.attributes.update(attributes[tid])
                     new_row.parent = new_row.id = tid
                     new_row.attributes["gene_id"] = transcript2genes[tid]
                     new_row.name = tid

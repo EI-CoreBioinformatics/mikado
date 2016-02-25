@@ -358,10 +358,6 @@ class LociProcesser(Process):
 
         return
 
-    @property
-    def cache_length(self):
-        return len(self.__cache)
-
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
@@ -402,10 +398,16 @@ class LociProcesser(Process):
                         del self.__cache[self.__current_counter.value + 1]
                         self.__current_counter.value += 1
                     [_.flush() for _ in self._handles]
+            elif min(list(self.__cache.keys())) < self.__current_counter.value:
+                raise ValueError(
+                    "Out of order operations! %d minimum cached counter, %d shared counter",
+                    min(list(self.__cache.keys())),
+                    self.__current_counter.value
+                )
             if exit_received is True:
                 if len(self.__cache) > 0:
                     self.logger.debug("Still %d loci to print for %s, current value %d (%s)",
-                                      self.cache_length,
+                                      len(self.__cache),
                                       self.name,
                                       self.__current_counter.value,
                                       ", ".join([str(_) for _ in sorted(self.__cache.keys())]))

@@ -107,6 +107,7 @@ class BED12:
         self.__internal_stop_codons = 0
         self.chrom = None
         self.start = self.end = self.thick_start = self.thick_end = 0
+        self.name = ""
         self.score = 0
         self.strand = None
         self.rgb = ''
@@ -264,6 +265,12 @@ class BED12:
     #         self.invalid_reason = "Wrong CDS detection"
 
     def __str__(self):
+
+        if self.header is True:
+            if self._line is not None:
+                return self._line
+            else:
+                return "#"
 
         line = [self.chrom, self.start - 1, self.end, self.name]
         if not self.score:

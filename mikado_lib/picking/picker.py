@@ -890,8 +890,6 @@ memory intensive, proceed with caution!")
             else:
                 counter += 1
                 self.logger.debug("Submitting locus # %d", counter)
-                # while locus_queue.qsize() >= self.threads * 10:
-                #     continue
                 while (counter - current_counter.value) >= self.threads * 10:
                     time.sleep(0.01)
                     continue
@@ -909,8 +907,6 @@ memory intensive, proceed with caution!")
         elif invalid is True and current_locus is not None:
             counter += 1
             self.logger.debug("Submitting locus # %d", counter)
-            # while locus_queue.qsize() >= self.threads * 10:
-            #     continue
             while (counter - current_counter.value) >= self.threads * 10:
                 time.sleep(0.01)
                 continue

@@ -283,18 +283,6 @@ class LociProcesser(Process):
         state["analyse_locus"] = None
         del state["handler"]
         del state["logger"]
-        import pickle
-        keys = list(state.keys())[:]
-        for key in keys:
-            item = (key, state[key])
-            try:
-                pickle.dumps(item[1])
-            except TypeError as exc:
-                print("Error in pickling for", item[0], ":", item[1])
-                del state[item[0]]
-
-            # print(*item, sep=":\t")
-
         return state
 
     def __setstate__(self, state):

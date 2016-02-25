@@ -55,7 +55,7 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
         logger.warning("Invalid BLAST file: %s", filename)
         return pfiles
 
-    logger.info("Starting to pickle %s", filename)
+    logger.debug("Starting to pickle %s", filename)
     try:
         for record in xparser(create_opener(filename)):
             if len(record.descriptions) > 0:
@@ -76,7 +76,7 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
     with open(pickle_temp[1], "wb") as pickled:
         pickle.dump(records, pickled)
     pfiles.append(pickle_temp[1])
-    logger.info("Finished pickling %s in %s", filename, pfiles)
+    logger.debug("Finished pickling %s in %s", filename, pfiles)
     del records
     return pfiles
 
@@ -186,7 +186,7 @@ class XmlSerializer:
         self.threads = json_conf["serialise"]["threads"]
         self.single_thread = json_conf["serialise"]["single_thread"]
         if self.threads > 1 and self.single_thread is False:
-            self.context = multiprocessing.get_context()
+            self.context = multiprocessing.get_context(json_conf["multiprocessing_method"])
             self.manager = self.context.Manager()
             self.logging_queue = self.manager.Queue(-1)
             self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)

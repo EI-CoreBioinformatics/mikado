@@ -37,14 +37,19 @@ class Locus(Monosublocus, Abstractlocus):
         self.attributes["is_fragment"] = False
         self.__id = None
 
-    def __str__(self, print_cds=True) -> str:
+    def __str__(self, print_cds=True, source_in_name=True) -> str:
 
         self.feature = self.__name__
         # Hacky fix to make sure that the primary transcript has the attribute
         # Set to True in any case.
         self.primary_transcript.attributes["primary"] = True
+        # BF, really just a hack.
+        for transcript in self.transcripts:
+            if transcript == self.primary_transcript_id:
+                continue
+            self.transcripts[transcript].attributes["primary"] = False
 
-        return super().__str__(print_cds=print_cds, source_in_name=False)
+        return super().__str__(print_cds=print_cds, source_in_name=source_in_name)
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.

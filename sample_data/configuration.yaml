@@ -38,7 +38,7 @@ pick:
     #  - blast_check: whether to use BLAST information to take a decision. See blast_params
     #  for details.
     #  - blast_params: Parameters related to which BLAST data we want to analyse.
-    blast_check: false
+    blast_check: true
     blast_params:
       #  Parameters for the BLAST check prior to splitting.
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6

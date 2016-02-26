@@ -503,7 +503,8 @@ memory intensive, proceed with caution!")
             stranded_locus.loci[locus].id = new_id
 
         locus_lines = stranded_locus.__str__(
-            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
+            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"],
+            level="loci")
         locus_metrics_rows = [_ for _ in stranded_locus.print_loci_metrics()]
         locus_scores_rows = [_ for _ in stranded_locus.print_loci_scores()]
 

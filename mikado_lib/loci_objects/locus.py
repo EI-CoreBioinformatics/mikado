@@ -8,12 +8,12 @@ i.e. the locus.
 import itertools
 from .transcript import Transcript
 from ..scales.assigner import Assigner
-from .monosublocus import Monosublocus
+from .sublocus import Sublocus
 from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
+import collections
 
-
-class Locus(Monosublocus, Abstractlocus):
+class Locus(Sublocus, Abstractlocus):
     """Class that defines the final loci.
     It is a child of monosublocus, but it also has the possibility of adding
     additional transcripts if they are valid splicing isoforms.
@@ -29,19 +29,37 @@ class Locus(Monosublocus, Abstractlocus):
         :param logger: the logger instance.
         :type logger: None | logging.Logger
         """
+
         self.counter = 0
         transcript.attributes["primary"] = True
-        super().__init__(transcript, logger=logger)
+        self.counter = 0  # simple tag to avoid collisions
+        Abstractlocus.__init__(self)
+        # this must be defined straight away
+        self.monoexonic = transcript.monoexonic
+        Abstractlocus.add_transcript_to_locus(self, transcript)
+        self.locus_verified_introns = transcript.verified_introns
+        self.metrics_calculated = False
+        self.scores_calculated = False
+        self.score = transcript.score
+        # A set of the transcript we will ignore during printing
+        # because they are duplications of the original instance. Done solely to
+        # get the metrics right.
+        self.__orf_doubles = collections.defaultdict(set)
+        self.excluded = None
+        self.parent = None
+        self.tid = transcript.id
+        self.logger = logger
+        self.attributes = dict()
         self.logger.debug("Created Locus object with {0}".format(transcript.id))
         self.primary_transcript_id = transcript.id
-
         self.attributes["is_fragment"] = False
         self.metric_lines_store = []
         self.__id = None
 
-    def __str__(self, print_cds=True, source_in_name=True) -> str:
+    def __str__(self, print_cds=True) -> str:
 
         self.feature = self.__name__
+        assert self.feature != "Monosublocus"
         # Hacky fix to make sure that the primary transcript has the attribute
         # Set to True in any case.
         self.primary_transcript.attributes["primary"] = True
@@ -203,9 +221,12 @@ class Locus(Monosublocus, Abstractlocus):
         transcript.attributes["primary"] = False
 
         Abstractlocus.add_transcript_to_locus(self, transcript)
+        self.locus_verified_introns.update(transcript.verified_introns)
 
-    def is_intersecting(self):
-        """Not implemented: this function makes no sense for a single-transcript container."""
+    def is_intersecting(self, *args):
+        """Not implemented: this function makes no sense for a single-transcript container.
+        :param args: any argument to this nethod will be ignored.
+        """
         raise NotImplementedError("""Loci do not use this method, but rather
         assess whether a transcript is a splicing isoform or not.""")
 
@@ -272,31 +293,127 @@ class Locus(Monosublocus, Abstractlocus):
             raise TypeError("Invalid configuration of type {0}".format(type(jconf)))
         self.json_conf = jconf
 
-    def print_metrics(self):
+    def get_metrics(self):
 
-        metric_rows = list(Abstractlocus.print_metrics(self))
-        assert metric_rows != []
+        """Quick wrapper to calculate the metrics for all the transcripts."""
 
-        for row in Abstractlocus.print_metrics(self):
-            if row == {}:
+        # TODO: Find an intelligent way ot restoring this check
+
+        if self.metrics_calculated is True:
+            return
+
+        # self.logger.info("Calculating the intron tree for %s", self.id)
+        assert len(self._cds_introntree) == len(self.combined_cds_introns)
+
+        for tid in sorted(self.transcripts):
+            self.calculate_metrics(tid)
+
+        self.logger.debug("Finished to calculate the metrics for %s", self.id)
+
+        self.metrics_calculated = True
+        return
+
+    def calculate_metrics(self, tid: str):
+        """
+        :param tid: the name of the transcript to be analysed
+        :type tid: str
+
+        This function will calculate the metrics for a transcript which are relative in nature
+        i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
+        of introns or exons in the sublocus, or the number/fraction of retained introns.
+        """
+
+        self.logger.debug("Calculating metrics for %s", tid)
+        self.transcripts[tid].finalize()
+        if self.transcripts[tid].number_internal_orfs <= 1:
+            super().calculate_metrics(tid)
+        else:
+            transcript = self.transcripts[tid]
+            selected = transcript.selected_internal_orf
+            new_transcript = transcript.copy()
+            new_transcript.id = "{0}.orf1".format(new_transcript.id)
+            self.transcripts[new_transcript.id] = new_transcript
+            super().calculate_metrics(new_transcript.id)
+            self.__orf_doubles[tid].add(new_transcript.id)
+
+            for num, orf in enumerate([_ for _ in transcript.internal_orfs if
+                                       _ != selected]):
+                new_transcript = transcript.copy()
+                assert isinstance(new_transcript, Transcript)
+                new_transcript.internal_orfs = [orf]
+                new_transcript.internal_orfs.extend([_ for _ in transcript.internal_orfs if
+                                                     orf != _])
+                new_transcript.id = "{0}.orf{1}".format(new_transcript.id, num + 2)
+                self.transcripts[new_transcript.id] = new_transcript
+                super().calculate_metrics(new_transcript.id)
+                self.__orf_doubles[tid].add(new_transcript.id)
+
+        self.logger.debug("Calculated metrics for {0}".format(tid))
+
+    def calculate_scores(self):
+        """
+        Function to calculate a score for each transcript, given the metrics derived
+        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.
+        If any requirements have been specified, all transcripts which do not pass them
+        will be assigned a score of 0 and subsequently ignored.
+        Scores are rounded to the nearest integer.
+        """
+
+        if self.scores_calculated is True:
+            return
+
+        self.get_metrics()
+        if not hasattr(self, "logger"):
+            self.logger = None
+            self.logger.setLevel("DEBUG")
+        self.logger.debug("Calculating scores for {0}".format(self.id))
+
+        self.scores = dict()
+        for tid in self.transcripts:
+            self.scores[tid] = dict()
+        for param in self.json_conf["scoring"]:
+            self._calculate_score(param)
+        # for tid in self.scores:
+        #     self.transcripts[tid].scores = self.scores[tid].copy()
+
+        for tid in self.transcripts:
+            if tid in self.__orf_doubles:
+                del self.scores[tid]
                 continue
-            yield row
+            self.transcripts[tid].score = sum(self.scores[tid].values())
+            self.scores[tid]["score"] = self.transcripts[tid].score
+
+        self.metric_lines_store = []
+        for row in self.prepare_metrics():
+            if row["tid"] in self.__orf_doubles:
+                print(row["tid"])
+                continue
+            else:
+                self.metric_lines_store.append(row)
+
+        for doubled in self.__orf_doubles:
+            for partial in self.__orf_doubles[doubled]:
+                if partial in self.transcripts:
+                    del self.transcripts[partial]
+
+        self.scores_calculated = True
 
     def print_scores(self):
-
+        """This method yields dictionary rows that are given to a csv.DictWriter class."""
+        self.calculate_scores()
         score_keys = sorted(list(self.json_conf["scoring"].keys()))
         keys = ["tid", "parent", "score"] + score_keys
 
-        for tid in self.transcripts:
+        for tid in self.scores:
             row = dict().fromkeys(keys)
             row["tid"] = tid
             row["parent"] = self.id
-            row["score"] = round(self.transcripts[tid].score, 2)
+            row["score"] = round(self.scores[tid]["score"],2)
             for key in score_keys:
-                row[key] = round(self.transcripts[tid].scores[key], 2)
+                row[key] = round(self.scores[tid][key], 2)
             score_sum = sum(row[key] for key in score_keys)
             #
-            assert round(score_sum, 2) == round(self.transcripts[tid].score, 2), (
+            assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
                 score_sum,
                 self.transcripts[tid].score,
                 tid)

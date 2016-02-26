@@ -450,11 +450,8 @@ class Sublocus(Abstractlocus):
 
     def prepare_metrics(self):
 
-        """This method prepares the dictionary "rows" that will be given to a csv.DictWriter class."""
-
-        # Check that rower is an instance of the csv.DictWriter class
-
-        # The rower is an instance of the DictWriter class from the standard CSV module
+        """This method prepares the dictionary "rows"
+        that will be given to a csv.DictWriter class."""
 
         for row in Abstractlocus.print_metrics(self):
             yield row

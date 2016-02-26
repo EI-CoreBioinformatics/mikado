@@ -18,7 +18,14 @@ __author__ = 'Luca Venturini'
 def merge_partial(filenames, handle):
 
     """This function merges the partial files created by the multiprocessing into a single
-    sorted file."""
+    sorted file.
+
+    :param filenames: the filenames to merge into the handle
+    :type filenames: list[str]
+
+    :param handle: the handle to use for printing
+    :type handle: io.TextIOWrapper
+    """
 
     current_lines = collections.defaultdict(list)
     filenames = set([open(_) for _ in filenames])
@@ -34,13 +41,6 @@ def merge_partial(filenames, handle):
                 _.close()
                 finished.add(_)
 
-        # assert len(current_lines) > 0 or len(finished) == len(filenames)
-        # if len(current_lines) > 0:
-        #     current = min(current_lines.keys())
-        #     for line in current_lines[current]:
-        #         print(line, file=handle, end='')
-        #         current_lines[current].remove(line)
-        #     del current_lines[current]
         for _ in finished:
             filenames.remove(_)
 
@@ -72,8 +72,9 @@ def print_gene(current_gene, gene_counter, handle, prefix):
         current_transcript.parent = current_gene["gene"].id
         current_exons = current_gene["transcripts"][primary]["exons"]
         current_transcript.attributes["Alias"] = current_transcript.id[:]
-        name = re.sub("\.orf[0-9]+", "", tid)
-        tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
+        # name = re.sub("\.orf[0-9]+", "", tid)
+        # tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
+        tid_corrs[current_transcript.id] = tid
         current_transcript.id = tid
         print(current_transcript, file=handle)
         for exon in current_exons:
@@ -115,8 +116,9 @@ def print_gene(current_gene, gene_counter, handle, prefix):
         current_transcript.parent = current_gene["gene"].id
         current_exons = current_gene["transcripts"][other]["exons"]
         current_transcript.attributes["Alias"] = current_transcript.id[:]
-        name = re.sub("\.orf[0-9]+", "", tid)
-        tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
+        # name = re.sub("\.orf[0-9]+", "", tid)
+        # tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
+        tid_corrs[current_transcript.id] = tid
         current_transcript.id = tid
         print(current_transcript, file=handle)
         for exon in current_exons:
@@ -147,8 +149,6 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                 except StopIteration:
                     _.close()
                     finished.add(_.name)
-
-    [os.remove(_) for _ in finished]
 
     gene_counter = 0
     current_chrom = None
@@ -188,7 +188,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                     line.id = new_id
                     current_gene["gene"] = line
                 elif line.is_transcript:
-                    assert current_gene is not None
+                    assert current_gene != dict()
                     current_gene["transcripts"][line.id] = dict()
                     current_gene["transcripts"][line.id]["transcript"] = line
                     current_gene["transcripts"][line.id]["exons"] = []
@@ -215,6 +215,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
 
             del current_lines[current]
 
+    [os.remove(_) for _ in finished]
     return gid_to_new, tid_to_new
 
 
@@ -245,8 +246,6 @@ def merge_loci(num_temp, out_handles, prefix=""):
                         _.close()
                         finished.add(_.name)
 
-        [os.remove(_) for _ in finished]
-
         while len(current_lines) > 0:
             current = min(current_lines.keys())
             for index, line in current_lines[current]:
@@ -261,6 +260,7 @@ def merge_loci(num_temp, out_handles, prefix=""):
                 line = "\t".join(fields)
                 print(line, file=handle, end="")
             del current_lines[current]
+        [os.remove(_) for _ in finished]
     return
 
 
@@ -638,38 +638,35 @@ class LociProcesser(Process):
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
-        exit_received = False
         current_chrom = None
         while True:
-            if exit_received is False:
-                slocus, counter = self.locus_queue.get()
-                if slocus == "EXIT":
-                    self.logger.debug("EXIT received for %s", self.name)
-                    self.locus_queue.put((slocus, counter))
-                    exit_received = True
-                    if self.engine is not None:
-                        self.engine.dispose()
-                    self.locus_out.close()
-                    self.locus_scores.close()
-                    self.locus_metrics.close()
-                    if self.sub_metrics is not None:
-                        self.sub_metrics.close()
-                        self.sub_scores.close()
-                        self.sub_out.close()
-                    if self.mono_out is not None:
-                        self.mono_out.close()
+            slocus, counter = self.locus_queue.get()
+            if slocus == "EXIT":
+                self.logger.debug("EXIT received for %s", self.name)
+                self.locus_queue.put((slocus, counter))
+                if self.engine is not None:
+                    self.engine.dispose()
+                self.locus_out.close()
+                self.locus_scores.close()
+                self.locus_metrics.close()
+                if self.sub_metrics is not None:
+                    self.sub_metrics.close()
+                    self.sub_scores.close()
+                    self.sub_out.close()
+                if self.mono_out is not None:
+                    self.mono_out.close()
 
-                    return
+                return
+            else:
+                if slocus is not None:
+                    if current_chrom != slocus.chrom:
+                        self.__gene_counter = 0
+                        current_chrom = slocus.chrom
+                    stranded_loci = self.analyse_locus(slocus, counter)
                 else:
-                    if slocus is not None:
-                        if current_chrom != slocus.chrom:
-                            self.__gene_counter = 0
-                            current_chrom = slocus.chrom
-                        stranded_loci = self.analyse_locus(slocus, counter)
-                    else:
-                        stranded_loci = []
-                    for stranded_locus in stranded_loci:
-                        self._print_locus(stranded_locus, counter)
+                    stranded_loci = []
+                for stranded_locus in stranded_loci:
+                    self._print_locus(stranded_locus, counter)
 
     def _print_locus(self, stranded_locus, counter):
 
@@ -731,18 +728,16 @@ class LociProcesser(Process):
             stranded_locus.loci[locus].id = new_id
 
         locus_lines = stranded_locus.__str__(
-            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
+            print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"],
+            level="loci")
 
         locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]
         locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
 
-        assert len(locus_metrics_rows) == len(locus_scores_rows)
+        # assert len(locus_metrics_rows) == len(locus_scores_rows)
 
         for row in locus_metrics_rows:
-            try:
-                row["tid"] = "{0}/{1}".format(counter, row["tid"])
-            except KeyError as exc:
-                raise KeyError("{0}\n{1}".format(exc, "\n".join([str(_) for _ in row.items()])))
+            row["tid"] = "{0}/{1}".format(counter, row["tid"])
             self.locus_metrics.writerow(row)
         for row in locus_scores_rows:
             row["tid"] = "{0}/{1}".format(counter, row["tid"])

@@ -22,6 +22,7 @@ from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import multiprocessing
+import time
 
 __author__ = 'Luca Venturini'
 
@@ -56,6 +57,24 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
         return pfiles
 
     logger.debug("Starting to pickle %s", filename)
+    tries = 0
+    opener = None
+    exc = None
+    while tries < 10:
+        tries += 1
+        try:
+            opener = create_opener(filename)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            time.sleep(1)
+
+    if opener is None:
+        logger.error("Failed to open %s; exception %s",
+                     filename,
+                     exc)
+        return []
+
     try:
         for record in xparser(create_opener(filename)):
             if len(record.descriptions) > 0:

@@ -7,7 +7,7 @@ Script to extract features from a GTF with certain coordinates.
 
 import sys
 import argparse
-from ...parsers.blast_utils import XMLMerger, create_opener
+from ...parsers.blast_utils import XMLMerger, BlastOpener
 import logging
 
 __author__ = 'Luca Venturini'
@@ -22,7 +22,7 @@ def launch(args):
     """
 
     if len(args.xml) == 1:
-        parser = create_opener(args.xml[0])
+        parser = BlastOpener(args.xml[0])
     else:
         if args.verbose is True:
             level = logging.DEBUG

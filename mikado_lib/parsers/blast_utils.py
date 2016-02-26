@@ -22,41 +22,105 @@ from ..utilities.log_utils import create_null_logger
 __author__ = 'Luca Venturini'
 
 
-def create_opener(filename):
+class BlastOpener:
 
-    """
-    Function to create the appropriate opener for a BLAST file.
-    If a handle is given instead of a filename, the function returns the input immediately.
+    def __init__(self, filename):
 
-    :param filename: the name of the filename to use.
-    :return:
-    """
+        self.__filename = filename
+        self.__handle = None
+        self.__closed = False
 
-    if isinstance(filename, (gzip.GzipFile, io.TextIOWrapper)):
-        return filename
-    elif not isinstance(filename, str) or not os.path.exists(filename):
-        raise OSError("Non-existent file: {0}".format(filename))
+    def __enter__(self):
 
-    if filename.endswith(".gz"):
-        if filename.endswith(".xml.gz"):
-            return gzip.open(filename, "rt")
-        elif filename.endswith(".asn.gz"):
-            # I cannot seem to make it work with gzip.open
-            zcat = subprocess.Popen(["zcat", filename], shell=False,
-                                    stdout=subprocess.PIPE)
-            blast_formatter = subprocess.Popen(
-                ['blast_formatter', '-outfmt', '5', '-archive', '-'],
-                shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)
-            return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
-    elif filename.endswith(".xml"):
-        return open(filename)
-    elif filename.endswith(".asn"):
-        blast_formatter = subprocess.Popen(
-            ['blast_formatter', '-outfmt', '5', '-archive', filename],
-            shell=False, stdout=subprocess.PIPE)
-        return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
-    else:
-        raise ValueError("Unrecognized file format: %s", filename)
+        if self.__closed is True:
+            raise ValueError('I/O operation on closed file.')
+
+        if isinstance(self.__filename, (gzip.GzipFile, io.TextIOWrapper)):
+            self.__handle = self.__filename
+            self.__filename = self.__handle.name
+        elif not isinstance(self.__filename, str) or not os.path.exists(self.__filename):
+            raise OSError("Non-existent file: {0}".format(self.__filename))
+        else:
+            if self.__filename.endswith(".gz"):
+                if self.__filename.endswith(".xml.gz"):
+                    self.__handle = gzip.open(self.__filename, "rt")
+                elif self.__filename.endswith(".asn.gz"):
+                    # I cannot seem to make it work with gzip.open
+                    zcat = subprocess.Popen(["zcat", self.__filename], shell=False,
+                                            stdout=subprocess.PIPE)
+                    blast_formatter = subprocess.Popen(
+                        ['blast_formatter', '-outfmt', '5', '-archive', '-'],
+                        shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)
+                    self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+            elif self.__filename.endswith(".xml"):
+                self.__handle = open(self.__filename)
+                assert self.__handle is not None
+            elif self.__filename.endswith(".asn"):
+                blast_formatter = subprocess.Popen(
+                    ['blast_formatter', '-outfmt', '5', '-archive', self.__filename],
+                    shell=False, stdout=subprocess.PIPE)
+                self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+            else:
+                raise ValueError("Unrecognized file format: %s", self.__filename)
+
+        assert self.__handle is not None, self.__filename
+        return self
+
+    def open(self):
+        self.__enter__()
+
+    def __exit__(self, *args):
+        if self.__closed is False:
+            self.__handle.close()
+            self.__closed = True
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return next(self.__handle)
+
+    def close(self):
+        self.__exit__()
+
+    def read(self, *args):
+        return self.__handle.read(*args)
+
+# def create_opener(filename):
+#
+#     """
+#     Function to create the appropriate opener for a BLAST file.
+#     If a handle is given instead of a filename, the function returns the input immediately.
+#
+#     :param filename: the name of the filename to use.
+#     :return:
+#     """
+#
+#     if isinstance(filename, (gzip.GzipFile, io.TextIOWrapper)):
+#         return filename
+#     elif not isinstance(filename, str) or not os.path.exists(filename):
+#         raise OSError("Non-existent file: {0}".format(filename))
+#
+#     if filename.endswith(".gz"):
+#         if filename.endswith(".xml.gz"):
+#             return gzip.open(filename, "rt")
+#         elif filename.endswith(".asn.gz"):
+#             # I cannot seem to make it work with gzip.open
+#             zcat = subprocess.Popen(["zcat", filename], shell=False,
+#                                     stdout=subprocess.PIPE)
+#             blast_formatter = subprocess.Popen(
+#                 ['blast_formatter', '-outfmt', '5', '-archive', '-'],
+#                 shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)
+#             return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+#     elif filename.endswith(".xml"):
+#         return open(filename)
+#     elif filename.endswith(".asn"):
+#         blast_formatter = subprocess.Popen(
+#             ['blast_formatter', '-outfmt', '5', '-archive', filename],
+#             shell=False, stdout=subprocess.PIPE)
+#         return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+#     else:
+#         raise ValueError("Unrecognized file format: %s", filename)
 
 
 def check_beginning(handle, filename, previous_header):
@@ -218,7 +282,7 @@ class _Merger(multiprocessing.Process):
                 self.queue.put_nowait(self.header)
                 print_header = False
             try:
-                handle = create_opener(filename)
+                handle = BlastOpener(filename)
             except OSError as exc:
                 self.logger.exception(exc)
                 continue
@@ -304,7 +368,7 @@ class XMLMerger(threading.Thread):
         if len(self.__filenames) > 0:
             while True:
                 _, header, exc = check_beginning(
-                    create_opener(self.__filenames[0]),
+                    BlastOpener(self.__filenames[0]),
                     self.__filenames[0],
                     None)
                 if exc is not None:

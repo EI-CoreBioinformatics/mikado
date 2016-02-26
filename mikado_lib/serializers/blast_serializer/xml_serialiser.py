@@ -16,13 +16,13 @@ from sqlalchemy.orm.session import sessionmaker
 from ...utilities.dbutils import DBBASE
 import pyfaidx
 from ...utilities.dbutils import connect
-from ...parsers.blast_utils import create_opener  # , XMLMerger
+from ...parsers.blast_utils import BlastOpener  # , XMLMerger
 from ...parsers import HeaderError
 from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import multiprocessing
-import time
+# import time
 
 __author__ = 'Luca Venturini'
 
@@ -60,35 +60,22 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
     tries = 0
     opener = None
     exc = None
-    while tries < 10:
-        tries += 1
+
+    with BlastOpener(filename) as opened:
         try:
-            opener = create_opener(filename)
-        except KeyboardInterrupt:
-            raise
-        except Exception as exc:
-            time.sleep(1)
-
-    if opener is None:
-        logger.error("Failed to open %s; exception %s",
-                     filename,
-                     exc)
-        return []
-
-    try:
-        for record in xparser(create_opener(filename)):
-            if len(record.descriptions) > 0:
-                records.append(record)
-            if len(records) > maxobjects:
-                pickle_temp = tempfile.mkstemp(suffix=".pickle",
-                                               dir=os.path.dirname(filename))
-                with open(pickle_temp[1], "wb") as pickled:
-                    pickle.dump(records, pickled)
-                pfiles.append(pickle_temp[1])
-                records = []
-    except ExpatError:
-        logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                     filename)
+            for record in xparser(opened):
+                if len(record.descriptions) > 0:
+                    records.append(record)
+                if len(records) > maxobjects:
+                    pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                                                   dir=os.path.dirname(filename))
+                    with open(pickle_temp[1], "wb") as pickled:
+                        pickle.dump(records, pickled)
+                    pfiles.append(pickle_temp[1])
+                    records = []
+        except ExpatError:
+            logger.error("%s is an invalid BLAST file, sending back anything salvageable",
+                         filename)
 
     pickle_temp = tempfile.mkstemp(suffix=".pickle",
                                    dir=os.path.dirname(filename))
@@ -110,54 +97,55 @@ def _sniff(filename, default_header=None):
     :rtype: (bool, list, str)
     """
 
-    handle = create_opener(filename)
     header = []
     exc = None
     valid = True
-    while True:
-        try:
-            line = next(handle)
-        except StopIteration:
-            # Hack for empty files
-            valid = False
+    with BlastOpener(filename) as handle:
+        # assert handle is not None
+        while True:
+            try:
+                line = next(handle)
+            except StopIteration:
+                # Hack for empty files
+                valid = False
+                exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                    filename,
+                    "\n".join(header)
+                ))
+                break
+            if "<Iteration>" in line:
+                break
+            line = line.rstrip()
+            if not line:
+                valid = False
+                exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
+                    filename,
+                    "\n".join(header)
+                ))
+                break
+            if len(header) > 10**3:
+                exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
+                    len(header),
+                    filename,
+                    "\n".join(header)
+                ))
+                break
+            header.append(line)
+        if not any(iter(True if "BlastOutput" in x else False for x in header)):
             exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
-                filename,
-                "\n".join(header)
-            ))
-            break
-        if "<Iteration>" in line:
-            break
-        line = line.rstrip()
-        if not line:
-            valid = False
-            exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
-                filename,
-                "\n".join(header)
-            ))
-            break
-        if len(header) > 10**3:
-            exc = HeaderError("Abnormally long header ({0}) for {1}:\n\n{2}".format(
-                len(header),
-                filename,
-                "\n".join(header)
-            ))
-            break
-        header.append(line)
-    if not any(iter(True if "BlastOutput" in x else False for x in header)):
-        exc = HeaderError("Invalid header for {0}:\n\n{1}".format(
-            filename, "\n".join(header)))
+                filename, "\n".join(header)))
 
-    if default_header is not None and exc is None:
-            checker = [header_line for header_line in header if
-                       "BlastOutput_query" not in header_line]
-            previous_header = [header_line for header_line in default_header if
-                               "BlastOutput_query" not in header_line]
-            if checker != previous_header:
-                exc = HeaderError("BLAST XML header does not match for {0}".format(
-                    filename))
-    elif exc is None:
-        default_header = header
-    handle.close()
+        if default_header is not None and exc is None:
+                checker = [header_line for header_line in header if
+                           "BlastOutput_query" not in header_line]
+                previous_header = [header_line for header_line in default_header if
+                                   "BlastOutput_query" not in header_line]
+                if checker != previous_header:
+                    exc = HeaderError("BLAST XML header does not match for {0}".format(
+                        filename))
+        elif exc is None:
+            default_header = header
+
 
     if exc is not None:
         valid = False
@@ -569,18 +557,21 @@ class XmlSerializer:
                     self.logger.error(exc)
                     continue
                 try:
-                    for record in xparser(create_opener(filename)):
-                        record_counter += 1
-                        if record_counter > 0 and record_counter % 10000 == 0:
-                            self.logger.info("Parsed %d queries", record_counter)
-
-                        hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
-                                                                                           hits,
-                                                                                           hsps,
-                                                                                           targets)
-                        hit_counter += partial_hit_counter
-                        if hit_counter > 0 and hit_counter % 10000 == 0:
-                            self.logger.info("Serialized %d alignments", hit_counter)
+                    with BlastOpener(filename) as opened:
+                        for record in xparser(opened):
+                            record_counter += 1
+                            if record_counter > 0 and record_counter % 10000 == 0:
+                                self.logger.info("Parsed %d queries", record_counter)
+                            (hits,
+                             hsps,
+                             partial_hit_counter,
+                             targets) = self.__serialise_record(record,
+                                                                hits,
+                                                                hsps,
+                                                                targets)
+                            hit_counter += partial_hit_counter
+                            if hit_counter > 0 and hit_counter % 10000 == 0:
+                                self.logger.info("Serialized %d alignments", hit_counter)
                 except ExpatError:
                     self.logger.error("%s is an invalid BLAST file, saving what's available",
                                       filename)

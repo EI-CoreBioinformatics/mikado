@@ -9,11 +9,12 @@ import abc
 import random
 import logging
 from sys import maxsize
-# from .clique_methods import reid_daid_hurley
+from .clique_methods import find_cliques, find_communities, define_graph, overlap
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
-from ..utilities.log_utils import create_null_logger, create_default_logger
+from ..utilities.log_utils import create_null_logger
+from .transcript import Transcript
 
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -25,7 +26,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     """
 
     __name__ = "Abstractlocus"
-    available_metrics = []
+    available_metrics = Transcript.get_available_metrics()
 
     # ##### Special methods #########
 
@@ -169,13 +170,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         Input: two 2-tuples of integers.
         """
 
-        first_interval = sorted(first_interval[:2])
-        second_interval = sorted(second_interval[:2])
-
-        left_boundary = max(first_interval[0] - flank, second_interval[0] - flank)
-        right_boundary = min(first_interval[1] + flank, second_interval[1] + flank)
-
-        return right_boundary - left_boundary
+        return overlap(first_interval, second_interval, flank)
 
     @staticmethod
     def evaluate(param: str, conf: dict) -> bool:
@@ -244,8 +239,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     return True
         return False
 
-    @classmethod
-    def define_graph(cls, objects: dict, inters=None, **kwargs) -> networkx.Graph:
+    def define_graph(self, objects: dict, inters=None, **kwargs) -> networkx.Graph:
         """
         :param objects: a dictionary of objects to be grouped into a graph
         :type objects: dict
@@ -268,31 +262,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if inters is None:
-            inters = cls.is_intersecting
+            inters = self.is_intersecting
 
-        graph = networkx.Graph()
+        return define_graph(objects, inters)
 
-        # As we are using intern for transcripts, this should prevent
-        # memory usage to increase too much
-        graph.add_nodes_from(objects.keys())
-
-        for obj in objects:
-            for other_obj in iter(x for x in objects if x != obj):
-                if inters(objects[obj], objects[other_obj], **kwargs):
-                    # Connections are not directional
-                    graph.add_edge(*tuple(sorted([obj, other_obj])))
-
-        return graph
-
-    @classmethod
-    def find_communities(cls, graph: networkx.Graph, logger=None) -> list:
+    def find_communities(self, graph: networkx.Graph) -> list:
         """
 
         :param graph: a Graph instance from networkx
         :type graph: networkx.Graph
-
-        :param logger: optional logger. A default null one will be created if none is provided.
-        :type logger: (None|logging.Logger)
 
         This function is a wrapper around the networkX methods to find
         cliques and communities inside a graph.
@@ -301,44 +279,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             - cliques
             - communities
         """
-        if logger is None:
-            logger = create_default_logger("comms")
 
-        # graph = deepcopy(graph)
-        # logger.debug("Creating the cliques for %s", logger.name)
-        # # cliques = []
-        # # counter = 0
-        # # communities = []
+        return find_communities(graph, self.logger)
 
-        # nx_comms = [frozenset(x) for x in networkx.k_clique_communities(graph, 2, cliques)]
-        # rdh_comms = reid_daid_hurley(graph, 2, cliques)
-        #
-        # for comm in rdh_comms:
-        #     if len(comm) == 1:
-        #         continue
-        #     if not any([comm == _ for _ in nx_comms]):
-        #         logger.error("Discrepant communities for %s;\n%s\n%s",
-        #                      logger.name, nx_comms, rdh_comms)
-        #         raise AssertionError
-
-        logger.debug("Creating the communities for %s", logger.name)
-        communities = set(frozenset(comm) for comm in networkx.connected_components(graph))
-
-        # communities = set(frozenset(x) for x in cliques if len(x) == 1)
-        # for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
-        #     communities.add(comm)
-
-        logger.debug("Communities for %s:\n\t\t%s", logger.name, "\n\t\t".join(
-            [str(_) for _ in communities]))
-        return communities
-
-    @classmethod
-    def find_cliques(cls, graph: networkx.Graph, logger=None) -> (networkx.Graph, list):
+    def find_cliques(self, graph: networkx.Graph) -> (networkx.Graph, list):
         """
 
         :param graph: graph to which it is necessary to call the cliques for.
-
-        :param logger: optional logger for the function
 
         Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.
         It is the new interface for the BronKerbosch function, which is not called directly
@@ -347,14 +294,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         whether two vertices are connected or not in the graph.
         """
 
-        if logger is None:
-            logger = create_default_logger("cliques")
-
-        logger.debug("Creating cliques for %s", logger.name)
-        cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
-        logger.debug("Created %d cliques for %s", len(cliques), logger.name)
-
-        return cliques
+        return find_cliques(graph, self.logger)
 
     @classmethod
     def choose_best(cls, transcripts: dict) -> str:
@@ -620,6 +560,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         for tid in sorted(self.transcripts.keys(), key=lambda ttid: self.transcripts[ttid]):
             row = {}
+            assert self.available_metrics != []
             for key in self.available_metrics:
                 if key.lower() in ("id", "tid"):
                     row[key] = tid
@@ -631,6 +572,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     row[key] = round(row[key], 2)
                 elif row[key] is None or row[key] == "":
                     row[key] = "NA"
+            assert row != {}
             yield row
 
         return

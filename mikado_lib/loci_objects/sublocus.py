@@ -193,8 +193,8 @@ class Sublocus(Abstractlocus):
                                              logger=self.logger)
 
         while len(transcript_graph) > 0:
-            cliques = self.find_cliques(transcript_graph, logger=self.logger)
-            communities = self.find_communities(transcript_graph, logger=self.logger)
+            cliques = self.find_cliques(transcript_graph)
+            communities = self.find_communities(transcript_graph)
             self.logger.debug("Cliques: {0}".format(cliques))
             self.logger.debug("Communities: {0}".format(communities))
             to_remove = set()
@@ -377,6 +377,10 @@ class Sublocus(Abstractlocus):
             self.scores[tid] = dict()
         for param in self.json_conf["scoring"]:
             self._calculate_score(param)
+
+        for tid in self.scores:
+            self.transcripts[tid].scores = self.scores[tid].copy()
+
         for tid in self.transcripts:
             if tid in not_passing:
                 self.logger.debug("Excluding %s as it does not pass minimum requirements",

@@ -10,6 +10,7 @@ from .transcript import Transcript
 from ..scales.assigner import Assigner
 from .monosublocus import Monosublocus
 from .abstractlocus import Abstractlocus
+from ..parsers.GFF import GffLine
 
 
 class Locus(Monosublocus, Abstractlocus):
@@ -35,6 +36,7 @@ class Locus(Monosublocus, Abstractlocus):
         self.primary_transcript_id = transcript.id
 
         self.attributes["is_fragment"] = False
+        self.metric_lines_store = []
         self.__id = None
 
     def __str__(self, print_cds=True, source_in_name=True) -> str:
@@ -49,7 +51,35 @@ class Locus(Monosublocus, Abstractlocus):
                 continue
             self.transcripts[transcript].attributes["primary"] = False
 
-        return super().__str__(print_cds=print_cds, source_in_name=source_in_name)
+        lines = []
+
+        self_line = GffLine('')
+        for attr in ["chrom", 'feature', 'source', 'start', 'end', 'strand']:
+            setattr(self_line, attr, getattr(self, attr))
+        self_line.phase, self_line.score = None, self.score
+        self_line.id = self.id
+        self_line.name = self.name
+        self_line.parent = self.parent
+        self_line.attributes.update(self.attributes)
+        if "is_fragment" in self.attributes and self.attributes["is_fragment"] is False:
+            del self_line.attributes["is_fragment"]
+        self_line.attributes["multiexonic"] = (not self.monoexonic)
+        lines.append(str(self_line))
+
+        for tid in self.transcripts:
+            transcript_instance = self.transcripts[tid]
+            transcript_instance.source = self.source
+            transcript_instance.parent = self_line.id
+            self.logger.debug(self.attributes)
+            for attribute in self.attributes:
+                if attribute not in transcript_instance.attributes:
+                    if attribute == "is_fragment" and self.attributes[attribute] is False:
+                        continue
+                    transcript_instance.attributes[attribute] = self.attributes[attribute]
+
+            lines.append(transcript_instance.__str__(print_cds=print_cds).rstrip())
+
+        return "\n".join(lines)
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.
@@ -241,6 +271,36 @@ class Locus(Monosublocus, Abstractlocus):
         if not isinstance(jconf, dict):
             raise TypeError("Invalid configuration of type {0}".format(type(jconf)))
         self.json_conf = jconf
+
+    def print_metrics(self):
+
+        metric_rows = list(Abstractlocus.print_metrics(self))
+        assert metric_rows != []
+
+        for row in Abstractlocus.print_metrics(self):
+            if row == {}:
+                continue
+            yield row
+
+    def print_scores(self):
+
+        score_keys = sorted(list(self.json_conf["scoring"].keys()))
+        keys = ["tid", "parent", "score"] + score_keys
+
+        for tid in self.transcripts:
+            row = dict().fromkeys(keys)
+            row["tid"] = tid
+            row["parent"] = self.id
+            row["score"] = round(self.transcripts[tid].score, 2)
+            for key in score_keys:
+                row[key] = round(self.transcripts[tid].scores[key], 2)
+            score_sum = sum(row[key] for key in score_keys)
+            #
+            assert round(score_sum, 2) == round(self.transcripts[tid].score, 2), (
+                score_sum,
+                self.transcripts[tid].score,
+                tid)
+            yield row
 
     def is_alternative_splicing(self, other):
 

@@ -20,11 +20,9 @@ from sqlalchemy import bindparam
 from ..exceptions import ModificationError, InvalidTranscript
 from ..serializers.blast_serializer import Query, Hit
 from ..serializers.orf import Orf
-from .abstractlocus import Abstractlocus
+from .clique_methods import find_communities, define_graph
 from ..parsers.GTF import GtfLine
 from ..parsers.GFF import GffLine
-# import mikado_lib.exceptions
-# from ..utilities import memoize
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.printing import create_lines_cds
 from .transcript_methods.printing import create_lines_no_cds, create_lines_bed
@@ -206,6 +204,7 @@ class Transcript:
         self.strand = transcript_row.strand
         self.end = transcript_row.end
         self.score = transcript_row.score
+        self.scores = dict()
         self.parent = transcript_row.parent
         self.attributes = transcript_row.attributes
         self.blast_hits = []
@@ -592,15 +591,13 @@ class Transcript:
         :param objects: a list of objects to analyse
         :type objects: list,set
 
-        Wrapper for the Abstractlocus method.
+        Wrapper for the clique_methods functions.
         As we are interested only in the communities, not the cliques,
         this wrapper discards the cliques
         (first element of the Abstractlocus.find_communities results)
         """
         data = dict((obj, obj) for obj in objects)
-        communities = Abstractlocus.find_communities(
-            Abstractlocus.define_graph(data,
-                                       inters=cls.is_intersecting))
+        communities = find_communities(define_graph(data, inters=cls.is_intersecting))
 
         return communities
 

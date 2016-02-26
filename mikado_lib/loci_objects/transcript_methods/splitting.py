@@ -8,10 +8,11 @@ from collections import OrderedDict
 import collections
 import operator
 from intervaltree import IntervalTree, Interval
-from ..abstractlocus import Abstractlocus
+from .. import clique_methods
 from ...exceptions import InvalidTranscript
 from ...parsers.blast_utils import merge
 from ...parsers import bed12
+from ..clique_methods import overlap
 
 __author__ = 'Luca Venturini'
 
@@ -72,7 +73,7 @@ def check_split_by_blast(transcript, cds_boundaries):
                 # If I have a valid hit b/w the CDS region and the hit,
                 # add the name to the set
                 overlap_threshold = minimal_overlap * (cds_run[1] + 1 - cds_run[0])
-                overlap = Abstractlocus.overlap(cds_run,
+                overlap = clique_methods.overlap(cds_run,
                                                 (hsp['query_hsp_start'], hsp['query_hsp_end']))
 
                 if overlap >= overlap_threshold:
@@ -531,7 +532,7 @@ def __load_blast_hits(new_transcript, boundary, transcript):
     """
 
     for hit in transcript.blast_hits:
-        if Abstractlocus.overlap((hit["query_start"], hit["query_end"]), boundary) > 0:
+        if overlap((hit["query_start"], hit["query_end"]), boundary) > 0:
 
             minimal_overlap = transcript.json_conf[
                 "pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
@@ -570,7 +571,7 @@ def __check_collisions(transcript, nspan, spans):
     if len(spans) == 0:
         return
     for span in spans:
-        overl = Abstractlocus.overlap(span, nspan)
+        overl = overlap(span, nspan)
 
         transcript.logger.debug(
             "Comparing start-ends for split of %s. SpanA: %s SpanB: %s Overlap: %d",
@@ -604,7 +605,7 @@ def __recalculate_hit(hit, boundary, minimal_overlap):
     best_hsp = (float("inf"), float("-inf"))
 
     for hsp in hit["hsps"]:
-        _ = Abstractlocus.overlap((hsp["query_hsp_start"], hsp["query_hsp_end"]), boundary)
+        _ = overlap((hsp["query_hsp_start"], hsp["query_hsp_end"]), boundary)
         if _ >= minimal_overlap * (boundary[1] + 1 - boundary[0]):
             hsp_dict_list.append(hsp)
             if hsp["hsp_evalue"] < best_hsp[0]:

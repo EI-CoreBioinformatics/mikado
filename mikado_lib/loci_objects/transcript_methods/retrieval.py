@@ -7,7 +7,7 @@ from the database/dictionary provided during the pick operation.
 from itertools import groupby
 from sqlalchemy.orm.session import sessionmaker
 from ...utilities import dbutils
-from ..abstractlocus import Abstractlocus
+from ..clique_methods import define_graph, find_cliques, find_communities
 from ...serializers.junction import Junction
 from sqlalchemy import and_
 import operator
@@ -416,7 +416,7 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
     orf_dictionary = dict((x.name, x) for x in candidates)
 
     # First define the graph
-    graph = Abstractlocus.define_graph(orf_dictionary, inters=transcript.is_overlapping_cds)
+    graph = define_graph(orf_dictionary, inters=transcript.is_overlapping_cds)
     candidate_orfs = find_candidate_orfs(transcript, graph, orf_dictionary)
 
     transcript.logger.debug("{0} candidate retained ORFs for {1}: {2}".format(
@@ -618,8 +618,8 @@ def find_candidate_orfs(transcript, graph, orf_dictionary) -> list:
     candidate_orfs = []
 
     while len(graph) > 0:
-        cliques = Abstractlocus.find_cliques(graph, logger=transcript.logger)
-        communities = Abstractlocus.find_communities(graph, logger=transcript.logger)
+        cliques = find_cliques(graph, logger=transcript.logger)
+        communities = find_communities(graph, logger=transcript.logger)
         clique_str = []
         for clique in cliques:
             clique_str.append(str([(orf_dictionary[x].thick_start,

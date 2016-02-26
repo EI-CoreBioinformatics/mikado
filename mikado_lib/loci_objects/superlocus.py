@@ -59,7 +59,6 @@ class Superlocus(Abstractlocus):
     """
 
     __name__ = "superlocus"
-    available_metrics = Transcript.get_available_metrics()
 
     bakery = baked.bakery()
     db_baked = bakery(lambda session: session.query(Chrom))
@@ -892,7 +891,7 @@ class Superlocus(Abstractlocus):
 
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")
-        subloci = self.find_communities(transcript_graph, logger=self.logger)
+        subloci = self.find_communities(transcript_graph)
         self.logger.debug("Calculated the transcript communities")
 
         # Now we should define each sublocus and store it in a permanent structure of the class
@@ -1004,7 +1003,7 @@ class Superlocus(Abstractlocus):
         MonosublocusHolder.print_metrics method
         on it."""
 
-        self.define_loci()
+        self.define_monosubloci()
 
         # self.available_monolocus_metrics = set(self.monoholder.available_metrics)
         if len(self.monoholders) == 0:
@@ -1018,13 +1017,37 @@ class Superlocus(Abstractlocus):
         """Wrapper method to create a csv.DictWriter instance and call
         the MonosublocusHolder.print_scores method on it."""
 
-        self.define_loci()
+        self.define_monosubloci()
 
         # self.available_monolocus_metrics = set(self.monoholder.available_metrics)
         if len(self.monoholders) == 0:
             return
         for monoholder in self.monoholders:
             for row in monoholder.print_scores():
+                yield row
+
+    def print_loci_metrics(self):
+
+        self.define_loci()
+
+        if len(self.loci) == 0:
+            return []
+        for locus in self.loci:
+            for row in self.loci[locus].print_metrics():
+                yield row
+
+    def print_loci_scores(self):
+
+        """Wrapper method to create a csv.DictWriter instance and call
+        the Locus.print_scores method on it."""
+
+        self.define_loci()
+
+        # self.available_monolocus_metrics = set(self.monoholder.available_metrics)
+        if len(self.loci) == 0:
+            return
+        for locus in self.loci:
+            for row in self.loci[locus].print_scores():
                 yield row
 
     def define_loci(self):
@@ -1085,7 +1108,7 @@ class Superlocus(Abstractlocus):
                                     inters=MonosublocusHolder.is_intersecting,
                                     cds_only=cds_only)
         
-        cliques = self.find_cliques(t_graph, logger=self.logger)
+        cliques = self.find_cliques(t_graph)
 
         loci_cliques = dict()
 

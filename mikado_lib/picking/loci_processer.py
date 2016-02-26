@@ -6,6 +6,7 @@ import functools
 from ..utilities import dbutils
 from ..loci_objects.superlocus import Superlocus
 from ..parsers.GFF import GffLine
+import os
 import collections
 import csv
 import re
@@ -55,6 +56,7 @@ def merge_partial(filenames, handle):
 def print_gene(current_gene, gene_counter, handle, prefix):
 
     print(current_gene["gene"], file=handle)
+    tid_corrs = dict()
     chrom = current_gene["gene"].chrom
     primaries = [_ for _ in current_gene["transcripts"] if
                  current_gene["transcripts"][_]["primary"] is True]
@@ -70,6 +72,8 @@ def print_gene(current_gene, gene_counter, handle, prefix):
         current_transcript.parent = current_gene["gene"].id
         current_exons = current_gene["transcripts"][primary]["exons"]
         current_transcript.attributes["Alias"] = current_transcript.id[:]
+        name = re.sub("\.orf[0-9]+", "", tid)
+        tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
         current_transcript.id = tid
         print(current_transcript, file=handle)
         for exon in current_exons:
@@ -89,7 +93,6 @@ def print_gene(current_gene, gene_counter, handle, prefix):
     # transcript_counter = 1
 
     for other in others:
-        name = re.sub("\.orf[0-9]+", "", other)
         current_transcript = current_gene["transcripts"][other]["transcript"]
         # Get the original transcript counter
         try:
@@ -112,6 +115,8 @@ def print_gene(current_gene, gene_counter, handle, prefix):
         current_transcript.parent = current_gene["gene"].id
         current_exons = current_gene["transcripts"][other]["exons"]
         current_transcript.attributes["Alias"] = current_transcript.id[:]
+        name = re.sub("\.orf[0-9]+", "", tid)
+        tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
         current_transcript.id = tid
         print(current_transcript, file=handle)
         for exon in current_exons:
@@ -122,76 +127,140 @@ def print_gene(current_gene, gene_counter, handle, prefix):
                                tid, exon.id)
             print(exon, file=handle)
     print("###", file=handle)
+    return tid_corrs
 
 
-def merge_loci(filenames, handle, prefix=""):
+def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
 
     current_lines = collections.defaultdict(list)
-    filenames = set([open(_) for _ in filenames])
-    while len(filenames) > 0:
-        finished = set()
-        for _ in filenames:
-            try:
-                line = next(_)
-                _ = line.split("/")
-                current_lines[int(_[0])].append(GffLine("/".join(_[1:])))
+    gff_filenames = [open(_) for _ in gff_filenames]
+    finished = set()
+    while len(finished) < len(gff_filenames):
+        for num, _ in enumerate(gff_filenames):
+            if _.name in finished:
+                continue
+            else:
+                try:
+                    line = next(_)
+                    fields = line.split("/")
+                    current_lines[int(fields[0])].append((num, GffLine("/".join(fields[1:]))))
+                except StopIteration:
+                    _.close()
+                    finished.add(_.name)
 
-            except StopIteration:
-                _.close()
-                finished.add(_)
-
-        for _ in finished:
-            filenames.remove(_)
+    [os.remove(_) for _ in finished]
 
     gene_counter = 0
     current_chrom = None
-    while len(current_lines) > 0:
-        current = min(current_lines.keys())
-        current_gene = dict()
-        for line in current_lines[current]:
-            if line.header is True:
-                if "###" not in line._line and line._line != "NA":
-                    print(line, file=handle)
-                continue
-            if current_chrom is not None and current_chrom != line.chrom:
-                gene_counter = 0
-            if line.is_gene:
-                if current_gene != dict():
-                    # Print out
-                    print_gene(current_gene, gene_counter, handle, prefix)
-                    current_gene = dict()
-                    pass
-                current_gene["transcripts"] = dict()
-                gene_counter += 1
-                line.id = "{0}.{1}G{2}".format(prefix, line.chrom, gene_counter)
-                current_gene["gene"] = line
-                # current_gene = line.id
-            elif line.is_transcript:
-                assert current_gene is not None
-                # line.parent = current_gene
-                current_gene["transcripts"][line.id] = dict()
-                current_gene["transcripts"][line.id]["transcript"] = line
-                current_gene["transcripts"][line.id]["exons"] = []
-                if line.attributes["primary"].lower() in ("true", "false"):
-                    primary = eval(line.attributes["primary"])
+
+    gid_to_new = dict()
+    tid_to_new = dict()
+
+    with open(gff_handle, "a") as gff_handle:
+        while len(current_lines) > 0:
+            current = min(current_lines.keys())
+            current_gene = dict()
+            curr_index = None
+            for tup in current_lines[current]:
+                temp_index, line = tup
+                if line.header is True:
+                    if "###" not in line._line and line._line != "NA":
+                        print(line, file=gff_handle)
+                    continue
+                if current_chrom is not None and current_chrom != line.chrom:
+                    gene_counter = 0
+                if line.is_gene:
+                    if current_gene != dict():
+                        # Print out
+                        tid_corrs = print_gene(current_gene, gene_counter, gff_handle, prefix)
+                        for tid in tid_corrs:
+                            tid_to_new[(curr_index, tid)] = tid_corrs[tid]
+                        current_gene = dict()
+                        pass
+                    current_gene["transcripts"] = dict()
+                    gene_counter += 1
+                    new_id = "{0}.{1}G{2}".format(prefix, line.chrom, gene_counter)
+
+                    curr_index = temp_index
+                    assert (curr_index, line.id) not in gid_to_new, ((curr_index, line.id),
+                                                                     gid_to_new)
+                    gid_to_new[(curr_index, line.id)] = new_id
+                    line.id = new_id
+                    current_gene["gene"] = line
+                elif line.is_transcript:
+                    assert current_gene is not None
+                    current_gene["transcripts"][line.id] = dict()
+                    current_gene["transcripts"][line.id]["transcript"] = line
+                    current_gene["transcripts"][line.id]["exons"] = []
+                    if line.attributes["primary"].lower() in ("true", "false"):
+                        primary = eval(line.attributes["primary"])
+                    else:
+                        raise ValueError("Invalid value for \"primary\" field: {0}".format(
+                            line.attributes["primary"]
+                        ))
+
+                    current_gene["transcripts"][line.id]["primary"] = primary
+                elif line.is_exon:
+                    for parent in line.parent:
+                        assert parent in current_gene["transcripts"]
+                        current_gene["transcripts"][parent]["exons"].append(line)
                 else:
-                    raise ValueError("Invalid value for \"primary\" field: {0}".format(
-                        line.attributes["primary"]
-                    ))
+                    print(line, file=gff_handle)
+                    continue
+            if current_gene != dict():
+                tid_corrs = print_gene(current_gene, gene_counter, gff_handle, prefix)
+                for tid in tid_corrs:
+                    assert (curr_index, tid) not in tid_to_new, (curr_index, tid)
+                    tid_to_new[(curr_index, tid)] = tid_corrs[tid]
 
-                current_gene["transcripts"][line.id]["primary"] = primary
-            elif line.is_exon:
-                for parent in line.parent:
-                    assert parent in current_gene["transcripts"]
-                    current_gene["transcripts"][parent]["exons"].append(line)
-            else:
-                print(line, file=handle)
-                continue
-        if current_gene != dict():
-            print_gene(current_gene, gene_counter, handle, prefix)
+            del current_lines[current]
 
-        del current_lines[current]
+    return gid_to_new, tid_to_new
 
+
+def merge_loci(num_temp, out_handles, prefix=""):
+
+    metrics_handle, scores_handle, gff_handle = out_handles
+
+    gff_filenames = ["{0}-{1}".format(gff_handle, _) for _ in range(1, num_temp + 1)]
+
+    gid_to_new, tid_to_new = merge_loci_gff(gff_filenames, gff_handle, prefix)
+
+    for handle in metrics_handle, scores_handle:
+        filenames = ["{0}-{1}".format(handle, _) for _ in range(1, num_temp + 1)]
+        handle = open(handle, "a")
+        current_lines = collections.defaultdict(list)
+        filenames = [open(_) for _ in filenames]
+        finished = set()
+        while len(finished) < len(filenames):
+            for num, _ in enumerate(filenames):
+                if _.name in finished:
+                    continue
+                else:
+                    try:
+                        line = next(_)
+                        fields = line.split("/")
+                        current_lines[int(fields[0])].append((num, "/".join(fields[1:])))
+                    except StopIteration:
+                        _.close()
+                        finished.add(_.name)
+
+        [os.remove(_) for _ in finished]
+
+        while len(current_lines) > 0:
+            current = min(current_lines.keys())
+            for index, line in current_lines[current]:
+                fields = line.split("\t")
+                tid, gid = fields[:2]
+                assert (index, gid) in gid_to_new, ((index, gid),
+                                                    "\n".join(str(_) for _ in gid_to_new.items()))
+                assert (index, tid) in tid_to_new, (index, tid, tid_to_new)
+
+                fields[0] = tid_to_new[(index, tid)]
+                fields[1] = gid_to_new[(index, gid)]
+                line = "\t".join(fields)
+                print(line, file=handle, end="")
+            del current_lines[current]
     return
 
 
@@ -424,7 +493,7 @@ class LociProcesser(Process):
         self.__output_files = output_files
         self.locus_metrics, self.locus_scores, self.locus_out = [None] * 3
         self.sub_metrics, self.sub_scores, self.sub_out = [None] * 3
-        self.monolocus_out = None
+        self.mono_metrics, self.mono_scores, self.mono_out = [None] * 3
         self._handles = []
         self._create_handles(self.__output_files)
         self.__gene_counter = 0
@@ -464,7 +533,8 @@ class LociProcesser(Process):
         state["_handles"] = []
 
         for name in ["locus_metrics", "locus_scores", "locus_out",
-                     "sub_metrics", "sub_scores", "sub_out", "monolocus_out"]:
+                     "sub_metrics", "sub_scores", "sub_out",
+                     "mono_metrics", "mono_scores", "mono_out"]:
             state[name] = None
         state["engine"] = None
         state["analyse_locus"] = None
@@ -542,10 +612,26 @@ class LociProcesser(Process):
             self.sub_scores.close = self.sub_scores.handle.close
             self.sub_out = open(sub_out_file, "w")
             self._handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
-        monolocus_out_file = "{0}-{1}".format(handles[2], self.identifier)
-        if monolocus_out_file:
-            self.monolocus_out = open(monolocus_out_file, "w")
-            self._handles.append(self.monolocus_out)
+        (mono_metrics_file,
+         mono_scores_file,
+         mono_out_file) = ["{0}-{1}".format(_, self.identifier) for _ in handles[2]]
+        if mono_metrics_file:
+            mono_metrics_file = open(mono_metrics_file, "w")
+            mono_scores_file = open(mono_scores_file, "w")
+            self.mono_metrics = csv.DictWriter(
+                mono_metrics_file,
+                Superlocus.available_metrics,
+                delimiter="\t")
+            self.mono_metrics.handle = mono_metrics_file
+            self.mono_metrics.flush = self.mono_metrics.handle.flush
+            self.mono_metrics.close = self.mono_metrics.handle.close
+            self.mono_scores = csv.DictWriter(
+                mono_scores_file, score_keys, delimiter="\t")
+            self.mono_scores.handle = mono_scores_file
+            self.mono_scores.flush = self.mono_scores.handle.flush
+            self.mono_scores.close = self.mono_scores.handle.close
+            self.mono_out = open(mono_out_file, "w")
+            self._handles.extend([self.mono_metrics, self.mono_scores, self.mono_out])            
 
         return
 
@@ -570,8 +656,8 @@ class LociProcesser(Process):
                         self.sub_metrics.close()
                         self.sub_scores.close()
                         self.sub_out.close()
-                    if self.monolocus_out is not None:
-                        self.monolocus_out.close()
+                    if self.mono_out is not None:
+                        self.mono_out.close()
 
                     return
                 else:
@@ -602,7 +688,6 @@ class LociProcesser(Process):
                 sub_lines = "\n".join(
                     ["{0}/{1}".format(counter, line) for line in sub_lines.split("\n")])
                 print(sub_lines, file=self.sub_out)
-                # sub_out.flush()
             sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
                                 if x != {} and "tid" in x]
             sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
@@ -610,25 +695,27 @@ class LociProcesser(Process):
             for row in sub_metrics_rows:
                 row["tid"] = "{0}/{1}".format(counter, row["tid"])
                 self.sub_metrics.writerow(row)
-                # sub_metrics.flush()
             for row in sub_scores_rows:
                 row["tid"] = "{0}/{1}".format(counter, row["tid"])
                 self.sub_scores.writerow(row)
-                # sub_scores.flush()
-        if self.monolocus_out != '':
+        if self.mono_out != '':
             mono_lines = stranded_locus.__str__(
                 level="monosubloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if mono_lines != '':
                 mono_lines = "\n".join(
                     ["{0}/{1}".format(counter, line) for line in mono_lines.split("\n")])
-                print(mono_lines, file=self.monolocus_out)
-                # mono_out.flush()
-        locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
-                              if x != {} and "tid" in x]
-        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
-
-        assert len(locus_metrics_rows) == len(locus_scores_rows)
+                print(mono_lines, file=self.mono_out)
+            mono_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
+                                 if x != {} and "tid" in x]
+            mono_scores_rows = [x for x in stranded_locus.print_subloci_scores()
+                                if x != {} and "tid" in x]
+            for row in mono_metrics_rows:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
+                self.mono_metrics.writerow(row)
+            for row in mono_scores_rows:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
+                self.mono_scores.writerow(row)
 
         for locus in stranded_locus.loci:
             fragment_test = (
@@ -645,17 +732,23 @@ class LociProcesser(Process):
 
         locus_lines = stranded_locus.__str__(
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
+
+        locus_metrics_rows = [x for x in stranded_locus.print_loci_metrics()]
+        locus_scores_rows = [x for x in stranded_locus.print_loci_scores()]
+
+        assert len(locus_metrics_rows) == len(locus_scores_rows)
+
         for row in locus_metrics_rows:
-            row["tid"] = "{0}/{1}".format(counter, row["tid"])
+            try:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
+            except KeyError as exc:
+                raise KeyError("{0}\n{1}".format(exc, "\n".join([str(_) for _ in row.items()])))
             self.locus_metrics.writerow(row)
-            # locus_metrics.flush()
         for row in locus_scores_rows:
             row["tid"] = "{0}/{1}".format(counter, row["tid"])
             self.locus_scores.writerow(row)
-            # self.locus_scores.flush()
 
         if locus_lines != '':
             locus_lines = "\n".join(
                     ["{0}/{1}".format(counter, line) for line in locus_lines.split("\n")])
             print(locus_lines, file=self.locus_out)
-            # locus_out.flush()

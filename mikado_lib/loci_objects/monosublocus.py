@@ -51,8 +51,6 @@ class Monosublocus(Abstractlocus):
         self_line.name = self.name
         self_line.parent = self.parent
         self_line.attributes.update(self.attributes)
-        if "is_fragment" in self.attributes and self.attributes["is_fragment"] is False:
-            del self_line.attributes["is_fragment"]
         self_line.attributes["multiexonic"] = (not self.monoexonic)
         lines.append(str(self_line))
 

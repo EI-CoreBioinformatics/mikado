@@ -329,10 +329,12 @@ memory intensive, proceed with caution!")
             # Not a very clean wya to do things ... attaching the handles as properties
             sub_scores.handle = sub_scores_file
             sub_scores.flush = sub_scores.handle.flush
+            sub_scores.flush()
             sub_scores.close = sub_scores.handle.close
             sub_scores.name = sub_scores.handle.name
             sub_metrics.handle = sub_metrics_file
             sub_metrics.flush = sub_metrics.handle.flush
+            sub_metrics.flush()
             sub_metrics.close = sub_metrics.handle.close
             sub_metrics.name = sub_metrics.handle.name
             sub_out = open(self.sub_out, 'w')
@@ -340,7 +342,7 @@ memory intensive, proceed with caution!")
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=sub_out)
-
+            sub_out.flush()
             sub_files = [sub_metrics,
                          sub_scores,
                          sub_out]
@@ -348,18 +350,45 @@ memory intensive, proceed with caution!")
             sub_files = [None, None, None]
 
         if self.monolocus_out != '':
+            mono_metrics_file = open(re.sub("$", ".metrics.tsv",
+                                     re.sub(".gff.?$", "", self.monolocus_out)), "w")
+            mono_scores_file = open(re.sub("$", ".scores.tsv",
+                                    re.sub(".gff.?$", "", self.monolocus_out)), "w")          
+            mono_metrics = csv.DictWriter(
+                mono_metrics_file,
+                Superlocus.available_metrics,
+                delimiter="\t")
+            mono_metrics.writeheader()
+            mono_scores = csv.DictWriter(
+                mono_scores_file, score_keys, delimiter="\t")
+            mono_scores.writeheader()
+            # Not a very clean wya to do things ... attaching the handles as properties
+            mono_scores.handle = mono_scores_file
+            mono_scores.flush = mono_scores.handle.flush
+            mono_scores.flush()
+            mono_scores.close = mono_scores.handle.close
+            mono_scores.name = mono_scores.handle.name
+            mono_metrics.handle = mono_metrics_file
+            mono_metrics.flush = mono_metrics.handle.flush
+            mono_metrics.flush()
+            mono_metrics.close = mono_metrics.handle.close
+            mono_metrics.name = mono_metrics.handle.name
             mono_out = open(self.monolocus_out, 'w')
             print('##gff-version 3', file=mono_out)
             for chrom in session.query(Chrom).order_by(Chrom.name.desc()):
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=mono_out)
+
             mono_out.flush()
+            mono_files = [mono_metrics,
+                          mono_scores,
+                          mono_out]
         else:
-            mono_out = None
+            mono_files = [None] * 3
 
         session.close()
         engine.dispose()
-        return sub_files, mono_out
+        return sub_files, mono_files
 
     def __get_output_files(self):
 
@@ -397,12 +426,12 @@ memory intensive, proceed with caution!")
         locus_scores.name = locus_scores.handle.name
 
         locus_out = open(self.locus_out, 'w')
-        sub_files, mono_out = self.__print_gff_headers(locus_out, score_keys)
+        sub_files, mono_files = self.__print_gff_headers(locus_out, score_keys)
 
         return ((locus_metrics,
                  locus_scores,
                  locus_out),
-                sub_files, mono_out)
+                sub_files, mono_files)
 
     # This method has many local variables, but most (9!) are
     # actually file handlers. I cannot trim them down for now.
@@ -422,7 +451,7 @@ memory intensive, proceed with caution!")
 
         locus_metrics, locus_scores, locus_out = handles[0]
         sub_metrics, sub_scores, sub_out = handles[1]
-        mono_out = handles[2]
+        mono_metrics, mono_scores, mono_out = handles[2]
 
         stranded_locus.logger = logger
         if self.sub_out != '':  # Skip this section if no sub_out is defined
@@ -449,11 +478,17 @@ memory intensive, proceed with caution!")
             if mono_lines != '':
                 print(mono_lines, file=mono_out)
                 # mono_out.flush()
-        locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
-                              if x != {} and "tid" in x]
-        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
-                             if x != {} and "tid" in x]
-
+            mono_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
+                                if x != {} and "tid" in x]
+            mono_scores_rows = [x for x in stranded_locus.print_subloci_scores()
+                               if x != {} and "tid" in x]
+            for row in mono_metrics_rows:
+                mono_metrics.writerow(row)
+                # mono_metrics.flush()
+            for row in mono_scores_rows:
+                mono_scores.writerow(row)
+                # mono_scores.flush()
+                
         for locus in stranded_locus.loci:
             gene_counter += 1
             fragment_test = (
@@ -469,6 +504,9 @@ memory intensive, proceed with caution!")
 
         locus_lines = stranded_locus.__str__(
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
+        locus_metrics_rows = [_ for _ in stranded_locus.print_loci_metrics()]
+        locus_scores_rows = [_ for _ in stranded_locus.print_loci_scores()]
+
         for row in locus_metrics_rows:
             locus_metrics.writerow(row)
             # locus_metrics.flush()
@@ -752,9 +790,9 @@ memory intensive, proceed with caution!")
         if handles[1][0] is not None:
             [_.close() for _ in handles[1]]
             handles[1] = [_.name for _ in handles[1]]
-        if handles[2] is not None:
-            handles[2].close()
-            handles[2] = handles[2].name
+        if handles[2][0] is not None:
+            [_.close() for _ in handles[2]]
+            handles[2] = [_.name for _ in handles[2]]
 
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
@@ -842,18 +880,9 @@ memory intensive, proceed with caution!")
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci
-        with open(handles[0][2], "a") as locus_out:
-            partials = ["{0}-{1}".format(locus_out.name, _) for _ in range(1, self.threads + 1)]
-            merge_loci(partials,
-                       locus_out,
-                       prefix=self.json_conf["pick"]["output_format"]["id_prefix"])
-            [os.remove(_) for _ in partials]
-
-        for handle in handles[0][:2]:
-            with open(handle, "a") as output:
-                partials = ["{0}-{1}".format(handle, _) for _ in range(1, self.threads + 1)]
-                merge_partial(partials, output)
-                [os.remove(_) for _ in partials]
+        merge_loci(self.threads,
+                   handles[0],
+                   prefix=self.json_conf["pick"]["output_format"]["id_prefix"])
 
         for handle in handles[1]:
             if handle is not None:
@@ -862,11 +891,12 @@ memory intensive, proceed with caution!")
                     merge_partial(partials, output)
                     [os.remove(_) for _ in partials]
 
-        if handles[2] is not None:
-            with open(handles[2], "a") as output:
-                partials = ["{0}-{1}".format(handles[2], _) for _ in range(1, self.threads + 1)]
-                merge_partial(partials, output)
-                [os.remove(_) for _ in partials]
+        for handle in handles[2]:
+            if handle is not None:
+                with open(handle, "a") as output:
+                    partials = ["{0}-{1}".format(handle, _) for _ in range(1, self.threads + 1)]
+                    merge_partial(partials, output)
+                    [os.remove(_) for _ in partials]
 
         self.logger.info("Finished merging partial files")
 

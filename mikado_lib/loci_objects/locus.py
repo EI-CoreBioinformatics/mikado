@@ -386,7 +386,6 @@ class Locus(Sublocus, Abstractlocus):
         self.metric_lines_store = []
         for row in self.prepare_metrics():
             if row["tid"] in self.__orf_doubles:
-                print(row["tid"])
                 continue
             else:
                 self.metric_lines_store.append(row)

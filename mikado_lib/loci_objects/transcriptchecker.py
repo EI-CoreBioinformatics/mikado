@@ -59,6 +59,7 @@ class TranscriptChecker(Transcript):
         super().__init__(gffline)
         self.original_strand = gffline.strand
         assert self.original_strand == self.strand
+        self.attributes.update(gffline.attributes)
         self.parent = gffline.parent
         self.fasta_seq = seq
         self.strand_specific = strand_specific

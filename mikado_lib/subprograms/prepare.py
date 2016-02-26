@@ -401,17 +401,14 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
             if label != '':
                 row.id = "{0}_{1}".format(label, row.id)
             transcript2genes[row.id] = row.parent[0]
-            continue
-        elif row.is_transcript:
-            if label != '':
-                row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
-            if row.transcript in found_ids:
+            if row.id in found_ids:
                 assert label == ''
                 raise ValueError("""{0} has already been found in another file,
                 this will cause unsolvable collisions. Please rerun preparation using
                 labels to tag each file.""")
-            assert row.transcript not in attributes
-            attributes[row.transcript] = row.attributes.copy()
+            assert row.id not in attributes
+            attributes[row.id] = row.attributes.copy()
+            continue
         elif not row.is_exon:
             continue
         elif row.is_exon is True:
@@ -453,7 +450,21 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     """
 
     new_ids = set()
+    attributes = dict()
     for row in gff_handle:
+        if row.is_transcript is True:
+            if label != '':
+                row.transcript = "{0}_{1}".format(label, row.transcript)
+            if row.transcript in found_ids:
+                assert label != ''
+                raise ValueError("""{0} has already been found in another file,
+                    this will cause unsolvable collisions. Please rerun preparation using
+                    labels to tag each file.""")
+            assert row.id not in attributes
+            attributes[row.id] = row.attributes.copy()
+            if "exon_number" in attributes[row.id]:
+                del attributes[row.id]["exon_number"]
+            continue
         if row.is_exon is False or (row.is_cds is True and strip_cds is True):
             continue
         if label != '':
@@ -463,6 +474,8 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
             raise ValueError("""{0} has already been found in another file,
                 this will cause unsolvable collisions. Please rerun preparation using
                 labels to tag each file.""")
+        if row.transcript in attributes:
+            row.attributes.update(attributes[row.transcript])
         exon_lines[row.transcript].append(row)
         new_ids.add(row.transcript)
     return exon_lines, new_ids

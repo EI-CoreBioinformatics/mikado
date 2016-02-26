@@ -43,17 +43,7 @@ setup(
 
     scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),
 
-    install_requires=["pyyaml",
-                      "jsonschema",
-                      "numpy",
-                      "networkx>=1.10",
-                      "sqlalchemy>=1",
-                      "sqlalchemy_utils",
-                      "biopython>=1.6",
-                      "intervaltree",
-                      "nose",
-                      "pyfaidx",
-                      ],
+    install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],
 
     extras_require={
         "postgresql": ["psycopg2"],

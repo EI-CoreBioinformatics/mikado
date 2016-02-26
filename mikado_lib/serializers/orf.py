@@ -7,8 +7,7 @@ This module contains the necessary classes for serialising and querying ORF data
 
 import os
 import sqlite3
-
-from Bio import SeqIO
+import pyfaidx
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 import sqlalchemy.exc
 from sqlalchemy.orm import relationship, backref, column_property
@@ -18,7 +17,7 @@ from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12, GFF, GTF
 from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
-
+# from Bio import SeqIO
 
 # This is a serialization class, it must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
@@ -165,13 +164,14 @@ class OrfSerializer:
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
-            self.fasta_index = SeqIO.index(fasta_index, "fasta")
+            self.fasta_index = pyfaidx.Fasta(fasta_index)
+            # self.fasta_index = SeqIO.index(fasta_index, "fasta")
         elif fasta_index is None:
             exc = ValueError("A fasta index is needed for the serialization!")
             self.logger.exception(exc)
             return
         else:
-            assert "SeqIO.index" in repr(fasta_index)
+            assert isinstance(fasta_index, pyfaidx.Fasta)
             self.fasta_index = fasta_index
 
         if isinstance(handle, str):
@@ -232,9 +232,9 @@ class OrfSerializer:
             self.logger.info("%d entries already present in db, %d in the index",
                              len([fasta_key for fasta_key in self.fasta_index if
                                   fasta_key not in cache]),
-                             len(self.fasta_index))
+                             len(self.fasta_index.keys()))
             found = set()
-            for record in self.fasta_index:
+            for record in self.fasta_index.keys():
                 if record in cache:
                     continue
                 objects.append(Query(record, len(self.fasta_index[record])))

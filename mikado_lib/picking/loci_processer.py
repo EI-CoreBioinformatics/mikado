@@ -5,10 +5,189 @@ import logging.handlers as logging_handlers
 import functools
 from ..utilities import dbutils
 from ..loci_objects.superlocus import Superlocus
+from ..parsers.GFF import GffLine
+import collections
 import csv
+import re
 import sys
 
 __author__ = 'Luca Venturini'
+
+
+def merge_partial(filenames, handle):
+
+    """This function merges the partial files created by the multiprocessing into a single
+    sorted file."""
+
+    current_lines = collections.defaultdict(list)
+    filenames = set([open(_) for _ in filenames])
+    while len(filenames) > 0:
+        finished = set()
+        for _ in filenames:
+            try:
+                line = next(_)
+                _ = line.split("/")
+                current_lines[int(_[0])].append("/".join(_[1:]))
+
+            except StopIteration:
+                _.close()
+                finished.add(_)
+
+        # assert len(current_lines) > 0 or len(finished) == len(filenames)
+        # if len(current_lines) > 0:
+        #     current = min(current_lines.keys())
+        #     for line in current_lines[current]:
+        #         print(line, file=handle, end='')
+        #         current_lines[current].remove(line)
+        #     del current_lines[current]
+        for _ in finished:
+            filenames.remove(_)
+
+    while len(current_lines) > 0:
+        current = min(current_lines.keys())
+        for line in current_lines[current]:
+            print(line, file=handle, end="")
+        del current_lines[current]
+
+    return
+
+
+def print_gene(current_gene, gene_counter, handle, prefix):
+
+    print(current_gene["gene"], file=handle)
+    chrom = current_gene["gene"].chrom
+    primaries = [_ for _ in current_gene["transcripts"] if
+                 current_gene["transcripts"][_]["primary"] is True]
+    assert len(primaries) == 1 or all([".orf" in _ for _ in primaries]), current_gene
+    for primary in sorted(primaries):
+        tid = "{0}.{1}G{2}.1".format(prefix, chrom, gene_counter)
+        if ".orf" in primary:
+            tid = "{0}{1}".format(tid,
+                                  primary[primary.find(".orf"):])
+        else:
+            assert len(primaries) == 1
+        current_transcript = current_gene["transcripts"][primary]["transcript"]
+        current_transcript.parent = current_gene["gene"].id
+        current_exons = current_gene["transcripts"][primary]["exons"]
+        current_transcript.attributes["Alias"] = current_transcript.id[:]
+        current_transcript.id = tid
+        print(current_transcript, file=handle)
+        for exon in current_exons:
+            exon.parent = tid
+            exon.id = re.sub(current_transcript.attributes["Alias"],
+                             tid, exon.id)
+            exon.name = re.sub(current_transcript.attributes["Alias"],
+                               tid, exon.id)
+            print(exon, file=handle)
+
+    others = [_ for _ in current_gene["transcripts"] if _ not in primaries]
+
+    others = sorted(others,
+                    key=lambda tid:
+                    (current_gene["transcripts"][tid]["transcript"].start,
+                     current_gene["transcripts"][tid]["transcript"].end))
+    transcript_counter = 1
+    visited = set()
+    for other in others:
+        name = re.sub("\.orf[0-9]+", "", other)
+        if name in visited:
+            pass
+        else:
+            transcript_counter += 1
+        assert transcript_counter > 1
+        visited.add(name)
+        tid = "{0}.{1}G{2}.{3}".format(prefix,
+                                       chrom,
+                                       gene_counter,
+                                       transcript_counter)
+        if ".orf" in other:
+            tid = "{0}{1}".format(tid,
+                                  other[other.find(".orf"):])
+        current_transcript = current_gene["transcripts"][other]["transcript"]
+        current_transcript.parent = current_gene["gene"].id
+        current_exons = current_gene["transcripts"][other]["exons"]
+        current_transcript.attributes["Alias"] = current_transcript.id[:]
+        current_transcript.id = tid
+        print(current_transcript, file=handle)
+        for exon in current_exons:
+            exon.parent = tid
+            exon.id = re.sub(current_transcript.attributes["Alias"],
+                             tid, exon.id)
+            exon.name = re.sub(current_transcript.attributes["Alias"],
+                               tid, exon.id)
+            print(exon, file=handle)
+    print("###", file=handle)
+
+
+def merge_loci(filenames, handle, prefix=""):
+
+    current_lines = collections.defaultdict(list)
+    filenames = set([open(_) for _ in filenames])
+    while len(filenames) > 0:
+        finished = set()
+        for _ in filenames:
+            try:
+                line = next(_)
+                _ = line.split("/")
+                current_lines[int(_[0])].append(GffLine("/".join(_[1:])))
+
+            except StopIteration:
+                _.close()
+                finished.add(_)
+
+        for _ in finished:
+            filenames.remove(_)
+
+    gene_counter = 0
+    current_chrom = None
+    while len(current_lines) > 0:
+        current = min(current_lines.keys())
+        current_gene = dict()
+        for line in current_lines[current]:
+            if line.header is True:
+                if "###" not in line._line and line._line != "NA":
+                    print(line, file=handle)
+                continue
+            if current_chrom is not None and current_chrom != line.chrom:
+                gene_counter = 0
+            if line.is_gene:
+                if current_gene != dict():
+                    # Print out
+                    print_gene(current_gene, gene_counter, handle, prefix)
+                    current_gene = dict()
+                    pass
+                current_gene["transcripts"] = dict()
+                gene_counter += 1
+                line.id = "{0}.{1}G{2}".format(prefix, line.chrom, gene_counter)
+                current_gene["gene"] = line
+                # current_gene = line.id
+            elif line.is_transcript:
+                assert current_gene is not None
+                line.parent = current_gene
+                current_gene["transcripts"][line.id] = dict()
+                current_gene["transcripts"][line.id]["transcript"] = line
+                current_gene["transcripts"][line.id]["exons"] = []
+                if line.attributes["primary"].lower() in ("true", "false"):
+                    primary = eval(line.attributes["primary"])
+                else:
+                    raise ValueError("Invalid value for \"primary\" field: {0}".format(
+                        line.attributes["primary"]
+                    ))
+
+                current_gene["transcripts"][line.id]["primary"] = primary
+            elif line.is_exon:
+                for parent in line.parent:
+                    assert parent in current_gene["transcripts"]
+                    current_gene["transcripts"][parent]["exons"].append(line)
+            else:
+                print(line, file=handle)
+                continue
+        if current_gene != dict():
+            print_gene(current_gene, gene_counter, handle, prefix)
+
+        del current_lines[current]
+
+    return
 
 
 def remove_fragments(stranded_loci, json_conf, logger):
@@ -216,15 +395,17 @@ class LociProcesser(Process):
     def __init__(self,
                  json_conf,
                  data_dict,
+                 output_files,
                  locus_queue,
                  logging_queue,
-                 lock,
-                 output_files,
-                 shared_values):
+                 identifier
+                 ):
 
-        current_counter, gene_counter, current_chrom = shared_values
+        # current_counter, gene_counter, current_chrom = shared_values
         super(LociProcesser, self).__init__()
         self.logging_queue = logging_queue
+        self.__identifier = identifier  # Property directly unsettable
+        self.name = "LociProcesser-{0}".format(self.identifier)
         self.json_conf = json_conf
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
         self.logger = logging.getLogger(self.name)
@@ -233,18 +414,14 @@ class LociProcesser(Process):
         self.logger.propagate = False
 
         self.__data_dict = data_dict
-        self.__cache = dict()
         self.locus_queue = locus_queue
-        self.lock = lock
+        # self.lock = lock
         self.__output_files = output_files
         self.locus_metrics, self.locus_scores, self.locus_out = [None] * 3
         self.sub_metrics, self.sub_scores, self.sub_out = [None] * 3
-        self.monolocus_out = [None] * 3
+        self.monolocus_out = None
         self._handles = []
         self._create_handles(self.__output_files)
-        self.__current_counter = current_counter
-        self.gene_counter = gene_counter
-        self.current_chrom = current_chrom
         assert self.locus_out is not None
         self.logger.debug("Starting Process %s", self.name)
 
@@ -267,6 +444,10 @@ class LociProcesser(Process):
                                                data_dict=self.__data_dict,
                                                engine=self.engine,
                                                logging_queue=self.logging_queue)
+
+    @property
+    def identifier(self):
+        return self.__identifier
 
     def __getstate__(self):
 
@@ -308,9 +489,11 @@ class LociProcesser(Process):
 
     def _create_handles(self, handles):
 
-        locus_metrics_file, locus_scores_file, locus_out_file = handles[0]
-        locus_metrics_file = open(locus_metrics_file, "a")
-        locus_scores_file = open(locus_scores_file, "a")
+        (locus_metrics_file,
+         locus_scores_file,
+         locus_out_file) = ["{0}-{1}".format(_, self.identifier) for _ in handles[0]]
+        locus_metrics_file = open(locus_metrics_file, "w")
+        locus_scores_file = open(locus_scores_file, "w")
 
         score_keys = ["tid", "parent", "score"]
         score_keys += sorted(list(self.json_conf["scoring"].keys()))
@@ -330,13 +513,15 @@ class LociProcesser(Process):
         self.locus_scores.flush = self.locus_scores.handle.flush
         self.locus_scores.close = self.locus_scores.handle.close
 
-        self.locus_out = open(locus_out_file, 'a')
+        self.locus_out = open(locus_out_file, 'w')
         self._handles.extend((self.locus_out, self.locus_metrics, self.locus_out))
 
-        sub_metrics_file, sub_scores_file, sub_out_file = handles[1]
+        (sub_metrics_file,
+         sub_scores_file,
+         sub_out_file) = ["{0}-{1}".format(_, self.identifier) for _ in handles[1]]
         if sub_metrics_file:
-            sub_metrics_file = open(sub_metrics_file, "a")
-            sub_scores_file = open(sub_scores_file, "a")
+            sub_metrics_file = open(sub_metrics_file, "w")
+            sub_scores_file = open(sub_scores_file, "w")
             self.sub_metrics = csv.DictWriter(
                 sub_metrics_file,
                 Superlocus.available_metrics,
@@ -349,18 +534,14 @@ class LociProcesser(Process):
             self.sub_scores.handle = sub_scores_file
             self.sub_scores.flush = self.sub_scores.handle.flush
             self.sub_scores.close = self.sub_scores.handle.close
-            self.sub_out = open(sub_out_file, "a")
+            self.sub_out = open(sub_out_file, "w")
             self._handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
-        monolocus_out_file = handles[2]
+        monolocus_out_file = "{0}-{1}".format(handles[2], self.identifier)
         if monolocus_out_file:
-            self.monolocus_out = open(monolocus_out_file, "a")
+            self.monolocus_out = open(monolocus_out_file, "w")
             self._handles.append(self.monolocus_out)
 
         return
-
-    @property
-    def cache_length(self):
-        return len(self.__cache)
 
     def run(self):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
@@ -375,46 +556,26 @@ class LociProcesser(Process):
                     exit_received = True
                     if self.engine is not None:
                         self.engine.dispose()
+                    self.locus_out.close()
+                    self.locus_scores.close()
+                    self.locus_metrics.close()
+                    if self.sub_metrics is not None:
+                        self.sub_metrics.close()
+                        self.sub_scores.close()
+                        self.sub_out.close()
+                    if self.monolocus_out is not None:
+                        self.monolocus_out.close()
+
+                    return
                 else:
                     if slocus is not None:
                         stranded_loci = self.analyse_locus(slocus, counter)
-                        self.__cache[counter] = stranded_loci
                     else:
-                        self.__cache[counter] = []
-            if self.__current_counter.value + 1 in self.__cache:
-                with self.lock:
-                    while self.__current_counter.value + 1 in self.__cache:
-                        self.logger.debug("Printing %d counter in %s",
-                                          self.__current_counter.value,
-                                          self.name)
-                        stranded_loci = self.__cache[self.__current_counter.value + 1]
-                        if len(stranded_loci) > 0:
-                            if stranded_loci[0].chrom != self.current_chrom.value:
-                                self.logger.warning(
-                                    "Resetting the gene counter for chrom %s; old value %s",
-                                    stranded_loci[0].chrom,
-                                    str(self.current_chrom.value))
-                                self.gene_counter.value = 0
-                                self.current_chrom.value = stranded_loci[0].chrom
-                            for stranded_locus in sorted(stranded_loci):
-                                self.logger.debug("Printing %s", stranded_locus.id)
-                                self._print_locus(stranded_locus)
-                        del self.__cache[self.__current_counter.value + 1]
-                        self.__current_counter.value += 1
-                    [_.flush() for _ in self._handles]
-            if exit_received is True:
-                if len(self.__cache) > 0:
-                    self.logger.debug("Still %d loci to print for %s, current value %d (%s)",
-                                      self.cache_length,
-                                      self.name,
-                                      self.__current_counter.value,
-                                      ", ".join([str(_) for _ in sorted(self.__cache.keys())]))
-                    continue
-                else:
-                    [_.close() for _ in self._handles]
-                    return
+                        stranded_loci = []
+                    for stranded_locus in stranded_loci:
+                        self._print_locus(stranded_locus, counter)
 
-    def _print_locus(self, stranded_locus):
+    def _print_locus(self, stranded_locus, counter):
 
         """
         Private method that handles a single superlocus for printing.
@@ -428,6 +589,8 @@ class LociProcesser(Process):
                 level="subloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if sub_lines != '':
+                sub_lines = "\n".join(
+                    ["{0}/{1}".format(counter, line) for line in sub_lines.split("\n")])
                 print(sub_lines, file=self.sub_out)
                 # sub_out.flush()
             sub_metrics_rows = [x for x in stranded_locus.print_subloci_metrics()
@@ -435,9 +598,11 @@ class LociProcesser(Process):
             sub_scores_rows = [x for x in stranded_locus.print_subloci_scores()
                                if x != {} and "tid" in x]
             for row in sub_metrics_rows:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
                 self.sub_metrics.writerow(row)
                 # sub_metrics.flush()
             for row in sub_scores_rows:
+                row["tid"] = "{0}/{1}".format(counter, row["tid"])
                 self.sub_scores.writerow(row)
                 # sub_scores.flush()
         if self.monolocus_out != '':
@@ -445,35 +610,42 @@ class LociProcesser(Process):
                 level="monosubloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
             if mono_lines != '':
+                mono_lines = "\n".join(
+                    ["{0}/{1}".format(counter, line) for line in mono_lines.split("\n")])
                 print(mono_lines, file=self.monolocus_out)
                 # mono_out.flush()
         locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
                               if x != {} and "tid" in x]
-        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()
-                             if x != {} and "tid" in x]
+        locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
+                             # if x != {} and "tid" in x]
+
+        assert len(locus_metrics_rows) == len(locus_scores_rows)
 
         for locus in stranded_locus.loci:
-            self.gene_counter.value += 1
             fragment_test = (
                 self.json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
                 is True and stranded_locus.loci[locus].is_fragment is True)
 
             if fragment_test is True:
                 continue
-            new_id = "{0}.{1}G{2}".format(
-                self.json_conf["pick"]["output_format"]["id_prefix"],
-                stranded_locus.chrom, self.gene_counter.value)
-            stranded_locus.loci[locus].id = new_id
+            # new_id = "{0}.{1}G{2}".format(
+            #     self.json_conf["pick"]["output_format"]["id_prefix"],
+            #     stranded_locus.chrom, self.gene_counter.value)
+            # stranded_locus.loci[locus].id = new_id
 
         locus_lines = stranded_locus.__str__(
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
         for row in locus_metrics_rows:
+            row["tid"] = "{0}/{1}".format(counter, row["tid"])
             self.locus_metrics.writerow(row)
             # locus_metrics.flush()
         for row in locus_scores_rows:
+            row["tid"] = "{0}/{1}".format(counter, row["tid"])
             self.locus_scores.writerow(row)
-            # locus_scores.flush()
+            # self.locus_scores.flush()
 
         if locus_lines != '':
+            locus_lines = "\n".join(
+                    ["{0}/{1}".format(counter, line) for line in locus_lines.split("\n")])
             print(locus_lines, file=self.locus_out)
             # locus_out.flush()

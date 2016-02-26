@@ -278,8 +278,8 @@ def serialise(args):
         dbutils.DBBASE.metadata.create_all(engine)
 
     load_junctions(args, logger)
-    load_blast(args, logger)
     load_orfs(args, logger)
+    load_blast(args, logger)
     logger.info("Finished")
 
 

@@ -29,11 +29,15 @@ class BlastOpener:
         self.__filename = filename
         self.__handle = None
         self.__closed = False
+        self.__opened = False
+        self.__enter__()
 
     def __enter__(self):
 
         if self.__closed is True:
             raise ValueError('I/O operation on closed file.')
+        if self.__opened is True:
+            return self
 
         if isinstance(self.__filename, (gzip.GzipFile, io.TextIOWrapper)):
             self.__handle = self.__filename
@@ -63,6 +67,7 @@ class BlastOpener:
             else:
                 raise ValueError("Unrecognized file format: %s", self.__filename)
 
+        self.__opened = True
         assert self.__handle is not None, self.__filename
         return self
 
@@ -70,14 +75,18 @@ class BlastOpener:
         self.__enter__()
 
     def __exit__(self, *args):
+        _ = args
         if self.__closed is False:
             self.__handle.close()
             self.__closed = True
+            self.__opened = False
 
     def __iter__(self):
         return self
 
     def __next__(self):
+        if self.__handle is None:
+            raise ValueError("Invalid handle")
         return next(self.__handle)
 
     def close(self):
@@ -282,7 +291,10 @@ class _Merger(multiprocessing.Process):
                 self.queue.put_nowait(self.header)
                 print_header = False
             try:
-                handle = BlastOpener(filename)
+                with BlastOpener(filename) as handle:
+                    handle, _, exc = check_beginning(handle,
+                                                     filename,
+                                                     self.header)
             except OSError as exc:
                 self.logger.exception(exc)
                 continue
@@ -290,9 +302,6 @@ class _Merger(multiprocessing.Process):
                 self.logger.exception(exc)
                 continue
 
-            handle, _, exc = check_beginning(handle,
-                                             filename,
-                                             self.header)
             if exc is not None:
                 self.logger.exception(exc)
                 self.logger.error("Skipped %s", filename)
@@ -469,6 +478,9 @@ class XMLMerger(threading.Thread):
     def __exit__(self, *args):
         _ = args
         self.join()
+
+    def close(self):
+        self.__exit()
 
     def __enter__(self):
         pass

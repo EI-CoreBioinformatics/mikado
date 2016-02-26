@@ -38,7 +38,7 @@ pick:
     #  - blast_check: whether to use BLAST information to take a decision. See blast_params
     #  for details.
     #  - blast_params: Parameters related to which BLAST data we want to analyse.
-    blast_check: false
+    blast_check: true
     blast_params:
       #  Parameters for the BLAST check prior to splitting.
       #  - evalue: Minimum evalue for the whole hit. Default: 1e-6
@@ -46,7 +46,7 @@ pick:
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
       leniency: LENIENT
       min_overlap_duplication: 0.8
-    execute: false
+    execute: true
   output_format:
     source: test
   files:

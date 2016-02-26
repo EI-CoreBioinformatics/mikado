@@ -32,7 +32,7 @@ def launch(args):
 
     for line in parser:
         print(line, file=args.out)
-
+    parser.close()
 
 def merger_parser():
     """

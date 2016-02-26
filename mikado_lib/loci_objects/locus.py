@@ -44,7 +44,7 @@ class Locus(Monosublocus, Abstractlocus):
         # Set to True in any case.
         self.primary_transcript.attributes["primary"] = True
 
-        return super().__str__(print_cds=print_cds)
+        return super().__str__(print_cds=print_cds, source_in_name=False)
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.

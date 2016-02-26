@@ -46,7 +46,7 @@ pick:
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
       leniency: LENIENT
       min_overlap_duplication: 0.8
-    execute: true
+    execute: false
   output_format:
     source: test
   files:

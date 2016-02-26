@@ -83,19 +83,24 @@ def print_gene(current_gene, gene_counter, handle, prefix):
     others = [_ for _ in current_gene["transcripts"] if _ not in primaries]
 
     others = sorted(others,
-                    key=lambda tid:
-                    (current_gene["transcripts"][tid]["transcript"].start,
-                     current_gene["transcripts"][tid]["transcript"].end))
-    transcript_counter = 1
-    visited = set()
+                    key=lambda _:
+                    (current_gene["transcripts"][_]["transcript"].start,
+                     current_gene["transcripts"][_]["transcript"].end))
+    # transcript_counter = 1
+
     for other in others:
         name = re.sub("\.orf[0-9]+", "", other)
-        if name in visited:
-            pass
-        else:
-            transcript_counter += 1
+        current_transcript = current_gene["transcripts"][other]["transcript"]
+        # Get the original transcript counter
+        try:
+            first = re.sub("{0}\.".format(current_transcript.parent[0]), "", other)
+            transcript_counter = int(re.sub("\.orf[0-9]+", "", first))
+        except ValueError:
+            assert isinstance(current_transcript.parent, list),\
+                type(current_transcript.parent)
+            raise
         assert transcript_counter > 1
-        visited.add(name)
+
         tid = "{0}.{1}G{2}.{3}".format(prefix,
                                        chrom,
                                        gene_counter,
@@ -103,7 +108,7 @@ def print_gene(current_gene, gene_counter, handle, prefix):
         if ".orf" in other:
             tid = "{0}{1}".format(tid,
                                   other[other.find(".orf"):])
-        current_transcript = current_gene["transcripts"][other]["transcript"]
+
         current_transcript.parent = current_gene["gene"].id
         current_exons = current_gene["transcripts"][other]["exons"]
         current_transcript.attributes["Alias"] = current_transcript.id[:]
@@ -163,7 +168,7 @@ def merge_loci(filenames, handle, prefix=""):
                 # current_gene = line.id
             elif line.is_transcript:
                 assert current_gene is not None
-                line.parent = current_gene
+                # line.parent = current_gene
                 current_gene["transcripts"][line.id] = dict()
                 current_gene["transcripts"][line.id]["transcript"] = line
                 current_gene["transcripts"][line.id]["exons"] = []
@@ -422,6 +427,7 @@ class LociProcesser(Process):
         self.monolocus_out = None
         self._handles = []
         self._create_handles(self.__output_files)
+        self.__gene_counter = 0
         assert self.locus_out is not None
         self.logger.debug("Starting Process %s", self.name)
 
@@ -547,6 +553,7 @@ class LociProcesser(Process):
         """Start polling the queue, analyse the loci, and send them to the printer process."""
         self.logger.debug("Starting to parse data for {0}".format(self.name))
         exit_received = False
+        current_chrom = None
         while True:
             if exit_received is False:
                 slocus, counter = self.locus_queue.get()
@@ -569,6 +576,9 @@ class LociProcesser(Process):
                     return
                 else:
                     if slocus is not None:
+                        if current_chrom != slocus.chrom:
+                            self.__gene_counter = 0
+                            current_chrom = slocus.chrom
                         stranded_loci = self.analyse_locus(slocus, counter)
                     else:
                         stranded_loci = []
@@ -617,7 +627,6 @@ class LociProcesser(Process):
         locus_metrics_rows = [x for x in stranded_locus.print_monoholder_metrics()
                               if x != {} and "tid" in x]
         locus_scores_rows = [x for x in stranded_locus.print_monoholder_scores()]
-                             # if x != {} and "tid" in x]
 
         assert len(locus_metrics_rows) == len(locus_scores_rows)
 
@@ -628,10 +637,11 @@ class LociProcesser(Process):
 
             if fragment_test is True:
                 continue
-            # new_id = "{0}.{1}G{2}".format(
-            #     self.json_conf["pick"]["output_format"]["id_prefix"],
-            #     stranded_locus.chrom, self.gene_counter.value)
-            # stranded_locus.loci[locus].id = new_id
+            self.__gene_counter += 1
+            new_id = "{0}.{1}G{2}".format(
+                self.json_conf["pick"]["output_format"]["id_prefix"],
+                stranded_locus.chrom, self.__gene_counter)
+            stranded_locus.loci[locus].id = new_id
 
         locus_lines = stranded_locus.__str__(
             print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])

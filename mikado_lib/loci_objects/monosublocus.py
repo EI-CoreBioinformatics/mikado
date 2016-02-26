@@ -36,7 +36,7 @@ class Monosublocus(Abstractlocus):
         self.attributes = dict()
 
     # pylint: disable=arguments-differ
-    def __str__(self, print_cds=True):
+    def __str__(self, print_cds=True, source_in_name=True):
 
         lines = []
 
@@ -44,7 +44,10 @@ class Monosublocus(Abstractlocus):
         for attr in ["chrom", 'feature', 'source', 'start', 'end', 'strand']:
             setattr(self_line, attr, getattr(self, attr))
         self_line.phase, self_line.score = None, self.score
-        self_line.id = "{0}_{1}".format(self.source, self.id)
+        if source_in_name is True:
+            self_line.id = "{0}_{1}".format(self.source, self.id)
+        else:
+            self_line.id = self.id
         self_line.name = self.name
         self_line.parent = self.parent
         self_line.attributes.update(self.attributes)

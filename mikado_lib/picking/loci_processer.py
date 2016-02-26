@@ -91,7 +91,7 @@ def print_gene(current_gene, gene_counter, handle, prefix):
     for other in others:
         name = re.sub("\.orf[0-9]+", "", other)
         if name in visited:
-            print(name)
+            pass
         else:
             transcript_counter += 1
         assert transcript_counter > 1

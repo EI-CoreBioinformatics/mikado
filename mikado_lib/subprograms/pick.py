@@ -64,6 +64,15 @@ def check_run_options(args):
     if args.output_dir is not None:
         args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
 
+    if args.source is not None:
+        args.json_conf["pick"]["output_format"]["source"] = args.source
+    if args.prefix is not None:
+        args.json_conf["pick"]["output_format"]["id_prefix"] = args.prefix
+
+    if args.sqlite_db is not None:
+        args.json_conf["db_settings"]["db"] = args.sqlite_db
+        args.json_conf["db_settings"]["dbtype"] = "sqlite"
+
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
@@ -72,9 +81,12 @@ def check_run_options(args):
                     key,
                     args.json_conf["pick"]["files"]["input"])
             else:
-                args.json_conf["pick"]["files"][key] = getattr(args,
-                                                               key,
-                                                               args.json_conf["pick"]["files"][key])
+                val = getattr(args, key, args.json_conf["pick"]["files"][key])
+                if key in ("loci_out", "monoloci_out", "subloci_out"):
+                    if val.split(".")[-1] not in ("gff3", "gff"):
+                        val = "{0}.gff3".format(val)
+
+                args.json_conf["pick"]["files"][key] = val
 
     return args
 
@@ -89,20 +101,6 @@ def pick(args):
 
     args = check_log_settings(args)
     args = check_run_options(args)
-
-    if args.monoloci_out is not None:
-        args.json_conf["pick"]["files"]["monoloci_out"] = args.monoloci_out
-    if args.subloci_out is not None:
-        args.json_conf["pick"]["files"]["subloci_out"] = args.subloci_out
-    if args.loci_out is not None:
-        args.json_conf["pick"]["files"]["loci_out"] = args.loci_out
-
-    if args.source is not None:
-        args.json_conf["pick"]["output_format"]["source"] = args.source
-
-    if args.sqlite_db is not None:
-        args.json_conf["db_settings"]["db"] = args.sqlite_db
-        args.json_conf["db_settings"]["dbtype"] = "sqlite"
 
     creator = Picker(args.json_conf, commandline=" ".join(sys.argv))
     try:
@@ -129,6 +127,8 @@ def pick_parser():
                         help="""This output file is mandatory.
                         If it is not specified in the configuration file,
                         it must be provided here.""")
+    parser.add_argument("--prefix", type=str, default=None,
+                        help="Prefix for the genes. Default: mikado")
     parser.add_argument("--no_cds", action="store_true", default=None,
                         help="""Flag. If set, not CDS information
                         will be printed out in the GFF output files.""")

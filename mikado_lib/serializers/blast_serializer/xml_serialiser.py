@@ -30,7 +30,7 @@ __author__ = 'Luca Venturini'
 # A serialisation class must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
 
-def _pickle_xml(filename, default_header, maxobjects, logging_queue):
+def _pickle_xml(filename, default_header, maxobjects, logging_queue, level="WARN"):
 
     """
     Private method to load the records from an XML file into a pickled file,
@@ -47,7 +47,7 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
     handler = logging_handlers.QueueHandler(logging_queue)
     logger = logging.getLogger("pickle_{0}".format(os.path.basename(filename)))
     logger.addHandler(handler)
-    logger.setLevel("DEBUG")
+    logger.setLevel(level)
 
     # Check the header is alright
     assert default_header is not None
@@ -57,9 +57,6 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue):
         return pfiles
 
     logger.debug("Starting to pickle %s", filename)
-    tries = 0
-    opener = None
-    exc = None
 
     with BlastOpener(filename) as opened:
         try:
@@ -192,14 +189,15 @@ class XmlSerializer:
         # Runtime arguments
         self.threads = json_conf["serialise"]["threads"]
         self.single_thread = json_conf["serialise"]["single_thread"]
+        self.json_conf = json_conf
         if self.threads > 1 and self.single_thread is False:
-            self.context = multiprocessing.get_context(json_conf["multiprocessing_method"])
+            self.context = multiprocessing.get_context(self.json_conf["multiprocessing_method"])
             self.manager = self.context.Manager()
             self.logging_queue = self.manager.Queue(-1)
             self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
             self.queue_logger = logging.getLogger("parser")
             self.queue_logger.addHandler(self.logger_queue_handler)
-            self.queue_logger.setLevel(json_conf["log_settings"]["log_level"])
+            self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
             self.queue_logger.propagate = False
             self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
             self.log_writer.start()
@@ -557,6 +555,7 @@ class XmlSerializer:
                     self.logger.error(exc)
                     continue
                 try:
+                    self.logger.debug("Analysing %s", filename)
                     with BlastOpener(filename) as opened:
                         for record in xparser(opened):
                             record_counter += 1
@@ -572,6 +571,7 @@ class XmlSerializer:
                             hit_counter += partial_hit_counter
                             if hit_counter > 0 and hit_counter % 10000 == 0:
                                 self.logger.info("Serialized %d alignments", hit_counter)
+                    self.logger.debug("Finished %s", filename)
                 except ExpatError:
                     self.logger.error("%s is an invalid BLAST file, saving what's available",
                                       filename)
@@ -587,7 +587,8 @@ class XmlSerializer:
                 self.xml,
                 [self.header] * len(self.xml),
                 [self.maxobjects] * len(self.xml),
-                [self.logging_queue] * len(self.xml)
+                [self.logging_queue] * len(self.xml),
+                [self.json_conf["log_settings"]["log_level"]] * len(self.xml)
             )
 
             pickle_results = pool.starmap_async(_pickle_xml, args)

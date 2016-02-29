@@ -465,10 +465,7 @@ def __create_internal_orf(transcript, orf):
 
     if orf.strand == "-":
         assert transcript.monoexonic is True  # We might decide to remove it someday
-        if orf.has_stop_codon is True:
-            current_end = transcript.start + orf.thick_start - 1
-        else:
-            current_end = transcript.start + orf.thick_start
+        current_end = transcript.start + orf.thick_start - 1
         current_start = current_end + orf.cds_len - 1
 
         assert transcript.start <= current_end <= transcript.end

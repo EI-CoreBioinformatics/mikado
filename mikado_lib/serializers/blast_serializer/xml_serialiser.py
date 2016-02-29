@@ -8,7 +8,7 @@ import logging.handlers as logging_handlers
 import logging
 import tempfile
 import pickle
-import itertools
+# import itertools
 import sqlalchemy
 import sqlalchemy.exc
 from Bio.Blast.NCBIXML import parse as xparser
@@ -29,6 +29,66 @@ __author__ = 'Luca Venturini'
 
 # A serialisation class must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
+
+class _XmlPickler(multiprocessing.Process):
+
+    def __init__(self, filequeue, returnqueueue, default_header, maxobjects, logging_queue, level="WARN"):
+
+        super(_XmlPickler,  self).__init__()
+        self.handler = logging_handlers.QueueHandler(logging_queue)
+        self.logger = logging.getLogger(self.name)
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(level)
+        self.filequeue = filequeue
+        self.returnqueue = returnqueueue
+        self.default_header = default_header
+        self.maxobjects = maxobjects
+        self.logging_queue = logging_queue
+        self.level = level
+        self._pickler = functools.partial(_pickle_xml,
+                                          **{"default_header": self.default_header,
+                                             "maxobjects": self.maxobjects,
+                                             "logging_queue": self.logging_queue,
+                                             "level": self.level})
+
+    def __getstate__(self):
+
+        state = self.__dict__.copy()
+
+        state["handler"].removeHandler(state["handler"])
+        state["handler"].close()
+        state["handler"] = None
+
+        state["_pickler"] = None
+        state["logger"] = None
+
+    def __setstate__(self, state):
+
+        self.__dict__.update(state)
+        self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.logger = logging.getLogger(self.name)
+        self.logger.addHandler(self.handler)
+        self.logger.setLevel(self.level)
+        self._pickler = functools.partial(_pickle_xml,
+                                          {"default_header": self.default_header,
+                                           "maxobjects": self.maxobjects,
+                                           "logging_queue": self.logging_queue,
+                                           "level": self.level})
+
+    def run(self):
+        """
+        While running, the process will get the filenames to analyse from the first queue
+        and return them through the second one.
+        """
+
+        while True:
+            filename = self.filequeue.get()
+            if filename == "EXIT":
+                self.filequeue.put(filename)
+                return 0
+            pfiles = self._pickler(filename)
+            self.returnqueue.put(pfiles)
+
 
 def _pickle_xml(filename, default_header, maxobjects, logging_queue, level="WARN"):
 
@@ -143,7 +203,6 @@ def _sniff(filename, default_header=None):
         elif exc is None:
             default_header = header
 
-
     if exc is not None:
         valid = False
 
@@ -192,8 +251,8 @@ class XmlSerializer:
         self.json_conf = json_conf
         if self.threads > 1 and self.single_thread is False:
             self.context = multiprocessing.get_context(self.json_conf["multiprocessing_method"])
-            self.manager = self.context.Manager()
-            self.logging_queue = self.manager.Queue(-1)
+            # self.manager = self.context.Manager()
+            self.logging_queue = multiprocessing.Queue(-1)
             self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
             self.queue_logger = logging.getLogger("parser")
             self.queue_logger.addHandler(self.logger_queue_handler)
@@ -582,39 +641,67 @@ class XmlSerializer:
             self.logger.info("Creating a pool with %d processes",
                              min(self.threads, len(self.xml)))
 
-            pool = multiprocessing.Pool(min(self.threads, len(self.xml)))
-            args = zip(
-                self.xml,
-                [self.header] * len(self.xml),
-                [self.maxobjects] * len(self.xml),
-                [self.logging_queue] * len(self.xml),
-                [self.json_conf["log_settings"]["log_level"]] * len(self.xml)
-            )
+            # pool = multiprocessing.Pool(min(self.threads, len(self.xml)))
+            # args = zip(
+            #     self.xml,
+            #     [self.header] * len(self.xml),
+            #     [self.maxobjects] * len(self.xml),
+            #     [self.logging_queue] * len(self.xml),
+            #     [self.json_conf["log_settings"]["log_level"]] * len(self.xml)
+            # )
 
-            pickle_results = pool.starmap_async(_pickle_xml, args)
+            filequeue = multiprocessing.Queue(-1)
+            returnqueue = multiprocessing.Queue(-1)
+
+            procs = [_XmlPickler(filequeue,
+                                 returnqueue,
+                                 self.header,
+                                 self.maxobjects,
+                                 self.logging_queue,
+                                 self.json_conf["log_settings"]["log_level"]) for _ in range(
+                min([self.threads, len(self.xml)])
+            )]
+
             self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
-            for pickle_file in itertools.chain(*pickle_results.get()):
-                with open(pickle_file, "rb") as pickled:
-                    for record in pickle.load(pickled):
-                        record_counter += 1
-                        if record_counter > 0 and record_counter % 10000 == 0:
-                            self.logger.info("Parsed %d queries", record_counter)
+            [_.start() for _ in procs]  # Start processes
+            for xml in self.xml:
+                filequeue.put(xml)
 
-                        hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
-                                                                                           hits,
-                                                                                           hsps,
-                                                                                           targets)
-                        hit_counter += partial_hit_counter
-                        if hit_counter > 0 and hit_counter % 10000 == 0:
-                            self.logger.info("Serialized %d alignments", hit_counter)
-                os.remove(pickle_file)
+            filequeue.put("EXIT")
+            [_.join() for _ in procs]  # Wait for processes to join
+            del procs
+            returnqueue.put("EXIT")
+            result = None
+            while result != "EXIT":
+                result = returnqueue.get()
+                if result == "EXIT":
+                    continue
+                for pickle_file in result:
+                    with open(pickle_file, "rb") as pickled:
+                        for record in pickle.load(pickled):
+                            record_counter += 1
+                            if record_counter > 0 and record_counter % 10000 == 0:
+                                self.logger.info("Parsed %d queries", record_counter)
+
+                            hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
+                                                                                               hits,
+                                                                                               hsps,
+                                                                                               targets)
+                            hit_counter += partial_hit_counter
+                            if hit_counter > 0 and hit_counter % 10000 == 0:
+                                self.logger.info("Serialized %d alignments", hit_counter)
+                    os.remove(pickle_file)
 
             _, _ = self.__load_into_db(hits, hsps, force=True)
+            returnqueue.close()
+            filequeue.close()
 
         self.logger.info("Loaded %d alignments for %d queries",
                          hit_counter, record_counter)
 
         self.logger.info("Finished loading blast hits")
+        # [_.close() for _ in self.logger.handlers]
+        self.logging_queue.close()
 
     def __call__(self):
         """

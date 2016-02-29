@@ -573,7 +573,15 @@ def retrieve_orfs(transcript):
         assert orf_results is not None
         candidate_orfs = list(orf for orf in orf_results if orf.strand != "-")
     else:
-        candidate_orfs = orf_results.all()
+        candidate_orfs = []
+        for orf in orf_results:
+            if orf.strand == "-":
+                # We have to invert the transcript coordinates here
+                orf.thick_start = len(orf) - orf.thick_end
+                orf.thick_end = len(orf) - orf.thick_start + 1
+                # 116 to 500 in a 510 transcript =>
+            candidate_orfs.append(orf)
+
     transcript.logger.debug("Found %d ORFs for %s",
                             len(candidate_orfs), transcript.id)
     assert isinstance(candidate_orfs, list)

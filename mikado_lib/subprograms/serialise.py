@@ -130,7 +130,6 @@ def load_blast(args, logger):
                 filenames.extend(glob.glob(xml))
 
         if len(filenames) > 0:
-
             part_launcher(filenames)
             logger.info("Finished to load BLAST data")
         else:
@@ -281,6 +280,14 @@ def serialise(args):
     load_orfs(args, logger)
     load_blast(args, logger)
     logger.info("Finished")
+    try:
+        return 0
+    except KeyboardInterrupt:
+        raise
+    except Exception as exc:
+        logger.exception(exc)
+    finally:
+        return 0
 
 
 def serialise_parser():
@@ -328,7 +335,8 @@ def serialise_parser():
 
     Multiple folders/file patterns can be given, separated by a comma.
     """, default=[])
-    blast.add_argument("--threads", type=int, help="""Number of threads to use for
+    blast.add_argument("-p", "--procs", dest="threads", type=int,
+                       help="""Number of threads to use for
     analysing the BLAST files. This number should not be higher than the total number of XML files.
     """, default=None)
     blast.add_argument("--single-thread", action="store_true",

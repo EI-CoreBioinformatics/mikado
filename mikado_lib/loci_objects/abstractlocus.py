@@ -499,7 +499,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
             # Monobase exons are a problem
             if exon[0] == exon[1]:
-                self.logger.warning("Monobase exon found in %s: %s:%d-%d",
+                self.logger.debug("Monobase exon found in %s: %s:%d-%d",
                                     self.id, self.chrom, exon[0], exon[1])
                 continue
 

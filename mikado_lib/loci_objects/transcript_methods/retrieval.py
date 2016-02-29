@@ -476,9 +476,11 @@ def __create_internal_orf(transcript, orf):
             current_end, current_start,
             current_start - current_end + 1
         )
-        cds_exons.append(("UTR", intervaltree.Interval(transcript.start, current_end - 1)))
+        if current_end > transcript.start:
+            cds_exons.append(("UTR", intervaltree.Interval(transcript.start, current_end - 1)))
         cds_exons.append(("CDS", intervaltree.Interval(current_end, current_start)))
-        cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
+        if current_start < transcript.end:
+            cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
     else:
         for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
                            reverse=(transcript.strand == "-")):

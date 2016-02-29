@@ -500,7 +500,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             # Monobase exons are a problem
             if exon[0] == exon[1]:
                 self.logger.debug("Monobase exon found in %s: %s:%d-%d",
-                                    self.id, self.chrom, exon[0], exon[1])
+                                  self.id, self.chrom, exon[0], exon[1])
                 continue
 
             exon_interval = intervaltree.IntervalTree([exon])

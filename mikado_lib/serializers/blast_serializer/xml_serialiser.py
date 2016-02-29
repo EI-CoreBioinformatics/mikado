@@ -701,7 +701,8 @@ class XmlSerializer:
 
         self.logger.info("Finished loading blast hits")
         # [_.close() for _ in self.logger.handlers]
-        self.logging_queue.close()
+        if hasattr(self, "logging_queue"):
+            self.logging_queue.close()
 
     def __call__(self):
         """

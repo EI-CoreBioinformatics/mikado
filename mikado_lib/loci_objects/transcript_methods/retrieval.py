@@ -73,6 +73,14 @@ def load_orfs(transcript, candidate_orfs):
 
     for orf in candidate_orfs:
         # Minimal check
+        if orf.strand == "-":
+            old_start = orf.thick_start
+            old_end = orf.thick_end
+            orf.thick_start = orf.end - orf.thick_end
+            orf.thick_end = orf.end - orf.thick_start + 1
+            transcript.logger.warning("Reversing ORF for %s; old-new START (%d, %d); old-new END (%d, %d)",
+                                      transcript.id, old_start, orf.thick_start, old_end, orf.thick_end)
+
         if primary_orf is True:
             (transcript.has_start_codon, transcript.has_stop_codon) = (orf.has_start_codon,
                                                                        orf.has_stop_codon)
@@ -573,14 +581,7 @@ def retrieve_orfs(transcript):
         assert orf_results is not None
         candidate_orfs = list(orf for orf in orf_results if orf.strand != "-")
     else:
-        candidate_orfs = []
-        for orf in orf_results:
-            if orf.strand == "-":
-                # We have to invert the transcript coordinates here
-                orf.thick_start = len(orf) - orf.thick_end
-                orf.thick_end = len(orf) - orf.thick_start + 1
-                # 116 to 500 in a 510 transcript =>
-            candidate_orfs.append(orf)
+        candidate_orfs = orf_results.all()
 
     transcript.logger.debug("Found %d ORFs for %s",
                             len(candidate_orfs), transcript.id)

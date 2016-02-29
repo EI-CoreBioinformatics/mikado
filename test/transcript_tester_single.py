@@ -224,8 +224,6 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         This should reverse the ORF."""
 
         self.orf.strand = "-"
-        self.orf.thick_end -= 1
-        self.orf.thick_start -= 1
         self.tr.strip_cds()
         self.orf.has_stop_codon = False
         self.tr.load_orfs([self.orf])

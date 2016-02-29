@@ -200,7 +200,7 @@ class BED12:
                 return
             sequence = fasta_index[self.id].seq
 
-            orf_sequence = sequence[self.thick_start-1:self.thick_end]
+            orf_sequence = sequence[self.thick_start - 1:self.thick_end]
             if self.strand == "-":
                 orf_sequence = orf_sequence.reverse_complement()
 

@@ -632,14 +632,28 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276
     def test_split(self):
         self.tr.load_orfs([self.bed1, self.bed2])
         self.assertEqual(self.tr.number_internal_orfs, 2)
+        logger = create_default_logger("splitter")
+        logger.setLevel("ERROR")
+        self.tr.logger = logger
+
         new_transcripts = [_ for _ in self.tr.split_by_cds()]
 
-        new_transcripts = sorted(new_transcripts, key=operator.attrgetter("start", "end"))
+        new_transcripts = sorted(new_transcripts,
+                                 key=operator.attrgetter("start", "end"))
+        self.assertEqual(len(new_transcripts), 2)
+        print(*[self.tr] + new_transcripts, sep="\n\n")
+
         self.assertEqual(new_transcripts[0].start, 72914)
         self.assertEqual(new_transcripts[0].end, 74914)
 
         self.assertEqual(new_transcripts[1].end, 76276, self.tr.internal_orfs)
         self.assertEqual(new_transcripts[1].start, 75394)
+
+        self.assertEqual(new_transcripts[0].selected_cds_start, 74914)
+        self.assertEqual(new_transcripts[0].selected_cds_end, 74336)
+
+        self.assertEqual(new_transcripts[1].selected_cds_start, 75804)
+        self.assertEqual(new_transcripts[1].selected_cds_end, 75394)
 
 if __name__ == '__main__':
     unittest.main()

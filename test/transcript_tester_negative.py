@@ -12,7 +12,7 @@ import logging
 import mikado_lib
 import mikado_lib.parsers
 import mikado_lib.loci_objects
-from mikado_lib.utilities.log_utils import create_null_logger
+from mikado_lib.utilities.log_utils import create_null_logger, create_default_logger
 
 
 class TranscriptTesterNegative(unittest.TestCase):
@@ -58,7 +58,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = mikado_lib.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
+        self.tr = mikado_lib.loci_objects.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
@@ -448,6 +448,84 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
 
         self.assertEqual(new_transcripts[1].three_utr_length, 0)
         self.assertEqual(new_transcripts[1].end, 8737)
+
+class WheatTest(unittest.TestCase):
+
+    def setUp(self):
+
+        trlines= """Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\ttranscript\t217224\t221661\t100\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; Name "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; canonical_junctions "1,2,3,4,5"; canonical_proportion "1.0"; canonical_number "5"; target "Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4 1 1251 +";
+Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t217224\t218053\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";
+Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t218145\t218384\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";
+Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t218474\t219472\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";
+Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t219557\t220122\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";
+Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t220205\t220327\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";
+Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t220411\t221661\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";"""
+
+        trlines = [mikado_lib.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
+
+        self.tr = mikado_lib.loci_objects.Transcript(trlines[0])
+        for _ in trlines[1:]:
+            self.tr.add_exon(_)
+
+        self.bed1 = mikado_lib.parsers.bed12.BED12()
+        self.bed1.header = False
+        self.bed1.chrom = self.tr.id
+        self.bed1.transcriptomic = True
+        self.bed1.start = 1
+        self.bed1.end = 4009
+        self.bed1.name = "g.4208_TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1|m.4208_type:complete_len:193_(+)"
+        self.bed1.strand = "+"
+        self.bed1.thick_start = 297
+        self.bed1.thick_end = 875
+        self.bed1.has_start_codon = True
+        self.bed1.has_stop_codon = True
+        self.bed1.score = 0
+        self.assertEqual(self.bed1.cds_len, 579)
+
+        self.bed2 = mikado_lib.parsers.bed12.BED12()
+        self.bed2.header = False
+        self.bed2.chrom = self.tr.id
+        self.bed2.transcriptomic = True
+        self.bed2.start = 1
+        self.bed2.end = 4009
+        self.bed2.name = "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1|m.4209_type:complete_len:116_(+)"
+        self.bed2.strand = "+"
+        self.bed2.thick_start = 2886
+        self.bed2.thick_end = 3233
+        self.bed2.has_start_codon = True
+        self.bed2.has_stop_codon = True
+        self.bed2.score = 0
+        self.assertEqual(self.bed2.cds_len, 348)
+
+    def test_load(self):
+        
+        self.tr.load_orfs([self.bed1, self.bed2])
+        self.assertEqual(self.tr.number_internal_orfs, 2)
+        self.assertEqual(self.tr.selected_cds_start, 221365)
+        self.assertEqual(self.tr.selected_cds_end, 220787)
+
+        self.assertEqual(self.tr.combined_cds_start, 221365)
+        self.assertEqual(self.tr.combined_cds_end, 218000)
+
+    def test_split(self):
+
+        self.tr.load_orfs([self.bed1, self.bed2])
+        new_transcripts = sorted([_ for _ in self.tr.split_by_cds()],
+                                 key=operator.attrgetter("start", "end"))
+        self.assertEqual(len(new_transcripts), 2)
+
+        self.assertEqual(new_transcripts[0].start, 217224)
+        self.assertEqual(new_transcripts[0].end, 218527)
+
+        self.assertEqual(new_transcripts[1].start, 220787)
+        self.assertEqual(new_transcripts[1].end, 221661)
+
+        self.assertEqual(new_transcripts[0].selected_cds_start, 218527)
+        self.assertEqual(new_transcripts[0].selected_cds_end, 218000)
+
+        self.assertEqual(new_transcripts[1].selected_cds_start, 221365)
+        self.assertEqual(new_transcripts[1].selected_cds_end, 220787)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -280,6 +280,7 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
     elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:
         # Monoexonic
         transcript.logger.debug("Exon %s, case 3.1", exon)
+
         if transcript.monoexonic is False:
             if transcript.strand == "-":
                 if left is True:
@@ -314,6 +315,8 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
                 transcript.logger.debug(
                     "Case 3.1: Positive strand, another transcript on the right, new exon: %d, %d",
                     new_exon[0], new_exon[1])
+
+
         transcript.logger.debug(
             "[Monoexonic] Tstart shifted for %s, %d to %d",
             transcript.id, texon[0], boundary[0])
@@ -514,12 +517,23 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
         # Now we have to modify the BED12s to reflect
         # the fact that we are starting/ending earlier
         new_transcript.finalize()
-        if new_transcript.monoexonic is True:
-            new_transcript.strand = None
+        # if transcript.monoexonic is True:
+        # if new_transcript.monoexonic is True:
+        #     new_transcript.strand = None
 
+        transcript.logger.debug("Relocating %d ORFs into the new transcript (%d, %d), \
+tcoordinates (%d, %d)",
+                                len(bed12_objects),
+                                new_transcript.start, new_transcript.end,
+                                tstart, tend
+                                )
         new_bed12s = __relocate_orfs(bed12_objects, tstart, tend)
-        transcript.logger.debug("Loading %d ORFs into the new transcript",
-                                len(new_bed12s))
+        assert len([_ for _ in new_bed12s if _.strand == "+"]) > 0
+        transcript.logger.debug("Loading %d ORFs into the new transcript (%d, %d): %s",
+                                len(new_bed12s),
+                                new_transcript.start, new_transcript.end,
+                                "\n\t"+"\n".join([str(_) for _ in new_bed12s]))
+        new_transcript.logger = transcript.logger
         new_transcript.load_orfs(new_bed12s)
 
         if new_transcript.selected_cds_length <= 0:
@@ -681,19 +695,47 @@ def __relocate_orfs(bed12_objects, tstart, tend):
     :return:
     """
     new_bed12s = []
+    tstart, tend = sorted([tstart, tend])
     for obj in bed12_objects:
-        assert isinstance(obj, bed12.BED12), (obj, bed12_objects)
+        import copy
+        obj = copy.deepcopy(obj)
+        if obj.strand == "-":
+            thick_start = obj.end - obj.thick_end + 1
+            thick_end = obj.end - obj.thick_start + 1
+            old_start, old_end = tstart, tend
+            tstart = obj.end - old_end + 1
+            tend = obj.end - old_start + 1
+            assert (old_end - old_start) == (tend - tstart), ((old_start, old_end), (tstart, tend))
+            assert (thick_end - thick_start) == (obj.thick_end - obj.thick_start)
+            obj.strand = "+"
+            obj.start = 1
+            obj.end = tend - tstart + 1
+            obj.fasta_length = obj.end
+            assert obj.end > 0 and obj.end > obj.start
+            obj.thick_start = thick_start - tstart + 1
+            assert obj.thick_start > 0
+            obj.thick_end = thick_end - tstart + 1
+            assert obj.thick_end > obj.thick_start > 0
+            # Let's complement ..
+            obj.block_sizes = [obj.end]
+            obj.block_starts = [obj.block_starts]
+        else:
+            obj.start = 1
+            obj.end = min(obj.end, tend) - tstart + 1
+            obj.fasta_length = obj.end
+            obj.thick_start = min(obj.thick_start, tend) - tstart + 1
+            obj.thick_end = min(obj.thick_end, tend) - tstart + 1
+            obj.block_sizes = [obj.end]
+            obj.block_starts = [obj.block_starts]
 
-        obj.start = 1
-        obj.end = min(obj.end, tend) - tstart + 1
-        obj.fasta_length = obj.end
-        obj.thick_start = min(obj.thick_start, tend) - tstart + 1
-        obj.thick_end = min(obj.thick_end, tend) - tstart + 1
-        obj.blockSizes = [obj.end]
+        assert obj.thick_start > 0, obj.thick_start
+        assert obj.thick_end > 0, obj.thick_end
         assert obj.invalid is False, (len(obj), obj.cds_len, obj.fasta_length,
                                       obj.invalid_reason,
                                       str(obj))
+
         new_bed12s.append(obj)
+    assert len(new_bed12s) > 0
     return new_bed12s
 
 

@@ -57,7 +57,7 @@ def load_orfs(transcript, candidate_orfs):
     candidate_orfs = find_overlapping_cds(transcript, candidate_orfs)
 
     if candidate_orfs is None or len(candidate_orfs) == 0:
-        transcript.logger.debug("No ORF for {0}".format(transcript.id))
+        transcript.logger.debug("No ORF for %s; %s", transcript.id, candidate_orfs)
         return
 
     transcript.combined_utr = []

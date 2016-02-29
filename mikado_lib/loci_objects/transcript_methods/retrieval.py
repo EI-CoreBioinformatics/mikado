@@ -73,14 +73,6 @@ def load_orfs(transcript, candidate_orfs):
 
     for orf in candidate_orfs:
         # Minimal check
-        if orf.strand == "-":
-            old_start = orf.thick_start
-            old_end = orf.thick_end
-            orf.thick_start = orf.end - orf.thick_end
-            orf.thick_end = orf.end - orf.thick_start + 1
-            transcript.logger.warning("Reversing ORF for %s; old-new START (%d, %d); old-new END (%d, %d)",
-                                      transcript.id, old_start, orf.thick_start, old_end, orf.thick_end)
-
         if primary_orf is True:
             (transcript.has_start_codon, transcript.has_stop_codon) = (orf.has_start_codon,
                                                                        orf.has_stop_codon)

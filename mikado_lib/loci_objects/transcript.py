@@ -533,6 +533,16 @@ class Transcript:
 
         retrieval.load_orfs(self, candidate_orfs)
 
+    def find_overlapping_cds(self, candidate_orfs):
+
+        """
+        Thin wrapper for the homonym function in retrieval
+        :param candidate_orfs: List of candidate ORFs
+        :return:
+        """
+
+        return retrieval.find_overlapping_cds(self, candidate_orfs)
+
     # ###################Class methods#####################################
 
     @classmethod
@@ -1273,6 +1283,8 @@ class Transcript:
         else:
             self.__max_internal_orf_length = sum(
                 x[1].length() + 1 for x in self.selected_internal_orf if x[0] == "CDS")
+            assert self.__max_internal_orf_length % 3 == 0, (self.__max_internal_orf_length,
+                                                             self.selected_internal_orf)
 
         return self.__max_internal_orf_length
 

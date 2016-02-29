@@ -73,12 +73,7 @@ def load_orfs(transcript, candidate_orfs):
 
     for orf in candidate_orfs:
         # Minimal check
-        if primary_orf is True:
-            (transcript.has_start_codon, transcript.has_stop_codon) = (orf.has_start_codon,
-                                                                       orf.has_stop_codon)
-            primary_orf = False
-            primary_strand = orf.strand
-        elif primary_orf is False and orf.strand != primary_strand:
+        if primary_orf is False and orf.strand != primary_strand:
             continue
 
         check_sanity = (orf.thick_start >= 1 and orf.thick_end <= transcript.cdna_length)
@@ -94,9 +89,17 @@ def load_orfs(transcript, candidate_orfs):
             transcript.strand = orf.strand
 
         transcript.loaded_bed12.append(orf)
-        cds_exons = __create_internal_orf(transcript, orf)
-        transcript.internal_orfs.append(sorted(
-            cds_exons, key=operator.itemgetter(1)))
+        cds_exons = sorted(__create_internal_orf(transcript, orf),
+                           key=operator.itemgetter(1))
+
+        transcript.internal_orfs.append(cds_exons)
+
+        if primary_orf is True:
+            (transcript.has_start_codon, transcript.has_stop_codon) = (orf.has_start_codon,
+                                                                       orf.has_stop_codon)
+            primary_orf = False
+            primary_strand = orf.strand
+            transcript.selected_internal_orf_index = transcript.internal_orfs.index(cds_exons)
         # transcript.phases.append(cds_exons[0][0], 0)
 
     # Now verify the loaded content
@@ -138,6 +141,10 @@ def check_loaded_orfs(transcript):
         cds_spans = []
         candidates = []
         for internal_cds in transcript.internal_orfs:
+            assert sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]) % 3 == 0, (
+                sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]),
+                sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]) % 3,
+                internal_cds)
             candidates.extend(
                 [a[1] for a in iter(tup for tup in internal_cds
                                     if tup[0] == "CDS")])
@@ -180,7 +187,6 @@ def check_loaded_orfs(transcript):
         transcript.feature = "mRNA"
 
     transcript.finalize()
-    return
 
 
 def __load_blast(transcript):
@@ -457,29 +463,49 @@ def __create_internal_orf(transcript, orf):
     cds_exons = []
     current_start, current_end = 0, 0
 
-    for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
-                       reverse=(transcript.strand == "-")):
-        cds_exons.append(("exon", intervaltree.Interval(exon[0], exon[1])))
-        current_start += 1
-        current_end += exon[1] - exon[0] + 1
-        # Whole UTR
-        if current_end < orf.thick_start or current_start > orf.thick_end:
-            cds_exons.append(("UTR", intervaltree.Interval(exon[0], exon[1])))
+    if orf.strand == "-":
+        assert transcript.monoexonic is True  # We might decide to remove it someday
+        if orf.has_stop_codon is True:
+            current_end = transcript.start + orf.thick_start - 1
         else:
-            if transcript.strand == "+":
-                c_start = exon[0] + max(0, orf.thick_start - current_start)
-                c_end = exon[1] - max(0, current_end - orf.thick_end)
+            current_end = transcript.start + orf.thick_start
+        current_start = current_end + orf.cds_len - 1
+
+        assert transcript.start <= current_end <= transcript.end
+        assert transcript.start <= current_end < current_start <= transcript.end, (
+            transcript.start, current_end, current_start, transcript.end
+        )
+        assert (current_start - current_end + 1) % 3 == 0, (
+            current_end, current_start,
+            current_start - current_end + 1
+        )
+        cds_exons.append(("UTR", intervaltree.Interval(transcript.start, current_end - 1)))
+        cds_exons.append(("CDS", intervaltree.Interval(current_end, current_start)))
+        cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
+    else:
+        for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
+                           reverse=(transcript.strand == "-")):
+            cds_exons.append(("exon", intervaltree.Interval(exon[0], exon[1])))
+            current_start += 1
+            current_end += exon[1] - exon[0] + 1
+            # Whole UTR
+            if current_end < orf.thick_start or current_start > orf.thick_end:
+                cds_exons.append(("UTR", intervaltree.Interval(exon[0], exon[1])))
             else:
-                c_start = exon[0] + max(0, current_end - orf.thick_end)
-                c_end = exon[1] - max(0, orf.thick_start - current_start)
-            if c_start > exon[0]:
-                u_end = c_start - 1
-                cds_exons.append(("UTR", intervaltree.Interval(exon[0], u_end)))
-            if c_start <= c_end:
-                cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end)))
-            if c_end < exon[1]:
-                cds_exons.append(("UTR", intervaltree.Interval(c_end + 1, exon[1])))
-        current_start = current_end
+                if transcript.strand == "+":
+                    c_start = exon[0] + max(0, orf.thick_start - current_start)
+                    c_end = exon[1] - max(0, current_end - orf.thick_end)
+                else:
+                    c_start = exon[0] + max(0, current_end - orf.thick_end)
+                    c_end = exon[1] - max(0, orf.thick_start - current_start)
+                if c_start > exon[0]:
+                    u_end = c_start - 1
+                    cds_exons.append(("UTR", intervaltree.Interval(exon[0], u_end)))
+                if c_start <= c_end:
+                    cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end)))
+                if c_end < exon[1]:
+                    cds_exons.append(("UTR", intervaltree.Interval(c_end + 1, exon[1])))
+            current_start = current_end
 
     return cds_exons
 
@@ -647,6 +673,5 @@ def find_candidate_orfs(transcript, graph, orf_dictionary) -> list:
                 to_remove.update(clique)
         graph.remove_nodes_from(to_remove)
 
-    candidate_orfs = sorted(candidate_orfs,
-                            key=orf_sorter, reverse=True)
+    candidate_orfs = sorted(candidate_orfs, key=orf_sorter, reverse=True)
     return candidate_orfs

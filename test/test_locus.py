@@ -39,15 +39,15 @@ class TestLocus(unittest.TestCase):
         self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "n", "O", "h"]
         self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
 
-        t1 = """Chr1\tfoo\ttranscript\t1000\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\texon\t1000\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\tCDS\t1100\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\texon\t1700\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\tCDS\t1700\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\texon\t2100\t2500\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\tCDS\t2100\t2500\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\texon\t2800\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
-        Chr1\tfoo\tCDS\t2800\t2900\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        t1 = """Chr1\tfoo\ttranscript\t1001\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\tCDS\t1101\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\texon\t1701\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\tCDS\t1701\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\texon\t2101\t2500\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\tCDS\t2101\t2500\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\texon\t2801\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
+        Chr1\tfoo\tCDS\t2801\t2902\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";
         """
 
         t1lines = [GtfLine(line) for line in t1.split("\n") if line]
@@ -60,11 +60,11 @@ class TestLocus(unittest.TestCase):
         self.t1.finalize()
 
         # Just a fragment of the best
-        t1_contained = """Chr1\tfoo\ttranscript\t1000\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
-        Chr1\tfoo\texon\t1000\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
-        Chr1\tfoo\tCDS\t1100\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
-        Chr1\tfoo\texon\t1700\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
-        Chr1\tfoo\tCDS\t1700\t1900\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
+        t1_contained = """Chr1\tfoo\ttranscript\t1001\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
+        Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
+        Chr1\tfoo\tCDS\t1101\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
+        Chr1\tfoo\texon\t1701\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
+        Chr1\tfoo\tCDS\t1701\t1902\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.2";
         """
 
         t1_contained_lines = [GtfLine(line) for line in t1_contained.split("\n") if line]
@@ -77,15 +77,15 @@ class TestLocus(unittest.TestCase):
         self.t1_contained.finalize()
 
         # Valid AS event
-        t1_as = """Chr1\tfoo\ttranscript\t1000\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\texon\t1000\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\tCDS\t1100\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\texon\t1700\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\tCDS\t1700\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\texon\t2100\t2400\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\tCDS\t2100\t2400\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\texon\t2800\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
-        Chr1\tfoo\tCDS\t2800\t2900\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        t1_as = """Chr1\tfoo\ttranscript\t1001\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\tCDS\t1101\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\texon\t1701\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\tCDS\t1701\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\texon\t2101\t2400\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\tCDS\t2101\t2400\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\texon\t2801\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
+        Chr1\tfoo\tCDS\t2801\t2900\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.3";
         """
 
         t1_as_lines = [GtfLine(line) for line in t1_as.split("\n") if line]
@@ -98,13 +98,13 @@ class TestLocus(unittest.TestCase):
         self.t1_as.finalize()
 
         # Retained intron AS event
-        t1_retained = """Chr1\tfoo\ttranscript\t1000\t2800\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
-        Chr1\tfoo\texon\t1000\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
-        Chr1\tfoo\tCDS\t1100\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
-        Chr1\tfoo\texon\t1700\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
-        Chr1\tfoo\tCDS\t1700\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
-        Chr1\tfoo\texon\t2100\t2800\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
-        Chr1\tfoo\tCDS\t2100\t2450\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
+        t1_retained = """Chr1\tfoo\ttranscript\t1001\t2900\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
+        Chr1\tfoo\texon\t1001\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
+        Chr1\tfoo\tCDS\t1101\t1300\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
+        Chr1\tfoo\texon\t1701\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
+        Chr1\tfoo\tCDS\t1701\t2000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
+        Chr1\tfoo\texon\t2101\t2900\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
+        Chr1\tfoo\tCDS\t2101\t2472\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.4";
         """
 
         t1_retained_lines = [GtfLine(line) for line in t1_retained.split("\n") if line]

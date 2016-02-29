@@ -98,6 +98,7 @@ class BED12:
         :type stop_codon: str
         """
 
+        self._line = None
         self.__has_start = False
         self.__has_stop = False
         self.__transcriptomic = False

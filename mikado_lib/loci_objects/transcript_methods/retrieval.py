@@ -464,7 +464,8 @@ def __create_internal_orf(transcript, orf):
     current_start, current_end = 0, 0
 
     if orf.strand == "-":
-        assert transcript.monoexonic is True  # We might decide to remove it someday
+        # We might decide to remove this check
+        assert transcript.monoexonic is True
         current_end = transcript.start + (orf.thick_start - 1)
         current_start = current_end + orf.cds_len - 1
 
@@ -481,6 +482,7 @@ def __create_internal_orf(transcript, orf):
         cds_exons.append(("CDS", intervaltree.Interval(current_end, current_start)))
         if current_start < transcript.end:
             cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
+        transcript.strand = "-"
     else:
         for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
                            reverse=(transcript.strand == "-")):

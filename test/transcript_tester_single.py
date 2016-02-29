@@ -10,8 +10,11 @@ from mikado_lib.loci_objects.transcript_methods.finalizing import _check_cdna_vs
 import intervaltree
 import mikado_lib.parsers
 import mikado_lib.loci_objects
-from mikado_lib.serializers.orf import Orf
-from mikado_lib.utilities.log_utils import create_null_logger
+import mikado_lib.exceptions
+mikado_lib.loci_objects.transcript_methods
+import operator
+# from mikado_lib.serializers.orf import Orf
+from mikado_lib.utilities.log_utils import create_null_logger, create_default_logger
 
 
 class TranscriptTester(unittest.TestCase):
@@ -294,7 +297,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid)
 
-        self.assertTrue(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
+        self.assertTrue(mikado_lib.loci_objects.Transcript.is_overlapping_cds(
             first_orf, second_orf))
 
         # This should be added
@@ -574,6 +577,69 @@ class TestWheatRNA(unittest.TestCase):
                                )
 
         self.assertEqual(after_sorting[0], bed)
+
+
+class TestNegativeSplit(unittest.TestCase):
+
+    def setUp(self):
+
+        tr = """Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\ttranscript\t72914\t76276\t1000\t.\t.\tgene_id "CL_10DPA.2184"; transcript_id "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1"; exon_number "1"; FPKM "0.1596439944"; conf_hi "0.205257"; conf_lo "0.114031"; frac "1.000000"; cov "3.066911"; Name "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1";
+Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276\t.\t.\t.\tgene_id "CL_10DPA.2184"; transcript_id "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1";"""
+        tr_lines = [mikado_lib.parsers.GTF.GtfLine(_) for _ in tr.split("\n")]
+        self.tr = mikado_lib.loci_objects.Transcript(tr_lines[0])
+        self.tr.add_exon(tr_lines[1])
+
+        self.bed1 = mikado_lib.parsers.bed12.BED12()
+        self.bed1.header = False
+        self.bed1.chrom = "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1"
+        self.bed1.start = 1
+        self.bed1.end = 3363
+        self.bed1.name = "First|m.2472_type:complete_len:193_(-)"
+        self.bed1.strand = "-"
+        self.bed1.thick_start = 1423
+        self.bed1.thick_end = 2001
+        self.bed1.has_stop_codon = True
+        self.bed1.has_start_codon = True
+        self.bed1.transcriptomic = True
+        self.assertEqual(self.bed1.cds_len, 579)
+        
+        self.bed2 = mikado_lib.parsers.bed12.BED12()
+        self.bed2.header = False
+        self.bed2.chrom = "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1"
+        self.bed2.start = 1
+        self.bed2.end = 3363
+        self.bed2.name = "Second|m.2472_type:complete_len:137_(-)"
+        self.bed2.strand = "-"
+        self.bed2.thick_start = 2481
+        self.bed2.thick_end = 2891
+        self.bed2.has_stop_codon = True
+        self.bed2.has_start_codon = True
+        self.assertEqual(self.bed2.cds_len, 411)
+
+    def test_loading(self):
+        
+        self.tr.load_orfs([self.bed1, self.bed2])
+        self.assertEqual(self.tr.number_internal_orfs, 2)
+        self.assertEqual(self.tr.selected_cds_start,
+                         74914)
+        self.assertEqual(self.tr.selected_cds_end,
+                         74336)
+        self.assertEqual(self.tr.combined_cds_end,
+                         74336)
+        self.assertEqual(self.tr.combined_cds_start,
+                         75804)
+
+    def test_split(self):
+        self.tr.load_orfs([self.bed1, self.bed2])
+        self.assertEqual(self.tr.number_internal_orfs, 2)
+        new_transcripts = [_ for _ in self.tr.split_by_cds()]
+
+        new_transcripts = sorted(new_transcripts, key=operator.attrgetter("start", "end"))
+        self.assertEqual(new_transcripts[0].start, 72914)
+        self.assertEqual(new_transcripts[0].end, 74914)
+
+        self.assertEqual(new_transcripts[1].end, 76276, self.tr.internal_orfs)
+        self.assertEqual(new_transcripts[1].start, 75394)
 
 if __name__ == '__main__':
     unittest.main()

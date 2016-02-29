@@ -223,12 +223,16 @@ def merge_loci(num_temp, out_handles, prefix=""):
 
     metrics_handle, scores_handle, gff_handle = out_handles
 
-    gff_filenames = ["{0}-{1}".format(gff_handle, _) for _ in range(1, num_temp + 1)]
+    gff_filenames = [os.path.join("mikado_pick_tmp",
+                                  "{0}-{1}".format(gff_handle, _))
+                     for _ in range(1, num_temp + 1)]
 
     gid_to_new, tid_to_new = merge_loci_gff(gff_filenames, gff_handle, prefix)
 
     for handle in metrics_handle, scores_handle:
-        filenames = ["{0}-{1}".format(handle, _) for _ in range(1, num_temp + 1)]
+        filenames = [os.path.join("mikado_pick_tmp",
+                                  "{0}-{1}".format(handle, _))
+                     for _ in range(1, num_temp + 1)]
         handle = open(handle, "a")
         current_lines = collections.defaultdict(list)
         filenames = [open(_) for _ in filenames]
@@ -567,7 +571,8 @@ class LociProcesser(Process):
 
         (locus_metrics_file,
          locus_scores_file,
-         locus_out_file) = ["{0}-{1}".format(_, self.identifier) for _ in handles[0]]
+         locus_out_file) = [os.path.join("mikado_pick_tmp",
+                                         "{0}-{1}".format(_, self.identifier)) for _ in handles[0]]
         locus_metrics_file = open(locus_metrics_file, "w")
         locus_scores_file = open(locus_scores_file, "w")
 
@@ -592,10 +597,12 @@ class LociProcesser(Process):
         self.locus_out = open(locus_out_file, 'w')
         self._handles.extend((self.locus_out, self.locus_metrics, self.locus_out))
 
-        (sub_metrics_file,
-         sub_scores_file,
-         sub_out_file) = ["{0}-{1}".format(_, self.identifier) for _ in handles[1]]
-        if sub_metrics_file:
+        if handles[1][0]:
+            (sub_metrics_file,
+             sub_scores_file,
+             sub_out_file) = [os.path.join("mikado_pick_tmp",
+                                           "{0}-{1}".format(_, self.identifier))
+                              for _ in handles[1]]
             sub_metrics_file = open(sub_metrics_file, "w")
             sub_scores_file = open(sub_scores_file, "w")
             self.sub_metrics = csv.DictWriter(
@@ -612,10 +619,13 @@ class LociProcesser(Process):
             self.sub_scores.close = self.sub_scores.handle.close
             self.sub_out = open(sub_out_file, "w")
             self._handles.extend([self.sub_metrics, self.sub_scores, self.sub_out])
-        (mono_metrics_file,
-         mono_scores_file,
-         mono_out_file) = ["{0}-{1}".format(_, self.identifier) for _ in handles[2]]
-        if mono_metrics_file:
+
+        if handles[2][0]:
+            (mono_metrics_file,
+             mono_scores_file,
+             mono_out_file) = [os.path.join("mikado_pick_tmp",
+                                            "{0}-{1}".format(_, self.identifier))
+                               for _ in handles[2]]
             mono_metrics_file = open(mono_metrics_file, "w")
             mono_scores_file = open(mono_scores_file, "w")
             self.mono_metrics = csv.DictWriter(

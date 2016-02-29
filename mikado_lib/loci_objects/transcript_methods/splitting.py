@@ -281,16 +281,28 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
     elif texon[0] <= boundary[0] <= boundary[1] <= texon[1]:
         # Monoexonic
         transcript.logger.debug("Exon %s, case 3.1", exon)
-        if transcript.strand == "-":
-            if left is True:
-                new_exon[1] = exon[0] + (texon[1] - boundary[0])
-            if right is True:
-                new_exon[0] = exon[1] - (boundary[1] - texon[0])
-        else:
-            if left is True:
-                new_exon[0] = exon[1] - (texon[1] - boundary[0])
-            if right is True:
-                new_exon[1] = exon[0] + (boundary[1] - texon[0])
+        # if transcript.strand == "bananas":
+        #     if left is True:
+        #         new_exon[1] = exon[0] + (texon[1] - boundary[0])
+        #         transcript.logger.debug(
+        #             "Negative strand, another transcript on the left, new exon: %d, %d",
+        #             new_exon[0], new_exon[1])
+        #     if right is True:
+        #         new_exon[0] = exon[1] - (boundary[1] - texon[0])
+        #         transcript.logger.debug(
+        #             "Negative strand, another transcript on the right, new exon: %d, %d",
+        #             new_exon[0], new_exon[1])
+        # else:
+        if left is True:
+            new_exon[0] = exon[1] - (texon[1] - boundary[0])
+            transcript.logger.debug(
+                "Case 3.1: Another transcript on the left, new exon: %d, %d",
+                new_exon[0], new_exon[1])
+        if right is True:
+            new_exon[1] = exon[0] + (boundary[1] - texon[0])
+            transcript.logger.debug(
+                "Case 3.1: Another transcript on the right, new exon: %d, %d",
+                new_exon[0], new_exon[1])
         transcript.logger.debug(
             "[Monoexonic] Tstart shifted for %s, %d to %d",
             transcript.id, texon[0], boundary[0])

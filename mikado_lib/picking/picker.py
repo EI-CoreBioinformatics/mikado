@@ -795,6 +795,8 @@ memory intensive, proceed with caution!")
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
+        os.makedirs("mikado_pick_tmp", exist_ok=True)
+
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
                                            handles,
@@ -888,17 +890,22 @@ memory intensive, proceed with caution!")
         for handle in handles[1]:
             if handle is not None:
                 with open(handle, "a") as output:
-                    partials = ["{0}-{1}".format(handle, _) for _ in range(1, self.threads + 1)]
+                    partials = [os.path.join("mikado_pick_tmp",
+                                             "{0}-{1}".format(handle, _))
+                                for _ in range(1, self.threads + 1)]
                     merge_partial(partials, output)
                     [os.remove(_) for _ in partials]
 
         for handle in handles[2]:
             if handle is not None:
                 with open(handle, "a") as output:
-                    partials = ["{0}-{1}".format(handle, _) for _ in range(1, self.threads + 1)]
+                    partials = [os.path.join("mikado_pick_tmp",
+                                             "{0}-{1}".format(handle, _))
+                                for _ in range(1, self.threads + 1)]
                     merge_partial(partials, output)
                     [os.remove(_) for _ in partials]
 
+        os.removedirs("mikado_pick_tmp")
         self.logger.info("Finished merging partial files")
 
     def __submit_single_threaded(self, data_dict):

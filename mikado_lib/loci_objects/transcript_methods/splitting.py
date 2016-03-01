@@ -304,18 +304,6 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary, invert=Fal
                 transcript.logger.debug(
                     "Case 3.1: Positive strand, another transcript on the right, new exon: %d, %d",
                     new_exon[0], new_exon[1])
-        # else:
-        #     if left is True:
-        #         new_exon[0] = exon[1] - (texon[1] - boundary[0])
-        #         transcript.logger.debug(
-        #             "Case 3.1: Positive strand, another transcript on the left, new exon: %d, %d",
-        #             new_exon[0], new_exon[1])
-        #     if right is True:
-        #         new_exon[1] = exon[0] + (boundary[1] - texon[0])
-        #         transcript.logger.debug(
-        #             "Case 3.1: Positive strand, another transcript on the right, new exon: %d, %d",
-        #             new_exon[0], new_exon[1])
-
 
         transcript.logger.debug(
             "[Monoexonic] Tstart shifted for %s, %d to %d",
@@ -369,8 +357,8 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary, invert=Fal
             transcript.logger.debug("New texon: %s", texon)
 
     # Prevent monobase exons
-    if new_exon[0] == new_exon[1]:
-        new_exon[1] += 1
+    # if new_exon[0] == new_exon[1]:
+    #     new_exon[1] += 1
     new_exon = Interval(new_exon[0], new_exon[1])
 
     return new_exon, texon, to_discard
@@ -523,6 +511,8 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
 
         new_transcript.start = min(exon[0] for exon in new_transcript.exons)
         new_transcript.end = max(exon[1] for exon in new_transcript.exons)
+        assert new_transcript.end <= transcript.end
+        assert new_transcript.start >= transcript.start
         new_transcript.json_conf = transcript.json_conf
         # Now we have to modify the BED12s to reflect
         # the fact that we are starting/ending earlier
@@ -706,7 +696,6 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
     """
     new_bed12s = []
     tstart, tend = sorted([tstart, tend])
-    # invert = (transcript.monoexonic and transcript.strand == "-" and all([_.strand == "+" for _ in bed12_objects]))
 
     for obj in bed12_objects:
         import copy

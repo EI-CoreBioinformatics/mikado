@@ -11,7 +11,7 @@ import intervaltree
 import mikado_lib.parsers
 import mikado_lib.exceptions
 import mikado_lib.loci_objects
-from mikado_lib.utilities.log_utils import create_null_logger
+from mikado_lib.utilities.log_utils import create_null_logger, create_default_logger
 
 
 class MonoBaseTester(unittest.TestCase):
@@ -26,7 +26,7 @@ class MonoBaseTester(unittest.TestCase):
     logger = create_null_logger("null")
 
     def setUp(self):
-        self.tr = mikado_lib.loci_objects.transcript.Transcript()
+        self.tr = mikado_lib.loci_objects.Transcript()
         self.tr.chrom = "Chr5"
         self.tr.start = 22597965
         self.tr.end = 22602701
@@ -239,14 +239,14 @@ class DrosoTester(unittest.TestCase):
 
         ref_lines = [mikado_lib.parsers.GTF.GtfLine(line)
                      for line in filter(lambda x: x!='', ref_gtf.split("\n"))]
-        self.ref = mikado_lib.loci_objects.transcript.Transcript(ref_lines[0])
+        self.ref = mikado_lib.loci_objects.Transcript(ref_lines[0])
         for l in ref_lines[1:]:
             self.ref.add_exon(l)
         self.ref.finalize()
         
         pred_lines = [mikado_lib.parsers.GTF.GtfLine(line)
                       for line in filter(lambda x: x!='', pred_gtf.split("\n"))]
-        self.pred = mikado_lib.loci_objects.transcript.Transcript(pred_lines[0])
+        self.pred = mikado_lib.loci_objects.Transcript(pred_lines[0])
         for l in pred_lines[1:]:
             self.pred.add_exon(l)
         self.pred.finalize()
@@ -255,8 +255,6 @@ class DrosoTester(unittest.TestCase):
 
         # print(mikado_lib.scales.assigner.Assigner.compare(self.pred, self.ref))
         self.ref.finalize()
-        print(self.ref.combined_cds)
-        print(self.ref.combined_cds_introns)
         self.assertGreater(len(self.ref.combined_cds), 0)
         self.assertEqual(len(self.ref.selected_cds_introns), 7)
         self.assertEqual(len(self.ref.combined_cds_introns), 7)
@@ -308,7 +306,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = mikado_lib.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
+        self.tr = mikado_lib.loci_objects.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
@@ -616,7 +614,8 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid)
 
-        self.assertTrue(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(
+            mikado_lib.loci_objects.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
         third_orf = mikado_lib.parsers.bed12.BED12()
@@ -638,8 +637,10 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         third_orf.transcriptomic = True
         self.assertFalse(third_orf.invalid)
 
-        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, third_orf))
-        self.assertFalse(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(second_orf, third_orf))
+        self.assertFalse(
+            mikado_lib.loci_objects.Transcript.is_overlapping_cds(first_orf, third_orf))
+        self.assertFalse(
+            mikado_lib.loci_objects.Transcript.is_overlapping_cds(second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
         self.assertFalse(first_orf == second_orf)
@@ -669,6 +670,78 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.assertEqual(new_transcripts[0].three_utr_length, 0)
         self.assertEqual(new_transcripts[1].five_utr_length, 0)
 
+
+class AtPositiveWrongSplit(unittest.TestCase):
+
+    def setUp(self):
+
+        trlines="""Chr4\tCufflinks\ttranscript\t15490563\t15495994\t1000\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1"; exon_number "1"; conf_lo "14.664134"; FPKM "15.0125792667"; frac "0.939064"; canonical_proportion "1.0"; conf_hi "15.635854"; cov "392.846627";
+Chr4\tCufflinks\texon\t15490563\t15491286\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15492353\t15492409\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15492505\t15492567\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15492647\t15492715\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15492819\t15494669\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15495054\t15495174\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15495267\t15495466\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15495556\t15495687\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15495769\t15495908\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";
+Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";"""
+
+        trlines = [mikado_lib.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
+        self.tr = mikado_lib.loci_objects.Transcript(trlines[0])
+        [self.tr.add_exon(_) for _ in trlines[1:]]
+        self.tr.finalize()
+
+        self.bed1 = mikado_lib.parsers.bed12.BED12()
+        self.bed1.header = False
+        self.bed1.chrom = self.tr.id
+        self.bed1.start = 1
+        self.bed1.end = 3358
+        self.bed1.name = "g.216019_cufflinks_cufflinks_star_at.17370.1|m.216019_type:complete_len:254_(+)"
+        self.assertEqual(self.bed1.end, self.tr.cdna_length, (self.bed1.end, self.tr.cdna_length))
+        self.bed1.strand = "+"
+        self.bed1.thick_start = 341
+        self.bed1.thick_end = 1102
+        self.bed1.score = 0
+        self.bed1.has_stop_codon = True
+        self.bed1.has_start_codon = True
+        self.bed1.transcriptomic = True
+        self.assertFalse(self.bed1.invalid)
+        self.assertEqual(self.bed1.cds_len, 762)
+
+        self.bed2 = mikado_lib.parsers.bed12.BED12()
+        self.bed2.header = False
+        self.bed2.chrom = self.tr.id
+        self.bed2.start = 1
+        self.bed2.end = 3358
+        self.bed2.name = "g.216018_cufflinks_cufflinks_star_at.17370.1|m.216018_type:3prime_partial_len:380_(+)"
+        self.assertEqual(self.bed2.end, self.tr.cdna_length, (self.bed2.end, self.tr.cdna_length))
+        self.bed2.strand = "+"
+        self.bed2.thick_start = 2222
+        self.bed2.thick_end = 3358
+        self.bed2.score = 0
+        self.bed2.has_stop_codon = False
+        self.bed2.has_start_codon = True
+        self.bed2.transcriptomic = True
+        self.assertFalse(self.bed2.invalid)
+        self.assertEqual(self.bed2.cds_len, 1137)
+
+    def test_split(self):
+
+        self.tr.load_orfs([self.bed1, self.bed2])
+
+        self.assertEqual(self.tr.selected_cds_start, 15490903)
+        self.assertEqual(self.tr.selected_cds_end, 15493007)
+
+        self.assertEqual(self.tr.combined_cds_end, 15495994)
+        # The other CDS starts at 15494127
+
+        logger = create_default_logger(self.tr.id)
+        logger.setLevel("WARN")
+        self.tr.logger = logger
+
+        new_transcripts = [_ for _ in self.tr.split_by_cds()]
+        self.assertEqual(len(new_transcripts), 2)
 
 if __name__ == '__main__':
     unittest.main()

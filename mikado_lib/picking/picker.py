@@ -796,7 +796,8 @@ memory intensive, proceed with caution!")
             handles[2] = [_.name for _ in handles[2]]
 
         tempdir = tempfile.TemporaryDirectory(suffix="",
-                                              prefix="mikado_pick_tmp")
+                                              prefix="mikado_pick_tmp",
+                                              dir=".")
 
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
@@ -917,7 +918,7 @@ memory intensive, proceed with caution!")
         except KeyboardInterrupt:
             raise
         except Exception as exc:
-            self.logger.exception(exc)
+            self.logger.exception("Failed to clean up the temporary directory %s, error: %s", exc)
         finally:
             return
 

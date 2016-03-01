@@ -795,7 +795,8 @@ memory intensive, proceed with caution!")
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
-        tempdir = tempfile.TemporaryDirectory(suffix="", prefix="mikado_pick_tmp", dir=".")
+        tempdir = tempfile.TemporaryDirectory(suffix="",
+                                              prefix="mikado_pick_tmp")
 
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
@@ -908,7 +909,17 @@ memory intensive, proceed with caution!")
                     [os.remove(_) for _ in partials]
 
         self.logger.info("Finished merging partial files")
-        tempdir.cleanup()
+        try:
+            tempdir.cleanup()
+        except (OSError, FileNotFoundError, FileExistsError) as exc:
+            self.logger.warning("Failed to clean up the temporary directory %s, error: %s",
+                                tempdir.name, exc)
+        except KeyboardInterrupt:
+            raise
+        except Exception as exc:
+            self.logger.exception(exc)
+        finally:
+            return
 
     def __submit_single_threaded(self, data_dict):
 

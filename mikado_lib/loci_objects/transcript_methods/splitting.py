@@ -209,7 +209,7 @@ def __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
     return new_boundaries
 
 
-def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
+def __split_complex_exon(transcript, exon, texon, sentinel, boundary, invert=False):
 
     """
     Private method used to split an exon when it is only partially coding,
@@ -281,29 +281,18 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
         # Monoexonic
         transcript.logger.debug("Exon %s, case 3.1", exon)
 
-        if transcript.monoexonic is False:
-            if transcript.strand == "-":
-                if left is True:
-                    new_exon[1] = exon[0] + (texon[1] - boundary[0])
-                    transcript.logger.debug(
-                        "Case 3.1: Negative strand, another transcript on the left, new exon: %d, %d",
-                        new_exon[0], new_exon[1])
-                if right is True:
-                    new_exon[0] = exon[1] - (boundary[1] - texon[0])
-                    transcript.logger.debug(
-                        "Case 3.1: Negative strand, another transcript on the right, new exon: %d, %d",
-                        new_exon[0], new_exon[1])
-            else:
-                if left is True:
-                    new_exon[0] = exon[1] - (texon[1] - boundary[0])
-                    transcript.logger.debug(
-                        "Case 3.1: Positive strand, another transcript on the left, new exon: %d, %d",
-                        new_exon[0], new_exon[1])
-                if right is True:
-                    new_exon[1] = exon[0] + (boundary[1] - texon[0])
-                    transcript.logger.debug(
-                        "Case 3.1: Positive strand, another transcript on the right, new exon: %d, %d",
-                        new_exon[0], new_exon[1])
+        # if transcript.monoexonic is False:
+        if invert is True:
+            if left is True:
+                new_exon[1] = exon[0] + (texon[1] - boundary[0])
+                transcript.logger.debug(
+                    "Case 3.1: Negative strand, another transcript on the left, new exon: %d, %d",
+                    new_exon[0], new_exon[1])
+            if right is True:
+                new_exon[0] = exon[1] - (boundary[1] - texon[0])
+                transcript.logger.debug(
+                    "Case 3.1: Negative strand, another transcript on the right, new exon: %d, %d",
+                    new_exon[0], new_exon[1])
         else:
             if left is True:
                 new_exon[0] = exon[1] - (texon[1] - boundary[0])
@@ -315,6 +304,17 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
                 transcript.logger.debug(
                     "Case 3.1: Positive strand, another transcript on the right, new exon: %d, %d",
                     new_exon[0], new_exon[1])
+        # else:
+        #     if left is True:
+        #         new_exon[0] = exon[1] - (texon[1] - boundary[0])
+        #         transcript.logger.debug(
+        #             "Case 3.1: Positive strand, another transcript on the left, new exon: %d, %d",
+        #             new_exon[0], new_exon[1])
+        #     if right is True:
+        #         new_exon[1] = exon[0] + (boundary[1] - texon[0])
+        #         transcript.logger.debug(
+        #             "Case 3.1: Positive strand, another transcript on the right, new exon: %d, %d",
+        #             new_exon[0], new_exon[1])
 
 
         transcript.logger.debug(
@@ -376,7 +376,7 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary):
     return new_exon, texon, to_discard
 
 
-def __create_splitted_exons(transcript, boundary, left, right):
+def __create_splitted_exons(transcript, boundary, left, right, orf_strand):
 
     """
     Given a boundary in transcriptomic coordinates, this method will extract the
@@ -412,6 +412,10 @@ def __create_splitted_exons(transcript, boundary, left, right):
     else:
         reversal = False
 
+    transcript.logger.debug("Starting analysis on %s, boundaries %s, left: %s, \
+right: %s, reversal: %s",
+                            transcript.id, boundary, left, right, reversal)
+
     for exon in sorted(transcript.exons, key=operator.itemgetter(0), reverse=reversal):
         # Translate into transcript coordinates
         elength = exon[1] - exon[0] + 1
@@ -445,8 +449,10 @@ def __create_splitted_exons(transcript, boundary, left, right):
         else:
             # exon with partial UTR, go to the relative function
             # to handle these complex cases
+            assert transcript.strand is not None
             exon, texon, to_discard = __split_complex_exon(
-                transcript, exon, texon, (left, right), boundary)
+                transcript, exon, texon, (left, right), boundary,
+                invert=(transcript.strand != orf_strand))
 
             my_exons.append(exon)
 
@@ -489,9 +495,13 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
         counter += 1  # Otherwise they start from 0
         new_transcript.id = "{0}.split{1}".format(transcript.id, counter)
         new_transcript.logger = transcript.logger
+        bed12_strand = set(_.strand for _ in bed12_objects)
+        assert len(bed12_strand) == 1
+        bed12_strand = bed12_strand.pop()
 
+        transcript.logger.debug("Splitting exons for %s", new_transcript.id)
         my_exons, discarded_exons, tstart, tend = __create_splitted_exons(
-            transcript, boundary, left, right)
+            transcript, boundary, left, right, bed12_strand)
 
         transcript.logger.debug("""TID %s counter %d, boundary %s, left %s right %s""",
                                 transcript.id,

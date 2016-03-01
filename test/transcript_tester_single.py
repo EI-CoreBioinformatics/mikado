@@ -785,7 +785,29 @@ Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.106
         self.assertEqual(self.tr.selected_cds_start, 2952208)
         self.assertEqual(self.tr.selected_cds_end, 2950205)
 
+    # @unittest.skip
     def test_split(self):
+# Chr3	Cufflinks	mRNA	2949168	2952410	1000	-	.	ID=cufflinks_cufflinks_star_at.10687.1.orf1;
+# Chr3	Cufflinks	three_prime_UTR	2949168	2950204	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.orf1
+# Chr3	Cufflinks	exon	2949168	2952410	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.orf1
+# Chr3	Cufflinks	CDS	2,950,205	2,952,208	.	-	0	Parent=cufflinks_cufflinks_star_at.10687.1.orf1
+# Chr3	Cufflinks	five_prime_UTR	2952209	2952410	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.orf1
+#
+# Chr3	Cufflinks	mRNA	2949168	2952410	1000	-	.	ID=cufflinks_cufflinks_star_at.10687.1.orf2;
+# Chr3	Cufflinks	three_prime_UTR	2949168	2949169	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.orf2
+# Chr3	Cufflinks	exon	2949168	2952410	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.orf2
+# Chr3	Cufflinks	CDS	2,949,170	2,949,868	.	-	0	Parent=cufflinks_cufflinks_star_at.10687.1.orf2
+# Chr3	Cufflinks	five_prime_UTR	2949869	2952410	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.orf2
+# =============>
+# Chr3	Cufflinks	mRNA	2950205	2952410	1000	-	.	ID=cufflinks_cufflinks_star_at.10687.1.split1;
+# Chr3	Cufflinks	exon	2950205 2952410	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.split1
+# Chr3	Cufflinks	CDS	2950205	2952208	.	-	0	Parent=cufflinks_cufflinks_star_at.10687.1.split1
+# Chr3	Cufflinks	five_prime_UTR	2952209	2952410	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.split1
+#
+# Chr3	Cufflinks	mRNA	2949168	2949868	1000	-	.	ID=cufflinks_cufflinks_star_at.10687.1.split2;
+# Chr3	Cufflinks	three_prime_UTR	2949168	2949169	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.split2
+# Chr3	Cufflinks	exon	2949168	2949868	.	-	.	Parent=cufflinks_cufflinks_star_at.10687.1.split2
+# Chr3	Cufflinks	CDS	2949170	2949868	.	-	0	Parent=cufflinks_cufflinks_star_at.10687.1.split2
 
         self.tr.load_orfs([self.bed1, self.bed2])
         self.assertEqual(self.tr.strand, "-")
@@ -797,14 +819,14 @@ Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.106
         self.assertEqual(self.tr.selected_cds_end, 2950205)
 
         logger = create_default_logger("splitter")
-        logger.setLevel("DEBUG")
+        logger.setLevel("ERROR")
         self.tr.logger = logger
 
         new_transcripts = sorted([_ for _ in self.tr.split_by_cds()])
 
         self.assertEqual(new_transcripts[0].start, self.tr.start)
         self.assertEqual(new_transcripts[0].end, 2949868, "\n\n".join([str(_) for _ in new_transcripts]))
-
+        # print(*new_transcripts, sep="\n")
 
 if __name__ == '__main__':
     unittest.main()

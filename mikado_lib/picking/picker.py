@@ -905,6 +905,10 @@ memory intensive, proceed with caution!")
                     merge_partial(partials, output)
                     [os.remove(_) for _ in partials]
 
+        while os.listdir("mikado_pick_tmp"):
+            os.remove(os.path.join("mikado_pick_tmp",
+                                   os.listdir("mikado_pick_tmp").pop()))
+
         os.removedirs("mikado_pick_tmp")
         self.logger.info("Finished merging partial files")
 

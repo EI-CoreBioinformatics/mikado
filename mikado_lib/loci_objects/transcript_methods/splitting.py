@@ -712,11 +712,10 @@ def __relocate_orfs(bed12_objects, tstart, tend):
             obj.end = tend - tstart + 1
             obj.fasta_length = obj.end
             assert obj.end > 0 and obj.end > obj.start
-            obj.thick_start = thick_start - tstart + 1
+            obj.thick_start = max(thick_start - tstart + 1, 1)
             assert obj.thick_start > 0
             obj.thick_end = thick_end - tstart + 1
             assert obj.thick_end > obj.thick_start > 0
-            # Let's complement ..
             obj.block_sizes = [obj.end]
             obj.block_starts = [obj.block_starts]
         else:

@@ -641,7 +641,6 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276
         new_transcripts = sorted(new_transcripts,
                                  key=operator.attrgetter("start", "end"))
         self.assertEqual(len(new_transcripts), 2)
-        print(*[self.tr] + new_transcripts, sep="\n\n")
 
         self.assertEqual(new_transcripts[0].start, 72914)
         self.assertEqual(new_transcripts[0].end, 74914)
@@ -654,6 +653,80 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276
 
         self.assertEqual(new_transcripts[1].selected_cds_start, 75804)
         self.assertEqual(new_transcripts[1].selected_cds_end, 75394)
+
+
+class TestTripleNegative(unittest.TestCase):
+
+    def setUp(self):
+
+        trlines = """Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\ttranscript\t44187\t49369\t1000\t.\t.\tgene_id "CL_Spike.6733"; transcript_id "TGAC_Spike_Cufflinks_CL_Spike.6733.1"; exon_number "1"; cov "2963.838405"; frac "0.338459"; FPKM "46.8523047496"; conf_hi "48.870099"; Name "TGAC_Spike_Cufflinks_CL_Spike.6733.1"; conf_lo "44.834511";
+Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369\t.\t.\t.\tgene_id "CL_Spike.6733"; transcript_id "TGAC_Spike_Cufflinks_CL_Spike.6733.1";"""
+        trlines = [mikado_lib.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
+
+        self.tr = mikado_lib.loci_objects.Transcript(trlines[0])
+        self.tr.add_exon(trlines[1])
+        self.tr.finalize()
+
+        self.bed1 = mikado_lib.parsers.bed12.BED12()
+        self.bed1.header = False
+        self.bed1.chrom = self.tr.id
+        self.bed1.start = 1
+        self.bed1.end = 5183
+        self.bed1.strand = "-"
+        self.bed1.name = "g.132606_TGAC_Spike_Cufflinks_CL_Spike.6733.1|m.132606_type:3prime_partial_len:144_(-)"
+        self.bed1.thick_start = 2
+        self.bed1.thick_end = 430
+        self.bed1.score = 0
+        self.bed1.has_start_codon = True
+        self.bed1.has_stop_codon = False
+        self.assertEqual(self.bed1.cds_len, 429)
+        
+        self.bed2 = mikado_lib.parsers.bed12.BED12()
+        self.bed2.header = False
+        self.bed2.chrom = self.tr.id
+        self.bed2.start = 1
+        self.bed2.end = 5183
+        self.bed2.strand = "-"
+        self.bed2.name = "g.132602_TGAC_Spike_Cufflinks_CL_Spike.6733.1|m.132602_type:complete_len:387_(-)"
+        self.bed2.thick_start = 936
+        self.bed2.thick_end = 2096
+        self.bed2.score = 0
+        self.bed2.has_stop_codon = True
+        self.bed2.has_start_codon = True
+        self.assertEqual(self.bed2.cds_len, 1161)
+        
+        self.bed3 = mikado_lib.parsers.bed12.BED12()
+        self.bed3.header = False
+        self.bed3.chrom = self.tr.id
+        self.bed3.start = 1
+        self.bed3.end = 5183
+        self.bed3.strand = "-"
+        self.bed3.name = "g.132601_TGAC_Spike_Cufflinks_CL_Spike.6733.1|m.132601_type:5prime_partial_len:542_(-)"
+        self.bed3.has_start_codon = False
+        self.bed3.has_stop_codon = True
+        self.bed3.thick_start = 3558
+        self.bed3.thick_end = 5183
+        self.bed3.score = 0
+        self.assertEqual(self.bed3.cds_len, 1626)
+
+    def test_split(self):
+
+        self.tr.load_orfs([self.bed1, self.bed2, self.bed3])
+
+        new = sorted([_ for _ in self.tr.split_by_cds()], key=operator.attrgetter("start", "end"))
+        self.assertEqual(len(new), 3)
+        self.assertEqual(new[0].start, 44187)
+        self.assertEqual(new[0].end, 44616)
+        self.assertEqual(new[0].selected_cds_end, 44188)
+
+        self.assertEqual(new[1].start, new[1].selected_cds_end)
+        self.assertEqual(new[1].start, 45122)
+        self.assertEqual(new[1].end, new[1].selected_cds_start)
+        self.assertEqual(new[1].end, 46282)
+
+        self.assertEqual(new[2].start, 47744)
+        self.assertEqual(new[2].end, self.tr.end)
+        self.assertEqual(new[2].end, new[2].selected_cds_start)
 
 if __name__ == '__main__':
     unittest.main()

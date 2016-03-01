@@ -795,16 +795,15 @@ memory intensive, proceed with caution!")
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
-        os.makedirs("mikado_pick_tmp", exist_ok=True)
-
-        tempdir = tempfile.TemporaryDirectory()
+        tempdir = tempfile.TemporaryDirectory(suffix="", prefix="mikado_pick_tmp", dir=".")
 
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
                                            handles,
                                            locus_queue,
                                            self.logging_queue,
-                                           _)
+                                           _,
+                                           tempdir.name)
                              for _ in range(1, self.threads+1)]
         # Start all processes
         [_.start() for _ in working_processes]
@@ -887,12 +886,13 @@ memory intensive, proceed with caution!")
         # Merge loci
         merge_loci(self.threads,
                    handles[0],
-                   prefix=self.json_conf["pick"]["output_format"]["id_prefix"])
+                   prefix=self.json_conf["pick"]["output_format"]["id_prefix"],
+                   tempdir=tempdir.name)
 
         for handle in handles[1]:
             if handle is not None:
                 with open(handle, "a") as output:
-                    partials = [os.path.join("mikado_pick_tmp",
+                    partials = [os.path.join(tempdir.name,
                                              "{0}-{1}".format(handle, _))
                                 for _ in range(1, self.threads + 1)]
                     merge_partial(partials, output)
@@ -901,13 +901,14 @@ memory intensive, proceed with caution!")
         for handle in handles[2]:
             if handle is not None:
                 with open(handle, "a") as output:
-                    partials = [os.path.join("mikado_pick_tmp",
+                    partials = [os.path.join(tempdir.name,
                                              "{0}-{1}".format(handle, _))
                                 for _ in range(1, self.threads + 1)]
                     merge_partial(partials, output)
                     [os.remove(_) for _ in partials]
 
         self.logger.info("Finished merging partial files")
+        tempdir.cleanup()
 
     def __submit_single_threaded(self, data_dict):
 

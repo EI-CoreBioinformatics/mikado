@@ -219,18 +219,18 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
     return gid_to_new, tid_to_new
 
 
-def merge_loci(num_temp, out_handles, prefix=""):
+def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
 
     metrics_handle, scores_handle, gff_handle = out_handles
 
-    gff_filenames = [os.path.join("mikado_pick_tmp",
+    gff_filenames = [os.path.join(tempdir,
                                   "{0}-{1}".format(gff_handle, _))
                      for _ in range(1, num_temp + 1)]
 
     gid_to_new, tid_to_new = merge_loci_gff(gff_filenames, gff_handle, prefix)
 
     for handle in metrics_handle, scores_handle:
-        filenames = [os.path.join("mikado_pick_tmp",
+        filenames = [os.path.join(tempdir,
                                   "{0}-{1}".format(handle, _))
                      for _ in range(1, num_temp + 1)]
         handle = open(handle, "a")
@@ -476,7 +476,8 @@ class LociProcesser(Process):
                  output_files,
                  locus_queue,
                  logging_queue,
-                 identifier
+                 identifier,
+                 tempdir="mikado_pick_tmp"
                  ):
 
         # current_counter, gene_counter, current_chrom = shared_values
@@ -490,6 +491,7 @@ class LociProcesser(Process):
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.json_conf["log_settings"]["log_level"])
         self.logger.propagate = False
+        self._tempdir = tempdir
 
         self.__data_dict = data_dict
         self.locus_queue = locus_queue
@@ -571,7 +573,7 @@ class LociProcesser(Process):
 
         (locus_metrics_file,
          locus_scores_file,
-         locus_out_file) = [os.path.join("mikado_pick_tmp",
+         locus_out_file) = [os.path.join(self._tempdir,
                                          "{0}-{1}".format(_, self.identifier)) for _ in handles[0]]
         locus_metrics_file = open(locus_metrics_file, "w")
         locus_scores_file = open(locus_scores_file, "w")
@@ -600,7 +602,7 @@ class LociProcesser(Process):
         if handles[1][0]:
             (sub_metrics_file,
              sub_scores_file,
-             sub_out_file) = [os.path.join("mikado_pick_tmp",
+             sub_out_file) = [os.path.join(self._tempdir,
                                            "{0}-{1}".format(_, self.identifier))
                               for _ in handles[1]]
             sub_metrics_file = open(sub_metrics_file, "w")
@@ -623,7 +625,7 @@ class LociProcesser(Process):
         if handles[2][0]:
             (mono_metrics_file,
              mono_scores_file,
-             mono_out_file) = [os.path.join("mikado_pick_tmp",
+             mono_out_file) = [os.path.join(self._tempdir,
                                             "{0}-{1}".format(_, self.identifier))
                                for _ in handles[2]]
             mono_metrics_file = open(mono_metrics_file, "w")

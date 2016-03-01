@@ -527,7 +527,7 @@ tcoordinates (%d, %d)",
                                 new_transcript.start, new_transcript.end,
                                 tstart, tend
                                 )
-        new_bed12s = __relocate_orfs(bed12_objects, tstart, tend)
+        new_bed12s = __relocate_orfs(transcript, bed12_objects, tstart, tend)
         assert len([_ for _ in new_bed12s if _.strand == "+"]) > 0
         transcript.logger.debug("Loading %d ORFs into the new transcript (%d, %d): %s",
                                 len(new_bed12s),
@@ -685,7 +685,7 @@ def __recalculate_hit(hit, boundary, minimal_overlap):
     return hit_dict
 
 
-def __relocate_orfs(bed12_objects, tstart, tend):
+def __relocate_orfs(transcript, bed12_objects, tstart, tend):
     """
     Function to recalculate the coordinates of BED12 objects based on
     the new transcriptomic start/end
@@ -696,10 +696,13 @@ def __relocate_orfs(bed12_objects, tstart, tend):
     """
     new_bed12s = []
     tstart, tend = sorted([tstart, tend])
+    # invert = (transcript.monoexonic and transcript.strand == "-" and all([_.strand == "+" for _ in bed12_objects]))
+
     for obj in bed12_objects:
         import copy
         obj = copy.deepcopy(obj)
         if obj.strand == "-":
+            transcript.logger.warning("Inverting ORFs")
             thick_start = obj.end - obj.thick_end + 1
             thick_end = obj.end - obj.thick_start + 1
             old_start, old_end = tstart, tend

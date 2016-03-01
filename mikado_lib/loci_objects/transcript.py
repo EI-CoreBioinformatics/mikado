@@ -321,46 +321,82 @@ class Transcript:
 
     # ######## Class instance methods ####################
 
-    def add_exon(self, gffline):
+    def add_exon(self, gffline, feature=None):
         """This function will append an exon/CDS feature to the object.
         :param gffline: an annotation line
         :type gffline: mikado_lib.parsers.GFF.GffLine, mikado_lib.parsers.GTF.GtfLine
+        :type feature: flag to indicate what kind of feature we are adding
         """
 
+        if isinstance(gffline, (tuple, list, intervaltree.Interval)):
+            assert len(gffline) == 2
+            start, end = sorted(gffline)
+            phase = None
+            if feature is None:
+                feature = "exon"
+        elif not isinstance(gffline, (GtfLine,GffLine)):
+            raise InvalidTranscript("Unkwown feature type! %s",
+                                    type(gffline))
+        else:
+            start, end = sorted([gffline.start, gffline.end])
+            feature = gffline.feature
+            if self.id not in gffline.parent:
+                raise InvalidTranscript(
+                    """Mismatch between transcript and exon:
+                    {0}
+                    {1}
+                    {2}""".format(self.id, gffline.parent, gffline))
+            assert gffline.is_exon is True, str(gffline)
+            phase = gffline.phase
+
+        assert isinstance(start, int) and isinstance(end, int)
         if self.finalized is True:
             raise ModificationError("You cannot add exons to a finalized transcript!")
 
-        if self.id not in gffline.parent:
-            raise InvalidTranscript(
-                """Mismatch between transcript and exon:
-                {0}
-                {1}
-                {2}""".format(self.id, gffline.parent, gffline))
-        assert gffline.is_exon is True, str(gffline)
-
-        if gffline.feature.upper().endswith("CDS"):
+        if feature.upper().endswith("CDS"):
             store = self.combined_cds
-            self.phases.append((gffline.start, gffline.phase))
-        elif "combined_utr" in gffline.feature or "UTR" in gffline.feature.upper():
+            if phase is not None:
+                self.phases.append((start, phase))
+        elif "combined_utr" in feature or "UTR" in feature.upper():
             store = self.combined_utr
-        elif gffline.feature.endswith("exon"):
+        elif feature.endswith("exon"):
             store = self.exons
-        elif gffline.feature == "start_codon":
+        elif feature == "start_codon":
             self.has_start_codon = True
             return
-        elif gffline.feature == "stop_codon":
+        elif feature == "stop_codon":
             self.has_stop_codon = True
             return
-        elif gffline.feature == "intron":
+        elif feature == "intron":
             store = self.introns
         else:
             raise InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
 
-        start, end = sorted([gffline.start, gffline.end])
-        assert isinstance(start, int) and isinstance(end, int)
         segment = intervaltree.Interval(start, end)
         assert isinstance(segment[0], int) and isinstance(segment[1], int)
         store.append(segment)
+
+    def add_exons(self, exons, features=None):
+
+        """
+        Wrapper of the add_exon method for multiple lines.
+        :param exons: An iterable of G(tf|ff)lines to iterate, or of tuples of values.
+        :param features: Optional array with the feature types
+        :return:
+        """
+        if features is None:
+            features = [None] * len(exons)
+        elif isinstance(features, str):
+            features = [features] * len(exons)
+        else:
+            if len(features) != len(exons):
+                raise InvalidTranscript("Mismatch between exons and features! %s,\t%s",
+                                        exons,
+                                        features)
+
+        for exon, feature in zip(exons, features):
+            self.add_exon(exon, feature)
+        return
 
     def format(self, format_name):
 

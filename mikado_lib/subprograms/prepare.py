@@ -14,9 +14,10 @@ import collections
 import logging
 import logging.handlers
 from .. import exceptions
-import copy
+# import copy
 from ..utilities import path_join
 from ..loci_objects.transcriptchecker import TranscriptChecker
+from ..loci_objects import Transcript
 from ..configuration.configurator import to_json
 from . import to_gff
 from Bio import SeqIO
@@ -51,6 +52,8 @@ def grouper(iterable, num=100):
 
 def create_transcript(lines,
                       fasta_seq,
+                      start,
+                      end,
                       lenient=False,
                       strand_specific=False,
                       canonical_splices=(("GT", "AG"),
@@ -60,7 +63,7 @@ def create_transcript(lines,
     """Function to create the checker.
 
     :param lines: all the exon lines for an object
-    :type lines: list[GTF.GtfLine]
+    :type lines: dict
 
     :param fasta_seq: genomic sequence of the transcript
 
@@ -79,35 +82,39 @@ def create_transcript(lines,
         handler = logging.handlers.QueueHandler(log_queue)
         logger.addHandler(handler)
 
-    logger.debug("Starting with %s", lines[0].transcript)
+    logger.debug("Starting with %s", lines["tid"])
 
     try:
-        transcript_line = copy.deepcopy(lines[0])
+        transcript_line = Transcript()
+        transcript_line.chrom = lines["chrom"]
+        transcript_line.strand = lines["strand"]
+        transcript_line.attributes.update(lines["attributes"])
         transcript_line.feature = "transcript"
-        transcript_line.start = min(r.start for r in lines)
-        transcript_line.end = max(r.end for r in lines)
+        transcript_line.start, transcript_line.end = sorted([start, end])
+        transcript_line.logger = logger
+        transcript_line.id = lines["tid"]
+        transcript_line.parent = lines["parent"]
+
+        for feature in lines["features"]:
+            transcript_line.add_exons(lines["features"][feature],
+                                      features=feature)
         transcript_object = TranscriptChecker(transcript_line,
                                               fasta_seq,
                                               lenient=lenient,
                                               strand_specific=strand_specific,
                                               canonical_splices=canonical_splices,
                                               logger=logger)
-
-        transcript_object.logger = logger
-        for line in lines:
-            transcript_object.add_exon(line)
-        logger.debug("Finished adding exon lines to %s", lines[0].transcript)
+        logger.debug("Finished adding exon lines to %s", lines["tid"])
         transcript_object.finalize()
         transcript_object.check_strand()
     except exceptions.IncorrectStrandError:
         logger.info("Discarded %s because of incorrect fusions of splice junctions",
-                    lines[0].transcript[0] if type(lines[0].transcript) is list
-                    else lines[0].transcript)
+                    lines["tid"])
         # logger.exception(exc)
         transcript_object = None
     except exceptions.InvalidTranscript:
         logger.info("Discarded generically invalid transcript %s",
-                    lines[0].transcript)
+                    lines["tid"])
         transcript_object = None
     except KeyboardInterrupt:
         raise KeyboardInterrupt
@@ -115,7 +122,7 @@ def create_transcript(lines,
         logger.exception(exc)
         transcript_object = None
 
-    logger.debug("Finished with %s", lines[0].transcript)
+    logger.debug("Finished with %s", lines["tid"])
 
     return transcript_object
 
@@ -142,15 +149,21 @@ def store_transcripts(exon_lines, logger, min_length=0):
     logger.info("Starting to organise %d transcripts", len(exon_lines))
     transcripts = collections.defaultdict(dict)
     for tid in exon_lines:
-        tlines = exon_lines[tid]
-        tlength = sum(exon.end + 1 - exon.start for exon in exon_lines[tid])
+
+        if ("exon" not in exon_lines[tid]["features"] or
+                    len(exon_lines[tid]["features"]["exon"]) == 0):
+            logger.warning("No valid exon feature for %s, continuing", tid)
+
+        chrom = exon_lines[tid]["chrom"]
+        start = min((_[0] for _ in exon_lines[tid]["features"]["exon"]))
+        end = max((_[1] for _ in exon_lines[tid]["features"]["exon"]))
+        tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
         # Discard transcript under a certain size
         if tlength < min_length:
             logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
-                           tid, tlength, min_length)
+                         tid, tlength, min_length)
             continue
-        start, end = min(x.start for x in tlines), max(x.end for x in tlines)
-        chrom = tlines[0].chrom
+
         if (start, end) not in transcripts[chrom]:
             transcripts[chrom][(start, end)] = []
         transcripts[chrom][(start, end)].append(tid)
@@ -168,9 +181,10 @@ def store_transcripts(exon_lines, logger, min_length=0):
             if len(tids) > 1:
                 exons = collections.defaultdict(list)
                 for tid in tids:
-                    exon_set = tuple(sorted([(exon.start, exon.end, exon.strand) for exon in
-                                              exon_lines[tid]],
-                                            key=operator.itemgetter(0, 1)))
+                    exon_set = tuple(sorted(
+                        [(exon[0], exon[1], exon_lines[tid]["strand"]) for exon in
+                         exon_lines[tid]["features"]["exon"]],
+                        key=operator.itemgetter(0, 1)))
                     exons[exon_set].append(tid)
                 tids = []
                 logger.debug("%d intron chains for pos %s",
@@ -230,6 +244,7 @@ def perform_check(keys, exon_lines, args, logger):
         for tid, chrom, key in keys:
             transcript_object = partial_checker(
                 exon_lines[tid],
+                key[0], key[1],
                 str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]))
             if transcript_object is None:
                 continue
@@ -244,7 +259,7 @@ def perform_check(keys, exon_lines, args, logger):
                   file=args.json_conf["prepare"]["out_fasta"])
     else:
         # pylint: disable=no-member
-        context = multiprocessing.get_context('forkserver')
+        context = multiprocessing.get_context()
         manager = context.Manager()
         logging_queue = manager.Queue(-1)
         queue_handler = logging.handlers.QueueHandler(logging_queue)
@@ -265,7 +280,8 @@ def perform_check(keys, exon_lines, args, logger):
             results = pool.starmap_async(
                 partial_checker,
                 [(exon_lines[tid],
-                  str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]))
+                  str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]),
+                  key[0], key[1])
                  for (tid, chrom, key) in group]
             )
 
@@ -395,7 +411,6 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     """
     transcript2genes = dict()
     new_ids = set()
-    attributes = dict()
     for row in gff_handle:
         if row.is_transcript is True:
             if label != '':
@@ -406,8 +421,13 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
                 raise ValueError("""{0} has already been found in another file,
                 this will cause unsolvable collisions. Please rerun preparation using
                 labels to tag each file.""")
-            assert row.id not in attributes
-            attributes[row.id] = row.attributes.copy()
+            assert row.id not in exon_lines
+            exon_lines[row.id]["attributes"] = row.attributes.copy()
+            exon_lines[row.id]["chrom"] = row.chrom
+            exon_lines[row.id]["strand"] = row.strand
+            exon_lines[row.id]["tid"] = row.transcript
+            exon_lines[row.id]["parent"] = row.parent
+            exon_lines[row.id]["features"] = dict()
             continue
         elif not row.is_exon:
             continue
@@ -422,14 +442,24 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
                         raise ValueError("""{0} has already been found in another file,
                         this will cause unsolvable collisions. Please rerun preparation using
                         labels to tag each file.""")
+                    if tid not in exon_lines:
+                        exon_lines[tid]["attributes"] = row.attributes.copy()
+                        exon_lines[tid]["chrom"] = row.chrom
+                        exon_lines[tid]["strand"] = row.strand
+                        exon_lines[tid]["features"] = dict()
+                        exon_lines[row.id]["tid"] = tid
+                        exon_lines[row.id]["parent"] = transcript2genes[tid]
+                    else:
+                        if "exon_number" in row.attributes:
+                            del row.attributes["exon_number"]
+                        assert exon_lines[tid]["chrom"] == row.chrom
+                        assert exon_lines[tid]["strand"] == row.strand
+                        exon_lines[tid]["attributes"].update(row.attributes)
+
+                    if row.feature not in exon_lines[tid]["features"]:
+                        exon_lines[tid]["features"][row.feature] = []
+                    exon_lines[tid]["features"][row.feature].append((row.start, row.end))
                     new_ids.add(tid)
-                    new_row = copy.deepcopy(row)
-                    if tid in attributes:
-                        new_row.attributes.update(attributes[tid])
-                    new_row.parent = new_row.id = tid
-                    new_row.attributes["gene_id"] = transcript2genes[tid]
-                    new_row.name = tid
-                    exon_lines[tid].append(new_row)
             else:
                 continue
     return exon_lines, new_ids
@@ -450,7 +480,6 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     """
 
     new_ids = set()
-    attributes = dict()
     for row in gff_handle:
         if row.is_transcript is True:
             if label != '':
@@ -460,10 +489,15 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
                 raise ValueError("""{0} has already been found in another file,
                     this will cause unsolvable collisions. Please rerun preparation using
                     labels to tag each file.""")
-            assert row.id not in attributes
-            attributes[row.id] = row.attributes.copy()
-            if "exon_number" in attributes[row.id]:
-                del attributes[row.id]["exon_number"]
+            assert row.id not in exon_lines
+            exon_lines[row.id]["features"] = dict()
+            exon_lines[row.id]["chrom"] = row.chrom
+            exon_lines[row.id]["strand"] = row.strand
+            exon_lines[row.id]["attributes"] = row.attributes.copy()
+            exon_lines[row.id]["tid"] = row.id
+            exon_lines[row.id]["parent"] = row.gene
+            if "exon_number" in exon_lines[row.id]["attributes"]:
+                del exon_lines[row.id]["attributes"]["exon_number"]
             continue
         if row.is_exon is False or (row.is_cds is True and strip_cds is True):
             continue
@@ -474,9 +508,24 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
             raise ValueError("""{0} has already been found in another file,
                 this will cause unsolvable collisions. Please rerun preparation using
                 labels to tag each file.""")
-        if row.transcript in attributes:
-            row.attributes.update(attributes[row.transcript])
-        exon_lines[row.transcript].append(row)
+        assert row.transcript is not None
+        if row.transcript not in exon_lines:
+            exon_lines[row.transcript]["chrom"] = row.chrom
+            exon_lines[row.transcript]["strand"] = row.strand
+            exon_lines[row.transcript]["exon"] = []
+            exon_lines[row.transcript]["attributes"] = row.attributes.copy()
+            exon_lines[row.id]["tid"] = row.transcript
+            exon_lines[row.id]["parent"] = row.gene
+        else:
+            if "exon_number" in row.attributes:
+                del row.attributes["exon_number"]
+            assert "chrom" in exon_lines[row.transcript], (row.transcript, exon_lines)
+            assert exon_lines[row.transcript]["chrom"] == row.chrom, exon_lines[row.transcript]
+            assert exon_lines[row.transcript]["strand"] == row.strand
+            exon_lines[row.transcript]["attributes"].update(row.attributes)
+        if row.feature not in exon_lines[row.transcript]["features"]:
+            exon_lines[row.transcript]["features"][row.feature] = []
+        exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end))
         new_ids.add(row.transcript)
     return exon_lines, new_ids
 
@@ -492,7 +541,7 @@ def load_exon_lines(args, logger):
     :rtype: collections.defaultdict[list]
     """
 
-    exon_lines = collections.defaultdict(list)
+    exon_lines = collections.defaultdict(dict)
     previous_file_ids = collections.defaultdict(set)
     for label, gff_name in zip(args.json_conf["prepare"]["labels"],
                                args.json_conf["prepare"]["gff"]):

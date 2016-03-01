@@ -11,7 +11,6 @@ import intervaltree
 import mikado_lib.parsers
 import mikado_lib.loci_objects
 import mikado_lib.exceptions
-mikado_lib.loci_objects.transcript_methods
 import operator
 # from mikado_lib.serializers.orf import Orf
 from mikado_lib.utilities.log_utils import create_null_logger, create_default_logger
@@ -42,8 +41,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         self.tr = mikado_lib.loci_objects.Transcript(self.tr_gff_lines[0])
         self.tr.logger = self.logger
-        for line in self.tr_gff_lines[1:]:
-            self.tr.add_exon(line)
+        self.tr.add_exons(self.tr_gff_lines[1:])
         self.tr.finalize()
 
         self.orf = mikado_lib.parsers.bed12.BED12()
@@ -128,9 +126,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         tr = mikado_lib.loci_objects.Transcript(transcript_line[0])
         exon_lines = [line for line in self.tr_gff_lines if
                       line.is_exon is True and "UTR" not in line.feature.upper()]
-
-        for line in exon_lines:
-            tr.add_exon(line)
+        tr.add_exons(exon_lines)
 
         tr.finalize()
         self.assertGreater(tr.three_utr_length, 0)
@@ -152,8 +148,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         transcript = mikado_lib.loci_objects.Transcript(gff_lines[0])
 
         transcript.logger = self.logger
-        for line in gff_lines[1:]:
-            transcript.add_exon(line)
+        transcript.add_exons(gff_lines[1:])
 
         with self.assertRaises(mikado_lib.exceptions.InvalidCDS):
             mikado_lib.loci_objects.transcript_methods.finalizing._check_cdna_vs_utr(transcript)

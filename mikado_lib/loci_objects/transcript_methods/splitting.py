@@ -703,18 +703,18 @@ def __relocate_orfs(bed12_objects, tstart, tend):
             thick_start = obj.end - obj.thick_end + 1
             thick_end = obj.end - obj.thick_start + 1
             old_start, old_end = tstart, tend
-            tstart = obj.end - old_end + 1
-            tend = obj.end - old_start + 1
-            assert (old_end - old_start) == (tend - tstart), ((old_start, old_end), (tstart, tend))
+            local_tstart = obj.end - old_end + 1
+            local_tend = obj.end - old_start + 1
+            assert (old_end - old_start) == (local_tend - local_tstart), ((old_start, old_end), (local_tstart, local_tend))
             assert (thick_end - thick_start) == (obj.thick_end - obj.thick_start)
             obj.strand = "+"
             obj.start = 1
-            obj.end = tend - tstart + 1
+            obj.end = local_tend - local_tstart + 1
             obj.fasta_length = obj.end
             assert obj.end > 0 and obj.end > obj.start
-            obj.thick_start = max(thick_start - tstart + 1, 1)
+            obj.thick_start = max(thick_start - local_tstart + 1, 1)
             assert obj.thick_start > 0
-            obj.thick_end = thick_end - tstart + 1
+            obj.thick_end = thick_end - local_tstart + 1
             assert obj.thick_end > obj.thick_start > 0
             obj.block_sizes = [obj.end]
             obj.block_starts = [obj.block_starts]
@@ -777,6 +777,10 @@ def split_by_cds(transcript):
                 transcript.logger.error("Error in splitting %s by ORF",
                                         transcript.id)
                 transcript.logger.exception(exc)
+                transcript.logger.error("ORFs: %s",
+                                        "\n".join([str(_) for _ in transcript.internal_orfs]))
+                transcript.logger.error("BED12: %s",
+                                        "\n".join([str(_) for _ in transcript.loaded_bed12]))
                 transcript.logger.error("Stripping %s of its CDS.",
                                         transcript.id)
                 transcript.strip_cds()

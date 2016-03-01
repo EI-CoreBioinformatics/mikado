@@ -9,6 +9,7 @@ from sqlalchemy.orm.session import sessionmaker
 from ...utilities import dbutils
 from ..clique_methods import define_graph, find_cliques, find_communities
 from ...serializers.junction import Junction
+from ...exceptions import InvalidTranscript
 from sqlalchemy import and_
 import operator
 import intervaltree
@@ -141,10 +142,22 @@ def check_loaded_orfs(transcript):
         cds_spans = []
         candidates = []
         for internal_cds in transcript.internal_orfs:
-            assert sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]) % 3 == 0, (
-                sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]),
-                sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]) % 3,
-                internal_cds)
+            if sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]) % 3 != 0:
+                transcript.logger.error("Invalid internal:\n%s",
+                                        internal_cds)
+                transcript.logger.error("Invalid internals:\n%s",
+                                        "\n".join([str(_) for _ in transcript.internal_orfs]))
+
+                transcript.logger.error("Invalid ORFs:\n%s",
+                                        "\n".join([str(_) for _ in transcript.loaded_bed12]))
+
+                raise InvalidTranscript((transcript.id,
+                                         sum([_[1].length() + 1 for _
+                                              in internal_cds if _[0] == "CDS"]),
+                                         sum([_[1].length() + 1 for
+                                              _ in internal_cds if _[0] == "CDS"]) % 3,
+                                         internal_cds))
+
             candidates.extend(
                 [a[1] for a in iter(tup for tup in internal_cds
                                     if tup[0] == "CDS")])

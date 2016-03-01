@@ -677,8 +677,8 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         self.bed1.thick_start = 2
         self.bed1.thick_end = 430
         self.bed1.score = 0
-        self.bed1.has_start_codon = True
-        self.bed1.has_stop_codon = False
+        # self.bed1.has_start_codon = True
+        # self.bed1.has_stop_codon = False
         self.assertEqual(self.bed1.cds_len, 429)
         
         self.bed2 = mikado_lib.parsers.bed12.BED12()
@@ -691,8 +691,8 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         self.bed2.thick_start = 936
         self.bed2.thick_end = 2096
         self.bed2.score = 0
-        self.bed2.has_stop_codon = True
-        self.bed2.has_start_codon = True
+        # self.bed2.has_stop_codon = True
+        # self.bed2.has_start_codon = True
         self.assertEqual(self.bed2.cds_len, 1161)
         
         self.bed3 = mikado_lib.parsers.bed12.BED12()
@@ -702,8 +702,8 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         self.bed3.end = 5183
         self.bed3.strand = "-"
         self.bed3.name = "g.132601_TGAC_Spike_Cufflinks_CL_Spike.6733.1|m.132601_type:5prime_partial_len:542_(-)"
-        self.bed3.has_start_codon = False
-        self.bed3.has_stop_codon = True
+        # self.bed3.has_start_codon = False
+        # self.bed3.has_stop_codon = True
         self.bed3.thick_start = 3558
         self.bed3.thick_end = 5183
         self.bed3.score = 0

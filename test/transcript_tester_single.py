@@ -728,5 +728,83 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         self.assertEqual(new[2].end, self.tr.end)
         self.assertEqual(new[2].end, new[2].selected_cds_start)
 
+
+class TestNegativeMonoexonicLoad(unittest.TestCase):
+
+    def setUp(self):
+
+        trlines="""Chr3\tCufflinks\ttranscript\t2949168\t2952410\t1000\t-\t.\tgene_id "cufflinks_star_at.10687"; transcript_id "cufflinks_cufflinks_star_at.10687.1"; exon_number "1"; conf_lo "0.169545"; FPKM "0.1111324743"; frac "0.781250"; conf_hi "0.308263"; cov "3.129756";
+Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.10687"; transcript_id "cufflinks_cufflinks_star_at.10687.1";"""
+
+        trlines = [mikado_lib.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
+
+        self.tr = mikado_lib.loci_objects.Transcript(trlines[0])
+        self.tr.add_exon(trlines[1])
+        self.tr.finalize()
+
+        self.bed1 = mikado_lib.parsers.bed12.BED12()
+        self.bed1.header = False
+        self.bed1.chrom = self.tr.id
+        self.bed1.start = 1
+        self.bed1.end = 3243
+        self.bed1.transcriptomic = True
+        self.bed1.thick_start = 203
+        self.bed1.thick_end = 2206
+        self.bed1.name = "g.135538_cufflinks_cufflinks_star_at.10687.1|m.135538_type:complete_len:668_(+)"
+        self.bed1.has_start_codon = True
+        self.bed1.has_stop_codon = True
+        self.bed1.strand = "+"
+        self.assertEqual(self.bed1.cds_len, 2004)
+        self.bed1.score = 0
+        self.assertFalse(self.bed1.invalid)
+
+        self.bed2 = mikado_lib.parsers.bed12.BED12()
+        self.bed2.header = False
+        self.bed2.chrom = self.tr.id
+        self.bed2.start = 1
+        self.bed2.end = 3243
+        self.bed2.transcriptomic = True
+        self.bed2.thick_start = 2543
+        self.bed2.thick_end = 3241
+        self.bed2.strand = "+"
+        self.bed2.name = "g.135539_cufflinks_cufflinks_star_at.10687.1|m.135539_type:3prime_partial_len:234_(+)"
+        self.bed2.has_start_codon = True
+        self.bed2.has_stop_codon = False
+        self.assertEqual(self.bed2.cds_len, 699)
+        self.bed2.score = 0
+        self.assertFalse(self.bed2.invalid)
+
+    def test_load(self):
+
+        self.tr.load_orfs([self.bed1, self.bed2])
+        self.assertEqual(self.tr.strand, "-")
+
+        self.assertEqual(self.tr.number_internal_orfs, 2)
+        self.assertEqual(self.tr.combined_cds_end, 2949170)
+        self.assertEqual(self.tr.combined_cds_start, 2952208)
+        self.assertEqual(self.tr.selected_cds_start, 2952208)
+        self.assertEqual(self.tr.selected_cds_end, 2950205)
+
+    def test_split(self):
+
+        self.tr.load_orfs([self.bed1, self.bed2])
+        self.assertEqual(self.tr.strand, "-")
+
+        self.assertEqual(self.tr.number_internal_orfs, 2)
+        self.assertEqual(self.tr.combined_cds_end, 2949170)
+        self.assertEqual(self.tr.combined_cds_start, 2952208)
+        self.assertEqual(self.tr.selected_cds_start, 2952208)
+        self.assertEqual(self.tr.selected_cds_end, 2950205)
+
+        logger = create_default_logger("splitter")
+        logger.setLevel("DEBUG")
+        self.tr.logger = logger
+
+        new_transcripts = sorted([_ for _ in self.tr.split_by_cds()])
+
+        self.assertEqual(new_transcripts[0].start, self.tr.start)
+        self.assertEqual(new_transcripts[0].end, 2949868, "\n\n".join([str(_) for _ in new_transcripts]))
+
+
 if __name__ == '__main__':
     unittest.main()

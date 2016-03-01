@@ -6,7 +6,6 @@ This module defines the Picker class, which is the main workhorse for mikado pic
 """
 
 import sys
-import time
 import re
 import csv
 import os
@@ -798,6 +797,8 @@ memory intensive, proceed with caution!")
 
         os.makedirs("mikado_pick_tmp", exist_ok=True)
 
+        tempdir = tempfile.TemporaryDirectory()
+
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
                                            handles,
@@ -906,9 +907,6 @@ memory intensive, proceed with caution!")
                     merge_partial(partials, output)
                     [os.remove(_) for _ in partials]
 
-        time.sleep(3)  # Give time to clean the directory
-        import subprocess
-        subprocess.call("rm -rf mikado_pick_tmp", shell=True)
         self.logger.info("Finished merging partial files")
 
     def __submit_single_threaded(self, data_dict):

@@ -787,7 +787,15 @@ def split_by_cds(transcript):
                 new_transcripts = [transcript]
 
     assert len(new_transcripts) > 0, str(transcript)
+    __original = set()
+    for internal in transcript.internal_orfs:
+        __original.add(tuple([_[1] for _ in internal if _[0] == "CDS"]))
+
     for new_transc in new_transcripts:
+        for internal in new_transc.internal_orfs:
+            internal = tuple([_[1] for _ in internal if _[0] == "CDS"])
+            assert internal in __original, (transcript.id, __original, internal)
+
         new_transc.verified_introns = set.intersection(set(new_transc.introns),
                                                        transcript.verified_introns)
         yield new_transc

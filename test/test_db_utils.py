@@ -24,7 +24,7 @@ class TestDbConnect(unittest.TestCase):
     def setUp(self):
         self.json = Mikado.configuration.configurator.to_json(
             os.path.join(os.path.dirname(__file__), "configuration.yaml"))
-        self.assertEqual(self.json["db_settings"]["db"], "Mikado.py.db")
+        self.assertEqual(self.json["db_settings"]["db"], "mikado.db")
         self.json["db_settings"]["db"] = os.path.join(os.path.dirname(__file__),
                                                       self.json["db_settings"]["db"],)
 

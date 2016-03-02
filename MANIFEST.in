@@ -2,7 +2,5 @@ include DESCRIPTION.md
 include *py
 recursive-include Mikado *.py *.json *.yaml
 include bin/*
-include Mikado/configuration/*yaml
-include Mikado/configuration/*json
 recursive-include util *py
 recursive-include test *py

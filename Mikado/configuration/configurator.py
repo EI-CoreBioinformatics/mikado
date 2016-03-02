@@ -517,7 +517,7 @@ def to_json(string, simple=False):
 
     if string is None or string == '':
         json_dict = dict()
-        string = os.path.join(os.path.abspath(os.getcwd()), "Mikado.py.json")
+        string = os.path.join(os.path.abspath(os.getcwd()), "mikado.json")
     else:
         string = os.path.abspath(string)
         if not os.path.exists(string) or os.stat(string).st_size == 0:

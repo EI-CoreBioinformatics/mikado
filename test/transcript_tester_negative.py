@@ -9,10 +9,10 @@ import operator
 import re
 import intervaltree
 import logging
-import mikado_lib
-import mikado_lib.parsers
-import mikado_lib.loci_objects
-from mikado_lib.utilities.log_utils import create_null_logger, create_default_logger
+import mikado
+import mikado.parsers
+import mikado.loci_objects
+from mikado.utilities.log_utils import create_null_logger, create_default_logger
 
 
 class TranscriptTesterNegative(unittest.TestCase):
@@ -49,7 +49,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         tr_lines[pos] = re.sub("\s+", "\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
-    tr_gff_lines = [mikado_lib.parsers.GFF.GffLine(line) for line in tr_lines]
+    tr_gff_lines = [mikado.parsers.GFF.GffLine(line) for line in tr_lines]
 
     for l in tr_gff_lines:
         assert l.header is False
@@ -58,13 +58,13 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = mikado_lib.loci_objects.Transcript(self.tr_gff_lines[0])
+        self.tr = mikado.loci_objects.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
         self.tr.logger = self.logger
 
-        self.orf = mikado_lib.parsers.bed12.BED12()
+        self.orf = mikado.parsers.bed12.BED12()
         self.orf.chrom = self.tr.id
         self.orf.start = 1
         self.orf.end = self.tr.cdna_length
@@ -120,7 +120,7 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
 
         self.tr.exons = []
         self.tr.finalized = False
-        self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
+        self.assertRaises(mikado.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_invalid_utr(self):
 
@@ -131,7 +131,7 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
 
         self.tr.combined_cds = []
         self.tr.finalized = False
-        self.assertRaises(mikado_lib.exceptions.InvalidTranscript, self.tr.finalize)
+        self.assertRaises(mikado.exceptions.InvalidTranscript, self.tr.finalize)
 
     def test_basics(self):
 
@@ -354,7 +354,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         self.tr.strip_cds()
         self.tr.finalized = False
 
-        first_orf = mikado_lib.parsers.bed12.BED12()
+        first_orf = mikado.parsers.bed12.BED12()
         first_orf.chrom = self.tr.id
         first_orf.start = 1
         first_orf.end = self.tr.cdna_length
@@ -372,7 +372,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         self.assertFalse(first_orf.invalid, (len(first_orf), first_orf.cds_len))
 
         # This should not be incorporated
-        second_orf = mikado_lib.parsers.bed12.BED12()
+        second_orf = mikado.parsers.bed12.BED12()
         second_orf.chrom = self.tr.id
         second_orf.start = 0
         second_orf.end = self.tr.cdna_length
@@ -389,10 +389,10 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid, (len(second_orf), second_orf.cds_len))
 
-        self.assertTrue(mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(mikado.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
-        third_orf = mikado_lib.parsers.bed12.BED12()
+        third_orf = mikado.parsers.bed12.BED12()
         third_orf.chrom = self.tr.id
         third_orf.start = 1
         third_orf.end = self.tr.cdna_length
@@ -410,10 +410,10 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         self.assertFalse(third_orf.invalid, (len(third_orf), third_orf.cds_len))
 
         self.assertFalse(
-            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
+            mikado.loci_objects.transcript.Transcript.is_overlapping_cds(
                 first_orf, third_orf))
         self.assertFalse(
-            mikado_lib.loci_objects.transcript.Transcript.is_overlapping_cds(
+            mikado.loci_objects.transcript.Transcript.is_overlapping_cds(
                 second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
@@ -461,13 +461,13 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t219557\t22
 Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t220205\t220327\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";
 Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t220411\t221661\t.\t-\t.\tgene_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1"; transcript_id "TGAC_Trinity_Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS:216942_226036:c0_g1_i4.mrna1";"""
 
-        trlines = [mikado_lib.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
+        trlines = [mikado.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
 
-        self.tr = mikado_lib.loci_objects.Transcript(trlines[0])
+        self.tr = mikado.loci_objects.Transcript(trlines[0])
         for _ in trlines[1:]:
             self.tr.add_exon(_)
 
-        self.bed1 = mikado_lib.parsers.bed12.BED12()
+        self.bed1 = mikado.parsers.bed12.BED12()
         self.bed1.header = False
         self.bed1.chrom = self.tr.id
         self.bed1.transcriptomic = True
@@ -482,7 +482,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t220411\t22
         self.bed1.score = 0
         self.assertEqual(self.bed1.cds_len, 579)
 
-        self.bed2 = mikado_lib.parsers.bed12.BED12()
+        self.bed2 = mikado.parsers.bed12.BED12()
         self.bed2.header = False
         self.bed2.chrom = self.tr.id
         self.bed2.transcriptomic = True

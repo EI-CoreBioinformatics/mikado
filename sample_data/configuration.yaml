@@ -102,7 +102,6 @@ prepare:
   - tr
   out: mikado_prepared.gtf
   out_fasta: mikado_prepared.fasta
-  cache: false
   threads: 5
   single: false
 serialise:

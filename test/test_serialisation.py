@@ -3,7 +3,7 @@
 import logging
 import os
 import unittest
-import mikado_lib
+import mikado
 import tempfile
 import sqlalchemy.orm
 from sqlalchemy import and_  # , or_
@@ -13,29 +13,29 @@ __author__ = 'Luca Venturini'
 
 class TestLoadJunction(unittest.TestCase):
 
-    logger = mikado_lib.utilities.log_utils.create_null_logger("test_junction")
+    logger = mikado.utilities.log_utils.create_null_logger("test_junction")
     dbfile = tempfile.mktemp(suffix=".db")
 
     def setUp(self):
 
-        self.json_conf = mikado_lib.configuration.configurator.to_json(None)
+        self.json_conf = mikado.configuration.configurator.to_json(None)
         self.json_conf["db_settings"]["dbtype"] = "sqlite"
         self.json_conf["db_settings"]["db"] = self.dbfile
         self.json_conf["serialise"]["files"]["genome_fai"] = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
-        self.session = mikado_lib.utilities.dbutils.connect(self.json_conf)
+        self.session = mikado.utilities.dbutils.connect(self.json_conf)
         self.junction_file = os.path.join(
             os.path.dirname(__file__),
             "junctions.bed"
         )
-        self.junction_serialiser = mikado_lib.serializers.junction.JunctionSerializer(
+        self.junction_serialiser = mikado.serializers.junction.JunctionSerializer(
             self.junction_file,
             json_conf=self.json_conf,
             logger=self.logger
         )
 
-        self.junction_parser = mikado_lib.parsers.bed12.Bed12Parser(
+        self.junction_parser = mikado.parsers.bed12.Bed12Parser(
             self.junction_file,
             fasta_index=None,
             transcriptomic=False
@@ -45,7 +45,7 @@ class TestLoadJunction(unittest.TestCase):
     def test_first_junc(self):
 
         line = next(self.junction_parser)
-        self.assertIsInstance(line, mikado_lib.parsers.bed12.BED12)
+        self.assertIsInstance(line, mikado.parsers.bed12.BED12)
         self.assertTrue(line.header)
         line = next(self.junction_parser)
         self.assertFalse(line.header)
@@ -56,7 +56,7 @@ class TestLoadJunction(unittest.TestCase):
         self.assertEqual(line._line, _line)
 
     def __create_session(self):
-        engine = mikado_lib.utilities.dbutils.connect(
+        engine = mikado.utilities.dbutils.connect(
             self.json_conf, self.logger)
         sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
         session = sessionmaker()
@@ -66,32 +66,32 @@ class TestLoadJunction(unittest.TestCase):
 
         session = self.__create_session()
         self.assertEqual(
-            session.query(mikado_lib.serializers.junction.Junction).count(),
+            session.query(mikado.serializers.junction.Junction).count(),
             372,
-            session.query(mikado_lib.serializers.junction.Junction).count()
+            session.query(mikado.serializers.junction.Junction).count()
         )
 
         self.assertEqual(
-            session.query(mikado_lib.serializers.junction.Junction).filter(
-                mikado_lib.serializers.junction.Junction.chrom != "Chr5"
+            session.query(mikado.serializers.junction.Junction).filter(
+                mikado.serializers.junction.Junction.chrom != "Chr5"
             ).count(), 1,
             [_.chrom for _ in
-                session.query(mikado_lib.serializers.junction.Junction).filter(
-                    mikado_lib.serializers.junction.Junction.chrom != "Chr5"
+                session.query(mikado.serializers.junction.Junction).filter(
+                    mikado.serializers.junction.Junction.chrom != "Chr5"
             )])
 
         # It's a BED file translated into 1-based, so add 1 to starts
         self.assertEqual(
-            session.query(mikado_lib.serializers.junction.Junction).filter(
+            session.query(mikado.serializers.junction.Junction).filter(
                 and_(
-                    mikado_lib.serializers.junction.Junction.chrom == "Chr5",
-                    mikado_lib.serializers.junction.Junction.start == 26510619,
+                    mikado.serializers.junction.Junction.chrom == "Chr5",
+                    mikado.serializers.junction.Junction.start == 26510619,
                 )
             ).count(), 1,
             [str(_) for _ in
-                session.query(mikado_lib.serializers.junction.Junction).filter(
+                session.query(mikado.serializers.junction.Junction).filter(
                     and_(
-                        mikado_lib.serializers.junction.Junction.name == "portcullis_junc_0",
+                        mikado.serializers.junction.Junction.name == "portcullis_junc_0",
                     )
             )])
 
@@ -99,31 +99,31 @@ class TestLoadJunction(unittest.TestCase):
 
         session = self.__create_session()
         self.assertEqual(
-            session.query(mikado_lib.serializers.junction.Junction).filter(
+            session.query(mikado.serializers.junction.Junction).filter(
                 and_(
-                    mikado_lib.serializers.junction.Junction.chrom == "Chr5",
-                    mikado_lib.serializers.junction.Junction.junction_end == 26514549,
+                    mikado.serializers.junction.Junction.chrom == "Chr5",
+                    mikado.serializers.junction.Junction.junction_end == 26514549,
                 )
             ).count(), 2,
-            session.query(mikado_lib.serializers.junction.Junction).filter(
+            session.query(mikado.serializers.junction.Junction).filter(
                 and_(
-                    mikado_lib.serializers.junction.Junction.chrom == "Chr5",
-                    mikado_lib.serializers.junction.Junction.junction_end == 26514549,
+                    mikado.serializers.junction.Junction.chrom == "Chr5",
+                    mikado.serializers.junction.Junction.junction_end == 26514549,
                 )
             )
         )
 
-        first = session.query(mikado_lib.serializers.junction.Junction).filter(
+        first = session.query(mikado.serializers.junction.Junction).filter(
                     and_(
-                        mikado_lib.serializers.junction.Junction.name == "portcullis_junc_0",
+                        mikado.serializers.junction.Junction.name == "portcullis_junc_0",
                     )).one()
-        first_double = session.query(mikado_lib.serializers.junction.Junction).filter(
+        first_double = session.query(mikado.serializers.junction.Junction).filter(
                         and_(
-                            mikado_lib.serializers.junction.Junction.name == "portcullis_junc_0",
+                            mikado.serializers.junction.Junction.name == "portcullis_junc_0",
                         )).one()
-        second = session.query(mikado_lib.serializers.junction.Junction).filter(
+        second = session.query(mikado.serializers.junction.Junction).filter(
                     and_(
-                        mikado_lib.serializers.junction.Junction.name == "portcullis_junc_1",
+                        mikado.serializers.junction.Junction.name == "portcullis_junc_1",
                     )).one()
 
         self.assertTrue(first.is_equal(first_double.chrom,
@@ -137,7 +137,7 @@ class TestLoadJunction(unittest.TestCase):
 
     def test_no_logger(self):
 
-        with mikado_lib.serializers.junction.JunctionSerializer(
+        with mikado.serializers.junction.JunctionSerializer(
                 self.junction_file,
                 json_conf=self.json_conf,
                 logger=None
@@ -153,7 +153,7 @@ class TestLoadJunction(unittest.TestCase):
         nlogger.addHandler(handler)
 
         with self.assertLogs("test_exiting", level="WARNING") as cm:
-            _ = mikado_lib.serializers.junction.JunctionSerializer(
+            _ = mikado.serializers.junction.JunctionSerializer(
                 None,
                 json_conf=self.json_conf,
                 logger=nlogger
@@ -164,7 +164,7 @@ class TestLoadJunction(unittest.TestCase):
                          ['WARNING:test_exiting:No input file specified. Exiting.'] * 2,
                          cm.output)
 
-        # with mikado_lib.utilities.log_utils.create_default_logger("test_null") as new_logger:
+        # with mikado.utilities.log_utils.create_default_logger("test_null") as new_logger:
         #
         #     with  as _:
         #         self.assertLogs(new_logger, "No input file specified. Exiting.")
@@ -176,7 +176,7 @@ class TestLoadJunction(unittest.TestCase):
         jconf["db_settings"]["db"] = db
         jconf["serialise"]["files"]["genome_fai"] = None
 
-        seri = mikado_lib.serializers.junction.JunctionSerializer(
+        seri = mikado.serializers.junction.JunctionSerializer(
                 self.junction_file,
                 json_conf=self.json_conf,
                 logger=self.logger
@@ -186,7 +186,7 @@ class TestLoadJunction(unittest.TestCase):
     def test_invalid_bed12(self):
 
         with self.assertRaises(TypeError):
-            _ = mikado_lib.serializers.junction.Junction(None, 0)
+            _ = mikado.serializers.junction.Junction(None, 0)
 
     def tearDown(self):
         self.junction_serialiser.close()

@@ -7,11 +7,11 @@ Very basic, all too basic test for some functionalities of locus-like classes.
 import unittest
 import os.path
 
-from mikado_lib.configuration import configurator
-from mikado_lib import exceptions
-from mikado_lib.parsers import GFF  # ,GTF, bed12
-from mikado_lib.loci_objects import transcript, superlocus,  abstractlocus
-from mikado_lib.utilities.log_utils import create_null_logger
+from mikado.configuration import configurator
+from mikado import exceptions
+from mikado.parsers import GFF  # ,GTF, bed12
+from mikado.loci_objects import transcript, superlocus,  abstractlocus
+from mikado.utilities.log_utils import create_null_logger
 
 
 class OverlapTester(unittest.TestCase):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import mikado_lib
+import mikado
 import unittest
 import logging
 

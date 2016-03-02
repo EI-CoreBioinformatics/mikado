@@ -1,8 +1,8 @@
-import mikado.utilities
-from mikado.parsers.GFF import GffLine
-from mikado.loci_objects import Transcript
+import Mikado.utilities
+from Mikado.parsers.GFF import GffLine
+from Mikado.loci_objects import Transcript
 from intervaltree import Interval
-from mikado.subprograms.util.trim import trim_coding, trim_noncoding
+from Mikado.subprograms.util.trim import trim_coding, trim_noncoding
 import unittest
 
 __author__ = 'Luca Venturini'
@@ -40,7 +40,7 @@ class TestTrimming(unittest.TestCase):
                               "ID=ENST00000560636.cds1;Parent=ENST00000560636"])
         cds_line = GffLine(cds_line)
         transcript.add_exon(cds_line)
-        logger = mikado.utilities.log_utils.create_null_logger("wrong_cds")
+        logger = Mikado.utilities.log_utils.create_null_logger("wrong_cds")
         transcript.logger = logger
         transcript.finalize()
 
@@ -73,7 +73,7 @@ class TestTrimming(unittest.TestCase):
         transcript.strand = "+"
         transcript.finalize()
 
-        logger = mikado.utilities.log_utils.create_null_logger("correct_cds")
+        logger = Mikado.utilities.log_utils.create_null_logger("correct_cds")
 
         copied = transcript.deepcopy()
 
@@ -105,7 +105,7 @@ class TestTrimming(unittest.TestCase):
         transcript.strand = "+"
         transcript.finalize()
 
-        logger = mikado.utilities.log_utils.create_null_logger("correct_cds2")
+        logger = Mikado.utilities.log_utils.create_null_logger("correct_cds2")
 
         copied = transcript.deepcopy()
 

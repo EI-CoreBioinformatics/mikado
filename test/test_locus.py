@@ -3,10 +3,10 @@ This module tests the alternative splicing and retained intron functionalities.
 """
 
 import unittest
-import mikado.loci_objects
-from mikado.parsers.GTF import GtfLine
-import mikado.scales
-import mikado.utilities
+import Mikado.loci_objects
+from Mikado.parsers.GTF import GtfLine
+import Mikado.scales
+import Mikado.utilities
 import logging
 
 __author__ = 'Luca Venturini'
@@ -18,7 +18,7 @@ class TestLocus(unittest.TestCase):
     This unit test is focussed on the locus definition and alternative splicings.
     """
 
-    logger = mikado.utilities.log_utils.create_default_logger("tester")
+    logger = Mikado.utilities.log_utils.create_default_logger("tester")
 
     def setUp(self):
 
@@ -51,7 +51,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1lines = [GtfLine(line) for line in t1.split("\n") if line]
-        self.t1 = mikado.loci_objects.Transcript(t1lines[0])
+        self.t1 = Mikado.loci_objects.Transcript(t1lines[0])
         for exon in t1lines[1:]:
             if exon.header:
                 continue
@@ -68,7 +68,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1_contained_lines = [GtfLine(line) for line in t1_contained.split("\n") if line]
-        self.t1_contained = mikado.loci_objects.Transcript(t1_contained_lines[0])
+        self.t1_contained = Mikado.loci_objects.Transcript(t1_contained_lines[0])
         for exon in t1_contained_lines[1:]:
             if exon.header:
                 continue
@@ -89,7 +89,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1_as_lines = [GtfLine(line) for line in t1_as.split("\n") if line]
-        self.t1_as = mikado.loci_objects.Transcript(t1_as_lines[0])
+        self.t1_as = Mikado.loci_objects.Transcript(t1_as_lines[0])
         for exon in t1_as_lines[1:]:
             if exon.header:
                 continue
@@ -108,7 +108,7 @@ class TestLocus(unittest.TestCase):
         """
 
         t1_retained_lines = [GtfLine(line) for line in t1_retained.split("\n") if line]
-        self.t1_retained = mikado.loci_objects.Transcript(t1_retained_lines[0])
+        self.t1_retained = Mikado.loci_objects.Transcript(t1_retained_lines[0])
         for exon in t1_retained_lines[1:]:
             if exon.header:
                 continue
@@ -128,15 +128,15 @@ class TestLocus(unittest.TestCase):
         """
 
         # The fragment should have a c assigned
-        result, _ = mikado.scales.assigner.Assigner.compare(self.t1_contained, self.t1)
+        result, _ = Mikado.scales.assigner.Assigner.compare(self.t1_contained, self.t1)
         self.assertEqual(result.ccode[0], "c")
 
         # The valid AS should have a j assigned
-        result, _ = mikado.scales.assigner.Assigner.compare(self.t1_as, self.t1)
+        result, _ = Mikado.scales.assigner.Assigner.compare(self.t1_as, self.t1)
         self.assertEqual(result.ccode[0], "j")
 
         # The retained intron AS should have a j assigned
-        result, _ = mikado.scales.assigner.Assigner.compare(self.t1_retained, self.t1)
+        result, _ = Mikado.scales.assigner.Assigner.compare(self.t1_retained, self.t1)
         self.assertEqual(result.ccode[0], "j", result.ccode)
 
     def testCreate(self):
@@ -146,7 +146,7 @@ class TestLocus(unittest.TestCase):
         :return:
         """
 
-        locus = mikado.loci_objects.Locus(self.t1, logger=self.logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
 
@@ -154,7 +154,7 @@ class TestLocus(unittest.TestCase):
 
         """Test that we exclude a transcript with a contained class code (c)"""
 
-        locus = mikado.loci_objects.Locus(self.t1, logger=self.logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_contained)
@@ -165,7 +165,7 @@ class TestLocus(unittest.TestCase):
         """Test that we add a transcript with a contained class code (c) if
         we explicitly ask for it"""
 
-        locus = mikado.loci_objects.Locus(self.t1, logger=self.logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"].append("c")
         self.assertEqual(len(locus.transcripts), 1)
@@ -177,7 +177,7 @@ class TestLocus(unittest.TestCase):
         """Test that we can successfully add a transcript to the locus if
         it passes the muster."""
 
-        locus = mikado.loci_objects.Locus(self.t1, logger=self.logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_as)
@@ -191,7 +191,7 @@ class TestLocus(unittest.TestCase):
         - we ask for perfect (100%) CDS overlap
         """
 
-        locus = mikado.loci_objects.Locus(self.t1, logger=self.logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
 
@@ -213,7 +213,7 @@ class TestLocus(unittest.TestCase):
 
         """Test that a transcript with a retained intron is chucked out"""
 
-        locus = mikado.loci_objects.Locus(self.t1, logger=self.logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=self.logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(self.t1_retained)
@@ -223,7 +223,7 @@ class TestLocus(unittest.TestCase):
         """Test that a transcript with a retained intron is kept as valid
         if we change the switch."""
 
-        locus = mikado.loci_objects.Locus(self.t1, logger=self.logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=self.logger)
         json_conf = self.json_conf.copy()
         json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
         locus.json_conf = json_conf
@@ -237,7 +237,7 @@ class TestLocus(unittest.TestCase):
         candidate.reverse_strand()
         logger = self.logger
         # logger.setLevel(logging.DEBUG)
-        locus = mikado.loci_objects.Locus(self.t1, logger=logger)
+        locus = Mikado.loci_objects.Locus(self.t1, logger=logger)
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
         locus.add_transcript_to_locus(candidate)

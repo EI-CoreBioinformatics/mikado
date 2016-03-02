@@ -1,0 +1,691 @@
+"""
+This module contains the methods used by the Transcript class to retrieve information
+from the database/dictionary provided during the pick operation.
+"""
+
+
+from itertools import groupby
+from sqlalchemy.orm.session import sessionmaker
+from ...utilities import dbutils
+from ..clique_methods import define_graph, find_cliques, find_communities
+from ...serializers.junction import Junction
+from ...exceptions import InvalidTranscript
+from sqlalchemy import and_
+import operator
+import intervaltree
+
+__author__ = 'Luca Venturini'
+
+
+def load_orfs(transcript, candidate_orfs):
+
+    """
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param candidate_orfs: The ORFs to be inspected for loading.
+    :type candidate_orfs: list[Mikado.py.parsers.serializers.orf.Orf
+
+    This method replicates what is done internally by the
+    "cdna_alignment_orf_to_genome_orf.pl"
+    utility in the TransDecoder suite. It takes as argument "candidate_orfs"
+    i.e. a list of BED12 serialised objects.
+    The method expects as argument a dictionary containing BED entries,
+    and indexed by the transcript name. The indexed name *must* equal the
+    "id" property, otherwise the method returns immediately.
+    If no entry is found for the transcript, the method exits immediately.
+    Otherwise, any CDS information present in the original GFF/GTF
+    file is completely overwritten.
+    Briefly, it follows this logic:
+    - Finalise the transcript
+    - Retrieve from the dictionary (input) the CDS object
+    - Sort in decreasing order the CDSs on the basis of:
+        - Presence of start/stop codon
+        - CDS length (useful for monoexonic transcripts where we might want to set the strand)
+    - For each CDS:
+        - If the ORF is on the + strand:
+            - all good
+        - If the ORF is on the - strand:
+            - if the transcript is monoexonic: invert its genomic strand
+            - if the transcript is multiexonic: skip
+        - Start looking at the exons
+    """
+
+    # Prepare the transcript
+    transcript.finalize()
+
+    candidate_orfs = find_overlapping_cds(transcript, candidate_orfs)
+
+    if candidate_orfs is None or len(candidate_orfs) == 0:
+        transcript.logger.debug("No ORF for %s; %s", transcript.id, candidate_orfs)
+        return
+
+    transcript.combined_utr = []
+    transcript.combined_cds = []
+    transcript.internal_orfs = []
+    transcript.finalized = False
+    # Token to be set to False after the first CDS is exhausted
+    primary_orf = True
+    primary_strand = None
+    # This will keep in memory the original BED12 objects
+    transcript.loaded_bed12 = []
+    transcript.phases = []
+
+    for orf in candidate_orfs:
+        # Minimal check
+        if primary_orf is False and orf.strand != primary_strand:
+            continue
+
+        check_sanity = (orf.thick_start >= 1 and orf.thick_end <= transcript.cdna_length)
+        if len(orf) != transcript.cdna_length or not check_sanity:
+            message = "Wrong ORF for {0}: ".format(orf.id)
+            message += "cDNA length: {0}; ".format(transcript.cdna_length)
+            message += "orf length: {0}; ".format(len(orf))
+            message += "CDS: {0}-{1}".format(orf.thick_start, orf.thick_end)
+            transcript.logger.warning(message)
+            continue
+
+        if transcript.strand is None:
+            transcript.strand = orf.strand
+
+        transcript.loaded_bed12.append(orf)
+        cds_exons = sorted(__create_internal_orf(transcript, orf),
+                           key=operator.itemgetter(1))
+
+        transcript.internal_orfs.append(cds_exons)
+
+        if primary_orf is True:
+            (transcript.has_start_codon, transcript.has_stop_codon) = (orf.has_start_codon,
+                                                                       orf.has_stop_codon)
+            primary_orf = False
+            primary_strand = orf.strand
+            transcript.selected_internal_orf_index = transcript.internal_orfs.index(cds_exons)
+        # transcript.phases.append(cds_exons[0][0], 0)
+
+    # Now verify the loaded content
+    check_loaded_orfs(transcript)
+
+
+def check_loaded_orfs(transcript):
+
+    """
+    This function verifies the ORF status after
+    loading from an external data structure/database.
+
+    :param transcript: the transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :return:
+    """
+
+    if len(transcript.internal_orf_lengths) == 0:
+        transcript.logger.warning("No candidate ORF retained for %s",
+                                  transcript.id)
+
+    if len(transcript.internal_orfs) == 1:
+        transcript.logger.debug("Found 1 ORF for %s", transcript.id)
+        transcript.combined_cds = sorted(
+            [a[1] for a in iter(_ for _ in transcript.internal_orfs[0]
+                                if _[0] == "CDS")],
+            key=operator.itemgetter(0, 1))
+        transcript.combined_utr = sorted(
+            [a[1] for a in iter(_ for _ in transcript.internal_orfs[0]
+                                if _[0] == "UTR")],
+            key=operator.itemgetter(0, 1)
+        )
+
+    elif len(transcript.internal_orfs) > 1:
+        transcript.logger.debug("Found %d ORFs for %s",
+                                len(transcript.internal_orfs),
+                                transcript.id)
+        cds_spans = []
+        candidates = []
+        for internal_cds in transcript.internal_orfs:
+            if sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]) % 3 != 0:
+                transcript.logger.error("Invalid internal:\n%s",
+                                        internal_cds)
+                transcript.logger.error("Invalid internals:\n%s",
+                                        "\n".join([str(_) for _ in transcript.internal_orfs]))
+
+                transcript.logger.error("Invalid ORFs:\n%s",
+                                        "\n".join([str(_) for _ in transcript.loaded_bed12]))
+
+                raise InvalidTranscript((transcript.id,
+                                         sum([_[1].length() + 1 for _
+                                              in internal_cds if _[0] == "CDS"]),
+                                         sum([_[1].length() + 1 for
+                                              _ in internal_cds if _[0] == "CDS"]) % 3,
+                                         internal_cds))
+
+            candidates.extend(
+                [a[1] for a in iter(tup for tup in internal_cds
+                                    if tup[0] == "CDS")])
+
+        for comm in transcript.find_communities(candidates):
+            span = intervaltree.Interval(min(t[0] for t in comm), max(t[1] for t in comm))
+            cds_spans.append(span)
+
+        transcript.combined_cds = sorted(cds_spans, key=operator.itemgetter(0, 1))
+
+        # This method is probably OBSCENELY inefficient,
+        # but I cannot think of a better one for the moment.
+
+        # curr_utr_segment = None  # temporary token with the UTR positions
+
+        # Calculate the positions inside the UTR
+        utr_pos = sorted(list(set.difference(
+            set.union(*[set(range(exon[0], exon[1] + 1)) for exon in transcript.exons]),
+            set.union(*[set(range(cds[0], cds[1] + 1)) for cds in transcript.combined_cds])
+        )))
+
+        # This code snippet using groupby is massively more efficient
+        # than the previous naive implementation
+        getter = operator.itemgetter(1)
+        for _, group in groupby(enumerate(utr_pos), lambda items: items[0] - items[1]):
+            group = [getter(element) for element in group]
+            # group = list(map(operator.itemgetter(1), group))
+            if len(group) > 1:
+                transcript.combined_utr.append(intervaltree.Interval(group[0], group[-1]))
+            else:
+                transcript.combined_utr.append(intervaltree.Interval(group[0], group[0]))
+
+        # Check everything is alright
+        equality = (transcript.cdna_length ==
+                    transcript.combined_cds_length + transcript.combined_utr_length)
+
+        assert equality, (transcript.cdna_length, transcript.combined_cds, transcript.combined_utr)
+
+    if transcript.internal_orfs:
+        transcript.feature = "mRNA"
+
+    transcript.finalize()
+
+
+def __load_blast(transcript):
+
+    """This method looks into the DB for hits corresponding to the desired requirements.
+    Hits will be loaded into the "blast_hits" list;
+    we will not store the SQLAlchemy query object,
+    but rather its representation as a dictionary
+    (using the Hit.as_dict() method).
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    """
+
+    # if self.query_id is None:
+    #     return
+
+    # if self.json_conf["pick"]["chimera_split"]["blast_check"] is False:
+    #     return
+
+    max_target_seqs = transcript.json_conf[
+        "pick"]["chimera_split"]["blast_params"]["max_target_seqs"]
+    maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
+
+    blast_hits_query = transcript.blast_baked(transcript.session).params(
+        query=transcript.id,
+        evalue=maximum_evalue)
+
+    transcript.logger.debug("Starting to load BLAST data for %s",
+                            transcript.id)
+    # variables which take care of defining
+    # the maximum evalue and target seqs
+    # We do not trust the limit in the sqlite because
+    # we might lose legitimate hits with the same evalue as the
+    # best ones. So we collapse all hits with the same evalue.
+    previous_evalue = -1
+    counter = 0
+    for hit in blast_hits_query:
+
+        if counter > max_target_seqs and previous_evalue < hit.evalue:
+            break
+        elif previous_evalue < hit.evalue:
+            previous_evalue = hit.evalue
+
+        counter += 1
+
+        transcript.blast_hits.append(hit.as_dict())
+
+    transcript.logger.debug("Loaded %d BLAST hits for %s",
+                            counter, transcript.id)
+
+
+def __connect_to_db(transcript):
+
+    """This method will connect to the database using the information
+    contained in the JSON configuration.
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    """
+
+    transcript.engine = dbutils.connect(
+        transcript.json_conf, transcript.logger)
+
+    transcript.sessionmaker = sessionmaker()
+    transcript.sessionmaker.configure(bind=transcript.engine)
+    transcript.session = transcript.sessionmaker()
+
+
+def load_information_from_db(transcript, json_conf, introns=None, session=None,
+                             data_dict=None):
+    """This method will invoke the check for:
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param json_conf: Necessary configuration file
+    :type json_conf: dict
+
+    :param introns: the verified introns in the Locus
+    :type introns: None,set
+
+    :param session: an SQLAlchemy session
+    :type session: sqlalchemy.orm.session
+
+    :param data_dict: a dictionary containing the information directly
+    :type data_dict: dict
+
+    Verified introns can be provided from outside using the keyword.
+    Otherwise, they will be extracted from the database directly.
+    """
+
+    transcript.logger.debug("Loading {0}".format(transcript.id))
+    transcript.json_conf = json_conf
+
+    if data_dict is not None:
+        retrieve_from_dict(transcript, data_dict)
+    else:
+        if session is None:
+            __connect_to_db(transcript)
+        else:
+            transcript.session = session
+        candidate_orfs = []
+        transcript.logger.debug("Retrieving the ORFs for %s", transcript.id)
+        for orf in retrieve_orfs(transcript):
+            candidate_orfs.append(orf)
+        transcript.logger.debug("Retrieved the ORFs for %s", transcript.id)
+
+        transcript.logger.debug("Loading the ORFs for %s", transcript.id)
+        load_orfs(transcript, candidate_orfs)
+        transcript.logger.debug("Loaded the ORFs for %s", transcript.id)
+
+        transcript.logger.debug("Loading the BLAST data for %s", transcript.id)
+        __load_blast(transcript)
+        transcript.logger.debug("Loaded the BLAST data for %s", transcript.id)
+    # Finally load introns, separately
+    __load_verified_introns(transcript, data_dict, introns)
+    transcript.logger.debug("Loaded data for %s", transcript.id)
+
+
+def retrieve_from_dict(transcript, data_dict):
+    """
+    Method to retrieve transcript data directly from a dictionary.
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param data_dict: the dictionary with loaded data from DB
+    :type data_dict: (None | dict)
+    """
+
+    transcript.logger.debug(
+        "Retrieving information from DB dictionary for %s",
+        transcript.id)
+    # Intron data
+    transcript.logger.debug("Checking introns for %s, candidates %s",
+                            transcript.id,
+                            sorted(transcript.introns))
+
+    # if introns is not None:
+    #     transcript.verified_introns = set.intersection(
+    #         set((intron[0], intron[1], transcript.strand) for intron in transcript.introns),
+    #         set(introns)
+    #     )
+    # else:
+    #     transcript.verified_introns = set()
+    #     for intron in transcript.introns:
+    #         key = (transcript.chrom, intron[0], intron[1])
+    #         if data_dict.get(key, None) == transcript.strand:
+    #             transcript.verified_introns.add(intron[0], intron[1], transcript.strand)
+
+    # transcript.logger.debug("Verified introns for %s: %s", transcript.id,
+    #                         sorted(transcript.verified_introns))
+
+    # ORF data
+    trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]
+    min_cds_len = transcript.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
+
+    transcript.logger.debug("Retrieving ORF information from DB dictionary for %s",
+                            transcript.id)
+    if transcript.id in data_dict["orfs"]:
+        candidate_orfs = list(orf for orf in data_dict["orfs"][transcript.id] if
+                              orf.cds_len >= min_cds_len)
+    else:
+        candidate_orfs = []
+
+    # They must already be as ORFs
+    if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True):
+        # Remove negative strand ORFs for multiexonic transcripts,
+        # or monoexonic strand-specific transcripts
+        candidate_orfs = list(orf for orf in candidate_orfs if orf.strand != "-")
+
+    load_orfs(transcript, candidate_orfs)
+
+    # if transcript.json_conf["pick"]["chimera_split"]["blast_check"] is True:
+    transcript.logger.debug("Retrieving BLAST hits for %s",
+                            transcript.id)
+    maximum_evalue = transcript.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"]
+
+    if transcript.id in data_dict["hits"]:
+        # this is a dictionary full of lists of dictionary
+        hits = data_dict["hits"][transcript.id]
+    else:
+        hits = list()
+
+    transcript.logger.debug("Found %d potential BLAST hits for %s with evalue <= %f",
+                            len(hits),
+                            transcript.id,
+                            maximum_evalue)
+
+    transcript.blast_hits.extend(hits)
+    transcript.logger.debug("Loaded %d BLAST hits for %s",
+                            len(transcript.blast_hits), transcript.id)
+
+    transcript.logger.debug("Retrieved information from DB dictionary for %s",
+                            transcript.id)
+
+
+def find_overlapping_cds(transcript, candidates: list) -> list:
+    """
+    Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
+    It will pass to the function the class's "is_overlapping_cds" method
+    (which would be otherwise be inaccessible from the Abstractlocus class method).
+    As we are interested only in the communities, not the cliques,
+    this wrapper discards the cliques
+    (first element of the Abstractlocus.find_communities results)
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param candidates: candidate ORFs to analyse
+    :type candidates: list(Mikado.py.serializers.orf.Orf)
+
+    """
+
+    # If we are looking at a multiexonic transcript
+    if not (transcript.monoexonic is True and transcript.strand is None):
+        candidates = list(corf for corf in candidates if corf.strand == "+")
+
+    # Prepare the minimal secondary length parameter
+    if transcript.json_conf is not None:
+        minimal_secondary_orf_length = \
+            transcript.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"]
+    else:
+        minimal_secondary_orf_length = 0
+
+    transcript.logger.debug("{0} input ORFs for {1}".format(len(candidates), transcript.id))
+    candidates = list(corf for corf in candidates if corf.invalid is False)
+    transcript.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), transcript.id))
+    if len(candidates) == 0:
+        return []
+
+    orf_dictionary = dict((x.name, x) for x in candidates)
+
+    # First define the graph
+    graph = define_graph(orf_dictionary, inters=transcript.is_overlapping_cds)
+    candidate_orfs = find_candidate_orfs(transcript, graph, orf_dictionary)
+
+    transcript.logger.debug("{0} candidate retained ORFs for {1}: {2}".format(
+        len(candidate_orfs),
+        transcript.id,
+        [x.name for x in candidate_orfs]))
+    final_orfs = [candidate_orfs[0]]
+    if len(candidate_orfs) > 1:
+        others = list(corf for corf in candidate_orfs[1:] if
+                      corf.cds_len >= minimal_secondary_orf_length)
+        transcript.logger.debug("Found {0} secondary ORFs for {1} of length >= {2}".format(
+            len(others), transcript.id,
+            minimal_secondary_orf_length
+        ))
+        final_orfs.extend(others)
+
+    transcript.logger.debug("Retained %d ORFs for %s: %s",
+                            len(final_orfs),
+                            transcript.id,
+                            [orf.name for orf in final_orfs])
+    return final_orfs
+
+
+def __create_internal_orf(transcript, orf):
+
+    """
+    Private method that calculates the assignment of the exons given the
+    coordinates of the transcriptomic ORF.
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param orf: candidate ORF to transform into an internal ORF
+    :type orf: mikado_lib.serializers.orf.Orf
+
+    """
+
+    cds_exons = []
+    current_start, current_end = 0, 0
+
+    if orf.strand == "-":
+        # We might decide to remove this check
+        assert transcript.monoexonic is True
+        current_end = transcript.start + (orf.thick_start - 1)
+        current_start = current_end + orf.cds_len - 1
+
+        assert transcript.start <= current_end <= transcript.end
+        assert transcript.start <= current_end < current_start <= transcript.end, (
+            transcript.start, current_end, current_start, transcript.end
+        )
+        assert (current_start - current_end + 1) % 3 == 0, (
+            current_end, current_start,
+            current_start - current_end + 1
+        )
+        if current_end > transcript.start:
+            cds_exons.append(("UTR", intervaltree.Interval(transcript.start, current_end - 1)))
+        cds_exons.append(("CDS", intervaltree.Interval(current_end, current_start)))
+        if current_start < transcript.end:
+            cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
+        transcript.strand = "-"
+    else:
+        for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
+                           reverse=(transcript.strand == "-")):
+            cds_exons.append(("exon", intervaltree.Interval(exon[0], exon[1])))
+            current_start += 1
+            current_end += exon[1] - exon[0] + 1
+            # Whole UTR
+            if current_end < orf.thick_start or current_start > orf.thick_end:
+                cds_exons.append(("UTR", intervaltree.Interval(exon[0], exon[1])))
+            else:
+                if transcript.strand == "+":
+                    c_start = exon[0] + max(0, orf.thick_start - current_start)
+                    c_end = exon[1] - max(0, current_end - orf.thick_end)
+                else:
+                    c_start = exon[0] + max(0, current_end - orf.thick_end)
+                    c_end = exon[1] - max(0, orf.thick_start - current_start)
+                if c_start > exon[0]:
+                    u_end = c_start - 1
+                    cds_exons.append(("UTR", intervaltree.Interval(exon[0], u_end)))
+                if c_start <= c_end:
+                    cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end)))
+                if c_end < exon[1]:
+                    cds_exons.append(("UTR", intervaltree.Interval(c_end + 1, exon[1])))
+            current_start = current_end
+
+    return cds_exons
+
+
+def __load_verified_introns(transcript, data_dict=None, introns=None):
+
+    """This method will load verified junctions from the external
+    (usually the superlocus class).
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param data_dict: the dictionary with data to load
+    :type data_dict: (dict | None)
+
+    :param introns: verified introns
+    :type introns: (set | None)
+    """
+
+    transcript.logger.debug("Checking introns; candidates %s", transcript.introns)
+    if data_dict is None:
+        transcript.logger.debug("Checking introns using the database for %s",
+                                transcript.id)
+
+        for intron in transcript.introns:
+            # Disable checks as the hybridproperties confuse
+            # both pycharm and pylint
+            # noinspection PyCallByClass,PyTypeChecker
+            # pylint: disable=no-value-for-parameter
+            # chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id
+            # import sqlalchemy
+            for ver_intron in transcript.session.query(Junction).filter(and_(
+                    Junction.chrom == transcript.chrom,
+                    intron[0] == Junction.junction_start,
+                    intron[1] == Junction.junction_end)):
+                if ver_intron.strand in (transcript.strand, None):
+                    transcript.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                            transcript.chrom, ver_intron.strand,
+                                            intron[0], intron[1], transcript.id)
+                    transcript.verified_introns.add(intron)
+
+    else:
+        transcript.logger.debug("Checking introns using data structure for %s",
+                                transcript.id)
+        for intron in transcript.introns:
+            transcript.logger.debug("Checking intron %s%s:%d-%d for %s",
+                                    transcript.chrom, transcript.strand,
+                                    intron[0], intron[1], transcript.id)
+            if (intron[0], intron[1], transcript.strand) in introns:
+                transcript.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                        transcript.chrom, transcript.strand,
+                                        intron[0], intron[1], transcript.id)
+                transcript.verified_introns.add(intron)
+            elif (intron[0], intron[1], None) in introns:
+                transcript.logger.debug("Verified intron %s%s:%d-%d for %s",
+                                        transcript.chrom, None,
+                                        intron[0], intron[1], transcript.id)
+                transcript.verified_introns.add(intron)
+
+    transcript.logger.debug("Found these introns for %s: %s",
+                            transcript.id, transcript.verified_introns)
+    return
+
+
+def retrieve_orfs(transcript):
+
+    """This method will look up the ORFs loaded inside the database.
+    During the selection, the function will also remove overlapping ORFs.
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    """
+
+    # if self.query_id is None:
+    #     return []
+
+    trust_strand = transcript.json_conf["pick"]["orf_loading"]["strand_specific"]
+    min_cds_len = transcript.json_conf["pick"]["orf_loading"]["minimal_orf_length"]
+
+    orf_results = transcript.orf_baked(transcript.session).params(query=transcript.id,
+                                                                  cds_len=min_cds_len)
+    transcript.logger.debug("Retrieving ORFs from database for %s",
+                            transcript.id)
+
+    assert orf_results is not None
+
+    if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True):
+        # Remove negative strand ORFs for multiexonic transcripts,
+        # or monoexonic strand-specific transcripts
+        assert orf_results is not None
+        candidate_orfs = list(orf for orf in orf_results if orf.strand != "-")
+    else:
+        candidate_orfs = orf_results.all()
+
+    transcript.logger.debug("Found %d ORFs for %s",
+                            len(candidate_orfs), transcript.id)
+    assert isinstance(candidate_orfs, list)
+
+    if len(candidate_orfs) == 0:
+        return []
+    else:
+        result = [orf.as_bed12() for orf in candidate_orfs]
+        for orf in result:
+            assert orf.chrom == transcript.id, (orf.chrom, transcript.id)
+        return result
+
+
+def orf_sorter(orf):
+    """Sorting function for the ORFs."
+
+    :param orf: an ORF to sort
+    :type orf: mikado_lib.serializers.orf.Orf
+    """
+    return ((orf.has_start_codon and orf.has_stop_codon),
+            (orf.has_start_codon or orf.has_stop_codon),
+            orf.cds_len)
+
+
+def find_candidate_orfs(transcript, graph, orf_dictionary) -> list:
+
+    """
+    Function that returns the best non-overlapping ORFs
+
+    :param transcript: the Transcript instance
+    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+
+    :param graph: The NetworkX graph to be analysed
+    :type graph: networkx.Graph
+
+    :param orf_dictionary: a dictionary which contains the orf indexed by name
+    :type orf_dictionary: dict
+
+    :return:
+    """
+
+    candidate_orfs = []
+
+    while len(graph) > 0:
+        cliques = find_cliques(graph, logger=transcript.logger)
+        communities = find_communities(graph, logger=transcript.logger)
+        clique_str = []
+        for clique in cliques:
+            clique_str.append(str([(orf_dictionary[x].thick_start,
+                                    orf_dictionary[x].thick_end) for x in clique]))
+        comm_str = []
+        for comm in communities:
+            comm_str.append(str([(orf_dictionary[x].thick_start,
+                                  orf_dictionary[x].thick_end) for x in comm]))
+        transcript.logger.debug("{0} communities for {1}:\n\t{2}".format(
+            len(communities),
+            transcript.id,
+            "\n\t".join(comm_str)))
+        transcript.logger.debug("{0} cliques for {1}:\n\t{2}".format(
+            len(cliques),
+            transcript.id,
+            "\n\t".join(clique_str)))
+
+        to_remove = set()
+        for comm in communities:
+            comm = [orf_dictionary[x] for x in comm]
+            best_orf = sorted(comm, key=orf_sorter, reverse=True)[0]
+            candidate_orfs.append(best_orf)
+            for clique in iter(cl for cl in cliques if best_orf.name in cl):
+                to_remove.update(clique)
+        graph.remove_nodes_from(to_remove)
+
+    candidate_orfs = sorted(candidate_orfs, key=orf_sorter, reverse=True)
+    return candidate_orfs

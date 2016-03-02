@@ -1,12 +1,12 @@
 db_settings:
   #  Settings related to DB connection. Parameters:
-  #  db: the DB to connect to. Required. Default: mikado.db
+  #  db: the DB to connect to. Required. Default: Mikado.py.db
   #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
   #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
   #  dbuser: DB user. Default: 
   #  dbpasswd: DB password for the user. Default: 
   #  dbport: Integer. It indicates the default port for the DB.
-  db: mikado.db
+  db: Mikado.py.db
   dbtype: sqlite
 pick:
   alternative_splicing:
@@ -38,16 +38,16 @@ pick:
   files:
     #  Input and output files for Mikado pick.
     #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf
-    #  - loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3
+    #  - loci_out: output GFF3 file from Mikado pick. Default: Mikado.py.loci.gff3
     #  - subloci_out: optional GFF file with the intermediate subloci. Default: no
     #  output
     #  - monoloci_out: optional GFF file with the intermediate monoloci. Default:
     #  no output
     #  - log: log file for this step.
     input: mikado_prepared.gtf
-    loci_out: mikado.loci.gff3
-    subloci_out: mikado.subloci.gff3
-    monoloci_out: mikado.monoloci.gff3
+    loci_out: Mikado.py.loci.gff3
+    subloci_out: Mikado.py.subloci.gff3
+    monoloci_out: Mikado.py.monoloci.gff3
   run_options:
     #  Generic run options.
     #  - purge: boolean flag. If set, all loci where all transcripts have a score
@@ -96,7 +96,7 @@ serialise:
   force: true
   files:
     genome_fai: genome.fai
-    orfs: [mikado.bed]
+    orfs: [Mikado.py.bed]
     junctions: [junctions.bed]
     blast_targets: uniprot_sprot_plants.fasta
-    xml: [mikado.blast.xml]
+    xml: [Mikado.py.blast.xml]

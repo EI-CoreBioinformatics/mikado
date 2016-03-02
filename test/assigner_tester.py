@@ -6,21 +6,21 @@ Unit tests for the scales library
 """
 
 import unittest
-import mikado.loci_objects
-import mikado.scales
+import Mikado.loci_objects
+import Mikado.scales
 import intervaltree
 import argparse
 import os
-import mikado.parsers
+import Mikado.parsers
 import csv
 
 class AssignerTester(unittest.TestCase):
     """
-    This unit test has the purpose of testing the scales module of mikado.
+    This unit test has the purpose of testing the scales module of Mikado.py.
     """
 
     def test_self(self):
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -31,7 +31,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [intervaltree.Interval(*_) for _ in reference.exons]
         reference.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(reference, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(reference, reference)
         self.assertEqual(result.ccode, ("=",))
         self.assertEqual(result.n_f1, (100,))
         self.assertEqual(result.n_prec, (100,))
@@ -41,7 +41,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.j_recall, (100,))
 
     def test_mono_self(self):
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -51,7 +51,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(reference, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(reference, reference)
         self.assertEqual(result.ccode, ("_",))
         self.assertEqual(result.n_f1, (100,))
         self.assertEqual(result.n_prec, (100,))
@@ -61,7 +61,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.j_recall, (100,))
 
     def test_equal(self):
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -71,7 +71,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 1800
         prediction.strand = "+"
@@ -81,7 +81,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1500, 1800)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("=",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -92,11 +92,11 @@ class AssignerTester(unittest.TestCase):
                                delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_equal(self):
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -106,7 +106,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 105
         prediction.end = 995
         prediction.chrom = "Chr1"
@@ -116,7 +116,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(105, 995)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("_",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -125,11 +125,11 @@ class AssignerTester(unittest.TestCase):
         self.assertAlmostEqual(result.n_recall[0], 100 * (995 - 105 + 1) / reference.cdna_length, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_semiequal(self):
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -139,7 +139,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 500
         prediction.chrom = "Chr1"
@@ -149,7 +149,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 500)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("c",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -159,14 +159,14 @@ class AssignerTester(unittest.TestCase):
                                delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_mono_overlap(self):
 
         """Test that two monoexonic overlapping genes get a m"""
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 1000
         reference.chrom = "Chr1"
@@ -176,7 +176,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 1000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 3000
         prediction.chrom = "Chr1"
@@ -186,7 +186,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 3000)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("m",))
         self.assertEqual(result.j_f1, (100,))
         self.assertEqual(result.j_prec, (100,))
@@ -196,7 +196,7 @@ class AssignerTester(unittest.TestCase):
 
     def test_contained(self):
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -206,7 +206,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 600
         prediction.end = 1800
         prediction.strand = "+"
@@ -216,7 +216,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(600, 1000), (1500, 1800)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("c",))
         self.assertAlmostEqual(result.j_f1[0], (100 * (2 / 3),)[0], delta=0.1)
         self.assertAlmostEqual(result.j_prec, (100,))
@@ -224,12 +224,12 @@ class AssignerTester(unittest.TestCase):
         self.assertAlmostEqual(result.n_prec[0], 100, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_alternative(self):
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -239,7 +239,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 100
         prediction.end = 2000
         prediction.strand = "+"
@@ -249,14 +249,14 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(100, 300), (600, 1000), (1500, 2000)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], (100 * ((3 / 4) / 1),)[0], delta=0.1)
         self.assertAlmostEqual(result.j_prec, (100 * 3 / 4,), delta=0.1)
         self.assertAlmostEqual(result.j_recall, (100 * 3 / 4,), delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("X",))
 
     def test_mono_intronic(self):
@@ -268,7 +268,7 @@ class AssignerTester(unittest.TestCase):
         Expected class code: i
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -278,7 +278,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 1100
         prediction.end = 1400
         prediction.strand = "+"
@@ -288,7 +288,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(1100, 1400)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("i",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -300,7 +300,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.n_recall, (0,))
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("i",))
 
     def test_multi_intronic(self):
@@ -317,7 +317,7 @@ class AssignerTester(unittest.TestCase):
         Expected class code: I
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -327,7 +327,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 1100
         prediction.end = 1400
         prediction.strand = "+"
@@ -337,7 +337,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(1100, 1200), (1300, 1400)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -349,11 +349,11 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.n_recall, (0,))
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
 
         # Now the reference spans two introns
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 350
         prediction.end = 1400
         prediction.strand = "+"
@@ -363,7 +363,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(350, 450), (1300, 1400)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -375,7 +375,7 @@ class AssignerTester(unittest.TestCase):
         self.assertEqual(result.n_recall, (0,))
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("I",))
 
     def test_overlap(self):
@@ -388,7 +388,7 @@ class AssignerTester(unittest.TestCase):
         
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -398,7 +398,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 1300
         prediction.strand = "+"
@@ -408,7 +408,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 700), (900, 1300)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("o",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -421,7 +421,7 @@ class AssignerTester(unittest.TestCase):
         self.assertAlmostEqual(result.n_f1[0], 100 * n_f1, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_ccode_e(self):
@@ -435,7 +435,7 @@ class AssignerTester(unittest.TestCase):
         
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -445,7 +445,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 400
         prediction.strand = "+"
@@ -455,7 +455,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 400)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("e",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -468,7 +468,7 @@ class AssignerTester(unittest.TestCase):
         self.assertAlmostEqual(result.n_f1[0], 100 * n_f1, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_not_ccode_e(self):
@@ -481,7 +481,7 @@ class AssignerTester(unittest.TestCase):
         Exonic overlap only
         
         """
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -491,7 +491,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 310
         prediction.strand = "+"
@@ -501,7 +501,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(50, 310)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("o",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
@@ -514,7 +514,7 @@ class AssignerTester(unittest.TestCase):
         self.assertAlmostEqual(result.n_f1[0], 100 * n_f1, delta=0.1)
 
         prediction.strand = "-"
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
     def test_left_extension(self):
@@ -527,7 +527,7 @@ class AssignerTester(unittest.TestCase):
         
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -537,7 +537,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 1800
         prediction.strand = "+"
@@ -547,7 +547,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(50, 150), (200, 300), (500, 1000), (1500, 1800)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("J",))
         self.assertEqual(result.j_f1, (4 / 5 * 100,))
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -563,7 +563,7 @@ class AssignerTester(unittest.TestCase):
 
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -573,7 +573,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 3000
         prediction.strand = "+"
@@ -583,7 +583,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1500, 2050), (2200, 3000)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("n",))
         self.assertEqual(result.j_f1, (4 / 5 * 100,))
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -597,7 +597,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: j
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -607,7 +607,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 3000
         prediction.strand = "+"
@@ -617,7 +617,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1500, 1800), (2500, 3000)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("J",))
         self.assertEqual(result.j_f1, (4 / 5 * 100,))
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -631,7 +631,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: j
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -641,7 +641,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 3000
         prediction.strand = "+"
@@ -651,7 +651,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(50, 150), (200, 300), (500, 1000), (1500, 1800), (2500, 3000)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("J",))
         self.assertAlmostEqual(result.j_f1[0], 2 / 3 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
@@ -665,7 +665,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: n
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 1000
         reference.end = 3000
         reference.strand = "+"
@@ -675,7 +675,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(1000, 1300), (1500, 2000), (2500, 3000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 500
         prediction.end = 3500
         prediction.strand = "+"
@@ -685,7 +685,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(500, 700), (900, 1300), (1500, 2000), (2500, 3100), (3200, 3500)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("n",))
         self.assertAlmostEqual(result.j_f1[0], 2 / 3 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
@@ -700,7 +700,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: j, junction recall: 100%
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -710,7 +710,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 2100
         prediction.strand = "+"
@@ -720,7 +720,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1200, 1300), (1500, 2100)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], 4 / 5 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 2 / 3 * 100, delta=0.1)
@@ -735,7 +735,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: j, junction recall: 100%
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -745,7 +745,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 200
         prediction.end = 3000
         prediction.strand = "+"
@@ -755,7 +755,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(200, 300), (500, 1000), (1200, 1300), (1500, 1800), (2500, 3000)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], 2 / 3 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 1 / 2 * 100, delta=0.1)
@@ -769,7 +769,7 @@ class AssignerTester(unittest.TestCase):
         Expected ccode: j
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 1000
         reference.end = 3000
         reference.strand = "+"
@@ -779,7 +779,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(1000, 1300), (1500, 2000), (2500, 3000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 500
         prediction.end = 3500
         prediction.strand = "+"
@@ -791,7 +791,7 @@ class AssignerTester(unittest.TestCase):
                             (2500, 3100), (3200, 3500)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
         self.assertAlmostEqual(result.j_f1[0], 2 * 0.4 / 1.4 * 100, delta=0.1)
         self.assertAlmostEqual(result.j_prec[0], 2 / 5 * 100, delta=0.1)
@@ -806,7 +806,7 @@ class AssignerTester(unittest.TestCase):
         Expected class code: C
         :return:
         """
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 1000
         reference.end = 3000
         reference.strand = "+"
@@ -816,7 +816,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(1000, 1300), (1500, 2000), (2200, 2400), (2500, 3000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 1400
         prediction.end = 2450
         prediction.strand = "+"
@@ -826,7 +826,7 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(1400, 2000), (2200, 2450)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("C",))
 
     def test_contained_alternative(self):
@@ -838,7 +838,7 @@ class AssignerTester(unittest.TestCase):
         Expected class code: C
         :return:
         """
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 1000
         reference.end = 3000
         reference.strand = "+"
@@ -848,7 +848,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(1000, 1300), (1500, 2000), (2200, 2400), (2500, 3000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 1200
         prediction.end = 2450
         prediction.strand = "+"
@@ -858,12 +858,12 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(1200, 2000), (2200, 2450)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("j",))
 
     def test_mono_overlap_nostrand(self):
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "-"
@@ -873,7 +873,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 300
         prediction.end = 3000
         prediction.strand = "."
@@ -883,10 +883,10 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(300, 3000)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("m",))
 
-        result, _ = mikado.scales.assigner.Assigner.compare(reference, prediction)
+        result, _ = Mikado.scales.assigner.Assigner.compare(reference, prediction)
         self.assertEqual(result.ccode, ("m",))
 
     def test_mono_multi_overlap_nostrand(self):
@@ -895,7 +895,7 @@ class AssignerTester(unittest.TestCase):
          to verify the assignment of correct ccodes (o and O)
         """
 
-        reference = mikado.loci_objects.Transcript()
+        reference = Mikado.loci_objects.Transcript()
         reference.start = 100
         reference.end = 2000
         reference.strand = "+"
@@ -905,7 +905,7 @@ class AssignerTester(unittest.TestCase):
         reference.exons = [(100, 700), (1000, 2000)]
         reference.finalize()
 
-        prediction = mikado.loci_objects.Transcript()
+        prediction = Mikado.loci_objects.Transcript()
         prediction.start = 50
         prediction.end = 600
         prediction.strand = "."
@@ -915,10 +915,10 @@ class AssignerTester(unittest.TestCase):
         prediction.exons = [(50, 600)]
         prediction.finalize()
 
-        result, _ = mikado.scales.assigner.Assigner.compare(prediction, reference)
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("o",))
 
-        result, _ = mikado.scales.assigner.Assigner.compare(reference, prediction)
+        result, _ = Mikado.scales.assigner.Assigner.compare(reference, prediction)
         self.assertEqual(result.ccode, ("O",))
 
     def test_neighbors(self):
@@ -928,16 +928,16 @@ class AssignerTester(unittest.TestCase):
         """
         keys = [(10, 200), (350, 500)]
         keys = intervaltree.IntervalTree.from_tuples(keys)
-        self.assertEqual(mikado.scales.assigner.Assigner.find_neighbours(
+        self.assertEqual(Mikado.scales.assigner.Assigner.find_neighbours(
                          keys, (350,500)),
                          [((350, 500), 0), ((10, 200), 150)]
                          )
-        self.assertEqual(mikado.scales.assigner.Assigner.find_neighbours(
+        self.assertEqual(Mikado.scales.assigner.Assigner.find_neighbours(
                          keys, (5350,5500), distance=1000),
                          []
                          )
 
-        self.assertEqual(mikado.scales.assigner.Assigner.find_neighbours(
+        self.assertEqual(Mikado.scales.assigner.Assigner.find_neighbours(
                          keys, (5350,5500), distance=10000),
                          [((350, 500), 4850), ((10, 200), 5150)]
                          )
@@ -951,9 +951,9 @@ class AssignerTester(unittest.TestCase):
 
         master = os.path.dirname(os.path.abspath(__file__))
         args = argparse.Namespace()
-        args.reference = mikado.parsers.GFF.GFF3(
+        args.reference = Mikado.parsers.GFF.GFF3(
             os.path.join(master, "fusion_test", "fusion_test_ref.gff3"))
-        args.prediction = mikado.parsers.GTF.GTF(
+        args.prediction = Mikado.parsers.GTF.GTF(
             os.path.join(master, "fusion_test", "fusion_test_pred.gtf"))
         args.log = os.path.join(master, "fusion_test", "fusion_test.log")
         args.out = os.path.join(master, "fusion_test", "fusion_test")
@@ -962,7 +962,7 @@ class AssignerTester(unittest.TestCase):
         args.exclude_utr = False
         args.protein_coding = False
 
-        mikado.scales.compare.compare(args)
+        Mikado.scales.compare.compare(args)
 
         out_refmap = os.path.join(master, "fusion_test", "fusion_test.refmap")
         self.assertTrue(os.path.exists(out_refmap))

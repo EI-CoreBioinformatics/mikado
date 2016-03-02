@@ -52,7 +52,7 @@ setup(
 
     test_suite="test",
 
-    data_files=[("mikado/configuration",
-                 glob.glob("mikado/configuration/*json") + glob.glob("mikado/configuration/*yaml") )],
+    data_files=[("Mikado/configuration",
+                 glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml") )],
 
 )

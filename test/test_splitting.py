@@ -3,8 +3,8 @@
 # import sys
 from collections import OrderedDict
 import operator
-import mikado
-from mikado.loci_objects.transcript_methods import splitting
+import Mikado
+from Mikado.loci_objects.transcript_methods import splitting
 import unittest
 import logging
 
@@ -13,12 +13,12 @@ __author__ = 'Luca Venturini'
 
 class TestSplitMonoexonic(unittest.TestCase):
 
-    logger = mikado.utilities.log_utils.create_null_logger("test_mono")
+    logger = Mikado.utilities.log_utils.create_null_logger("test_mono")
     logger.setLevel(logging.DEBUG)
 
     def setUp(self):
         
-        self.transcript = mikado.loci_objects.Transcript()
+        self.transcript = Mikado.loci_objects.Transcript()
         self.transcript.chrom = "Chr1"
         self.transcript.start = 1001
         self.transcript.end = 6000
@@ -28,7 +28,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.source = "Mikado"
         self.transcript.exons = [(1001, 6000)]
         
-        self.bed1 = mikado.parsers.bed12.BED12()
+        self.bed1 = Mikado.parsers.bed12.BED12()
         self.header = False
         self.bed1.chrom = "transcript1"
         self.bed1.start = 1
@@ -46,7 +46,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.bed1.has_stop_codon = True
         self.assertFalse(self.bed1.invalid, self.bed1.invalid_reason)
 
-        self.bed2 = mikado.parsers.bed12.BED12()
+        self.bed2 = Mikado.parsers.bed12.BED12()
         self.header = False
         self.bed2.chrom = "transcript1"
         self.bed2.start = 1

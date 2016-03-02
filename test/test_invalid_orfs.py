@@ -1,5 +1,5 @@
-import mikado.loci_objects.transcript
-import mikado.exceptions
+import Mikado.loci_objects.transcript
+import Mikado.exceptions
 import re
 import unittest
 
@@ -37,7 +37,7 @@ class MultOrfTester(unittest.TestCase):
         tr_lines[pos] = re.sub("\s+", "\t", line)
         assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
-    tr_gff_lines = [mikado.parsers.GFF.GffLine(line) for line in tr_lines]
+    tr_gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in tr_lines]
 
     for l in tr_gff_lines:
         assert l.header is False
@@ -45,13 +45,13 @@ class MultOrfTester(unittest.TestCase):
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = mikado.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
 
     def test_missing_cds(self):
 
-        self.assertRaises(mikado.exceptions.InvalidTranscript,
+        self.assertRaises(Mikado.exceptions.InvalidTranscript,
                           self.tr.finalize)
 
     def test_split_cds_exon_one(self):
@@ -63,11 +63,11 @@ class MultOrfTester(unittest.TestCase):
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']
         for line in lines:
-            line = mikado.parsers.GFF.GffLine(line)
+            line = Mikado.parsers.GFF.GffLine(line)
             self.assertFalse(line.header)
             self.assertEqual(line.parent[0], self.tr.id)
             self.tr.add_exon(line)
-        self.assertRaises(mikado.exceptions.InvalidTranscript,
+        self.assertRaises(Mikado.exceptions.InvalidTranscript,
                           self.tr.finalize)
 
     def test_split_cds_exon_two(self):
@@ -79,10 +79,10 @@ class MultOrfTester(unittest.TestCase):
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']
         for line in lines:
-            line = mikado.parsers.GFF.GffLine(line)
+            line = Mikado.parsers.GFF.GffLine(line)
             self.assertFalse(line.header)
             self.tr.add_exon(line)
-        self.assertRaises(mikado.exceptions.InvalidTranscript,
+        self.assertRaises(Mikado.exceptions.InvalidTranscript,
                           self.tr.finalize)
 
     def test_restore(self):
@@ -92,7 +92,7 @@ class MultOrfTester(unittest.TestCase):
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']
         for line in lines:
-            line = mikado.parsers.GFF.GffLine(line)
+            line = Mikado.parsers.GFF.GffLine(line)
             self.tr.add_exon(line)
         self.tr.finalize()
 

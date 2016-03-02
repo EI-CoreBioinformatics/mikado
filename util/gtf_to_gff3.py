@@ -2,9 +2,9 @@
 
 import argparse
 import sys
-import mikado.parsers.GTF
-from mikado.loci_objects.reference_gene import Gene
-from mikado.loci_objects.transcript import Transcript
+import Mikado.parsers.GTF
+from Mikado.loci_objects.reference_gene import Gene
+from Mikado.loci_objects.transcript import Transcript
 from collections import defaultdict
 
 __author__ = 'Luca Venturini'
@@ -20,7 +20,7 @@ def main():
     parser = argparse.ArgumentParser("Script to convert from GTF to GFF3")
     parser.add_argument("-s", "--source", default=None, type=str,
                         help="Optional new source for the GFF")
-    parser.add_argument("gtf", type=mikado.parsers.GTF.GTF)
+    parser.add_argument("gtf", type=Mikado.parsers.GTF.GTF)
     parser.add_argument("out", default=sys.stdout, help="Output file, optional",
                         nargs="?", type=argparse.FileType("w"))
     args = parser.parse_args()

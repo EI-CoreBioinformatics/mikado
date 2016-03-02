@@ -1,7 +1,7 @@
-multiprocessing_method: spawn
+multiprocessing_method: fork
 db_settings:
   #  Settings related to DB connection. Parameters:
-  #  db: the DB to connect to. Required. Default: mikado.db
+  #  db: the DB to connect to. Required. Default: Mikado.py.db
   #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
   #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
   #  dbuser: DB user. Default: 

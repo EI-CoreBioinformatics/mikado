@@ -4,7 +4,7 @@
 """Script to merge BED12 files *based on the thickStart/End features*.
 Necessary for merging junction files such as those produced by TopHat."""
 
-import mikado.parsers.bed12
+import Mikado.parsers.bed12
 import sys
 import collections
 import operator
@@ -28,11 +28,11 @@ def serialise(filename, tophat=False):
     juncs = collections.defaultdict(list)
 
     if type(filename) is str:
-        bed = mikado.parsers.bed12.Bed12Parser(open(filename))
+        bed = Mikado.parsers.bed12.Bed12Parser(open(filename))
     else:
         if type(filename) is not io.TextIOWrapper:
             raise TypeError("Invalid BED file: {0}".format(type(filename)))
-        bed = mikado.parsers.bed12.Bed12Parser(filename)
+        bed = Mikado.parsers.bed12.Bed12Parser(filename)
 
     header = ''
     for record in bed:
@@ -75,7 +75,7 @@ def main():
     args = parser.parse_args()
 
     if args.bed[0] == "-":
-        args.bed = [mikado.parsers.bed12.Bed12Parser(sys.stdin)]
+        args.bed = [Mikado.parsers.bed12.Bed12Parser(sys.stdin)]
         results = [serialise(sys.stdin, args.tophat)]
     else:
         # The process pool has size which is the minimum of
@@ -104,7 +104,7 @@ def main():
     print(header, file=args.output)
     # Sort by chrom, then start, then end, finally strand
     for key in sorted(juncs.keys(), key=operator.itemgetter(0, 2, 3, 1)):
-        newrecord = mikado.parsers.bed12.BED12(None)
+        newrecord = Mikado.parsers.bed12.BED12(None)
         newrecord.header = False
         newrecord.chrom = key[0]
         newrecord.start = min(x.start for x in juncs[key])

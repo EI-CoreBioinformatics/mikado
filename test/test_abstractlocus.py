@@ -1,4 +1,4 @@
-import mikado
+import Mikado
 import logging
 import unittest
 

@@ -1,5 +1,5 @@
 import unittest
-import mikado.parsers
+import Mikado.parsers
 import tempfile
 import os
 
@@ -11,10 +11,10 @@ class TestParser(unittest.TestCase):
     def test_invalid_file(self):
 
         with self.assertRaises(FileNotFoundError):
-            _ = mikado.parsers.GFF.GFF3("foo")
+            _ = Mikado.parsers.GFF.GFF3("foo")
 
         with self.assertRaises(FileNotFoundError):
-            _ = mikado.parsers.GTF.GTF("foo")
+            _ = Mikado.parsers.GTF.GTF("foo")
 
     def test_with_construct(self):
 
@@ -28,11 +28,11 @@ class TestParser(unittest.TestCase):
         gtf_temp_reader = open(gtf_temp.name, "rt")
         gtf_temp_reader.close()
         with self.assertRaises(ValueError):
-            with mikado.parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
+            with Mikado.parsers.GTF.GTF(gtf_temp_reader) as gtf_reader:
                 _ = next(gtf_reader)
 
         with self.assertRaises(ValueError):
-            with mikado.parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
+            with Mikado.parsers.GFF.GFF3(gtf_temp_reader) as gtf_reader:
                 _ = next(gtf_reader)
 
         os.remove(gtf_temp.name)
@@ -50,12 +50,12 @@ class TestParser(unittest.TestCase):
         gff_temp.flush()
         gtf_temp.flush()
 
-        with mikado.parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
+        with Mikado.parsers.GTF.GTF(open(gtf_temp.name)) as gtf_reader:
             self.assertEqual(gtf_temp.name, gtf_reader.name)
             self.assertEqual(next(gtf_reader)._line, gtf_line)
         self.assertTrue(gtf_reader.closed)
 
-        with mikado.parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
+        with Mikado.parsers.GFF.GFF3(open(gff_temp.name)) as gff_reader:
             self.assertEqual(gff_temp.name, gff_reader.name)
             self.assertEqual(next(gff_reader)._line, gff_line)
         self.assertTrue(gff_reader.closed)

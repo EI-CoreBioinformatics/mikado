@@ -104,3 +104,54 @@ def merge_partial(filenames, handle):
         del current_lines[current]
 
     return total
+
+
+def overlap(first_interval: tuple([int, int]),
+            second_interval: tuple([int, int]), flank=0) -> int:
+
+    """
+    :param first_interval: a tuple of integers
+    :type first_interval: (int,int)
+
+    :param second_interval: a tuple of integers
+    :type second_interval: (int,int | intervaltree.Interval)
+
+    :param flank: an optional extending parameter to check for neighbours
+    :type flank: int
+
+    This static method returns the overlap between two intervals.
+
+    Values<=0 indicate no overlap.
+
+    The optional "flank" argument (default 0) allows to expand a locus
+    upstream and downstream.
+    As a static method, it can be used also outside of any instance -
+    "abstractlocus.overlap()" will function.
+    Input: two 2-tuples of integers.
+    """
+
+    first_interval = sorted(first_interval[:2])
+    second_interval = sorted(second_interval[:2])
+
+    left_boundary = max(first_interval[0] - flank, second_interval[0] - flank)
+    right_boundary = min(first_interval[1] + flank, second_interval[1] + flank)
+
+    return right_boundary - left_boundary
+
+
+def grouper(iterable, n):
+    """
+    Function to chunk an iterable into slices of at most n elements.
+    :param iterable:
+    :param n:
+    :return:
+    """
+
+    temp = []
+    for val in iterable:
+        temp.append(val)
+        if len(temp) >= n:
+            yield temp
+            temp = []
+
+    yield temp

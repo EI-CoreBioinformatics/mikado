@@ -6,7 +6,6 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 import intervaltree
 import operator
 from ...exceptions import InvalidCDS, InvalidTranscript
-# import Mikado.py.exceptions
 
 __author__ = 'Luca Venturini'
 

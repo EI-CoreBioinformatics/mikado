@@ -191,8 +191,9 @@ class Transcript:
         if not isinstance(transcript_row, (GffLine, GtfLine)):
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
         if transcript_row.is_transcript is False:
-            raise TypeError("Invalid transcript line, the feature should be a transcript:\n{0}".format(
-                transcript_row))
+            raise TypeError(
+                "Invalid transcript line, the feature should be a transcript:\n{0}".format(
+                    transcript_row))
         self.chrom = transcript_row.chrom
         self.feature = transcript_row.feature
         # pylint: disable=invalid-name
@@ -335,7 +336,7 @@ class Transcript:
             phase = None
             if feature is None:
                 feature = "exon"
-        elif not isinstance(gffline, (GtfLine,GffLine)):
+        elif not isinstance(gffline, (GtfLine, GffLine)):
             raise InvalidTranscript("Unkwown feature type! %s",
                                     type(gffline))
         else:
@@ -440,11 +441,21 @@ class Transcript:
 
         """
         Function to remove an exon properly from a Transcript instance.
+        :param exon: remove an exon from a Transcript.
         :return:
         """
 
         if self.finalized is True:
             raise ValueError("Cannot remove a segment from a finalised transcript!")
+
+        if hasattr(exon, "start"):
+            start, end = (exon.start, exon.end)
+        else:
+            start, end = exon
+
+        if (start, end) in self.exons:
+            self.exons.remove((start, end))
+
 
     def remove_utrs(self):
         """Method to strip a transcript from its UTRs.

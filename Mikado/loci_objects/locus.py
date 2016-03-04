@@ -187,7 +187,8 @@ class Locus(Sublocus, Abstractlocus):
                 to_be_added = False
         if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] > 0:
             tr_nucls = set(itertools.chain(*[range(x[0], x[1] + 1) for x in transcript.exons]))
-            primary_nucls = set(itertools.chain(*[range(x[0], x[1] + 1) for x in self.primary_transcript.exons]))
+            primary_nucls = set(itertools.chain(*[range(x[0], x[1] + 1)
+                                                  for x in self.primary_transcript.exons]))
             nucl_overlap = len(set.intersection(primary_nucls, tr_nucls))
             overlap = nucl_overlap / len(self.primary_transcript)
             if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]:
@@ -428,7 +429,7 @@ class Locus(Sublocus, Abstractlocus):
         If all the matches are "n" or "j", the transcript is considered as an AS event.
 
         :param other: another transcript to compare against
-        :type other: mikado_lib.loci_objects.transcript.Transcript
+        :type other: Transcript
 
         """
 
@@ -437,10 +438,8 @@ class Locus(Sublocus, Abstractlocus):
 
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
 
-        ccodes = []
         main_result, _ = Assigner.compare(other, self.primary_transcript)
         main_ccode = main_result.ccode[0]
-        results = [main_result]
 
         if main_ccode not in valid_ccodes:
             self.logger.debug("%s is not a valid splicing isoform. Ccode: %s",
@@ -449,19 +448,14 @@ class Locus(Sublocus, Abstractlocus):
             is_valid = False
         if is_valid:
             for tid in iter(tid for tid in self.transcripts if
-                            tid != self.primary_transcript_id):
-                result, _ = Assigner.compare(other, self.transcripts[tid])
-                results.append(result)
-                ccodes.append(result.ccode[0])
-                self.logger.debug("Comparing secondary transcripts %s vs %s. Ccode: %s",
-                                  tid, other.id, result.ccode[0])
-            if any(_ not in valid_ccodes for _ in ccodes):
-                not_valid = set(_ for _ in ccodes if _ not in valid_ccodes)
-                self.logger.debug(
-                    "%s not a valid AS event. Non valid ccodes: %s",
-                    other.id,
-                    ", ".join(list(not_valid)))
-                is_valid = False
+                            tid not in (self.primary_transcript_id, other.id)):
+                candidate = self.transcripts[tid]
+                result, _ = Assigner.compare(other, candidate)
+                if (other.monoexonic is False and result.j_recall[0] <= 1
+                        and result.j_prec[0] == 1):
+                    is_valid = False
+                elif other.monoexonic is False and result.n_prec[0] == 1:
+                    is_valid = False
 
             # if (("_" in ccodes and "_" not in valid_ccodes) or
             #         ("=" in ccodes and "_" not in valid_ccodes)):

@@ -8,15 +8,13 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
-# import sqlalchemy
 import networkx
 from sqlalchemy.engine import Engine
-from ..utilities import dbutils
+from ..utilities import dbutils, grouper
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.sql.expression import and_
 from sqlalchemy import bindparam
 from sqlalchemy.ext import baked
-# import sqlalchemy.pool
 from ..serializers.junction import Junction, Chrom
 from ..serializers.blast_serializer import Hit, Query, Target
 from ..serializers.orf import Orf
@@ -28,29 +26,9 @@ from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
 from ..exceptions import NoJsonConfigError, NotInLocusError
-# from ..scales.assigner import Assigner
-# import Mikado.py.exceptions
-
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
-
-def grouper(iterable, n):
-    """
-    Function to chunk an iterable into slices of at most n elements.
-    :param iterable:
-    :param n:
-    :return:
-    """
-
-    temp = []
-    for val in iterable:
-        temp.append(val)
-        if len(temp) >= n:
-            yield temp
-            temp = []
-
-    yield temp
 
 
 class Superlocus(Abstractlocus):

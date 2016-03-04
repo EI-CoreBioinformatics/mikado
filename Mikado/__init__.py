@@ -12,10 +12,13 @@ __author__ = 'Luca Venturini'
 __license__ = 'GPL3'
 __copyright__ = 'Copyright 2015 Luca Venturini'
 
-import Mikado.exceptions
-import Mikado.utilities
-import Mikado.parsers
-import Mikado.serializers
-import Mikado.loci_objects
-import Mikado.configuration
-import Mikado.scales
+__all__ = ["exceptions",
+           "utilities",
+           "parsers",
+           "serializers",
+           "loci_objects",
+           "configuration",
+           "scales"]
+
+for _ in __all__:
+    from . import _

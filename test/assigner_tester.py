@@ -456,7 +456,7 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("e",))
+        self.assertEqual(result.ccode, ("e",), result)
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
         self.assertEqual(result.j_recall, (0,))
@@ -978,6 +978,68 @@ class AssignerTester(unittest.TestCase):
         os.remove(out_refmap)
         os.remove(os.path.join(master, "fusion_test", "fusion_test.stats"))
         os.remove(os.path.join(master, "fusion_test", "fusion_test.tmap"))
+
+    def test_h_case(self):
+
+        """
+        ===============-------------------============
+        ===================-----------------=========
+        :return:
+        """
+
+        reference = Mikado.loci_objects.Transcript()
+        reference.start = 1000
+        reference.end = 3000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(1000, 1300), (2500, 3000)]
+        reference.finalize()
+
+        prediction = Mikado.loci_objects.Transcript()
+        prediction.start = 1200
+        prediction.end = 2450
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(1200, 2000), (2200, 2450)]
+        prediction.finalize()
+
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(result.ccode, ("h",))
+
+    def test_non_h_case(self):
+
+        """
+        ===============-------------------============
+        =====-----=========
+        :return:
+        """
+
+        reference = Mikado.loci_objects.Transcript()
+        reference.start = 1000
+        reference.end = 3000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(1000, 1800), (2500, 3000)]
+        reference.finalize()
+
+        prediction = Mikado.loci_objects.Transcript()
+        prediction.start = 1200
+        prediction.end = 2050
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(1200, 1600), (1700, 2050)]
+        prediction.finalize()
+
+        result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(result.ccode, ("o",))
 
 if __name__ == '__main__':
     unittest.main()

@@ -20,6 +20,7 @@ from . import calc_f1
 from ..loci_objects.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
+from ..utilities import overlap
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -521,7 +522,8 @@ class Assigner:
         - J    Potentially novel isoform, where all the known junctions
         have been confirmed and we have added others as well *externally*
         - I    *multiexonic* transcript falling completely inside a known transcript
-        - h    the transcript is multiexonic and extends a monoexonic reference transcript
+        - h    AS event in which at least a couple of introns overlaps but without any
+               junction in common.
         - O    Reverse generic overlap - the reference is monoexonic and
         overlaps the prediction
         - P    Possible polymerase run-on fragment
@@ -552,7 +554,7 @@ class Assigner:
         exon_f1 = calc_f1(exon_recall, exon_precision)
 
         reference_exon = None
-        one_intron_confirmed = False
+        # one_intron_confirmed = False
 
         # Both multiexonic
         if min(prediction.exon_num, reference.exon_num) > 1:
@@ -668,7 +670,17 @@ class Assigner:
                         #     ccode = "C"
                 elif junction_recall == 0 and junction_precision == 0:
                     if nucl_f1 > 0:
-                        ccode = "o"
+                        corr_exons = []
+                        for pred_index, intron in enumerate(prediction.introns):
+                            for ref_index, ref_intron in enumerate(reference.introns):
+                                if overlap(ref_intron, intron) > 0:
+                                    corr_exons.append((ref_index, pred_index))
+                            if len(corr_exons) >= 1:
+                                break
+                        if len(corr_exons) == 1:
+                            ccode = "h"
+                        else:
+                            ccode = "o"
                     else:
                         if nucl_overlap == 0:
                             # The only explanation for no nucleotide overlap
@@ -676,28 +688,49 @@ class Assigner:
                             if reference.start < prediction.start < reference.end:
                                 ccode = "I"
                             elif prediction.start < reference.start < prediction.end:
-                                ccode = "j"  # reverse intron retention
+                                ccode = "rI"  # reverse intron retention
             else:
                 if prediction.exon_num == 1 and reference.exon_num > 1:
                     if nucl_precision < 1 and nucl_overlap > 0:
-                        # Fraction outside
-                        outside = max(reference.start - prediction.start, 0)
-                        outside += max(prediction.end - reference.end, 0)
-
-                        if prediction.cdna_length - nucl_overlap - outside > 10:
-                            ccode = "e"
-                        else:
+                        prediction_coords = (prediction.start, prediction.end)
+                        overlaps = []
+                        for intron in sorted(reference.introns, key=operator.itemgetter(0,1)):
+                            over = overlap(intron, prediction_coords)
+                            if over > 0:
+                                overlaps.append((over, (intron[1] - intron[0] + 1)))
+                        if len(overlaps) == 0:
+                            # Completely contained inside
                             ccode = "o"
+                        elif len(overlaps) == 1:
+                            over, i_length = overlaps.pop()
+                            if over == i_length and over < prediction.cdna_length:
+                                ccode = "o"
+                            elif 10 < over < i_length:
+                                if (reference.start < prediction.start <
+                                        prediction.end < reference.end):
+                                    ccode = "e"
+                                else:
+                                    ccode = "o"
+                            else:
+                                ccode = "o"
+                        elif len(overlaps) > 2:
+                            ccode = "o"
+                        elif len(overlaps) == 2:
+                            overs, i_length = list(zip(*overlaps))
+                            if max(overs) < 10:
+                                ccode = "o"
+                            else:
+                                ccode = "e"
                     elif nucl_overlap > 0:
                         ccode = "o"
                     elif (nucl_recall == 0 and
                           reference.start < prediction.start < reference.end):
                         ccode = "i"  # Monoexonic fragment inside an intron
                 elif prediction.exon_num > 1 and reference.exon_num == 1:
-                    if nucl_recall == 1:
-                        ccode = "h"  # Extension
-                    else:
-                        ccode = "O"  # Reverse generic overlap
+                    # if nucl_recall == 1:
+                    #     ccode = "h"  # Extension
+                    # else:
+                    ccode = "O"  # Reverse generic overlap
                 elif prediction.exon_num == reference.exon_num == 1:
                     junction_f1 = junction_precision = junction_recall = 1  # Set to one
                     if nucl_f1 >= 0.95 and reference.strand == prediction.strand:
@@ -709,16 +742,11 @@ class Assigner:
                         ccode = "m"  # just a generic exon overlap b/w two monoexonic transcripts
 
         if (prediction.strand != reference.strand and
-                all([x is not None for x in (prediction.strand, reference.strand)])):
+                all([_ is not None for _ in (prediction.strand, reference.strand)])):
             if ccode in ("e", "o", "c", "m", "_", "C"):
-                ccode = "x"
+                ccode = "x"  # "x{0}".format(ccode)
             elif ccode not in ("u", "i", "I", "p", "P", "x"):
-                # print(ccode)
-                ccode = "X"
-
-        # if (prediction.strand != reference.strand and
-        #         all([x is not None for x in (prediction.strand, reference.strand)])):
-        #     ccode = "x"
+                ccode = "X"  # "X{0}".format(ccode)
 
         if prediction.strand != reference.strand:
             reference_exon = None

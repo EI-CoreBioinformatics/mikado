@@ -8,11 +8,9 @@ from collections import OrderedDict
 import collections
 import operator
 from intervaltree import IntervalTree, Interval
-from .. import clique_methods
+from ...utilities import overlap
 from ...exceptions import InvalidTranscript
 from ...parsers.blast_utils import merge
-from ...parsers import bed12
-from ..clique_methods import overlap
 
 __author__ = 'Luca Venturini'
 
@@ -73,10 +71,9 @@ def check_split_by_blast(transcript, cds_boundaries):
                 # If I have a valid hit b/w the CDS region and the hit,
                 # add the name to the set
                 overlap_threshold = minimal_overlap * (cds_run[1] + 1 - cds_run[0])
-                overlap = clique_methods.overlap(cds_run,
-                                                (hsp['query_hsp_start'], hsp['query_hsp_end']))
+                overl = overlap(cds_run, (hsp['query_hsp_start'], hsp['query_hsp_end']))
 
-                if overlap >= overlap_threshold:
+                if overl >= overlap_threshold:
                     cds_hit_dict[cds_run][(hit["target"], hit["target_length"])].append(hsp)
                     transcript.logger.debug(
                         "Overlap %s passed for %s between %s CDS and %s HSP (threshold %s)",

@@ -9,10 +9,11 @@ import abc
 import random
 import logging
 from sys import maxsize
-from .clique_methods import find_cliques, find_communities, define_graph, overlap
+from .clique_methods import find_cliques, find_communities, define_graph
 import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
+from ..utilities import overlap
 from ..utilities.log_utils import create_null_logger
 from .transcript import Transcript
 

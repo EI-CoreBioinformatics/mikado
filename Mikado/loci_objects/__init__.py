@@ -9,7 +9,7 @@
     The creation of the loci is delegated to the "Creator" class.
 """
 
-from Mikado.loci_objects import transcript_methods
+from .clique_methods import *
 from .abstractlocus import Abstractlocus
 from .transcript import Transcript
 from .excluded import Excluded

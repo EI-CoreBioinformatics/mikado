@@ -11,6 +11,7 @@ import argparse
 import logging
 import logging.handlers
 from ..utilities import path_join
+from ..utilities.log_utils import formatter
 from ..preparation.prepare import prepare
 from ..configuration.configurator import to_json
 
@@ -24,11 +25,6 @@ def setup(args):
 
     :param args: the ArgumentParser-derived namespace.
     """
-    formatter = logging.Formatter(
-        "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
-- {processName} - {message}",
-        style="{"
-        )
 
     logger = logging.getLogger("prepare")
     logger.setLevel(logging.INFO)

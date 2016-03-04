@@ -17,7 +17,7 @@ import logging.handlers
 import sqlalchemy
 from ..configuration import configurator
 from ..utilities import path_join
-from ..utilities.log_utils import create_default_logger
+from ..utilities.log_utils import create_default_logger, formatter
 from ..utilities import dbutils
 from ..serializers import orf, blast_serializer, junction
 from ..exceptions import InvalidJson
@@ -202,7 +202,6 @@ def setup(args):
             path_join(
                 args.json_conf["serialise"]["files"]["output_dir"],
                 args.json_conf["serialise"]["files"]["log"])
-        formatter = logger.handlers[0].formatter
         logger.removeHandler(logger.handlers[0])
         handler = logging.FileHandler(
             args.json_conf["serialise"]["files"]["log"], "w")

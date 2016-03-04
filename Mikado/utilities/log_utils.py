@@ -9,6 +9,13 @@ import logging.handlers
 __author__ = 'Luca Venturini'
 
 
+formatter = logging.Formatter(
+        "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
+- {processName} - {message}",
+        style="{"
+        )
+
+
 def create_null_logger(instance):
     """Static method to create a default logging instance for the loci.
     The default is a null handler (no log)
@@ -16,11 +23,6 @@ def create_null_logger(instance):
     :param instance: the instance used to derive a name for the logger. It must be either a string
     or a class instance with a __name__ attribute.
     """
-
-    formatter = logging.Formatter(
-        "{asctime} - {levelname}:{lineno} - {funcName} - {processName} - {message}",
-        style="{"
-        )
 
     if isinstance(instance, str):
         name = instance
@@ -57,12 +59,6 @@ def create_default_logger(name):
     :param name: string used to give a name to the logger.
     :type name: str
     """
-
-    formatter = logging.Formatter(
-        "{asctime} - {name} - {filename}:{lineno} - {levelname} - {funcName} \
-- {processName} - {message}",
-        style="{"
-        )
 
     logger = logging.getLogger(name)
     handler = logging.StreamHandler()

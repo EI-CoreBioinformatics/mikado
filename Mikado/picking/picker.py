@@ -21,6 +21,7 @@ from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import QueuePool as SqlPool
 import sqlalchemy
 from ..utilities import path_join
+from ..utilities.log_utils import formatter
 from ..parsers.GTF import GTF
 from ..parsers.GFF import GFF3
 from ..serializers.blast_serializer import Hit, Query
@@ -217,10 +218,7 @@ memory intensive, proceed with caution!")
         logging.handlers.QueueListener instance listening on the logging_queue
         instance attribute (which is a normal mp.Manager.Queue instance)."""
 
-        self.formatter = logging.Formatter(
-            "{asctime} - {levelname} - {module}:{lineno} - {funcName} - {name} - {message}",
-            style="{"
-            )
+        self.formatter = formatter
         self.main_logger = logging.getLogger("main_logger")
         if not os.path.exists(self.json_conf["pick"]["files"]["output_dir"]):
             try:
@@ -797,7 +795,7 @@ memory intensive, proceed with caution!")
 
         tempdir = tempfile.TemporaryDirectory(suffix="",
                                               prefix="mikado_pick_tmp",
-                                              dir=".")
+                                              dir=self.json_conf["pick"]["files"]["output_dir"])
 
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,

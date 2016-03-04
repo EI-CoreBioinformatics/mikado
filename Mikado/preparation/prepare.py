@@ -7,7 +7,8 @@ import operator
 import collections
 import io
 from .. import exceptions
-import logging
+# import logging
+import pickle
 import logging.handlers
 import random
 import functools
@@ -256,6 +257,7 @@ def load_exon_lines(args, logger):
             return_queue,
             args.logging_queue,
             _ + 1,
+            args.tempdir.name,
             log_level=args.level,
             strip_cds=strip_cds) for _ in range(threads)]
         [_.start() for _ in working_processes]
@@ -269,20 +271,24 @@ def load_exon_lines(args, logger):
         return_queue.put("EXIT")
 
         while True:
-            results = return_queue.get()
-            if results == "EXIT":
+            result = return_queue.get()
+            if result == "EXIT":
                 break
-            if (not isinstance(results, collections.defaultdict) or
-                    results.default_factory != exon_lines.default_factory):
+            with open(result, "rb") as inp_file:
+                result = pickle.load(inp_file)
+
+            os.remove(inp_file.name)
+            if (not isinstance(result, collections.defaultdict) or
+                    result.default_factory != exon_lines.default_factory):
                 exception = TypeError(
                     """I received a wrong result; I expected a defaultdict(dict) instance but
                     I received a {0}{1} instance instead. Aborting.""".format(
-                        type(results),
-                        " (default factory: {0})".format(results.default_factory) if
-                        isinstance(results, collections.defaultdict) else ""))
+                        type(result),
+                        " (default factory: {0})".format(result.default_factory) if
+                        isinstance(result, collections.defaultdict) else ""))
                 logger.exception(exception)
                 raise exception
-            if len(set.intersection(set(results.keys()), set(exon_lines.keys()))) > 0:
+            if len(set.intersection(set(result.keys()), set(exon_lines.keys()))) > 0:
                 if set(args.json_conf["prepare"]["labels"]) == {""}:
                     exception = exceptions.RedundantNames(
                         """Found redundant names during multiprocessed file analysis.
@@ -295,7 +301,7 @@ def load_exon_lines(args, logger):
                 logger.exception(exception)
                 raise exception
 
-            exon_lines.update(results)
+            exon_lines.update(result)
 
     logger.info("Finished loading lines from %d files",
                 len(args.json_conf["prepare"]["gff"]))
@@ -330,6 +336,8 @@ def prepare(args, logger):
     if args.json_conf["prepare"]["single"] is False and args.threads > 1:
         multiprocessing.set_start_method(args.json_conf["multiprocessing_method"])
         args.logging_queue = multiprocessing.Queue(-1)
+        args.tempdir = tempfile.TemporaryDirectory(prefix="mikado_prepare_tmp",
+                                                   dir=args.json_conf["prepare"]["output_dir"])
         log_queue_handler = logging.handlers.QueueHandler(args.logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
         # logger.addHandler(log_queue_handler)
@@ -367,6 +375,11 @@ def prepare(args, logger):
     # args.json_conf["prepare"]["out_fasta"].close()
 
     if args.json_conf["prepare"]["single"] is False and args.threads > 1:
+        try:
+            args.tempdir.cleanup()
+        except (FileExistsError, FileNotFoundError, OSError):
+            logger.warning("Failed to remove temporary directory %s", args.tempdir.name)
+
         args.listener.enqueue_sentinel()
 
     logger.setLevel(logging.INFO)

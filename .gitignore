@@ -57,3 +57,12 @@ Mikado.egg-info/*
 sample_data/mikado_prepared.fasta.fai
 sample_data/chr5.fas.fai
 sample_data/all.fasta.fai
+sample_data/1.fasta
+sample_data/2.fasta
+sample_data/=0.17
+sample_data/=0.17.1
+sample_data/=0.17.2
+sample_data/Xy.pickle
+sample_data/configuration2.yaml
+sample_data/overlap.c
+sample_data/overlap.pyx

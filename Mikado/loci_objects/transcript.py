@@ -1775,7 +1775,16 @@ class Transcript:
         by external data.
         :rtype : int
         """
-        return len(self.introns) - len(self.verified_introns)
+        num = len(set.difference(self.introns, self.verified_introns))
+        if num < 0:
+            # This is a clear error
+            self.logger.error("Erroneous number of verified introns for %s; total %d, verified %d, subtraction %d",
+                              self.id, len(self.introns), len(self.verified_introns), num)
+            self.logger.error("Introns for %s: %s; verified: %s. Resetting verified to 0.",
+                              self.id, self.introns, self.verified_introns)
+            num = len(self.introns)
+
+        return num
 
     @Metric
     def verified_introns_num(self):

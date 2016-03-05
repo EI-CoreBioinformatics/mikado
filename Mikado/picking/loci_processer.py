@@ -11,6 +11,7 @@ import collections
 import csv
 import re
 import sys
+import pickle
 
 __author__ = 'Luca Venturini'
 
@@ -463,6 +464,18 @@ class LociProcesser(Process):
         self.sub_metrics, self.sub_scores, self.sub_out = [None] * 3
         self.mono_metrics, self.mono_scores, self.mono_out = [None] * 3
         self._handles = []
+        self.regressor = None
+
+        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
+            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
+                self.regressor = pickle.load(forest)
+            from sklearn.ensemble import RandomForestRegressor
+            if not isinstance(self.regressor, RandomForestRegressor):
+                exc=TypeError("Invalid regressor provided, type: %s", type(self.regressor))
+                self.logger.critical(exc)
+                self.exitcode = 9
+                self.join()
+
         self._create_handles(self.__output_files)
         self.__gene_counter = 0
         assert self.locus_out is not None
@@ -541,7 +554,10 @@ class LociProcesser(Process):
         locus_scores_file = open(locus_scores_file, "w")
 
         score_keys = ["tid", "parent", "score"]
-        score_keys += sorted(list(self.json_conf["scoring"].keys()))
+        if self.regressor is None:
+            score_keys += sorted(list(self.json_conf["scoring"].keys()))
+        else:
+            score_keys += self.regressor.metrics
         # Define mandatory output files
 
         self.locus_metrics = csv.DictWriter(
@@ -636,6 +652,8 @@ class LociProcesser(Process):
                     if current_chrom != slocus.chrom:
                         self.__gene_counter = 0
                         current_chrom = slocus.chrom
+                    if self.regressor is not None:
+                        slocus.regressor = self.regressor
                     stranded_loci = self.analyse_locus(slocus, counter)
                 else:
                     stranded_loci = []

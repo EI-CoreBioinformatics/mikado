@@ -52,6 +52,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.cds_introns = set()
         self.json_conf = dict()
         self.__cds_introntree = intervaltree.IntervalTree()
+        self.__regressor = None
         self.session = None
 
     @abc.abstractmethod
@@ -698,3 +699,17 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @property
     def longest_transcript(self):
         return max([len(_) for _ in self.transcripts.values()])
+
+    @property
+    def regressor(self):
+        return self.__regressor
+
+    @regressor.setter
+    def regressor(self, regr):
+
+        from sklearn.ensemble import RandomForestRegressor
+        if not isinstance(regr, RandomForestRegressor):
+            raise TypeError("Invalid regressor provided, type: %s", type(regr))
+
+        self.logger.debug("Set regressor")
+        self.__regressor = regr

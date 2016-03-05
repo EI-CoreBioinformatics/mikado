@@ -110,6 +110,7 @@ class Superlocus(Abstractlocus):
         self.feature = self.__name__
         if json_conf is None or not isinstance(json_conf, dict):
             raise NoJsonConfigError("I am missing the configuration for prioritizing transcripts!")
+        self.__regressor = None
         self.json_conf = json_conf
         self.purge = self.json_conf["pick"]["run_options"]["purge"]
 
@@ -337,6 +338,8 @@ class Superlocus(Abstractlocus):
                 "Defined %d loci by splitting by strand at %s.",
                 len(new_loci), self.id)
             for new_locus in iter(sorted(new_loci)):
+                if self.regressor is not None:
+                    new_locus.regressor = self.regressor
                 yield new_locus
         raise StopIteration
 
@@ -879,6 +882,8 @@ class Superlocus(Abstractlocus):
             subl = [self.transcripts[x] for x in subl]
             subl = sorted(subl)
             new_sublocus = Sublocus(subl[0], json_conf=self.json_conf, logger=self.logger)
+            if self.regressor is not None:
+                new_sublocus.regressor = self.regressor
             for ttt in subl[1:]:
                 try:
                     new_sublocus.add_transcript_to_locus(ttt)
@@ -1131,6 +1136,8 @@ class Superlocus(Abstractlocus):
                 self.monoholders.append(holder)
 
         for monoholder in self.monoholders:
+            if self.regressor is not None:
+                monoholder.regressor = self.regressor
             monoholder.calculate_scores()
 
     def compile_requirements(self):

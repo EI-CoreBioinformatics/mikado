@@ -211,22 +211,6 @@ def check_all_requirements(json_conf):
     if "requirements" in json_conf:
         json_conf = check_requirements(json_conf, require_schema)
 
-    if "soft_requirements" not in json_conf:
-        json_conf["soft_requirements"] = dict()
-        json_conf["soft_requirements"]["intron_range"] = [0, sys.maxsize]
-    if "intron_range" not in json_conf["soft_requirements"]:
-        raise InvalidJson("No intron range found!")
-        # json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)
-    else:
-        try:
-            minimal, maximal = (
-                int(_) for _ in json_conf["soft_requirements"]["intron_range"])
-            json_conf["soft_requirements"]["intron_range"] = [minimal, maximal]
-        except Exception:
-            raise InvalidJson("Invalid intron range: {0}".format(
-                json_conf["soft_requirements"]["intron_range"]
-            ))
-
     return json_conf
 
 
@@ -483,20 +467,42 @@ def check_json(json_conf, simple=False):
                 "Scoring file not found: {0}".format(
                     json_conf["pick"]["scoring_file"]))
 
-        with open(json_conf["pick"]["scoring_file"]) as scoring_file:
-            if json_conf["pick"]["scoring_file"].endswith("yaml"):
-                scoring = yaml.load(scoring_file)
-            else:
-                scoring = json.load(scoring_file)
-        assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
-            (type(json_conf), type(scoring))
+        if json_conf["pick"]["scoring_file"].endswith(("yaml", "json")):
+            with open(json_conf["pick"]["scoring_file"]) as scoring_file:
+                if json_conf["pick"]["scoring_file"].endswith("yaml"):
+                    scoring = yaml.load(scoring_file)
+                else:
+                    scoring = json.load(scoring_file)
+            assert isinstance(json_conf, dict) and isinstance(scoring, dict),\
+                (type(json_conf), type(scoring))
 
-        json_conf = merge_dictionaries(json_conf, scoring)
+            json_conf = merge_dictionaries(json_conf, scoring)
+            json_conf = check_all_requirements(json_conf)
+            json_conf = check_scoring(json_conf)
+
+        elif not json_conf["pick"]["scoring_file"].endswith(("model", "pickle")):
+            raise InvalidJson(
+                "Invalid scoring file: {0}".format(
+                    json_conf["pick"]["scoring_file"]))
+
+    if "soft_requirements" not in json_conf:
+        json_conf["soft_requirements"] = dict()
+        json_conf["soft_requirements"]["intron_range"] = [0, sys.maxsize]
+    if "intron_range" not in json_conf["soft_requirements"]:
+        raise InvalidJson("No intron range found!")
+        # json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)
+    else:
+        try:
+            minimal, maximal = (
+                int(_) for _ in json_conf["soft_requirements"]["intron_range"])
+            json_conf["soft_requirements"]["intron_range"] = [minimal, maximal]
+        except Exception:
+            raise InvalidJson("Invalid intron range: {0}".format(
+                json_conf["soft_requirements"]["intron_range"]
+            ))
 
     json_conf = check_db(json_conf)
     # json_conf = check_blast(json_conf, json_file)
-    json_conf = check_all_requirements(json_conf)
-    json_conf = check_scoring(json_conf)
     validator.validate(json_conf)
     json_conf["prepare"]["canonical"] = tuple([tuple(_) for _
                                                in json_conf["prepare"]["canonical"]])

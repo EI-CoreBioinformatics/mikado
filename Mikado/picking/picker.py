@@ -33,6 +33,7 @@ from ..utilities import dbutils, merge_partial
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
 import multiprocessing.managers
+import pickle
 
 
 # pylint: disable=too-many-instance-attributes
@@ -75,6 +76,7 @@ class Picker:
 
         self.commandline = commandline
         self.json_conf = json_conf
+        self.regressor = None
 
         self.threads = self.json_conf["pick"]["run_options"]["threads"]
         self.input_file = self.json_conf["pick"]["files"]["input"]
@@ -105,6 +107,16 @@ class Picker:
         self.logger.info("Multiprocessing method: %s",
                          self.json_conf["multiprocessing_method"])
         self.context = multiprocessing.get_context()
+        if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
+            with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
+                self.regressor = pickle.load(forest)
+            from sklearn.ensemble import RandomForestRegressor
+            if not isinstance(self.regressor, RandomForestRegressor):
+                exc=TypeError("Invalid regressor provided, type: %s", type(self.regressor))
+                self.logger.critical(exc)
+                return
+        else:
+            self.regressor = None
         # pylint: enable=no-member
         self.manager = self.context.Manager()
 
@@ -399,7 +411,10 @@ memory intensive, proceed with caution!")
         """
 
         score_keys = ["tid", "parent", "score"]
-        score_keys += sorted(list(self.json_conf["scoring"].keys()))
+        if self.regressor is None:
+            score_keys += sorted(list(self.json_conf["scoring"].keys()))
+        else:
+            score_keys += self.regressor.metrics
         # Define mandatory output files
         locus_metrics_file = open(re.sub("$", ".metrics.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")
@@ -1004,6 +1019,8 @@ memory intensive, proceed with caution!")
                             stranded=False,
                             json_conf=self.json_conf,
                             source=self.json_conf["pick"]["output_format"]["source"])
+                        if regressor is not None:
+                            current_locus.regressor = regressor
 
                 if current_transcript is None or row.chrom != current_transcript.chrom:
                     if current_transcript is not None:

@@ -12,6 +12,8 @@ from .sublocus import Sublocus
 from .abstractlocus import Abstractlocus
 from ..parsers.GFF import GffLine
 import collections
+from collections import OrderedDict
+import operator
 
 class Locus(Sublocus, Abstractlocus):
     """Class that defines the final loci.
@@ -372,17 +374,45 @@ class Locus(Sublocus, Abstractlocus):
         self.scores = dict()
         for tid in self.transcripts:
             self.scores[tid] = dict()
-        for param in self.json_conf["scoring"]:
-            self._calculate_score(param)
-        # for tid in self.scores:
-        #     self.transcripts[tid].scores = self.scores[tid].copy()
+        if self.regressor is None:
+            for param in self.json_conf["scoring"]:
+                self._calculate_score(param)
 
-        for tid in self.transcripts:
-            if tid in self.__orf_doubles:
-                del self.scores[tid]
-                continue
-            self.transcripts[tid].score = sum(self.scores[tid].values())
-            self.scores[tid]["score"] = self.transcripts[tid].score
+            for tid in self.scores:
+                self.transcripts[tid].scores = self.scores[tid].copy()
+
+            for tid in self.transcripts:
+
+                if tid in self.__orf_doubles:
+                    del self.scores[tid]
+                    continue
+                self.transcripts[tid].score = sum(self.scores[tid].values())
+                self.scores[tid]["score"] = self.transcripts[tid].score
+
+        else:
+            valid_metrics = self.regressor.metrics
+            metric_rows = OrderedDict()
+            for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
+                for param in valid_metrics:
+                    self.scores[tid][param] = "NA"
+                row = []
+                for attr in valid_metrics:
+                    val = getattr(transcript, attr)
+                    if isinstance(val, bool):
+                        if val:
+                            val = 1
+                        else:
+                            val = 0
+                    row.append(val)
+                metric_rows[tid] = row
+            # scores = OrderedDict.fromkeys(metric_rows.keys())
+            for pos, score in enumerate(self.regressor.predict(list(metric_rows.values()))):
+                tid = list(metric_rows.keys())[pos]
+                if tid in self.__orf_doubles:
+                    del self.scores[tid]
+                    continue
+                self.scores[tid]["score"] = score
+                self.transcripts[tid].score = score
 
         self.metric_lines_store = []
         for row in self.prepare_metrics():
@@ -401,7 +431,10 @@ class Locus(Sublocus, Abstractlocus):
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.calculate_scores()
-        score_keys = sorted(list(self.json_conf["scoring"].keys()))
+        if self.regressor is None:
+            score_keys = sorted(list(self.json_conf["scoring"].keys()))
+        else:
+            score_keys = self.regressor.metrics
         keys = ["tid", "parent", "score"] + score_keys
 
         for tid in self.scores:
@@ -409,14 +442,20 @@ class Locus(Sublocus, Abstractlocus):
             row["tid"] = tid
             row["parent"] = self.id
             row["score"] = round(self.scores[tid]["score"],2)
+            calculate_total = True
             for key in score_keys:
-                row[key] = round(self.scores[tid][key], 2)
-            score_sum = sum(row[key] for key in score_keys)
-            #
-            assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
-                score_sum,
-                self.transcripts[tid].score,
-                tid)
+                if row[key] is not None and row[key] != "NA":
+                    row[key] = round(self.scores[tid][key], 2)
+                else:
+                    row[key] = "NA"
+                    calculate_total = False
+            if calculate_total is True:
+                score_sum = sum(row[key] for key in score_keys)
+                #
+                assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
+                    score_sum,
+                    self.transcripts[tid].score,
+                    tid)
             yield row
 
     def is_alternative_splicing(self, other):

@@ -154,9 +154,9 @@ def prepare_parser():
                         help="""Flag. If set, monoexonic transcripts
                         will be left on their strand rather than being
                         moved to the unknown strand.""")
-    parser.add_argument("--log", type=argparse.FileType("w"), default=None,
+    parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
                         help="Log file. Optional.")
-    parser.add_argument("-l", "--lenient", action="store_true", default=None,
+    parser.add_argument("--lenient", action="store_true", default=None,
                         help="""Flag. If set, transcripts with only non-canonical
                         splices will be output as well.""")
     parser.add_argument("-m", "--minimum_length", default=200, type=positive,

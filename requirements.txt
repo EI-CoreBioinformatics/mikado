@@ -9,4 +9,4 @@ intervaltree
 nose
 pyfaidx
 scikit-learn>=0.17.0
-scipy>=0.17.0
+scipy>=0.15.0

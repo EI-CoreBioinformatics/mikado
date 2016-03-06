@@ -20,5 +20,10 @@ __all__ = ["exceptions",
            "configuration",
            "scales"]
 
-for _ in __all__:
-    from . import _
+from . import exceptions
+from . import utilities
+from . import configuration
+from . import parsers
+from . import serializers
+from . import loci_objects
+from . import scales

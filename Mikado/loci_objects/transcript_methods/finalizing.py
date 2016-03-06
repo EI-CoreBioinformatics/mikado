@@ -322,12 +322,14 @@ def finalize(transcript):
         _check_cdna_vs_utr(transcript)
     except InvalidCDS:
         if transcript.combined_cds:
-            transcript.logger.warning("Possible faulty UTR annotation, trying to recalculate it.")
+            transcript.logger.warning("Possible faulty UTR annotation for %s, trying to recalculate it.",
+                                      transcript.id)
             transcript.combined_utr = []
             try:
                 _check_cdna_vs_utr(transcript)
             except InvalidCDS:
-                transcript.logger.warning("CDS completely invalid. Removing it.")
+                transcript.logger.warning("CDS for %s completely invalid. Removing it.",
+                                          transcript.id)
                 transcript.combined_cds = []
                 transcript.combined_utr = []
                 transcript.segments = []
@@ -391,7 +393,7 @@ def finalize(transcript):
     try:
         assert transcript.selected_cds_length >= 0
     except AssertionError as _:
-        transcript.logger.warning("%s has an invalid CDS; removing it.")
+        transcript.logger.warning("%s has an invalid CDS; removing it.", transcript.id)
         transcript.strip_cds()
 
     if len(transcript.combined_cds) == 0:

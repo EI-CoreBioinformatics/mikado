@@ -10,7 +10,6 @@ from Mikado.scales.resultstorer import ResultStorer
 from Mikado.loci_objects import Transcript
 import operator
 # import collections
-from scipy.stats import hmean
 
 
 class MetricEntry:
@@ -137,9 +136,9 @@ def main():
 
     for index, entry in enumerate(metrics):
         X[index] = entry.matrix_row
-        score = hmean([tmap_results[entry.tid].j_f1,
-                       tmap_results[entry.tid].e_f1,
-                       tmap_results[entry.tid].n_f1])
+        score = np.median([tmap_results[entry.tid].j_f1,
+                           tmap_results[entry.tid].e_f1,
+                           tmap_results[entry.tid].n_f1])
         y.append(score)
 
     clf = RandomForestRegressor(n_estimators=int(len(MetricEntry.metrics)/3),

@@ -456,7 +456,6 @@ class Transcript:
         if (start, end) in self.exons:
             self.exons.remove((start, end))
 
-
     def remove_utrs(self):
         """Method to strip a transcript from its UTRs.
         It will not execute anything if the transcript lacks a CDS or

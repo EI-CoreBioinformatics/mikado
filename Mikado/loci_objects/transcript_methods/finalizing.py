@@ -373,6 +373,11 @@ def finalize(transcript):
         transcript.feature = "transcript"
 
     __verify_boundaries(transcript)
+    try:
+        assert transcript.selected_cds_length >= 0
+    except AssertionError as _:
+        transcript.logger.warning("%s has an invalid CDS; removing it.")
+        transcript.strip_cds()
 
     if len(transcript.combined_cds) == 0:
         transcript.selected_internal_orf_cds = tuple([])

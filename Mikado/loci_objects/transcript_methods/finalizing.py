@@ -318,7 +318,22 @@ def finalize(transcript):
     __basic_final_checks(transcript)
     # Sort the exons by start then stop
 
-    _check_cdna_vs_utr(transcript)
+    try:
+        _check_cdna_vs_utr(transcript)
+    except InvalidCDS:
+        if transcript.combined_cds:
+            transcript.logger.warning("Possible faulty UTR annotation, trying to recalculate it.")
+            transcript.combined_utr = []
+            try:
+                _check_cdna_vs_utr(transcript)
+            except InvalidCDS:
+                transcript.logger.warning("CDS completely invalid. Removing it.")
+                transcript.combined_cds = []
+                transcript.combined_utr = []
+                transcript.segments = []
+                transcript.internal_orfs = []
+                __basic_final_checks(transcript)
+                _check_cdna_vs_utr(transcript)
 
     __calculate_introns(transcript)
 

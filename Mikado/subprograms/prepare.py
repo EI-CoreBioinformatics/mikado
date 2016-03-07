@@ -167,7 +167,7 @@ def prepare_parser():
                         splices will be output as well.""")
     parser.add_argument("-m", "--minimum_length", default=200, type=positive,
                         help="Minimum length for transcripts. Default: 200 bps.")
-    parser.add_argument("-t", "--threads",
+    parser.add_argument("-p", "--procs", dest="threads",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=1)
     parser.add_argument("-scds", "--strip_cds", action="store_true", default=False,

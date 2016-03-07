@@ -336,6 +336,7 @@ def prepare(args, logger):
         args.logging_queue = multiprocessing.Queue(-1)
         args.tempdir = tempfile.TemporaryDirectory(prefix="mikado_prepare_tmp",
                                                    dir=args.json_conf["prepare"]["output_dir"])
+
         log_queue_handler = logging.handlers.QueueHandler(args.logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
         # logger.addHandler(log_queue_handler)

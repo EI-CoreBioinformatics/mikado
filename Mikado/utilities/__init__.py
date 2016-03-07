@@ -80,35 +80,24 @@ def merge_partial(filenames, handle):
     """
 
     current_lines = collections.defaultdict(list)
-    filenames = set()
 
     fnames = [open(_) for _ in filenames]
-    total = -1
 
-    for lines in zip_longest(filenames):
-        max_found = -1
+    for lines in zip_longest(*fnames):
         for line in iter(_ for _ in lines if _ is not None):
             _ = line.split("/")
             index = int(_[0])
             current_lines[index].append("/".join(_[1:]))
-            max_found = max(max_found, index)
-        if len(current_lines) > 0:
-            current = min(current_lines.keys())
-        else:
-            current = max_found
-        while current < max_found:
-            for line in current_lines[current]:
-                print(line, file=handle, end='')
-            del current_lines[current]
-        total = max(total, max_found)
+
+    total = max(current_lines.keys())
+
     [_.close() for _ in fnames]
     [os.remove(_) for _ in filenames]
 
-    while len(current_lines) > 0:
-        current = min(current_lines.keys())
-        for line in current_lines[current]:
+    for index in sorted(current_lines.keys()):
+        for line in current_lines[index]:
             print(line, file=handle, end="")
-        del current_lines[current]
+        del current_lines[index]
 
     return total
 

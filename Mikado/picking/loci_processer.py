@@ -320,7 +320,7 @@ def analyse_locus(slocus: Superlocus,
     if slocus is None:
         # printer_dict[counter] = []
         if printer_queue:
-            while printer_queue.qsize() >= json_conf["pick"]["run_options"]["threads"] * 10:
+            while printer_queue.qsize() >= json_conf["pick"]["run_options"]["procs"] * 10:
                 continue
             # printer_queue.put_nowait(([], counter))
             return
@@ -365,7 +365,7 @@ def analyse_locus(slocus: Superlocus,
             slocus.id)
         # printer_dict[counter] = []
         if printer_queue:
-            while printer_queue.qsize >= json_conf["pick"]["run_options"]["threads"] * 10:
+            while printer_queue.qsize >= json_conf["pick"]["run_options"]["procs"] * 10:
                 continue
             # printer_queue.put_nowait(([], counter))
             return
@@ -413,7 +413,7 @@ def analyse_locus(slocus: Superlocus,
         pass
     # printer_dict[counter] = stranded_loci
     if printer_queue:
-        while printer_queue.qsize() >= json_conf["pick"]["run_options"]["threads"] * 10:
+        while printer_queue.qsize() >= json_conf["pick"]["run_options"]["procs"] * 10:
             continue
         # printer_queue.put_nowait((stranded_loci, counter))
         # printer_queue.put((stranded_loci, counter))

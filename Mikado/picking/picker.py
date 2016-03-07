@@ -33,6 +33,7 @@ from ..utilities import dbutils, merge_partial
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
 from .loci_processer import analyse_locus, LociProcesser, merge_loci
 import multiprocessing.managers
+from sklearn.ensemble import RandomForestRegressor
 import pickle
 
 
@@ -78,7 +79,7 @@ class Picker:
         self.json_conf = json_conf
         self.regressor = None
 
-        self.threads = self.json_conf["pick"]["run_options"]["threads"]
+        self.procs = self.json_conf["pick"]["run_options"]["procs"]
         self.input_file = self.json_conf["pick"]["files"]["input"]
         _ = self.define_input()  # Check the input file
 
@@ -111,7 +112,6 @@ class Picker:
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
                 self.regressor = pickle.load(forest)
-            from sklearn.ensemble import RandomForestRegressor
             if not isinstance(self.regressor, RandomForestRegressor):
                 exc=TypeError("Invalid regressor provided, type: %s", type(self.regressor))
                 self.logger.critical(exc)
@@ -143,18 +143,16 @@ class Picker:
         self.queue_logger.propagate = False
         if self.json_conf["pick"]["run_options"]["single_thread"] is True:
             # Reset threads to 1
-            if self.json_conf["pick"]["run_options"]["threads"] > 1:
+            if self.json_conf["pick"]["run_options"]["procs"] > 1:
                 self.main_logger.warning("Reset number of threads to 1 as requested")
-                self.threads = 1
-        elif self.json_conf["pick"]["run_options"]["threads"] == 1:
+                self.procs = 1
+        elif self.json_conf["pick"]["run_options"]["procs"] == 1:
             self.json_conf["pick"]["run_options"]["single_thread"] = True
 
-        if self.json_conf["pick"]["run_options"]["preload"] is True and self.threads > 1:
+        if self.json_conf["pick"]["run_options"]["preload"] is True and self.procs > 1:
             self.logger.warning(
                 "Preloading using multiple threads can be extremely \
 memory intensive, proceed with caution!")
-        #     self.json_conf["pick"]["run_options"]["threads"] = 1
-        #     self.json_conf["pick"]["run_options"]["single_thread"] = True
 
         if self.locus_out is None:
             raise InvalidJson(
@@ -820,7 +818,7 @@ memory intensive, proceed with caution!")
                                            self.logging_queue,
                                            _,
                                            tempdir.name)
-                             for _ in range(1, self.threads+1)]
+                             for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
         # No sense in keeping this data available on the main thread now
@@ -900,7 +898,7 @@ memory intensive, proceed with caution!")
         self.logger.info("Joined children processes; starting to merge partial files")
 
         # Merge loci
-        merge_loci(self.threads,
+        merge_loci(self.procs,
                    handles[0],
                    prefix=self.json_conf["pick"]["output_format"]["id_prefix"],
                    tempdir=tempdir.name)
@@ -910,18 +908,18 @@ memory intensive, proceed with caution!")
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir.name,
                                              "{0}-{1}".format(handle, _))
-                                for _ in range(1, self.threads + 1)]
+                                for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output)
-                    [os.remove(_) for _ in partials]
+                    # [os.remove(_) for _ in partials]
 
         for handle in handles[2]:
             if handle is not None:
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir.name,
                                              "{0}-{1}".format(handle, _))
-                                for _ in range(1, self.threads + 1)]
+                                for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output)
-                    [os.remove(_) for _ in partials]
+                    # [os.remove(_) for _ in partials]
 
         self.logger.info("Finished merging partial files")
         try:
@@ -1020,8 +1018,8 @@ memory intensive, proceed with caution!")
                             stranded=False,
                             json_conf=self.json_conf,
                             source=self.json_conf["pick"]["output_format"]["source"])
-                        if regressor is not None:
-                            current_locus.regressor = regressor
+                        if self.regressor is not None:
+                            current_locus.regressor = self.regressor
 
                 if current_transcript is None or row.chrom != current_transcript.chrom:
                     if current_transcript is not None:
@@ -1115,7 +1113,7 @@ memory intensive, proceed with caution!")
         if self.json_conf["db_settings"]["dbtype"] == "sqlite" and data_dict is not None:
             self.queue_pool = sqlalchemy.pool.QueuePool(
                 self.db_connection,
-                pool_size=self.threads,
+                pool_size=self.procs,
                 max_overflow=0)
 
         try:

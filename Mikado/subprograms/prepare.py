@@ -97,7 +97,7 @@ def setup(args):
             args.json_conf["prepare"]["labels"] = args.labels
 
     for option in ["out", "out_fasta", "fasta",
-                   "minimum_length", "threads", "single"]:
+                   "minimum_length", "procs", "single"]:
         if ((getattr(args, option) or getattr(args, option) == 0) and
                 getattr(args, option) is not False):
             args.json_conf["prepare"][option] = getattr(args, option)
@@ -167,7 +167,7 @@ def prepare_parser():
                         splices will be output as well.""")
     parser.add_argument("-m", "--minimum_length", default=200, type=positive,
                         help="Minimum length for transcripts. Default: 200 bps.")
-    parser.add_argument("-p", "--procs", dest="threads",
+    parser.add_argument("-p", "--procs",
                         help="Number of processors to use (default %(default)s)",
                         type=to_cpu_count, default=1)
     parser.add_argument("-scds", "--strip_cds", action="store_true", default=False,

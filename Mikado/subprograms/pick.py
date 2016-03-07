@@ -47,7 +47,7 @@ def check_run_options(args):
         args.json_conf["multiprocessing_method"] = args.start_method
 
     if args.procs is not None:
-        args.json_conf["pick"]["run_options"]["threads"] = args.procs
+        args.json_conf["pick"]["run_options"]["procs"] = args.procs
 
     if args.shm_db is not None or args.shm is True:
         args.shm = True

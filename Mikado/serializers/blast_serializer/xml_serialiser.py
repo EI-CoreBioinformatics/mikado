@@ -179,10 +179,10 @@ class XmlSerializer:
             self.logger = check_logger(logger)
 
         # Runtime arguments
-        self.threads = json_conf["serialise"]["threads"]
+        self.procs = json_conf["serialise"]["procs"]
         self.single_thread = json_conf["serialise"]["single_thread"]
         self.json_conf = json_conf
-        if self.threads > 1 and self.single_thread is False:
+        if self.procs > 1 and self.single_thread is False:
             multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                              force=True)
             self.logging_queue = multiprocessing.Queue(-1)
@@ -540,7 +540,7 @@ class XmlSerializer:
                 self.logger.error(exc)
                 self.xml.remove(filename)
 
-        if self.threads == 1 or self.single_thread is True:
+        if self.procs == 1 or self.single_thread is True:
             for filename in self.xml:
                 valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
                 if not valid:
@@ -572,9 +572,9 @@ class XmlSerializer:
 
         else:
             self.logger.info("Creating a pool with %d processes",
-                             min(self.threads, len(self.xml)))
+                             min(self.procs, len(self.xml)))
 
-            # pool = multiprocessing.Pool(min(self.threads, len(self.xml)))
+            # pool = multiprocessing.Pool(min(self.procs, len(self.xml)))
             # args = zip(
             #     self.xml,
             #     [self.header] * len(self.xml),
@@ -592,7 +592,7 @@ class XmlSerializer:
                                  self.maxobjects,
                                  self.logging_queue,
                                  self.json_conf["log_settings"]["log_level"]) for _ in range(
-                min([self.threads, len(self.xml)])
+                min([self.procs, len(self.xml)])
             )]
 
             self.logger.info("Starting to pickle and serialise %d files", len(self.xml))

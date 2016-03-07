@@ -235,7 +235,7 @@ def setup(args):
     sql_logger.addHandler(logger.handlers[0])
 
     logger.info("Requested %d threads, forcing single thread: %s",
-                args.json_conf["serialise"]["threads"],
+                args.json_conf["serialise"]["procs"],
                 args.json_conf["serialise"]["single_thread"])
 
     return args, logger
@@ -326,7 +326,7 @@ def serialise_parser():
 
     Multiple folders/file patterns can be given, separated by a comma.
     """, default=[])
-    blast.add_argument("-p", "--procs", dest="threads", type=int,
+    blast.add_argument("-p", "--procs", type=int,
                        help="""Number of threads to use for
     analysing the BLAST files. This number should not be higher than the total number of XML files.
     """, default=None)

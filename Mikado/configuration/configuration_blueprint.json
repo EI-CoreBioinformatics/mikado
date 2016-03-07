@@ -152,7 +152,7 @@
         "discard_definition": {"type": "boolean", "default": false},
         "force": {"type": "boolean", "default": false},
         "single_thread": {"type": "boolean", "default": false},
-        "threads": {"type": "integer", "default": 1, "minimum": 1}
+        "procs": {"type": "integer", "default": 1, "minimum": 1}
       }
     },
     "prepare":{
@@ -160,7 +160,7 @@
       "Comment": ["Options related to the input data preparation.",
         "- predictions: array of GFF3/GTF files containing the predictions. Required.",
         "- fasta: genomic FASTA file. Required.",
-        "- threads: Number of threads to use.",
+        "- procs: Number of processes to use.",
         "- strip_cds: whether to remove the CDS from the predictions during preparation.",
         "- out: output GTF file",
         "- out_fasta: output transcript FASTA file",
@@ -171,7 +171,7 @@
       "SimpleComment": ["Options related to the input data preparation.",
         "- gff: array of GFF3/GTF files containing the predictions. Required.",
         "- fasta: genomic FASTA file. Required.",
-        "- threads: Number of threads to use.",
+        "- procs: Number of processes to use.",
         "- out: output GTF file",
         "- out_fasta: output transcript FASTA file",
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal"
@@ -184,7 +184,7 @@
           "type": "integer", "default": 200, "minimum": 1
         },
         "log": {"type": "string", "default": "prepare.log"},
-        "threads": {"type": "integer", "default": 1},
+        "procs": {"type": "integer", "default": 1},
         "labels": {"type": "array", "default": []},
         "output_dir": {"type": "string", "default": "."},
         "out": {"type": "string", "default": "mikado_prepared.gtf"},
@@ -449,7 +449,7 @@
         },
         "run_options": {
           "type": "object",
-          "required": ["threads", "preload", "single_thread"],
+          "required": ["procs", "preload", "single_thread"],
           "Comment": [
             "Generic run options.",
             "- shm: boolean flag. If set and the DB is sqlite, it will be copied onto the /dev/shm faux partition",
@@ -465,7 +465,7 @@
             "  classified as P,x,i or p compared to another locus, will be removed from the output.",
             "- fragments_maximal_cds: a monoexonic superlocus will never be considered a fragment if its longest CDS is over",
             "  this length. Default: 100 bps.",
-            "- threads: number of threads to use. Default: 1",
+            "- procs: number of processes to use. Default: 1",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
             "  using SQLite databases.",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
@@ -476,7 +476,7 @@
             "  from the output. Default: false",
             "- remove_overlapping_fragments: boolean flag. If set, fragments (defined as monoexonic loci",
             "  classified as P,x,i or p compared to another locus, will be removed from the output.",
-            "- threads: number of threads to use. Default: 1",
+            "- procs: number of processes to use. Default: 1",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
             "  using SQLite databases.",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
@@ -510,7 +510,7 @@
               "type": "boolean",
               "default": false
             },
-            "threads": {
+            "procs": {
               "type": "integer",
               "default": 1,
               "minimum": 1

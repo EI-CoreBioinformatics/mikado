@@ -16,6 +16,7 @@ from ..exceptions import NotInLocusError
 from ..utilities import overlap
 from ..utilities.log_utils import create_null_logger
 from .transcript import Transcript
+from sklearn.ensemble import RandomForestRegressor
 
 
 # I do not care that there are too many attributes: this IS a massive class!
@@ -707,7 +708,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @regressor.setter
     def regressor(self, regr):
 
-        from sklearn.ensemble import RandomForestRegressor
         if not isinstance(regr, RandomForestRegressor):
             raise TypeError("Invalid regressor provided, type: %s", type(regr))
 

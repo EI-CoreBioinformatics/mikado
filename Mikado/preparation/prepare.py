@@ -129,7 +129,7 @@ def perform_check(keys, exon_lines, args, logger):
     # FASTA extraction *has* to be done at the main process level, it's too slow
     # to create an index in each process.
 
-    if args.json_conf["prepare"]["single"] is True or args.threads == 1:
+    if args.json_conf["prepare"]["single"] is True or args.procs == 1:
 
         # Use functools to pre-configure the function
         # with all necessary arguments aside for the lines
@@ -172,7 +172,7 @@ def perform_check(keys, exon_lines, args, logger):
             lenient=args.json_conf["prepare"]["lenient"],
             strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
-            log_level=args.level) for _ in range(args.threads)]
+            log_level=args.level) for _ in range(args.procs)]
 
         [_.start() for _ in working_processes]
 
@@ -187,13 +187,13 @@ def perform_check(keys, exon_lines, args, logger):
         partial_gtf = [os.path.join(args.tempdir.name,
                                     "{0}-{1}".format(
                                         os.path.basename(args.json_conf["prepare"]["out"].name),
-                                        _ + 1)) for _ in range(args.threads)]
+                                        _ + 1)) for _ in range(args.procs)]
         counter = merge_partial(partial_gtf, args.json_conf["prepare"]["out"])
 
         partial_fasta = [os.path.join(
             args.tempdir.name,
             "{0}-{1}".format(os.path.basename(args.json_conf["prepare"]["out_fasta"].name), _ + 1))
-                         for _ in range(args.threads)]
+                         for _ in range(args.procs)]
         merge_partial(partial_fasta, args.json_conf["prepare"]["out_fasta"])
 
     args.json_conf["prepare"]["out_fasta"].close()
@@ -217,7 +217,7 @@ def load_exon_lines(args, logger):
     :rtype: collections.defaultdict[list]
     """
 
-    threads = min([len(args.json_conf["prepare"]["gff"]), args.threads])
+    threads = min([len(args.json_conf["prepare"]["gff"]), args.procs])
     strip_cds = args.json_conf["prepare"]["strip_cds"]
     exon_lines = collections.defaultdict(dict)
 
@@ -330,7 +330,7 @@ def prepare(args, logger):
     assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
 
     logger.propagate = False
-    if args.json_conf["prepare"]["single"] is False and args.threads > 1:
+    if args.json_conf["prepare"]["single"] is False and args.procs > 1:
         multiprocessing.set_start_method(args.json_conf["multiprocessing_method"],
                                          force=True)
         args.logging_queue = multiprocessing.Queue(-1)
@@ -373,7 +373,7 @@ def prepare(args, logger):
     # args.json_conf["prepare"]["out"].close()
     # args.json_conf["prepare"]["out_fasta"].close()
 
-    if args.json_conf["prepare"]["single"] is False and args.threads > 1:
+    if args.json_conf["prepare"]["single"] is False and args.procs > 1:
         try:
             args.tempdir.cleanup()
         except (FileExistsError, FileNotFoundError, OSError):

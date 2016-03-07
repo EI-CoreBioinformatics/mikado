@@ -83,6 +83,7 @@ def merge_partial(filenames, handle):
     filenames = set()
 
     fnames = [open(_) for _ in filenames]
+    total = -1
 
     for lines in zip_longest(filenames):
         max_found = -1
@@ -99,10 +100,10 @@ def merge_partial(filenames, handle):
             for line in current_lines[current]:
                 print(line, file=handle, end='')
             del current_lines[current]
+        total = max(total, max_found)
     [_.close() for _ in fnames]
     [os.remove(_) for _ in filenames]
 
-    total = max(current_lines.keys())
     while len(current_lines) > 0:
         current = min(current_lines.keys())
         for line in current_lines[current]:

@@ -91,7 +91,10 @@ def merge_partial(filenames, handle):
             index = int(_[0])
             current_lines[index].append("/".join(_[1:]))
             max_found = max(max_found, index)
-        current = min(current_lines.keys())
+        if len(current_lines) > 0:
+            current = min(current_lines.keys())
+        else:
+            current = max_found
         while current < max_found:
             for line in current_lines[current]:
                 print(line, file=handle, end='')
@@ -99,14 +102,14 @@ def merge_partial(filenames, handle):
     [_.close() for _ in fnames]
     [os.remove(_) for _ in filenames]
 
-    current = min(current_lines.keys())
+    total = max(current_lines.keys())
     while len(current_lines) > 0:
+        current = min(current_lines.keys())
         for line in current_lines[current]:
             print(line, file=handle, end="")
         del current_lines[current]
-        current = min(current_lines.keys())
 
-    return current
+    return total
 
 
 def overlap(first_interval: tuple([int, int]),

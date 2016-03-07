@@ -42,6 +42,10 @@ def check_run_options(args):
     :param args: a Namespace
     :return: args
     """
+
+    if args.start_method is not None:
+        args.json_conf["multiprocessing_method"] = args.start_method
+
     if args.procs is not None:
         args.json_conf["pick"]["run_options"]["threads"] = args.procs
 
@@ -115,6 +119,9 @@ def pick_parser():
     Parser for the picking step.
     """
     parser = argparse.ArgumentParser("Launcher of the Mikado.py pipeline.")
+    parser.add_argument("--start-method", dest="start_method",
+                        choices=["fork", "spawn", "forkserver"],
+                        default=None, help="Multiprocessing start method.")
     parser.add_argument("-p", "--procs", type=int, default=None,
                         help="""Number of processors to use.
                         Default: look in the configuration file (1 if undefined)""")

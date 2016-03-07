@@ -6,10 +6,10 @@ import csv
 import pickle
 from sklearn.ensemble import RandomForestRegressor
 import numpy as np
+from scipy.stats import hmean
 from Mikado.scales.resultstorer import ResultStorer
 from Mikado.loci_objects import Transcript
 import operator
-# import collections
 
 
 class MetricEntry:
@@ -93,12 +93,12 @@ def load_tmap(tmap_file) -> dict:
 
 def load_metrics(metrics_file) -> [MetricEntry]:
 
-    metrics = []
+    metrics = dict()
     with open(metrics_file) as metrics_handle:
         reader = csv.DictReader(metrics_handle, delimiter="\t")
         for row in reader:
             row = MetricEntry(row)
-            metrics.append(row)
+            metrics[row.tid] = row
 
     return metrics
 
@@ -123,6 +123,20 @@ def main():
     # Load tab file and produce matrix
     # bed, tab = loadtab(args.input)
     tmap_results = load_tmap(args.tmap)
+    scores = dict()
+    for tid in tmap_results:
+        if tmap_results[tid].ccode == ("u",):
+            continue
+        recall = np.mean([tmap_results[tid].j_recall,
+                          tmap_results[tid].e_recall,
+                          tmap_results[tid].n_recall])
+        precision = np.mean([tmap_results[tid].j_prec,
+                             tmap_results[tid].e_prec,
+                             tmap_results[tid].n_prec])
+        if min(recall, precision) > 0:
+            scores[tid] = hmean([recall, precision])
+        else:
+            scores[tid] = 0
 
     print("# TMAP results: " + str(len(tmap_results)))
 
@@ -131,14 +145,11 @@ def main():
     metrics = load_metrics(args.metrics)
     print("# metered transcripts:", len(metrics))
 
-    X = np.zeros((len(metrics), len(MetricEntry.metrics)))
+    X = np.zeros((len(scores), len(MetricEntry.metrics)))
     y = []
 
-    for index, entry in enumerate(metrics):
-        X[index] = entry.matrix_row
-        score = np.median([tmap_results[entry.tid].j_f1,
-                           tmap_results[entry.tid].e_f1,
-                           tmap_results[entry.tid].n_f1])
+    for index, (tid, score) in enumerate(scores.items()):
+        X[index] = metrics[tid].matrix_row
         y.append(score)
 
     clf = RandomForestRegressor(n_estimators=int(len(MetricEntry.metrics)/3),

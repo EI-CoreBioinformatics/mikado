@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import gc
 from .checking import create_transcript, CheckingProcess
 from .annotation_parser import AnnotationParser, load_from_gtf, load_from_gff
 import operator
@@ -68,7 +69,9 @@ def store_transcripts(exon_lines, logger, min_length=0):
     # counter = 0
     for chrom in sorted(transcripts.keys()):
 
-        logger.debug("Starting with %s (%d positions)", chrom, len(transcripts[chrom]))
+        logger.debug("Starting with %s (%d positions)",
+                     chrom,
+                     len(transcripts[chrom]))
 
         for key in sorted(transcripts[chrom].keys(),
                           key=operator.itemgetter(0, 1)):
@@ -156,10 +159,6 @@ def perform_check(keys, exon_lines, args, logger):
     else:
         # pylint: disable=no-member
 
-        tempdir = tempfile.TemporaryDirectory(suffix="",
-                                              prefix="mikado_prepare_tmp",
-                                              dir=".")
-
         submission_queue = multiprocessing.Queue(-1)
 
         working_processes = [CheckingProcess(
@@ -169,7 +168,7 @@ def perform_check(keys, exon_lines, args, logger):
             _ + 1,
             os.path.basename(args.json_conf["prepare"]["out_fasta"].name),
             os.path.basename(args.json_conf["prepare"]["out"].name),
-            tempdir.name,
+            args.tempdir.name,
             lenient=args.json_conf["prepare"]["lenient"],
             strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
@@ -185,23 +184,17 @@ def perform_check(keys, exon_lines, args, logger):
 
         [_.join() for _ in working_processes]
 
-        partial_gtf = [os.path.join(tempdir.name,
+        partial_gtf = [os.path.join(args.tempdir.name,
                                     "{0}-{1}".format(
                                         os.path.basename(args.json_conf["prepare"]["out"].name),
                                         _ + 1)) for _ in range(args.threads)]
         counter = merge_partial(partial_gtf, args.json_conf["prepare"]["out"])
 
         partial_fasta = [os.path.join(
-            tempdir.name,
+            args.tempdir.name,
             "{0}-{1}".format(os.path.basename(args.json_conf["prepare"]["out_fasta"].name), _ + 1))
                          for _ in range(args.threads)]
         merge_partial(partial_fasta, args.json_conf["prepare"]["out_fasta"])
-
-        try:
-            tempdir.cleanup()
-        except (OSError, FileNotFoundError, FileExistsError) as exc:
-            logger.warning("Failed to clean up the temporary directory %s, error: %s",
-                           tempdir.name, exc)
 
     args.json_conf["prepare"]["out_fasta"].close()
     args.json_conf["prepare"]["out"].close()
@@ -274,6 +267,7 @@ def load_exon_lines(args, logger):
             result = return_queue.get()
             if result == "EXIT":
                 break
+            logger.debug("Loading %s back into memory", result)
             with open(result, "rb") as inp_file:
                 result = pickle.load(inp_file)
 
@@ -302,6 +296,9 @@ def load_exon_lines(args, logger):
                 raise exception
 
             exon_lines.update(result)
+            logger.debug("Loaded %s back into memory", inp_file.name)
+        del working_processes
+        gc.collect()
 
     logger.info("Finished loading lines from %d files",
                 len(args.json_conf["prepare"]["gff"]))
@@ -334,7 +331,8 @@ def prepare(args, logger):
 
     logger.propagate = False
     if args.json_conf["prepare"]["single"] is False and args.threads > 1:
-        multiprocessing.set_start_method(args.json_conf["multiprocessing_method"])
+        multiprocessing.set_start_method(args.json_conf["multiprocessing_method"],
+                                         force=True)
         args.logging_queue = multiprocessing.Queue(-1)
         args.tempdir = tempfile.TemporaryDirectory(prefix="mikado_prepare_tmp",
                                                    dir=args.json_conf["prepare"]["output_dir"])
@@ -386,4 +384,3 @@ def prepare(args, logger):
     logger.info("Finished")
     # for handler in logger.handlers:
     #     handler.close()
-

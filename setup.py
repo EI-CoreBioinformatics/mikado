@@ -50,7 +50,7 @@ setup(
         "mysql": ["mysqlclient>=1.3.6"],
     },
 
-    test_suite="nose.collector",
+    test_suite="nose.runmodule",
 
     data_files=[("Mikado/configuration",
                  glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml") )],

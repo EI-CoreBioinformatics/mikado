@@ -100,7 +100,8 @@ class Picker:
             self.json_conf["pick"]["files"]["output_dir"],
             self.json_conf["pick"]["files"]["loci_out"])
         # pylint: disable=no-member
-        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"])
+        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+                                         force=True)
         self.logging_queue = multiprocessing.Queue(-1)
         self.printer_queue = multiprocessing.Queue(-1)
         self.setup_logger()

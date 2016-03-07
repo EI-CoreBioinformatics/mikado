@@ -65,7 +65,7 @@ class TestTrimming(unittest.TestCase):
 
         cds = [(11400, 11500),  # 101
                (12000, 13000),  # 1001 ==> 1102
-               (15000, 17997)]  # 2998 == > 3090 (y)
+               (15000, 17998)]  # 2998 == > 3090 (y)
         cds = [Interval(*seg) for seg in cds]
 
         transcript.exons = exons

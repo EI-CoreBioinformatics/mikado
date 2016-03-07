@@ -183,8 +183,8 @@ class XmlSerializer:
         self.single_thread = json_conf["serialise"]["single_thread"]
         self.json_conf = json_conf
         if self.threads > 1 and self.single_thread is False:
-            self.context = multiprocessing.get_context(self.json_conf["multiprocessing_method"])
-            # self.manager = self.context.Manager()
+            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+                                             force=True)
             self.logging_queue = multiprocessing.Queue(-1)
             self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
             self.queue_logger = logging.getLogger("parser")

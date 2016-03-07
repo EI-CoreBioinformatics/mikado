@@ -17,6 +17,7 @@ from ..loci_objects.transcript import Transcript
 import json
 import sys
 import jsonschema
+from multiprocessing import get_start_method
 
 __author__ = "Luca Venturini"
 
@@ -506,6 +507,9 @@ def check_json(json_conf, simple=False):
     validator.validate(json_conf)
     json_conf["prepare"]["canonical"] = tuple([tuple(_) for _
                                                in json_conf["prepare"]["canonical"]])
+    if not json_conf["multiprocessing_method"]:
+        json_conf["multiprocessing_method"] = get_start_method()
+
     return json_conf
 
 

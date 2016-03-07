@@ -176,6 +176,13 @@ def trim_coding(transcript, logger, max_length=0):
     """
     # Coding transcript
     # Order cds_start and end irrespectively of strand
+
+    # Wrong CDS
+    if transcript.selected_cds_start is None:
+        logger.warning("Non-coding transcript %s submitted, calling the correct function.",
+                       transcript.id)
+        return trim_noncoding(transcript, max_length=max_length)
+
     cds_start, cds_end = sorted([transcript.selected_cds_end,
                                  transcript.selected_cds_start])
 
@@ -219,13 +226,20 @@ def strip_terminal(transcript, args) -> Transcript:
     if transcript.monoexonic is True:
         return transcript
 
+    if transcript.selected_cds_start is not None:
+        coding = True
+    else:
+        coding = False
+
     transcript.finalized = False
-    transcript.segments = []
+    # transcript.segments = []
 
     # noinspection PyUnresolvedReferences
     max_l = args.max_length
     try:
-        if transcript.selected_cds_length == 0:
+        if coding:
+            assert sorted([transcript.selected_cds_start,
+                           transcript.selected_cds_end])
             transcript = trim_noncoding(transcript, max_length=max_l)
         else:
             transcript = trim_coding(transcript, args.logger, max_length=max_l)

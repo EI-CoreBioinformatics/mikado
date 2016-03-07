@@ -79,7 +79,7 @@ pick:
     preload: false
     threads: 5
     single_thread: true
-  scoring_file: forest.pickle
+  scoring_file: test.model
 prepare:
   #  Options related to the input data preparation.
   #  - gff: array of GFF3/GTF files containing the predictions. Required.

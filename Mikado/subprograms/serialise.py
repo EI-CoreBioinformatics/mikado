@@ -150,6 +150,9 @@ def setup(args):
 
     logger = create_default_logger("serialiser")
     # Get the log level from general settings
+    if args.start_method is not None:
+        args.json_conf["multiprocessing_method"] = args.start_method
+
     args.json_conf["serialise"]["log_level"] = args.json_conf["log_settings"]["log_level"]
 
     # Retrieve data from the argparse and put it into the configuration
@@ -281,6 +284,9 @@ def serialise_parser():
     """
 
     parser = argparse.ArgumentParser("Serialisation utility of the Mikado.py suite.")
+    parser.add_argument("--start-method", dest="start_method",
+                        choices=["fork", "spawn", "forkserver"],
+                        default=None, help="Multiprocessing start method.")
     orfs = parser.add_argument_group()
     orfs.add_argument("--orfs", type=str, default=None,
                       help="ORF BED file(s), separated by commas")

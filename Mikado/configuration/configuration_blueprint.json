@@ -6,8 +6,8 @@
   "properties": {
     "multiprocessing_method": {
       "type": "string",
-      "default": "fork",
-      "enum": ["fork", "spawn", "forkserver"]
+      "default": "",
+      "enum": ["fork", "spawn", "forkserver", ""]
     },
     "log_settings": {
       "Comment": [

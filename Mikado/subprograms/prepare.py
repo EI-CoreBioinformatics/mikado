@@ -29,6 +29,9 @@ def setup(args):
     logger = logging.getLogger("prepare")
     logger.setLevel(logging.INFO)
 
+    if args.start_method is not None:
+        args.json_conf["multiprocessing_method"] = args.start_method
+
     if args.output_dir is not None:
         args.json_conf["prepare"]["output_dir"] = getattr(args,
                                                           "output_dir")
@@ -149,6 +152,9 @@ def prepare_parser():
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument("-v", "--verbose", action="store_true", default=False)
     verbosity.add_argument("-q", "--quiet", action="store_true", default=False)
+    parser.add_argument("--start-method", dest="start_method",
+                        choices=["fork", "spawn", "forkserver"],
+                        default=None, help="Multiprocessing start method.")
     parser.add_argument("-s", "--strand-specific", dest="strand_specific",
                         action="store_true", default=False,
                         help="""Flag. If set, monoexonic transcripts

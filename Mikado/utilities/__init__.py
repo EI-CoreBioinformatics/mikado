@@ -9,6 +9,7 @@ from . import dbutils
 from . import log_utils
 from ..parsers import GTF, GFF
 import collections
+from itertools import zip_longest
 
 __author__ = 'Luca Venturini'
 
@@ -79,31 +80,32 @@ def merge_partial(filenames, handle):
     """
 
     current_lines = collections.defaultdict(list)
-    filenames = set([open(_) for _ in filenames])
-    while len(filenames) > 0:
-        finished = set()
-        for _ in filenames:
-            try:
-                line = next(_)
+    filenames = set()
+
+    with [open(_) for _ in filenames] as fnames:
+        for lines in zip_longest(filenames):
+            max_found = -1
+            for line in iter(_ for _ in lines if _ is not None):
                 _ = line.split("/")
-                current_lines[int(_[0])].append("/".join(_[1:]))
+                index = int(_[0])
+                current_lines[index].append("/".join(_[1:]))
+                max_found = max(max_found, index)
+            current = min(current_lines.keys())
+            while current < max_found:
+                for line in current_lines[current]:
+                    print(line, file=handle, end='')
+                del current_lines[current]
 
-            except StopIteration:
-                _.close()
-                finished.add(_)
+    [os.remove(_) for _ in filenames]
 
-        for _ in finished:
-            filenames.remove(_)
-
-    total = 0
+    current = min(current_lines.keys())
     while len(current_lines) > 0:
-        total += 1
-        current = min(current_lines.keys())
         for line in current_lines[current]:
             print(line, file=handle, end="")
         del current_lines[current]
+        current = min(current_lines.keys())
 
-    return total
+    return current
 
 
 def overlap(first_interval: tuple([int, int]),

@@ -150,6 +150,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                                                gff_handle,
                                                prefix)
                         for tid in tid_corrs:
+                            assert (file_index, tid) not in tid_to_new, (file_index, tid)
                             tid_to_new[(file_index, tid)] = tid_corrs[tid]
                         current_gene = dict()
                     current_gene["transcripts"] = dict()
@@ -187,6 +188,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                                                gff_handle,
                                                prefix)
                         for tid in tid_corrs:
+                            assert (file_index, tid) not in tid_to_new, (file_index, tid)
                             tid_to_new[(file_index, tid)] = tid_corrs[tid]
                         current_gene = dict()
 
@@ -198,6 +200,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                 for tid in tid_corrs:
                     assert (file_index, tid) not in tid_to_new, (file_index, tid)
                     tid_to_new[(file_index, tid)] = tid_corrs[tid]
+                current_gene = dict()
 
             del current_lines[index]
 

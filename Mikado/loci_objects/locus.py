@@ -492,7 +492,7 @@ class Locus(Sublocus, Abstractlocus):
                 result, _ = Assigner.compare(other, candidate)
                 if (other.monoexonic is False and
                         candidate.monoexonic is False):
-                    if result.j_recall[0] <= 1 and result.j_prec[0] == 1:
+                    if result.j_prec[0] == 1 and result.j_recall <= 1:
                         is_valid = False
                 elif (other.monoexonic is True and
                         candidate.monoexonic is True and

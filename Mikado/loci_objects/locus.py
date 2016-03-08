@@ -496,7 +496,7 @@ class Locus(Sublocus, Abstractlocus):
                         is_valid = False
                 elif (other.monoexonic is True and
                         candidate.monoexonic is True and
-                        result.n_f1 >= 0.8):
+                        result.n_f1[0] >= 0.8):
                     is_valid = False
                 elif result.n_prec[0] == 1:
                     is_valid = False

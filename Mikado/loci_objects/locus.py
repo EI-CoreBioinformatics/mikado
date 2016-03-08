@@ -492,13 +492,13 @@ class Locus(Sublocus, Abstractlocus):
                 result, _ = Assigner.compare(other, candidate)
                 if (other.monoexonic is False and
                         candidate.monoexonic is False):
-                    if result.j_prec[0] == 1 and result.j_recall <= 1:
+                    if result.j_prec[0] == 100 and result.j_recall <= 100:
                         is_valid = False
                 elif (other.monoexonic is True and
                         candidate.monoexonic is True and
-                        result.n_f1[0] >= 0.8):
+                        result.n_f1[0] >= 80):
                     is_valid = False
-                elif result.n_prec[0] == 1:
+                elif result.n_prec[0] == 100:
                     is_valid = False
 
             # if (("_" in ccodes and "_" not in valid_ccodes) or

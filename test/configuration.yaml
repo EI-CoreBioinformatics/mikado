@@ -57,18 +57,18 @@ pick:
     #  monoexonic loci
     #    classified as P,x,i or p compared to another locus, will be removed from
     #  the output.
-    #  - threads: number of threads to use. Default: 1
+    #  - procs: number of threads to use. Default: 1
     #  - preload: boolean flag. If set, the whole database will be preloaded into
     #  memory for faster access. Useful when
     #    using SQLite databases.
     preload: false
-    threads: 1
+    procs: 1
     single_thread: false
 prepare:
   #  Options related to the input data preparation.
   #  - gff: array of GFF3/GTF files containing the predictions. Required.
   #  - fasta: genomic FASTA file. Required.
-  #  - threads: Number of threads to use.
+  #  - procs: Number of threads to use.
   #  - out: output GTF file
   #  - out_fasta: output transcript FASTA file
   #  - strand_specific: if set to True, transcripts will be assumed to be in the correct

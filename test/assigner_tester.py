@@ -422,7 +422,7 @@ class AssignerTester(unittest.TestCase):
 
         prediction.strand = "-"
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("x",))
+        self.assertEqual(result.ccode, ("X",))
 
     def test_ccode_e(self):
 
@@ -502,7 +502,7 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("o",))
+        self.assertEqual(result.ccode, ("mo",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
         self.assertEqual(result.j_recall, (0,))
@@ -916,7 +916,7 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("o",))
+        self.assertEqual(result.ccode, ("mo",))
 
         result, _ = Mikado.scales.assigner.Assigner.compare(reference, prediction)
         self.assertEqual(result.ccode, ("O",))

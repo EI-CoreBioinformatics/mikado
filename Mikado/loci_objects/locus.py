@@ -490,10 +490,15 @@ class Locus(Sublocus, Abstractlocus):
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
                 result, _ = Assigner.compare(other, candidate)
-                if (other.monoexonic is False and result.j_recall[0] <= 1
-                        and result.j_prec[0] == 1):
+                if (other.monoexonic is False and
+                        candidate.monoexonic is False):
+                    if result.j_recall[0] <= 1 and result.j_prec[0] == 1:
+                        is_valid = False
+                elif (other.monoexonic is True and
+                        candidate.monoexonic is True and
+                        result.n_f1 >= 0.8):
                     is_valid = False
-                elif other.monoexonic is False and result.n_prec[0] == 1:
+                elif result.n_prec[0] == 1:
                     is_valid = False
 
             # if (("_" in ccodes and "_" not in valid_ccodes) or

@@ -743,7 +743,7 @@ class Assigner:
 
         if (prediction.strand != reference.strand and
                 all([_ is not None for _ in (prediction.strand, reference.strand)])):
-            if ccode in ("e", "o", "c", "m", "_", "C"):
+            if ccode in ("e", "mo", "c", "m", "_", "C"):
                 ccode = "x"  # "x{0}".format(ccode)
             elif ccode not in ("u", "i", "I", "p", "P", "x"):
                 ccode = "X"  # "X{0}".format(ccode)

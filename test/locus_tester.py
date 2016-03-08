@@ -35,7 +35,8 @@ class LocusTester(unittest.TestCase):
     def setUp(self):
 
         gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t300\t.\t+\t.\tID=t0
-Chr1\tfoo\texon\t101\t300\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
+Chr1\tfoo\texon\t101\t300\t.\t+\t.\tID=t0:exon1;Parent=t0
+Chr1\tfoo\tCDS\t101\t250\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
         gff_transcript1 = [GFF.GffLine(x) for x in gff_transcript1]
         self.assertEqual(gff_transcript1[0].chrom, "Chr1", gff_transcript1[0])
         self.transcript1 = transcript.Transcript(gff_transcript1[0])
@@ -53,7 +54,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.transcript2 = transcript.Transcript(gff_transcript2[0])
         for exon in gff_transcript2[1:-1]:
             self.transcript2.add_exon(exon)
-        # Test that a transcript cannot be finalized if the exons do not define the external boundaries
+        # Test that a transcript cannot be finalized if
+        # the exons do not define the external boundaries
         with self.assertRaises(exceptions.InvalidTranscript):
             self.transcript2.finalize()
         self.transcript2.add_exon(gff_transcript2[-1])
@@ -92,7 +94,8 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         self.assertEqual(len(slocus.monosubloci), 2)
         slocus.define_loci()
         self.assertEqual(len(slocus.loci), 1)
-        self.assertEqual(list(slocus.loci[list(slocus.loci.keys())[0]].transcripts.keys())[0], "t1")
+        self.assertEqual(list(slocus.loci[
+                                  list(slocus.loci.keys())[0]].transcripts.keys())[0], "t0")
         gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t200\t.\t-\t.\tID=tminus0
 Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
         gff_transcript3 = [GFF.GffLine(x) for x in gff_transcript3]

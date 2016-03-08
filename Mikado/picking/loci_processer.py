@@ -126,13 +126,17 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
         current_gene = dict()
         current_chrom = None
         gene_counter = 0
+        last_header_printed = ""
         for index in sorted(current_lines.keys()):
             file_index = current_lines[index]["filenum"]
             lines = [GffLine(_) for _ in current_lines[index]["lines"]]
             for line in lines:
                 if line.header is True:
-                    print(line, file=gff_handle)
+                    if line._line != last_header_printed:
+                        print(line, file=gff_handle)
+                    last_header_printed = line._line
                     continue
+                last_header_printed = None
                 if current_chrom is not None and current_chrom != line.chrom:
                     gene_counter = 0
                     current_chrom = line.chrom
@@ -162,6 +166,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                     assert current_gene != dict()
                     current_gene["transcripts"][line.id] = dict()
                     current_gene["transcripts"][line.id]["transcript"] = line
+                    current_gene["transcripts"][line.id]["exons"] = []
                     if line.attributes["primary"].lower() in ("true", "false"):
                         if line.attributes["primary"].lower() == "true":
                             primary = True

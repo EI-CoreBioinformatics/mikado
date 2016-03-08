@@ -589,7 +589,7 @@ class XmlSerializer:
             procs = [_XmlPickler(filequeue,
                                  returnqueue,
                                  self.header,
-                                 self.maxobjects,
+                                 int(self.maxobjects/self.procs),
                                  self.logging_queue,
                                  self.json_conf["log_settings"]["log_level"]) for _ in range(
                 min([self.procs, len(self.xml)])

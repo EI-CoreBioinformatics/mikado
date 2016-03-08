@@ -35,7 +35,9 @@ def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False):
                                      transcript,
                                      **{"to_gtf": to_gtf,
                                         "tid": tid})
+
     for segment in cds_run:
+
         exon_line, counter, cds_begin = line_creator(segment,
                                                      counter,
                                                      cds_begin)

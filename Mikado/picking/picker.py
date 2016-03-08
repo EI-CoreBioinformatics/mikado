@@ -907,7 +907,7 @@ memory intensive, proceed with caution!")
             if handle is not None:
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir.name,
-                                             "{0}-{1}".format(handle, _))
+                                             "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output)
                     # [os.remove(_) for _ in partials]
@@ -916,7 +916,7 @@ memory intensive, proceed with caution!")
             if handle is not None:
                 with open(handle, "a") as output:
                     partials = [os.path.join(tempdir.name,
-                                             "{0}-{1}".format(handle, _))
+                                             "{0}-{1}".format(os.path.basename(handle), _))
                                 for _ in range(1, self.procs + 1)]
                     merge_partial(partials, output)
                     # [os.remove(_) for _ in partials]

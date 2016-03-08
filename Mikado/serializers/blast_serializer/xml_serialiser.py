@@ -30,15 +30,24 @@ __author__ = 'Luca Venturini'
 
 class _XmlPickler(multiprocessing.Process):
 
-    def __init__(self, filequeue, returnqueueue, default_header, maxobjects, logging_queue, level="WARN"):
+    def __init__(self,
+                 filequeue,
+                 returnqueue,
+                 default_header,
+                 maxobjects,
+                 identifier,
+                 logging_queue,
+                 level="WARN"):
 
         super(_XmlPickler,  self).__init__()
         self.handler = logging_handlers.QueueHandler(logging_queue)
+        self.__identifier = identifier
+        self.name = self._name = "_XmlPickler-{0}".format(self.identifier)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
         self.logger.setLevel(level)
         self.filequeue = filequeue
-        self.returnqueue = returnqueueue
+        self.returnqueue = returnqueue
         self.default_header = default_header
         self.maxobjects = maxobjects
         self.logging_queue = logging_queue
@@ -53,12 +62,13 @@ class _XmlPickler(multiprocessing.Process):
 
         state = self.__dict__.copy()
 
-        state["handler"].removeHandler(state["handler"])
+        state["logger"].removeHandler(state["handler"])
         state["handler"].close()
         state["handler"] = None
 
         state["_pickler"] = None
         state["logger"] = None
+        return state
 
     def __setstate__(self, state):
 
@@ -68,7 +78,7 @@ class _XmlPickler(multiprocessing.Process):
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.level)
         self._pickler = functools.partial(_pickle_xml,
-                                          {"default_header": self.default_header,
+                                          **{"default_header": self.default_header,
                                            "maxobjects": self.maxobjects,
                                            "logging_queue": self.logging_queue,
                                            "level": self.level})
@@ -87,8 +97,16 @@ class _XmlPickler(multiprocessing.Process):
             pfiles = self._pickler(filename)
             self.returnqueue.put(pfiles)
 
+    @property
+    def identifier(self):
+        return self.__identifier
 
-def _pickle_xml(filename, default_header, maxobjects, logging_queue, level="WARN"):
+
+def _pickle_xml(filename,
+                default_header='',
+                maxobjects=float("inf"),
+                logging_queue=None,
+                level="WARN"):
 
     """
     Private method to load the records from an XML file into a pickled file,
@@ -102,7 +120,10 @@ def _pickle_xml(filename, default_header, maxobjects, logging_queue, level="WARN
     records = []
     pfiles = []
 
-    handler = logging_handlers.QueueHandler(logging_queue)
+    if logging_queue is None:
+        handler = logging.NullHandler()
+    else:
+        handler = logging_handlers.QueueHandler(logging_queue)
     logger = logging.getLogger("pickle_{0}".format(os.path.basename(filename)))
     logger.addHandler(handler)
     logger.setLevel(level)
@@ -183,8 +204,10 @@ class XmlSerializer:
         self.single_thread = json_conf["serialise"]["single_thread"]
         self.json_conf = json_conf
         if self.procs > 1 and self.single_thread is False:
+            # pylint: disable=unexpected-argument
             multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                              force=True)
+            # pylint: enable=unexpected-argument
             self.logging_queue = multiprocessing.Queue(-1)
             self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
             self.queue_logger = logging.getLogger("parser")
@@ -419,6 +442,10 @@ class XmlSerializer:
                           len(hits), len(hsps))
 
         tot_objects = len(hits) + len(hsps)
+        if len(hits) == 0:
+            self.logger.debug("No hits to serialise. Exiting")
+            return hits, hsps
+
         if tot_objects >= self.maxobjects or force:
             # Bulk load
             self.logger.info("Loading %d BLAST objects into database", tot_objects)
@@ -540,7 +567,7 @@ class XmlSerializer:
                 self.logger.error(exc)
                 self.xml.remove(filename)
 
-        if self.procs == 1 or self.single_thread is True:
+        if self.single_thread is True:
             for filename in self.xml:
                 valid, _, exc = BlastOpener(filename).sniff(default_header=self.header)
                 if not valid:
@@ -590,9 +617,10 @@ class XmlSerializer:
                                  returnqueue,
                                  self.header,
                                  int(self.maxobjects/self.procs),
+                                 _,
                                  self.logging_queue,
-                                 self.json_conf["log_settings"]["log_level"]) for _ in range(
-                min([self.procs, len(self.xml)])
+                                 self.json_conf["log_settings"]["log_level"])
+                     for _ in range(min([self.procs, len(self.xml)])
             )]
 
             self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
@@ -616,10 +644,14 @@ class XmlSerializer:
                             if record_counter > 0 and record_counter % 10000 == 0:
                                 self.logger.info("Parsed %d queries", record_counter)
 
-                            hits, hsps, partial_hit_counter, targets = self.__serialise_record(record,
-                                                                                               hits,
-                                                                                               hsps,
-                                                                                               targets)
+                            (hits,
+                             hsps,
+                             partial_hit_counter,
+                             targets) = self.__serialise_record(record,
+                                                                hits,
+                                                                hsps,
+                                                                targets)
+
                             hit_counter += partial_hit_counter
                             if hit_counter > 0 and hit_counter % 10000 == 0:
                                 self.logger.info("Serialized %d alignments", hit_counter)

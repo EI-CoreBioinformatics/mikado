@@ -290,14 +290,15 @@
                   "o",
                   "h",
                   "J",
-                  "C"
+                  "C",
+                  "mo"
                 ]
               },
               "default": [
                 "j",
                 "J",
                 "O",
-                "h"
+                "mo"
               ]
             },
             "min_score_perc": {

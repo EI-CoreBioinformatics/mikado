@@ -12,6 +12,7 @@ import csv
 import re
 import sys
 import pickle
+from itertools import zip_longest
 
 __author__ = 'Luca Venturini'
 
@@ -60,8 +61,10 @@ def print_gene(current_gene, gene_counter, handle, prefix):
         current_transcript = current_gene["transcripts"][other]["transcript"]
         # Get the original transcript counter
         try:
-            first = re.sub("{0}\.".format(current_transcript.parent[0]), "", other)
-            transcript_counter = int(re.sub("\.orf[0-9]+", "", first))
+            # first = re.sub("{0}\.".format(current_transcript.parent[0]), "", other)
+            # transcript_counter = int(re.sub("\.orf[0-9]+", "", first))
+            transcript_counter = int(re.sub("\.orf[0-9]+", "",
+                                            current_transcript.id).split(".")[-1])
         except ValueError:
             assert isinstance(current_transcript.parent, list),\
                 type(current_transcript.parent)
@@ -97,88 +100,103 @@ def print_gene(current_gene, gene_counter, handle, prefix):
 
 def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
 
-    current_lines = collections.defaultdict(list)
-    gff_filenames = [open(_) for _ in gff_filenames]
-    finished = set()
-    while len(finished) < len(gff_filenames):
-        for num, _ in enumerate(gff_filenames):
-            if _.name in finished:
-                continue
-            else:
-                try:
-                    line = next(_)
-                    fields = line.split("/")
-                    current_lines[int(fields[0])].append((num, GffLine("/".join(fields[1:]))))
-                except StopIteration:
-                    _.close()
-                    finished.add(_.name)
+    current_lines = dict()
+    gffs = [open(_) for _ in gff_filenames]
 
-    gene_counter = 0
-    current_chrom = None
+    for lines in zip_longest(*gffs):
+        for num, line in enumerate(lines):
+            if line is None:
+                continue
+            _ = line.split("/")
+            index = int(_[0])
+            if index not in current_lines:
+                current_lines[index] = {"filenum": num,
+                                        "lines": []}
+            else:
+                assert current_lines[index]["filenum"] == num, (num,
+                                                                current_lines[index])
+            current_lines[index]["lines"].append("/".join(_[1:]))
+
+    [_.close() for _ in gffs]
 
     gid_to_new = dict()
     tid_to_new = dict()
 
     with open(gff_handle, "a") as gff_handle:
-        while len(current_lines) > 0:
-            current = min(current_lines.keys())
-            current_gene = dict()
-            curr_index = None
-            for tup in current_lines[current]:
-                temp_index, line = tup
+        current_gene = dict()
+        current_chrom = None
+        gene_counter = 0
+        for index in sorted(current_lines.keys()):
+            file_index = current_lines[index]["filenum"]
+            lines = [GffLine(_) for _ in current_lines[index]["lines"]]
+            for line in lines:
                 if line.header is True:
-                    if "###" not in line._line and line._line != "NA":
-                        print(line, file=gff_handle)
+                    print(line, file=gff_handle)
                     continue
                 if current_chrom is not None and current_chrom != line.chrom:
                     gene_counter = 0
+                    current_chrom = line.chrom
+                elif current_chrom is None:
+                    current_chrom = line.chrom
+                # Start the printing process
                 if line.is_gene:
                     if current_gene != dict():
-                        # Print out
-                        tid_corrs = print_gene(current_gene, gene_counter, gff_handle, prefix)
+                        tid_corrs = print_gene(current_gene,
+                                               gene_counter,
+                                               gff_handle,
+                                               prefix)
                         for tid in tid_corrs:
-                            tid_to_new[(curr_index, tid)] = tid_corrs[tid]
+                            tid_to_new[(file_index, tid)] = tid_corrs[tid]
                         current_gene = dict()
-                        pass
                     current_gene["transcripts"] = dict()
+
+                    # Create the correspondence for the new gene
                     gene_counter += 1
                     new_id = "{0}.{1}G{2}".format(prefix, line.chrom, gene_counter)
-
-                    curr_index = temp_index
-                    assert (curr_index, line.id) not in gid_to_new, ((curr_index, line.id),
+                    assert (file_index, line.id) not in gid_to_new, ((file_index, line.id),
                                                                      gid_to_new)
-                    gid_to_new[(curr_index, line.id)] = new_id
+                    gid_to_new[(file_index, line.id)] = new_id
                     line.id = new_id
                     current_gene["gene"] = line
                 elif line.is_transcript:
                     assert current_gene != dict()
                     current_gene["transcripts"][line.id] = dict()
                     current_gene["transcripts"][line.id]["transcript"] = line
-                    current_gene["transcripts"][line.id]["exons"] = []
                     if line.attributes["primary"].lower() in ("true", "false"):
-                        primary = eval(line.attributes["primary"])
+                        if line.attributes["primary"].lower() == "true":
+                            primary = True
+                        else:
+                            primary = False
+                        current_gene["transcripts"][line.id]["primary"] = primary
                     else:
                         raise ValueError("Invalid value for \"primary\" field: {0}".format(
-                            line.attributes["primary"]
-                        ))
-
-                    current_gene["transcripts"][line.id]["primary"] = primary
+                            line.attributes["primary"]))
                 elif line.is_exon:
                     for parent in line.parent:
                         assert parent in current_gene["transcripts"]
                         current_gene["transcripts"][parent]["exons"].append(line)
                 else:
+                    if current_gene != dict():
+                        tid_corrs = print_gene(current_gene,
+                                               gene_counter,
+                                               gff_handle,
+                                               prefix)
+                        for tid in tid_corrs:
+                            tid_to_new[(file_index, tid)] = tid_corrs[tid]
+                        current_gene = dict()
+
                     print(line, file=gff_handle)
                     continue
+
             if current_gene != dict():
                 tid_corrs = print_gene(current_gene, gene_counter, gff_handle, prefix)
                 for tid in tid_corrs:
-                    assert (curr_index, tid) not in tid_to_new, (curr_index, tid)
-                    tid_to_new[(curr_index, tid)] = tid_corrs[tid]
+                    assert (file_index, tid) not in tid_to_new, (file_index, tid)
+                    tid_to_new[(file_index, tid)] = tid_corrs[tid]
 
-            del current_lines[current]
+            del current_lines[index]
 
-    [os.remove(_) for _ in finished]
+    [os.remove(_) for _ in gff_filenames]
     return gid_to_new, tid_to_new
 
 
@@ -187,14 +205,15 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
     metrics_handle, scores_handle, gff_handle = out_handles
 
     gff_filenames = [os.path.join(tempdir,
-                                  "{0}-{1}".format(gff_handle, _))
+                                  "{0}-{1}".format(os.path.basename(gff_handle),
+                                                   _))
                      for _ in range(1, num_temp + 1)]
 
     gid_to_new, tid_to_new = merge_loci_gff(gff_filenames, gff_handle, prefix)
 
     for handle in metrics_handle, scores_handle:
         filenames = [os.path.join(tempdir,
-                                  "{0}-{1}".format(handle, _))
+                                  "{0}-{1}".format(os.path.basename(handle), _))
                      for _ in range(1, num_temp + 1)]
         handle = open(handle, "a")
         current_lines = collections.defaultdict(list)
@@ -549,7 +568,9 @@ class LociProcesser(Process):
         (locus_metrics_file,
          locus_scores_file,
          locus_out_file) = [os.path.join(self._tempdir,
-                                         "{0}-{1}".format(_, self.identifier)) for _ in handles[0]]
+                                         "{0}-{1}".format(os.path.basename(_),
+                                                          self.identifier))
+                            for _ in handles[0]]
         locus_metrics_file = open(locus_metrics_file, "w")
         locus_scores_file = open(locus_scores_file, "w")
 
@@ -581,7 +602,8 @@ class LociProcesser(Process):
             (sub_metrics_file,
              sub_scores_file,
              sub_out_file) = [os.path.join(self._tempdir,
-                                           "{0}-{1}".format(_, self.identifier))
+                                           "{0}-{1}".format(os.path.basename(_),
+                                                            self.identifier))
                               for _ in handles[1]]
             sub_metrics_file = open(sub_metrics_file, "w")
             sub_scores_file = open(sub_scores_file, "w")
@@ -604,7 +626,8 @@ class LociProcesser(Process):
             (mono_metrics_file,
              mono_scores_file,
              mono_out_file) = [os.path.join(self._tempdir,
-                                            "{0}-{1}".format(_, self.identifier))
+                                            "{0}-{1}".format(os.path.basename(_),
+                                                             self.identifier))
                                for _ in handles[2]]
             mono_metrics_file = open(mono_metrics_file, "w")
             mono_scores_file = open(mono_scores_file, "w")

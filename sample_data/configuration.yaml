@@ -1,4 +1,4 @@
-multiprocessing_method: fork
+multiprocessing_method: spawn
 db_settings:
   #  Settings related to DB connection. Parameters:
   #  db: the DB to connect to. Required. Default: Mikado.py.db

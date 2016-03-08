@@ -79,7 +79,7 @@ rule serialise:
     log: config["serialise"]["files"]["log"]
     output: "serialised.ok"  #, config["db_settings"]["db"]
     run:
-        command = "mikado.py serialise --json-conf configuration.yaml --genome_fai genome.fai"
+        command = "mikado.py serialise -p 2 --json-conf configuration.yaml --genome_fai genome.fai"
         retcode = subprocess.call(command, shell=True)
         if retcode == 0:
              subprocess.call("touch serialised.ok", shell=True)

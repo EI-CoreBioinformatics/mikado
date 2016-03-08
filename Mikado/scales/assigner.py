@@ -524,9 +524,9 @@ class Assigner:
         - I    *multiexonic* transcript falling completely inside a known transcript
         - h    AS event in which at least a couple of introns overlaps but without any
                junction in common.
-        - O    Reverse generic overlap - the reference is monoexonic and
-        overlaps the prediction
+        - O    Reverse generic overlap - the reference is monoexonic while the prediction isn't
         - P    Possible polymerase run-on fragment
+        - mo   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic
         (within 2K bases of a reference transcript), on the opposite strand
 
         This is a class method, and can therefore be used outside of a class instance.
@@ -700,29 +700,29 @@ class Assigner:
                                 overlaps.append((over, (intron[1] - intron[0] + 1)))
                         if len(overlaps) == 0:
                             # Completely contained inside
-                            ccode = "o"
+                            ccode = "mo"
                         elif len(overlaps) == 1:
                             over, i_length = overlaps.pop()
                             if over == i_length and over < prediction.cdna_length:
-                                ccode = "o"
+                                ccode = "mo"
                             elif 10 < over < i_length:
                                 if (reference.start < prediction.start <
                                         prediction.end < reference.end):
                                     ccode = "e"
                                 else:
-                                    ccode = "o"
+                                    ccode = "mo"
                             else:
-                                ccode = "o"
+                                ccode = "mo"
                         elif len(overlaps) > 2:
-                            ccode = "o"
+                            ccode = "mo"
                         elif len(overlaps) == 2:
                             overs, i_length = list(zip(*overlaps))
                             if max(overs) < 10:
-                                ccode = "o"
+                                ccode = "mo"
                             else:
                                 ccode = "e"
                     elif nucl_overlap > 0:
-                        ccode = "o"
+                        ccode = "mo"
                     elif (nucl_recall == 0 and
                           reference.start < prediction.start < reference.end):
                         ccode = "i"  # Monoexonic fragment inside an intron

@@ -79,7 +79,7 @@ class Locus(Sublocus, Abstractlocus):
         self_line.phase, self_line.score = None, self.score
         self_line.id = self.id
         self_line.name = self.name
-        self_line.parent = self.parent
+        self_line.attributes["superlocus"] = self.parent
         self_line.attributes.update(self.attributes)
         if "is_fragment" in self.attributes and self.attributes["is_fragment"] is False:
             del self_line.attributes["is_fragment"]
@@ -279,7 +279,7 @@ class Locus(Sublocus, Abstractlocus):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True
-        elif other.strand is None and result.ccode[0] in ("_", "o", "e"):
+        elif other.strand is None and result.ccode[0] in ("_", "o", "e", "m", "mo", "x"):
             self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True

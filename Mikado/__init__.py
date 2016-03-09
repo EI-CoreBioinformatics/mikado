@@ -2,15 +2,15 @@
 # coding: utf_8
 
 """
-Mikado.py is a Python suite whose purpose is to find and resolve genic loci in a
+Mikado is a Python suite whose purpose is to find and resolve genic loci in a
 genomic annotation. This is the library it relies onto.
 """
 
-__title__ = "Mikado.py"
-__version__ = '0.9.6'
+__title__ = "Mikado"
 __author__ = 'Luca Venturini'
 __license__ = 'GPL3'
-__copyright__ = 'Copyright 2015 Luca Venturini'
+__copyright__ = 'Copyright 2015-2016 Luca Venturini'
+__version__ = "0.18.0"
 
 __all__ = ["exceptions",
            "utilities",

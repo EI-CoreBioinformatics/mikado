@@ -9,7 +9,7 @@ import sys
 import Mikado.subprograms
 from Mikado.utilities.log_utils import create_default_logger
 
-__spec__ = "Mikado"
+# __spec__ = "Mikado"
 
 
 def main(call_args=None):
@@ -90,5 +90,5 @@ def main(call_args=None):
         sys.exit(1)
 
 if __name__ == '__main__':
-    __spec__ = "Mikado.py"
+    __spec__ = "Mikado"
     main()

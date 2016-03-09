@@ -770,8 +770,9 @@ class Transcript:
         self.__id = sys.intern(newid)
     # pylint: enable=invalid-name
 
-    @functools.lru_cache(maxsize=None, typed=True)
+
     @property
+    @functools.lru_cache(maxsize=None, typed=True)
     def available_metrics(self) -> list:
         """Return the list of available metrics, using the "get_metrics" function."""
         return self.get_available_metrics()

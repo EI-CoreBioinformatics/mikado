@@ -8,6 +8,7 @@ while existing values are checked for type and consistency.
 """
 
 import os.path
+import io
 import re
 import yaml
 import subprocess
@@ -18,6 +19,7 @@ import json
 import sys
 import jsonschema
 from multiprocessing import get_start_method
+from pkg_resources import resource_stream, resource_filename
 
 __author__ = "Luca Venturini"
 
@@ -138,8 +140,8 @@ def check_scoring(json_conf):
     :rtype dict
     """
 
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "scoring_blueprint.json")) as schema:
+    with io.TextIOWrapper(resource_stream(__name__,
+                                          "scoring_blueprint.json")) as schema:
         scoring_schema = json.load(schema)
 
     parameters_found = set()
@@ -205,8 +207,8 @@ def check_all_requirements(json_conf):
     :rtype dict
     """
 
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "requirements_blueprint.json")) as rs_blueprint:
+    with io.TextIOWrapper(resource_stream(__name__,
+                                          "requirements_blueprint.json")) as rs_blueprint:
         require_schema = json.load(rs_blueprint)
 
     if "requirements" in json_conf:
@@ -399,12 +401,8 @@ def create_validator(simple=False):
     validator = extend_with_default(jsonschema.Draft4Validator,
                                     simple=simple)
 
-    blue_print = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "configuration_blueprint.json"
-    )
-
-    with open(blue_print) as blue:
+    with io.TextIOWrapper(resource_stream(__name__,
+                                          "configuration_blueprint.json")) as blue:
         blue_print = json.load(blue)
 
     validator = validator(blue_print)
@@ -440,7 +438,7 @@ def check_json(json_conf, simple=False):
 
     validator = create_validator(simple=simple)
 
-    config_folder = os.path.dirname(os.path.abspath(__file__))
+    # config_folder = os.path.dirname(os.path.abspath(__file__))
 
     # This will check for consistency and add the default
     # values if they are missing
@@ -457,11 +455,10 @@ def check_json(json_conf, simple=False):
             json_conf["pick"]["scoring_file"] = os.path.join(
                 os.path.dirname(json_conf["filename"]),
                 json_conf["pick"]["scoring_file"])
-        elif os.path.exists(os.path.join(
-                config_folder,
-                json_conf["pick"]["scoring_file"])):
-            json_conf["pick"]["scoring_file"] = os.path.join(
-                config_folder,
+        elif os.path.exists(
+                resource_filename(__name__, json_conf["pick"]["scoring_file"])):
+            json_conf["pick"]["scoring_file"] = resource_filename(
+                __name__,
                 json_conf["pick"]["scoring_file"])
         else:
             raise InvalidJson(

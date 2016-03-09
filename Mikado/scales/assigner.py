@@ -588,10 +588,6 @@ class Assigner:
         elif junction_f1 == 1 and nucl_f1 >= 0.80:
             reference_exon = reference.exons[0]
             ccode = "_"  # We have recovered all the junctions
-            # if prediction.strand == reference.strand or prediction.strand is None:
-            #     ccode = "_"  # We have recovered all the junctions
-            # else:
-            #     ccode = "x"
 
         # Outside the transcript - polymerase run-on
         elif prediction.start > reference.end or prediction.end < reference.start:
@@ -599,7 +595,8 @@ class Assigner:
                 ccode = "p"
             else:
                 ccode = "P"
-            distance = max(prediction.start - reference.end, reference.start - prediction.end)
+            distance = max(prediction.start - reference.end,
+                           reference.start - prediction.end)
 
         elif nucl_precision == 1:
             if prediction.exon_num == 1 or (prediction.exon_num > 1 and junction_precision == 1):

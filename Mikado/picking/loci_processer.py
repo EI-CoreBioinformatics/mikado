@@ -112,7 +112,6 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             exon.name = re.sub(current_transcript.attributes["Alias"],
                                tid, exon.id)
             print(exon, file=handle)
-    print("###", file=handle)
     return tid_corrs
 
 

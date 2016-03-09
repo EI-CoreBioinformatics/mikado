@@ -11,13 +11,16 @@ import multiprocessing
 import os
 import re
 import sys
+import csv
 from logging import handlers as log_handlers
 from ..loci_objects.reference_gene import Gene
 from .accountant import Accountant
 from .assigner import Assigner
+from .resultstorer import ResultStorer
 from ..loci_objects.transcript import Transcript
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
+import itertools
 
 __author__ = 'Luca Venturini'
 
@@ -230,6 +233,37 @@ def parse_prediction(args, genes, positions, queue_logger):
     assigner_instance.finish()
     args.prediction.close()
 
+
+def parse_self(args, genes, queue_logger):
+
+    """
+    This function is called when we desire to compare a reference against itself.
+    :param args:
+    :param genes:
+    :param queue_logger:
+    :return:
+    """
+
+    queue_logger.info("Performing a self-comparison.")
+
+    tmap_out = open("{0}.tmap".format(args.out), 'wt')
+    tmap_rower = csv.DictWriter(tmap_out, ResultStorer.__slots__, delimiter="\t")
+    tmap_rower.writeheader()
+
+    for gid, gene in genes.items():
+        assert isinstance(gene, Gene)
+        if len(gene.transcripts) == 1:
+            continue
+
+        combinations = itertools.combinations(gene.transcripts.keys(), 2)
+        for combination in combinations:
+            result, _ = Assigner.compare(gene.transcripts[combination[0]],
+                                         gene.transcripts[combination[1]])
+            tmap_rower.writerow(result.as_dict())
+
+    queue_logger.info("Finished.")
+
+
 def compare(args):
     """
     This function performs the comparison between two different files.
@@ -238,6 +272,7 @@ def compare(args):
     """
 
     # Flags for the parsing
+
     ref_gff = isinstance(args.reference, GFF3)
 
     if os.path.dirname(args.out) != ''\
@@ -254,6 +289,11 @@ def compare(args):
 
     args, handler, logger, log_queue_listener, queue_logger = setup_logger(
         args, manager)
+
+    if args.self is False and args.prediction is None:
+        logger.error("No prediction file provided and \
+self-comparison not explicitly requested. Aborting")
+        sys.exit(9)
 
 #    queue_logger.propagate = False
     queue_logger.info("Start")
@@ -275,7 +315,10 @@ def compare(args):
                        "\n\t".join(list(genes.keys())[:20]))
 
     try:
-        parse_prediction(args, genes, positions, queue_logger)
+        if args.self is True:
+            parse_self(args, genes, queue_logger)
+        else:
+            parse_prediction(args, genes, positions, queue_logger)
     except Exception as err:
         queue_logger.exception(err)
         log_queue_listener.enqueue_sentinel()

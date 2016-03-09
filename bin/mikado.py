@@ -11,6 +11,8 @@ from Mikado.utilities.log_utils import create_default_logger
 
 # __spec__ = "Mikado"
 
+__main__ = __file__
+
 
 def main(call_args=None):
 

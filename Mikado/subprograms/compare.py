@@ -31,9 +31,15 @@ def compare_parser():
                              type=to_gff,
                              required=True,
                              help='Reference annotation file.')
-    input_files.add_argument('-p', '--prediction',
-                             type=to_gff, required=True,
-                             help='Prediction annotation file.')
+    targets = input_files.add_mutually_exclusive_group(required=True)
+    targets.add_argument('-p', '--prediction',
+                         type=to_gff,
+                         help='Prediction annotation file.')
+    targets.add_argument("--self", default=False,
+                         action="store_true",
+                         help="""Flag. If set, the reference will be compared with itself.
+                         Useful for understanding how the reference transcripts interact
+                         with each other.""")
     parser.add_argument('--distance', type=int, default=2000,
                         help='''Maximum distance for a transcript to be considered
                         a polymerase run-on. Default: %(default)s''')

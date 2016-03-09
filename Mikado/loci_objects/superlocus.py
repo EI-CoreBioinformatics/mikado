@@ -532,9 +532,13 @@ class Superlocus(Abstractlocus):
                     self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"],
                     "({0})".format(", ".join([str(_) for _ in query_ids.keys()])))
 
-                target_ids = dict((target.target_id, target) for target in
-                                  self.session.query(Target).filter(
-                                      Target.target_id.in_(targets)))
+                if len(targets) > 0:
+
+                    target_ids = dict((target.target_id, target) for target in
+                                      self.session.query(Target).filter(
+                                          Target.target_id.in_(targets)))
+                else:
+                    target_ids = dict()
 
                 current_hit = None
                 for hit in engine.execute(hit_command):

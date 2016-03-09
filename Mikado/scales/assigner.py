@@ -31,7 +31,10 @@ class Assigner:
     among the reference transcripts.
     """
 
-    def __init__(self, genes: dict, positions: collections.defaultdict, args: argparse.Namespace,
+    def __init__(self,
+                 genes: dict,
+                 positions: collections.defaultdict,
+                 args: argparse.Namespace,
                  stat_calculator: Accountant):
 
         """

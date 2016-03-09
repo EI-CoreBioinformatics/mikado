@@ -86,7 +86,7 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             assert isinstance(current_transcript.parent, list),\
                 type(current_transcript.parent)
             raise
-        assert transcript_counter > 1
+        assert transcript_counter >= 1
 
         tid = "{0}.{1}G{2}.{3}".format(prefix,
                                        chrom,

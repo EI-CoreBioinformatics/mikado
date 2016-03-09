@@ -19,46 +19,63 @@ __author__ = 'Luca Venturini'
 
 def print_gene(current_gene, gene_counter, handle, prefix):
 
+    """
+    This function takes a gene and reformats it using the new derived name.
+    :param current_gene: a dictionary with the data for the current gene.
+    :type current_gene: dict
+    :param gene_counter: A counter to be used inside the genes
+    :type gene_counter: int
+    :param handle: The handle to the file to print to
+    :type handle: io.TextIOWrapper
+    :param prefix: the prefix to add to the name of the genes
+    :type prefix: str
+    :return: a dictionary with the correspondeces for the transcripts
+    :rtype: dict
+    """
+
+    # Reset the name
+    current_gene["gene"].name = current_gene["gene"].id
     print(current_gene["gene"], file=handle)
     tid_corrs = dict()
     chrom = current_gene["gene"].chrom
-    primaries = [_ for _ in current_gene["transcripts"] if
-                 current_gene["transcripts"][_]["primary"] is True]
-    assert len(primaries) == 1 or all([".orf" in _ for _ in primaries]), current_gene
-    for primary in sorted(primaries):
-        tid = "{0}.{1}G{2}.1".format(prefix, chrom, gene_counter)
-        if ".orf" in primary:
-            tid = "{0}{1}".format(tid,
-                                  primary[primary.find(".orf"):])
-        else:
-            assert len(primaries) == 1
-        current_transcript = current_gene["transcripts"][primary]["transcript"]
-        current_transcript.parent = current_gene["gene"].id
-        current_exons = current_gene["transcripts"][primary]["exons"]
-        current_transcript.attributes["Alias"] = current_transcript.id[:]
-        # name = re.sub("\.orf[0-9]+", "", tid)
-        # tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
-        tid_corrs[current_transcript.id] = tid
-        current_transcript.id = tid
-        print(current_transcript, file=handle)
-        for exon in current_exons:
-            exon.parent = tid
-            exon.id = re.sub(current_transcript.attributes["Alias"],
-                             tid, exon.id)
-            exon.name = re.sub(current_transcript.attributes["Alias"],
-                               tid, exon.id)
-            print(exon, file=handle)
+    # primaries = [_ for _ in current_gene["transcripts"] if
+    #              current_gene["transcripts"][_]["primary"] is True]
+    # assert len(primaries) == 1 or all([".orf" in _ for _ in primaries]), current_gene
+    # for primary in sorted(primaries):
+    #     tid = "{0}.{1}G{2}.1".format(prefix, chrom, gene_counter)
+    #     if ".orf" in primary:
+    #         tid = "{0}{1}".format(tid,
+    #                               primary[primary.find(".orf"):])
+    #     else:
+    #         assert len(primaries) == 1
+    #     current_transcript = current_gene["transcripts"][primary]["transcript"]
+    #     current_transcript.parent = current_gene["gene"].id
+    #     current_exons = current_gene["transcripts"][primary]["exons"]
+    #     current_transcript.attributes["Alias"] = current_transcript.id[:]
+    #     # name = re.sub("\.orf[0-9]+", "", tid)
+    #     # tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
+    #     tid_corrs[current_transcript.id] = tid
+    #     current_transcript.id = tid
+    #     current_transcript.name = tid
+    #     print(current_transcript, file=handle)
+    #     for exon in current_exons:
+    #         exon.parent = tid
+    #         exon.id = re.sub(current_transcript.attributes["Alias"],
+    #                          tid, exon.id)
+    #         exon.name = re.sub(current_transcript.attributes["Alias"],
+    #                            tid, exon.id)
+    #         print(exon, file=handle)
 
-    others = [_ for _ in current_gene["transcripts"] if _ not in primaries]
+    transcripts = [_ for _ in current_gene["transcripts"]]
 
-    others = sorted(others,
-                    key=lambda _:
-                    (current_gene["transcripts"][_]["transcript"].start,
-                     current_gene["transcripts"][_]["transcript"].end))
+    transcripts = sorted(transcripts,
+                         key=lambda _:
+                         (current_gene["transcripts"][_]["transcript"].start,
+                         current_gene["transcripts"][_]["transcript"].end))
     # transcript_counter = 1
 
-    for other in others:
-        current_transcript = current_gene["transcripts"][other]["transcript"]
+    for transcript in transcripts:
+        current_transcript = current_gene["transcripts"][transcript]["transcript"]
         # Get the original transcript counter
         try:
             # first = re.sub("{0}\.".format(current_transcript.parent[0]), "", other)
@@ -69,23 +86,24 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             assert isinstance(current_transcript.parent, list),\
                 type(current_transcript.parent)
             raise
-        assert transcript_counter > 1
+        assert transcript_counter >= 1
 
         tid = "{0}.{1}G{2}.{3}".format(prefix,
                                        chrom,
                                        gene_counter,
                                        transcript_counter)
-        if ".orf" in other:
+        if ".orf" in transcript:
             tid = "{0}{1}".format(tid,
-                                  other[other.find(".orf"):])
+                                  transcript[transcript.find(".orf"):])
 
         current_transcript.parent = current_gene["gene"].id
-        current_exons = current_gene["transcripts"][other]["exons"]
+        current_exons = current_gene["transcripts"][transcript]["exons"]
         current_transcript.attributes["Alias"] = current_transcript.id[:]
         # name = re.sub("\.orf[0-9]+", "", tid)
         # tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
         tid_corrs[current_transcript.id] = tid
         current_transcript.id = tid
+        current_transcript.name = tid
         print(current_transcript, file=handle)
         for exon in current_exons:
             exon.parent = tid
@@ -94,11 +112,19 @@ def print_gene(current_gene, gene_counter, handle, prefix):
             exon.name = re.sub(current_transcript.attributes["Alias"],
                                tid, exon.id)
             print(exon, file=handle)
-    print("###", file=handle)
     return tid_corrs
 
 
 def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
+
+    """
+    This function will merge different partial GFF files into a single loci file,
+    while changing the names to reflect the ordering.
+    :param gff_filenames:
+    :param gff_handle:
+    :param prefix:
+    :return:
+    """
 
     current_lines = dict()
     gffs = [open(_) for _ in gff_filenames]
@@ -126,17 +152,12 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
         current_gene = dict()
         current_chrom = None
         gene_counter = 0
-        last_header_printed = ""
         for index in sorted(current_lines.keys()):
             file_index = current_lines[index]["filenum"]
             lines = [GffLine(_) for _ in current_lines[index]["lines"]]
             for line in lines:
                 if line.header is True:
-                    if line._line != last_header_printed:
-                        print(line, file=gff_handle)
-                    last_header_printed = line._line
                     continue
-                last_header_printed = None
                 if current_chrom is not None and current_chrom != line.chrom:
                     gene_counter = 0
                     current_chrom = line.chrom
@@ -191,6 +212,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                             assert (file_index, tid) not in tid_to_new, (file_index, tid)
                             tid_to_new[(file_index, tid)] = tid_corrs[tid]
                         current_gene = dict()
+                        print("###", file=gff_handle)
 
                     print(line, file=gff_handle)
                     continue
@@ -201,7 +223,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                     assert (file_index, tid) not in tid_to_new, (file_index, tid)
                     tid_to_new[(file_index, tid)] = tid_corrs[tid]
                 current_gene = dict()
-
+                print("###", file=gff_handle)
             del current_lines[index]
 
     [os.remove(_) for _ in gff_filenames]
@@ -209,6 +231,15 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
 
 
 def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
+
+    """ Function to merge the temporary loci files into single output files,
+      renaming the genes according to the preferred style.
+    :param num_temp: number of temporary files.
+    :param out_handles: The names of the output loci files.
+    :param prefix: Prefix to use for the gene names.
+    :param tempdir: Temporary directory where the temporary files are located.
+    :return:
+    """
 
     metrics_handle, scores_handle, gff_handle = out_handles
 
@@ -276,12 +307,14 @@ def remove_fragments(stranded_loci, json_conf, logger):
     """
 
     loci_to_check = {True: set(), False: set()}
+    mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
     for stranded_locus in stranded_loci:
         for _, locus_instance in stranded_locus.loci.items():
             locus_instance.logger = logger
-            loci_to_check[locus_instance.monoexonic].add(locus_instance)
+            to_check = (locus_instance.monoexonic is True and
+                        locus_instance.primary_transcript.combined_cds_length < mcdl)
+            loci_to_check[to_check].add(locus_instance)
 
-    mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
     bool_remove_fragments = json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:
         to_remove = set()

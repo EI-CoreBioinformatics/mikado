@@ -400,14 +400,16 @@ class Transcript:
             self.add_exon(exon, feature)
         return
 
-    def format(self, format_name):
+    def format(self, format_name, with_introns=False):
 
         """
         Method to format the string representation of the object. Available formats:
         - GFF3 ("gff3", "gff")
         - GTF ("gtf")
         - BED12 ("bed", "bed12")
-        :param format_name:
+        :param format_name: the name of the format to use
+        :param with_introns: if True, introns will be printed as well.
+        :type with_introns: bool
         :return:
         """
 
@@ -420,9 +422,11 @@ class Transcript:
         if format_name in ("bed", "bed12"):
             lines = [create_lines_bed(self)]
         elif format_name == "gtf":
-            lines = create_lines_cds(self, to_gtf=True, first_phase=self._first_phase)
+            lines = create_lines_cds(self, to_gtf=True, with_introns=with_introns,
+                                     first_phase=self._first_phase)
         else:
-            lines = create_lines_cds(self, to_gtf=False, first_phase=self._first_phase)
+            lines = create_lines_cds(self, to_gtf=False, with_introns=with_introns,
+                                     first_phase=self._first_phase)
 
         return "\n".join(lines)
 

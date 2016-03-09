@@ -9,11 +9,12 @@ import functools
 from ...parsers.GTF import GtfLine
 from ...parsers.GFF import GffLine
 from ...parsers.bed12 import BED12
+import intervaltree
 
 __author__ = 'Luca Venturini'
 
 
-def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False):
+def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False, with_introns=False):
 
     """
     Private method to create the exon/UTR/CDS lines for printing
@@ -22,7 +23,8 @@ def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False):
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
     :param cds_run: the internal orf run we are preparing
     :param tid: name of the transcript
-    :param to_gtf: boolean, indicates whether th
+    :param to_gtf: boolean, indicates whether the lines should be GTF or GFF
+    :param with_introns: boolean, if True introns will be added to the output
     we want GTF or GFF output
     :return:
     """
@@ -35,6 +37,14 @@ def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False):
                                      transcript,
                                      **{"to_gtf": to_gtf,
                                         "tid": tid})
+
+    if with_introns is True:
+        cds_run = cds_run[:]
+        for intron in transcript.introns:
+            cds_run.append(("intron", intron))
+        cds_run = sorted(cds_run, key=lambda segment: (segment[1][0],
+                                                       segment[1][1],
+                                                       segment[0]))
 
     for segment in cds_run:
 
@@ -91,7 +101,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         utr3_feature = "3UTR"
         utr5_feature = "5UTR"
 
-    assert segment[0] in ("UTR", "CDS", "exon"), segment
+    assert segment[0] in ("UTR", "CDS", "exon", "intron"), segment
 
     if segment[0] == "UTR":
         if (cds_begin is True and transcript.strand == "-") or \
@@ -109,8 +119,8 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         index = counter["CDS"]
         feature = "CDS"
     else:
-        counter.update(["exon"])
-        index = counter["exon"]
+        counter.update([segment[0]])
+        index = counter[segment[0]]
         feature = segment[0]
     exon_line = constructor(None)
 
@@ -132,7 +142,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 # pylint: enable=too-many-arguments
 
 
-def create_lines_cds(transcript, to_gtf=False, first_phase=0):
+def create_lines_cds(transcript, to_gtf=False, first_phase=0, with_introns=False):
 
     """
     Method to create the GTF/GFF lines for printing in the presence of CDS information.
@@ -143,6 +153,7 @@ def create_lines_cds(transcript, to_gtf=False, first_phase=0):
     :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
 
     :param first_phase: number it indicates the phase of the first CDS exon. It defaults to 0.
+    :param with_introns: boolean, if set to True, introns will be printed as well.
     :return:
     """
 
@@ -181,7 +192,8 @@ def create_lines_cds(transcript, to_gtf=False, first_phase=0):
                                         cds_run,
                                         tid,
                                         first_phase=first_phase,
-                                        to_gtf=to_gtf)
+                                        to_gtf=to_gtf,
+                                        with_introns=with_introns)
 
         lines.append(str(parent_line))
         lines.extend(exon_lines)
@@ -197,7 +209,8 @@ def create_lines_bed(transcript):
     """
 
     bed12 = BED12()
-    bed12.transcriptomic = True
+    bed12.transcriptomic = False
+    bed12.header = False
     bed12.chrom = transcript.chrom
     bed12.start = transcript.start
     bed12.end = transcript.end
@@ -292,7 +305,8 @@ def __add_frame(transcript, exon_lines, first_phase=0):
     return sorted(new_lines)
 
 
-def create_lines_no_cds(transcript, to_gtf=False):
+def create_lines_no_cds(transcript,
+                        to_gtf=False):
 
     """
     Method to create the GTF/GFF lines for printing in the absence of CDS information.

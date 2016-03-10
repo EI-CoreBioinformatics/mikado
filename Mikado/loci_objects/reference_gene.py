@@ -61,7 +61,15 @@ class Gene:
         self.start = min(self.start, transcr.start)
         self.end = max(self.end, transcr.end)
         self.transcripts[transcr.id] = transcr
-        assert self.strand == transcr.strand
+        if transcr.strand != self.strand:
+            if self.strand is None:
+                self.strand = transcr.strand
+            elif transcr.strand is None:
+                transcr.strand = self.strand
+            else:
+                raise AssertionError("Discrepant strands for gene {0} and transcript {1}".format(
+                    self.id, transcr.id
+                ))
 
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]

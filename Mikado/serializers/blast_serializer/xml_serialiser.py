@@ -8,7 +8,6 @@ import logging.handlers as logging_handlers
 import logging
 import tempfile
 import pickle
-# import itertools
 import sqlalchemy
 import sqlalchemy.exc
 from sqlalchemy.orm.session import sessionmaker
@@ -20,7 +19,7 @@ from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import multiprocessing
-# import time
+
 
 __author__ = 'Luca Venturini'
 

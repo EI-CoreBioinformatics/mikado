@@ -25,11 +25,6 @@ if sys.version_info.major != 3:
     raise EnvironmentError("""Mikado is a pipeline specifically programmed for python3,
     and is not compatible with Python2. Please upgrade your python before proceeding!""")
 
-if sys.version_info.minor < 5:
-    zippable = False
-else:
-    zippable = True
-
 setup(
     name="Mikado",
     version=version,
@@ -47,7 +42,7 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Operating System :: Linux"
     ],
-    zip_safe=zippable,
+    zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),
     scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),

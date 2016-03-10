@@ -738,7 +738,7 @@ class LociProcesser(Process):
         :return:
         """
 
-        if self.sub_out != '':  # Skip this section if no sub_out is defined
+        if self.sub_out is not None:  # Skip this section if no sub_out is defined
             sub_lines = stranded_locus.__str__(
                 level="subloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])
@@ -756,7 +756,7 @@ class LociProcesser(Process):
             for row in sub_scores_rows:
                 row["tid"] = "{0}/{1}".format(counter, row["tid"])
                 self.sub_scores.writerow(row)
-        if self.mono_out != '':
+        if self.mono_out is not None:
             mono_lines = stranded_locus.__str__(
                 level="monosubloci",
                 print_cds=not self.json_conf["pick"]["run_options"]["exclude_cds"])

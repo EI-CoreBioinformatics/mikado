@@ -1041,5 +1041,95 @@ class AssignerTester(unittest.TestCase):
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("o",))
 
+    def test_J_and_C_case(self):
+
+        """
+
+        1  =========------------=======-----------========-------------=============
+        2                 =============-----------============
+
+        We do expect the comparison to be:
+
+        1 reference, 2 prediction: C
+        1 prediction, 2 reference: J
+
+        :return:
+        """
+
+        t1 = Mikado.loci_objects.Transcript()
+        t1.chrom = "Chr1"
+        t1.strand = "+"
+        t1.score = 10
+        t1.source = "mikado"
+        t1.id = "t1.1"
+        t1.parent = "t1"
+        t1.start = 101
+        t1.end = 5000
+        t1.add_exons([(101, 1000), (1501, 2000), (2301, 4000), (4501, 5000)])
+        t1.finalize()
+
+        t2 = Mikado.loci_objects.Transcript()
+        for attr in ["chrom", "source", "strand", "score"]:
+            setattr(t2, attr, getattr(t1, attr))
+        t2.id = "t2.1"
+        t2.parent = "t2"
+        t2.start = 1300
+        t2.end = 4300
+        t2.add_exons([(1300,2000), (2301, 4300)])
+        t2.finalize()
+
+        result, _ = Mikado.scales.assigner.Assigner.compare(t2, t1)
+        self.assertEqual(result.ccode, ("C",))
+
+        result, _ = Mikado.scales.assigner.Assigner.compare(t1, t2)
+        self.assertEqual(result.ccode, ("J",))
+
+    def test_J_and_C_case_in_exon(self):
+
+        """
+
+        1  =========------------=======-----------========-------------=============
+        2         =====================-----------============
+
+        We do expect the comparison to be:
+
+        1 reference, 2 prediction: j
+        1 prediction, 2 reference: J
+
+        Notice the class code switch from C to j due to the first exon being internal to the terminal exon,
+        rather than internal to the intron.
+
+        :return:
+        """
+
+        t1 = Mikado.loci_objects.Transcript()
+        t1.chrom = "Chr1"
+        t1.strand = "+"
+        t1.score = 10
+        t1.source = "mikado"
+        t1.id = "t1.1"
+        t1.parent = "t1"
+        t1.start = 101
+        t1.end = 5000
+        t1.add_exons([(101, 1000), (1501, 2000), (2301, 4000), (4501, 5000)])
+        t1.finalize()
+
+        t2 = Mikado.loci_objects.Transcript()
+        for attr in ["chrom", "source", "strand", "score"]:
+            setattr(t2, attr, getattr(t1, attr))
+        t2.id = "t2.1"
+        t2.parent = "t2"
+        t2.start = 900
+        t2.end = 4300
+        t2.add_exons([(900,2000), (2301, 4300)])
+        t2.finalize()
+
+        result, _ = Mikado.scales.assigner.Assigner.compare(t2, t1)
+        self.assertEqual(result.ccode, ("j",))
+
+        result, _ = Mikado.scales.assigner.Assigner.compare(t1, t2)
+        self.assertEqual(result.ccode, ("J",))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -290,11 +290,6 @@ def compare(args):
     args, handler, logger, log_queue_listener, queue_logger = setup_logger(
         args, manager)
 
-    if args.self is False and args.prediction is None:
-        logger.error("No prediction file provided and \
-self-comparison not explicitly requested. Aborting")
-        sys.exit(9)
-
 #    queue_logger.propagate = False
     queue_logger.info("Start")
     args.commandline = " ".join(sys.argv)
@@ -315,7 +310,7 @@ self-comparison not explicitly requested. Aborting")
                        "\n\t".join(list(genes.keys())[:20]))
 
     try:
-        if args.self is True:
+        if hasattr(args, "self") and args.self is True:
             parse_self(args, genes, queue_logger)
         else:
             parse_prediction(args, genes, positions, queue_logger)

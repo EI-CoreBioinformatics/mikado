@@ -441,14 +441,12 @@ class Locus(Sublocus, Abstractlocus):
             row = dict().fromkeys(keys)
             row["tid"] = tid
             row["parent"] = self.id
-            row["score"] = round(self.scores[tid]["score"],2)
-            calculate_total = True
+            row["score"] = round(self.scores[tid]["score"], 2)
+            calculate_total = (self.regressor is None)
             for key in score_keys:
-                if row[key] is not None and row[key] != "NA":
+                if calculate_total:
+                    assert self.scores[tid][key] != "NA" and self.scores[tid][key] is not None
                     row[key] = round(self.scores[tid][key], 2)
-                else:
-                    row[key] = "NA"
-                    calculate_total = False
             if calculate_total is True:
                 score_sum = sum(row[key] for key in score_keys)
                 #
@@ -457,6 +455,7 @@ class Locus(Sublocus, Abstractlocus):
                     self.transcripts[tid].score,
                     tid)
             yield row
+
 
     def is_alternative_splicing(self, other):
 

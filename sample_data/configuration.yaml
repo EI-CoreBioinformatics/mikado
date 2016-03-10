@@ -79,7 +79,7 @@ pick:
     preload: false
     procs: 5
     single_thread: true
-  scoring_file: test.model
+  scoring_file: plants.yaml # test.model
 prepare:
   #  Options related to the input data preparation.
   #  - gff: array of GFF3/GTF files containing the predictions. Required.

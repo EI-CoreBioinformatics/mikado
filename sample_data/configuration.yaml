@@ -103,7 +103,7 @@ prepare:
   - tr
   out: mikado_prepared.gtf
   out_fasta: mikado_prepared.fasta
-  threads: 5
+  procs: 5
   single: false
 serialise:
   #  Options related to serialisation

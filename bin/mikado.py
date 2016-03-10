@@ -8,10 +8,11 @@ import argparse
 import sys
 import Mikado.subprograms
 from Mikado.utilities.log_utils import create_default_logger
+import pkg_resources
 
 # __spec__ = "Mikado"
 
-__main__ = __file__
+__main__ = pkg_resources.resource_filename(Mikado.subprograms.__name__, "__main__.py")
 
 
 def main(call_args=None):

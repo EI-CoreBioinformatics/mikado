@@ -7,6 +7,7 @@ from codecs import open
 from os import path
 import glob
 import re
+import sys
 
 here = path.abspath(path.dirname("__file__"))
 
@@ -19,6 +20,10 @@ with open(path.join(here, "Mikado", "__init__.py")) as main:
         if "__version__" in line:
             version = re.sub("'", "", re.sub('"', "", line.rstrip().split()[-1]))
 assert version is not None
+
+if sys.version_info.major != 3:
+    raise EnvironmentError("""Mikado is a pipeline specifically programmed for python3,
+    and is not compatible with Python2. Please upgrade your python before proceeding!""")
 
 setup(
     name="Mikado",

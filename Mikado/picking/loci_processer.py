@@ -308,12 +308,17 @@ def remove_fragments(stranded_loci, json_conf, logger):
 
     loci_to_check = {True: set(), False: set()}
     mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
+    total = 0
     for stranded_locus in stranded_loci:
         for _, locus_instance in stranded_locus.loci.items():
             locus_instance.logger = logger
+            total += 1
             to_check = (locus_instance.monoexonic is True and
                         locus_instance.primary_transcript.combined_cds_length < mcdl)
             loci_to_check[to_check].add(locus_instance)
+
+    if len(loci_to_check[True]) == total:
+        loci_to_check[False] = loci_to_check[True].copy()
 
     bool_remove_fragments = json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:

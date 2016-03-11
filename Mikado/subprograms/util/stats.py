@@ -343,7 +343,7 @@ class Calculator:
         moder = [x for x in counter_object if
                  counter_object[x] == counter_object.most_common(1)[0][1]]
         row["Mode"] = ";".join(str(x) for x in moder)
-        keys = ['1%', 'Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
+        keys = ['Min', '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         if len(array) == 0:
             quantiles = ["NA"]*len(keys)
         else:

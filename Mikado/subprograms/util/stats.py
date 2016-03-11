@@ -390,6 +390,7 @@ class Calculator:
         cdna_lengths = c_array('i')  # Done
         cdna_lengths_coding = c_array('i')
         cds_lengths = c_array('i')  # Done
+        cds_ratio = c_array("d")
         monoexonic_lengths, multiexonic_lengths = c_array('i'), c_array('i')
         monocds_lengths = c_array('i')
 
@@ -433,6 +434,9 @@ class Calculator:
                         self.genes[gene].transcripts[tid].three_utr_num)
                     end_distance_from_junction.append(
                         self.genes[gene].transcripts[tid].selected_end_distance_from_junction)
+                    __cds_length = self.genes[gene].transcripts[tid].selected_cds_length
+                    __cdna_length = self.genes[gene].transcripts[tid].cdna_length
+                    cds_ratio.append(100 * __cds_length / __cdna_length)
 
                 if self.only_coding is False:
                     if self.genes[gene].transcripts[tid].selected_cds_length > 0:
@@ -447,7 +451,7 @@ class Calculator:
                             self.genes[gene].transcripts[tid].intron_lengths)
 
         self.__arrays['CDNA lengths'] = cdna_lengths
-        self.__arrays["CDNA lengths (mRNAs)"] = cdna_lengths_coding
+        self.__arrays["cDNA lengths (mRNAs)"] = cdna_lengths_coding
         self.__arrays['CDS lengths'] = cds_lengths
         if self.only_coding is False:
             self.__arrays["CDS lengths (mRNAs)"] = c_array('i',
@@ -470,6 +474,8 @@ class Calculator:
         self.__arrays["5'UTR length"] = five_utr_lengths
         self.__arrays["3'UTR length"] = three_utr_lengths
         self.__arrays["Stop distance from junction"] = end_distance_from_junction
+        print(cds_ratio)
+        self.__arrays["CDS/cDNA ratio"] = cds_ratio
     # pylint: enable=too-many-locals,too-many-statements
 
     def writer(self):
@@ -498,6 +504,8 @@ class Calculator:
         self.__write_statrow('CDS lengths', total=False)
         if self.only_coding is False:
             self.__write_statrow("CDS lengths (mRNAs)", total=False)
+
+        self.__write_statrow("CDS/cDNA ratio", total=False)
 
         self.__write_statrow('Monoexonic transcripts')
         self.__write_statrow('MonoCDS transcripts')

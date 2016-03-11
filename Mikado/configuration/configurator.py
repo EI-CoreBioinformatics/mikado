@@ -483,22 +483,6 @@ def check_json(json_conf, simple=False):
                 "Invalid scoring file: {0}".format(
                     json_conf["pick"]["scoring_file"]))
 
-    if "soft_requirements" not in json_conf:
-        json_conf["soft_requirements"] = dict()
-        json_conf["soft_requirements"]["intron_range"] = [0, sys.maxsize]
-    if "intron_range" not in json_conf["soft_requirements"]:
-        raise InvalidJson("No intron range found!")
-        # json_conf["soft_requirements"]["intron_range"] = (0, sys.maxsize)
-    else:
-        try:
-            minimal, maximal = (
-                int(_) for _ in json_conf["soft_requirements"]["intron_range"])
-            json_conf["soft_requirements"]["intron_range"] = [minimal, maximal]
-        except Exception:
-            raise InvalidJson("Invalid intron range: {0}".format(
-                json_conf["soft_requirements"]["intron_range"]
-            ))
-
     json_conf = check_db(json_conf)
     # json_conf = check_blast(json_conf, json_file)
     validator.validate(json_conf)

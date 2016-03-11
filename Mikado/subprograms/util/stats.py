@@ -474,7 +474,6 @@ class Calculator:
         self.__arrays["5'UTR length"] = five_utr_lengths
         self.__arrays["3'UTR length"] = three_utr_lengths
         self.__arrays["Stop distance from junction"] = end_distance_from_junction
-        print(cds_ratio)
         self.__arrays["CDS/cDNA ratio"] = cds_ratio
     # pylint: enable=too-many-locals,too-many-statements
 

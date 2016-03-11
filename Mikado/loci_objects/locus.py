@@ -138,8 +138,8 @@ class Locus(Sublocus, Abstractlocus):
                 to_be_added = False
 
         if (to_be_added and transcript.score <
-                        self.primary_transcript.score *
-                        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
+                self.primary_transcript.score *
+                self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
             self.logger.debug(
                 "%s not added because its score (%.2f) is less \
                 than %.2f%% of the primary score (%.2f)",
@@ -494,9 +494,7 @@ class Locus(Sublocus, Abstractlocus):
                         is_valid = False
                 elif (other.monoexonic is True and
                         candidate.monoexonic is True and
-                        result.n_f1[0] >= 80):
-                    is_valid = False
-                elif result.n_prec[0] == 100:
+                          (result.n_f1[0] >= 80 or result.n_prec[0] == 100)):
                     is_valid = False
 
             # if (("_" in ccodes and "_" not in valid_ccodes) or

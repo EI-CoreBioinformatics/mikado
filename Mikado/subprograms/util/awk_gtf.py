@@ -22,6 +22,12 @@ def launch(args):
     :param args: the argparse Namespace
     """
 
+    if hasattr(args, "region"):
+        try:
+            args.chrom, args.start, args.end = args.region
+        except ValueError as exc:
+            raise ValueError("{0} {1}".format(exc, args.region))
+
     if args.start >= args.end:
         raise ValueError("Start greater than end: {0}\t{1}".format(args.start, args.end))
 
@@ -45,6 +51,32 @@ def launch(args):
         print(transcript.format("gtf"), file=args.out)
 
 
+def to_region(string):
+
+    """
+    Snippet to convert from Apollo-style region to a tuple of chrom, start, end
+    :param string:
+    :return:
+    """
+
+    fields = string.split(":")
+    if len(fields) != 2:
+        raise ValueError("Invalid string!")
+    chrom, rest = fields
+    if ".." in rest:
+        separator = ":"
+    elif "-" in rest:
+        separator = "-"
+    else:
+        raise ValueError("Invalid string!")
+
+    start, end = [int(_) for _ in rest.split(separator)]
+    if end < start:
+        raise ValueError("Start greater than end: {0}\t{1}".format(start, end))
+
+    return chrom, start, end
+
+
 def awk_parser():
     """
     Parser for the command line
@@ -53,11 +85,15 @@ def awk_parser():
 
     parser = argparse.ArgumentParser(
         "Utility to extract features from a GTF within given coordinates.")
-    parser.add_argument("--chrom", required=True)
+    region = parser.add_mutually_exclusive_group(required=True)
+    region.add_argument("-r", "--region", type=to_region,
+                        help="Region defined as a string like <chrom>:<start>..<end>")
+    region.add_argument("--chrom", type=str)
     parser.add_argument("-as", "--assume-sorted", dest="assume_sorted",
                         default=False, action="store_true")
     parser.add_argument("--start", type=int, default=float("-inf"))
     parser.add_argument("--end", type=int, default=float("inf"))
+
     parser.add_argument("gtf", type=argparse.FileType())
     parser.add_argument("out", type=argparse.FileType("w"), nargs="?", default=sys.stdout)
     parser.set_defaults(func=launch)

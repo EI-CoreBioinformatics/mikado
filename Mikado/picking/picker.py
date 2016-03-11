@@ -788,7 +788,7 @@ memory intensive, proceed with caution!")
         :return:
         """
 
-        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
 
         current_locus = None
@@ -952,7 +952,7 @@ memory intensive, proceed with caution!")
         logger.setLevel(self.json_conf["log_settings"]["log_level"])
         logger.debug("Begun single-threaded run")
 
-        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         logger.info("Intron range: %s", intron_range)
 
         handles = self.__get_output_files()

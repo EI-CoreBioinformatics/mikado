@@ -613,6 +613,37 @@ class Accountant:
         return precision, recall, f1stat
 
     @staticmethod
+    def __redundant_stats(common_pred, common_ref, pred, ref):
+
+        """
+        Function to calculate precision, recall and F1 given the numbers of:
+        - predictions which are matches
+        - reference which are matches
+        - total predictions
+        - total references
+
+        :param common_pred: number of predictions which are a match
+        :param common_ref: number of references which are a match
+        :param pred: total number of predictions
+        :param ref: total number of references
+        :return:
+        """
+
+        if ref > 0:
+            recall = common_ref / ref
+        else:
+            recall = 0
+
+        if pred > 0:
+            precision = common_pred / pred
+        else:
+            precision = 0
+
+        f1stat = calc_f1(recall, precision)
+
+        return precision, recall, f1stat
+
+    @staticmethod
     def __format_rowname(stru):
         """
         Private method to format the name of the rows in the stats table
@@ -707,20 +738,23 @@ class Accountant:
         # Transcript level
         # noinspection PyTypeChecker
         (tr_precision_stringent, tr_recall_stringent, tr_f1_stringent) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["stringent"][0],
                 gene_transcript_results["ref"]["stringent"][0],
                 gene_transcript_results["pred"]["total"],
                 gene_transcript_results["ref"]["total"]))
 
         (tr_precision_standard, tr_recall_standard, tr_f1_standard) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["standard"][0],
                 gene_transcript_results["ref"]["standard"][0],
                 gene_transcript_results["pred"]["total"],
                 gene_transcript_results["ref"]["total"]))
 
         # noinspection PyTypeChecker
         (tr_precision_lenient, tr_recall_lenient, tr_f1_lenient) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["lenient"][0],
                 gene_transcript_results["ref"]["lenient"][0],
                 gene_transcript_results["pred"]["total"],
                 gene_transcript_results["ref"]["total"]))
@@ -730,21 +764,24 @@ class Accountant:
         pred_genes = len(self.pred_genes)
         # noinspection PyTypeChecker
         (gene_precision_stringent, gene_recall_stringent, gene_f1_stringent) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["stringent"][1],
                 gene_transcript_results["ref"]["stringent"][1],
                 pred_genes,
                 ref_genes))
 
         # noinspection PyTypeChecker
         (gene_precision_standard, gene_recall_standard, gene_f1_standard) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["standard"][1],
                 gene_transcript_results["ref"]["standard"][1],
                 pred_genes,
                 ref_genes))
 
         # noinspection PyTypeChecker
         (gene_precision_lenient, gene_recall_lenient, gene_f1_lenient) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["lenient"][1],
                 gene_transcript_results["ref"]["lenient"][1],
                 pred_genes,
                 ref_genes))

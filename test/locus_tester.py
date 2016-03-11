@@ -10,8 +10,9 @@ import os.path
 from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
-from Mikado.loci_objects import transcript, superlocus,  abstractlocus
-from Mikado.utilities.log_utils import create_null_logger
+from Mikado.loci_objects import Transcript, Superlocus, Abstractlocus, Locus
+from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from Mikado.utilities import overlap
 
 
 class OverlapTester(unittest.TestCase):
@@ -22,12 +23,10 @@ class OverlapTester(unittest.TestCase):
         :return:
         """
 
-        self.assertEqual(abstractlocus.Abstractlocus.overlap((100, 200), (100, 200)),
+        self.assertEqual(Abstractlocus.overlap((100, 200), (100, 200)),
                          100)
-        self.assertEqual(abstractlocus.Abstractlocus.overlap((100, 200), (1000, 2001)),
-                         -800)
-        self.assertEqual(abstractlocus.Abstractlocus.overlap((100, 200), (200,300)),
-                         0)
+        self.assertEqual(Abstractlocus.overlap((100, 200), (100, 200)),
+                         overlap((100, 200), (100, 200)))
 
 
 class LocusTester(unittest.TestCase):
@@ -39,7 +38,7 @@ Chr1\tfoo\texon\t101\t300\t.\t+\t.\tID=t0:exon1;Parent=t0
 Chr1\tfoo\tCDS\t101\t250\t.\t+\t.\tID=t0:exon1;Parent=t0""".split("\n")
         gff_transcript1 = [GFF.GffLine(x) for x in gff_transcript1]
         self.assertEqual(gff_transcript1[0].chrom, "Chr1", gff_transcript1[0])
-        self.transcript1 = transcript.Transcript(gff_transcript1[0])
+        self.transcript1 = Transcript(gff_transcript1[0])
         for exon in gff_transcript1[1:]:
             self.transcript1.add_exon(exon)
         self.transcript1.finalize()
@@ -51,7 +50,7 @@ Chr1\tfoo\texon\t101\t200\t.\t+\t.\tID=t1:exon1;Parent=t1
 Chr1\tfoo\texon\t301\t400\t.\t+\t.\tID=t1:exon2;Parent=t1
 Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         gff_transcript2 = [GFF.GffLine(x) for x in gff_transcript2]
-        self.transcript2 = transcript.Transcript(gff_transcript2[0])
+        self.transcript2 = Transcript(gff_transcript2[0])
         for exon in gff_transcript2[1:-1]:
             self.transcript2.add_exon(exon)
         # Test that a transcript cannot be finalized if
@@ -68,7 +67,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
                 self.transcript2.add_exon(exon)
         # Test that creating a superlocus without configuration fails
         with self.assertRaises(exceptions.NoJsonConfigError):
-            _ = superlocus.Superlocus(self.transcript1)
+            _ = Superlocus(self.transcript1)
 
     def test_locus(self):
         """Basic testing of the Locus functionality."""
@@ -78,7 +77,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         logger = create_null_logger("null")
         logger.setLevel("WARNING")
         logger.info("Started")
-        slocus = superlocus.Superlocus(self.transcript1, json_conf=my_json,
+        slocus = Superlocus(self.transcript1, json_conf=my_json,
                                        logger=logger)
         slocus.add_transcript_to_locus(self.transcript2)
         self.assertEqual(slocus.strand, self.transcript1.strand)
@@ -99,14 +98,196 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         gff_transcript3 = """Chr1\tfoo\ttranscript\t101\t200\t.\t-\t.\tID=tminus0
 Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n")
         gff_transcript3 = [GFF.GffLine(x) for x in gff_transcript3]
-        transcript3 = transcript.Transcript(gff_transcript3[0])
+        transcript3 = Transcript(gff_transcript3[0])
         for exon in gff_transcript3[1:]:
                 transcript3.add_exon(exon)
         transcript3.finalize()
-        minusuperlocus = superlocus.Superlocus(transcript3, json_conf=my_json)
+        minusuperlocus = Superlocus(transcript3, json_conf=my_json)
         minusuperlocus.define_loci()
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)
+
+
+class ASeventsTester(unittest.TestCase):
+
+    logger = create_default_logger("ASevents")
+
+    def setUp(self):
+        
+        self.conf = dict()
+        self.conf["pick"] = dict()
+        self.conf["pick"]["alternative_splicing"] = dict()
+        self.conf["pick"]["alternative_splicing"]["max_utr_length"] = 10000
+        self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
+        self.conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 10000
+        self.conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "J", "O", "mo"]
+        self.conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
+        self.conf["pick"]["alternative_splicing"]["min_score_perc"] = 0.5
+        self.conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
+        self.conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0.2
+        self.conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 0.2
+        self.conf["pick"]["alternative_splicing"]["max_isoforms"] = 3        
+    
+        self.t1 = Transcript()
+        self.t1.chrom = "Chr1"
+        self.t1.strand = "+"
+        self.t1.score = 20
+        self.t1.id = "G1.1"
+        self.t1.parent = "G1"
+        self.t1.start = 101
+        self.t1.end = 1500
+        
+        self.t1.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1500)],
+                          "exon")
+        self.t1.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                          "CDS")
+        self.t1.finalize()
+        
+        self.locus = Locus(self.t1)
+        self.locus.logger = self.logger
+        self.locus.json_conf = self.conf
+
+    def test_not_intersecting(self):
+
+
+
+        # This one is contained and should be rejected
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 20
+        t2.id = "G1.1"
+        t2.parent = "G1"
+        t2.start = 601
+        t2.end = 1420
+        t2.add_exons([(601, 700), (1001, 1300), (1401, 1420)],
+                     "exon")
+        t2.add_exons([(601, 700), (1001, 1300), (1401, 1420)],
+                     "CDS")
+        t2.finalize()
+
+        self.assertEqual(self.locus.is_alternative_splicing(t2), (False, "c"))
+
+    def test_valid_as(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 20
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1600
+        
+        t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
+                     "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                     "CDS")
+        t2.finalize()        
+
+        self.assertEqual(self.locus.is_alternative_splicing(t2), (True, "J"))
+
+        self.locus.add_transcript_to_locus(t2)
+        self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
+        
+    def test_redundant_as(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 20
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1600
+        
+        t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
+                     "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                     "CDS")
+        t2.finalize()
+        
+        self.locus.add_transcript_to_locus(t2)
+        self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)        
+        
+        t3 = Transcript()
+        t3.chrom = "Chr1"
+        t3.strand = "+"
+        t3.score = 20
+        t3.id = "G3.1"
+        t3.parent = "G3"
+        t3.start = 201
+        t3.end = 1630
+        
+        t3.add_exons([(201, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1630)],
+                     "exon")
+        t3.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                     "CDS")
+        t3.finalize()
+
+        self.assertEqual(self.locus.is_alternative_splicing(t3), (False, "J"))
+        self.locus.add_transcript_to_locus(t3)
+        self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
+
+    def test_non_redundant_as(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 20
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1600
+
+        t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
+                     "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                     "CDS")
+        t2.finalize()
+
+        self.locus.add_transcript_to_locus(t2)
+        self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
+
+        t3 = Transcript()
+        t3.chrom = "Chr1"
+        t3.strand = "+"
+        t3.score = 20
+        t3.id = "G3.1"
+        t3.parent = "G3"
+        t3.start = 201
+        t3.end = 1630
+
+        t3.add_exons([(201, 500), (601, 670), (1031, 1300), (1401, 1460), (1501, 1630)],
+                     "exon")
+        t3.add_exons([(401, 500), (601, 670), (1031, 1300), (1401, 1440)],
+                     "CDS")
+        t3.logger = self.logger
+        t3.finalize()
+
+        self.assertEqual(self.locus.is_alternative_splicing(t3), (True, "j"))
+        self.locus.add_transcript_to_locus(t3)
+        self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
+
+    def test_lowscore(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1600
+
+        t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
+                     "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                     "CDS")
+        t2.finalize()
+
+        self.locus.add_transcript_to_locus(t2)
+        self.assertEqual(len(self.locus.transcripts), 1, self.locus.transcripts)
 
 if __name__ == '__main__':
     unittest.main()

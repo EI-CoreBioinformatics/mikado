@@ -179,8 +179,13 @@ class Accountant:
         else:
             raise ValueError("Invalid store selected: {0}".format(store_name))
 
+        # 0b000, indicating:
+        # First bit: stringent match (100% F1)
+        # Second bit: normal match (95% F1)
+        # Third bit: lenient match (80% F1)
+
         for gene in store:
-            gene_match = 0b00
+            gene_match = 0b000
             gene_not_found = 0b0
             for _, val in store[gene].items():
                 total_transcripts += 1

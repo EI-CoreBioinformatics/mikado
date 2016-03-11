@@ -456,7 +456,6 @@ class Locus(Sublocus, Abstractlocus):
                     tid)
             yield row
 
-
     def is_alternative_splicing(self, other):
 
         """This function defines whether another transcript could be a

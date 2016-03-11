@@ -237,7 +237,7 @@ class Calculator:
         self.__distances = num_array([])
         self.__coding_distances = num_array([])
         self.__fieldnames = ['Stat', 'Total', 'Average', 'Mode', 'Min',
-                             '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max']
+                             '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         self.__rower = csv.DictWriter(self.out,
                                       self.__fieldnames,
                                       delimiter="\t")
@@ -343,11 +343,11 @@ class Calculator:
         moder = [x for x in counter_object if
                  counter_object[x] == counter_object.most_common(1)[0][1]]
         row["Mode"] = ";".join(str(x) for x in moder)
-        keys = ['Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', 'Max']
+        keys = ['Min', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         if len(array) == 0:
             quantiles = ["NA"]*len(keys)
         else:
-            quantiles = [percentile(array, x) for x in [0, 5, 10, 25, 50, 75, 90, 95, 100]]
+            quantiles = [percentile(array, x) for x in [0, 5, 10, 25, 50, 75, 90, 95, 99, 100]]
         for key, val in zip(keys, quantiles):
             try:
                 row[key] = "{0:,.0f}".format(val)  # No decimal

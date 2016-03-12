@@ -12,6 +12,7 @@ from .abstractlocus import Abstractlocus
 from .sublocus import Sublocus
 from .locus import Locus
 from .monosublocus import Monosublocus
+from ..utilities import overlap
 
 
 # Resolution order is important here!
@@ -192,37 +193,46 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 (other.start, other.end)) <= 0:
             return False  # We do not want intersection with oneself
 
+        # Check for CDS overlap
+        # if transcript.is_coding is True and other.is_coding is True:
+        #     return any(True for comb in itertools.product(
+        #         transcript.combined_cds, other.combined_cds) if cls.overlap(*comb) > 0)
+
         if not any([other.monoexonic, transcript.monoexonic]):
-            if cds_only is False:
-                if len(set.intersection(set(transcript.splices), set(other.splices))) > 0:
+            if cds_only is False or not all((_.monoexonic is True for _ in (transcript, other))):
+                if any(((overlap(*_) > 0) for _ in itertools.product(transcript.introns, other.introns))):
                     return True
+                else:
+                    return False
+                # if len(set.intersection(set(transcript.splices), set(other.splices))) > 0:
+                #     return True
             else:
-                transcript_splices = set()
-                for intron in transcript.combined_cds_introns:
-                    transcript_splices.update(intron)
-                for intron in other.combined_cds_introns:
-                    if intron[0] in transcript_splices or intron[1] in transcript_splices:
-                        return True
-        elif (any([other.monoexonic, transcript.monoexonic]) or
-              min(other.combined_cds_length,
-                  transcript.combined_cds_length) == 0):
+                if any(((overlap(*_) > 0) for _ in itertools.product(
+                        transcript.combined_cds_introns,
+                        other.combined_cds_introns))):
+                    return True
+                else:
+                    return False
+                # transcript_splices = set()
+                # for intron in transcript.combined_cds_introns:
+                #     transcript_splices.add([intron[0], intron[1]])
+                # for intron in other.combined_cds_introns:
+                #     if intron[0] in transcript_splices or intron[1] in transcript_splices:
+                #         return True
+        else:
             if any(True for comb in itertools.product(transcript.exons, other.exons) if
                    cls.overlap(*comb) >= 0):
                 return True
 
-        # Finally check for CDS consistency
-        if transcript.is_coding is True and other.is_coding is True:
-            return any(True for comb in itertools.product(
-                transcript.combined_cds, other.combined_cds) if cls.overlap(*comb) > 0)
-        elif transcript.is_coding is False and other.is_coding is False:
-            return any(True for comb in itertools.product(
-                transcript.exons, other.exons) if cls.overlap(*comb) > 0)
-        elif transcript.is_coding is True:
-            return any(True for comb in itertools.product(
-                transcript.combined_cds, other.exons) if cls.overlap(*comb) > 0)
-        elif other.is_coding is True:
-            return any(True for comb in itertools.product(
-                transcript.exons, other.combined_cds) if cls.overlap(*comb) > 0)
+        # elif transcript.is_coding is False and other.is_coding is False:
+        #     return any(True for comb in itertools.product(
+        #         transcript.exons, other.exons) if cls.overlap(*comb) > 0)
+        # elif transcript.is_coding is True:
+        #     return any(True for comb in itertools.product(
+        #         transcript.combined_cds, other.exons) if cls.overlap(*comb) > 0)
+        # elif other.is_coding is True:
+        #     return any(True for comb in itertools.product(
+        #         transcript.exons, other.combined_cds) if cls.overlap(*comb) > 0)
 
     @classmethod
     def in_locus(cls, monosublocus: Abstractlocus, transcript: Transcript, flank=0) -> bool:

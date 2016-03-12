@@ -13,11 +13,11 @@ import re
 import sys
 import csv
 from logging import handlers as log_handlers
-from ..loci_objects.reference_gene import Gene
+from ..loci.reference_gene import Gene
 from .accountant import Accountant
 from .assigner import Assigner
 from .resultstorer import ResultStorer
-from ..loci_objects.transcript import Transcript
+from ..loci.transcript import Transcript
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
 import itertools

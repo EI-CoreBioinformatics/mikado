@@ -10,7 +10,7 @@ import re
 import csv
 from ...exceptions import InvalidTranscript, InvalidCDS
 from .. import to_gff
-from ...loci_objects.transcript import Transcript
+from ...loci.transcript import Transcript
 from ...parsers import GFF
 # pylint: disable=E1101,no-name-in-module
 from numpy import array as num_array

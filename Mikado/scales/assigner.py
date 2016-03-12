@@ -17,7 +17,7 @@ import itertools
 from collections import namedtuple
 from .resultstorer import ResultStorer
 from . import calc_f1
-from ..loci_objects.transcript import Transcript
+from ..loci.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
 from ..utilities import overlap

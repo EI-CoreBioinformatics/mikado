@@ -6,7 +6,7 @@
 import sys
 import argparse
 import Mikado.parsers
-import Mikado.loci_objects
+import Mikado.loci
 
 
 def main():
@@ -45,7 +45,7 @@ def main():
                 bed12.block_starts = [0, bed12.block_sizes[0] + introns[0][1] - introns[0][0]]
                 print(bed12, file=args.out)
 
-            transcript = Mikado.loci_objects.transcript.Transcript(row)
+            transcript = Mikado.loci.transcript.Transcript(row)
 
     if transcript is not None:
         transcript.finalize()

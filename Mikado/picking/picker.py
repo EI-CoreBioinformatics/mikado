@@ -27,7 +27,7 @@ from ..parsers.GFF import GFF3
 from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
-from ..loci_objects.superlocus import Superlocus, Transcript
+from ..loci.superlocus import Superlocus, Transcript
 from ..configuration.configurator import to_json  # Necessary for nosetests
 from ..utilities import dbutils, merge_partial
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript

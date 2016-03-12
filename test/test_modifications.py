@@ -1,6 +1,6 @@
 import Mikado.utilities
 from Mikado.parsers.GFF import GffLine
-from Mikado.loci_objects import Transcript
+from Mikado.loci import Transcript
 from intervaltree import Interval
 from Mikado.subprograms.util.trim import trim_coding, trim_noncoding
 import unittest

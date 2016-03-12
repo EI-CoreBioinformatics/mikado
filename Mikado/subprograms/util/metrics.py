@@ -4,7 +4,7 @@
 """Quick script to automate the generation of metrics definition from the files."""
 
 import sys
-from ...loci_objects import Transcript
+from ...loci import Transcript
 import re
 import argparse
 

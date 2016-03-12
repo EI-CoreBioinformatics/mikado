@@ -14,7 +14,7 @@ import yaml
 import subprocess
 from distutils import spawn
 from ..exceptions import InvalidJson, UnrecognizedRescaler
-from ..loci_objects.transcript import Transcript
+from ..loci.transcript import Transcript
 import json
 import sys
 import jsonschema

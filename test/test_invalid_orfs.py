@@ -1,4 +1,4 @@
-import Mikado.loci_objects.transcript
+import Mikado.loci.transcript
 import Mikado.exceptions
 import re
 import unittest
@@ -45,7 +45,7 @@ class MultOrfTester(unittest.TestCase):
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci_objects.transcript.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci.transcript.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
 

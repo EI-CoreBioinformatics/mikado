@@ -28,4 +28,4 @@ from .superlocus import Superlocus, Sublocus, Monosublocus
 # from . import transcript
 # from . import transcriptchecker
 
-__title__ = "loci_objects"
+__title__ = "loci"

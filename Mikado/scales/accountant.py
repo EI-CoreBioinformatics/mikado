@@ -10,7 +10,7 @@ import operator
 import collections
 from logging import handlers as log_handlers
 import logging
-from ..loci_objects.transcript import Transcript
+from ..loci.transcript import Transcript
 from .resultstorer import ResultStorer
 from . import calc_f1
 

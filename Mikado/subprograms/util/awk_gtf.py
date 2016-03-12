@@ -8,7 +8,7 @@ Script to extract features from a GTF with certain coordinates.
 import sys
 import argparse
 from ...parsers.GTF import GTF
-from ...loci_objects.transcript import Transcript
+from ...loci.transcript import Transcript
 
 
 __author__ = 'Luca Venturini'

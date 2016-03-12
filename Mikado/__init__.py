@@ -25,5 +25,5 @@ from . import utilities
 from . import configuration
 from . import parsers
 from . import serializers
-from . import loci_objects
+from . import loci
 from . import scales

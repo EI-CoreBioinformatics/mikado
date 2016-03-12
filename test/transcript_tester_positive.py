@@ -10,7 +10,7 @@ import copy
 import intervaltree
 import Mikado.parsers
 import Mikado.exceptions
-import Mikado.loci_objects
+import Mikado.loci
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 
 
@@ -26,7 +26,7 @@ class MonoBaseTester(unittest.TestCase):
     logger = create_null_logger("null")
 
     def setUp(self):
-        self.tr = Mikado.loci_objects.Transcript()
+        self.tr = Mikado.loci.Transcript()
         self.tr.chrom = "Chr5"
         self.tr.start = 22597965
         self.tr.end = 22602701
@@ -239,14 +239,14 @@ class DrosoTester(unittest.TestCase):
 
         ref_lines = [Mikado.parsers.GTF.GtfLine(line)
                      for line in filter(lambda x: x!='', ref_gtf.split("\n"))]
-        self.ref = Mikado.loci_objects.Transcript(ref_lines[0])
+        self.ref = Mikado.loci.Transcript(ref_lines[0])
         for l in ref_lines[1:]:
             self.ref.add_exon(l)
         self.ref.finalize()
         
         pred_lines = [Mikado.parsers.GTF.GtfLine(line)
                       for line in filter(lambda x: x!='', pred_gtf.split("\n"))]
-        self.pred = Mikado.loci_objects.Transcript(pred_lines[0])
+        self.pred = Mikado.loci.Transcript(pred_lines[0])
         for l in pred_lines[1:]:
             self.pred.add_exon(l)
         self.pred.finalize()
@@ -306,7 +306,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci_objects.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
@@ -479,7 +479,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         tr_gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in tr_lines]
 
-        transcript = Mikado.loci_objects.Transcript(tr_gff_lines[0])
+        transcript = Mikado.loci.Transcript(tr_gff_lines[0])
         for line in tr_gff_lines[1:]:
             transcript.add_exon(line)
 
@@ -615,7 +615,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.assertFalse(second_orf.invalid)
 
         self.assertTrue(
-            Mikado.loci_objects.Transcript.is_overlapping_cds(first_orf, second_orf))
+            Mikado.loci.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
         third_orf = Mikado.parsers.bed12.BED12()
@@ -638,9 +638,9 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.assertFalse(third_orf.invalid)
 
         self.assertFalse(
-            Mikado.loci_objects.Transcript.is_overlapping_cds(first_orf, third_orf))
+            Mikado.loci.Transcript.is_overlapping_cds(first_orf, third_orf))
         self.assertFalse(
-            Mikado.loci_objects.Transcript.is_overlapping_cds(second_orf, third_orf))
+            Mikado.loci.Transcript.is_overlapping_cds(second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
         self.assertFalse(first_orf == second_orf)
@@ -648,7 +648,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         candidates = [first_orf, second_orf, third_orf]
 
-        # self.assertEqual(len(Mikado.py.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
+        # self.assertEqual(len(Mikado.py.loci.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
         logger = create_null_logger("null")
         self.tr.logger = logger
@@ -688,7 +688,7 @@ Chr4\tCufflinks\texon\t15495769\t15495908\t.\t+\t.\tgene_id "cufflinks_star_at.1
 Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.17370"; transcript_id "cufflinks_cufflinks_star_at.17370.1";"""
 
         trlines = [Mikado.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
-        self.tr = Mikado.loci_objects.Transcript(trlines[0])
+        self.tr = Mikado.loci.Transcript(trlines[0])
         [self.tr.add_exon(_) for _ in trlines[1:]]
         self.tr.finalize()
 

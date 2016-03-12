@@ -11,7 +11,7 @@ import intervaltree
 import logging
 import Mikado
 import Mikado.parsers
-import Mikado.loci_objects
+import Mikado.loci
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 
 
@@ -58,7 +58,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci_objects.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0])
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
@@ -389,7 +389,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid, (len(second_orf), second_orf.cds_len))
 
-        self.assertTrue(Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(Mikado.loci.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
         third_orf = Mikado.parsers.bed12.BED12()
@@ -410,10 +410,10 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         self.assertFalse(third_orf.invalid, (len(third_orf), third_orf.cds_len))
 
         self.assertFalse(
-            Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(
+            Mikado.loci.transcript.Transcript.is_overlapping_cds(
                 first_orf, third_orf))
         self.assertFalse(
-            Mikado.loci_objects.transcript.Transcript.is_overlapping_cds(
+            Mikado.loci.transcript.Transcript.is_overlapping_cds(
                 second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
@@ -463,7 +463,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018984_1AS\tta_complete\texon\t220411\t22
 
         trlines = [Mikado.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
 
-        self.tr = Mikado.loci_objects.Transcript(trlines[0])
+        self.tr = Mikado.loci.Transcript(trlines[0])
         for _ in trlines[1:]:
             self.tr.add_exon(_)
 

@@ -6,10 +6,10 @@ Unit test for monoexonic transcripts.
 
 import unittest
 import re
-from Mikado.loci_objects.transcript_methods.finalizing import _check_cdna_vs_utr
+from Mikado.loci.transcript_methods.finalizing import _check_cdna_vs_utr
 import intervaltree
 import Mikado.parsers
-import Mikado.loci_objects
+import Mikado.loci
 import Mikado.exceptions
 import operator
 # from Mikado.py.serializers.orf import Orf
@@ -39,7 +39,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci_objects.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0])
         self.tr.logger = self.logger
         self.tr.add_exons(self.tr_gff_lines[1:])
         self.tr.finalize()
@@ -65,9 +65,9 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     def test_invalid_inizialization(self):
 
         with self.assertRaises(TypeError):
-            _ =  Mikado.loci_objects.Transcript(self.tr_lines[0])
+            _ =  Mikado.loci.Transcript(self.tr_lines[0])
         with self.assertRaises(TypeError):
-            _ =  Mikado.loci_objects.Transcript(self.tr_gff_lines[1])
+            _ =  Mikado.loci.Transcript(self.tr_gff_lines[1])
 
     def test_basics(self):
 
@@ -123,7 +123,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         transcript_line = [line for line in self.tr_gff_lines if line.feature == "mRNA" ]
         self.assertEqual(len(transcript_line), 1, "\n".join([str(line) for line in self.tr_gff_lines]))
 
-        tr = Mikado.loci_objects.Transcript(transcript_line[0])
+        tr = Mikado.loci.Transcript(transcript_line[0])
         exon_lines = [line for line in self.tr_gff_lines if
                       line.is_exon is True and "UTR" not in line.feature.upper()]
         tr.add_exons(exon_lines)
@@ -145,13 +145,13 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
             checker = True
         self.assertTrue(checker)
         self.assertTrue(gff_lines[0].is_transcript)
-        transcript = Mikado.loci_objects.Transcript(gff_lines[0])
+        transcript = Mikado.loci.Transcript(gff_lines[0])
 
         transcript.logger = self.logger
         transcript.add_exons(gff_lines[1:])
 
         with self.assertRaises(Mikado.exceptions.InvalidCDS):
-            Mikado.loci_objects.transcript_methods.finalizing._check_cdna_vs_utr(transcript)
+            Mikado.loci.transcript_methods.finalizing._check_cdna_vs_utr(transcript)
 
     def test_utr(self):
 
@@ -292,7 +292,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid)
 
-        self.assertTrue(Mikado.loci_objects.Transcript.is_overlapping_cds(
+        self.assertTrue(Mikado.loci.Transcript.is_overlapping_cds(
             first_orf, second_orf))
 
         # This should be added
@@ -315,8 +315,8 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         third_orf.transcriptomic = True
         self.assertFalse(third_orf.invalid)
 
-        self.assertFalse(Mikado.loci_objects.Transcript.is_overlapping_cds(first_orf, third_orf))
-        self.assertFalse(Mikado.loci_objects.Transcript.is_overlapping_cds(second_orf, third_orf))
+        self.assertFalse(Mikado.loci.Transcript.is_overlapping_cds(first_orf, third_orf))
+        self.assertFalse(Mikado.loci.Transcript.is_overlapping_cds(second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
         self.assertFalse(first_orf == second_orf)
@@ -324,7 +324,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
 
         candidates = [first_orf, second_orf, third_orf]
 
-        # self.assertEqual(len(Mikado.py.loci_objects.transcript.Transcript.find_overlapping_cds(candidates)), 2)
+        # self.assertEqual(len(Mikado.py.loci.transcript.Transcript.find_overlapping_cds(candidates)), 2)
 
         self.tr.logger = self.logger
 
@@ -395,7 +395,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid)
 
-        self.assertTrue(Mikado.loci_objects.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(Mikado.loci.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
         third_orf = Mikado.parsers.bed12.BED12()
@@ -418,10 +418,10 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertFalse(third_orf.invalid)
 
         self.assertFalse(
-            Mikado.loci_objects.Transcript.is_overlapping_cds(
+            Mikado.loci.Transcript.is_overlapping_cds(
                 first_orf, third_orf))
         self.assertFalse(
-            Mikado.loci_objects.Transcript.is_overlapping_cds(
+            Mikado.loci.Transcript.is_overlapping_cds(
                 second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)
@@ -485,7 +485,7 @@ class TestWheatRNA(unittest.TestCase):
 
     def test_negative_orf(self):
 
-        transcript = Mikado.loci_objects.Transcript()
+        transcript = Mikado.loci.Transcript()
         transcript.chrom = "Triticum_aestivum_CS42_TGACv1_scaffold_018953_1AS"
         transcript.strand = None
         transcript.start = 215963
@@ -568,7 +568,7 @@ class TestWheatRNA(unittest.TestCase):
 
         after_sorting = sorted([bed, bed2],
                                reverse=True,
-                               key=Mikado.loci_objects.transcript_methods.retrieval.orf_sorter
+                               key=Mikado.loci.transcript_methods.retrieval.orf_sorter
                                )
 
         self.assertEqual(after_sorting[0], bed)
@@ -581,7 +581,7 @@ class TestNegativeSplit(unittest.TestCase):
         tr = """Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\ttranscript\t72914\t76276\t1000\t.\t.\tgene_id "CL_10DPA.2184"; transcript_id "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1"; exon_number "1"; FPKM "0.1596439944"; conf_hi "0.205257"; conf_lo "0.114031"; frac "1.000000"; cov "3.066911"; Name "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1";
 Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276\t.\t.\t.\tgene_id "CL_10DPA.2184"; transcript_id "ERP004505_10DPA_Cufflinks_CL_10DPA.2184.1";"""
         tr_lines = [Mikado.parsers.GTF.GtfLine(_) for _ in tr.split("\n")]
-        self.tr = Mikado.loci_objects.Transcript(tr_lines[0])
+        self.tr = Mikado.loci.Transcript(tr_lines[0])
         self.tr.add_exon(tr_lines[1])
 
         self.bed1 = Mikado.parsers.bed12.BED12()
@@ -658,7 +658,7 @@ class TestTripleNegative(unittest.TestCase):
 Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369\t.\t.\t.\tgene_id "CL_Spike.6733"; transcript_id "TGAC_Spike_Cufflinks_CL_Spike.6733.1";"""
         trlines = [Mikado.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
 
-        self.tr = Mikado.loci_objects.Transcript(trlines[0])
+        self.tr = Mikado.loci.Transcript(trlines[0])
         self.tr.add_exon(trlines[1])
         self.tr.finalize()
 
@@ -733,7 +733,7 @@ Chr3\tCufflinks\texon\t2949168\t2952410\t.\t-\t.\tgene_id "cufflinks_star_at.106
 
         trlines = [Mikado.parsers.GTF.GtfLine(_) for _ in trlines.split("\n")]
 
-        self.tr = Mikado.loci_objects.Transcript(trlines[0])
+        self.tr = Mikado.loci.Transcript(trlines[0])
         self.tr.add_exon(trlines[1])
         self.tr.finalize()
 

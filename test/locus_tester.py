@@ -10,7 +10,7 @@ import os.path
 from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
-from Mikado.loci_objects import Transcript, Superlocus, Abstractlocus, Locus
+from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
 

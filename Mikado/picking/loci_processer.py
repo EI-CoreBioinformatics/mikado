@@ -4,7 +4,7 @@ import logging
 import logging.handlers as logging_handlers
 import functools
 from ..utilities import dbutils
-from ..loci_objects.superlocus import Superlocus
+from ..loci.superlocus import Superlocus
 from ..parsers.GFF import GffLine
 import os
 import collections

@@ -10,8 +10,8 @@ from intervaltree import Interval
 
 from .. import to_gff
 from ...exceptions import InvalidTranscript
-from ...loci_objects import Transcript
-from ...loci_objects.reference_gene import Gene
+from ...loci import Transcript
+from ...loci.reference_gene import Gene
 from ...utilities.log_utils import create_default_logger
 
 __author__ = 'Luca Venturini'

@@ -4,7 +4,7 @@
 from collections import OrderedDict
 import operator
 import Mikado
-from Mikado.loci_objects.transcript_methods import splitting
+from Mikado.loci.transcript_methods import splitting
 import unittest
 import logging
 
@@ -18,7 +18,7 @@ class TestSplitMonoexonic(unittest.TestCase):
 
     def setUp(self):
         
-        self.transcript = Mikado.loci_objects.Transcript()
+        self.transcript = Mikado.loci.Transcript()
         self.transcript.chrom = "Chr1"
         self.transcript.start = 1001
         self.transcript.end = 6000

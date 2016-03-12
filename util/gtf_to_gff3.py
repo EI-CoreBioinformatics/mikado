@@ -3,8 +3,8 @@
 import argparse
 import sys
 from Mikado.parsers.GTF import GTF, GtfLine
-from Mikado.loci_objects.reference_gene import Gene
-from Mikado.loci_objects.transcript import Transcript
+from Mikado.loci.reference_gene import Gene
+from Mikado.loci.transcript import Transcript
 
 __author__ = 'Luca Venturini'
 

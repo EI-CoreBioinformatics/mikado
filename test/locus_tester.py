@@ -10,7 +10,7 @@ import os.path
 from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
-from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus
+from Mikado.loci import Transcript, Superlocus, Monosublocus, Abstractlocus, Locus, MonosublocusHolder
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
 
@@ -289,5 +289,192 @@ class ASeventsTester(unittest.TestCase):
         self.locus.add_transcript_to_locus(t2)
         self.assertEqual(len(self.locus.transcripts), 1, self.locus.transcripts)
 
+
+class MonoHolderTester(unittest.TestCase):
+
+    logger = create_default_logger("MonoHolderTester")
+
+    def setUp(self):
+
+        self.conf = dict()
+
+        self.t1 = Transcript()
+        self.t1.chrom = "Chr1"
+        self.t1.strand = "+"
+        self.t1.score = 20
+        self.t1.id = "G1.1"
+        self.t1.parent = "G1"
+        self.t1.start = 101
+        self.t1.end = 1500
+
+        self.t1.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1500)],
+                          "exon")
+        self.t1.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                          "CDS")
+        self.t1.finalize()
+
+    def testCdsOverlap(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1600
+
+        t2.add_exons([(101, 500), (601, 700), (1001, 1300), (1401, 1460), (1501, 1600)],
+                     "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
+                     "CDS")
+        t2.finalize()
+
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+    def test_intronMatch(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1600
+
+        t2.add_exons([(101, 500), (601, 700), (1001, 1320), (1451, 1460), (1501, 1600)],
+                     "exon")
+        t2.add_exons([(401, 500), (601, 700), (1001, 1320), (1451, 1460), (1501, 1510)],
+                     "CDS")
+        t2.finalize()
+
+        self.assertTrue(self.t1.is_coding)
+        self.assertTrue(t2.is_coding)
+
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2, logger=self.logger))
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True, logger=self.logger))
+
+    def test_intronOverlap(self):
+
+        self.t1.strip_cds()
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1470
+        t2.add_exons([(101,510), (601, 700), (960, 1350), (1420, 1470)])
+
+        t2.finalize()
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+    def test_noIntronOverlap(self):
+
+        self.t1.strip_cds()
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 1250
+        t2.end = 2000
+        t2.add_exons([(1250, 1560), (1800, 2000)])
+        t2.finalize()
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+    def test_noCDSOverlap(self):
+
+        self.t1.strip_cds()
+        self.assertEqual(self.t1.combined_cds_introns, set())
+        self.t1.finalized = False
+        self.t1.add_exons([(401, 500), (601, 700), (1001, 1100)],
+                          "CDS")
+        self.t1.finalize()
+
+        t2 = Transcript()
+        t2.logger = self.logger
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 101
+        t2.end = 1470
+        t2.add_exons([(101,510), (601, 700), (960, 1350), (1421, 1470)])
+        t2.add_exons([(1201, 1350), (1421,1450)], "CDS")
+        t2.finalize()
+
+        self.assertTrue(self.t1.is_coding)
+        self.assertTrue(t2.is_coding)
+
+        from Mikado.utilities import overlap
+        self.assertGreaterEqual(0,
+                             overlap(
+                                (self.t1.combined_cds_start, self.t1.combined_cds_end),
+                                (t2.combined_cds_start, t2.combined_cds_end)),
+                             [(self.t1.combined_cds_start, self.t1.combined_cds_end),
+                              (t2.combined_cds_start, t2.combined_cds_end)])
+
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2, logger=self.logger))
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2, cds_only=True, logger=self.logger))
+
+    def test_only_CDS_overlap(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 1250
+        t2.end = 2000
+        t2.add_exons([(1250, 1560), (1801, 2000)])
+        t2.add_exons([(1401,1560), (1801,1850)], "CDS")
+        t2.finalize()
+        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+        t2.strip_cds()
+        t2.finalized = False
+        t2.add_exons([(1461,1560), (1801,1850)], "CDS")
+        # No CDS overlap this time
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+    def test_no_overlap(self):
+
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G2.1"
+        t2.parent = "G2"
+        t2.start = 1600
+        t2.end = 2000
+        t2.add_exons([(1600, 1700), (1801, 2000)])
+        t2.add_exons([(1661,1700), (1801,1850)], "CDS")
+        t2.finalize()
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+    def test_same_id(self):
+
+        t2 = self.t1.copy()
+        t2 = Transcript()
+        t2.chrom = "Chr1"
+        t2.strand = "+"
+        t2.score = 1
+        t2.id = "G1.1"
+        t2.parent = "G1"
+        t2.start = 1250
+        t2.end = 2000
+        t2.add_exons([(1250, 1560), (1801, 2000)])
+        t2.add_exons([(1401,1560), (1801,1850)], "CDS")
+        t2.finalize()
+        # This fails because they have the same ID
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
+
+
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=2)

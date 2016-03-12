@@ -505,6 +505,8 @@ class Transcript:
         self.finalized = False
         assert len(self.exons) > 0
         self.combined_cds = []
+        self._combined_cds_introns = set()
+        self._selected_cds_introns = set()
         self.combined_utr = []
         self.segments = []
         self.internal_orfs = []

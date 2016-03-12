@@ -3,6 +3,6 @@ python:
   - "3.4"
   - "3.5"
 # command to run tests
-script: nosetests
+script: "python3 setup.py test"
 # Install dependencies
 install: "pip install -r requirements.txt"

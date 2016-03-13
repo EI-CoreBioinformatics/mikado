@@ -435,7 +435,7 @@ class MonoHolderTester(unittest.TestCase):
         t2.add_exons([(1250, 1560), (1801, 2000)])
         t2.add_exons([(1401,1560), (1801,1850)], "CDS")
         t2.finalize()
-        self.assertTrue(MonosublocusHolder.is_intersecting(self.t1, t2))
+        self.assertFalse(MonosublocusHolder.is_intersecting(self.t1, t2))
 
         t2.strip_cds()
         t2.finalized = False

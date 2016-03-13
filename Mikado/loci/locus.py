@@ -488,21 +488,20 @@ class Locus(Sublocus, Abstractlocus):
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
                 result, _ = Assigner.compare(other, candidate)
-                if (other.monoexonic is False and
-                        candidate.monoexonic is False):
-                    if result.j_prec[0] == 100 and result.j_recall[0] <= 100:
-                        is_valid = False
-                elif (other.monoexonic is True and
-                        candidate.monoexonic is True and
-                          (result.n_f1[0] >= 80 or result.n_prec[0] == 100)):
+                if result.ccode[0] not in valid_ccodes:
+                    self.logger.debug("%s is not a valid isoform vs. secondary isoform %s",
+                                      other.id, tid)
                     is_valid = False
+                    break
+                # if (other.monoexonic is False and
+                #         candidate.monoexonic is False):
+                #     if result.j_prec[0] == 100 and result.j_recall[0] <= 100:
+                #         is_valid = False
+                # elif (other.monoexonic is True and
+                #         candidate.monoexonic is True and
+                #           (result.n_f1[0] >= 80 or result.n_prec[0] == 100)):
+                #     is_valid = False
 
-            # if (("_" in ccodes and "_" not in valid_ccodes) or
-            #         ("=" in ccodes and "_" not in valid_ccodes)):
-            #     self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
-            #                       other.id,
-            #                       main_result.ccode[0])
-            #     is_valid = False
         return is_valid, main_ccode
 
     @property

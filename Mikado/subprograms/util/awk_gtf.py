@@ -64,7 +64,7 @@ def to_region(string):
         raise ValueError("Invalid string!")
     chrom, rest = fields
     if ".." in rest:
-        separator = ":"
+        separator = ".."
     elif "-" in rest:
         separator = "-"
     else:

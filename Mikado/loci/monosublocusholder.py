@@ -202,8 +202,20 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
             logger.debug("No genomic overlap between %s and %s", transcript.id, other.id)
             return False  # We do not want intersection with oneself
 
+        if not any((overlap(*_) > 0) for _ in itertools.product(transcript.exons, other.exons)):
+            logger.debug("No exonic overlap between %s and %s",
+                         transcript.id, other.id)
+            return False
+
+        # if transcript.is_coding is True and other.is_coding is True:
+        #     if any((overlap(*comb) > 0) for comb in  itertools.product(
+        #            transcript.combined_cds, other.combined_cds)):
+        #         logger.debug("CDS overlap between %s and %s", transcript.id, other.id)
+        #         return True
+
         if not any([other.monoexonic, transcript.monoexonic]):
             if cds_only is True and all((_.is_coding is True for _ in (transcript, other))):
+                # First check for splice site interaction
                 if any(((overlap(*_) > 0) for _ in itertools.product(
                         transcript.combined_cds_introns,
                         other.combined_cds_introns))):
@@ -213,9 +225,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                 else:
                     logger.debug("No combined CDS intron of %s intersects a combined CDS intron of %s",
                                  transcript.id, other.id)
-                    # return False
-                # if len(set.intersection(set(transcript.splices), set(other.splices))) > 0:
-                #     return True
             else:
                 if any(((overlap(*_) > 0) for _ in itertools.product(transcript.introns, other.introns))):
                     logger.debug("At least 1 intron of %s intersects another intron in %s",
@@ -245,12 +254,6 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
                     logger.debug("No genomic overlap between %s and %s",
                                  transcript.id, other.id)
 
-                    # return False
-
-        # Check for CDS overlap
-        if transcript.is_coding is True and other.is_coding is True:
-            return any((overlap(*comb) > 0) for comb in  itertools.product(
-                transcript.combined_cds, other.combined_cds) if cls.overlap(*comb) > 0)
         return False
 
 

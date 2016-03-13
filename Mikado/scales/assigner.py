@@ -535,6 +535,9 @@ class Assigner:
         This is a class method, and can therefore be used outside of a class instance.
         """
 
+        prediction.finalize()
+        reference.finalize()
+
         prediction_nucls = set(itertools.chain(*[range(x[0], x[1] + 1) for x in prediction.exons]))
         reference_nucls = set(itertools.chain(*[range(x[0], x[1] + 1) for x in reference.exons]))
 
@@ -561,11 +564,11 @@ class Assigner:
 
         # Both multiexonic
         if min(prediction.exon_num, reference.exon_num) > 1:
-            assert min(len(prediction.splices),
-                       len(reference.splices)) > 0,\
-                (prediction.introns, prediction.splices)
-            one_intron_confirmed = any(intron in reference.introns for
-                                       intron in prediction.introns)
+            # assert min(len(prediction.splices),
+            #            len(reference.splices)) > 0,\
+            #     (prediction.introns, prediction.splices)
+            # one_intron_confirmed = any(intron in reference.introns for
+            #                            intron in prediction.introns)
             junction_overlap = len(set.intersection(
                 set(prediction.splices),
                 set(reference.splices)))

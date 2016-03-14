@@ -229,6 +229,8 @@
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
             "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
             "Default: 0% i.e. disabled, we check for the CDS overlap.",
+            "- valid_ccodes: Valid class codes for AS events. See documentation for details. Choices:",
+            "   j, n, O, e, K, o, h. Default: j, O, n, h",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
             "- min_score_perc: Minimum score threshold for subsequent AS events.",
             " Only transcripts with a score at least (best) * value are retained. Default: 50% (0.5)",
@@ -299,6 +301,39 @@
                 "J",
                 "O",
                 "mo"
+              ]
+            },
+            "redundant_ccodes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "j",
+                  "n",
+                  "O",
+                  "e",
+                  "o",
+                  "h",
+                  "J",
+                  "C",
+                  "c",
+                  "m",
+                  "mo",
+                  "=",
+                  "_",
+                  "x",
+                  "p",
+                  "P",
+                  "X",
+                  "I",
+                  "i"
+                ]
+              },
+              "default": [
+                "c",
+                "m",
+                "_",
+                "="
               ]
             },
             "min_score_perc": {

@@ -951,6 +951,7 @@ class AssignerTester(unittest.TestCase):
 
         master = os.path.dirname(os.path.abspath(__file__))
         args = argparse.Namespace()
+        args.no_save_index = True
         args.reference = Mikado.parsers.GFF.GFF3(
             os.path.join(master, "fusion_test", "fusion_test_ref.gff3"))
         args.prediction = Mikado.parsers.GTF.GTF(

@@ -475,6 +475,7 @@ class Locus(Sublocus, Abstractlocus):
         # main_ccode = None
 
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
+        redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
         main_result, _ = Assigner.compare(other, self.primary_transcript)
         main_ccode = main_result.ccode[0]
@@ -489,16 +490,11 @@ class Locus(Sublocus, Abstractlocus):
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
                 result, _ = Assigner.compare(other, candidate)
-                if (other.monoexonic is False and
-                        candidate.monoexonic is False):
-                    if result.j_prec[0] == 100:
-                        if not any((overlap(*_) > 0) for _ in itertools.product(other.introns,
-                                                                                candidate.exons)):
-                            is_valid = False
-                elif (other.monoexonic is True and
-                        candidate.monoexonic is True and
-                          (result.n_f1[0] >= 80 or result.n_prec[0] == 100)):
+                if result.ccode[0] in redundant_ccodes:
+                    self.logger.debug("%s is a redundant isoform of %s (ccode %s)",
+                                      other.id, candidate.id, result.ccode[0])
                     is_valid = False
+                    break
 
         return is_valid, main_ccode
 

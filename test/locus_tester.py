@@ -10,7 +10,7 @@ import os.path
 from Mikado.configuration import configurator
 from Mikado import exceptions
 from Mikado.parsers import GFF  # ,GTF, bed12
-from Mikado.loci import Transcript, Superlocus, Monosublocus, Abstractlocus, Locus, MonosublocusHolder
+from Mikado.loci import Transcript, Superlocus, Abstractlocus, Locus, MonosublocusHolder
 from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 from Mikado.utilities import overlap
 
@@ -121,6 +121,7 @@ class ASeventsTester(unittest.TestCase):
         self.conf["pick"]["alternative_splicing"]["max_fiveutr_length"] = 10000
         self.conf["pick"]["alternative_splicing"]["max_threeutr_length"] = 10000
         self.conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "J", "O", "mo"]
+        self.conf["pick"]["alternative_splicing"]["redundant_ccodes"] = ["c", "=", "_", "m"]
         self.conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
         self.conf["pick"]["alternative_splicing"]["min_score_perc"] = 0.5
         self.conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True

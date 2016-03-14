@@ -37,6 +37,7 @@ class TestLocus(unittest.TestCase):
         self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] = 0
         self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] = 0.1
         self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["j", "n", "O", "mo"]
+        self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"] = ["c", "=", "_", "m"]
         self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] = False
 
         t1 = """Chr1\tfoo\ttranscript\t1001\t3000\t.\t+\t.\tgene_id "Chr1.1"; transcript_id "Chr1.1.1";

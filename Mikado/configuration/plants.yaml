@@ -1,5 +1,5 @@
 requirements:
-  expression: [((exon_num.multi and cdna_length.multi and max_intron_length), or,
+  expression: [((exon_num.multi and cdna_length.multi and max_intron_length and min_intron_length), or,
     (exon_num.mono and combined_cds_length.mono and cdna_length.mono))]
   parameters:
     cdna_length.mono: {operator: gt, value: 50}
@@ -7,7 +7,8 @@ requirements:
     combined_cds_length.mono: {operator: gt, value: -1}
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
-    max_intron_length: {operator: le, value: 100000}
+    max_intron_length: {operator: le, value: 20000}
+    min_intron_length: {operator: ge, value: 5}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}

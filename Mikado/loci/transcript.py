@@ -596,6 +596,62 @@ class Transcript:
 
         return retrieval.find_overlapping_cds(self, candidate_orfs)
 
+    def as_dict(self):
+
+        """
+        Method to transform the transcript object into a JSON-friendly representation.
+        :return:
+        """
+
+        state = dict()
+
+        for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
+            state[key] = getattr(self, key)
+
+        state["exons"] = []
+        for exon in self.exons:
+            state["exons"].append([exon[0], exon[1]])
+
+        state["orfs"] = dict()
+        state["selected_orf"] = self.selected_internal_orf_index
+        for index, orf in enumerate(self.internal_orfs):
+            state["orfs"][str(index)] = []
+            for segment in orf:
+                state["orfs"][str(index)].append([segment[0], [segment[1][0],
+                                                               segment[1][1]]])
+        state["parent"] = getattr(self, "parent")
+        state["id"] = getattr(self, "id")
+        return state
+
+    def load_dict(self, state):
+        self.finalized = False
+
+        for key in ["chrom", "source",
+                    "start", "end", "strand", "score", "attributes",
+                    "parent", "id"]:
+            setattr(self, key, state[key])
+
+        self.exons = []
+        for exon in state["exons"]:
+            self.exons.append(intervaltree.Interval(*exon))
+
+        self.internal_orfs = []
+        for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
+            neworf = []
+            for segment in orf:
+                try:
+                    neworf.append((segment[0], intervaltree.Interval(*segment[1])))
+                except IndexError:
+                    raise IndexError(orf)
+            self.internal_orfs.append(neworf)
+
+        try:
+            self.selected_internal_orf_index = state["selected_orf"]
+        except IndexError as exc:
+            raise IndexError("{0}\n{1}".format(exc, self.internal_orfs))
+
+        self.finalize()
+
     # ###################Class methods#####################################
 
     @classmethod
@@ -1555,6 +1611,12 @@ class Transcript:
         if len(self.introns) == 0:
             return 0
         return max(intron[1] + 1 - intron[0] for intron in self.introns)
+
+    @Metric
+    def min_intron_length(self):
+        if len(self.introns) == 0:
+            return 0
+        return min(intron[1] + 1 - intron[0] for intron in self.introns)
 
     @Metric
     def start_distance_from_tss(self):

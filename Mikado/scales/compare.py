@@ -20,7 +20,8 @@ from .resultstorer import ResultStorer
 from ..loci.transcript import Transcript
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
-import pickle
+import json
+import gzip
 import itertools
 
 __author__ = 'Luca Venturini'
@@ -202,7 +203,8 @@ def parse_prediction(args, genes, positions, queue_logger):
     accountant_instance = Accountant(genes, args)
     # genes: a dictionary with the reference annotation, indexed by GID
     # positions: a dictionary of the form dict[chrom][(start,end)] = [gene object]
-    assigner_instance = Assigner(genes, positions, args, accountant_instance)
+    # assigner_instance = Assigner(genes, positions, args, accountant_instance)
+    assigner_instance = Assigner(positions, args, accountant_instance)
 
     transcript = None
     for row in args.prediction:
@@ -303,25 +305,57 @@ def compare(args):
 
     if os.path.exists("{0}.mikado_index".format(args.reference.name)):
         queue_logger.info("Starting loading the indexed reference")
-        with open("{0}.mikado_index".format(args.reference.name), "rb") as index:
+        with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
             try:
-                genes, positions = pickle.load(index)
+                cp_genes, cp_positions = json.load(index)
+                genes = dict()
+                for gid, gobj in cp_genes.items():
+                    genes[gid] = Gene(None)
+                    genes[gid].load_dict(gobj)
+
+                positions = collections.defaultdict(dict)
+                for key in cp_positions:
+                    for pos in cp_positions[key]:
+                        newpos = tuple(int(_) for _ in pos.split(","))
+                        positions[key][newpos] = [genes[gid] for gid in cp_positions[key][pos]]
+
                 if not (isinstance(genes, dict) and
                         isinstance(positions, collections.defaultdict)
                         and positions.default_factory is dict):
                     raise EOFError
             except EOFError:
+                genes, positions = None, None
                 logger.error("Invalid index; deleting and rebuilding.")
                 os.remove("{0}.mikado_index".format(args.reference.name))
 
     if genes is None:
         queue_logger.info("Starting parsing the reference")
-        genes, positions, = prepare_reference(args,
-                                              queue_logger,
-                                              ref_gff=ref_gff)
+        genes, positions = prepare_reference(args,
+                                             queue_logger,
+                                             ref_gff=ref_gff)
         if args.no_save_index is False:
-            with open("{0}.mikado_index".format(args.reference.name), "wb") as index:
-                pickle.dump((genes, positions), index)
+            # with open("{0}.mikado_index.pickle".format(args.reference.name), "wb") as index:
+            #     import pickle
+            #     pickle.dump((genes, positions), index)
+            with gzip.open("{0}.midx".format(args.reference.name), "wt") as index:
+                cp_positions = collections.defaultdict(dict)
+                for key in positions:
+                    for pos in positions[key]:
+                        cp_positions[key][
+                            ",".join([str(_) for _ in pos])] = [gene.id
+                                                                for gene in positions[key][pos]]
+
+                cp_genes = dict()
+                for gid in genes:
+                    cp_genes[gid] = genes[gid].as_dict()
+                json.dump((cp_genes, cp_positions), index)
+
+                # print(json.dumps(cp_positions))
+                # print(json.dumps(cp_genes))
+                # sys.exit(0)
+
+                # json.dump((genes, positions), index)
+    assert isinstance(genes, dict)
 
     # Needed for refmap
     queue_logger.info("Finished preparation; found %d reference gene%s",

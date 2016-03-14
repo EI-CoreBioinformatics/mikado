@@ -16,7 +16,6 @@ from distutils import spawn
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..loci.transcript import Transcript
 import json
-import sys
 import jsonschema
 from multiprocessing import get_start_method
 from pkg_resources import resource_stream, resource_filename

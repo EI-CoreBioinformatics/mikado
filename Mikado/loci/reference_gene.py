@@ -20,23 +20,28 @@ class Gene:
     :param logger: an optional Logger from the logging module.
     """
 
-    def __init__(self, transcr: Transcript, gid=None, logger=None):
+    def __init__(self, transcr: [None, Transcript], gid=None, logger=None):
 
-        self.chrom, self.source, self.start, self.end, self.strand = (transcr.chrom,
-                                                                      transcr.source,
-                                                                      transcr.start,
-                                                                      transcr.end,
-                                                                      transcr.strand)
-        if gid is not None:
-            self.id = gid
-        else:
-            self.id = transcr.parent[0]
         self.transcripts = dict()
-        self.transcripts[transcr.id] = transcr
         self.logger = None
         self.set_logger(logger)
         self.__introns = None
         self.exception_message = ''
+
+        if transcr is not None:
+            assert isinstance(transcr, Transcript)
+            self.chrom, self.source, self.start, self.end, self.strand = (transcr.chrom,
+                                                                          transcr.source,
+                                                                          transcr.start,
+                                                                          transcr.end,
+                                                                          transcr.strand)
+            self.transcripts[transcr.id] = transcr
+
+        if gid is not None:
+            self.id = gid
+        elif transcr is not None:
+            self.id = transcr.parent[0]
+
 
     def set_logger(self, logger):
         """
@@ -99,6 +104,34 @@ class Gene:
                 raise
         for k in to_remove:
             del self.transcripts[k]
+
+    def as_dict(self):
+
+        """
+        Method to transform the gene object into a JSON-friendly representation.
+        :return:
+        """
+
+        state = dict()
+        for key in ["chrom", "source", "start", "end", "strand", "id"]:
+            state[key] = getattr(self, key)
+
+        state["transcripts"] = dict.fromkeys(self.transcripts.keys())
+
+        for tid in state["transcripts"]:
+            state["transcripts"][tid] = self.transcripts[tid].as_dict()
+
+        return state
+
+    def load_dict(self, state):
+
+        for key in ["chrom", "source", "start", "end", "strand", "id"]:
+            setattr(self, key, state[key])
+
+        for tid, tvalues in state["transcripts"].items():
+            transcript = Transcript()
+            transcript.load_dict(tvalues)
+            self.transcripts[tid]=transcript
 
     def remove(self, tid: str):
         """

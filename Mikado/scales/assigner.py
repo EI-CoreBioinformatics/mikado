@@ -32,16 +32,16 @@ class Assigner:
     """
 
     def __init__(self,
-                 genes: dict,
+                 # genes: dict,
                  positions: collections.defaultdict,
                  args: argparse.Namespace,
                  stat_calculator: Accountant):
 
         """
 
-        :param genes: a dictionary which contains
-        the gene containers for the reference transcript objects.
-        :type genes: dict
+        # :param genes: a dictionary which contains
+        # the gene containers for the reference transcript objects.
+        # :type genes: dict
 
         :param positions: a defaultdict which is used for fast lookup of genomic positions
         :type positions: collections.defaultdict
@@ -78,13 +78,21 @@ class Assigner:
 
         self.logger.propagate = False
 
-        self.genes = genes
+        # self.genes = genes
         self.positions = positions
         self.gene_matches = dict()
-        for gid in genes:
-            self.gene_matches[gid] = dict()
-            for tid in genes[gid]:
-                self.gene_matches[gid][tid.id] = []
+        for chrom in positions:
+            for key in positions[chrom]:
+                for gene in positions[chrom][key]:
+                    gid = gene.id
+                    self.gene_matches[gid] = dict()
+                    for tid in gene:
+                        self.gene_matches[gid][tid.id] = []
+
+        # for gid in genes:
+        #     self.gene_matches[gid] = dict()
+        #     for tid in genes[gid]:
+        #         self.gene_matches[gid][tid.id] = []
 
         self.indexer = collections.defaultdict(list).fromkeys(self.positions)
 

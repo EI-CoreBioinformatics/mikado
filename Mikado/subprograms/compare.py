@@ -30,7 +30,9 @@ def compare_parser():
     input_files.add_argument('-r', '--reference',
                              type=to_gff,
                              required=True,
-                             help='Reference annotation file.')
+                             help="""Reference annotation file.
+                             By default, an index will be crated and saved with the suffix
+                             ".midx".""")
     targets = input_files.add_mutually_exclusive_group(required=True)
     targets.add_argument('-p', '--prediction',
                          type=to_gff,

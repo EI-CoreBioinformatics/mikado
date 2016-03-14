@@ -129,7 +129,9 @@ class Gene:
         return len(self.transcripts)
 
     def __getstate__(self):
-        self.logger = logging.NullHandler()
+        state = self.__dict__
+        state["logger"] = None
+        return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)

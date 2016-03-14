@@ -54,6 +54,10 @@ def compare_parser():
                         default=False, action="store_true",
                         help="""Flag. If set, reference and prediction transcripts
                         will be stripped of their UTRs (if they are coding).""")
+    parser.add_argument("-n", "-no-save-index", dest="no_save_index",
+                        action="store_true", default=False,
+                        help="""Unless this flag is set, compare will save an index of the
+                        reference to quicken multiple calls.""")
     parser.add_argument("-l", "--log", default=None, type=str)
     parser.add_argument("-v", "--verbose",
                         action="store_true",

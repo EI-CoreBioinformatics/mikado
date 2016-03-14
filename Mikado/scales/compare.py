@@ -20,6 +20,7 @@ from .resultstorer import ResultStorer
 from ..loci.transcript import Transcript
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
+import pickle
 import itertools
 
 __author__ = 'Luca Venturini'
@@ -73,7 +74,8 @@ def setup_logger(args, manager):
     return args, handler, logger, log_queue_listener, queue_logger
 
 
-def finalize_reference(genes, positions, queue_logger, args):
+def finalize_reference(genes, positions, queue_logger, args) \
+        -> (dict, collections.defaultdict(dict)):
 
     """
 :param genes:
@@ -118,7 +120,7 @@ def finalize_reference(genes, positions, queue_logger, args):
     return genes, positions
 
 
-def prepare_reference(args, queue_logger, ref_gff=False):
+def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.defaultdict(dict)):
 
     """
     Method to prepare the data structures that hold the reference
@@ -126,7 +128,7 @@ def prepare_reference(args, queue_logger, ref_gff=False):
     :param args:
     :param queue_logger:
     :param ref_gff:
-    :return:
+    :return: genes, positions
     """
 
     genes = dict()
@@ -295,13 +297,31 @@ def compare(args):
     args.commandline = " ".join(sys.argv)
     queue_logger.info("Command line: %s", args.commandline)
 
-    queue_logger.info("Starting parsing the reference")
-
     logger.handlers[0].flush()
 
-    genes, positions, = prepare_reference(args,
-                                          queue_logger,
-                                          ref_gff=ref_gff)
+    genes, positions = None, None
+
+    if os.path.exists("{0}.mikado_index".format(args.reference.name)):
+        queue_logger.info("Starting loading the indexed reference")
+        with open("{0}.mikado_index".format(args.reference.name), "rb") as index:
+            try:
+                genes, positions = pickle.load(index)
+                if not (isinstance(genes, dict) and
+                        isinstance(positions, collections.defaultdict)
+                        and positions.default_factory is dict):
+                    raise EOFError
+            except EOFError:
+                logger.error("Invalid index; deleting and rebuilding.")
+                os.remove("{0}.mikado_index".format(args.reference.name))
+
+    if genes is None:
+        queue_logger.info("Starting parsing the reference")
+        genes, positions, = prepare_reference(args,
+                                              queue_logger,
+                                              ref_gff=ref_gff)
+        if args.no_save_index is False:
+            with open("{0}.mikado_index".format(args.reference.name), "wb") as index:
+                pickle.dump((genes, positions), index)
 
     # Needed for refmap
     queue_logger.info("Finished preparation; found %d reference gene%s",

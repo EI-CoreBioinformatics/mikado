@@ -110,7 +110,7 @@ def finalize_reference(genes, positions, queue_logger, args) \
         key = (genes[gid].start, genes[gid].end)
         if key not in positions[genes[gid].chrom]:
             positions[genes[gid].chrom][key] = []
-        positions[genes[gid].chrom][key].append(genes[gid])
+        positions[genes[gid].chrom][key].append(gid)
 
     for gid in genes_to_remove:
         queue_logger.warn("Removed from reference: %s; error: %s",
@@ -204,7 +204,7 @@ def parse_prediction(args, genes, positions, queue_logger):
     # genes: a dictionary with the reference annotation, indexed by GID
     # positions: a dictionary of the form dict[chrom][(start,end)] = [gene object]
     # assigner_instance = Assigner(genes, positions, args, accountant_instance)
-    assigner_instance = Assigner(positions, args, accountant_instance)
+    assigner_instance = Assigner(genes, positions, args, accountant_instance)
 
     transcript = None
     for row in args.prediction:
@@ -303,7 +303,7 @@ def compare(args):
 
     genes, positions = None, None
 
-    if os.path.exists("{0}.mikado_index".format(args.reference.name)):
+    if os.path.exists("{0}.midx".format(args.reference.name)):
         queue_logger.info("Starting loading the indexed reference")
         with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
             try:
@@ -317,7 +317,7 @@ def compare(args):
                 for key in cp_positions:
                     for pos in cp_positions[key]:
                         newpos = tuple(int(_) for _ in pos.split(","))
-                        positions[key][newpos] = [genes[gid] for gid in cp_positions[key][pos]]
+                        positions[key][newpos] = cp_positions[key][pos][:]
 
                 if not (isinstance(genes, dict) and
                         isinstance(positions, collections.defaultdict)
@@ -326,7 +326,7 @@ def compare(args):
             except EOFError:
                 genes, positions = None, None
                 logger.error("Invalid index; deleting and rebuilding.")
-                os.remove("{0}.mikado_index".format(args.reference.name))
+                os.remove("{0}.midx".format(args.reference.name))
 
     if genes is None:
         queue_logger.info("Starting parsing the reference")
@@ -342,8 +342,7 @@ def compare(args):
                 for key in positions:
                     for pos in positions[key]:
                         cp_positions[key][
-                            ",".join([str(_) for _ in pos])] = [gene.id
-                                                                for gene in positions[key][pos]]
+                            ",".join([str(_) for _ in pos])] = positions[key][pos][:]
 
                 cp_genes = dict()
                 for gid in genes:

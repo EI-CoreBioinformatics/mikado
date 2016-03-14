@@ -32,16 +32,16 @@ class Assigner:
     """
 
     def __init__(self,
-                 # genes: dict,
+                 genes: dict,
                  positions: collections.defaultdict,
                  args: argparse.Namespace,
                  stat_calculator: Accountant):
 
         """
 
-        # :param genes: a dictionary which contains
-        # the gene containers for the reference transcript objects.
-        # :type genes: dict
+        :param genes: a dictionary which contains
+        the gene containers for the reference transcript objects.
+        :type genes: dict
 
         :param positions: a defaultdict which is used for fast lookup of genomic positions
         :type positions: collections.defaultdict
@@ -78,27 +78,19 @@ class Assigner:
 
         self.logger.propagate = False
 
-        # self.genes = genes
+        self.genes = genes
         self.positions = positions
         self.gene_matches = dict()
         for chrom in positions:
             for key in positions[chrom]:
-                for gene in positions[chrom][key]:
-                    gid = gene.id
+                for gid in positions[chrom][key]:
                     self.gene_matches[gid] = dict()
-                    for tid in gene:
+                    for tid in self.genes[gid]:
                         self.gene_matches[gid][tid.id] = []
-
-        # for gid in genes:
-        #     self.gene_matches[gid] = dict()
-        #     for tid in genes[gid]:
-        #         self.gene_matches[gid][tid.id] = []
 
         self.indexer = collections.defaultdict(list).fromkeys(self.positions)
 
         for chrom in positions:
-            # self.indexer[chrom] = sorted(self.positions[chrom].keys(),
-            #                              key=operator.itemgetter(0,1))
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
         # noinspection PyUnresolvedReferences
@@ -235,7 +227,7 @@ class Assigner:
                           matches)
 
         for match in matches:
-            gene_matches = self.positions[prediction.chrom][match[0]]
+            gene_matches = [self.genes[_] for _ in self.positions[prediction.chrom][match[0]]]
             self.logger.debug("Match for %s: %s",
                               match,
                               [_.id for _ in gene_matches])
@@ -362,7 +354,7 @@ class Assigner:
             results, best_result = self.__check_for_fusions(prediction, matches)
 
         else:
-            matches = self.positions[prediction.chrom][matches[0][0]]
+            matches = [self.genes[_] for _ in self.positions[prediction.chrom][matches[0][0]]]
             self.logger.debug("")
             results = []
             for match in matches:
@@ -441,7 +433,7 @@ class Assigner:
             results = [best_result]
         elif distances[0][1] > 0:
             # Polymerase run-on
-            match = self.positions[prediction.chrom][distances[0][0]][0]
+            match = self.genes[self.positions[prediction.chrom][distances[0][0]][0]]
             results = [self.calc_compare(prediction, reference) for reference in match]
             best_result = sorted(results,
                                  key=operator.attrgetter("distance"))[0]

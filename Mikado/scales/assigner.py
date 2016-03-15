@@ -13,7 +13,6 @@ import logging
 import collections
 import argparse
 import operator
-import itertools
 from collections import namedtuple
 from .resultstorer import ResultStorer
 from . import calc_f1

@@ -66,3 +66,6 @@ sample_data/Xy.pickle
 sample_data/configuration2.yaml
 sample_data/overlap.c
 sample_data/overlap.pyx
+Mikado/utilities/c_overlap.c
+Mikado/utilities/c_overlap.cpython-35m-x86_64-linux-gnu.so
+sample_data/reference.gff3.midx

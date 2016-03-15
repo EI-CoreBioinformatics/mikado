@@ -82,9 +82,10 @@ class Accountant:
                 # 0b100000: single match lenient
 
                 if transcr.exon_num == 1:
-                    self.exons[transcr.chrom][strand][transcr.exons[0]] = 0b00000
-                    self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b1
-                    self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b100
+                    exon = tuple([transcr.exons[0][0], transcr.exons[0][1]])
+                    self.exons[transcr.chrom][strand][exon] = 0b00000
+                    self.exons[transcr.chrom][strand][exon] |= 0b1
+                    self.exons[transcr.chrom][strand][exon] |= 0b100
                 else:
                     self.__store_multiexonic_reference(transcr, strand)
         return
@@ -98,15 +99,20 @@ class Accountant:
         :return:
         """
 
-        for intron in transcr.introns:
+        intron_chain = []
+        for intron in sorted(transcr.introns):
+            intron = tuple([intron[0], intron[1]])
+            intron_chain.append(intron)
             self.introns[transcr.chrom][strand][intron] = 0b01
-        if tuple(transcr.introns) not in self.intron_chains[transcr.chrom][strand]:
+        intron_chain = tuple(intron_chain)
+        if intron_chain not in self.intron_chains[transcr.chrom][strand]:
             self.intron_chains[transcr.chrom][
-                strand][tuple(transcr.introns)] = [set(), set()]
+                strand][intron_chain] = [set(), set()]
         self.intron_chains[transcr.chrom][
-            strand][tuple(transcr.introns)][0].add(transcr.id)
+            strand][intron_chain][0].add(transcr.id)
 
         for index, exon in enumerate(transcr.exons):
+            exon = tuple([exon[0], exon[1]])
             if exon not in self.exons[transcr.chrom][strand]:
                 self.exons[transcr.chrom][strand][exon] = 0b00000
             self.exons[transcr.chrom][strand][exon] |= 0b01
@@ -468,22 +474,24 @@ class Accountant:
         :return:
         """
 
-        assert transcr.monoexonic is False
-        ic_key = tuple(transcr.introns)
-        if result.ccode == ("=",):
-            assert ic_key in self.intron_chains[transcr.chrom][strand]
-            assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
+        # assert transcr.monoexonic is False
+        ic_key = tuple([tuple([intron[0], intron[1]]) for intron in sorted(transcr.introns)])
+        # if result.ccode == ("=",):
+        #     assert ic_key in self.intron_chains[transcr.chrom][strand]
+        #     assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
 
         if ic_key not in self.intron_chains[transcr.chrom][strand]:
             self.intron_chains[transcr.chrom][strand][ic_key] = [set(), set()]
         self.intron_chains[transcr.chrom][strand][ic_key][1].add(transcr.id)
 
         for intron in transcr.introns:
+            intron = tuple([intron[0], intron[1]])
             if intron not in self.introns[transcr.chrom][strand]:
                 self.introns[transcr.chrom][strand][intron] = 0b0
             self.introns[transcr.chrom][strand][intron] |= 0b10
 
         for index, exon in enumerate(transcr.exons):
+            exon = tuple([exon[0], exon[1]])
             if exon not in self.exons[transcr.chrom][strand]:
                 self.exons[transcr.chrom][strand][exon] = 0b0
             self.exons[transcr.chrom][strand][exon] |= 0b10  # set it as "in prediction"
@@ -510,7 +518,7 @@ class Accountant:
         :return:
         """
         assert transcr.monoexonic is True
-        exon = transcr.exons[0]
+        exon = tuple([transcr.exons[0][0], transcr.exons[0][1]])
         if exon not in self.exons[transcr.chrom][strand]:
             self.exons[transcr.chrom][strand][exon] = 0b0
         self.exons[transcr.chrom][strand][exon] |= 0b10
@@ -520,6 +528,7 @@ class Accountant:
             self.monoexonic_matches[1].add(transcr.id)
 
         if other_exon is not None:
+            other_exon = tuple([other_exon[0], other_exon[1]])
             assert isinstance(other_exon, tuple)
             assert other_exon in self.exons[transcr.chrom][strand],\
                 (transcr.id, transcr.exons, other_exon)

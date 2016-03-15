@@ -1,5 +1,7 @@
 pyyaml
 jsonschema
+Cython
+cython
 numpy
 networkx>=1.10
 sqlalchemy>=1

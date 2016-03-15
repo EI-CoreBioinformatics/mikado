@@ -112,4 +112,5 @@ def connect(json_conf, logger=None):
     db_connection = functools.partial(create_connector, json_conf, logger=logger)
     engine = create_engine("{0}://".format(json_conf["db_settings"]["dbtype"]),
                            creator=db_connection)
+
     return engine

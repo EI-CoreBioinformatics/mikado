@@ -276,14 +276,14 @@ class Locus(Sublocus, Abstractlocus):
             other.primary_transcript.id,
             result.ccode[0],
             other.strand))
-        if result.ccode[0] in ("i", "P", "p", "x", "_", "o", "e", "m", "mo", "rI", "I"):
+        if result.ccode[0] in ("i", "P", "p", "x"):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True
-        # elif other.strand is None and result.ccode[0] in ():  # , "m", "mo", "x"):
-        #     self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
-        #         other.primary_transcript.id, result.ccode[0]))
-        #     return True
+        elif other.strand is None and result.ccode[0] in ("_", "o", "e", "m", "mo", "rI"):
+            self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
+                other.primary_transcript.id, result.ccode[0]))
+            return True
 
         return False
 

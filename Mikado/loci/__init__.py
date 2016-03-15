@@ -16,6 +16,7 @@ from .excluded import Excluded
 from .locus import Locus
 from .monosublocusholder import MonosublocusHolder
 from .superlocus import Superlocus, Sublocus, Monosublocus
+from .reference_gene import Gene
 
 # from .picker import Picker
 # from . import abstractlocus

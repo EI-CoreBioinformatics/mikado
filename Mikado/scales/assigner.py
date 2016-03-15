@@ -321,7 +321,8 @@ class Assigner:
                         if any([self.genes[gid].strand in (None, prediction.strand)]):
                             correct.append(match)
                             break
-                matches = correct[:]
+                if len(correct) > 0:
+                    matches = correct[:]
                 del correct
 
         if len(matches) > 1:
@@ -331,8 +332,8 @@ class Assigner:
             results, best_result = self.__check_for_fusions(prediction, matches)
 
         else:
-            matches = [self.genes[_] for _ in self.positions[prediction.chrom][matches[0][0]]]
-            self.logger.debug("")
+            matches = [self.genes[_] for _
+                       in self.positions[prediction.chrom][matches[0][0]]]
             results = []
             for match in matches:
                 self.logger.debug("%s: type %s", repr(match), type(match))
@@ -341,13 +342,7 @@ class Assigner:
             results = sorted(results, reverse=True,
                              key=operator.attrgetter("j_f1", "n_f1"))
 
-            # if not (len(results) == len(match.transcripts) and len(results) > 0):
-            #     raise ValueError((match, str(prediction)))
             best_result = results[0]
-            #     args.queue.put_nowait(result)
-            #     args.refmap_queue.put_nowait(result)
-            #     args.stats_queue.put_nowait((tr,result))
-            #     return result
 
         return results, best_result
 

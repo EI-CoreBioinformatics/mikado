@@ -229,6 +229,8 @@
             "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
             "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
             "Default: 0% i.e. disabled, we check for the CDS overlap.",
+            "- valid_ccodes: Valid class codes for AS events. See documentation for details. Choices:",
+            "   j, n, O, e, K, o, h. Default: j, O, n, h",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
             "- min_score_perc: Minimum score threshold for subsequent AS events.",
             " Only transcripts with a score at least (best) * value are retained. Default: 50% (0.5)",
@@ -299,6 +301,41 @@
                 "J",
                 "O",
                 "mo"
+              ]
+            },
+            "redundant_ccodes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "j",
+                  "n",
+                  "O",
+                  "e",
+                  "o",
+                  "h",
+                  "J",
+                  "C",
+                  "c",
+                  "m",
+                  "mo",
+                  "=",
+                  "_",
+                  "x",
+                  "p",
+                  "P",
+                  "X",
+                  "I",
+                  "i"
+                ]
+              },
+              "default": [
+                "c",
+                "m",
+                "_",
+                "=",
+                "n",
+                "C"
               ]
             },
             "min_score_perc": {
@@ -478,6 +515,9 @@
             "- remove_overlapping_fragments: boolean flag. If set, fragments (defined as monoexonic loci",
             "  classified as P,x,i or p compared to another locus, will be removed from the output.",
             "- procs: number of processes to use. Default: 1",
+            "- intron_range: A range where most of the introns (99%) should fall into. Transcripts with too many",
+            " introns larger or smaller than what is defined in this range will be penalised in the scoring.",
+            " By default, this option is disabled by setting the range from 0 to 10**9.",
             "- preload: boolean flag. If set, the whole database will be preloaded into memory for faster access. Useful when",
             "  using SQLite databases.",
             "- single_thread: boolean flag. If set, multithreading will be disabled - useful for profiling and debugging."
@@ -506,6 +546,17 @@
             "fragments_maximal_cds": {
               "type": "integer",
               "default": 100
+            },
+            "intron_range": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uniqueItems": true,
+              "maxItems": 2,
+              "minItems": 2,
+              "default": [0, 1000000000]
             },
             "subloci_from_cds_only": {
               "type": "boolean",

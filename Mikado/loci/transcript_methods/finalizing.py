@@ -75,12 +75,6 @@ def _check_cdna_vs_utr(transcript):
             transcript.combined_cds = sorted(transcript.combined_cds,
                                              key=operator.itemgetter(0, 1))
             for exon in transcript.exons:
-                assert isinstance(exon, intervaltree.Interval)
-                # If we have more than one CDS segment
-                if len(transcript.combined_cds) > 1:
-                    assert isinstance(transcript.combined_cds[0], intervaltree.Interval),\
-                        type(transcript.combined_cds[0])
-                # Ignore, this is a completely CDS ORF
                 if exon in transcript.combined_cds:
                     continue
                 # The end of the exon is before the first ORF start

@@ -7,14 +7,14 @@ requirements:
     combined_cds_length.mono: {operator: gt, value: -1}
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
-    max_intron_length: {operator: le, value: 20000}
-    min_intron_length: {operator: ge, value: 5}
+    max_intron_length: {operator: le, value: 110000}
+    min_intron_length: {operator: ge, value: 0}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}
-  combined_cds_fraction: {rescaling: target, value: 0.8}
+  combined_cds_fraction: {rescaling: target, value: 0.85}
   combined_cds_intron_fraction: {rescaling: max}
   combined_cds_length: {rescaling: max}
   combined_cds_num: {rescaling: max}
@@ -33,11 +33,13 @@ scoring:
     rescaling: min
   highest_cds_exon_number: {rescaling: max}
   intron_fraction: {rescaling: max}
+  num_introns_smaller_than_min: {rescaling: target, value: 0}
+  num_introns_greater_than_max: {rescaling: target, value: 0}
   number_internal_orfs: {rescaling: target, value: 1}
   proportion_verified_introns: {rescaling: max}
   retained_fraction: {rescaling: min}
   retained_intron_num: {rescaling: min}
-  selected_cds_fraction: {rescaling: target, value: 0.8}
+  selected_cds_fraction: {rescaling: target, value: 0.85}
   selected_cds_intron_fraction: {rescaling: max}
   selected_cds_length: {rescaling: max}
   selected_cds_num: {rescaling: max}

@@ -13,11 +13,10 @@ import logging
 import collections
 import argparse
 import operator
-import itertools
 from collections import namedtuple
 from .resultstorer import ResultStorer
 from . import calc_f1
-from ..loci_objects.transcript import Transcript
+from ..loci.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
 from ..utilities import overlap
@@ -81,16 +80,16 @@ class Assigner:
         self.genes = genes
         self.positions = positions
         self.gene_matches = dict()
-        for gid in genes:
-            self.gene_matches[gid] = dict()
-            for tid in genes[gid]:
-                self.gene_matches[gid][tid.id] = []
+        for chrom in positions:
+            for key in positions[chrom]:
+                for gid in positions[chrom][key]:
+                    self.gene_matches[gid] = dict()
+                    for tid in self.genes[gid]:
+                        self.gene_matches[gid][tid.id] = []
 
         self.indexer = collections.defaultdict(list).fromkeys(self.positions)
 
         for chrom in positions:
-            # self.indexer[chrom] = sorted(self.positions[chrom].keys(),
-            #                              key=operator.itemgetter(0,1))
             self.indexer[chrom] = IntervalTree.from_tuples(self.positions[chrom].keys())
 
         # noinspection PyUnresolvedReferences
@@ -127,7 +126,8 @@ class Assigner:
         from reference before being called an unknown
         :type distance: int
 
-        :return:
+        :return: a list of distances, with the following format:
+                 (start, end), distance
         """
 
         start, end = position
@@ -220,52 +220,33 @@ class Assigner:
 
         new_matches = []
 
-        gid_groups = []
-
-        self.logger.debug("Matches for %s: %s",
-                          prediction.id,
-                          matches)
-
+        # Matches format: [(start,end), distance]
         for match in matches:
-            gene_matches = self.positions[prediction.chrom][match[0]]
+            best = None
+            gene_matches = [self.genes[_] for _ in
+                            self.positions[prediction.chrom][match[0]]]
+
             self.logger.debug("Match for %s: %s",
                               match,
                               [_.id for _ in gene_matches])
-            gid_groups.append(tuple(sorted([gene.id for gene in gene_matches])))
-            temp_results = []
-            # This will result in calculating the matches twice unfortunately
-
             for gene_match in gene_matches:
-                best_res = sorted(
-                    [self.calc_compare(prediction, tra) for tra in gene_match],
-                    reverse=True,
-                    key=self.get_f1)[0]
+                __res = sorted([self.calc_compare(prediction, tra) for tra in gene_match],
+                               reverse=True, key=self.get_f1)
+                best_res = (gene_match.strand, __res)
+                if best is None:
+                    best = best_res
+                else:
+                    best = sorted([best, best_res],
+                                  reverse=True,
+                                  key=lambda res: self.get_f1(res[1][0]))[0]
+            if best is not None:
+                new_matches.append(best)
 
-                temp_results.append((gene_match, best_res))
-            self.logger.debug("Temp results: %s", temp_results)
-
-            genes = collections.defaultdict(list)
-            for res in temp_results:
-                try:
-                    genes[res[1].ref_gene].append(res)
-                except AttributeError as exc:
-                    self.logger.exception(exc)
-                    self.logger.error("Repr: %s,\nType:\n%s,\n",
-                                      repr(res),
-                                      type(res))
-                    raise AttributeError(exc)
-
-            for gene in genes:
-                best_res = sorted(genes[gene], key=lambda x: self.get_f1(x[1]),
-                                  reverse=True)[0]
-                self.logger.debug("Best result: %s", best_res)
-                new_matches.append(best_res[0])
-
-        matches = sorted(new_matches)
-
-        strands = set(x.strand for x in matches)
+        matches = new_matches
+        strands = set(_[0] for _ in matches)
         if len(strands) > 1 and prediction.strand in strands:
-            matches = list(mmatch for mmatch in matches if mmatch.strand == prediction.strand)
+            matches = list(mmatch for mmatch in matches
+                           if mmatch[0] == prediction.strand)
         if len(matches) == 0:
             raise ValueError("I filtered out all matches. This is wrong!")
 
@@ -274,9 +255,7 @@ class Assigner:
         dubious = []  # Necessary for a double check.
 
         for match in matches:
-            m_res = sorted([self.calc_compare(prediction, tra) for tra in match],
-                           reverse=True,
-                           key=self.get_f1)
+            m_res = match[1]
             # A fusion is called only if I have one of the following conditions:
             # the transcript gets one of the junctions of the other transcript
             # the exonic overlap is >=10% (n_recall)_
@@ -297,37 +276,25 @@ class Assigner:
             results = dubious[0]
             best_fusion_results = [results[0]]
 
-        # Create the fusion best result
-        values = []
         fused_group = tuple(sorted([_.ref_gene[0] for _ in best_fusion_results]))
-        self.logger.debug("Fused group: %s; GID_groups: %s",
-                          fused_group,
-                          gid_groups)
 
-        # TODO: this is a very stuypid way of checking, it must be improved
-        if fused_group not in gid_groups:
+        values = []
+        if len(fused_group) > 1:
+            for result in results:
+                result.ccode = ("f", result.ccode[0])
             for key in ResultStorer.__slots__:
                 if key in ["gid", "tid", "distance"]:
                     values.append(getattr(best_fusion_results[0], key))
                 elif key == "ccode":
-                    if len(best_fusion_results) > 1:
-                        # Add the "f" ccode for fusions
-                        ccode = ["f"]
-                        ccode += [getattr(x, key)[0] for x in best_fusion_results]
-                        for result in results:
-                            result.ccode = ("f", result.ccode[0])
-                        values.append(tuple(ccode))
-                    else:
-                        values.append(tuple(getattr(best_fusion_results[0], key)))
+                    values.append(
+                        tuple(["f"] + [getattr(_, "ccode")[1] for _ in best_fusion_results])
+                    )
                 else:
                     val = tuple([getattr(x, key)[0] for x in best_fusion_results])
-                    assert len(val) == len(best_fusion_results)
-                    assert not isinstance(val[0], tuple), val
                     values.append(val)
             best_result = ResultStorer(*values)
         else:
             best_result = sorted(best_fusion_results, reverse=True, key=self.get_f1)[0]
-
         # Finished creating the fusion result
 
         return results, best_result
@@ -347,6 +314,17 @@ class Assigner:
                           prediction.id,
                           matches)
 
+        if len(matches) > 1 and prediction.strand is not None:
+                correct = list()
+                for match in matches:
+                    for gid in self.positions[prediction.chrom][match[0]]:
+                        if any([self.genes[gid].strand in (None, prediction.strand)]):
+                            correct.append(match)
+                            break
+                if len(correct) > 0:
+                    matches = correct[:]
+                del correct
+
         if len(matches) > 1:
             self.logger.debug("More than one match for %s: %s",
                               prediction.id,
@@ -354,8 +332,8 @@ class Assigner:
             results, best_result = self.__check_for_fusions(prediction, matches)
 
         else:
-            matches = self.positions[prediction.chrom][matches[0][0]]
-            self.logger.debug("")
+            matches = [self.genes[_] for _
+                       in self.positions[prediction.chrom][matches[0][0]]]
             results = []
             for match in matches:
                 self.logger.debug("%s: type %s", repr(match), type(match))
@@ -364,13 +342,7 @@ class Assigner:
             results = sorted(results, reverse=True,
                              key=operator.attrgetter("j_f1", "n_f1"))
 
-            # if not (len(results) == len(match.transcripts) and len(results) > 0):
-            #     raise ValueError((match, str(prediction)))
             best_result = results[0]
-            #     args.queue.put_nowait(result)
-            #     args.refmap_queue.put_nowait(result)
-            #     args.stats_queue.put_nowait((tr,result))
-            #     return result
 
         return results, best_result
 
@@ -433,7 +405,7 @@ class Assigner:
             results = [best_result]
         elif distances[0][1] > 0:
             # Polymerase run-on
-            match = self.positions[prediction.chrom][distances[0][0]][0]
+            match = self.genes[self.positions[prediction.chrom][distances[0][0]][0]]
             results = [self.calc_compare(prediction, reference) for reference in match]
             best_result = sorted(results,
                                  key=operator.attrgetter("distance"))[0]
@@ -478,6 +450,156 @@ class Assigner:
         self.stat_calculator.store(prediction, result, reference_exon)
 
         return result
+
+    @staticmethod
+    def __assign_monoexonic_ccode(prediction, reference, nucl_overlap, stats):
+
+        (nucl_recall, nucl_precision, nucl_f1,
+         exon_recall, exon_precision, exon_f1,
+         junction_recall, junction_precision, junction_f1) = stats
+        ccode = None
+        if prediction.exon_num == 1 and reference.exon_num > 1:
+            if nucl_precision < 1 and nucl_overlap > 0:
+                prediction_coords = (prediction.start, prediction.end)
+                overlaps = []
+                for intron in sorted([tuple([_[0], _[1]]) for _ in reference.introns]):
+                    over = overlap(intron, prediction_coords)
+                    if over > 0:
+                        overlaps.append((over, (intron[1] - intron[0] + 1)))
+                if len(overlaps) == 0:
+                    # Completely contained inside
+                    ccode = "mo"
+                elif len(overlaps) == 1:
+                    over, i_length = overlaps.pop()
+                    if over == i_length and over < prediction.cdna_length:
+                        ccode = "mo"
+                    elif 10 < over < i_length:
+                        if (reference.start < prediction.start <
+                                prediction.end < reference.end):
+                            ccode = "e"
+                        else:
+                            ccode = "mo"
+                    else:
+                        ccode = "mo"
+                elif len(overlaps) > 2:
+                    ccode = "mo"
+                elif len(overlaps) == 2:
+                    overs, i_length = list(zip(*overlaps))
+                    if max(overs) < 10:
+                        ccode = "mo"
+                    else:
+                        ccode = "e"
+            elif nucl_overlap > 0:
+                ccode = "mo"
+            elif (nucl_recall == 0 and
+                  reference.start < prediction.start < reference.end):
+                ccode = "i"  # Monoexonic fragment inside an intron
+        elif prediction.exon_num > 1 and reference.exon_num == 1:
+            # if nucl_recall == 1:
+            #     ccode = "h"  # Extension
+            # else:
+            ccode = "O"  # Reverse generic overlap
+        elif prediction.exon_num == reference.exon_num == 1:
+            junction_f1 = junction_precision = junction_recall = 1  # Set to one
+            if nucl_f1 >= 0.95 and reference.strand == prediction.strand:
+                reference_exon = reference.exons[0]
+                ccode = "_"
+            elif nucl_precision == 1:
+                ccode = "c"  # contained
+            else:
+                ccode = "m"  # just a generic exon overlap b/w two monoexonic transcripts
+
+        stats = (nucl_recall, nucl_precision, nucl_f1,
+                 exon_recall, exon_precision, exon_f1,
+                 junction_recall, junction_precision, junction_f1)
+
+        return ccode, stats
+
+    @staticmethod
+    def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
+
+        """
+        Static method to assign a class code when both transcripts are multiexonic.
+        :param prediction: prediction transcript
+        :type prediction: Transcript
+        :param reference: reference transcript
+        :type reference: Transcript
+        :param nucl_overlap: overlap between the exonic parts of the two transcripts
+        :type nucl_overlap: int
+        :param stats: a tuple of 9 statistics (Base-level precision, recall, F1, then exon-level,
+        then junction-level)
+        :return:
+        """
+
+        (nucl_recall, nucl_precision, nucl_f1,
+         exon_recall, exon_precision, exon_f1,
+         junction_recall, junction_precision, junction_f1) = stats
+
+        ccode = None
+        if junction_recall == 1 and junction_precision < 1:
+            # Check if this is an extension
+            new_splices = set(prediction.splices) - set(reference.splices)
+            # If one of the new splices is internal to the intron chain, it's a j
+            if any(min(reference.splices) <
+                   splice <
+                   max(reference.splices) for splice in new_splices):
+                ccode = "j"
+            else:
+                if any(reference.start < splice < reference.end for splice in new_splices):
+                    # if nucl_recall < 1:
+                    ccode = "J"
+                else:
+                    ccode = "n"
+        elif 0 < junction_recall < 1 and 0 < junction_precision < 1:
+            # if one_intron_confirmed is True:
+            ccode = "j"
+            # else:
+            #     ccode = "o"
+        elif junction_precision == 1 and junction_recall < 1:
+            if nucl_precision == 1:
+                assert nucl_recall < 1
+                ccode = "c"
+            else:
+                missed_introns = reference.introns - prediction.introns
+                start_in = any([True for intron in missed_introns if
+                                (prediction.start < intron[0] and
+                                 intron[1] < min(prediction.splices))])
+                end_in = any([True for intron in missed_introns if
+                                (prediction.end > intron[1] and
+                                 intron[0] > max(prediction.splices))])
+
+                if start_in or end_in:
+                    ccode = "j"
+                else:
+                    ccode = "C"
+
+        elif junction_recall == 0 and junction_precision == 0:
+            if nucl_f1 > 0:
+                corr_exons = []
+                for pred_index, intron in enumerate(prediction.introns):
+                    for ref_index, ref_intron in enumerate(reference.introns):
+                        if overlap(ref_intron, intron) > 0:
+                            corr_exons.append((ref_index, pred_index))
+                    if len(corr_exons) >= 1:
+                        break
+                if len(corr_exons) == 1:
+                    ccode = "h"
+                else:
+                    ccode = "o"
+            else:
+                if nucl_overlap == 0:
+                    # The only explanation for no nucleotide overlap
+                    # and no junction overlap is that it is inside an intron
+                    if reference.start < prediction.start < reference.end:
+                        ccode = "I"
+                    elif prediction.start < reference.start < prediction.end:
+                        ccode = "rI"  # reverse intron retention
+
+        stats = (nucl_recall, nucl_precision, nucl_f1,
+                 exon_recall, exon_precision, exon_f1,
+                 junction_recall, junction_precision, junction_f1)
+
+        return ccode, stats
 
     @classmethod
     def compare(cls, prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
@@ -535,10 +657,21 @@ class Assigner:
         This is a class method, and can therefore be used outside of a class instance.
         """
 
-        prediction_nucls = set(itertools.chain(*[range(x[0], x[1] + 1) for x in prediction.exons]))
-        reference_nucls = set(itertools.chain(*[range(x[0], x[1] + 1) for x in reference.exons]))
+        prediction.finalize()
+        reference.finalize()
 
-        nucl_overlap = len(set.intersection(reference_nucls, prediction_nucls))
+        nucl_overlap = 0
+
+        __pred_exons = set()
+        __ref_exons = set()
+
+        for exon in prediction.exons:
+            exon = tuple([exon[0], exon[1] + 1])
+            __pred_exons.add(exon)
+            for other_exon in reference.exons:
+                other_exon = tuple([other_exon[0], other_exon[1] + 1])
+                __ref_exons.add(other_exon)
+                nucl_overlap += overlap(exon, other_exon, positive=True)
 
         # Quick verification that the overlap is not too big
         assert nucl_overlap <= min(reference.cdna_length,
@@ -551,7 +684,7 @@ class Assigner:
         nucl_f1 = calc_f1(nucl_recall, nucl_precision)
 
         # Exon statistics
-        recalled_exons = set.intersection(set(prediction.exons), set(reference.exons))
+        recalled_exons = set.intersection(__pred_exons, __ref_exons)
         exon_recall = len(recalled_exons)/len(reference.exons)
         exon_precision = len(recalled_exons)/len(prediction.exons)
         exon_f1 = calc_f1(exon_recall, exon_precision)
@@ -561,11 +694,11 @@ class Assigner:
 
         # Both multiexonic
         if min(prediction.exon_num, reference.exon_num) > 1:
-            assert min(len(prediction.splices),
-                       len(reference.splices)) > 0,\
-                (prediction.introns, prediction.splices)
-            one_intron_confirmed = any(intron in reference.introns for
-                                       intron in prediction.introns)
+            # assert min(len(prediction.splices),
+            #            len(reference.splices)) > 0,\
+            #     (prediction.introns, prediction.splices)
+            # one_intron_confirmed = any(intron in reference.introns for
+            #                            intron in prediction.introns)
             junction_overlap = len(set.intersection(
                 set(prediction.splices),
                 set(reference.splices)))
@@ -606,140 +739,20 @@ class Assigner:
                 ccode = "c"
 
         if ccode is None:
+            stats = (nucl_recall, nucl_precision, nucl_f1,
+                     exon_recall, exon_precision, exon_f1,
+                     junction_recall, junction_precision, junction_f1)
+
             if min(prediction.exon_num, reference.exon_num) > 1:
-                if junction_recall == 1 and junction_precision < 1:
-                    # Check if this is an extension
-                    new_splices = set(prediction.splices) - set(reference.splices)
-                    # If one of the new splices is internal to the intron chain, it's a j
-                    if any(min(reference.splices) <
-                           splice <
-                           max(reference.splices) for splice in new_splices):
-                        ccode = "j"
-                    else:
-                        if any(reference.start < splice < reference.end for splice in new_splices):
-                            # if nucl_recall < 1:
-                            ccode = "J"
-                        else:
-                            ccode = "n"
-                elif 0 < junction_recall < 1 and 0 < junction_precision < 1:
-                    # if one_intron_confirmed is True:
-                    ccode = "j"
-                    # else:
-                    #     ccode = "o"
-                elif junction_precision == 1 and junction_recall < 1:
-                    if nucl_precision == 1:
-                        assert nucl_recall < 1
-                        ccode = "c"
-                    else:
-                        missed_introns = reference.introns - prediction.introns
-                        start_in = any([True for intron in missed_introns if
-                                        (prediction.start < intron[0] and
-                                         intron[1] < min(prediction.splices))])
-                        end_in = any([True for intron in missed_introns if
-                                        (prediction.end > intron[1] and
-                                         intron[0] > max(prediction.splices))])
-
-                        if start_in or end_in:
-                            ccode = "j"
-                        else:
-                            ccode = "C"
-
-                        # end_in = any(prediction.end in intron for intron in missed_introns)
-                        #
-                        #
-                        #
-                        #
-                        #
-                        # ref_only_introns = sorted(list(reference.introns - prediction.introns))
-                        # pred_introns = sorted(prediction.introns)
-                        # min_pred_intron = pred_introns[0][0]
-                        # max_pred_intron = pred_introns[-1][1]
-                        # assert ref_only_introns != set(), (prediction, reference)
-                        # left = sorted(
-                        #     [_[0] for _ in ref_only_introns if _[1] < min_pred_intron])
-                        # if left:
-                        #     left = left[-1]
-                        # right = sorted(
-                        #     [_[1] for _ in ref_only_introns if _[0] > max_pred_intron])
-                        # if right:
-                        #     right = right[0]
-                        # if ((left and left > prediction.start) or
-                        #         (right and right < prediction.end)):
-                        #     ccode = "j"  # Retained intron
-                        # else:
-                        #     ccode = "C"
-                elif junction_recall == 0 and junction_precision == 0:
-                    if nucl_f1 > 0:
-                        corr_exons = []
-                        for pred_index, intron in enumerate(prediction.introns):
-                            for ref_index, ref_intron in enumerate(reference.introns):
-                                if overlap(ref_intron, intron) > 0:
-                                    corr_exons.append((ref_index, pred_index))
-                            if len(corr_exons) >= 1:
-                                break
-                        if len(corr_exons) == 1:
-                            ccode = "h"
-                        else:
-                            ccode = "o"
-                    else:
-                        if nucl_overlap == 0:
-                            # The only explanation for no nucleotide overlap
-                            # and no junction overlap is that it is inside an intron
-                            if reference.start < prediction.start < reference.end:
-                                ccode = "I"
-                            elif prediction.start < reference.start < prediction.end:
-                                ccode = "rI"  # reverse intron retention
+                ccode, stats = cls.__assign_multiexonic_ccode(prediction, reference,
+                                                              nucl_overlap, stats)
             else:
-                if prediction.exon_num == 1 and reference.exon_num > 1:
-                    if nucl_precision < 1 and nucl_overlap > 0:
-                        prediction_coords = (prediction.start, prediction.end)
-                        overlaps = []
-                        for intron in sorted(reference.introns, key=operator.itemgetter(0,1)):
-                            over = overlap(intron, prediction_coords)
-                            if over > 0:
-                                overlaps.append((over, (intron[1] - intron[0] + 1)))
-                        if len(overlaps) == 0:
-                            # Completely contained inside
-                            ccode = "mo"
-                        elif len(overlaps) == 1:
-                            over, i_length = overlaps.pop()
-                            if over == i_length and over < prediction.cdna_length:
-                                ccode = "mo"
-                            elif 10 < over < i_length:
-                                if (reference.start < prediction.start <
-                                        prediction.end < reference.end):
-                                    ccode = "e"
-                                else:
-                                    ccode = "mo"
-                            else:
-                                ccode = "mo"
-                        elif len(overlaps) > 2:
-                            ccode = "mo"
-                        elif len(overlaps) == 2:
-                            overs, i_length = list(zip(*overlaps))
-                            if max(overs) < 10:
-                                ccode = "mo"
-                            else:
-                                ccode = "e"
-                    elif nucl_overlap > 0:
-                        ccode = "mo"
-                    elif (nucl_recall == 0 and
-                          reference.start < prediction.start < reference.end):
-                        ccode = "i"  # Monoexonic fragment inside an intron
-                elif prediction.exon_num > 1 and reference.exon_num == 1:
-                    # if nucl_recall == 1:
-                    #     ccode = "h"  # Extension
-                    # else:
-                    ccode = "O"  # Reverse generic overlap
-                elif prediction.exon_num == reference.exon_num == 1:
-                    junction_f1 = junction_precision = junction_recall = 1  # Set to one
-                    if nucl_f1 >= 0.95 and reference.strand == prediction.strand:
-                        reference_exon = reference.exons[0]
-                        ccode = "_"
-                    elif nucl_precision == 1:
-                        ccode = "c"  # contained
-                    else:
-                        ccode = "m"  # just a generic exon overlap b/w two monoexonic transcripts
+                ccode, stats = cls.__assign_monoexonic_ccode(prediction, reference,
+                                                              nucl_overlap, stats)
+
+            (nucl_recall, nucl_precision, nucl_f1,
+             exon_recall, exon_precision, exon_f1,
+             junction_recall, junction_precision, junction_f1) = stats
 
         if (prediction.strand != reference.strand and
                 all([_ is not None for _ in (prediction.strand, reference.strand)])):
@@ -883,7 +896,7 @@ class Assigner:
 
                 for row in rows:
                     if best_pick is not None:
-                        assert row[2] != "NA"
+                        assert row[2] != "NA", row
                         row = out_tuple(row[0], row[2],
                                         row[3], row[4],
                                         row[1], ",".join(best_pick.ccode),

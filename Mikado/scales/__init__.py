@@ -39,3 +39,5 @@ from . import accountant
 # noinspection PyPep8
 from . import assigner
 from . import compare
+from .assigner import Assigner
+from .accountant import Accountant

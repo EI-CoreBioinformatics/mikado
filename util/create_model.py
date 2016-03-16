@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 from scipy.stats import hmean
 from Mikado.scales.resultstorer import ResultStorer
-from Mikado.loci_objects import Transcript
+from Mikado.loci import Transcript
 import operator
 
 

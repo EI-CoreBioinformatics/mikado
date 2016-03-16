@@ -1,5 +1,5 @@
 requirements:
-  expression: [((exon_num.multi and cdna_length.multi and max_intron_length), or,
+  expression: [((exon_num.multi and cdna_length.multi and max_intron_length and min_intron_length), or,
     (exon_num.mono and combined_cds_length.mono and cdna_length.mono))]
   parameters:
     cdna_length.mono: {operator: gt, value: 50}
@@ -8,12 +8,13 @@ requirements:
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
     max_intron_length: {operator: le, value: 150000}
+    min_intron_length: {operator: ge, value: 20}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}
-  combined_cds_fraction: {rescaling: target, value: 0.8}
+  combined_cds_fraction: {rescaling: target, value: 0.7}
   combined_cds_intron_fraction: {rescaling: max}
   combined_cds_length: {rescaling: max}
   combined_cds_num: {rescaling: max}
@@ -37,7 +38,7 @@ scoring:
   proportion_verified_introns: {rescaling: max}
   retained_fraction: {rescaling: min}
   retained_intron_num: {rescaling: min}
-  selected_cds_fraction: {rescaling: target, value: 0.8}
+  selected_cds_fraction: {rescaling: target, value: 0.7}
   selected_cds_intron_fraction: {rescaling: max}
   selected_cds_length: {rescaling: max}
   selected_cds_num: {rescaling: max}

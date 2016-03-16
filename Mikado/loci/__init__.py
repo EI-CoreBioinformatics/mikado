@@ -16,6 +16,7 @@ from .excluded import Excluded
 from .locus import Locus
 from .monosublocusholder import MonosublocusHolder
 from .superlocus import Superlocus, Sublocus, Monosublocus
+from .reference_gene import Gene
 
 # from .picker import Picker
 # from . import abstractlocus
@@ -28,4 +29,4 @@ from .superlocus import Superlocus, Sublocus, Monosublocus
 # from . import transcript
 # from . import transcriptchecker
 
-__title__ = "loci_objects"
+__title__ = "loci"

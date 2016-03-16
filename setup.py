@@ -3,6 +3,7 @@
 """Setup file for PyPI"""
 
 from setuptools import setup, find_packages, Extension
+from Cython.Build import cythonize
 from codecs import open
 from os import path
 import glob
@@ -42,6 +43,8 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Operating System :: Linux"
     ],
+    ext_modules=cythonize([Extension(path.join("Mikado", "utilities", "c_overlap"),
+                                     [path.join("Mikado", "utilities", "c_overlap.pyx")])]),
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),

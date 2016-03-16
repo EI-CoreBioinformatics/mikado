@@ -532,7 +532,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     #
     #     """
     #     :param transcript_instance: the transcript to be searched for retained introns.
-    #     :type transcript_instance: Mikado.py.loci_objects.transcript.Transcript
+    #     :type transcript_instance: Mikado.py.loci.transcript.Transcript
     #
     #     This method checks the number of exons that are possibly
     #     retained introns for a given transcript.

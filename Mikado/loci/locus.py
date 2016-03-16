@@ -10,6 +10,7 @@ from .transcript import Transcript
 from ..scales.assigner import Assigner
 from .sublocus import Sublocus
 from .abstractlocus import Abstractlocus
+from ..utilities import overlap
 from ..parsers.GFF import GffLine
 import collections
 from collections import OrderedDict
@@ -138,8 +139,8 @@ class Locus(Sublocus, Abstractlocus):
                 to_be_added = False
 
         if (to_be_added and transcript.score <
-                        self.primary_transcript.score *
-                        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
+                self.primary_transcript.score *
+                self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
             self.logger.debug(
                 "%s not added because its score (%.2f) is less \
                 than %.2f%% of the primary score (%.2f)",
@@ -279,7 +280,7 @@ class Locus(Sublocus, Abstractlocus):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True
-        elif other.strand is None and result.ccode[0] in ("_", "o", "e", "m", "mo", "x"):
+        elif other.strand is None and result.ccode[0] in ("_", "o", "e", "m", "mo", "rI"):
             self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True
@@ -456,7 +457,6 @@ class Locus(Sublocus, Abstractlocus):
                     tid)
             yield row
 
-
     def is_alternative_splicing(self, other):
 
         """This function defines whether another transcript could be a
@@ -475,6 +475,7 @@ class Locus(Sublocus, Abstractlocus):
         # main_ccode = None
 
         valid_ccodes = self.json_conf["pick"]["alternative_splicing"]["valid_ccodes"]
+        redundant_ccodes = self.json_conf["pick"]["alternative_splicing"]["redundant_ccodes"]
 
         main_result, _ = Assigner.compare(other, self.primary_transcript)
         main_ccode = main_result.ccode[0]
@@ -489,23 +490,12 @@ class Locus(Sublocus, Abstractlocus):
                             tid not in (self.primary_transcript_id, other.id)):
                 candidate = self.transcripts[tid]
                 result, _ = Assigner.compare(other, candidate)
-                if (other.monoexonic is False and
-                        candidate.monoexonic is False):
-                    if result.j_prec[0] == 100 and result.j_recall[0] <= 100:
-                        is_valid = False
-                elif (other.monoexonic is True and
-                        candidate.monoexonic is True and
-                        result.n_f1[0] >= 80):
+                if result.ccode[0] in redundant_ccodes:
+                    self.logger.debug("%s is a redundant isoform of %s (ccode %s)",
+                                      other.id, candidate.id, result.ccode[0])
                     is_valid = False
-                elif result.n_prec[0] == 100:
-                    is_valid = False
+                    break
 
-            # if (("_" in ccodes and "_" not in valid_ccodes) or
-            #         ("=" in ccodes and "_" not in valid_ccodes)):
-            #     self.logger.debug("%s is a redundant valid splicing isoform. Ccode: %s",
-            #                       other.id,
-            #                       main_result.ccode[0])
-            #     is_valid = False
         return is_valid, main_ccode
 
     @property

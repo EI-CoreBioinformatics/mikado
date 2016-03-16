@@ -30,7 +30,9 @@ def compare_parser():
     input_files.add_argument('-r', '--reference',
                              type=to_gff,
                              required=True,
-                             help='Reference annotation file.')
+                             help="""Reference annotation file.
+                             By default, an index will be crated and saved with the suffix
+                             ".midx".""")
     targets = input_files.add_mutually_exclusive_group(required=True)
     targets.add_argument('-p', '--prediction',
                          type=to_gff,
@@ -40,6 +42,10 @@ def compare_parser():
                          help="""Flag. If set, the reference will be compared with itself.
                          Useful for understanding how the reference transcripts interact
                          with each other.""")
+    targets.add_argument("--index", default=False,
+                         action="store_true",
+                         help="""Flag. If set, compare will stop after
+                         having generated the GFF index for the reference.""")
     parser.add_argument('--distance', type=int, default=2000,
                         help='''Maximum distance for a transcript to be considered
                         a polymerase run-on. Default: %(default)s''')
@@ -54,6 +60,10 @@ def compare_parser():
                         default=False, action="store_true",
                         help="""Flag. If set, reference and prediction transcripts
                         will be stripped of their UTRs (if they are coding).""")
+    parser.add_argument("-n", "-no-save-index", dest="no_save_index",
+                        action="store_true", default=False,
+                        help="""Unless this flag is set, compare will save an index of the
+                        reference to quicken multiple calls.""")
     parser.add_argument("-l", "--log", default=None, type=str)
     parser.add_argument("-v", "--verbose",
                         action="store_true",

@@ -10,7 +10,7 @@ __title__ = "Mikado"
 __author__ = 'Luca Venturini'
 __license__ = 'GPL3'
 __copyright__ = 'Copyright 2015-2016 Luca Venturini'
-__version__ = "0.18.0"
+__version__ = "0.19.0"
 
 __all__ = ["exceptions",
            "utilities",
@@ -25,5 +25,5 @@ from . import utilities
 from . import configuration
 from . import parsers
 from . import serializers
-from . import loci_objects
+from . import loci
 from . import scales

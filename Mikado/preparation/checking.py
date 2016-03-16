@@ -1,5 +1,5 @@
-from ..loci_objects import Transcript
-from ..loci_objects.transcriptchecker import TranscriptChecker
+from ..loci import Transcript
+from ..loci.transcriptchecker import TranscriptChecker
 from ..utilities.log_utils import create_null_logger, create_queue_logger
 import pyfaidx
 import os

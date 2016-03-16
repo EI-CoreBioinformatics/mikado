@@ -10,6 +10,7 @@ from . import log_utils
 from ..parsers import GTF, GFF
 import collections
 from itertools import zip_longest
+from .c_overlap import c_overlap, c_overlap_positive
 
 __author__ = 'Luca Venturini'
 
@@ -103,7 +104,8 @@ def merge_partial(filenames, handle):
 
 
 def overlap(first_interval: tuple([int, int]),
-            second_interval: tuple([int, int]), flank=0) -> int:
+            second_interval: tuple([int, int]), flank=0,
+            positive=False) -> int:
 
     """
     :param first_interval: a tuple of integers
@@ -114,6 +116,9 @@ def overlap(first_interval: tuple([int, int]),
 
     :param flank: an optional extending parameter to check for neighbours
     :type flank: int
+
+    :param positive: boolean flag. If set to true, the max between overlap and 0 will be returned.
+    :type positive: bool
 
     This static method returns the overlap between two intervals.
 
@@ -126,13 +131,14 @@ def overlap(first_interval: tuple([int, int]),
     Input: two 2-tuples of integers.
     """
 
-    first_interval = sorted(first_interval[:2])
-    second_interval = sorted(second_interval[:2])
-
-    left_boundary = max(first_interval[0] - flank, second_interval[0] - flank)
-    right_boundary = min(first_interval[1] + flank, second_interval[1] + flank)
-
-    return right_boundary - left_boundary
+    if positive is False:
+        return c_overlap(first_interval[0], first_interval[1],
+                         second_interval[0], second_interval[1],
+                         flank)
+    else:
+        return c_overlap_positive(first_interval[0], first_interval[1],
+                                  second_interval[0], second_interval[1],
+                                  flank)
 
 
 def grouper(iterable, n):

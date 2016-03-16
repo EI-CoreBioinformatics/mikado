@@ -20,23 +20,27 @@ class Gene:
     :param logger: an optional Logger from the logging module.
     """
 
-    def __init__(self, transcr: Transcript, gid=None, logger=None):
+    def __init__(self, transcr: [None, Transcript], gid=None, logger=None):
 
-        self.chrom, self.source, self.start, self.end, self.strand = (transcr.chrom,
-                                                                      transcr.source,
-                                                                      transcr.start,
-                                                                      transcr.end,
-                                                                      transcr.strand)
-        if gid is not None:
-            self.id = gid
-        else:
-            self.id = transcr.parent[0]
         self.transcripts = dict()
-        self.transcripts[transcr.id] = transcr
         self.logger = None
         self.set_logger(logger)
         self.__introns = None
         self.exception_message = ''
+
+        if transcr is not None:
+            assert isinstance(transcr, Transcript)
+            self.chrom, self.source, self.start, self.end, self.strand = (transcr.chrom,
+                                                                          transcr.source,
+                                                                          transcr.start,
+                                                                          transcr.end,
+                                                                          transcr.strand)
+            self.transcripts[transcr.id] = transcr
+
+        if gid is not None:
+            self.id = gid
+        elif transcr is not None:
+            self.id = transcr.parent[0]
 
     def set_logger(self, logger):
         """
@@ -100,6 +104,47 @@ class Gene:
         for k in to_remove:
             del self.transcripts[k]
 
+    def as_dict(self):
+
+        """
+        Method to transform the gene object into a JSON-friendly representation.
+        :return:
+        """
+
+        state = dict()
+        for key in ["chrom", "source", "start", "end", "strand", "id"]:
+            state[key] = getattr(self, key)
+
+        state["transcripts"] = dict.fromkeys(self.transcripts.keys())
+
+        for tid in state["transcripts"]:
+            state["transcripts"][tid] = self.transcripts[tid].as_dict()
+
+        return state
+
+    def load_dict(self, state, exclude_utr=False, protein_coding=False):
+
+        for key in ["chrom", "source", "start", "end", "strand", "id"]:
+            setattr(self, key, state[key])
+
+        for tid, tvalues in state["transcripts"].items():
+            transcript = Transcript()
+            transcript.load_dict(tvalues)
+            transcript.finalize()
+            if protein_coding is True and transcript.is_coding is False:
+                print("{0} is non coding ({1}, {2})".format(transcript.id,
+                                                       transcript.combined_cds,
+                                                       transcript.segments))
+                continue
+            if exclude_utr is True:
+                has_utrs = (transcript.utr_length > 0)
+                transcript.remove_utrs()
+                if has_utrs is True and (transcript.utr_length > 0):
+                    raise AssertionError("Failed to remove the UTRs!")
+            self.transcripts[tid] = transcript
+
+        return
+
     def remove(self, tid: str):
         """
 
@@ -129,7 +174,9 @@ class Gene:
         return len(self.transcripts)
 
     def __getstate__(self):
-        self.logger = logging.NullHandler()
+        state = self.__dict__
+        state["logger"] = None
+        return state
 
     def __setstate__(self, state):
         self.__dict__.update(state)

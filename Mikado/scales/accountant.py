@@ -10,7 +10,7 @@ import operator
 import collections
 from logging import handlers as log_handlers
 import logging
-from ..loci_objects.transcript import Transcript
+from ..loci.transcript import Transcript
 from .resultstorer import ResultStorer
 from . import calc_f1
 
@@ -82,9 +82,10 @@ class Accountant:
                 # 0b100000: single match lenient
 
                 if transcr.exon_num == 1:
-                    self.exons[transcr.chrom][strand][transcr.exons[0]] = 0b00000
-                    self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b1
-                    self.exons[transcr.chrom][strand][transcr.exons[0]] |= 0b100
+                    exon = tuple([transcr.exons[0][0], transcr.exons[0][1]])
+                    self.exons[transcr.chrom][strand][exon] = 0b00000
+                    self.exons[transcr.chrom][strand][exon] |= 0b1
+                    self.exons[transcr.chrom][strand][exon] |= 0b100
                 else:
                     self.__store_multiexonic_reference(transcr, strand)
         return
@@ -98,15 +99,20 @@ class Accountant:
         :return:
         """
 
-        for intron in transcr.introns:
+        intron_chain = []
+        for intron in sorted(transcr.introns):
+            intron = tuple([intron[0], intron[1]])
+            intron_chain.append(intron)
             self.introns[transcr.chrom][strand][intron] = 0b01
-        if tuple(transcr.introns) not in self.intron_chains[transcr.chrom][strand]:
+        intron_chain = tuple(intron_chain)
+        if intron_chain not in self.intron_chains[transcr.chrom][strand]:
             self.intron_chains[transcr.chrom][
-                strand][tuple(transcr.introns)] = [set(), set()]
+                strand][intron_chain] = [set(), set()]
         self.intron_chains[transcr.chrom][
-            strand][tuple(transcr.introns)][0].add(transcr.id)
+            strand][intron_chain][0].add(transcr.id)
 
         for index, exon in enumerate(transcr.exons):
+            exon = tuple([exon[0], exon[1]])
             if exon not in self.exons[transcr.chrom][strand]:
                 self.exons[transcr.chrom][strand][exon] = 0b00000
             self.exons[transcr.chrom][strand][exon] |= 0b01
@@ -179,8 +185,13 @@ class Accountant:
         else:
             raise ValueError("Invalid store selected: {0}".format(store_name))
 
+        # 0b000, indicating:
+        # First bit: stringent match (100% F1)
+        # Second bit: normal match (95% F1)
+        # Third bit: lenient match (80% F1)
+
         for gene in store:
-            gene_match = 0b00
+            gene_match = 0b000
             gene_not_found = 0b0
             for _, val in store[gene].items():
                 total_transcripts += 1
@@ -463,22 +474,24 @@ class Accountant:
         :return:
         """
 
-        assert transcr.monoexonic is False
-        ic_key = tuple(transcr.introns)
-        if result.ccode == ("=",):
-            assert ic_key in self.intron_chains[transcr.chrom][strand]
-            assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
+        # assert transcr.monoexonic is False
+        ic_key = tuple([tuple([intron[0], intron[1]]) for intron in sorted(transcr.introns)])
+        # if result.ccode == ("=",):
+        #     assert ic_key in self.intron_chains[transcr.chrom][strand]
+        #     assert result.ref_id[0] in self.intron_chains[transcr.chrom][strand][ic_key][0]
 
         if ic_key not in self.intron_chains[transcr.chrom][strand]:
             self.intron_chains[transcr.chrom][strand][ic_key] = [set(), set()]
         self.intron_chains[transcr.chrom][strand][ic_key][1].add(transcr.id)
 
         for intron in transcr.introns:
+            intron = tuple([intron[0], intron[1]])
             if intron not in self.introns[transcr.chrom][strand]:
                 self.introns[transcr.chrom][strand][intron] = 0b0
             self.introns[transcr.chrom][strand][intron] |= 0b10
 
         for index, exon in enumerate(transcr.exons):
+            exon = tuple([exon[0], exon[1]])
             if exon not in self.exons[transcr.chrom][strand]:
                 self.exons[transcr.chrom][strand][exon] = 0b0
             self.exons[transcr.chrom][strand][exon] |= 0b10  # set it as "in prediction"
@@ -505,7 +518,7 @@ class Accountant:
         :return:
         """
         assert transcr.monoexonic is True
-        exon = transcr.exons[0]
+        exon = tuple([transcr.exons[0][0], transcr.exons[0][1]])
         if exon not in self.exons[transcr.chrom][strand]:
             self.exons[transcr.chrom][strand][exon] = 0b0
         self.exons[transcr.chrom][strand][exon] |= 0b10
@@ -515,6 +528,7 @@ class Accountant:
             self.monoexonic_matches[1].add(transcr.id)
 
         if other_exon is not None:
+            other_exon = tuple([other_exon[0], other_exon[1]])
             assert isinstance(other_exon, tuple)
             assert other_exon in self.exons[transcr.chrom][strand],\
                 (transcr.id, transcr.exons, other_exon)
@@ -603,6 +617,37 @@ class Accountant:
             precision = common / pred
         else:
             precision = 0
+        f1stat = calc_f1(recall, precision)
+
+        return precision, recall, f1stat
+
+    @staticmethod
+    def __redundant_stats(common_pred, common_ref, pred, ref):
+
+        """
+        Function to calculate precision, recall and F1 given the numbers of:
+        - predictions which are matches
+        - reference which are matches
+        - total predictions
+        - total references
+
+        :param common_pred: number of predictions which are a match
+        :param common_ref: number of references which are a match
+        :param pred: total number of predictions
+        :param ref: total number of references
+        :return:
+        """
+
+        if ref > 0:
+            recall = common_ref / ref
+        else:
+            recall = 0
+
+        if pred > 0:
+            precision = common_pred / pred
+        else:
+            precision = 0
+
         f1stat = calc_f1(recall, precision)
 
         return precision, recall, f1stat
@@ -702,20 +747,23 @@ class Accountant:
         # Transcript level
         # noinspection PyTypeChecker
         (tr_precision_stringent, tr_recall_stringent, tr_f1_stringent) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["stringent"][0],
                 gene_transcript_results["ref"]["stringent"][0],
                 gene_transcript_results["pred"]["total"],
                 gene_transcript_results["ref"]["total"]))
 
         (tr_precision_standard, tr_recall_standard, tr_f1_standard) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["standard"][0],
                 gene_transcript_results["ref"]["standard"][0],
                 gene_transcript_results["pred"]["total"],
                 gene_transcript_results["ref"]["total"]))
 
         # noinspection PyTypeChecker
         (tr_precision_lenient, tr_recall_lenient, tr_f1_lenient) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["lenient"][0],
                 gene_transcript_results["ref"]["lenient"][0],
                 gene_transcript_results["pred"]["total"],
                 gene_transcript_results["ref"]["total"]))
@@ -725,21 +773,24 @@ class Accountant:
         pred_genes = len(self.pred_genes)
         # noinspection PyTypeChecker
         (gene_precision_stringent, gene_recall_stringent, gene_f1_stringent) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["stringent"][1],
                 gene_transcript_results["ref"]["stringent"][1],
                 pred_genes,
                 ref_genes))
 
         # noinspection PyTypeChecker
         (gene_precision_standard, gene_recall_standard, gene_f1_standard) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["standard"][1],
                 gene_transcript_results["ref"]["standard"][1],
                 pred_genes,
                 ref_genes))
 
         # noinspection PyTypeChecker
         (gene_precision_lenient, gene_recall_lenient, gene_f1_lenient) = (
-            self.__calculate_statistics(
+            self.__redundant_stats(
+                gene_transcript_results["pred"]["lenient"][1],
                 gene_transcript_results["ref"]["lenient"][1],
                 pred_genes,
                 ref_genes))

@@ -204,7 +204,7 @@ def create_lines_bed(transcript):
 
     """
     Method to create a BED12 object for printing
-    :param transcript: Mikado.py.loci_objects.transcript.Transcript
+    :param transcript: Mikado.py.loci.transcript.Transcript
     :return:
     """
 

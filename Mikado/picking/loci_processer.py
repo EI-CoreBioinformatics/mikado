@@ -4,7 +4,7 @@ import logging
 import logging.handlers as logging_handlers
 import functools
 from ..utilities import dbutils
-from ..loci_objects.superlocus import Superlocus
+from ..loci.superlocus import Superlocus
 from ..parsers.GFF import GffLine
 import os
 import collections
@@ -38,33 +38,6 @@ def print_gene(current_gene, gene_counter, handle, prefix):
     print(current_gene["gene"], file=handle)
     tid_corrs = dict()
     chrom = current_gene["gene"].chrom
-    # primaries = [_ for _ in current_gene["transcripts"] if
-    #              current_gene["transcripts"][_]["primary"] is True]
-    # assert len(primaries) == 1 or all([".orf" in _ for _ in primaries]), current_gene
-    # for primary in sorted(primaries):
-    #     tid = "{0}.{1}G{2}.1".format(prefix, chrom, gene_counter)
-    #     if ".orf" in primary:
-    #         tid = "{0}{1}".format(tid,
-    #                               primary[primary.find(".orf"):])
-    #     else:
-    #         assert len(primaries) == 1
-    #     current_transcript = current_gene["transcripts"][primary]["transcript"]
-    #     current_transcript.parent = current_gene["gene"].id
-    #     current_exons = current_gene["transcripts"][primary]["exons"]
-    #     current_transcript.attributes["Alias"] = current_transcript.id[:]
-    #     # name = re.sub("\.orf[0-9]+", "", tid)
-    #     # tid_corrs[re.sub("\.orf[0-9]+", "", current_transcript.id)] = name
-    #     tid_corrs[current_transcript.id] = tid
-    #     current_transcript.id = tid
-    #     current_transcript.name = tid
-    #     print(current_transcript, file=handle)
-    #     for exon in current_exons:
-    #         exon.parent = tid
-    #         exon.id = re.sub(current_transcript.attributes["Alias"],
-    #                          tid, exon.id)
-    #         exon.name = re.sub(current_transcript.attributes["Alias"],
-    #                            tid, exon.id)
-    #         print(exon, file=handle)
 
     transcripts = [_ for _ in current_gene["transcripts"]]
 
@@ -327,7 +300,9 @@ def remove_fragments(stranded_loci, json_conf, logger):
             if locus_instance in loci_to_check[True]:
                 logger.debug("Checking if %s is a fragment", locus_instance.id)
 
-                for other_locus in loci_to_check[False]:
+                for other_locus in iter(
+                        olocus for olocus in loci_to_check[False]
+                        if olocus.primary_transcript_id != locus_instance.primary_transcript_id):
                     if other_locus.other_is_fragment(locus_instance,
                                                      minimal_cds_length=mcdl) is True:
                         if bool_remove_fragments is False:

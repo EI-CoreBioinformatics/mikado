@@ -27,7 +27,7 @@ from ..parsers.GFF import GFF3
 from ..serializers.blast_serializer import Hit, Query
 from ..serializers.junction import Junction, Chrom
 from ..serializers.orf import Orf
-from ..loci_objects.superlocus import Superlocus, Transcript
+from ..loci.superlocus import Superlocus, Transcript
 from ..configuration.configurator import to_json  # Necessary for nosetests
 from ..utilities import dbutils, merge_partial
 from ..exceptions import UnsortedInput, InvalidJson, InvalidTranscript
@@ -788,7 +788,7 @@ memory intensive, proceed with caution!")
         :return:
         """
 
-        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         self.logger.info("Intron range: %s", intron_range)
 
         current_locus = None
@@ -952,7 +952,7 @@ memory intensive, proceed with caution!")
         logger.setLevel(self.json_conf["log_settings"]["log_level"])
         logger.debug("Begun single-threaded run")
 
-        intron_range = self.json_conf["soft_requirements"]["intron_range"]
+        intron_range = self.json_conf["pick"]["run_options"]["intron_range"]
         logger.info("Intron range: %s", intron_range)
 
         handles = self.__get_output_files()

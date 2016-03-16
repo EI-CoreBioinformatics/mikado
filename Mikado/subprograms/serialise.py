@@ -67,7 +67,8 @@ def load_junctions(args, logger):
                 args.json_conf["serialise"]["files"]["genome_fai"] is None):
 
             exc = InvalidJson(
-                "Missing the genome FAI file for serialising the junctions. I cannot proceed with this step!")
+                "Missing the genome FAI file for serialising the junctions. \
+I cannot proceed with this step!")
             logger.exception(exc)
             raise exc
 

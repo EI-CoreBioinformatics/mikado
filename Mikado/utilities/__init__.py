@@ -10,7 +10,7 @@ from . import log_utils
 from ..parsers import GTF, GFF
 import collections
 from itertools import zip_longest
-from .c_overlap import c_overlap, c_overlap_positive
+from .overlap import c_overlap, c_overlap_positive
 
 __author__ = 'Luca Venturini'
 

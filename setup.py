@@ -43,8 +43,8 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Operating System :: Linux"
     ],
-    ext_modules=cythonize([Extension(path.join("Mikado", "utilities", "c_overlap"),
-                                     [path.join("Mikado", "utilities", "c_overlap.pyx")])]),
+    ext_modules=cythonize([Extension(path.join("Mikado", "utilities", "overlap"),
+                                     [path.join("Mikado", "utilities", "overlap.pyx")])]),
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),

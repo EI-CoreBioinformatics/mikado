@@ -42,6 +42,10 @@ def compare_parser():
                          help="""Flag. If set, the reference will be compared with itself.
                          Useful for understanding how the reference transcripts interact
                          with each other.""")
+    targets.add_argument("--index", default=False,
+                         action="store_true",
+                         help="""Flag. If set, compare will stop after
+                         having generated the GFF index for the reference.""")
     parser.add_argument('--distance', type=int, default=2000,
                         help='''Maximum distance for a transcript to be considered
                         a polymerase run-on. Default: %(default)s''')

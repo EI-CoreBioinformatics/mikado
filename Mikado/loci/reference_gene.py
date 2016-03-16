@@ -42,7 +42,6 @@ class Gene:
         elif transcr is not None:
             self.id = transcr.parent[0]
 
-
     def set_logger(self, logger):
         """
         :param logger: a Logger instance.
@@ -123,7 +122,7 @@ class Gene:
 
         return state
 
-    def load_dict(self, state):
+    def load_dict(self, state, exclude_utr=False, protein_coding=False):
 
         for key in ["chrom", "source", "start", "end", "strand", "id"]:
             setattr(self, key, state[key])
@@ -131,7 +130,20 @@ class Gene:
         for tid, tvalues in state["transcripts"].items():
             transcript = Transcript()
             transcript.load_dict(tvalues)
-            self.transcripts[tid]=transcript
+            transcript.finalize()
+            if protein_coding is True and transcript.is_coding is False:
+                print("{0} is non coding ({1}, {2})".format(transcript.id,
+                                                       transcript.combined_cds,
+                                                       transcript.segments))
+                continue
+            if exclude_utr is True:
+                has_utrs = (transcript.utr_length > 0)
+                transcript.remove_utrs()
+                if has_utrs is True and (transcript.utr_length > 0):
+                    raise AssertionError("Failed to remove the UTRs!")
+            self.transcripts[tid] = transcript
+
+        return
 
     def remove(self, tid: str):
         """

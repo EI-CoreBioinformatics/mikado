@@ -303,77 +303,91 @@ def compare(args):
 
     genes, positions = None, None
 
-    if os.path.exists("{0}.midx".format(args.reference.name)):
-        queue_logger.info("Starting loading the indexed reference")
-        with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
-            try:
-                cp_genes, cp_positions = json.load(index)
-                genes = dict()
-                for gid, gobj in cp_genes.items():
-                    genes[gid] = Gene(None)
-                    genes[gid].load_dict(gobj)
-
-                positions = collections.defaultdict(dict)
-                for key in cp_positions:
-                    for pos in cp_positions[key]:
-                        newpos = tuple(int(_) for _ in pos.split(","))
-                        positions[key][newpos] = cp_positions[key][pos][:]
-
-                if not (isinstance(genes, dict) and
-                        isinstance(positions, collections.defaultdict)
-                        and positions.default_factory is dict):
-                    raise EOFError
-            except EOFError:
-                genes, positions = None, None
-                logger.error("Invalid index; deleting and rebuilding.")
-                os.remove("{0}.midx".format(args.reference.name))
-
-    if genes is None:
-        queue_logger.info("Starting parsing the reference")
+    if args.index is True:
+        queue_logger.info("Starting to create an index for %s", args.reference.name)
+        if os.path.exists("{0}.midx".format(args.reference.name)):
+            queue_logger.warning("Removing the old index")
+            os.remove("{0}.midx".format(args.reference.name))
+        args.protein_coding = False
+        args.exclude_utr = False
         genes, positions = prepare_reference(args,
                                              queue_logger,
                                              ref_gff=ref_gff)
-        if args.no_save_index is False:
-            # with open("{0}.mikado_index.pickle".format(args.reference.name), "wb") as index:
-            #     import pickle
-            #     pickle.dump((genes, positions), index)
-            with gzip.open("{0}.midx".format(args.reference.name), "wt") as index:
-                cp_positions = collections.defaultdict(dict)
-                for key in positions:
-                    for pos in positions[key]:
-                        cp_positions[key][
-                            ",".join([str(_) for _ in pos])] = positions[key][pos][:]
-
+        with gzip.open("{0}.midx".format(args.reference.name), "wt") as index:
                 cp_genes = dict()
                 for gid in genes:
                     cp_genes[gid] = genes[gid].as_dict()
-                json.dump((cp_genes, cp_positions), index)
+                json.dump(cp_genes, index)
+        queue_logger.info("Finished to create an index for %s, with %d genes",
+                          args.reference.name, len(genes))
+    else:
+        if os.path.exists("{0}.midx".format(args.reference.name)):
+            queue_logger.info("Starting loading the indexed reference")
+            with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
+                positions = collections.defaultdict(dict)
+                try:
+                    cp_genes = json.load(index)
+                    genes = dict()
+                    for gid, gobj in cp_genes.items():
+                        gene = Gene(None)
+                        gene.load_dict(gobj,
+                                       exclude_utr=args.exclude_utr,
+                                       protein_coding=args.protein_coding)
+                        # Necessary for when we are excluding non-coding
+                        if len(gene.transcripts) > 0:
+                            genes[gid] = gene
+                            if (gene.start, gene.end) not in positions:
+                                positions[gene.chrom][(gene.start, gene.end)] = []
+                            positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
 
-                # print(json.dumps(cp_positions))
-                # print(json.dumps(cp_genes))
-                # sys.exit(0)
+                    if not (isinstance(genes, dict) and
+                            isinstance(positions, collections.defaultdict) and
+                            positions.default_factory is dict):
+                        raise EOFError
+                except EOFError:
+                    genes, positions = None, None
+                    logger.error("Invalid index; deleting and rebuilding.")
+                    os.remove("{0}.midx".format(args.reference.name))
 
-                # json.dump((genes, positions), index)
-    assert isinstance(genes, dict)
+        if genes is None:
+            queue_logger.info("Starting parsing the reference")
+            exclude_utr, protein_coding = args.exclude_utr, args.protein_coding
+            if args.no_save_index is False:
+                args.exclude_utr, args.protein_coding = False, False
+            genes, positions = prepare_reference(args,
+                                                 queue_logger,
+                                                 ref_gff=ref_gff)
+            if args.no_save_index is False:
+                with gzip.open("{0}.midx".format(args.reference.name), "wt") as index:
+                    cp_genes = dict()
+                    for gid in genes:
+                        cp_genes[gid] = genes[gid].as_dict()
+                    json.dump(cp_genes, index)
+                if exclude_utr is True or protein_coding is True:
+                    args.exclude_utr, args.protein_coding = exclude_utr, protein_coding
+                    positions = collections.defaultdict(dict)
+                    finalize_reference(genes, positions, queue_logger, args)
 
-    # Needed for refmap
-    queue_logger.info("Finished preparation; found %d reference gene%s",
-                      len(genes), "s" if len(genes) > 1 else "")
-    queue_logger.debug("Gene names (first 20): %s",
-                       "\n\t".join(list(genes.keys())[:20]))
+        assert isinstance(genes, dict)
 
-    try:
-        if hasattr(args, "self") and args.self is True:
-            parse_self(args, genes, queue_logger)
-        else:
-            parse_prediction(args, genes, positions, queue_logger)
-    except Exception as err:
-        queue_logger.exception(err)
-        log_queue_listener.enqueue_sentinel()
-        handler.close()
-        log_queue_listener.stop()
-        args.queue_handler.close()
-        raise
+        # Needed for refmap
+        queue_logger.info("Finished preparation; found %d reference gene%s",
+                          len(genes), "s" if len(genes) > 1 else "")
+        queue_logger.debug("Gene names (first 20): %s",
+                           "\n\t".join(list(genes.keys())[:20]))
+
+        try:
+            if hasattr(args, "self") and args.self is True:
+                parse_self(args, genes, queue_logger)
+            else:
+                parse_prediction(args, genes, positions, queue_logger)
+        except Exception as err:
+            queue_logger.exception(err)
+            log_queue_listener.enqueue_sentinel()
+            handler.close()
+            log_queue_listener.stop()
+            args.queue_handler.close()
+            raise
 
     queue_logger.info("Finished")
     log_queue_listener.enqueue_sentinel()

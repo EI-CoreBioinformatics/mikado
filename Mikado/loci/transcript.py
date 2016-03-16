@@ -330,9 +330,14 @@ class Transcript:
         :type feature: flag to indicate what kind of feature we are adding
         """
 
-        if isinstance(gffline, (tuple, list, intervaltree.Interval)):
+        if isinstance(gffline, (tuple, list)):
             assert len(gffline) == 2
             start, end = sorted(gffline)
+            phase = None
+            if feature is None:
+                feature = "exon"
+        elif isinstance(gffline, intervaltree.Interval):
+            start, end = gffline[0], gffline[1]
             phase = None
             if feature is None:
                 feature = "exon"
@@ -459,6 +464,7 @@ class Transcript:
 
         if (start, end) in self.exons:
             self.exons.remove((start, end))
+            self.segments.remove(("exon"))
 
     def remove_utrs(self):
         """Method to strip a transcript from its UTRs.
@@ -632,6 +638,7 @@ class Transcript:
             setattr(self, key, state[key])
 
         self.exons = []
+        self.combined_cds = []
         for exon in state["exons"]:
             self.exons.append(intervaltree.Interval(*exon))
 
@@ -639,10 +646,9 @@ class Transcript:
         for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
             neworf = []
             for segment in orf:
-                try:
-                    neworf.append((segment[0], intervaltree.Interval(*segment[1])))
-                except IndexError:
-                    raise IndexError(orf)
+                neworf.append((segment[0], intervaltree.Interval(*segment[1])))
+                if segment[0] == "CDS":
+                    self.combined_cds.append(intervaltree.Interval(*segment[1]))
             self.internal_orfs.append(neworf)
 
         try:

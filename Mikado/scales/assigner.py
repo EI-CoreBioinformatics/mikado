@@ -79,13 +79,19 @@ class Assigner:
 
         self.genes = genes
         self.positions = positions
-        self.gene_matches = dict()
-        for chrom in positions:
-            for key in positions[chrom]:
-                for gid in positions[chrom][key]:
-                    self.gene_matches[gid] = dict()
-                    for tid in self.genes[gid]:
-                        self.gene_matches[gid][tid.id] = []
+        self.gene_matches = collections.defaultdict(dict)
+        for gid in self.genes:
+            for tid in self.genes[gid].transcripts:
+                self.gene_matches[gid][tid] = []
+
+        #
+        # for chrom in positions:
+        #     for key in positions[chrom]:
+        #         for gid in positions[chrom][key]:
+        #             self.gene_matches[gid] = dict()
+        #             for tid in self.genes[gid]:
+        #                 self.gene_matches[gid][tid.id] = []
+        #
 
         self.indexer = collections.defaultdict(list).fromkeys(self.positions)
 
@@ -855,10 +861,6 @@ class Assigner:
             rower = csv.DictWriter(out, fields, delimiter="\t")
             rower.writeheader()
 
-            # result_sorter = functools.partial(operator.attrgetter,
-            #                                   "e_f1",
-            #                                   "j_f1",
-            #                                   "n_f1")
             for gid in sorted(self.gene_matches.keys()):
 
                 rows = []
@@ -879,11 +881,6 @@ class Assigner:
                         best_picks.append(best)
                         row = tuple([tid, gid, ",".join(best.ccode),
                                      best.tid, best.gid])
-                        # if len(best.ccode) == 1:
-                        #
-                        # else:
-                        #     row = tuple([tid, gid, ",".join(best.ccode),
-                        #                  best.tid, best.gid])
 
                     rows.append(row)
 

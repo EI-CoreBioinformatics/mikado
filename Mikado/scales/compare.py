@@ -336,9 +336,11 @@ def compare(args):
                         # Necessary for when we are excluding non-coding
                         if len(gene.transcripts) > 0:
                             genes[gid] = gene
-                            if (gene.start, gene.end) not in positions:
+                            if (gene.start, gene.end) not in positions[gene.chrom]:
                                 positions[gene.chrom][(gene.start, gene.end)] = []
                             positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
+                        else:
+                            queue_logger.warning("No transcripts for %s", gid)
 
                     if not (isinstance(genes, dict) and
                             isinstance(positions, collections.defaultdict) and

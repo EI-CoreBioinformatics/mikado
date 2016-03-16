@@ -946,6 +946,8 @@ class AssignerTester(unittest.TestCase):
 
         """
         System test to verify that the false fusion is not called.
+        WARNING: this test is quite brittle as I am creating the namespace myself
+        instead of loading it from the subprograms.compare module.
         :return:
         """
 
@@ -962,6 +964,8 @@ class AssignerTester(unittest.TestCase):
         args.verbose = True
         args.exclude_utr = False
         args.protein_coding = False
+        args.index = False
+        args.self = False
 
         Mikado.scales.compare.compare(args)
 

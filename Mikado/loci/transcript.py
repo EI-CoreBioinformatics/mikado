@@ -458,13 +458,38 @@ class Transcript:
             raise ValueError("Cannot remove a segment from a finalised transcript!")
 
         if hasattr(exon, "start"):
-            start, end = (exon.start, exon.end)
+            exon = intervaltree.Interval(exon.start, exon.end)
+        elif not isinstance(exon, intervaltree.Interval):
+            exon = intervaltree.Interval(exon[0], exon[1])
         else:
-            start, end = exon
+            pass
 
-        if (start, end) in self.exons:
-            self.exons.remove((start, end))
-            self.segments.remove(("exon"))
+        if exon in self.exons:
+            self.exons.remove(exon)
+            self.segments.remove(("exon", exon))
+            tr = set()
+            for segment in self.segments:
+                if self.overlap(segment[1], exon) > 0:
+                    tr.add(segment)
+            for _ in tr:
+                self.segments.remove(_)
+            tr = set()
+            for segment in self.combined_cds:
+                if self.overlap(segment, exon) > 0:
+                    tr.add(segment)
+            for _ in tr:
+                self.combined_cds.remove(_)
+
+    def remove_exons(self, exons):
+
+        """
+        Wrapper to automate the removal of exons.
+        :param exons:
+        :return:
+        """
+
+        for exon in exons:
+            self.remove_exon(exon)
 
     def remove_utrs(self):
         """Method to strip a transcript from its UTRs.

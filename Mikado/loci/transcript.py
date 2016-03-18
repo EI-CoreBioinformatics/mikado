@@ -136,7 +136,6 @@ class Transcript:
         # pylint: enable=invalid-name
         self._selected_internal_orf_cds = []
         # This is used to set the phase if the CDS is loaded from the GFF
-        self._first_phase = 0
         self.__phases = []  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
 
@@ -225,7 +224,7 @@ class Transcript:
 
         self.finalize()  # Necessary to sort the exons
         if print_cds is True:
-            lines = create_lines_cds(self, to_gtf=to_gtf, first_phase=self._first_phase)
+            lines = create_lines_cds(self, to_gtf=to_gtf)
         else:
             lines = create_lines_no_cds(self, to_gtf=to_gtf)
 
@@ -346,7 +345,8 @@ class Transcript:
                                     type(gffline))
         else:
             start, end = sorted([gffline.start, gffline.end])
-            feature = gffline.feature
+            if feature is None:
+                feature = gffline.feature
             if self.id not in gffline.parent:
                 raise InvalidTranscript(
                     """Mismatch between transcript and exon:
@@ -363,7 +363,14 @@ class Transcript:
         if feature.upper().endswith("CDS"):
             store = self.combined_cds
             if phase is not None:
-                self.phases.append((start, phase))
+                if self.phases == []:
+                    self.phases.append([])
+                if isinstance(gffline, GtfLine):
+                    # Reverse
+                    self.phases[0].append((3 - phase) % 3)
+                else:
+                    self.phases[0].append(phase)
+
         elif "combined_utr" in feature or "UTR" in feature.upper():
             store = self.combined_utr
         elif feature.endswith("exon"):
@@ -405,7 +412,7 @@ class Transcript:
             self.add_exon(exon, feature)
         return
 
-    def format(self, format_name, with_introns=False):
+    def format(self, format_name, with_introns=False, with_cds=True):
 
         """
         Method to format the string representation of the object. Available formats:
@@ -426,12 +433,12 @@ class Transcript:
         self.finalize()  # Necessary to sort the exons
         if format_name in ("bed", "bed12"):
             lines = [create_lines_bed(self)]
-        elif format_name == "gtf":
-            lines = create_lines_cds(self, to_gtf=True, with_introns=with_introns,
-                                     first_phase=self._first_phase)
         else:
-            lines = create_lines_cds(self, to_gtf=False, with_introns=with_introns,
-                                     first_phase=self._first_phase)
+            to_gtf = (format_name == "gtf")
+            if with_cds is True:
+                lines = create_lines_cds(self, to_gtf=to_gtf, with_introns=with_introns)
+            else:
+                lines = create_lines_no_cds(self, to_gtf=to_gtf)
 
         return "\n".join(lines)
 
@@ -528,16 +535,20 @@ class Transcript:
         assert self.combined_utr == self.three_utr == self.five_utr == [], (
             self.combined_utr, self.three_utr, self.five_utr, self.start, self.end)
 
-    def strip_cds(self):
+    def strip_cds(self, strand_specific=True):
         """Method to completely remove CDS information from a transcript.
         Necessary for those cases where the input is malformed."""
 
         self.logger.warning("Stripping CDS from {0}".format(self.id))
         self.finalized = False
         assert len(self.exons) > 0
+        if self.monoexonic is True and strand_specific is False:
+            self.strand = None
+
         self.combined_cds = []
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
+        self.selected_internal_orf_index = None
         self.combined_utr = []
         self.segments = []
         self.internal_orfs = []
@@ -871,6 +882,27 @@ class Transcript:
         return self.get_available_metrics()
 
     @property
+    def name(self):
+
+        if "Name" not in self.attributes:
+            keys = [_ for _ in self.attributes.keys() if _.lower() == "name"]
+            if len(keys) > 0:
+                self.name = self.attributes[keys[0]]
+                for key in keys:
+                    del self.attributes[key]
+            else:
+                self.name = None
+        return self.attributes["Name"]
+
+    @name.setter
+    def name(self, name):
+        if not isinstance(name, (type(None), str)):
+            raise ValueError("Invalid name: {0}".format(name))
+
+        self.attributes["Name"] = name
+
+
+    @property
     def strand(self):
         """
         Strand of the transcript. One of None, "-", "+"
@@ -906,7 +938,7 @@ class Transcript:
         # Non-sense to calculate the maximum CDS for transcripts without it
         if len(self.combined_cds) == 0:
             self.__max_internal_orf_length = 0
-            self.selected_internal_orf_index = 0
+            self.selected_internal_orf_index = None
             return tuple([])
         else:
             assert self.selected_internal_orf_index is not None
@@ -1204,10 +1236,7 @@ class Transcript:
         for the transcript. If no CDS is defined, it defaults
         to the transcript end."""
         if len(self.combined_cds) == 0:
-            if self.strand == "+":
-                return self.end
-            else:
-                return self.start
+            return None
         if self.strand == "-":
             return self.combined_cds[0][0]
         else:
@@ -1246,10 +1275,22 @@ class Transcript:
 
         if len(self.combined_cds) == 0:
             return None
+
         if self.strand == "-":
             return self.selected_cds[0][0]
         else:
-            return self.selected_cds[-1][1]
+            try:
+                return self.selected_cds[-1][1]
+            except IndexError as exc:
+                self.logger.exception(
+                    "{0}, selected CDS: {1}, combined CDS: {2}, \
+index {3}, internal ORFs: {4}".format(
+                        exc,
+                        self.selected_cds,
+                        self.combined_cds,
+                        self.selected_internal_orf_index,
+                        self.internal_orfs))
+                raise
 
     @property
     def monoexonic(self):
@@ -1424,9 +1465,10 @@ class Transcript:
             self.__max_internal_orf_length = 0
         else:
             self.__max_internal_orf_length = sum(
-                x[1].length() + 1 for x in self.selected_internal_orf if x[0] == "CDS")
-            assert self.__max_internal_orf_length % 3 == 0, (self.__max_internal_orf_length,
-                                                             self.selected_internal_orf)
+                _[1].length() + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
+            phase = sum(self.phases[self.selected_internal_orf_index]) % 3
+            assert (self.__max_internal_orf_length + phase) % 3 == 0, (
+                self.__max_internal_orf_length, self.selected_internal_orf)
 
         return self.__max_internal_orf_length
 
@@ -1461,7 +1503,11 @@ class Transcript:
         """This property returns the maximum number of CDS segments
         among the ORFs; this number can refer to an ORF *DIFFERENT*
         from the maximal ORF."""
+        if len(self.internal_orfs) == 0:
+            return 0
+
         cds_numbers = []
+
         for cds in self.internal_orfs:
             cds_numbers.append(sum(1 for segment in cds if segment[0] == "CDS"))
             # len(list(filter(lambda x: x[0] == "CDS", cds))))
@@ -1697,20 +1743,25 @@ class Transcript:
         """This property returns the distance of the end of the best CDS
         from the transcript end site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.combined_cds) == 0:
+        if self.is_coding is False:
             return 0
+
         distance = 0
-        if self.strand == "-":
-            for exon in self.exons:
-                distance += min(exon[1], self.selected_cds_end - 1) - exon[0] + 1
-                if self.selected_cds_end <= exon[1]:
-                    break
-        elif self.strand == "+" or self.strand is None:
-            exons = reversed(list(self.exons[:]))
-            for exon in exons:
-                distance += exon[1] + 1 - max(self.selected_cds_end + 1, exon[0])
-                if self.selected_cds_end >= exon[0]:
-                    break
+        if self.strand == "+":
+            # Case 1: the stop is after the latest junction
+            for exon in sorted([_ for _ in self.exons
+                                if _[1] > self.selected_cds_end]):
+                if exon[0] <= self.selected_cds_end <= exon[1]:
+                    distance += exon[1] - self.selected_cds_end
+                else:
+                    distance += exon[1] - exon[0] + 1
+        elif self.strand == "-":
+            for exon in sorted([_ for _ in self.exons
+                                if _[0] < self.selected_cds_end], reverse=True):
+                if exon[0] <= self.selected_cds_end <= exon[1]:
+                    distance += self.selected_cds_end - exon[0]  # Exclude end
+                else:
+                    distance += exon[1] - exon[0] + 1
         return distance
 
     @Metric
@@ -1721,75 +1772,97 @@ class Transcript:
         If the transcript is not coding or there is no junction downstream of
         the stop codon, the metric returns 0."""
 
-        if len(self.combined_cds) == 0 or self.exon_num == 1:
+        if self.monoexonic is True or self.is_coding is False:
             return 0
+
+        self.finalize()
+        distance = 0
         if self.strand == "+":
             # Case 1: the stop is after the latest junction
             if self.selected_cds_end > max(self.splices):
-                return 0
+                pass
             else:
-                return min([splice for splice in self.splices if
-                            splice > self.selected_cds_end]) - self.selected_cds_end
-                # return min(list(filter(lambda s: s > self.selected_cds_end,
-                #                        self.splices))) -
+                for exon in sorted([_ for _ in self.exons
+                                    if _[1] > self.selected_cds_end])[:-1]:
+                    if exon[0] <= self.selected_cds_end <= exon[1]:
+                        distance += exon[1] - self.selected_cds_end  # Exclude end
+                    else:
+                        distance += exon[1] - exon[0] + 1
         elif self.strand == "-":
             if self.selected_cds_end < min(self.splices):
-                return 0
+                pass
             else:
-                return self.selected_cds_end - max([splice for splice in self.splices if
-                                                    splice < self.selected_cds_end])
-                # return self.selected_cds_end - max(list(
-                #     filter(lambda s: s < self.selected_cds_end,
-                #            self.splices)))
+                for exon in sorted([_ for _ in self.exons
+                                    if _[0] < self.selected_cds_end], reverse=True)[:-1]:
+                    if exon[0] <= self.selected_cds_end <= exon[1]:
+                        distance += self.selected_cds_end - exon[0]  # Exclude end
+                    else:
+                        distance += exon[1] - exon[0] + 1
+        return distance
 
     @Metric
     def end_distance_from_junction(self):
-        """This metric returns the distance between the stop codon and
-        the nearest downstream junction.
+        """This metric returns the cDNA distance between the stop codon and
+        the last junction in the transcript.
         In many eukaryotes, this distance cannot exceed 50-55 bps
         otherwise the transcript becomes a target of NMD.
         If the transcript is not coding or there is no junction downstream
         of the stop codon, the metric returns 0.
         This metric considers the combined CDS end."""
 
-        if len(self.combined_cds) == 0 or self.exon_num == 1:
+        if self.monoexonic is True or self.is_coding is False:
             return 0
+
+        distance = 0
+        self.finalize()
         if self.strand == "+":
             # Case 1: the stop is after the latest junction
             if self.combined_cds_end > max(self.splices):
-                return 0
+                pass
             else:
-                return min([splice for splice in self.splices if
-                            splice > self.combined_cds_end]) - self.combined_cds_end
-                # return min(list(filter(
-                #     lambda s: s > self.combined_cds_end, self.splices))) - self.combined_cds_end
+                for exon in sorted([_ for _ in self.exons
+                                    if _[1] > self.combined_cds_end])[:-1]:
+                    if exon[0] <= self.combined_cds_end <= exon[1]:
+                        distance += exon[1] - self.combined_cds_end
+                    else:
+                        distance += exon[1] - exon[0] + 1
         elif self.strand == "-":
             if self.combined_cds_end < min(self.splices):
-                return 0
+                pass
             else:
-                return self.combined_cds_end - max([
-                    splice for splice in self.splices if
-                    splice < self.combined_cds_end])
+                for exon in sorted([_ for _ in self.exons
+                                    if _[0] < self.combined_cds_end], reverse=True)[:-1]:
+                    if exon[0] <= self.combined_cds_end <= exon[1]:
+                        distance += self.combined_cds_end - exon[0]  # Exclude end
+                    else:
+                        distance += exon[1] - exon[0] + 1
+        return distance
 
     @Metric
     def end_distance_from_tes(self):
         """This property returns the distance of the end of the combined CDS
         from the transcript end site.
         If no CDS is defined, it defaults to 0."""
-        if len(self.internal_orfs) < 2:
-            return self.selected_end_distance_from_tes
+
+        if self.is_coding is False:
+            return 0
+
         distance = 0
-        if self.strand == "-":
-            for exon in self.exons:
-                distance += min(exon[1], self.combined_cds_end - 1) - exon[0] + 1
-                if self.combined_cds_end <= exon[1]:
-                    break
-        elif self.strand == "+" or self.strand is None:
-            exons = reversed(list(self.exons[:]))
-            for exon in exons:
-                distance += exon[1] + 1 - max(self.combined_cds_end + 1, exon[0])
-                if self.combined_cds_end >= exon[0]:
-                    break
+        if self.strand == "+":
+            # Case 1: the stop is after the latest junction
+            for exon in sorted([_ for _ in self.exons
+                                if _[1] > self.combined_cds_end]):
+                if exon[0] <= self.combined_cds_end <= exon[1]:
+                    distance += exon[1] - self.combined_cds_end
+                else:
+                    distance += exon[1] - exon[0] + 1
+        elif self.strand == "-":
+            for exon in sorted([_ for _ in self.exons
+                                if _[0] < self.combined_cds_end], reverse=True):
+                if exon[0] <= self.combined_cds_end <= exon[1]:
+                    distance += self.combined_cds_end - exon[0]  # Exclude end
+                else:
+                    distance += exon[1] - exon[0] + 1
         return distance
 
     @Metric

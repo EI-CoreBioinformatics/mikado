@@ -180,7 +180,7 @@ class GffLine(GFAnnotation):
         """
 
         if "Name" not in self.attributes:
-            self.name = self.id
+            self.name = None
         return self.attributes["Name"]
 
     @name.setter
@@ -208,18 +208,6 @@ class GffLine(GFAnnotation):
             return False
         if self.feature.endswith("transcript") or "RNA" in self.feature.upper():
             return True
-        return False
-
-    @property
-    def is_gene(self):
-        """
-        Property. True if the feature ends with "gene" and has no parents.
-        :rtype bool
-        """
-
-        if self.feature is not None:
-            if self.feature.endswith("gene") and self.feature != "mRNA_TE_gene":
-                return True
         return False
 
     @property

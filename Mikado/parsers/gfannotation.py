@@ -214,6 +214,18 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             raise ValueError("Invalid phase: {0}".format(value))
 
     @property
+    def is_gene(self):
+        """
+        Property. True if the feature ends with "gene" and has no parents.
+        :rtype bool
+        """
+
+        if self.feature is not None:
+            if self.feature.endswith("gene") and self.feature != "mRNA_TE_gene":
+                return True
+        return False
+
+    @property
     def is_exon(self):
         """
         Property. True if the feature is CDS/exon/UTR/start or stop codon.

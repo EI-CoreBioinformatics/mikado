@@ -10,6 +10,7 @@ import operator
 from .transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
+from ..parsers.GTF import GtfLine
 
 
 class Gene:
@@ -27,9 +28,18 @@ class Gene:
         self.set_logger(logger)
         self.__introns = None
         self.exception_message = ''
+        self.chrom, self.source, self.start, self.end, self.strand = [None] * 5
 
         if transcr is not None:
-            assert isinstance(transcr, Transcript)
+            if isinstance(transcr, Transcript):
+                self.transcripts[transcr.id] = transcr
+                self.id = transcr.parent[0]
+            elif isinstance(transcr, GffLine):
+                assert transcr.is_gene is True
+                self.id = transcr.id
+            elif isinstance(transcr, GtfLine):
+                self.id = transcr.gene
+
             self.chrom, self.source, self.start, self.end, self.strand = (transcr.chrom,
                                                                           transcr.source,
                                                                           transcr.start,
@@ -39,8 +49,6 @@ class Gene:
 
         if gid is not None:
             self.id = gid
-        elif transcr is not None:
-            self.id = transcr.parent[0]
 
     def set_logger(self, logger):
         """
@@ -103,6 +111,18 @@ class Gene:
                 raise
         for k in to_remove:
             del self.transcripts[k]
+        __new_start = min(_.start for _ in self)
+
+        if __new_start != self.start:
+            self.logger.warning("Resetting the start for %s from %d to %d",
+                                self.id, self.start, __new_start)
+            self.start = __new_start
+
+        __new_end = max(_.end for _ in self)
+        if __new_end != self.end:
+            self.logger.warning("Resetting the end for %s from %d to %d",
+                                self.id, self.end, __new_end)
+            self.end = __new_end
 
     def as_dict(self):
 
@@ -163,8 +183,11 @@ class Gene:
         self.start = min(self.transcripts[tid].start for tid in self.transcripts)
         self.end = max(self.transcripts[tid].end for tid in self.transcripts)
 
-    def __str__(self):
+    def __repr__(self):
         return " ".join(self.transcripts.keys())
+
+    def __str__(self):
+        return self.format("gff3")
 
     def __iter__(self) -> Transcript:
         """Iterate over the transcripts attached to the gene."""

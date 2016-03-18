@@ -186,16 +186,17 @@ def __verify_boundaries(transcript):
 
             if (transcript.exons[0][0] != transcript.start or
                     transcript.exons[-1][1] != transcript.end):
-                raise InvalidTranscript(
+                transcript.logger.warning(
                     """The transcript {id} has coordinates {tstart}:{tend},
                 but its first and last exons define it up until {estart}:{eend}!
-                Exons: {exons}
-                """.format(id=transcript.id,
-                           tstart=transcript.start,
-                           tend=transcript.end,
-                           estart=transcript.exons[0][0],
-                           eend=transcript.exons[-1][1],
-                           exons=transcript.exons))
+                Exons: {exons}""".format(
+                        id=transcript.id,
+                        tstart=transcript.start,
+                        tend=transcript.end,
+                        estart=transcript.exons[0][0],
+                        eend=transcript.exons[-1][1],
+                        exons=transcript.exons))
+
     except IndexError as err:
         raise InvalidTranscript(
             err, transcript.id, str(transcript.exons))
@@ -355,7 +356,10 @@ def finalize(transcript):
         # Mix and sort
         transcript.segments = sorted(transcript.segments, key=operator.itemgetter(1, 0))
         # Add to the store as a single entity
-        transcript.internal_orfs = [transcript.segments]
+        if any(_[0] == "CDS" for _ in transcript.segments):
+            transcript.internal_orfs = [transcript.segments]
+        else:
+            transcript.selected_internal_orf_index = None
     else:
         assert len(transcript.internal_orfs) > 0
 
@@ -368,12 +372,31 @@ def finalize(transcript):
     if len(transcript.combined_cds) > 0:
         transcript.selected_internal_orf_index = 0
         # pylint: disable=protected-access
-        if len(transcript.phases) > 0:
-            transcript._first_phase = sorted(transcript.phases, key=operator.itemgetter(0),
-                                             reverse=(transcript.strand == "-"))[0][1]
-        else:
-            transcript._first_phase = 0
-        # pylint: enable=protected-access
+        if len(transcript.phases) != len(transcript.internal_orfs):
+            transcript.phases = []
+            for internal_orf in transcript.internal_orfs:
+                total = 0
+                internal_orf = sorted([_ for _ in internal_orf if _[0] == "CDS"],
+                                      key=operator.itemgetter(1),
+                                      reverse=(transcript.strand == "-"))
+                previous = 0
+                phase_orf = []
+                for segment in internal_orf:
+                    phase = (3 - (previous % 3)) % 3
+                    phase_orf.append(phase)
+                    previous = segment[1].length() + 1
+                    total += previous
+                phase_orf.append((3 - (previous % 3)) % 3)
+                if (total + sum(phase_orf) % 3) % 3 != 0:
+                    exception = "{id}: {total}, phase {phase}, phases {phases}".format(
+                        id=transcript.id,
+                        phase=sum(phase_orf) % 3,
+                        phases=phase_orf)
+                    raise InvalidCDS(exception)
+
+                transcript.phases.append(phase_orf)
+
+
 
     # Necessary to set it to the default value
     _ = transcript.selected_internal_orf
@@ -385,11 +408,21 @@ def finalize(transcript):
         transcript.feature = "transcript"
 
     __verify_boundaries(transcript)
-    try:
-        assert transcript.selected_cds_length >= 0
-    except AssertionError as _:
-        transcript.logger.warning("%s has an invalid CDS; removing it.", transcript.id)
-        transcript.strip_cds()
+    # try:
+    #     if transcript.selected_internal_orf_index is not None:
+    #         __max_internal_orf_length = sum(
+    #             _[1].length() + 1 for _ in transcript.selected_internal_orf
+    #             if _[0] == "CDS")
+    #         __phase = sum(transcript.phases[transcript.selected_internal_orf_index]) % 3
+    #         assert (__max_internal_orf_length + __phase) % 3 == 0, (
+    #             transcript.selected_internal_orf,
+    #             __max_internal_orf_length, __phase, transcript.phases
+    #         )
+    #
+    # except AssertionError as _:
+    #     transcript.logger.warning("%s has an invalid CDS; removing it. Exception: %s",
+    #                               transcript.id, _)
+    #     transcript.strip_cds()
 
     if len(transcript.combined_cds) == 0:
         transcript.selected_internal_orf_cds = tuple([])

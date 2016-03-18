@@ -105,6 +105,12 @@ def setup(args):
     if args.lenient is not None:
         args.json_conf["prepare"]["lenient"] = True
 
+    if args.strand_specific is True:
+        args.json_conf["prepare"]["strand_specific"] = True
+
+    if args.strip_cds is True:
+        args.json_conf["prepare"]["strip_cds"] = True
+
     return args, logger
 
 

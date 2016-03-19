@@ -446,6 +446,8 @@ class Accountant:
                 bases[2] += len(curr_ref_bases)
 
         # result_dictionary["bases"] = dict()
+
+        assert bases[0] < min(bases[1], bases[2]), bases
         result_dictionary["bases"] = bases
         result_dictionary["exons"]["stringent"] = exon_stringent
         result_dictionary["exons"]["lenient"] = exon_lenient
@@ -721,9 +723,9 @@ class Accountant:
 
         self.logger.debug(
             """Bases:
-            \treference\t%d
+            \tcommon\t%d
             \tprediction\t%d
-            \tcommon\t%d""",
+            \treference\t%d""",
             *bases_exon_result["bases"])
 
         bases_prec, bases_recall, bases_f1 = self.__calculate_statistics(

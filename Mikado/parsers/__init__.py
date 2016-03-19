@@ -89,3 +89,18 @@ from . import GTF
 from . import bed12
 # noinspection PyPep8
 from . import blast_utils
+
+
+def to_gff(string):
+    """
+    Function to recognize the input file type (GFF or GTF).
+    :param string:
+    :type string: str
+    """
+    handle = open(string)
+    if string.endswith("gtf"):
+        return GTF.GTF(handle)
+    elif string.endswith('gff') or string.endswith('gff3'):
+        return GFF.GFF3(handle)
+    else:
+        raise ValueError('Unrecognized format')

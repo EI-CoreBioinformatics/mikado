@@ -37,7 +37,9 @@ class GtfLine(GFAnnotation):
 
     def __init__(self, line, my_line='', header=False):
 
+        self.frame = None
         GFAnnotation.__init__(self, line, my_line, header=header)
+        self.frame = self.__phase  # Reset the phase
 
     def _parse_attributes(self):
         """
@@ -324,19 +326,61 @@ class GtfLine(GFAnnotation):
         :return:
         """
 
-        return self.phase
+        return self.__frame
 
     @frame.setter
     def frame(self, value):
         """
         Setter for the frame.
         :param value: the new frame. One of None, 0, 1, 2.
-        :type value: (None | int)
+        :type value: (None | int | str)
         :return:
         """
 
-        assert value in (None, 0, 1, 2)
-        self.phase = value
+        if isinstance(value, str):
+            if value.isdigit() is True:
+                value = int(value)
+                if value not in (0, 1, 2):
+                    raise ValueError(value)
+                self.__frame = value
+                self.__phase = (3 - value) % 3
+            else:
+                if value not in (".", "?"):
+                    raise ValueError(value)
+                self.__phase = self.__frame = None
+        elif value is None:
+            self.__frame = self.__phase = None
+        elif isinstance(value, int):
+            if value not in (0, 1, 2):
+                raise ValueError(value)
+            self.__frame = value
+            self.__phase = (3 - value) % 3
+
+    @property
+    def phase(self):
+        return self.__phase
+
+    @phase.setter
+    def phase(self, value):
+        if isinstance(value, str):
+            if value.isdigit() is True:
+                value = int(value)
+                if value not in (0, 1, 2):
+                    raise ValueError(value)
+                self.__phase = value
+                self.__frame = (3 - value) % 3
+            else:
+                if value not in (".", "?"):
+                    raise ValueError(value)
+                value = None
+                self.__phase = self.__frame = None
+        elif value is None:
+            self.__frame = self.__phase = None
+        elif isinstance(value, int):
+            if value not in (0, 1, 2):
+                raise ValueError(value)
+            self.__phase = value
+            self.__frame = (3 - value) % 3
 
 
 class GTF(Parser):

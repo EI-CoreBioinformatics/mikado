@@ -14,7 +14,10 @@ import intervaltree
 __author__ = 'Luca Venturini'
 
 
-def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False, with_introns=False):
+def __create_cds_lines(transcript,
+                       cds_run,
+                       tid,
+                       to_gtf=False, with_introns=False):
 
     """
     Private method to create the exon/UTR/CDS lines for printing
@@ -42,27 +45,29 @@ def __create_cds_lines(transcript, cds_run, tid, first_phase=0, to_gtf=False, wi
         cds_run = cds_run[:]
         for intron in transcript.introns:
             cds_run.append(("intron", intron))
-        cds_run = sorted(cds_run, key=lambda segment: (segment[1][0],
-                                                       segment[1][1],
-                                                       segment[0]))
+
+    cds_run = sorted(cds_run, key=lambda segment: (segment[1][0],
+                                                   segment[0].lower()))
 
     for segment in cds_run:
-
-        exon_line, counter, cds_begin = line_creator(segment,
-                                                     counter,
-                                                     cds_begin)
+        try:
+            exon_line, counter, cds_begin = line_creator(segment,
+                                                         counter,
+                                                         cds_begin)
+        except IndexError:
+            raise IndexError(cds_run)
         assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
         assert exon_line.end <= transcript.end
         exon_lines.append(exon_line)
 
-    if to_gtf is False:
-        exon_lines = [exon_line for exon_line in
-                      __add_phase(transcript, exon_lines, first_phase=first_phase)]
-    else:
-        exon_lines = [exon_line for exon_line in
-                      __add_frame(transcript, exon_lines, first_phase=first_phase)]
+    # if to_gtf is False:
+    #     exon_lines = [exon_line for exon_line in
+    #                   __add_phase(transcript, exon_lines, first_phase=first_phase)]
+    # else:
+    #     exon_lines = [exon_line for exon_line in
+    #                   __add_frame(transcript, exon_lines, first_phase=first_phase)]
 
-    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), exon_lines
+    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
 
     return [str(line) for line in exon_lines]
 
@@ -103,6 +108,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 
     assert segment[0] in ("UTR", "CDS", "exon", "intron"), segment
 
+    phase = None
     if segment[0] == "UTR":
         if (cds_begin is True and transcript.strand == "-") or \
                 (transcript.strand == "+" and cds_begin is False):
@@ -118,6 +124,10 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         counter.update(["CDS"])
         index = counter["CDS"]
         feature = "CDS"
+        try:
+            phase = segment[2]
+        except IndexError:
+            raise IndexError(segment)
     else:
         counter.update([segment[0]])
         index = counter[segment[0]]
@@ -129,7 +139,8 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 
     exon_line.feature = feature
     exon_line.start, exon_line.end = segment[1][0], segment[1][1]
-    exon_line.phase = None
+    exon_line.phase = phase
+
     exon_line.score = None
     if to_gtf is True:
         # noinspection PyPropertyAccess
@@ -142,7 +153,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 # pylint: enable=too-many-arguments
 
 
-def create_lines_cds(transcript, to_gtf=False, first_phase=0, with_introns=False):
+def create_lines_cds(transcript, to_gtf=False, with_introns=False):
 
     """
     Method to create the GTF/GFF lines for printing in the presence of CDS information.
@@ -166,37 +177,39 @@ def create_lines_cds(transcript, to_gtf=False, first_phase=0, with_introns=False
     transcript_counter = 0
 
     parent_line = constructor(None)
-    for index in range(len(transcript.internal_orfs)):
-        if transcript.number_internal_orfs > 1:
-            transcript_counter += 1
-            tid = "{0}.orf{1}".format(transcript.id, transcript_counter)
+    if transcript.is_coding is False:
+        lines = create_lines_no_cds(transcript, to_gtf=to_gtf)
+    else:
+        for index, cds_run in enumerate(transcript.internal_orfs):
+            if transcript.number_internal_orfs > 1:
+                transcript_counter += 1
+                tid = "{0}.orf{1}".format(transcript.id, transcript_counter)
 
-            if index == transcript.selected_internal_orf_index:
-                transcript.attributes["maximal"] = True
+                if index == transcript.selected_internal_orf_index:
+                    transcript.attributes["maximal"] = True
+                else:
+                    transcript.attributes["maximal"] = False
             else:
-                transcript.attributes["maximal"] = False
-        else:
-            tid = transcript.id
-        cds_run = transcript.internal_orfs[index]
+                tid = transcript.id
+            cds_run = transcript.internal_orfs[index]
 
-        for attr in ["chrom", "source", "feature", "start", "end",
-                     "score", "strand", "attributes", "parent"]:
-            setattr(parent_line, attr, getattr(transcript, attr))
+            for attr in ["chrom", "source", "feature", "start", "end",
+                         "score", "strand", "attributes", "parent"]:
+                setattr(parent_line, attr, getattr(transcript, attr))
 
-        parent_line.phase = '.'
+            parent_line.phase = '.'
 
-        parent_line.id = tid
-        parent_line.name = transcript.id
+            parent_line.id = tid
+            parent_line.name = transcript.id
 
-        exon_lines = __create_cds_lines(transcript,
-                                        cds_run,
-                                        tid,
-                                        first_phase=first_phase,
-                                        to_gtf=to_gtf,
-                                        with_introns=with_introns)
+            exon_lines = __create_cds_lines(transcript,
+                                            cds_run,
+                                            tid,
+                                            to_gtf=to_gtf,
+                                            with_introns=with_introns)
 
-        lines.append(str(parent_line))
-        lines.extend(exon_lines)
+            lines.append(str(parent_line))
+            lines.extend(exon_lines)
     return lines
 
 
@@ -331,7 +344,8 @@ def create_lines_no_cds(transcript,
 
     parent_line.phase = '.'
     parent_line.id = transcript.id
-    parent_line.name = transcript.id
+
+    parent_line.name = transcript.name
 
     lines = [str(parent_line)]
     exon_lines = []
@@ -351,6 +365,7 @@ def create_lines_no_cds(transcript,
 
         exon_line.id = "{0}.{1}{2}".format(transcript.id, "exon", exon_count)
         exon_line.parent = transcript.id
+        exon_line.name = transcript.name
         exon_lines.append(str(exon_line))
 
     lines.extend(exon_lines)

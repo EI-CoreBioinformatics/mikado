@@ -10,6 +10,7 @@ from Mikado.loci.transcript_methods.finalizing import _check_cdna_vs_utr
 import intervaltree
 import Mikado.parsers
 import Mikado.loci
+from Mikado.loci import Transcript
 import Mikado.exceptions
 import operator
 # from Mikado.py.serializers.orf import Orf
@@ -18,10 +19,7 @@ from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 
 class TranscriptTester(unittest.TestCase):
     tr_gff = """Chr1    TAIR10    mRNA    5928    8737    .    .    .    ID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1;Index=1
-Chr1    TAIR10    three_prime_UTR    8667    8737    .    .    .    Parent=AT1G01020.1
-Chr1    TAIR10    CDS    8571    8666    .    .    0    Parent=AT1G01020.1;
-Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1
-Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01020.1"""
+Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
 
     tr_lines = tr_gff.split("\n")
     for pos, line in enumerate(tr_lines):
@@ -39,9 +37,18 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0])
+        self.tr = Transcript()
         self.tr.logger = self.logger
-        self.tr.add_exons(self.tr_gff_lines[1:])
+        self.tr.chrom = "Chr1"
+        self.tr.source = "TAIR10"
+        self.tr.feature = "mRNA"
+        self.tr.start = 5928
+        self.tr.end = 8737
+        self.tr.strand = "+"
+        self.tr.add_exon((5928, 8737))
+        self.tr.score = None
+        self.tr.id, self.tr.parent, self.tr.name = "AT1G01020.1", "AT1G01020", "AT1G01020.1"
+        self.tr.add_exon((8571, 8666), "CDS")
         self.tr.finalize()
 
         self.orf = Mikado.parsers.bed12.BED12()
@@ -51,8 +58,8 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         self.orf.name = self.tr.id
         self.orf.strand = "+"
         self.orf.score = 0
-        self.orf.thick_start = self.tr.selected_start_distance_from_tss + 1
-        self.orf.thick_end = self.tr.cdna_length - self.tr.selected_end_distance_from_tes
+        self.orf.thick_start = 8571 - 5928 + 1
+        self.orf.thick_end = 8666 - 5928 + 1
         self.orf.block_count = 1
         self.orf.blockSize = self.tr.cdna_length
         self.orf.block_starts = 0
@@ -65,14 +72,11 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     def test_invalid_inizialization(self):
 
         with self.assertRaises(TypeError):
-            _ =  Mikado.loci.Transcript(self.tr_lines[0])
-        with self.assertRaises(TypeError):
             _ =  Mikado.loci.Transcript(self.tr_gff_lines[1])
 
     def test_basics(self):
 
         self.assertEqual(self.tr.chrom, "Chr1")
-        self.assertEqual(self.tr.strand, None)
         self.assertEqual(self.tr.exon_num, 1)
         self.assertEqual(self.tr.monoexonic, True)
         self.assertEqual(self.tr.exon_num, len(self.tr.exons))
@@ -87,6 +91,7 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
         Note that in a single-exon transcript with no strand, start_codon and stop_codon are defined as False.
         """
 
+        self.tr.load_orfs([self.orf])
         self.assertEqual(self.tr.combined_cds, self.tr.selected_cds)
 
         self.assertEqual(self.tr.combined_cds,
@@ -94,8 +99,8 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 8571)
         self.assertEqual(self.tr.selected_cds_end, 8666)
-        self.assertEqual(self.tr.has_start_codon, False)
-        self.assertEqual(self.tr.has_stop_codon, False)
+        self.assertEqual(self.tr.has_start_codon, True)
+        self.assertEqual(self.tr.has_stop_codon, True)
 
     def test_equality(self):
 
@@ -103,13 +108,13 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
 
         self.assertTrue(new_transcript == self.tr)
 
-        new_transcript.strand = "+"
+        new_transcript.strand = None
         self.assertFalse(new_transcript == self.tr)  # They have now a different strand
 
         new_transcript.finalized = False
         new_transcript.strand = "+"  # It becomes a multiexonic transcript, so it must have a strand
         new_transcript.end = 9737
-        new_exon = Mikado.parsers.GFF.GffLine(self.tr_lines[-2])
+        new_exon = Mikado.parsers.GFF.GffLine(self.tr_lines[-1])
         new_exon.strand = "+"
         new_exon.start = 9000
         new_exon.end = 9737
@@ -121,12 +126,14 @@ Chr1    TAIR10    five_prime_UTR    5928    8570    .    -    .    Parent=AT1G01
     def test_mono_finalising(self):
 
         transcript_line = [line for line in self.tr_gff_lines if line.feature == "mRNA" ]
-        self.assertEqual(len(transcript_line), 1, "\n".join([str(line) for line in self.tr_gff_lines]))
+        self.assertEqual(len(transcript_line), 1,
+                         "\n".join([str(line) for line in self.tr_gff_lines]))
 
         tr = Mikado.loci.Transcript(transcript_line[0])
         exon_lines = [line for line in self.tr_gff_lines if
                       line.is_exon is True and "UTR" not in line.feature.upper()]
         tr.add_exons(exon_lines)
+        tr.add_exon((8571, 8666), "CDS")
 
         tr.finalize()
         self.assertGreater(tr.three_utr_length, 0)
@@ -176,8 +183,12 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertEqual(self.tr.three_utr_num, 1)
         self.assertEqual(self.tr.five_utr_length, 8570 + 1 - 5928)
         self.assertEqual(self.tr.three_utr_length, 8737 + 1 - 8667)
-        self.assertEqual(self.tr.selected_start_distance_from_tss, 8571 - 5928, self.tr.selected_end_distance_from_tes)
-        self.assertEqual(self.tr.selected_end_distance_from_tes, 8737 - 8666, self.tr.selected_end_distance_from_tes)
+        self.assertEqual(self.tr.selected_start_distance_from_tss,
+                         8571 - 5928,
+                         self.tr.selected_end_distance_from_tes)
+        self.assertEqual(self.tr.selected_end_distance_from_tes,
+                         8737 - 8666,
+                         (self.tr.selected_end_distance_from_tes, self.tr.strand))
 
     def test_strip_cds(self):
 
@@ -203,26 +214,12 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
                          self.tr.combined_cds)
         self.assertEqual(self.tr.combined_utr, [], self.tr.combined_utr)
 
-    def test_load_orf(self):
-
-        """Test for loading a single ORF. We strip the CDS and reload it."""
-
-        self.tr.strip_cds()
-        self.tr.load_orfs([self.orf])
-        self.assertEqual(self.tr.combined_cds,
-                         [intervaltree.Interval(8571, 8666)],
-                         self.tr.combined_cds)
-        self.assertEqual(self.tr.selected_cds_start, 8571)
-        self.assertEqual(self.tr.selected_cds_end, 8666)
-        self.assertEqual(self.tr.has_start_codon, True)
-        self.assertEqual(self.tr.has_stop_codon, True)
-
     def test_negative_orf(self):
         """Test loading a negative strand ORF onto a monoexonic transcript.
         This should reverse the ORF."""
 
         self.orf.strand = "-"
-        self.tr.strip_cds()
+        self.tr.strip_cds(strand_specific=False)
         self.orf.has_stop_codon = False
         self.tr.load_orfs([self.orf])
         self.assertEqual(self.tr.strand, "-")
@@ -272,6 +269,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         first_orf.has_stop_codon = True
         first_orf.transcriptomic = True
         self.assertFalse(first_orf.invalid)
+
         # This should not be incorporated
         second_orf = Mikado.parsers.bed12.BED12()
         second_orf.chrom = self.tr.id
@@ -324,8 +322,6 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
 
         candidates = [first_orf, second_orf, third_orf]
 
-        # self.assertEqual(len(Mikado.py.loci.transcript.Transcript.find_overlapping_cds(candidates)), 2)
-
         self.tr.logger = self.logger
 
         self.tr.load_orfs([first_orf])
@@ -336,12 +332,14 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
 
         self.assertTrue(self.tr.is_complete)
         self.tr.finalize()
-        self.assertEqual(self.tr.number_internal_orfs, 2, (
-            self.tr.cdna_length, self.tr.selected_start_distance_from_tss, self.tr.selected_end_distance_from_tes))
+        self.assertEqual(self.tr.number_internal_orfs, 2,
+                         (self.tr.cdna_length, self.tr.selected_start_distance_from_tss,
+                          self.tr.selected_end_distance_from_tes))
 
         self.assertEqual(self.tr.combined_cds_length, 648)
         self.assertEqual(self.tr.selected_cds_length, 348)
-        self.assertEqual(self.tr.number_internal_orfs, 2, "\n".join([str(x) for x in self.tr.internal_orfs]))
+        self.assertEqual(self.tr.number_internal_orfs, 2,
+                         "\n".join([str(x) for x in self.tr.internal_orfs]))
 
         new_transcripts = sorted(self.tr.split_by_cds())
 
@@ -475,7 +473,11 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertFalse(orf.invalid)
 
         self.tr.logger = self.logger
-        with self.assertLogs("null", level="WARNING") as cm_out:
+        self.tr.strip_cds()
+        self.tr.strand = "+"
+        self.logger.setLevel("DEBUG")
+        # self.tr.load_orfs([orf])
+        with self.assertLogs("null", level="DEBUG") as cm_out:
             self.tr.load_orfs([orf])
 
         self.assertFalse(self.tr.is_coding)

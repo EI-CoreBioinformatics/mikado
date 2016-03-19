@@ -7,8 +7,8 @@ import os
 import functools
 from . import dbutils
 from . import log_utils
-from ..parsers import GTF, GFF
 import collections
+from ..parsers import to_gff
 from itertools import zip_longest
 from .overlap import c_overlap, c_overlap_positive
 
@@ -51,21 +51,6 @@ def memoize(obj):
             cache[key] = obj(*args, **kwargs)
         return cache[key]
     return memoizer
-
-
-def to_gff(string):
-    """
-    Function to recognize the input file type (GFF or GTF).
-    :param string:
-    :type string: str
-    """
-    handle = open(string)
-    if string.endswith("gtf"):
-        return GTF.GTF(handle)
-    elif string.endswith('gff') or string.endswith('gff3'):
-        return GFF.GFF3(handle)
-    else:
-        raise ValueError('Unrecognized format')
 
 
 def merge_partial(filenames, handle):

@@ -94,18 +94,19 @@ class MonoBaseTester(unittest.TestCase):
 
     def test_print(self):
 
+        self.tr.logger = self.logger
         self.tr.finalize()
         self.maxDiff = None
 
-        real_printed = """Chr5\tStringTie\ttranscript\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4
+        real_printed = """Chr5\tStringTie\ttranscript\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4;Parent=StringTie_DN.70115
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.exon1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.exon2;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.exon3;Parent=StringTie_DN.70115.4"""
 
-        self.assertEqual(str(self.tr),
+        self.assertEqual(str(self.tr.format("gff3")),
                          real_printed)
 
-        real_printed_gtf = """Chr5\tStringTie\ttranscript\t22597965\t22602701\t1000\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";
+        real_printed_gtf = """Chr5\tStringTie\ttranscript\t22597965\t22602701\t1000\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";"""
@@ -125,8 +126,8 @@ Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"
         # self.bed1.thick_end = 3736
 
         real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4
-Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.five_prime_UTR1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.exon1;Parent=StringTie_DN.70115.4
+Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.five_prime_UTR1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\tCDS\t22598398\t22601700\t.\t+\t0\tID=StringTie_DN.70115.4.CDS1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\tthree_prime_UTR\t22601701\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.three_prime_UTR1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.exon2;Parent=StringTie_DN.70115.4
@@ -138,8 +139,8 @@ Chr5\tStringTie\tthree_prime_UTR\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.7
                          real_printed)
 
         real_printed_gtf = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";
-Chr5\tStringTie\t5UTR\t22597965\t22598397\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
+Chr5\tStringTie\t5UTR\t22597965\t22598397\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\tCDS\t22598398\t22601700\t.\t+\t0\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\t3UTR\t22601701\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
@@ -168,8 +169,8 @@ Chr5\tStringTie\t3UTR\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"
         # self.bed3.thick_end = 4393
         
         real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf1;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4;maximal=True
-Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.exon1;Parent=StringTie_DN.70115.4.orf1
+Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tCDS\t22598398\t22601700\t.\t+\t0\tID=StringTie_DN.70115.4.orf1.CDS1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tthree_prime_UTR\t22601701\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.three_prime_UTR1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.exon2;Parent=StringTie_DN.70115.4.orf1
@@ -179,8 +180,8 @@ Chr5\tStringTie\tthree_prime_UTR\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.7
 Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf2;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4;maximal=False
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon1;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tfive_prime_UTR\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf2
-Chr5\tStringTie\tfive_prime_UTR\t22601862\t22601956\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.five_prime_UTR2;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon2;Parent=StringTie_DN.70115.4.orf2
+Chr5\tStringTie\tfive_prime_UTR\t22601862\t22601956\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.five_prime_UTR2;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tCDS\t22601957\t22601957\t.\t+\t0\tID=StringTie_DN.70115.4.orf2.CDS1;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tCDS\t22602039\t22602517\t.\t+\t2\tID=StringTie_DN.70115.4.orf2.CDS2;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon3;Parent=StringTie_DN.70115.4.orf2
@@ -193,24 +194,26 @@ Chr5\tStringTie\tthree_prime_UTR\t22602518\t22602701\t.\t+\t.\tID=StringTie_DN.7
 
         self.maxDiff = None
         self.tr.load_orfs([self.bed1, self.bed3])
-        real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4
-Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.exon1;Parent=StringTie_DN.70115.4;Name=StringTie_DN.70115.4
-Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.exon2;Parent=StringTie_DN.70115.4;Name=StringTie_DN.70115.4
-Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.exon3;Parent=StringTie_DN.70115.4;Name=StringTie_DN.70115.4"""
+        real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4;Parent=StringTie_DN.70115
+Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.exon1;Parent=StringTie_DN.70115.4
+Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.exon2;Parent=StringTie_DN.70115.4
+Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.exon3;Parent=StringTie_DN.70115.4"""
 
-        self.assertEqual(self.tr.__str__(print_cds=False),
+        self.assertEqual(self.tr.format("gff3", with_cds=False),
                          real_printed)
 
-        real_printed_gtf = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";
-Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";
-Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";
-Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";"""
+        real_printed_gtf = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
+Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
+Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
+Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";"""
 
-        self.assertEqual(self.tr.__str__(to_gtf=True, print_cds=False),
+        self.assertEqual(self.tr.format("gtf", with_cds=False),
                          real_printed_gtf)
 
 
 class DrosoTester(unittest.TestCase):
+
+    logger = create_null_logger("droso")
 
     def setUp(self):
 
@@ -240,6 +243,7 @@ class DrosoTester(unittest.TestCase):
         ref_lines = [Mikado.parsers.GTF.GtfLine(line)
                      for line in filter(lambda x: x!='', ref_gtf.split("\n"))]
         self.ref = Mikado.loci.Transcript(ref_lines[0])
+        self.ref.logger = self.logger
         for l in ref_lines[1:]:
             self.ref.add_exon(l)
         self.ref.finalize()
@@ -418,15 +422,17 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.five_utr_length, 626780 + 1 - 626642 + 626877 + 1 - 626842)
         self.assertEqual(self.tr.three_utr_length, 628676 + 1 - 628570 + 629176 + 1 - 629070)
 
-        self.assertEqual(self.tr.selected_start_distance_from_tss, 626780 + 1 - 626642 + 626878 - 626842,
+        self.assertEqual(self.tr.selected_start_distance_from_tss,
+                         626780 + 1 - 626642 + 626878 - 626842,
                          self.tr.selected_end_distance_from_tes)
         self.assertEqual(self.tr.selected_start_distance_from_tss, self.tr.start_distance_from_tss)
 
-        self.assertEqual(self.tr.selected_end_distance_from_tes, 628676 - 628569 + 629176 + 1 - 629070,
+        self.assertEqual(self.tr.selected_end_distance_from_tes,
+                         628676 - 628569 + 629176 + 1 - 629070,
                          self.tr.selected_end_distance_from_tes)
         self.assertEqual(self.tr.selected_end_distance_from_tes, self.tr.end_distance_from_tes)
 
-        self.assertEqual(self.tr.selected_end_distance_from_junction, 628676 + 1 - 628569)
+        self.assertEqual(self.tr.selected_end_distance_from_junction, 628676 - 628569)
 
     def test_strip_cds(self):
 

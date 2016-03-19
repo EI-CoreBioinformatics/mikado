@@ -87,7 +87,7 @@ class MultOrfTester(unittest.TestCase):
 
     def test_restore(self):
         lines = """
-        Chr1    TAIR10    CDS    7762    7835    .    -    .    Parent=AT1G01020.1
+        Chr1    TAIR10    CDS    7762    7835    .    -    0    Parent=AT1G01020.1
         """
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']

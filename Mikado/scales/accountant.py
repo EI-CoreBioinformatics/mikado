@@ -809,7 +809,8 @@ class Accountant:
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Base level"),
                 bases_recall * 100,
-                bases_prec * 100, bases_f1 * 100), file=out)
+                bases_prec * 100,
+                bases_f1 * 100), file=out)
             print("{0} {1:.2f}  {2:.2f}  {3:.2f}".format(
                 self.__format_rowname("Exon level (stringent)"),
                 exon_stringent_recall * 100,

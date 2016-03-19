@@ -126,8 +126,8 @@ Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"
         # self.bed1.thick_end = 3736
 
         real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4
-Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.five_prime_UTR1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.exon1;Parent=StringTie_DN.70115.4
+Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.five_prime_UTR1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\tCDS\t22598398\t22601700\t.\t+\t0\tID=StringTie_DN.70115.4.CDS1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\tthree_prime_UTR\t22601701\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.three_prime_UTR1;Parent=StringTie_DN.70115.4
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.exon2;Parent=StringTie_DN.70115.4
@@ -139,8 +139,8 @@ Chr5\tStringTie\tthree_prime_UTR\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.7
                          real_printed)
 
         real_printed_gtf = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4"; Name "StringTie_DN.70115.4";
-Chr5\tStringTie\t5UTR\t22597965\t22598397\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
+Chr5\tStringTie\t5UTR\t22597965\t22598397\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\tCDS\t22598398\t22601700\t.\t+\t0\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\t3UTR\t22601701\t22601782\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tgene_id "StringTie_DN.70115"; transcript_id "StringTie_DN.70115.4";
@@ -169,8 +169,8 @@ Chr5\tStringTie\t3UTR\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"
         # self.bed3.thick_end = 4393
         
         real_printed = """Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf1;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4;maximal=True
-Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.exon1;Parent=StringTie_DN.70115.4.orf1
+Chr5\tStringTie\tfive_prime_UTR\t22597965\t22598397\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tCDS\t22598398\t22601700\t.\t+\t0\tID=StringTie_DN.70115.4.orf1.CDS1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\tthree_prime_UTR\t22601701\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.three_prime_UTR1;Parent=StringTie_DN.70115.4.orf1
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.orf1.exon2;Parent=StringTie_DN.70115.4.orf1
@@ -180,8 +180,8 @@ Chr5\tStringTie\tthree_prime_UTR\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.7
 Chr5\tStringTie\tmRNA\t22597965\t22602701\t1000\t+\t.\tID=StringTie_DN.70115.4.orf2;Parent=StringTie_DN.70115;Name=StringTie_DN.70115.4;maximal=False
 Chr5\tStringTie\texon\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon1;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tfive_prime_UTR\t22597965\t22601782\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.five_prime_UTR1;Parent=StringTie_DN.70115.4.orf2
-Chr5\tStringTie\tfive_prime_UTR\t22601862\t22601956\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.five_prime_UTR2;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\texon\t22601862\t22601957\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon2;Parent=StringTie_DN.70115.4.orf2
+Chr5\tStringTie\tfive_prime_UTR\t22601862\t22601956\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.five_prime_UTR2;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tCDS\t22601957\t22601957\t.\t+\t0\tID=StringTie_DN.70115.4.orf2.CDS1;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tCDS\t22602039\t22602517\t.\t+\t2\tID=StringTie_DN.70115.4.orf2.CDS2;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon3;Parent=StringTie_DN.70115.4.orf2
@@ -213,7 +213,7 @@ Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tgene_id "StringTie_DN.70115"
 
 class DrosoTester(unittest.TestCase):
 
-    logger = create_default_logger("droso")
+    logger = create_null_logger("droso")
 
     def setUp(self):
 
@@ -266,7 +266,7 @@ class DrosoTester(unittest.TestCase):
 
 class TranscriptTesterPositive(unittest.TestCase):
 
-    logger = create_default_logger("test_at")
+    logger = create_null_logger("test_at")
 
     tr_gff = """Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380
 Chr2    TAIR10    exon    626642    626780    .    +    .    Parent=AT2G02380.1

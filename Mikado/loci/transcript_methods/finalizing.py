@@ -372,31 +372,48 @@ def finalize(transcript):
     if len(transcript.combined_cds) > 0:
         transcript.selected_internal_orf_index = 0
         # pylint: disable=protected-access
-        if len(transcript.phases) != len(transcript.internal_orfs):
-            transcript.phases = []
+        if len(transcript.phases) > 0 and transcript.number_internal_orfs == 1:
+            for position, segment in enumerate(transcript.selected_internal_orf):
+                if segment[0] == "CDS":
+                    try:
+                        phase = transcript.phases[(segment[1][0], segment[1][1])]
+                    except KeyError:
+                        raise KeyError((transcript.id, transcript.phases, (segment[1][0], segment[1][1])))
+                    transcript.selected_internal_orf[position] = (
+                        segment[0],
+                        segment[1],
+                        phase)
+                else:
+                    continue
+        else:
             for internal_orf in transcript.internal_orfs:
                 total = 0
-                internal_orf = sorted([_ for _ in internal_orf if _[0] == "CDS"],
+                internal_orf = sorted(internal_orf,
                                       key=operator.itemgetter(1),
                                       reverse=(transcript.strand == "-"))
                 previous = 0
                 phase_orf = []
-                for segment in internal_orf:
+                for position, segment in enumerate(internal_orf):
+                    if segment[0] != "CDS":
+                        continue
                     phase = (3 - (previous % 3)) % 3
-                    phase_orf.append(phase)
+                    internal_orf[position] = (segment[0], segment[1], phase)
                     previous = segment[1].length() + 1
                     total += previous
+                    phase_orf.append(phase)
                 phase_orf.append((3 - (previous % 3)) % 3)
                 if (total + sum(phase_orf) % 3) % 3 != 0:
-                    exception = "{id}: {total}, phase {phase}, phases {phases}".format(
+                    exception = "{id}: {total}, phase {phase}, phases {phases}, internal_orf {inter}".format(
                         id=transcript.id,
+                        total=total,
                         phase=sum(phase_orf) % 3,
-                        phases=phase_orf)
+                        phases=phase_orf,
+                        inter=internal_orf)
                     raise InvalidCDS(exception)
-
-                transcript.phases.append(phase_orf)
-
-
+                # transcript.phases.append(phase_orf)
+    for internal_orf in transcript.internal_orfs:
+        assert not any((len(_) != 3 and _[0] == "CDS") and (len(_) != 2 and _[0] != "CDS")
+                       for _ in internal_orf), [_ for _ in internal_orf if _[0] =="CDS"]
 
     # Necessary to set it to the default value
     _ = transcript.selected_internal_orf

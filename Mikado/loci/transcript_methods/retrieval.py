@@ -70,7 +70,6 @@ def load_orfs(transcript, candidate_orfs):
     primary_strand = None
     # This will keep in memory the original BED12 objects
     transcript.loaded_bed12 = []
-    transcript.phases = []
 
     for orf in candidate_orfs:
         # Minimal check
@@ -90,7 +89,8 @@ def load_orfs(transcript, candidate_orfs):
             transcript.strand = orf.strand
 
         transcript.loaded_bed12.append(orf)
-        cds_exons = sorted(__create_internal_orf(transcript, orf),
+        cds_exons = __create_internal_orf(transcript, orf)
+        cds_exons = sorted(cds_exons,
                            key=operator.itemgetter(1))
 
         transcript.internal_orfs.append(cds_exons)
@@ -498,6 +498,7 @@ def __create_internal_orf(transcript, orf):
             cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
         transcript.strand = "-"
     else:
+        previous = 0
         for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
                            reverse=(transcript.strand == "-")):
             cds_exons.append(("exon", intervaltree.Interval(exon[0], exon[1])))
@@ -513,11 +514,14 @@ def __create_internal_orf(transcript, orf):
                 else:
                     c_start = exon[0] + max(0, current_end - orf.thick_end)
                     c_end = exon[1] - max(0, orf.thick_start - current_start)
+
                 if c_start > exon[0]:
                     u_end = c_start - 1
                     cds_exons.append(("UTR", intervaltree.Interval(exon[0], u_end)))
                 if c_start <= c_end:
-                    cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end)))
+                    phase = (3 - (previous % 3)) % 3
+                    previous += c_end - c_start + 1
+                    cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end), phase))
                 if c_end < exon[1]:
                     cds_exons.append(("UTR", intervaltree.Interval(c_end + 1, exon[1])))
             current_start = current_end

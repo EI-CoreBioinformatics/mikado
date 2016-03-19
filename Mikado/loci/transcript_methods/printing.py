@@ -17,7 +17,6 @@ __author__ = 'Luca Venturini'
 def __create_cds_lines(transcript,
                        cds_run,
                        tid,
-                       phases=None,
                        to_gtf=False, with_introns=False):
 
     """
@@ -46,23 +45,19 @@ def __create_cds_lines(transcript,
         cds_run = cds_run[:]
         for intron in transcript.introns:
             cds_run.append(("intron", intron))
-        cds_run = sorted(cds_run, key=lambda segment: (segment[1][0],
-                                                       segment[1][1],
-                                                       segment[0]))
 
-    cds_index = -1
+    cds_run = sorted(cds_run, key=lambda segment: (segment[1][0],
+                                                   segment[0].lower()))
+
     for segment in cds_run:
-        exon_line, counter, cds_begin = line_creator(segment,
-                                                     counter,
-                                                     cds_begin)
+        try:
+            exon_line, counter, cds_begin = line_creator(segment,
+                                                         counter,
+                                                         cds_begin)
+        except IndexError:
+            raise IndexError(cds_run)
         assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
         assert exon_line.end <= transcript.end
-        if segment[0] == "CDS":
-            cds_index += 1
-            if to_gtf is False:
-                exon_line.phase = phases[cds_index]
-            else:
-                exon_line.phase = (3 - phases[cds_index]) % 3
         exon_lines.append(exon_line)
 
     # if to_gtf is False:
@@ -72,7 +67,7 @@ def __create_cds_lines(transcript,
     #     exon_lines = [exon_line for exon_line in
     #                   __add_frame(transcript, exon_lines, first_phase=first_phase)]
 
-    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), exon_lines
+    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
 
     return [str(line) for line in exon_lines]
 
@@ -113,6 +108,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 
     assert segment[0] in ("UTR", "CDS", "exon", "intron"), segment
 
+    phase = None
     if segment[0] == "UTR":
         if (cds_begin is True and transcript.strand == "-") or \
                 (transcript.strand == "+" and cds_begin is False):
@@ -128,6 +124,10 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         counter.update(["CDS"])
         index = counter["CDS"]
         feature = "CDS"
+        try:
+            phase = segment[2]
+        except IndexError:
+            raise IndexError(segment)
     else:
         counter.update([segment[0]])
         index = counter[segment[0]]
@@ -139,7 +139,8 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 
     exon_line.feature = feature
     exon_line.start, exon_line.end = segment[1][0], segment[1][1]
-    exon_line.phase = None
+    exon_line.phase = phase
+
     exon_line.score = None
     if to_gtf is True:
         # noinspection PyPropertyAccess
@@ -204,7 +205,6 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
             exon_lines = __create_cds_lines(transcript,
                                             cds_run,
                                             tid,
-                                            phases=transcript.phases[index],
                                             to_gtf=to_gtf,
                                             with_introns=with_introns)
 

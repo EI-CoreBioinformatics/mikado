@@ -412,7 +412,6 @@ def __check_phase_correctness(transcript):
     # Necessary to set it to the default value
     if len(transcript.internal_orfs) > 0:
         transcript.selected_internal_orf_index = 0
-        assert transcript.selected_internal_orf_index is not None, (transcript.internal_orfs)
         _ = transcript.selected_internal_orf
 
 
@@ -465,14 +464,11 @@ def finalize(transcript):
         __check_completeness(transcript)
         __verify_boundaries(transcript)
 
-        # assert self.selected_internal_orf_index > -1
-
         assert all([segment[1] in transcript.exons for segment in transcript.segments if
                     segment[0] == "exon"]), (transcript.exons, transcript.segments)
 
         __check_phase_correctness(transcript)
         __calculate_introns(transcript)
-        # __calc_cds_introns(transcript)
     except (InvalidTranscript, InvalidCDS):
         del transcript
         transcript = __previous

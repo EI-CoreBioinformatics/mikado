@@ -12,7 +12,7 @@ import logging
 import Mikado
 import Mikado.parsers
 import Mikado.loci
-from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from Mikado.utilities.log_utils import create_null_logger  # , create_default_logger
 
 
 class TranscriptTesterNegative(unittest.TestCase):
@@ -88,23 +88,23 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1
 Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1;Parent=AT1G01020.1
 Chr1\tTAIR10\tthree_prime_UTR\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR1;Parent=AT1G01020.1
-Chr1\tTAIR10\tthree_prime_UTR\t6437\t6914\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR2;Parent=AT1G01020.1
 Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2;Parent=AT1G01020.1
+Chr1\tTAIR10\tthree_prime_UTR\t6437\t6914\t.\t-\t.\tID=AT1G01020.1.three_prime_UTR2;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t6915\t7069\t.\t-\t2\tID=AT1G01020.1.CDS1;Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t7157\t7232\t.\t-\t0\tID=AT1G01020.1.CDS2;Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t7384\t7450\t.\t-\t1\tID=AT1G01020.1.CDS3;Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t7564\t7649\t.\t-\t0\tID=AT1G01020.1.CDS4;Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t7762\t7835\t.\t-\t2\tID=AT1G01020.1.CDS5;Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t7942\t7987\t.\t-\t0\tID=AT1G01020.1.CDS6;Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t8236\t8325\t.\t-\t0\tID=AT1G01020.1.CDS7;Parent=AT1G01020.1
-Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t8417\t8464\t.\t-\t0\tID=AT1G01020.1.CDS8;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9;Parent=AT1G01020.1
 Chr1\tTAIR10\tCDS\t8571\t8666\t.\t-\t0\tID=AT1G01020.1.CDS9;Parent=AT1G01020.1
 Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1
 Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR1;Parent=AT1G01020.1"""
@@ -112,17 +112,14 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         rp = set(real_printed.split("\n"))
         fp = set(str(self.tr).split("\n"))
 
-        print()
-        print(real_printed)
-        print("============")
-        print(str(self.tr))
-        print("============")
+        # print()
+        # print(real_printed)
+        # print("============")
+        # print(str(self.tr))
+        # print("============")
 
         diff = "\n====\n".join(["\n".join(sorted(list(rp - set.intersection(rp, fp)))),
                                "\n".join(sorted(list(fp - set.intersection(rp, fp))))])
-
-        print(list(zip([_.split("\t")[7] for _ in real_printed.split("\n") if _.split("\t")[7] != "."],
-                       [_.split("\t")[7] for _ in str(self.tr).split("\n") if _.split("\t")[7] != "."])))
 
         self.assertEqual(real_printed,
                          str(self.tr),
@@ -410,7 +407,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid, (len(second_orf), second_orf.cds_len))
 
-        self.assertTrue(Mikado.loci.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(Mikado.loci.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
         third_orf = Mikado.parsers.bed12.BED12()
@@ -431,10 +428,10 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         self.assertFalse(third_orf.invalid, (len(third_orf), third_orf.cds_len))
 
         self.assertFalse(
-            Mikado.loci.transcript.Transcript.is_overlapping_cds(
+            Mikado.loci.Transcript.is_overlapping_cds(
                 first_orf, third_orf))
         self.assertFalse(
-            Mikado.loci.transcript.Transcript.is_overlapping_cds(
+            Mikado.loci.Transcript.is_overlapping_cds(
                 second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)

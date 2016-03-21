@@ -9,7 +9,6 @@ import functools
 from ...parsers.GTF import GtfLine
 from ...parsers.GFF import GffLine
 from ...parsers.bed12 import BED12
-import intervaltree
 
 __author__ = 'Luca Venturini'
 
@@ -46,15 +45,17 @@ def __create_cds_lines(transcript,
         cds_run = cds_run[:]
         for intron in transcript.introns:
             cds_run.append(("intron", intron))
-        cds_run = sorted(cds_run, key=lambda segment: (segment[1][0],
-                                                       segment[1][1],
-                                                       segment[0]))
 
-    cds_index = -1
+    cds_run = sorted(cds_run, key=lambda segment: (segment[1][0],
+                                                   segment[0].lower()))
+
     for segment in cds_run:
-        exon_line, counter, cds_begin = line_creator(segment,
-                                                     counter,
-                                                     cds_begin)
+        try:
+            exon_line, counter, cds_begin = line_creator(segment,
+                                                         counter,
+                                                         cds_begin)
+        except IndexError:
+            raise IndexError(cds_run)
         assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
         assert exon_line.end <= transcript.end
         if segment[0] == "CDS":
@@ -72,7 +73,7 @@ def __create_cds_lines(transcript,
     #     exon_lines = [exon_line for exon_line in
     #                   __add_frame(transcript, exon_lines, first_phase=first_phase)]
 
-    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), exon_lines
+    assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
 
     return [str(line) for line in exon_lines]
 
@@ -113,6 +114,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 
     assert segment[0] in ("UTR", "CDS", "exon", "intron"), segment
 
+    phase = None
     if segment[0] == "UTR":
         if (cds_begin is True and transcript.strand == "-") or \
                 (transcript.strand == "+" and cds_begin is False):
@@ -128,6 +130,10 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
         counter.update(["CDS"])
         index = counter["CDS"]
         feature = "CDS"
+        try:
+            phase = segment[2]
+        except IndexError:
+            raise IndexError(segment)
     else:
         counter.update([segment[0]])
         index = counter[segment[0]]
@@ -139,7 +145,8 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 
     exon_line.feature = feature
     exon_line.start, exon_line.end = segment[1][0], segment[1][1]
-    exon_line.phase = None
+    exon_line.phase = phase
+
     exon_line.score = None
     if to_gtf is True:
         # noinspection PyPropertyAccess
@@ -162,7 +169,6 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
 
     :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
 
-    :param first_phase: number it indicates the phase of the first CDS exon. It defaults to 0.
     :param with_introns: boolean, if set to True, introns will be printed as well.
     :return:
     """

@@ -542,6 +542,7 @@ tcoordinates (%d, %d)",
 
         # Load the blast hits
         __load_blast_hits(new_transcript, boundary, transcript)
+        new_transcript.finalize()
         new_transcripts.append(new_transcript)
         nspan = (new_transcript.start, new_transcript.end)
         transcript.logger.debug(

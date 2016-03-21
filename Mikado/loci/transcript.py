@@ -136,7 +136,7 @@ class Transcript:
         # pylint: enable=invalid-name
         self._selected_internal_orf_cds = []
         # This is used to set the phase if the CDS is loaded from the GFF
-        self.__phases = []  # will contain (start, phase) for each CDS exon
+        self.__phases = dict()  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
 
         # Starting settings for everything else
@@ -363,13 +363,7 @@ class Transcript:
         if feature.upper().endswith("CDS"):
             store = self.combined_cds
             if phase is not None:
-                if self.phases == []:
-                    self.phases.append([])
-                if isinstance(gffline, GtfLine):
-                    # Reverse
-                    self.phases[0].append((3 - phase) % 3)
-                else:
-                    self.phases[0].append(phase)
+                self.phases[(start, end)] = phase
 
         elif "combined_utr" in feature or "UTR" in feature.upper():
             store = self.combined_utr
@@ -387,7 +381,7 @@ class Transcript:
             raise InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
 
         segment = intervaltree.Interval(start, end)
-        assert isinstance(segment[0], int) and isinstance(segment[1], int)
+        # assert isinstance(segment[0], int) and isinstance(segment[1], int)
         store.append(segment)
 
     def add_exons(self, exons, features=None):
@@ -851,7 +845,7 @@ class Transcript:
         :return:
         """
 
-        assert isinstance(phases, list)
+        assert isinstance(phases, dict)
         self.__phases = phases
 
     # This will be id, no changes.
@@ -1467,9 +1461,12 @@ index {3}, internal ORFs: {4}".format(
         else:
             self.__max_internal_orf_length = sum(
                 _[1].length() + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
-            # phase = sum(self.phases[self.selected_internal_orf_index]) % 3
-            # assert (self.__max_internal_orf_length + phase) % 3 == 0, (
-            #     self.__max_internal_orf_length, self.selected_internal_orf)
+# <<<<<<< HEAD
+#             # phase = sum(self.phases[self.selected_internal_orf_index]) % 3
+#             # assert (self.__max_internal_orf_length + phase) % 3 == 0, (
+#             #     self.__max_internal_orf_length, self.selected_internal_orf)
+# =======
+# >>>>>>> a25c3014f6ca027ee42863ac8f854f92572a2d91
 
         return self.__max_internal_orf_length
 

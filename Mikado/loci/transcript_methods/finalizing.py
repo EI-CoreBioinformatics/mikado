@@ -260,8 +260,8 @@ def __check_internal_orf(transcript, index, phases=None):
     :type transcript: Mikado.loci.Transcript
     :param index: index of the internal orf to check
     :type index: int
-    :param phases: list of the phases derived from the GFF file
-    :type phases: list[int]
+    :param phases: dictionary of the phases derived from the GFF file
+    :type phases: dict
 
     :return: the updated transcript
     :rtype: Mikado.loci.Transcript
@@ -271,19 +271,19 @@ def __check_internal_orf(transcript, index, phases=None):
     previous_exon_index, exon_found = None, False
     total_cds_length = 0
 
-    if transcript.strand == "-":
-        exons = list(reversed(transcript.exons))
-        if phases is not None:
-            phases = list(reversed(phases))
-    else:
-        exons = transcript.exons
+    exons = sorted(transcript.exons, reverse=(transcript.strand == "-"))
 
     if phases:
-        phase_orf = phases
-        previous, phase_pos = phases[0], -1
+        phases_keys = sorted(phases.keys(), reverse=(transcript.strand == "-"))
+        phase_orf =[phases[_] for _ in phases_keys]
+        previous = (3 - phases[phases_keys[0]] % 3) % 3
+        total_cds_length += previous
     else:
         phase_orf = []
-        previous, phase_pos = 0, -1
+        previous = 0
+
+    transcript.logger.debug("Phases, previous, phase_orf: %s, %d, %s",
+                            phases, previous, phase_orf)
 
     last = None
     for orf_segment in sorted(orf, key=operator.itemgetter(1),
@@ -335,19 +335,20 @@ def __check_internal_orf(transcript, index, phases=None):
         # phase_orf.append(phase)
         #     previous = orf_segment[1].length() + 1
         #     total_cds_length += previous
-        if phases is not None:
-            phase_pos += 1
-            assert phase_pos <= len(transcript.phases), (phase_pos, transcript.phases)
-            if phases[phase_pos] != phase:
-                transcript.logger.warning("Wrong phase for %s, recalculating." % transcript.id)
+        if phases:
+            key = (orf_segment[1][0], orf_segment[1][1])
+            if key not in phases:
+                transcript.logger.warning("Phase not found for %s key %s, recalculating." % (
+                    transcript.id, key))
                 phases = None
+            elif phases[key] != phase:
+                transcript.logger.warning(
+                    "Wrong phase in % sfor key %s, %d instead of %d. recalculating." % (
+                        transcript.id, key, phases[key], phase))
             else:
-                phase = phases[phase_pos]
+                phase = phases[key]
 
         phase_orf.append(phase)
-        # new_orf.append((orf_segment[0],
-        #                 orf_segment[1],
-        #                 phases[phase_pos]))
         new_orf.append((orf_segment[0], orf_segment[1], phase))
         previous = orf_segment[1].length() + 1
         total_cds_length += previous
@@ -400,9 +401,12 @@ def __check_phase_correctness(transcript):
     else:
         assert len(transcript.internal_orfs) > 0
 
-    for orf_index, phases in zip(range(len(transcript.internal_orfs)), transcript.phases):
+    for orf_index in range(len(transcript.internal_orfs)):
         try:
-            transcript = __check_internal_orf(transcript, orf_index)
+            transcript.logger.debug("ORF #%d: %s", orf_index, transcript.phases)
+            transcript = __check_internal_orf(transcript,
+                                              orf_index,
+                                              phases=transcript.phases)
         except InvalidTranscript as exc:
             transcript.logger.exception(exc)
             transcript.logger.warning("Stripping the CDS from %s", transcript.id)

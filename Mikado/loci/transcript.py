@@ -833,7 +833,7 @@ class Transcript:
         This property contains the first phase gleaned for each internal ORF from the
          GFF.
         :return: __phases, a list
-        :rtype: list
+        :rtype: dict
         """
         return self.__phases
 
@@ -1461,12 +1461,6 @@ index {3}, internal ORFs: {4}".format(
         else:
             self.__max_internal_orf_length = sum(
                 _[1].length() + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
-# <<<<<<< HEAD
-#             # phase = sum(self.phases[self.selected_internal_orf_index]) % 3
-#             # assert (self.__max_internal_orf_length + phase) % 3 == 0, (
-#             #     self.__max_internal_orf_length, self.selected_internal_orf)
-# =======
-# >>>>>>> a25c3014f6ca027ee42863ac8f854f92572a2d91
 
         return self.__max_internal_orf_length
 

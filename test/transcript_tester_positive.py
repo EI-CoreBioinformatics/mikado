@@ -758,5 +758,33 @@ Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.1
         new_transcripts = [_ for _ in self.tr.split_by_cds()]
         self.assertEqual(len(new_transcripts), 2)
 
+
+class AugustusTester(unittest.TestCase):
+
+    logger = create_null_logger("augustus")
+    logger.setLevel("WARNING")
+
+    def test_truncated(self):
+
+        lines = """Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	mRNA	1	2785	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1;Parent=TRIAE4565_1AL_Aug_0021880;Name=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	1601	2446	.	+	1	ID=TRIAE4565_1AL_Aug_0021880.1.CDS1;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	1601	2446	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1.exon1;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	2540	2654	.	+	1	ID=TRIAE4565_1AL_Aug_0021880.1.CDS2;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	2540	2785	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1.exon2;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	three_prime_UTR	2655	2785	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1.three_prime_UTR1;Parent=TRIAE4565_1AL_Aug_0021880.1"""
+
+        lines = [Mikado.parsers.GFF.GffLine("\t".join(_.split())) for _ in lines.split("\n")]
+
+        transcript = Mikado.loci.Transcript(lines[0], logger=self.logger)
+        transcript.add_exons(lines[1:])
+
+        with self.assertLogs("augustus", level="WARNING") as cm_out:
+            transcript.finalize()
+            self.assertTrue(any(
+                "The transcript TRIAE4565_1AL_Aug_0021880.1 has coordinates 1:2785" in _ for
+            _ in cm_out.output))
+
+        self.assertTrue(transcript.is_coding)
+
 if __name__ == '__main__':
     unittest.main()

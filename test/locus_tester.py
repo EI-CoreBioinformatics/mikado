@@ -120,7 +120,7 @@ Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
 
 class ASeventsTester(unittest.TestCase):
 
-    logger = create_default_logger("ASevents")
+    logger = create_null_logger("ASevents")
 
     def setUp(self):
         
@@ -216,8 +216,9 @@ class ASeventsTester(unittest.TestCase):
                      "exon")
         t2.add_exons([(401, 500), (601, 700), (1001, 1300), (1401, 1440)],
                      "CDS")
+
         t2.finalize()
-        
+
         self.locus.add_transcript_to_locus(t2)
         self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)        
         

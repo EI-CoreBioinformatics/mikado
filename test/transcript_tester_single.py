@@ -165,7 +165,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.assertEqual(self.tr.selected_internal_orf,
                          [("UTR", intervaltree.Interval(5928, 8570)),
                           ("exon", intervaltree.Interval(5928, 8737)),
-                          ("CDS", intervaltree.Interval(8571, 8666)),
+                          ("CDS", intervaltree.Interval(8571, 8666), 0),
                           ("UTR", intervaltree.Interval(8667, 8737))],
                          "Right: {0}\nFound{1}".format([("UTR", 5928, 8570), ("CDS", 8571, 8666), ("UTR", 8667, 8737)],
                                                        self.tr.selected_internal_orf))

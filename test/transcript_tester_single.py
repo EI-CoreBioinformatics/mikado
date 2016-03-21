@@ -111,15 +111,16 @@ Chr1    TAIR10    exon    5928    8737    .    .    .    Parent=AT1G01020.1"""
         new_transcript.strand = None
         self.assertFalse(new_transcript == self.tr)  # They have now a different strand
 
-        new_transcript.finalized = False
+        new_transcript.unfinalize()
         new_transcript.strand = "+"  # It becomes a multiexonic transcript, so it must have a strand
         new_transcript.end = 9737
+
         new_exon = Mikado.parsers.GFF.GffLine(self.tr_lines[-1])
         new_exon.strand = "+"
         new_exon.start = 9000
         new_exon.end = 9737
-
         new_transcript.add_exon(new_exon)
+
         new_transcript.finalize()
         self.assertTrue(new_transcript != self.tr)
 

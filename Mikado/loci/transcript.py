@@ -576,6 +576,15 @@ class Transcript:
 
         return
 
+    def unfinalize(self):
+
+        if self.finalized is False:
+            return
+
+        self.internal_orfs = []
+        self.combined_utr = []
+        self.finalized = False
+
     def reverse_strand(self):
         """Method to reverse the strand"""
         if self.strand == "+":

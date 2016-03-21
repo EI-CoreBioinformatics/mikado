@@ -70,59 +70,64 @@ def _check_cdna_vs_utr(transcript):
     :return:
     """
 
+    transcript.logger.debug("Checking the cDNA for %s", transcript.id)
     if transcript.cdna_length > transcript.combined_utr_length + transcript.combined_cds_length:
-        if transcript.combined_utr == [] and transcript.combined_cds != []:
-            transcript.combined_cds = sorted(transcript.combined_cds,
-                                             key=operator.itemgetter(0, 1))
-            for exon in transcript.exons:
-                if exon in transcript.combined_cds:
-                    continue
-                # The end of the exon is before the first ORF start
-                # or the start is after the last ORF segment: UTR segment
-                elif (exon[1] < transcript.combined_cds[0][0] or
-                      exon[0] > transcript.combined_cds[-1][1]):
-                    transcript.combined_utr.append(exon)
+        if transcript.combined_utr == transcript.combined_cds == []:
+            # non-coding transcript
+            transcript.logger.debug("%s is non coding, returning", transcript.id)
+            return
+        assert transcript.combined_cds != []
+        transcript.logger.debug("Recalculating the UTR for %s", transcript.id)
+        transcript.combined_utr = []  # Reset
+        transcript.combined_cds = sorted(transcript.combined_cds,
+                                         key=operator.itemgetter(0, 1))
+        for exon in transcript.exons:
+            if exon in transcript.combined_cds:
+                continue
+            # The end of the exon is before the first ORF start
+            # or the start is after the last ORF segment: UTR segment
+            elif (exon[1] < transcript.combined_cds[0][0] or
+                  exon[0] > transcript.combined_cds[-1][1]):
+                transcript.combined_utr.append(exon)
 
-                # The last base of the exon is the first ORF base
-                elif (exon[0] < transcript.combined_cds[0][0] and
-                      exon[1] == transcript.combined_cds[0][1]):
+            # The last base of the exon is the first ORF base
+            elif (exon[0] < transcript.combined_cds[0][0] and
+                  exon[1] == transcript.combined_cds[0][1]):
+                transcript.combined_utr.append(intervaltree.Interval(
+                    exon[0], transcript.combined_cds[0][0] - 1))
+            # The first base of the exon is the first base of the last ORF segment:
+            # UTR after
+            elif (exon[1] > transcript.combined_cds[-1][1] and
+                  exon[0] == transcript.combined_cds[-1][0]):
+                transcript.combined_utr.append(intervaltree.Interval(
+                    transcript.combined_cds[-1][1] + 1, exon[1]))
+            else:
+                # If the ORF is contained inside a single exon, with UTR
+                # at both sites, then we create the two UTR segments
+                if len(transcript.combined_cds) == 1:
                     transcript.combined_utr.append(intervaltree.Interval(
                         exon[0], transcript.combined_cds[0][0] - 1))
-                # The first base of the exon is the first base of the last ORF segment:
-                # UTR after
-                elif (exon[1] > transcript.combined_cds[-1][1] and
-                      exon[0] == transcript.combined_cds[-1][0]):
                     transcript.combined_utr.append(intervaltree.Interval(
                         transcript.combined_cds[-1][1] + 1, exon[1]))
                 else:
-                    # If the ORF is contained inside a single exon, with UTR
-                    # at both sites, then we create the two UTR segments
-                    if len(transcript.combined_cds) == 1:
-                        transcript.combined_utr.append(intervaltree.Interval(
-                            exon[0], transcript.combined_cds[0][0] - 1))
-                        transcript.combined_utr.append(intervaltree.Interval(
-                            transcript.combined_cds[-1][1] + 1, exon[1]))
-                    else:
-                        # This means there is an INTERNAL UTR region between
-                        # two CDS segments: something is clearly wrong!
-                        raise InvalidCDS(
-                            "Error while inferring the UTR",
-                            exon, transcript.id,
-                            transcript.exons, transcript.combined_cds)
+                    # This means there is an INTERNAL UTR region between
+                    # two CDS segments: something is clearly wrong!
+                    raise InvalidCDS(
+                        "Error while inferring the UTR",
+                        exon, transcript.id,
+                        transcript.exons, transcript.combined_cds)
 
-            # If no CDS and no UTR are present, all good
-            equality_one = (transcript.combined_cds_length == transcript.combined_utr_length == 0)
-            # Otherwise, if cDNA length == UTR + CDS, all good
-            equality_two = (transcript.cdna_length ==
-                            transcript.combined_utr_length + transcript.combined_cds_length)
-            if not (equality_one or equality_two):
-                # Something fishy going on
-                raise InvalidCDS(
-                    "Failed to create the UTR",
-                    transcript.id, transcript.exons,
-                    transcript.combined_cds, transcript.combined_utr)
-        else:
-            pass
+        # If no CDS and no UTR are present, all good
+        equality_one = (transcript.combined_cds_length == transcript.combined_utr_length == 0)
+        # Otherwise, if cDNA length == UTR + CDS, all good
+        equality_two = (transcript.cdna_length ==
+                        transcript.combined_utr_length + transcript.combined_cds_length)
+        if not (equality_one or equality_two):
+            # Something fishy going on
+            raise InvalidCDS(
+                "Failed to create the UTR",
+                transcript.id, transcript.exons,
+                transcript.combined_cds, transcript.combined_utr)
 
 
 def __calculate_introns(transcript):
@@ -285,14 +290,18 @@ def __check_internal_orf(transcript, index, phases=None):
     transcript.logger.debug("Phases, previous, phase_orf: %s, %d, %s",
                             phases, previous, phase_orf)
 
-    last = None
-    for orf_segment in sorted(orf, key=operator.itemgetter(1),
-                              reverse=(transcript.strand == "-")):
+    orf = sorted(orf, key=operator.itemgetter(1), reverse=(transcript.strand == "-"))
+
+    first, last = float("inf"), float("-inf")
+
+    for orf_segment in orf:
+        first = min(first, orf_segment[1][0])
+        last = max(last, orf_segment[1][1])
+
         if orf_segment[0] != "CDS":
             new_orf.append(orf_segment)
             continue
-        assert last != orf_segment[1], orf
-        last = orf_segment[1]
+
         for exon_position, exon in enumerate(exons):
             if exon[0] <= orf_segment[1][0] <= orf_segment[1][1] <= exon[1]:
                 if previous_exon_index is None:
@@ -331,10 +340,6 @@ def __check_internal_orf(transcript, index, phases=None):
         exon_found = False
 
         phase = (3 - (total_cds_length % 3)) % 3
-        # phase = (3 - (previous % 3)) % 3
-        # phase_orf.append(phase)
-        #     previous = orf_segment[1].length() + 1
-        #     total_cds_length += previous
         if phases:
             key = (orf_segment[1][0], orf_segment[1][1])
             if key not in phases:
@@ -353,16 +358,48 @@ def __check_internal_orf(transcript, index, phases=None):
         previous = orf_segment[1].length() + 1
         total_cds_length += previous
 
+    transcript.logger.debug("Total CDS length %d", total_cds_length)
+    assert first == transcript.start, (transcript.start, first, orf[0], new_orf[0])
+    assert last == transcript.end, (transcript.end, last, orf, new_orf)
+
     if total_cds_length % 3 != 0:
         # The transcript is truncated. Check it makes sense.
-        if phase_orf[0] != 0 and new_orf[0][0] != "CDS":
-            raise InvalidTranscript(
-                "Truncated ORF at 5' with 5' UTR for %s; total_cds %d, phase_orf %s" %
-                (transcript.id, total_cds_length, phase_orf))
-        elif new_orf[-1][0] != "CDS":
-            raise InvalidTranscript(
-                "Truncated ORF at 3' with 3' UTR for %s; total_cds %d, phase_orf %s" %
-                (transcript.id, total_cds_length, phase_orf))
+
+        cds, utr = [], []
+        for _ in new_orf:
+            if _[0] == "CDS":
+                cds.append(_[1])
+            elif _[0] == "UTR":
+                utr.append(_[1])
+
+        total = sum(_.length() + 1 for _ in cds)
+        # This is the amount of bases left over
+        remainder = total % 3
+
+        orf_start = min(_[0] for _ in cds)
+        orf_end = max(_[1] for _ in cds)
+
+        five_utr = [_ for _ in utr if _[1] < orf_start]
+        three_utr = [_ for _ in utr if _[0] > orf_end]
+        assert (len(five_utr) + len(three_utr)) == len(utr), (utr,
+                                                              five_utr,
+                                                              three_utr,
+                                                              cds)
+
+        if transcript.strand == "-":
+            orf_start, orf_end = orf_end, orf_start
+            five_utr, three_utr = three_utr, five_utr
+
+        if phase_orf[0] != 0 and five_utr:
+            raise InvalidCDS("Truncated ORF at 5' with 5' UTR for {0}".format(
+                transcript.id))
+
+        remainder = total % 3 - phase_orf[0]
+        transcript.logger.warning("Remainder %d, three_utr %s (UTR %s)",
+                                  remainder, three_utr, utr)
+        if remainder > 0 and three_utr:
+            raise InvalidCDS("Truncated ORF at 3' with 3' UTR for {0}".format(
+                transcript.id))
 
     if transcript.strand == "-":
         new_orf = list(reversed(new_orf))
@@ -407,7 +444,7 @@ def __check_phase_correctness(transcript):
             transcript = __check_internal_orf(transcript,
                                               orf_index,
                                               phases=transcript.phases)
-        except InvalidTranscript as exc:
+        except (InvalidTranscript, InvalidCDS) as exc:
             transcript.logger.exception(exc)
             transcript.logger.warning("Stripping the CDS from %s", transcript.id)
             transcript.strip_cds()

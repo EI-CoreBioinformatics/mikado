@@ -480,20 +480,25 @@ Chr2    TAIR10    CDS    628465    628569    .    +    0    Parent=AT2G02380.1
 Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"""
 
         tr_lines = tr_gff.split("\n")
+        logger = create_default_logger("test")
+        logger.setLevel("INFO")
         for pos, line in enumerate(tr_lines):
             tr_lines[pos] = re.sub("\s+", "\t", line)
             assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
         tr_gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in tr_lines]
 
-        transcript = Mikado.loci.Transcript(tr_gff_lines[0])
+        transcript = Mikado.loci.Transcript(tr_gff_lines[0],
+                                            logger=logger)
         for line in tr_gff_lines[1:]:
             transcript.add_exon(line)
 
-        transcript.finalize()
         self.assertEqual(transcript.exons, self.tr.exons)
-        self.assertEqual(transcript.three_utr, self.tr.three_utr)
+        self.assertNotEqual([], transcript.combined_cds)
+        transcript.finalize()
+        self.assertTrue(transcript.is_coding)
         self.assertEqual(transcript.five_utr, self.tr.five_utr)
+        self.assertEqual(transcript.three_utr, self.tr.three_utr)
 
     def test_remove_utr(self):
         """Test for CDS stripping. We remove the UTRs and verify
@@ -761,8 +766,8 @@ Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.1
 
 class AugustusTester(unittest.TestCase):
 
-    logger = create_null_logger("augustus")
-    logger.setLevel("WARNING")
+    logger = create_default_logger("augustus")
+    logger.setLevel("DEBUG")
 
     def test_truncated(self):
 
@@ -785,6 +790,53 @@ Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_
             _ in cm_out.output))
 
         self.assertTrue(transcript.is_coding)
+
+    @unittest.skip
+    def test_three_truncated(self):
+        lines = """Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	mRNA	204336	224434	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1;Parent=TRIAE4565_1AL_Aug_0024630;Name=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	204336	205303	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	five_prime_UTR	204336	204546	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.five_prime_UTR1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	204547	205303	.	+	0	ID=TRIAE4565_1AL_Aug_0024630.1.CDS1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	206227	207040	.	+	2	ID=TRIAE4565_1AL_Aug_0024630.1.CDS2;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	206227	207040	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon2;Parent=TRIAE4565_1AL_Aug_0024630.1"""
+
+        lines = [Mikado.parsers.GFF.GffLine("\t".join(_.split())) for _ in lines.split("\n")]
+
+        transcript = Mikado.loci.Transcript(lines[0], logger=self.logger)
+        transcript.add_exons(lines[1:])
+
+        with self.assertLogs("augustus", level="WARNING") as cm_out:
+            transcript.finalize()
+            self.assertTrue(any(
+                "The transcript TRIAE4565_1AL_Aug_0024630.1 has coordinates 204336:224434" in _ for
+            _ in cm_out.output))
+
+        self.assertTrue(transcript.is_coding)
+
+    def test_invalid_three_truncated(self):
+        lines = """Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	mRNA	204336	225434	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1;Parent=TRIAE4565_1AL_Aug_0024630;Name=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	204336	205303	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	five_prime_UTR	204336	204546	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.five_prime_UTR1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	204547	205303	.	+	0	ID=TRIAE4565_1AL_Aug_0024630.1.CDS1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	206227	207042	.	+	2	ID=TRIAE4565_1AL_Aug_0024630.1.CDS2;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	206227	207042	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon2;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	208227	210040	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon2;Parent=TRIAE4565_1AL_Aug_0024630.1"""
+
+        lines = [Mikado.parsers.GFF.GffLine("\t".join(_.split())) for _ in lines.split("\n")]
+
+        transcript = Mikado.loci.Transcript(lines[0], logger=self.logger)
+        transcript.add_exons(lines[1:])
+
+        with self.assertLogs("augustus", level="WARNING") as cm_out:
+            transcript.finalize()
+            self.assertTrue(any(
+                "The transcript TRIAE4565_1AL_Aug_0024630.1 has coordinates 204336:225434" in _ for
+            _ in cm_out.output))
+            # self.assertTrue(any(
+            #     "strip_cds" in _ for
+            # _ in cm_out.output))
+
+        self.assertFalse(transcript.is_coding)
 
 if __name__ == '__main__':
     unittest.main()

@@ -89,7 +89,7 @@ def finalize_reference(genes, positions, queue_logger, args) \
     non_coding_to_remove = set()
     genes_to_remove = set()
     for gid in genes:
-        genes[gid].set_logger(queue_logger)
+        genes[gid].logger = queue_logger
         genes[gid].finalize(exclude_utr=args.exclude_utr)
         if len(genes[gid]) == 0:
             genes_to_remove.add(gid)

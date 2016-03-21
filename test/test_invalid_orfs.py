@@ -1,5 +1,7 @@
 import Mikado.loci.transcript
+import Mikado.utilities.log_utils
 import Mikado.exceptions
+import Mikado.parsers
 import re
 import unittest
 
@@ -7,6 +9,8 @@ __author__ = 'Luca Venturini'
 
 
 class MultOrfTester(unittest.TestCase):
+
+    logger = Mikado.utilities.log_utils.create_default_logger("mult_orf")
 
     tr_gff = """
     Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1;Index=1
@@ -45,14 +49,15 @@ class MultOrfTester(unittest.TestCase):
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci.transcript.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci.transcript.Transcript(self.tr_gff_lines[0], logger=self.logger)
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
 
     def test_missing_cds(self):
 
-        self.assertRaises(Mikado.exceptions.InvalidTranscript,
-                          self.tr.finalize)
+        with self.assertLogs("mult_orf", level="WARNING") as cm:
+            self.tr.finalize()
+        self.assertFalse(self.tr.is_coding)
 
     def test_split_cds_exon_one(self):
 
@@ -67,8 +72,9 @@ class MultOrfTester(unittest.TestCase):
             self.assertFalse(line.header)
             self.assertEqual(line.parent[0], self.tr.id)
             self.tr.add_exon(line)
-        self.assertRaises(Mikado.exceptions.InvalidTranscript,
-                          self.tr.finalize)
+        with self.assertLogs("mult_orf", level="WARNING") as cm:
+            self.tr.finalize()
+        self.assertFalse(self.tr.is_coding)
 
     def test_split_cds_exon_two(self):
 
@@ -82,19 +88,20 @@ class MultOrfTester(unittest.TestCase):
             line = Mikado.parsers.GFF.GffLine(line)
             self.assertFalse(line.header)
             self.tr.add_exon(line)
-        self.assertRaises(Mikado.exceptions.InvalidTranscript,
-                          self.tr.finalize)
+        with self.assertLogs("mult_orf", level="WARNING") as cm:
+            self.tr.finalize()
+        self.assertFalse(self.tr.is_coding)
 
     def test_restore(self):
         lines = """
-        Chr1    TAIR10    CDS    7762    7835    .    -    .    Parent=AT1G01020.1
+        Chr1    TAIR10    CDS    7762    7835    .    -    0    Parent=AT1G01020.1
         """
 
         lines = ["\t".join(line.strip().split()) for line in lines.split("\n") if line.strip() != '']
         for line in lines:
             line = Mikado.parsers.GFF.GffLine(line)
             self.tr.add_exon(line)
-        self.tr.finalize()
+        self.assertTrue(self.tr.is_coding)
 
 
 if __name__ == '__main__':

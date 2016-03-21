@@ -477,6 +477,7 @@ def __create_internal_orf(transcript, orf):
     current_start, current_end = 0, 0
 
     if orf.strand == "-":
+        phase = 0
         # We might decide to remove this check
         assert transcript.monoexonic is True
         current_end = transcript.start + (orf.thick_start - 1)
@@ -493,11 +494,12 @@ def __create_internal_orf(transcript, orf):
         cds_exons.append(("exon", transcript.exons[0]))
         if current_end > transcript.start:
             cds_exons.append(("UTR", intervaltree.Interval(transcript.start, current_end - 1)))
-        cds_exons.append(("CDS", intervaltree.Interval(current_end, current_start)))
+        cds_exons.append(("CDS", intervaltree.Interval(current_end, current_start), phase))
         if current_start < transcript.end:
             cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
         transcript.strand = "-"
     else:
+        previous = 0
         for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
                            reverse=(transcript.strand == "-")):
             cds_exons.append(("exon", intervaltree.Interval(exon[0], exon[1])))
@@ -517,7 +519,9 @@ def __create_internal_orf(transcript, orf):
                     u_end = c_start - 1
                     cds_exons.append(("UTR", intervaltree.Interval(exon[0], u_end)))
                 if c_start <= c_end:
-                    cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end)))
+                    phase = (3 - (previous % 3)) % 3
+                    previous = c_end - c_start + 1
+                    cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end), phase))
                 if c_end < exon[1]:
                     cds_exons.append(("UTR", intervaltree.Interval(c_end + 1, exon[1])))
             current_start = current_end

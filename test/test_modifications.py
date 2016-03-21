@@ -1,4 +1,5 @@
 import Mikado.utilities
+import Mikado.exceptions
 from Mikado.parsers.GFF import GffLine
 from Mikado.loci import Transcript
 from intervaltree import Interval
@@ -42,7 +43,8 @@ class TestTrimming(unittest.TestCase):
         transcript.add_exon(cds_line)
         logger = Mikado.utilities.log_utils.create_null_logger("wrong_cds")
         transcript.logger = logger
-        transcript.finalize()
+        with self.assertLogs("wrong_cds", level="WARNING"):
+            transcript.finalize()
 
         trimmed = trim_coding(transcript, logger, max_length=50)
         self.assertEqual(trimmed.start, 47631366)

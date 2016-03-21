@@ -18,7 +18,7 @@ from Mikado.utilities.log_utils import create_null_logger, create_default_logger
 class TranscriptTesterNegative(unittest.TestCase):
 
     logger = create_null_logger("null")
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.WARNING)
 
     tr_gff = """Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020
 Chr1    TAIR10    five_prime_UTR    8667    8737    .    -    .    Parent=AT1G01020.1
@@ -58,7 +58,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0], logger=self.logger)
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
@@ -109,7 +109,24 @@ Chr1\tTAIR10\tCDS\t8571\t8666\t.\t-\t0\tID=AT1G01020.1.CDS9;Parent=AT1G01020.1
 Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1
 Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR1;Parent=AT1G01020.1"""
 
-        self.assertEqual(real_printed, str(self.tr))
+        rp = set(real_printed.split("\n"))
+        fp = set(str(self.tr).split("\n"))
+
+        print()
+        print(real_printed)
+        print("============")
+        print(str(self.tr))
+        print("============")
+
+        diff = "\n====\n".join(["\n".join(sorted(list(rp - set.intersection(rp, fp)))),
+                               "\n".join(sorted(list(fp - set.intersection(rp, fp))))])
+
+        print(list(zip([_.split("\t")[7] for _ in real_printed.split("\n") if _.split("\t")[7] != "."],
+                       [_.split("\t")[7] for _ in str(self.tr).split("\n") if _.split("\t")[7] != "."])))
+
+        self.assertEqual(real_printed,
+                         str(self.tr),
+                         diff)
 
     def test_empty(self):
 
@@ -166,7 +183,8 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
                          self.tr.exons)
 
     def test_cds(self):
-        self.assertEqual(self.tr.combined_cds, self.tr.selected_cds)
+        self.assertEqual(sorted(self.tr.combined_cds),
+                         sorted(self.tr.selected_cds))
         cds = [(6915, 7069), (7157, 7232), (7384, 7450), (7564, 7649), (7762, 7835), (7942, 7987),
                (8236, 8325), (8417, 8464), (8571, 8666)]
 
@@ -199,7 +217,8 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
                          6263 + 1 - 5928 + 6915 - 6437,
                          self.tr.selected_end_distance_from_tes)
         self.assertEqual(self.tr.selected_end_distance_from_junction,
-                         6915 - 6437 + 1)
+                         6915 - 6437,
+                         self.tr.selected_cds_end)
         self.assertEqual(self.tr.end_distance_from_junction,
                          self.tr.selected_end_distance_from_junction)
 
@@ -254,7 +273,9 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
 
         # tr = deepcopy(self.tr)
         # tr.remove_utrs()
-        self.assertEqual(self.tr.selected_cds_start, self.tr.end)
+        self.assertEqual(self.tr.selected_cds_start, self.tr.end,
+                         ((self.tr.selected_cds_start, self.tr.selected_cds_end),
+                          (self.tr.start, self.tr.end)))
         self.assertEqual(self.tr.selected_cds_end, self.tr.start)
         self.assertEqual(self.tr.three_utr, [])
         self.assertEqual(self.tr.five_utr, [])

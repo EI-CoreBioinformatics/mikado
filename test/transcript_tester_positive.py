@@ -266,7 +266,7 @@ class DrosoTester(unittest.TestCase):
 
 class TranscriptTesterPositive(unittest.TestCase):
 
-    logger = create_default_logger("test_at")
+    logger = create_null_logger("test_at")
 
     tr_gff = """Chr2    TAIR10    mRNA    626642    629176    .    +    .    ID=AT2G02380.1;Parent=AT2G02380
 Chr2    TAIR10    exon    626642    626780    .    +    .    Parent=AT2G02380.1
@@ -400,7 +400,8 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
 
         self.assertEqual(self.tr.combined_cds_introns,
                          {intervaltree.Interval(*intron) for intron in _},
-                         self.tr.combined_cds_introns)
+                         (sorted(self.tr.combined_cds_introns),
+                          sorted({intervaltree.Interval(*intron) for intron in _})))
 
         _ = {(626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487), (627560, 627695),
              (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464)}
@@ -495,7 +496,8 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.assertEqual(transcript.five_utr, self.tr.five_utr)
 
     def test_remove_utr(self):
-        """Test for CDS stripping. We remove the UTRs and verify that start/end have moved, no UTR is present, etc."""
+        """Test for CDS stripping. We remove the UTRs and verify
+        that start/end have moved, no UTR is present, etc."""
 
         self.tr.remove_utrs()
         self.assertEqual(self.tr.selected_cds_start, self.tr.start)
@@ -522,7 +524,9 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         """Test for loading a single ORF. We strip the CDS and reload it."""
 
-        self.tr.strip_cds()
+        with self.assertLogs("test_at", level="WARNING") as cm_out:
+            self.tr.strip_cds()
+            self.assertIn("Stripping CDS", cm_out.output[0])
         self.tr.load_orfs([self.orf])
         cds = [(626878, 626880), (626963, 627059), (627137, 627193), (627312, 627397), (627488, 627559),
                (627696, 627749), (627840, 627915), (628044, 628105), (628182, 628241), (628465, 628569)]
@@ -534,7 +538,8 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.assertEqual(self.tr.selected_cds_end, 628569)
 
     def test_negative_orf(self):
-        """Test loading a negative strand ORF onto a multiexonic transcript. This should have no effect."""
+        """Test loading a negative strand ORF onto a multiexonic transcript.
+        This should have no effect."""
 
         self.orf.strand = "-"
         self.tr.strip_cds()
@@ -546,8 +551,12 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.tr.finalized = False
         self.tr.strand = None
 
-        self.assertRaises(Mikado.exceptions.InvalidTranscript, self.tr.finalize)
+        __current = self.tr.deepcopy()
+        self.assertRaises(Mikado.exceptions.InvalidTranscript,
+                          self.tr.finalize)
 
+        self.assertFalse(self.tr.finalized)
+        # self.assertTrue(__current is self.tr)
         self.tr.strand = "+"
         self.tr.finalize()
         self.tr.finalized = False

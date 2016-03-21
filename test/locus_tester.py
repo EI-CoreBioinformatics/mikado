@@ -31,6 +31,8 @@ class OverlapTester(unittest.TestCase):
 
 class LocusTester(unittest.TestCase):
 
+    logger = create_null_logger("locus_tester")
+
     def setUp(self):
 
         gff_transcript1 = """Chr1\tfoo\ttranscript\t101\t300\t.\t+\t.\tID=t0
@@ -50,13 +52,21 @@ Chr1\tfoo\texon\t101\t200\t.\t+\t.\tID=t1:exon1;Parent=t1
 Chr1\tfoo\texon\t301\t400\t.\t+\t.\tID=t1:exon2;Parent=t1
 Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         gff_transcript2 = [GFF.GffLine(x) for x in gff_transcript2]
-        self.transcript2 = Transcript(gff_transcript2[0])
+        self.transcript2 = Transcript(gff_transcript2[0], logger=self.logger)
+
         for exon in gff_transcript2[1:-1]:
             self.transcript2.add_exon(exon)
         # Test that a transcript cannot be finalized if
         # the exons do not define the external boundaries
-        with self.assertRaises(exceptions.InvalidTranscript):
+        with self.assertLogs("locus_tester", level="WARNING") as cm:
+        # with self.assertRaises(exceptions.InvalidTranscript):
             self.transcript2.finalize()
+        with self.assertRaises(exceptions.ModificationError):
+            self.transcript2.add_exon(gff_transcript2[-1])
+
+        self.transcript2.finalized = False
+        self.transcript2.start = 101
+        self.transcript2.end = 600
         self.transcript2.add_exon(gff_transcript2[-1])
         self.transcript2.finalize()
         self.assertFalse(self.transcript2.monoexonic)

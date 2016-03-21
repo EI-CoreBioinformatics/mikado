@@ -111,18 +111,19 @@ class Gene:
                 raise
         for k in to_remove:
             del self.transcripts[k]
-        __new_start = min(_.start for _ in self)
+        if len(self.transcripts) > 0:
+            __new_start = min(_.start for _ in self)
 
-        if __new_start != self.start:
-            self.logger.warning("Resetting the start for %s from %d to %d",
-                                self.id, self.start, __new_start)
-            self.start = __new_start
+            if __new_start != self.start:
+                self.logger.warning("Resetting the start for %s from %d to %d",
+                                    self.id, self.start, __new_start)
+                self.start = __new_start
 
-        __new_end = max(_.end for _ in self)
-        if __new_end != self.end:
-            self.logger.warning("Resetting the end for %s from %d to %d",
-                                self.id, self.end, __new_end)
-            self.end = __new_end
+            __new_end = max(_.end for _ in self)
+            if __new_end != self.end:
+                self.logger.warning("Resetting the end for %s from %d to %d",
+                                    self.id, self.end, __new_end)
+                self.end = __new_end
 
     def as_dict(self):
 

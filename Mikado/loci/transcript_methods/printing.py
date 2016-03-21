@@ -17,8 +17,8 @@ __author__ = 'Luca Venturini'
 def __create_cds_lines(transcript,
                        cds_run,
                        tid,
-                       phases=None,
-                       to_gtf=False, with_introns=False):
+                       to_gtf=False,
+                       with_introns=False):
 
     """
     Private method to create the exon/UTR/CDS lines for printing
@@ -58,11 +58,11 @@ def __create_cds_lines(transcript,
         assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
         assert exon_line.end <= transcript.end
         if segment[0] == "CDS":
-            cds_index += 1
+            assert len(segment) == 3, (segment, cds_run)
             if to_gtf is False:
-                exon_line.phase = phases[cds_index]
+                exon_line.phase = segment[2]
             else:
-                exon_line.phase = (3 - phases[cds_index]) % 3
+                exon_line.phase = (3 - segment[2]) % 3
         exon_lines.append(exon_line)
 
     # if to_gtf is False:
@@ -204,7 +204,6 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
             exon_lines = __create_cds_lines(transcript,
                                             cds_run,
                                             tid,
-                                            phases=transcript.phases[index],
                                             to_gtf=to_gtf,
                                             with_introns=with_introns)
 

@@ -525,10 +525,10 @@ class Transcript:
         assert isinstance(cds_end, int)
 
         self.exons = self.combined_cds
-
         self.start = cds_start
         self.end = cds_end
         self.internal_orfs, self.combined_utr = [], []
+        self.segments = []
         # Need to recalculate it
         self.__cdna_length = None
         self.finalize()
@@ -1461,14 +1461,15 @@ index {3}, internal ORFs: {4}".format(
     def selected_cds_length(self):
         """This property calculates the length of the CDS selected as best inside
         the cDNA."""
+        self.finalize()
         if len(self.combined_cds) == 0:
             self.__max_internal_orf_length = 0
         else:
             self.__max_internal_orf_length = sum(
                 _[1].length() + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
-            phase = sum(self.phases[self.selected_internal_orf_index]) % 3
-            assert (self.__max_internal_orf_length + phase) % 3 == 0, (
-                self.__max_internal_orf_length, self.selected_internal_orf)
+            # phase = sum(self.phases[self.selected_internal_orf_index]) % 3
+            # assert (self.__max_internal_orf_length + phase) % 3 == 0, (
+            #     self.__max_internal_orf_length, self.selected_internal_orf)
 
         return self.__max_internal_orf_length
 

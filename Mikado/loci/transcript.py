@@ -653,8 +653,15 @@ class Transcript:
         for index, orf in enumerate(self.internal_orfs):
             state["orfs"][str(index)] = []
             for segment in orf:
-                state["orfs"][str(index)].append([segment[0], [segment[1][0],
-                                                               segment[1][1]]])
+                if segment[0] == "CDS":
+                    to_store = [segment[0], [segment[1][0],
+                                             segment[1][1]],
+                                segment[2]]
+                else:
+                    to_store = [segment[0], [segment[1][0],
+                                             segment[1][1]]]
+
+                state["orfs"][str(index)].append(to_store)
         state["parent"] = getattr(self, "parent")
         state["id"] = getattr(self, "id")
         return state
@@ -676,9 +683,16 @@ class Transcript:
         for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
             neworf = []
             for segment in orf:
-                neworf.append((segment[0], intervaltree.Interval(*segment[1])))
                 if segment[0] == "CDS":
+                    new_segment = (segment[0],
+                                   intervaltree.Interval(*segment[1]),
+                                   int(segment[2]))
                     self.combined_cds.append(intervaltree.Interval(*segment[1]))
+                else:
+                    new_segment = (segment[0],
+                                   intervaltree.Interval(*segment[1]))
+                neworf.append(new_segment)
+
             self.internal_orfs.append(neworf)
 
         try:

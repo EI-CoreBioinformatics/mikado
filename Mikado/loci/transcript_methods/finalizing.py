@@ -395,8 +395,8 @@ def __check_internal_orf(transcript, index, phases=None):
                 transcript.id))
 
         remainder = total % 3 - phase_orf[0]
-        transcript.logger.warning("Remainder %d, three_utr %s (UTR %s)",
-                                  remainder, three_utr, utr)
+        transcript.logger.debug("In %s Remainder %d, three_utr %s (UTR %s)",
+                                transcript.id, remainder, three_utr, utr)
         if remainder > 0 and three_utr:
             raise InvalidCDS("Truncated ORF at 3' with 3' UTR for {0}".format(
                 transcript.id))

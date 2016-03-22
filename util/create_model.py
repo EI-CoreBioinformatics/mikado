@@ -10,6 +10,8 @@ from scipy.stats import hmean
 from Mikado.scales.resultstorer import ResultStorer
 from Mikado.loci import Transcript
 import operator
+import random
+from math import floor
 
 
 class MetricEntry:
@@ -103,6 +105,9 @@ def load_metrics(metrics_file) -> [MetricEntry]:
     return metrics
 
 
+__doc__ = "Script to build a model for Mikado starting from TMAP and metric files."
+
+
 def main():
 
     """
@@ -110,8 +115,32 @@ def main():
     :return:
     """
 
-    parser = argparse.ArgumentParser("Script to build a model for Mikado starting from TMAP and metric files.")
-    parser.add_argument("-t", "--tmap", help="The TMAP file with the comparison results.", required=True)
+    def to_proportion(string):
+
+        string = float(string)
+        if string <= 0 or string > 100:
+            raise ValueError(string)
+        if 1 < string:
+            string /= 100
+        return string
+
+    def to_pos(string):
+
+        string = int(string)
+        if string < 0:
+            raise ValueError(string)
+
+    parser = argparse.ArgumentParser(__doc__)
+    subset = parser.add_mutually_exclusive_group()
+    subset.add_argument("-r", "--random", type=int,
+                        default=None,
+                        help="A fixed of models to select for training.")
+    subset.add_argument("-p", "--proportion", type=float,
+                        default=None,
+                        help="Proportion of the models to be used for training.")
+    parser.add_argument("-t", "--tmap",
+                        help="The TMAP file with the comparison results.",
+                        required=True)
     parser.add_argument("-m", "--metrics", help="The metrics file.", required=True)
     parser.add_argument("-o", "--out", help="Output file.", default="forest.model")
     args = parser.parse_args()
@@ -144,6 +173,16 @@ def main():
     # ref = bed12.loadbed(args.reference, False, False)
     metrics = load_metrics(args.metrics)
     print("# metered transcripts:", len(metrics))
+
+    if args.random is not None or args.proportion is not None:
+        if args.random is not None:
+            selected = random.sample(scores.keys(), args.random)
+        else:
+            selected = random.sample(scores.keys(),
+                                     int(floor(len(scores) * args.proportion)))
+
+        scores = dict(_ for _ in scores.items() if _[0] in selected)
+        metrics = dict(_ for _ in metrics.items() if _[0] in selected)
 
     X = np.zeros((len(scores), len(MetricEntry.metrics)))
     y = []

@@ -46,7 +46,7 @@ setup(
     ],
     ext_modules=cythonize([Extension(path.join("Mikado.utilities.overlap"),
                                      [path.join("Mikado", "utilities", "overlap.pyx")])]),
-    zip_safe=False,
+    zip_safe=True,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),
     scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),

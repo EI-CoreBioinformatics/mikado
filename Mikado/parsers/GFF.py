@@ -273,7 +273,7 @@ class GffLine(GFAnnotation):
         Property. It checks whether there is a "Derives_from" attribute among the line attributes.
         :rtype bool
         """
-        return "Derives_from" in self.attributes
+        return any(("derives_from" in _.lower()) for _ in self.attributes.keys())
 
     @property
     def derived_from(self):

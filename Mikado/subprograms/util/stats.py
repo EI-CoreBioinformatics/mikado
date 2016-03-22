@@ -8,18 +8,12 @@ import sys
 import argparse
 import re
 import csv
-from ...exceptions import InvalidTranscript, InvalidCDS
+from ...exceptions import InvalidCDS
 from .. import to_gff
-from ...loci.transcript import Transcript
+from ...loci import Transcript, Gene
 from ...parsers import GFF
-# pylint: disable=E1101,no-name-in-module
-from numpy import array as num_array
-from numpy import mean, percentile
 import numpy
-# pylint: enable=E1101
-# import numpy
 from collections import namedtuple, Counter
-from array import array as c_array
 
 __author__ = "Luca Venturini"
 
@@ -27,6 +21,58 @@ __author__ = "Luca Venturini"
 numpy.seterr(all="ignore")  # Suppress warnings
 numpy.warnings.filterwarnings("ignore")
 # pylint: enable=E1101
+
+
+def weighted_percentile(a, percentile=numpy.array([75, 25]), weights=None):
+    """
+    O(nlgn) implementation for weighted_percentile.
+    From: http://stackoverflow.com/questions/21844024/weighted-percentile-using-numpy
+    Kudos to SO user Nayyary http://stackoverflow.com/users/2004093/nayyarv
+
+    :param a: array or Counter
+    :type a: (Counter|list|numpy.array|set|tuple)
+
+    :param percentile: the percentiles to calculate.
+    :type percentile: (numpy.array|list|tuple)
+
+    """
+
+    percentile = numpy.array(percentile)/100.0
+
+    if isinstance(a, Counter):
+        a, weigths = numpy.array(list(zip(*a.items())))
+    else:
+        assert isinstance(a, (list, set, tuple, numpy.ndarray)), (a, type(a))
+        if not isinstance(a, type(numpy.array)):
+            a = numpy.array(a)
+        if weights is None:
+            weights = numpy.ones(len(a))
+
+    a_indsort = numpy.argsort(a)
+    a_sort = a[a_indsort]
+    weights_sort = weights[a_indsort]
+    ecdf = numpy.cumsum(weights_sort)
+
+    percentile_index_positions = percentile * (weights.sum() - 1) + 1
+    # need the 1 offset at the end due to ecdf not starting at 0
+    locations = numpy.searchsorted(ecdf, percentile_index_positions)
+
+    out_percentiles = numpy.zeros(len(percentile_index_positions))
+
+    for i, empiricalLocation in enumerate(locations):
+        # iterate across the requested percentiles
+        if ecdf[empiricalLocation-1] == numpy.floor(percentile_index_positions[i]):
+            # i.e. is the percentile in between 2 separate values
+            uppWeight = percentile_index_positions[i] - ecdf[empiricalLocation-1]
+            lowWeight = 1 - uppWeight
+
+            out_percentiles[i] = a_sort[empiricalLocation-1] * lowWeight + \
+                                 a_sort[empiricalLocation] * uppWeight
+        else:
+            # i.e. the percentile is entirely in one bin
+            out_percentiles[i] = a_sort[empiricalLocation]
+
+    return out_percentiles
 
 
 class TranscriptComputer(Transcript):
@@ -95,125 +141,6 @@ class TranscriptComputer(Transcript):
         return self.data_tuple(**constructor)
 
 
-# pylint: disable=too-many-instance-attributes
-class GeneObject:
-
-    """
-    Basic gene container for the annotation file parsing.
-    """
-
-    def __init__(self, record, only_coding=False):
-
-        self.transcripts = dict()
-        self.chrom = record.chrom
-        self.start = record.start
-        self.end = record.end
-        self.strand = record.strand
-        # pylint: disable=invalid-name
-        self.id = record.id
-        # pylint: enable=invalid-name
-
-        self.only_coding = only_coding
-        self.coding_transcripts = set()
-
-    def add_transcript(self, tcomputer: TranscriptComputer):
-        """
-        Simplified addition of a transcript to the gene.
-        :param tcomputer: the candidate transcript
-        :type tcomputer: TranscriptComputer
-        """
-        self.transcripts[tcomputer.id] = tcomputer
-        self.start = min(self.start, tcomputer.start)
-        self.end = max(self.end, tcomputer.end)
-
-    def finalize(self):
-        """
-        Wrapper for the Transcript.finalize method, plus some attribute setting for the
-        instance as well.
-        """
-        if len(self.transcripts) == 0:
-            return
-
-        to_remove = set()
-        for tid in self.transcripts:
-            try:
-                self.transcripts[tid] = self.transcripts[tid].as_tuple()
-                if self.only_coding is True and self.transcripts[tid].selected_cds_length == 0:
-                    to_remove.add(tid)
-                if self.transcripts[tid].selected_cds_length > 0:
-                    self.coding_transcripts.add(tid)
-            except InvalidTranscript as _:
-                print("Invalid transcript: {0}".format(tid), file=sys.stderr)
-                to_remove.add(tid)
-        if len(to_remove) == len(self.transcripts):
-            self.transcripts = dict()
-        else:
-            for tid_to_remove in to_remove:
-                del self.transcripts[tid_to_remove]
-
-    def __lt__(self, other):
-        if self.chrom != other.chrom:
-            return self.chrom < other.chrom
-        else:
-            if self.start != other.start:
-                return self.start < other.start
-            else:
-                return self.end < other.end
-
-    def __eq__(self, other):
-        if not isinstance(self, type(other)):
-            return False
-        if self.chrom == other.chrom:
-            if self.strand == other.strand:
-                if self.start == other.start and self.end == other.end:
-                    return True
-        return False
-
-    @property
-    def introns(self):
-        """
-        It returns the set of all introns in the container.
-        :rtype : set
-        """
-
-        return set(self.transcripts[tid].introns for tid in self.transcripts)
-
-    @property
-    def exons(self):
-        """
-        It returns the set of all exons in the container.
-        :rtype : set
-        """
-        return set.union(*[set(self.transcripts[tid].exons) for tid in self.transcripts])
-
-    @property
-    def has_monoexonic(self):
-        """
-        True if any of the transcripts is monoexonic.
-        :rtype : bool
-        """
-        return any(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
-
-    @property
-    def monoexonic(self):
-        return all(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
-
-    @property
-    def num_transcripts(self):
-        """
-        Number of transcripts.
-        :rtype : int
-        """
-        return len(self.transcripts)
-
-    @property
-    def is_coding(self):
-        """
-        Property. It evaluates to True if at least one transcript is coding, False otherwise.
-        """
-        return any(self.transcripts[tid].selected_cds_length > 0 for tid in self.transcripts.keys())
-
-
 class Calculator:
 
     """
@@ -234,8 +161,8 @@ class Calculator:
         self.out = parsed_args.out
         self.genes = dict()
         self.coding_genes = []
-        self.__distances = num_array([])
-        self.__coding_distances = num_array([])
+        self.__distances = numpy.array([])
+        self.__coding_distances = numpy.array([])
         self.__fieldnames = ['Stat', 'Total', 'Average', 'Mode', 'Min',
                              '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         self.__rower = csv.DictWriter(self.out,
@@ -276,14 +203,14 @@ class Calculator:
                     new_record = record.copy()
                     new_record.feature = "gene"
                     if new_record.gene not in self.genes:
-                        self.genes[new_record.gene] = GeneObject(
+                        self.genes[new_record.gene] = Gene(
                             new_record,
                             only_coding=self.only_coding)
                 self.genes[record.parent[0]].transcripts[record.id] = TranscriptComputer(record)
-            elif record.is_derived is True and record.is_gene is False:
+            elif record.is_derived is True:  # and record.is_gene is False:
                 derived_features.add(record.id)
             elif self.__is_gene(record) is True:
-                self.genes[record.id] = GeneObject(
+                self.genes[record.id] = Gene(
                     record, only_coding=self.only_coding)
             else:
                 for parent in iter(pparent for pparent in record.parent if
@@ -309,7 +236,7 @@ class Calculator:
                 continue
             distances.append(next_gene.start + 1 - gene.end)
 
-        self.__distances = num_array(distances)
+        self.__distances = numpy.array(distances)
 
         distances = []
         for index, gene in enumerate(self.coding_genes[:-1]):
@@ -318,12 +245,12 @@ class Calculator:
                 continue
             distances.append(next_gene.start + 1 - gene.end)
 
-        self.__coding_distances = num_array(distances)
+        self.__coding_distances = numpy.array(distances)
 
         self.writer()
 
     @staticmethod
-    def get_stats(row: dict, array: num_array) -> dict:
+    def get_stats(row: dict, array: numpy.array) -> dict:
         """
         Method to calculate the necessary statistic from a row of values.
         :param row: the output dictionary row.
@@ -337,17 +264,32 @@ class Calculator:
         # Decimal to second digit precision
         if array is None:
             return row
-        row["Average"] = "{0:,.2f}".format(round(mean(array), 2))
 
-        counter_object = Counter(array)
-        moder = [x for x in counter_object if
-                 counter_object[x] == counter_object.most_common(1)[0][1]]
+        try:
+            array, weights = array
+        except ValueError as exc:
+            raise ValueError((exc, row["Stat"], array))
+
+        row["Average"] = "{0:,.2f}".format(round(
+            sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
+
+        sorter = numpy.argsort(weights)
+
+        try:
+            moder = array[sorter][weights[sorter].searchsorted(weights.max()):]
+        except TypeError as exc:
+            raise TypeError((exc, array, weights, sorter))
         row["Mode"] = ";".join(str(x) for x in moder)
         keys = ['Min', '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         if len(array) == 0:
             quantiles = ["NA"]*len(keys)
         else:
-            quantiles = [percentile(array, x) for x in [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100]]
+            # array, weights = array
+            # print(array)
+            # print(weights)
+            quantiles = weighted_percentile(array,
+                                            [0, 1, 5, 10, 25, 50, 75, 90, 95, 99, 100],
+                                            weights)
         for key, val in zip(keys, quantiles):
             try:
                 row[key] = "{0:,.0f}".format(val)  # No decimal
@@ -373,108 +315,132 @@ class Calculator:
 
         # self.__arrays["Number of transcripts"] = num_array(
         #     [self.genes[x].num_transcripts for x in self.genes])
-        self.__arrays["Transcripts per gene"] = num_array(
-            [self.genes[_].num_transcripts for _ in self.genes])
-        self.__arrays["Coding transcripts per gene"] = num_array(
-            [self.genes[_].num_transcripts for _ in self.genes])
-        self.__arrays["Intergenic distances"] = self.__distances
-        self.__arrays["Intergenic distances (coding)"] = self.__coding_distances
+        self.__arrays["Transcripts per gene"] = numpy.array(
+            list(zip(*Counter(
+                [self.genes[_].num_transcripts for _ in self.genes]).items())))
+        self.__arrays["Coding transcripts per gene"] = numpy.array(
+            list(zip(*Counter(
+                [self.genes[_].num_transcripts for _ in self.genes]).items())))
+        self.__arrays["Intergenic distances"] = numpy.array(
+            list(zip(*Counter(self.__distances).items())))
+        self.__arrays["Intergenic distances (coding)"] = numpy.array(
+            list(zip(*Counter(self.__coding_distances).items())))
 
-        exons, exons_coding = c_array('i'), c_array('i')
-        exon_num, exon_num_coding = c_array('i'), c_array('i')
-        introns, introns_coding = c_array('i'), c_array('i')
-        cds_introns = c_array('i')
-        cds_exons = c_array('i')
-        cds_exon_num = c_array('i')
-        cds_exon_num_coding = c_array('i')
-        cdna_lengths = c_array('i')  # Done
-        cdna_lengths_coding = c_array('i')
-        cds_lengths = c_array('i')  # Done
-        cds_ratio = c_array("d")
-        monoexonic_lengths, multiexonic_lengths = c_array('i'), c_array('i')
-        monocds_lengths = c_array('i')
+        exons, exons_coding = Counter(), Counter()
+        exon_num, exon_num_coding = Counter(), Counter()
+        introns, introns_coding = Counter(), Counter()
+        cds_introns = Counter()
+        cds_exons = Counter()
+        cds_exon_num = Counter()
+        cds_exon_num_coding = Counter()
+        cdna_lengths = Counter() # Done
+        cdna_lengths_coding = Counter()
+        cds_lengths = Counter()  # Done
+        cds_ratio = Counter()
+        monoexonic_lengths, multiexonic_lengths = Counter(), Counter()
+        monocds_lengths = Counter()
 
-        five_utr_lengths, five_utr_nums = c_array('i'), c_array('i')
-        three_utr_lengths, three_utr_nums = c_array('i'), c_array('i')
+        five_utr_lengths, five_utr_nums = Counter(), Counter()
+        three_utr_lengths, three_utr_nums = Counter(), Counter()
 
-        end_distance_from_junction = c_array('i')
+        end_distance_from_junction = Counter()
 
         for gene in self.genes:
             for tid in self.genes[gene].transcripts:
-                exons.extend(self.genes[gene].transcripts[tid].exon_lengths)
+                exons.update(self.genes[gene].transcripts[tid].exon_lengths)
                 exon_number = len(self.genes[gene].transcripts[tid].exon_lengths)
-                exon_num.append(exon_number)
+                exon_num.update([exon_number])
                 if exon_number == 1:
-                    monoexonic_lengths.append(self.genes[gene].transcripts[tid].cdna_length)
+                    monoexonic_lengths.update([self.genes[gene].transcripts[tid].cdna_length])
                 else:
-                    multiexonic_lengths.append(self.genes[gene].transcripts[tid].cdna_length)
-                introns.extend(self.genes[gene].transcripts[tid].intron_lengths)
-                cds_introns.extend(self.genes[gene].transcripts[tid].cds_intron_lengths)
-                cds_exons.extend(self.genes[gene].transcripts[tid].cds_exon_lengths)
+                    multiexonic_lengths.update([self.genes[gene].transcripts[tid].cdna_length])
+                introns.update(self.genes[gene].transcripts[tid].intron_lengths)
+                cds_introns.update(self.genes[gene].transcripts[tid].cds_intron_lengths)
+                cds_exons.update(self.genes[gene].transcripts[tid].cds_exon_lengths)
                 cds_num = len(self.genes[gene].transcripts[tid].cds_exon_lengths)
                 if cds_num == 1:
-                    monocds_lengths.append(
-                        self.genes[gene].transcripts[tid].selected_cds_length)
+                    monocds_lengths.update(
+                        [self.genes[gene].transcripts[tid].selected_cds_length])
                 elif exon_num == 1:
                     if self.genes[gene].transcripts[tid].selected_cds_length > 0:
-                        monocds_lengths.append(
-                            self.genes[gene].transcripts[tid].selected_cds_length)
+                        monocds_lengths.update(
+                            [self.genes[gene].transcripts[tid].selected_cds_length])
 
-                cds_exon_num.append(cds_num)
-                cdna_lengths.append(self.genes[gene].transcripts[tid].cdna_length)
-                cds_lengths.append(self.genes[gene].transcripts[tid].selected_cds_length)
+                cds_exon_num.update([cds_num])
+                cdna_lengths.update([self.genes[gene].transcripts[tid].cdna_length])
+                cds_lengths.update([self.genes[gene].transcripts[tid].selected_cds_length])
                 if self.genes[gene].transcripts[tid].selected_cds_length > 0:
-                    five_utr_lengths.append(
-                        self.genes[gene].transcripts[tid].five_utr_length)
-                    three_utr_lengths.append(
-                        self.genes[gene].transcripts[tid].three_utr_length)
-                    five_utr_nums.append(
-                        self.genes[gene].transcripts[tid].five_utr_num)
-                    three_utr_nums.append(
-                        self.genes[gene].transcripts[tid].three_utr_num)
-                    end_distance_from_junction.append(
-                        self.genes[gene].transcripts[tid].selected_end_distance_from_junction)
+                    five_utr_lengths.update(
+                        [self.genes[gene].transcripts[tid].five_utr_length])
+                    three_utr_lengths.update(
+                        [self.genes[gene].transcripts[tid].three_utr_length])
+                    five_utr_nums.update(
+                        [self.genes[gene].transcripts[tid].five_utr_num])
+                    three_utr_nums.update(
+                        [self.genes[gene].transcripts[tid].three_utr_num])
+                    end_distance_from_junction.update(
+                        [self.genes[gene].transcripts[tid].selected_end_distance_from_junction])
                     __cds_length = self.genes[gene].transcripts[tid].selected_cds_length
                     __cdna_length = self.genes[gene].transcripts[tid].cdna_length
-                    cds_ratio.append(100 * __cds_length / __cdna_length)
+                    cds_ratio.update([100 * __cds_length / __cdna_length])
 
                 if self.only_coding is False:
                     if self.genes[gene].transcripts[tid].selected_cds_length > 0:
-                        cdna_lengths_coding.append(
-                            self.genes[gene].transcripts[tid].cdna_length)
-                        exons_coding.extend(self.genes[gene].transcripts[tid].exon_lengths)
-                        exon_num_coding.append(
-                            len(self.genes[gene].transcripts[tid].exon_lengths))
-                        cds_exon_num_coding.append(
-                            len(self.genes[gene].transcripts[tid].cds_exon_lengths))
-                        introns_coding.extend(
+                        cdna_lengths_coding.update(
+                            [self.genes[gene].transcripts[tid].cdna_length])
+                        exons_coding.update(self.genes[gene].transcripts[tid].exon_lengths)
+                        exon_num_coding.update(
+                            [len(self.genes[gene].transcripts[tid].exon_lengths)])
+                        cds_exon_num_coding.update(
+                            [len(self.genes[gene].transcripts[tid].cds_exon_lengths)])
+                        introns_coding.update(
                             self.genes[gene].transcripts[tid].intron_lengths)
 
-        self.__arrays['CDNA lengths'] = cdna_lengths
-        self.__arrays["cDNA lengths (mRNAs)"] = cdna_lengths_coding
-        self.__arrays['CDS lengths'] = cds_lengths
+        self.__arrays['CDNA lengths'] = numpy.array(list(zip(*cdna_lengths.items())))
+        self.__arrays["cDNA lengths (mRNAs)"] = numpy.array(list(
+            zip(*cdna_lengths_coding.items())))
+        self.__arrays['CDS lengths'] = numpy.array(list(zip(*cds_lengths.items())))
         if self.only_coding is False:
-            self.__arrays["CDS lengths (mRNAs)"] = c_array('i',
-                                                           [_ for _ in cds_lengths if _ > 0])
-            self.__arrays['Exons per transcript (mRNAs)'] = exon_num_coding
-            self.__arrays['Exon lengths (mRNAs)'] = exons_coding
-            self.__arrays["CDS exons per transcript (mRNAs)"] = cds_exon_num_coding
+            __lengths = cds_lengths.copy()
+            del __lengths[0]
+            self.__arrays["CDS lengths (mRNAs)"] = numpy.array(list(zip(*__lengths.items())))
+            self.__arrays['Exons per transcript (mRNAs)'] = numpy.array(
+                list(zip(*exon_num_coding.items())))
+            self.__arrays['Exon lengths (mRNAs)'] = numpy.array(
+                list(zip(*exons_coding.items())))
+            self.__arrays["CDS exons per transcript (mRNAs)"] = numpy.array(
+                list(zip(*cds_exon_num_coding.items())))
 
-        self.__arrays['Monoexonic transcripts'] = monoexonic_lengths
-        self.__arrays['MonoCDS transcripts'] = monocds_lengths
-        self.__arrays['Exons per transcript'] = exon_num
-        self.__arrays['Exon lengths'] = exons
-        self.__arrays["Intron lengths"] = introns
-        self.__arrays["Intron lengths (mRNAs)"] = introns_coding
-        self.__arrays["CDS exons per transcript"] = cds_exon_num
-        self.__arrays["CDS exon lengths"] = cds_exons
-        self.__arrays["CDS Intron lengths"] = cds_introns
-        self.__arrays["5'UTR exon number"] = five_utr_nums
-        self.__arrays["3'UTR exon number"] = three_utr_nums
-        self.__arrays["5'UTR length"] = five_utr_lengths
-        self.__arrays["3'UTR length"] = three_utr_lengths
-        self.__arrays["Stop distance from junction"] = end_distance_from_junction
-        self.__arrays["CDS/cDNA ratio"] = cds_ratio
+        self.__arrays['Monoexonic transcripts'] = numpy.array(
+            list(zip(*monoexonic_lengths.items())))
+        self.__arrays['MonoCDS transcripts'] = numpy.array(
+            list(zip(*monocds_lengths.items())))
+        self.__arrays['Exons per transcript'] = numpy.array(
+            list(zip(*exon_num.items())))
+        self.__arrays['Exon lengths'] = numpy.array(
+            list(zip(*exons.items())))
+        self.__arrays["Intron lengths"] = numpy.array(
+            list(zip(*introns.items())))
+        self.__arrays["Intron lengths (mRNAs)"] = numpy.array(
+            list(zip(*introns_coding.items())))
+        self.__arrays["CDS exons per transcript"] = numpy.array(
+            list(zip(*cds_exon_num.items())))
+        self.__arrays["CDS exon lengths"] = numpy.array(
+            list(zip(*cds_exons.items())))
+        self.__arrays["CDS Intron lengths"] = numpy.array(
+            list(zip(*cds_introns.items())))
+        self.__arrays["5'UTR exon number"] = numpy.array(
+            list(zip(*five_utr_nums.items())))
+        self.__arrays["3'UTR exon number"] = numpy.array(
+            list(zip(*three_utr_nums.items())))
+        self.__arrays["5'UTR length"] = numpy.array(
+            list(zip(*five_utr_lengths.items())))
+        self.__arrays["3'UTR length"] = numpy.array(
+            list(zip(*three_utr_lengths.items())))
+        self.__arrays["Stop distance from junction"] = numpy.array(
+            list(zip(*end_distance_from_junction.items())))
+        self.__arrays["CDS/cDNA ratio"] = numpy.array(
+            list(zip(*cds_ratio.items())))
     # pylint: enable=too-many-locals,too-many-statements
 
     def writer(self):
@@ -557,7 +523,8 @@ class Calculator:
             total = len(self.__arrays[stat])
         else:
             if total is sum:
-                total = sum(self.__arrays[stat])
+                _, weights = self.__arrays[stat]
+                total = sum(weights)
             elif not isinstance(total, int):
                 assert total in self.__arrays
                 total = len(self.__arrays[total])
@@ -565,6 +532,7 @@ class Calculator:
         row["Total"] = total
         if stat in self.__arrays:
             current_array = self.__arrays[stat]
+            # assert isinstance(current_array, Counter), type(current_array)
         else:
             current_array = None
         row = self.get_stats(row, current_array)

@@ -468,7 +468,7 @@ def finalize(transcript):
     if transcript.finalized is True:
         return
 
-    __previous = transcript.deepcopy()
+    # __previous = transcript.deepcopy()
 
     transcript.exons = sorted(transcript.exons)
     transcript.__cdna_length = None
@@ -501,19 +501,12 @@ def finalize(transcript):
     transcript.combined_utr = sorted(transcript.combined_utr,
                                      key=operator.itemgetter(0, 1))
 
-    try:
-        __check_completeness(transcript)
-        __verify_boundaries(transcript)
-
-        assert all([segment[1] in transcript.exons for segment in transcript.segments if
+    __check_completeness(transcript)
+    __verify_boundaries(transcript)
+    assert all([segment[1] in transcript.exons for segment in transcript.segments if
                     segment[0] == "exon"]), (transcript.exons, transcript.segments)
-
-        __check_phase_correctness(transcript)
-        __calculate_introns(transcript)
-    except (InvalidTranscript, InvalidCDS):
-        del transcript
-        transcript = __previous
-        return
+    __check_phase_correctness(transcript)
+    __calculate_introns(transcript)
 
     if len(transcript.combined_cds) > 0:
         transcript.feature = "mRNA"

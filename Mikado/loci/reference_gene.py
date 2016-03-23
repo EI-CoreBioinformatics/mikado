@@ -173,9 +173,10 @@ class Gene:
             transcript.load_dict(tvalues)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:
-                print("{0} is non coding ({1}, {2})".format(transcript.id,
-                                                       transcript.combined_cds,
-                                                       transcript.segments))
+                self.logger.debug("{0} is non coding ({1}, {2})".format(
+                    transcript.id,
+                    transcript.combined_cds,
+                    transcript.segments))
                 continue
             if exclude_utr is True:
                 has_utrs = (transcript.utr_length > 0)

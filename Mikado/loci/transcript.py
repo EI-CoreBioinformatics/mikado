@@ -1190,12 +1190,9 @@ class Transcript:
         :type combined: list[(int,int)]
         """
 
-        error = TypeError("Invalid value for combined CDS: {0}".format(combined))
-
-        if not isinstance(combined, list):
-            raise error
-        elif any(self.__wrong_combined_entry(comb) for comb in combined):
-            raise error
+        if ((not isinstance(combined, list)) or
+                any(self.__wrong_combined_entry(comb) for comb in combined)):
+            raise TypeError("Invalid value for combined CDS: {0}".format(combined))
 
         # if len(combined) > 0:
         #     if isinstance(combined[0], tuple):

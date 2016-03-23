@@ -55,7 +55,7 @@ setup(
         "postgresql": ["psycopg2"],
         "mysql": ["mysqlclient>=1.3.6"],
     },
-    test_suite="nose.runmodule",
+    test_suite="Mikado.test",
     package_data={
         "Mikado.configuration":
             glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml")},

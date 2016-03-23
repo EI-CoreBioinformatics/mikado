@@ -356,7 +356,7 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary, invert=Fal
     # Prevent monobase exons
     # if new_exon[0] == new_exon[1]:
     #     new_exon[1] += 1
-    new_exon = Interval(new_exon[0], new_exon[1])
+    new_exon = tuple([new_exon[0], new_exon[1]])
 
     return new_exon, texon, to_discard
 

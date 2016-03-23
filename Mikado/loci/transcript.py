@@ -171,7 +171,7 @@ class Transcript:
         self.loaded_bed12 = []
         self.engine, self.session, self.sessionmaker = None, None, None
         # Initialisation of the CDS segments used for finding retained introns
-        self.__cds_tree = intervaltree.IntervalTree()
+        self.__cds_tree = None
         # self.query_id = None
 
         if len(args) == 0:
@@ -380,7 +380,7 @@ class Transcript:
         else:
             raise InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
 
-        segment = intervaltree.Interval(start, end)
+        segment = tuple([start, end])
         # assert isinstance(segment[0], int) and isinstance(segment[1], int)
         store.append(segment)
 
@@ -459,9 +459,9 @@ class Transcript:
             raise ValueError("Cannot remove a segment from a finalised transcript!")
 
         if hasattr(exon, "start"):
-            exon = intervaltree.Interval(exon.start, exon.end)
-        elif not isinstance(exon, intervaltree.Interval):
-            exon = intervaltree.Interval(exon[0], exon[1])
+            exon = tuple([exon.start, exon.end])
+        elif not isinstance(exon, tuple):
+            exon = ([exon[0], exon[1]])
         else:
             pass
 
@@ -686,7 +686,8 @@ class Transcript:
         self.exons = []
         self.combined_cds = []
         for exon in state["exons"]:
-            self.exons.append(intervaltree.Interval(*exon))
+            assert len(exon) == 2
+            self.exons.append(tuple(exon))
 
         self.internal_orfs = []
         for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
@@ -694,12 +695,12 @@ class Transcript:
             for segment in orf:
                 if segment[0] == "CDS":
                     new_segment = (segment[0],
-                                   intervaltree.Interval(*segment[1]),
+                                   tuple(segment[1]),
                                    int(segment[2]))
-                    self.combined_cds.append(intervaltree.Interval(*segment[1]))
+                    self.combined_cds.append(tuple(segment[1]))
                 else:
                     new_segment = (segment[0],
-                                   intervaltree.Interval(*segment[1]))
+                                   tuple(segment[1]))
                 neworf.append(new_segment)
 
             self.internal_orfs.append(neworf)
@@ -1061,8 +1062,8 @@ class Transcript:
         """
         lengths = []
         for internal_cds in self.internal_orfs:
-            assert isinstance(internal_cds[0][1], intervaltree.Interval), internal_cds[0]
-            length = sum(x[1].length() + 1 for x in internal_cds if
+            assert isinstance(internal_cds[0][1], tuple), internal_cds[0]
+            length = sum(x[1][1] - x[1][0] + 1 for x in internal_cds if
                          x[0] == "CDS")
             lengths.append(length)
         lengths = sorted(lengths, reverse=True)
@@ -1213,7 +1214,7 @@ class Transcript:
         :param to_test:
         :return:
         """
-        if not isinstance(to_test, intervaltree.Interval):
+        if not isinstance(to_test, tuple) or len(to_test) != 2:
             return True
         elif to_test[1] < to_test[0]:
             return True
@@ -1344,10 +1345,15 @@ index {3}, internal ORFs: {4}".format(
         :return:
         """
 
-        if not isinstance(segments, intervaltree.IntervalTree):
+        if segments is None:
+            pass
+
+        elif isinstance(segments, intervaltree.IntervalTree):
+            assert len(segments) == len(self.combined_cds)
+        else:
             raise TypeError("Invalid cds segments: %s, type %s",
                             segments, type(segments))
-        assert len(segments) == len(self.combined_cds)
+
         self.__cds_tree = segments
 
     # ################### Class metrics ##################################
@@ -1421,7 +1427,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def combined_cds_length(self):
         """This property return the length of the CDS part of the transcript."""
-        c_length = sum([c.length() + 1 for c in self.combined_cds])
+        c_length = sum([c[1] - c[0] + 1 for c in self.combined_cds])
         if len(self.combined_cds) > 0:
             assert c_length > 0
         return c_length
@@ -1448,7 +1454,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def combined_utr_length(self):
         """This property return the length of the UTR part of the transcript."""
-        return sum([e.length() + 1 for e in self.combined_utr])
+        return sum([e[1] - e[0] + 1 for e in self.combined_utr])
 
     @Metric
     def combined_utr_fraction(self):
@@ -1461,7 +1467,7 @@ index {3}, internal ORFs: {4}".format(
         """This property returns the length of the transcript."""
         if self.__cdna_length is None:
             try:
-                self.__cdna_length = sum([e.length() + 1 for e in self.exons])
+                self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
             except TypeError:
                 raise TypeError(self.exons)
         return self.__cdna_length
@@ -1480,7 +1486,7 @@ index {3}, internal ORFs: {4}".format(
             self.__max_internal_orf_length = 0
         else:
             self.__max_internal_orf_length = sum(
-                _[1].length() + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
+                _[1][1] - _[1][0] + 1 for _ in self.selected_internal_orf if _[0] == "CDS")
 
         return self.__max_internal_orf_length
 
@@ -1552,7 +1558,7 @@ index {3}, internal ORFs: {4}".format(
         """Returns the length of the 5' UTR of the selected ORF."""
         if len(self.combined_cds) == 0:
             return 0
-        return sum(utr.length() + 1 for utr in self.five_utr)
+        return sum(utr[1] - utr[0] + 1 for utr in self.five_utr)
 
     @Metric
     def five_utr_num(self):
@@ -1570,7 +1576,7 @@ index {3}, internal ORFs: {4}".format(
         """Returns the length of the 5' UTR of the selected ORF."""
         if len(self.combined_cds) == 0:
             return 0
-        return sum(x.length() + 1 for x in self.three_utr)
+        return sum(x[1] - x[0] + 1 for x in self.three_utr)
 
     @Metric
     def three_utr_num(self):
@@ -2013,7 +2019,7 @@ index {3}, internal ORFs: {4}".format(
         """
 
         return sum(1 for intron in self.introns if
-                   intron.length() + 1 > self.intron_range[1])
+                   intron[1] - intron[0] + 1 > self.intron_range[1])
         #
         # return len(list(filter(lambda x: x[1]-x[0]+1 > self.intron_range[1],
         #                        self.introns)))
@@ -2028,7 +2034,7 @@ index {3}, internal ORFs: {4}".format(
         """
 
         return sum(1 for intron in self.introns if
-                   intron.length() + 1 < self.intron_range[0])
+                   intron[1] - intron[0] + 1 < self.intron_range[0])
 
         #
         # return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],

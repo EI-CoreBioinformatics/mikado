@@ -23,22 +23,23 @@ def __basic_final_checks(transcript):
         raise InvalidTranscript(
             "No exon defined for the transcript {0}. Aborting".format(transcript.id))
 
-    if not isinstance(transcript.exons[0], intervaltree.Interval):
-        _ = [intervaltree.Interval(int(exon[0]), int(exon[1])) for exon in transcript.exons]
-        transcript.logger.debug("Converting to interval objects")
+    if not isinstance(transcript.exons[0], tuple):
+        _ = [tuple([int(exon[0]), int(exon[1])]) for exon in transcript.exons]
+        transcript.logger.debug("Converting to tuples")
         transcript.exons = _
 
     new_exons = []
     invalid = False
     for exon in transcript.exons:
-        if not isinstance(exon, intervaltree.Interval):
-            if (isinstance(exon, (tuple, list)) and len(exon) == 2 and
-                    isinstance(exon[0], int) and isinstance(exon[1], int)):
-                exon = intervaltree.Interval(*exon)
+        if not isinstance(exon, tuple):
+            if (isinstance(exon, intervaltree.Interval) or
+                    (isinstance(exon, list) and len(exon) == 2 and
+                         isinstance(exon[0], int) and isinstance(exon[1], int))):
+                exon = tuple([exon])
             else:
                 raise ValueError("Invalid exon: {0}, type {1}".format(
                     exon, type(exon)))
-        if exon.begin < transcript.start or exon.end > transcript.end:
+        if exon[0] < transcript.start or exon[1] > transcript.end:
             invalid = True
             break
         new_exons.append(exon)
@@ -82,6 +83,7 @@ def _check_cdna_vs_utr(transcript):
         transcript.combined_cds = sorted(transcript.combined_cds,
                                          key=operator.itemgetter(0, 1))
         for exon in transcript.exons:
+            assert isinstance(exon, tuple)
             if exon in transcript.combined_cds:
                 continue
             # The end of the exon is before the first ORF start
@@ -93,22 +95,22 @@ def _check_cdna_vs_utr(transcript):
             # The last base of the exon is the first ORF base
             elif (exon[0] < transcript.combined_cds[0][0] and
                   exon[1] == transcript.combined_cds[0][1]):
-                transcript.combined_utr.append(intervaltree.Interval(
-                    exon[0], transcript.combined_cds[0][0] - 1))
+                transcript.combined_utr.append(tuple([
+                    exon[0], transcript.combined_cds[0][0] - 1]))
             # The first base of the exon is the first base of the last ORF segment:
             # UTR after
             elif (exon[1] > transcript.combined_cds[-1][1] and
                   exon[0] == transcript.combined_cds[-1][0]):
-                transcript.combined_utr.append(intervaltree.Interval(
-                    transcript.combined_cds[-1][1] + 1, exon[1]))
+                transcript.combined_utr.append(tuple([
+                    transcript.combined_cds[-1][1] + 1, exon[1]]))
             else:
                 # If the ORF is contained inside a single exon, with UTR
                 # at both sites, then we create the two UTR segments
                 if len(transcript.combined_cds) == 1:
-                    transcript.combined_utr.append(intervaltree.Interval(
-                        exon[0], transcript.combined_cds[0][0] - 1))
-                    transcript.combined_utr.append(intervaltree.Interval(
-                        transcript.combined_cds[-1][1] + 1, exon[1]))
+                    transcript.combined_utr.append(tuple([
+                        exon[0], transcript.combined_cds[0][0] - 1]))
+                    transcript.combined_utr.append(tuple([
+                        transcript.combined_cds[-1][1] + 1, exon[1]]))
                 else:
                     # This means there is an INTERNAL UTR region between
                     # two CDS segments: something is clearly wrong!
@@ -149,7 +151,7 @@ def __calculate_introns(transcript):
                     "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(
                         transcript.id, exona, exonb, transcript.exons))
             # Append the splice junction
-            introns.append(intervaltree.Interval(exona[1] + 1, exonb[0] - 1))
+            introns.append(tuple([exona[1] + 1, exonb[0] - 1]))
             # Append the splice locations
             splices.extend([exona[1] + 1, exonb[0] - 1])
     transcript.introns = set(introns)
@@ -167,7 +169,7 @@ def __calculate_introns(transcript):
             assert first != second, transcript.selected_cds
             assert first[1] < second[0], (first, second)
             # first, second = sorted([first, second])
-            intron = intervaltree.Interval(first[1] + 1, second[0] - 1)
+            intron = tuple([first[1] + 1, second[0] - 1])
             assert intron in transcript.introns, (intron, first, second)
             cds_introns.append(intron)
 
@@ -180,7 +182,7 @@ def __calculate_introns(transcript):
             for position in range(len(transcript.combined_cds) - 1):
                 former = transcript.combined_cds[position]
                 latter = transcript.combined_cds[position + 1]
-                junc = intervaltree.Interval(former[1] + 1, latter[0] - 1)
+                junc = tuple([former[1] + 1, latter[0] - 1])
                 if junc in transcript.introns:
                     cds_introns.append(junc)
             cintrons = set(cds_introns)
@@ -280,7 +282,7 @@ def __check_internal_orf(transcript, index, phases=None):
 
     if phases:
         phases_keys = sorted(phases.keys(), reverse=(transcript.strand == "-"))
-        phase_orf =[phases[_] for _ in phases_keys]
+        phase_orf = [phases[_] for _ in phases_keys]
         previous = (3 - phases[phases_keys[0]] % 3) % 3
         total_cds_length += previous
     else:
@@ -355,7 +357,7 @@ def __check_internal_orf(transcript, index, phases=None):
 
         phase_orf.append(phase)
         new_orf.append((orf_segment[0], orf_segment[1], phase))
-        previous = orf_segment[1].length() + 1
+        previous = orf_segment[1][1] - orf_segment[1][0] + 1
         total_cds_length += previous
 
     transcript.logger.debug("Total CDS length %d", total_cds_length)
@@ -372,7 +374,7 @@ def __check_internal_orf(transcript, index, phases=None):
             elif _[0] == "UTR":
                 utr.append(_[1])
 
-        total = sum(_.length() + 1 for _ in cds)
+        total = sum(_[1] - _[0] + 1 for _ in cds)
         # This is the amount of bases left over
         remainder = total % 3
 
@@ -420,13 +422,13 @@ def __check_phase_correctness(transcript):
 
     if min(len(transcript.segments), len(transcript.internal_orfs)) == 0:
         # Define exons
-        transcript.segments = [("exon", intervaltree.Interval(e[0], e[1]))
+        transcript.segments = [("exon", tuple([e[0], e[1]]))
                                for e in transcript.exons]
         # Define CDS
-        transcript.segments.extend([("CDS", intervaltree.Interval(c[0], c[1]))
+        transcript.segments.extend([("CDS", tuple([c[0], c[1]]))
                                     for c in transcript.combined_cds])
         # Define UTR segments
-        transcript.segments.extend([("UTR", intervaltree.Interval(u[0], u[1]))
+        transcript.segments.extend([("UTR", tuple([u[0], u[1]]))
                                     for u in transcript.combined_utr])
         # Mix and sort
         transcript.segments = sorted(transcript.segments, key=operator.itemgetter(1, 0))
@@ -501,12 +503,17 @@ def finalize(transcript):
     transcript.combined_utr = sorted(transcript.combined_utr,
                                      key=operator.itemgetter(0, 1))
 
-    __check_completeness(transcript)
-    __verify_boundaries(transcript)
-    assert all([segment[1] in transcript.exons for segment in transcript.segments if
-                    segment[0] == "exon"]), (transcript.exons, transcript.segments)
-    __check_phase_correctness(transcript)
-    __calculate_introns(transcript)
+    try:
+        __check_completeness(transcript)
+        __verify_boundaries(transcript)
+        assert all([segment[1] in transcript.exons for segment in transcript.segments if
+                        segment[0] == "exon"]), (transcript.exons, transcript.segments)
+        __check_phase_correctness(transcript)
+        __calculate_introns(transcript)
+    except (InvalidCDS, InvalidTranscript):
+        transcript.finalized = True
+        transcript.unfinalize()
+        return
 
     if len(transcript.combined_cds) > 0:
         transcript.feature = "mRNA"
@@ -523,8 +530,9 @@ def finalize(transcript):
             internal_cds[0] == "CDS")
 
     # Create the interval tree
-    transcript.cds_tree = intervaltree.IntervalTree([
-        intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
+    transcript.cds_tree = None
+        # intervaltree.IntervalTree([
+        # intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)

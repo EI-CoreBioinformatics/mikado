@@ -87,7 +87,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
     :param segment: a segment of the form (feature, start, end)
-    :type segment: list(str, intervaltree.Interval)
+    :type segment: list(str, tuple)
 
     :param counter: a Counter object that keeps track of how many exons,
     CDS, UTR segments we have already seen

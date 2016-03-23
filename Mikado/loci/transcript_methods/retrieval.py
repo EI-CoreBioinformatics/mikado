@@ -142,7 +142,7 @@ def check_loaded_orfs(transcript):
         cds_spans = []
         candidates = []
         for internal_cds in transcript.internal_orfs:
-            if sum([_[1].length() + 1 for _ in internal_cds if _[0] == "CDS"]) % 3 != 0:
+            if sum([_[1][1] - _[1][0] + 1 for _ in internal_cds if _[0] == "CDS"]) % 3 != 0:
                 transcript.logger.error("Invalid internal:\n%s",
                                         internal_cds)
                 transcript.logger.error("Invalid internals:\n%s",
@@ -152,9 +152,9 @@ def check_loaded_orfs(transcript):
                                         "\n".join([str(_) for _ in transcript.loaded_bed12]))
 
                 raise InvalidTranscript((transcript.id,
-                                         sum([_[1].length() + 1 for _
+                                         sum([_[1][1] - _[1][0] + 1 for _
                                               in internal_cds if _[0] == "CDS"]),
-                                         sum([_[1].length() + 1 for
+                                         sum([_[1][1] - _[1][0] + 1 for
                                               _ in internal_cds if _[0] == "CDS"]) % 3,
                                          internal_cds))
 
@@ -163,7 +163,7 @@ def check_loaded_orfs(transcript):
                                     if tup[0] == "CDS")])
 
         for comm in transcript.find_communities(candidates):
-            span = intervaltree.Interval(min(t[0] for t in comm), max(t[1] for t in comm))
+            span = tuple([min(t[0] for t in comm), max(t[1] for t in comm)])
             cds_spans.append(span)
 
         transcript.combined_cds = sorted(cds_spans, key=operator.itemgetter(0, 1))
@@ -186,9 +186,9 @@ def check_loaded_orfs(transcript):
             group = [getter(element) for element in group]
             # group = list(map(operator.itemgetter(1), group))
             if len(group) > 1:
-                transcript.combined_utr.append(intervaltree.Interval(group[0], group[-1]))
+                transcript.combined_utr.append(tuple([group[0], group[-1]]))
             else:
-                transcript.combined_utr.append(intervaltree.Interval(group[0], group[0]))
+                transcript.combined_utr.append(tuple([group[0], group[0]]))
 
         # Check everything is alright
         equality = (transcript.cdna_length ==
@@ -493,21 +493,21 @@ def __create_internal_orf(transcript, orf):
         )
         cds_exons.append(("exon", transcript.exons[0]))
         if current_end > transcript.start:
-            cds_exons.append(("UTR", intervaltree.Interval(transcript.start, current_end - 1)))
-        cds_exons.append(("CDS", intervaltree.Interval(current_end, current_start), phase))
+            cds_exons.append(("UTR", tuple([transcript.start, current_end - 1])))
+        cds_exons.append(("CDS", tuple([current_end, current_start]), phase))
         if current_start < transcript.end:
-            cds_exons.append(("UTR", intervaltree.Interval(current_start + 1, transcript.end)))
+            cds_exons.append(("UTR", tuple([current_start + 1, transcript.end])))
         transcript.strand = "-"
     else:
         previous = 0
         for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
                            reverse=(transcript.strand == "-")):
-            cds_exons.append(("exon", intervaltree.Interval(exon[0], exon[1])))
+            cds_exons.append(("exon", tuple([exon[0], exon[1]])))
             current_start += 1
             current_end += exon[1] - exon[0] + 1
             # Whole UTR
             if current_end < orf.thick_start or current_start > orf.thick_end:
-                cds_exons.append(("UTR", intervaltree.Interval(exon[0], exon[1])))
+                cds_exons.append(("UTR", tuple([exon[0], exon[1]])))
             else:
                 if transcript.strand == "+":
                     c_start = exon[0] + max(0, orf.thick_start - current_start)
@@ -518,13 +518,13 @@ def __create_internal_orf(transcript, orf):
 
                 if c_start > exon[0]:
                     u_end = c_start - 1
-                    cds_exons.append(("UTR", intervaltree.Interval(exon[0], u_end)))
+                    cds_exons.append(("UTR", tuple([exon[0], u_end])))
                 if c_start <= c_end:
                     phase = (3 - (previous % 3)) % 3
                     previous += c_end - c_start + 1
-                    cds_exons.append(("CDS", intervaltree.Interval(c_start, c_end), phase))
+                    cds_exons.append(("CDS", tuple([c_start, c_end]), phase))
                 if c_end < exon[1]:
-                    cds_exons.append(("UTR", intervaltree.Interval(c_end + 1, exon[1])))
+                    cds_exons.append(("UTR", tuple([c_end + 1, exon[1]])))
             current_start = current_end
 
     return cds_exons

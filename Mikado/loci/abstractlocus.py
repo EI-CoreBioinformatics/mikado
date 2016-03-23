@@ -499,6 +499,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                   len(transcript.selected_cds))
 
         retained_introns = []
+        if transcript.cds_tree is None:
+            transcript.cds_tree = intervaltree.IntervalTree(
+                [intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
+
         for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
             # Monobase exons are a problem
             if exon[0] == exon[1]:
@@ -506,8 +510,9 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                   self.id, self.chrom, exon[0], exon[1])
                 continue
 
-            exon_interval = intervaltree.IntervalTree([exon])
             # We have to enlarge by 1 due to idiosyncrasies by intervaltree
+            exon_interval = intervaltree.IntervalTree([
+                intervaltree.Interval(exon[0], exon[1] + 1)])
 
             for cds_segment in transcript.cds_tree.search(*exon):
                 exon_interval.chop(cds_segment[0], cds_segment[1])
@@ -694,7 +699,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         """
 
         if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = intervaltree.IntervalTree(self.combined_cds_introns)
+            self.__cds_introntree = intervaltree.IntervalTree(
+                [intervaltree.Interval(_[0], _[1] + 1) for _ in self.combined_cds_introns])
         return self.__cds_introntree
 
     @property

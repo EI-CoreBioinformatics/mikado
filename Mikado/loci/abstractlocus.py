@@ -476,21 +476,21 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         :param transcript: a Transcript instance
         :type transcript: Transcript
 
-        :returns : transcript.retained_introns
-        :rtype : tuple[tuple[int,int]]
+        :returns : None
+        :rtype : None
         """
 
         # introns = intervaltree.IntervalTree([
         #     intervaltree.Interval(*intron) for intron in self.combined_cds_introns
         # ])
 
-        # self.logger.info("Starting to calculate retained introns for %s", transcript.id)
-        # if len(self._cds_introntree) == 0:
-        #     transcript.retained_introns = tuple()
-        #     self.logger.info("No intron found in %s, exiting for %s",
-        #                      self.id,
-        #                      transcript.id)
-        #     return
+        self.logger.debug("Starting to calculate retained introns for %s", transcript.id)
+        if len(self._cds_introntree) == 0:
+            transcript.retained_introns = tuple()
+            self.logger.debug("No CDS intron found in %s, exiting for %s",
+                              self.id,
+                              transcript.id)
+            return
 
         # self.logger.debug("Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)",
         #                   len(self._cds_introntree), len(self.combined_cds_introns),
@@ -499,9 +499,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         #                   len(transcript.selected_cds))
 
         retained_introns = []
+        if len(self.introns) == 0:
+            self.logger.debug("No introns in the locus to check against. Exiting.")
+
         if transcript.cds_tree is None:
             transcript.cds_tree = intervaltree.IntervalTree(
-                [intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
+                [intervaltree.Interval(cds[0], cds[1]) for cds in transcript.combined_cds])
 
         for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
             # Monobase exons are a problem
@@ -510,9 +513,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                                   self.id, self.chrom, exon[0], exon[1])
                 continue
 
-            # We have to enlarge by 1 due to idiosyncrasies by intervaltree
             exon_interval = intervaltree.IntervalTree([
-                intervaltree.Interval(exon[0], exon[1] + 1)])
+                intervaltree.Interval(exon[0], max(exon[1], exon[0] + 1))])
 
             for cds_segment in transcript.cds_tree.search(*exon):
                 exon_interval.chop(cds_segment[0], cds_segment[1])
@@ -532,31 +534,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         transcript.retained_introns = tuple(sorted(retained_introns))
         # self.logger.info("Returning retained introns for %s", transcript.id)
         # return transcript
-
-    # def find_retained_introns(self, transcript_instance):
-    #
-    #     """
-    #     :param transcript_instance: the transcript to be searched for retained introns.
-    #     :type transcript_instance: Mikado.py.loci.transcript.Transcript
-    #
-    #     This method checks the number of exons that are possibly
-    #     retained introns for a given transcript.
-    #     To perform this operation, it checks for each non-CDS exon whether
-    #     it exists a sublocus intron that is *completely* contained within a transcript exon.
-    #     CDS exons are ignored because their retention might be perfectly valid.
-    #     The results are stored inside the transcript instance, in the
-    #     "retained_introns" tuple.
-    #     """
-    #
-    #     transcript_instance.retained_introns = []
-    #     for exon in iter(exon for exon in transcript_instance.exons if
-    #                      exon not in transcript_instance.combined_cds):
-    #         # Check that the overlap is at least as long as
-    #         # the minimum between the exon and the intron.
-    #         if any(iter(intron for intron in self.introns if
-    #                     self.overlap(exon, intron) >= intron[1]-intron[0]+1)) is True:
-    #             transcript_instance.retained_introns.append(exon)
-    #     transcript_instance.retained_introns = tuple(transcript_instance.retained_introns)
 
     def print_metrics(self):
 

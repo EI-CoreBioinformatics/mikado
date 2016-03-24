@@ -8,6 +8,7 @@ import cython
 __author__ = 'Luca Venturini'
 
 @cython.profile(True)
+@cython.boundscheck(False)
 cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tuple stats):
 
     cdef:
@@ -33,7 +34,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tup
 
     if p_exon_num == 1 and r_exon_num > 1:
         if nucl_precision < 1 and nucl_overlap > 0:
-            overlaps = []
+            overlaps = list()
             for intron in sorted(reference.introns):
                 i_start, i_end = intron[0], intron[1]
                 over = c_overlap(i_start, i_end, p_start, p_end, flank=0, positive=True)
@@ -44,7 +45,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tup
                 # Completely contained inside
                 ccode = "mo"
             elif len(overlaps) == 1:
-                over, i_length = overlaps.pop()
+                over, i_length = overlaps[0][0], overlaps[0][1]
                 p_cdna_length = prediction.cdna_length
                 if over == i_length and over < p_cdna_length:
                     ccode = "mo"

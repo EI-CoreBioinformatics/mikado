@@ -779,9 +779,9 @@ static PyObject *__pyx_n_s_recall;
 static PyObject *__pyx_n_s_test;
 static PyObject *__pyx_pf_6Mikado_6scales_2f1_calc_f1(CYTHON_UNUSED PyObject *__pyx_self, double __pyx_v_recall, double __pyx_v_precision); /* proto */
 
-/* "Mikado/scales/f1.pyx":5
- * 
+/* "Mikado/scales/f1.pyx":6
  * @cython.profile(True)
+ * @cython.cdivision(True)
  * cpdef double calc_f1(double recall, double precision):             # <<<<<<<<<<<<<<
  *     """
  *     Static method to calculate the F1 statistic given precision
@@ -789,8 +789,9 @@ static PyObject *__pyx_pf_6Mikado_6scales_2f1_calc_f1(CYTHON_UNUSED PyObject *__
 
 static PyObject *__pyx_pw_6Mikado_6scales_2f1_1calc_f1(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
 static double __pyx_f_6Mikado_6scales_2f1_calc_f1(double __pyx_v_recall, double __pyx_v_precision, CYTHON_UNUSED int __pyx_skip_dispatch) {
-  double __pyx_v_product;
+  double __pyx_v_result;
   double __pyx_v_summa;
+  double __pyx_v_product;
   double __pyx_r;
   __Pyx_TraceDeclarations
   __Pyx_RefNannyDeclarations
@@ -802,11 +803,11 @@ static double __pyx_f_6Mikado_6scales_2f1_calc_f1(double __pyx_v_recall, double 
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("calc_f1", 0);
-  __Pyx_TraceCall("calc_f1", __pyx_f[0], 5, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
+  __Pyx_TraceCall("calc_f1", __pyx_f[0], 6, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
 
-  /* "Mikado/scales/f1.pyx":11
- *     F1 = (2 * precision * recall) / (precision + recall)
- *     """
+  /* "Mikado/scales/f1.pyx":14
+ *     cdef double result, summa, product
+ * 
  *     if max(precision, recall) == 0:             # <<<<<<<<<<<<<<
  *         return 0
  *     else:
@@ -821,8 +822,8 @@ static double __pyx_f_6Mikado_6scales_2f1_calc_f1(double __pyx_v_recall, double 
   __pyx_t_4 = ((__pyx_t_3 == 0.0) != 0);
   if (__pyx_t_4) {
 
-    /* "Mikado/scales/f1.pyx":12
- *     """
+    /* "Mikado/scales/f1.pyx":15
+ * 
  *     if max(precision, recall) == 0:
  *         return 0             # <<<<<<<<<<<<<<
  *     else:
@@ -831,49 +832,54 @@ static double __pyx_f_6Mikado_6scales_2f1_calc_f1(double __pyx_v_recall, double 
     __pyx_r = 0.0;
     goto __pyx_L0;
 
-    /* "Mikado/scales/f1.pyx":11
- *     F1 = (2 * precision * recall) / (precision + recall)
- *     """
+    /* "Mikado/scales/f1.pyx":14
+ *     cdef double result, summa, product
+ * 
  *     if max(precision, recall) == 0:             # <<<<<<<<<<<<<<
  *         return 0
  *     else:
  */
   }
 
-  /* "Mikado/scales/f1.pyx":14
+  /* "Mikado/scales/f1.pyx":17
  *         return 0
  *     else:
  *         product = 2 * precision * recall             # <<<<<<<<<<<<<<
  *         summa = precision + recall
- *         return product / summa
+ *         result = product / summa
  */
   /*else*/ {
     __pyx_v_product = ((2.0 * __pyx_v_precision) * __pyx_v_recall);
 
-    /* "Mikado/scales/f1.pyx":15
+    /* "Mikado/scales/f1.pyx":18
  *     else:
  *         product = 2 * precision * recall
  *         summa = precision + recall             # <<<<<<<<<<<<<<
- *         return product / summa
+ *         result = product / summa
+ *         return result
  */
     __pyx_v_summa = (__pyx_v_precision + __pyx_v_recall);
 
-    /* "Mikado/scales/f1.pyx":16
+    /* "Mikado/scales/f1.pyx":19
  *         product = 2 * precision * recall
  *         summa = precision + recall
- *         return product / summa             # <<<<<<<<<<<<<<
+ *         result = product / summa             # <<<<<<<<<<<<<<
+ *         return result
  */
-    if (unlikely(__pyx_v_summa == 0)) {
-      PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 16; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    }
-    __pyx_r = (__pyx_v_product / __pyx_v_summa);
+    __pyx_v_result = (__pyx_v_product / __pyx_v_summa);
+
+    /* "Mikado/scales/f1.pyx":20
+ *         summa = precision + recall
+ *         result = product / summa
+ *         return result             # <<<<<<<<<<<<<<
+ */
+    __pyx_r = __pyx_v_result;
     goto __pyx_L0;
   }
 
-  /* "Mikado/scales/f1.pyx":5
- * 
+  /* "Mikado/scales/f1.pyx":6
  * @cython.profile(True)
+ * @cython.cdivision(True)
  * cpdef double calc_f1(double recall, double precision):             # <<<<<<<<<<<<<<
  *     """
  *     Static method to calculate the F1 statistic given precision
@@ -921,11 +927,11 @@ static PyObject *__pyx_pw_6Mikado_6scales_2f1_1calc_f1(PyObject *__pyx_self, PyO
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_precision)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("calc_f1", 1, 2, 2, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+          __Pyx_RaiseArgtupleInvalid("calc_f1", 1, 2, 2, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "calc_f1") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "calc_f1") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -933,12 +939,12 @@ static PyObject *__pyx_pw_6Mikado_6scales_2f1_1calc_f1(PyObject *__pyx_self, PyO
       values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
       values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_recall = __pyx_PyFloat_AsDouble(values[0]); if (unlikely((__pyx_v_recall == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
-    __pyx_v_precision = __pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_precision == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+    __pyx_v_recall = __pyx_PyFloat_AsDouble(values[0]); if (unlikely((__pyx_v_recall == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+    __pyx_v_precision = __pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_precision == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("calc_f1", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+  __Pyx_RaiseArgtupleInvalid("calc_f1", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
   __pyx_L3_error:;
   __Pyx_AddTraceback("Mikado.scales.f1.calc_f1", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -960,9 +966,9 @@ static PyObject *__pyx_pf_6Mikado_6scales_2f1_calc_f1(CYTHON_UNUSED PyObject *__
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("calc_f1", 0);
-  __Pyx_TraceCall("calc_f1", __pyx_f[0], 5, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
+  __Pyx_TraceCall("calc_f1", __pyx_f[0], 6, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_6Mikado_6scales_2f1_calc_f1(__pyx_v_recall, __pyx_v_precision, 0)); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 5; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_6Mikado_6scales_2f1_calc_f1(__pyx_v_recall, __pyx_v_precision, 0)); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;

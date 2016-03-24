@@ -11,7 +11,11 @@ cpdef double calc_f1(double recall, double precision):
     """
     cdef double result, summa, product
 
-    if max(precision, recall) == 0:
+    if precision < 0 or recall < 0:
+        raise ValueError("Negative values are an invalid input! ({0}, {1})".format(
+            recall, precision))
+
+    elif precision == 0 or recall == 0:
         return 0
     else:
         product = 2 * precision * recall

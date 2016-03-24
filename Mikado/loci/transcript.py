@@ -531,7 +531,11 @@ class Transcript:
 
     def strip_cds(self, strand_specific=True):
         """Method to completely remove CDS information from a transcript.
-        Necessary for those cases where the input is malformed."""
+        Necessary for those cases where the input is malformed.
+
+        :param strand_specific: boolean flag. If set to False and the transcript is monoexonic,
+        the strand will be removed from it.
+        """
 
         self.logger.warning("Stripping CDS from {0}".format(self.id))
         self.finalized = False

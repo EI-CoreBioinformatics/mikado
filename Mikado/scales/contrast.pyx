@@ -408,13 +408,13 @@ cpdef tuple compare(prediction, reference):
             ccode = __assign_monoexonic_ccode(prediction, reference,
                                               nucl_overlap, stats)
 
-    if (p_strand != r_strand and p_strand != "" and r_strand != ""):
-        if ccode in ("e", "mo", "c", "m", "_", "C"):
-            ccode = "x"  # "x{0}".format(ccode)
-        elif ccode not in ("u", "i", "I", "p", "P", "x"):
-            ccode = "X"  # "X{0}".format(ccode)
+    if (p_strand != r_strand):
 
-    elif p_strand != r_strand:
+        if (p_strand != "" and r_strand != ""):
+            if ccode in ("e", "mo", "c", "m", "_", "C"):
+                ccode = "x"  # "x{0}".format(ccode)
+            elif ccode not in ("u", "i", "I", "p", "P", "x"):
+                ccode = "X"  # "X{0}".format(ccode)
         reference_exon = None
 
     result = ResultStorer(reference.id,

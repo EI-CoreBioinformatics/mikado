@@ -449,7 +449,7 @@ def __check_phase_correctness(transcript):
         except (InvalidTranscript, InvalidCDS) as exc:
             transcript.logger.exception(exc)
             transcript.logger.warning("Stripping the CDS from %s", transcript.id)
-            transcript.strip_cds()
+            transcript.strip_cds(strand_specific=True)
             break
 
     # Necessary to set it to the default value

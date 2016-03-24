@@ -530,10 +530,11 @@ class Accountant:
             self.monoexonic_matches[1].add(transcr.id)
 
         if other_exon is not None:
-            other_exon = tuple([other_exon[0], other_exon[1]])
+            # other_exon = tuple([other_exon[0], other_exon[1]])
             assert isinstance(other_exon, tuple)
-            assert other_exon in self.exons[transcr.chrom][strand],\
-                (transcr.id, transcr.exons, other_exon)
+            assert other_exon in self.exons[transcr.chrom][strand], (transcr.id,
+                                                                     transcr.exons,
+                                                                     other_exon)
             if not 0b100 & self.exons[transcr.chrom][strand][other_exon]:
                 # Check the other exon is marked as single
                 self.exons[transcr.chrom][strand][other_exon] |= 0b100

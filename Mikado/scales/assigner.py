@@ -608,7 +608,6 @@ class Assigner:
 
         return ccode, stats
 
-
     @staticmethod
     def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
 

@@ -57,7 +57,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tup
             elif len(overlaps) > 2:
                 ccode = "mo"
             elif len(overlaps) == 2:
-                overs, i_length = list(zip(*overlaps))
+                overs = [overlaps[0][0], overlaps[0][0]]
                 if max(overs) < 10:
                     ccode = "mo"
                 else:

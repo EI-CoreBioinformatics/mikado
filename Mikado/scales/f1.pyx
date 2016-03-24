@@ -1,3 +1,6 @@
+import cython
+
+
 @cython.profile(True)
 cpdef double calc_f1(double recall, double precision):
     """

@@ -1156,9 +1156,9 @@ static PyObject *__pyx_pf_6Mikado_9utilities_7overlap_overlap(CYTHON_UNUSED PyOb
   return __pyx_r;
 }
 
-/* "Mikado/utilities/overlap.pyx":17
+/* "Mikado/utilities/overlap.pyx":18
  * 
- * 
+ * @cython.profile(True)
  * cdef long c_overlap(long start, long end, long ostart, long oend, long flank=0, bint positive=0):             # <<<<<<<<<<<<<<
  *     if start > end:
  *         start, end = end, start
@@ -1175,12 +1175,17 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   long __pyx_v_right_two;
   long __pyx_v_result;
   long __pyx_r;
+  __Pyx_TraceDeclarations
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
   long __pyx_t_2;
   long __pyx_t_3;
   int __pyx_t_4;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("c_overlap", 0);
+  __Pyx_TraceCall("c_overlap", __pyx_f[0], 18, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 18; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
   if (__pyx_optional_args) {
     if (__pyx_optional_args->__pyx_n > 0) {
       __pyx_v_flank = __pyx_optional_args->flank;
@@ -1190,8 +1195,8 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
     }
   }
 
-  /* "Mikado/utilities/overlap.pyx":18
- * 
+  /* "Mikado/utilities/overlap.pyx":19
+ * @cython.profile(True)
  * cdef long c_overlap(long start, long end, long ostart, long oend, long flank=0, bint positive=0):
  *     if start > end:             # <<<<<<<<<<<<<<
  *         start, end = end, start
@@ -1200,7 +1205,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   __pyx_t_1 = ((__pyx_v_start > __pyx_v_end) != 0);
   if (__pyx_t_1) {
 
-    /* "Mikado/utilities/overlap.pyx":19
+    /* "Mikado/utilities/overlap.pyx":20
  * cdef long c_overlap(long start, long end, long ostart, long oend, long flank=0, bint positive=0):
  *     if start > end:
  *         start, end = end, start             # <<<<<<<<<<<<<<
@@ -1212,8 +1217,8 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
     __pyx_v_start = __pyx_t_2;
     __pyx_v_end = __pyx_t_3;
 
-    /* "Mikado/utilities/overlap.pyx":18
- * 
+    /* "Mikado/utilities/overlap.pyx":19
+ * @cython.profile(True)
  * cdef long c_overlap(long start, long end, long ostart, long oend, long flank=0, bint positive=0):
  *     if start > end:             # <<<<<<<<<<<<<<
  *         start, end = end, start
@@ -1221,7 +1226,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   }
 
-  /* "Mikado/utilities/overlap.pyx":20
+  /* "Mikado/utilities/overlap.pyx":21
  *     if start > end:
  *         start, end = end, start
  *     if ostart > oend:             # <<<<<<<<<<<<<<
@@ -1231,7 +1236,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   __pyx_t_1 = ((__pyx_v_ostart > __pyx_v_oend) != 0);
   if (__pyx_t_1) {
 
-    /* "Mikado/utilities/overlap.pyx":21
+    /* "Mikado/utilities/overlap.pyx":22
  *         start, end = end, start
  *     if ostart > oend:
  *         ostart, oend = oend, ostart             # <<<<<<<<<<<<<<
@@ -1243,7 +1248,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
     __pyx_v_ostart = __pyx_t_3;
     __pyx_v_oend = __pyx_t_2;
 
-    /* "Mikado/utilities/overlap.pyx":20
+    /* "Mikado/utilities/overlap.pyx":21
  *     if start > end:
  *         start, end = end, start
  *     if ostart > oend:             # <<<<<<<<<<<<<<
@@ -1252,7 +1257,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   }
 
-  /* "Mikado/utilities/overlap.pyx":26
+  /* "Mikado/utilities/overlap.pyx":27
  *     cdef long left
  * 
  *     cdef long left_one = start - flank             # <<<<<<<<<<<<<<
@@ -1261,7 +1266,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   __pyx_v_left_one = (__pyx_v_start - __pyx_v_flank);
 
-  /* "Mikado/utilities/overlap.pyx":27
+  /* "Mikado/utilities/overlap.pyx":28
  * 
  *     cdef long left_one = start - flank
  *     cdef long left_two = ostart - flank             # <<<<<<<<<<<<<<
@@ -1270,7 +1275,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   __pyx_v_left_two = (__pyx_v_ostart - __pyx_v_flank);
 
-  /* "Mikado/utilities/overlap.pyx":29
+  /* "Mikado/utilities/overlap.pyx":30
  *     cdef long left_two = ostart - flank
  * 
  *     if left_one > left_two:             # <<<<<<<<<<<<<<
@@ -1280,7 +1285,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   __pyx_t_1 = ((__pyx_v_left_one > __pyx_v_left_two) != 0);
   if (__pyx_t_1) {
 
-    /* "Mikado/utilities/overlap.pyx":30
+    /* "Mikado/utilities/overlap.pyx":31
  * 
  *     if left_one > left_two:
  *         left = left_one             # <<<<<<<<<<<<<<
@@ -1289,7 +1294,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
     __pyx_v_left = __pyx_v_left_one;
 
-    /* "Mikado/utilities/overlap.pyx":29
+    /* "Mikado/utilities/overlap.pyx":30
  *     cdef long left_two = ostart - flank
  * 
  *     if left_one > left_two:             # <<<<<<<<<<<<<<
@@ -1299,7 +1304,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
     goto __pyx_L5;
   }
 
-  /* "Mikado/utilities/overlap.pyx":32
+  /* "Mikado/utilities/overlap.pyx":33
  *         left = left_one
  *     else:
  *         left = left_two             # <<<<<<<<<<<<<<
@@ -1311,7 +1316,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   }
   __pyx_L5:;
 
-  /* "Mikado/utilities/overlap.pyx":34
+  /* "Mikado/utilities/overlap.pyx":35
  *         left = left_two
  * 
  *     cdef long right_one = end + flank             # <<<<<<<<<<<<<<
@@ -1320,7 +1325,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   __pyx_v_right_one = (__pyx_v_end + __pyx_v_flank);
 
-  /* "Mikado/utilities/overlap.pyx":35
+  /* "Mikado/utilities/overlap.pyx":36
  * 
  *     cdef long right_one = end + flank
  *     cdef long right_two = oend + flank             # <<<<<<<<<<<<<<
@@ -1329,7 +1334,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   __pyx_v_right_two = (__pyx_v_oend + __pyx_v_flank);
 
-  /* "Mikado/utilities/overlap.pyx":37
+  /* "Mikado/utilities/overlap.pyx":38
  *     cdef long right_two = oend + flank
  * 
  *     if right_one < right_two:             # <<<<<<<<<<<<<<
@@ -1339,7 +1344,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   __pyx_t_1 = ((__pyx_v_right_one < __pyx_v_right_two) != 0);
   if (__pyx_t_1) {
 
-    /* "Mikado/utilities/overlap.pyx":38
+    /* "Mikado/utilities/overlap.pyx":39
  * 
  *     if right_one < right_two:
  *         right = right_one             # <<<<<<<<<<<<<<
@@ -1348,7 +1353,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
     __pyx_v_right = __pyx_v_right_one;
 
-    /* "Mikado/utilities/overlap.pyx":37
+    /* "Mikado/utilities/overlap.pyx":38
  *     cdef long right_two = oend + flank
  * 
  *     if right_one < right_two:             # <<<<<<<<<<<<<<
@@ -1358,7 +1363,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
     goto __pyx_L6;
   }
 
-  /* "Mikado/utilities/overlap.pyx":40
+  /* "Mikado/utilities/overlap.pyx":41
  *         right = right_one
  *     else:
  *         right = right_two             # <<<<<<<<<<<<<<
@@ -1370,7 +1375,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   }
   __pyx_L6:;
 
-  /* "Mikado/utilities/overlap.pyx":42
+  /* "Mikado/utilities/overlap.pyx":43
  *         right = right_two
  * 
  *     cdef long result = right - left             # <<<<<<<<<<<<<<
@@ -1379,7 +1384,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   __pyx_v_result = (__pyx_v_right - __pyx_v_left);
 
-  /* "Mikado/utilities/overlap.pyx":43
+  /* "Mikado/utilities/overlap.pyx":44
  * 
  *     cdef long result = right - left
  *     if positive == 1 and result < 0:             # <<<<<<<<<<<<<<
@@ -1397,7 +1402,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
   __pyx_L8_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "Mikado/utilities/overlap.pyx":44
+    /* "Mikado/utilities/overlap.pyx":45
  *     cdef long result = right - left
  *     if positive == 1 and result < 0:
  *         return 0             # <<<<<<<<<<<<<<
@@ -1407,7 +1412,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
     __pyx_r = 0;
     goto __pyx_L0;
 
-    /* "Mikado/utilities/overlap.pyx":43
+    /* "Mikado/utilities/overlap.pyx":44
  * 
  *     cdef long result = right - left
  *     if positive == 1 and result < 0:             # <<<<<<<<<<<<<<
@@ -1416,7 +1421,7 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
  */
   }
 
-  /* "Mikado/utilities/overlap.pyx":46
+  /* "Mikado/utilities/overlap.pyx":47
  *         return 0
  *     else:
  *         return result             # <<<<<<<<<<<<<<
@@ -1428,16 +1433,20 @@ static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, lo
     goto __pyx_L0;
   }
 
-  /* "Mikado/utilities/overlap.pyx":17
+  /* "Mikado/utilities/overlap.pyx":18
  * 
- * 
+ * @cython.profile(True)
  * cdef long c_overlap(long start, long end, long ostart, long oend, long flank=0, bint positive=0):             # <<<<<<<<<<<<<<
  *     if start > end:
  *         start, end = end, start
  */
 
   /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_WriteUnraisable("Mikado.utilities.overlap.c_overlap", __pyx_clineno, __pyx_lineno, __pyx_filename, 0, 0);
+  __pyx_r = 0;
   __pyx_L0:;
+  __Pyx_TraceReturn(Py_None, 0);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }

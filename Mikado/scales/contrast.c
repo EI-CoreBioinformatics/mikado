@@ -1052,6 +1052,8 @@ static int __pyx_Generator_init(void);
 
 static int __Pyx_check_binary_version(void);
 
+static int __Pyx_ExportFunction(const char *name, void (*f)(void), const char *sig);
+
 #if !defined(__Pyx_PyIdentifier_FromString)
 #if PY_MAJOR_VERSION < 3
   #define __Pyx_PyIdentifier_FromString(s) PyString_FromString(s)
@@ -1079,9 +1081,9 @@ static double (*__pyx_f_6Mikado_6scales_2f1_calc_f1)(double, double, int __pyx_s
 static PyTypeObject *__pyx_ptype_6Mikado_6scales_8contrast___pyx_scope_struct____pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode = 0;
 static PyTypeObject *__pyx_ptype_6Mikado_6scales_8contrast___pyx_scope_struct_1_genexpr = 0;
 static PyTypeObject *__pyx_ptype_6Mikado_6scales_8contrast___pyx_scope_struct_2_genexpr = 0;
-static PyObject *__pyx_f_6Mikado_6scales_8contrast___assign_monoexonic_ccode(PyObject *, PyObject *, long, PyObject *); /*proto*/
-static PyObject *__pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode(PyObject *, PyObject *, long, PyObject *); /*proto*/
 static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *, PyObject *, int __pyx_skip_dispatch); /*proto*/
+static PyObject *__pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode(PyObject *, PyObject *, long, PyObject *); /*proto*/
+static PyObject *__pyx_f_6Mikado_6scales_8contrast___assign_monoexonic_ccode(PyObject *, PyObject *, long, PyObject *); /*proto*/
 #define __Pyx_MODULE_NAME "Mikado.scales.contrast"
 int __pyx_module_is_main_Mikado__scales__contrast = 0;
 
@@ -4026,9 +4028,9 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode(Py
   return __pyx_r;
 }
 
-/* "Mikado/scales/contrast.pyx":201
+/* "Mikado/scales/contrast.pyx":202
  * 
- * 
+ * @cython.profile(True)
  * cpdef tuple compare(prediction, reference):             # <<<<<<<<<<<<<<
  * 
  *     """Function to compare two transcripts and determine a ccode.
@@ -4067,6 +4069,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   PyObject *__pyx_v_result = NULL;
   PyObject *__pyx_v__ = NULL;
   PyObject *__pyx_r = NULL;
+  __Pyx_TraceDeclarations
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
@@ -4109,44 +4112,16 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("compare", 0);
+  __Pyx_TraceCall("compare", __pyx_f[0], 202, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 202; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
 
-  /* "Mikado/scales/contrast.pyx":256
+  /* "Mikado/scales/contrast.pyx":257
  *     """
  * 
  *     prediction.finalize()             # <<<<<<<<<<<<<<
  *     reference.finalize()
  * 
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_finalize); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 256; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = NULL;
-  if (CYTHON_COMPILING_IN_CPYTHON && likely(PyMethod_Check(__pyx_t_2))) {
-    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
-    if (likely(__pyx_t_3)) {
-      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
-      __Pyx_INCREF(__pyx_t_3);
-      __Pyx_INCREF(function);
-      __Pyx_DECREF_SET(__pyx_t_2, function);
-    }
-  }
-  if (__pyx_t_3) {
-    __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 256; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  } else {
-    __pyx_t_1 = __Pyx_PyObject_CallNoArg(__pyx_t_2); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 256; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  }
-  __Pyx_GOTREF(__pyx_t_1);
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-
-  /* "Mikado/scales/contrast.pyx":257
- * 
- *     prediction.finalize()
- *     reference.finalize()             # <<<<<<<<<<<<<<
- * 
- *     cdef:
- */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_finalize); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 257; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_finalize); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 257; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
   __pyx_t_3 = NULL;
   if (CYTHON_COMPILING_IN_CPYTHON && likely(PyMethod_Check(__pyx_t_2))) {
@@ -4168,79 +4143,108 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "Mikado/scales/contrast.pyx":271
+  /* "Mikado/scales/contrast.pyx":258
+ * 
+ *     prediction.finalize()
+ *     reference.finalize()             # <<<<<<<<<<<<<<
+ * 
+ *     cdef:
+ */
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_finalize); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 258; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __Pyx_GOTREF(__pyx_t_2);
+  __pyx_t_3 = NULL;
+  if (CYTHON_COMPILING_IN_CPYTHON && likely(PyMethod_Check(__pyx_t_2))) {
+    __pyx_t_3 = PyMethod_GET_SELF(__pyx_t_2);
+    if (likely(__pyx_t_3)) {
+      PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_2);
+      __Pyx_INCREF(__pyx_t_3);
+      __Pyx_INCREF(function);
+      __Pyx_DECREF_SET(__pyx_t_2, function);
+    }
+  }
+  if (__pyx_t_3) {
+    __pyx_t_1 = __Pyx_PyObject_CallOneArg(__pyx_t_2, __pyx_t_3); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 258; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  } else {
+    __pyx_t_1 = __Pyx_PyObject_CallNoArg(__pyx_t_2); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 258; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  }
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+  /* "Mikado/scales/contrast.pyx":272
  * 
  * 
  *     p_cdna_length, r_cdna_length = prediction.cdna_length, reference.cdna_length             # <<<<<<<<<<<<<<
  *     p_exon_num, r_exon_num = prediction.exon_num, reference.exon_num
  *     p_start, p_end, r_start, r_end = (prediction.start, prediction.end,
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 271; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_4 = __pyx_PyFloat_AsDouble(__pyx_t_1); if (unlikely((__pyx_t_4 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 271; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_4 = __pyx_PyFloat_AsDouble(__pyx_t_1); if (unlikely((__pyx_t_4 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 271; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_5 = __pyx_PyFloat_AsDouble(__pyx_t_1); if (unlikely((__pyx_t_5 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 271; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_5 = __pyx_PyFloat_AsDouble(__pyx_t_1); if (unlikely((__pyx_t_5 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_p_cdna_length = __pyx_t_4;
   __pyx_v_r_cdna_length = __pyx_t_5;
 
-  /* "Mikado/scales/contrast.pyx":272
+  /* "Mikado/scales/contrast.pyx":273
  * 
  *     p_cdna_length, r_cdna_length = prediction.cdna_length, reference.cdna_length
  *     p_exon_num, r_exon_num = prediction.exon_num, reference.exon_num             # <<<<<<<<<<<<<<
  *     p_start, p_end, r_start, r_end = (prediction.start, prediction.end,
  *                                       reference.start, reference.end)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_6 = __Pyx_PyInt_As_short(__pyx_t_1); if (unlikely((__pyx_t_6 == (short)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_6 = __Pyx_PyInt_As_short(__pyx_t_1); if (unlikely((__pyx_t_6 == (short)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_7 = __Pyx_PyInt_As_short(__pyx_t_1); if (unlikely((__pyx_t_7 == (short)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 272; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_7 = __Pyx_PyInt_As_short(__pyx_t_1); if (unlikely((__pyx_t_7 == (short)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_p_exon_num = __pyx_t_6;
   __pyx_v_r_exon_num = __pyx_t_7;
 
-  /* "Mikado/scales/contrast.pyx":273
+  /* "Mikado/scales/contrast.pyx":274
  *     p_cdna_length, r_cdna_length = prediction.cdna_length, reference.cdna_length
  *     p_exon_num, r_exon_num = prediction.exon_num, reference.exon_num
  *     p_start, p_end, r_start, r_end = (prediction.start, prediction.end,             # <<<<<<<<<<<<<<
  *                                       reference.start, reference.end)
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_start); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_start); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_8 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_8 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_8 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_8 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_end); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_end); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_9 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_9 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 273; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_9 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_9 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "Mikado/scales/contrast.pyx":274
+  /* "Mikado/scales/contrast.pyx":275
  *     p_exon_num, r_exon_num = prediction.exon_num, reference.exon_num
  *     p_start, p_end, r_start, r_end = (prediction.start, prediction.end,
  *                                       reference.start, reference.end)             # <<<<<<<<<<<<<<
  * 
  *     nucl_overlap = 0
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_start); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_start); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 275; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_10 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_10 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_10 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_10 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 275; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_end); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_end); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 275; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_11 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_11 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 274; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_11 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_11 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 275; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_p_start = __pyx_t_8;
   __pyx_v_p_end = __pyx_t_9;
   __pyx_v_r_start = __pyx_t_10;
   __pyx_v_r_end = __pyx_t_11;
 
-  /* "Mikado/scales/contrast.pyx":276
+  /* "Mikado/scales/contrast.pyx":277
  *                                       reference.start, reference.end)
  * 
  *     nucl_overlap = 0             # <<<<<<<<<<<<<<
@@ -4249,46 +4253,46 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   __pyx_v_nucl_overlap = 0;
 
-  /* "Mikado/scales/contrast.pyx":278
+  /* "Mikado/scales/contrast.pyx":279
  *     nucl_overlap = 0
  * 
  *     __pred_exons = set()             # <<<<<<<<<<<<<<
  *     __ref_exons = set()
  * 
  */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 278; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 279; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v___pred_exons = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "Mikado/scales/contrast.pyx":279
+  /* "Mikado/scales/contrast.pyx":280
  * 
  *     __pred_exons = set()
  *     __ref_exons = set()             # <<<<<<<<<<<<<<
  * 
  *     for exon in prediction.exons:
  */
-  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 279; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = PySet_New(0); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 280; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v___ref_exons = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "Mikado/scales/contrast.pyx":281
+  /* "Mikado/scales/contrast.pyx":282
  *     __ref_exons = set()
  * 
  *     for exon in prediction.exons:             # <<<<<<<<<<<<<<
  *         exon = (exon[0], exon[1] + 1)
  *         __pred_exons.add(exon)
  */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exons); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exons); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
   if (likely(PyList_CheckExact(__pyx_t_1)) || PyTuple_CheckExact(__pyx_t_1)) {
     __pyx_t_2 = __pyx_t_1; __Pyx_INCREF(__pyx_t_2); __pyx_t_12 = 0;
     __pyx_t_13 = NULL;
   } else {
-    __pyx_t_12 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_12 = -1; __pyx_t_2 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_13 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_13)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_13 = Py_TYPE(__pyx_t_2)->tp_iternext; if (unlikely(!__pyx_t_13)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   for (;;) {
@@ -4296,17 +4300,17 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       if (likely(PyList_CheckExact(__pyx_t_2))) {
         if (__pyx_t_12 >= PyList_GET_SIZE(__pyx_t_2)) break;
         #if CYTHON_COMPILING_IN_CPYTHON
-        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_12); __Pyx_INCREF(__pyx_t_1); __pyx_t_12++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+        __pyx_t_1 = PyList_GET_ITEM(__pyx_t_2, __pyx_t_12); __Pyx_INCREF(__pyx_t_1); __pyx_t_12++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
         #else
-        __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+        __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       } else {
         if (__pyx_t_12 >= PyTuple_GET_SIZE(__pyx_t_2)) break;
         #if CYTHON_COMPILING_IN_CPYTHON
-        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_12); __Pyx_INCREF(__pyx_t_1); __pyx_t_12++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+        __pyx_t_1 = PyTuple_GET_ITEM(__pyx_t_2, __pyx_t_12); __Pyx_INCREF(__pyx_t_1); __pyx_t_12++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
         #else
-        __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+        __pyx_t_1 = PySequence_ITEM(__pyx_t_2, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
         __Pyx_GOTREF(__pyx_t_1);
         #endif
       }
@@ -4316,17 +4320,17 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
           if (likely(exc_type == PyExc_StopIteration || PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-          else {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+          else {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
         }
         break;
       }
       __Pyx_GOTREF(__pyx_t_1);
     }
-    if (!(likely(PyTuple_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "tuple", Py_TYPE(__pyx_t_1)->tp_name), 0))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 281; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    if (!(likely(PyTuple_CheckExact(__pyx_t_1))||((__pyx_t_1) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "tuple", Py_TYPE(__pyx_t_1)->tp_name), 0))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_XDECREF_SET(__pyx_v_exon, ((PyObject*)__pyx_t_1));
     __pyx_t_1 = 0;
 
-    /* "Mikado/scales/contrast.pyx":282
+    /* "Mikado/scales/contrast.pyx":283
  * 
  *     for exon in prediction.exons:
  *         exon = (exon[0], exon[1] + 1)             # <<<<<<<<<<<<<<
@@ -4335,20 +4339,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
     if (unlikely(__pyx_v_exon == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 283; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     }
-    __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+    __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 283; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
     __Pyx_GOTREF(__pyx_t_1);
     if (unlikely(__pyx_v_exon == Py_None)) {
       PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 283; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     }
-    __pyx_t_3 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_3 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+    __pyx_t_3 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_3 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 283; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_14 = __Pyx_PyInt_AddObjC(__pyx_t_3, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_14 = __Pyx_PyInt_AddObjC(__pyx_t_3, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 283; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_14);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 282; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 283; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_GIVEREF(__pyx_t_1);
     PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_1);
@@ -4359,31 +4363,31 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __Pyx_DECREF_SET(__pyx_v_exon, ((PyObject*)__pyx_t_3));
     __pyx_t_3 = 0;
 
-    /* "Mikado/scales/contrast.pyx":283
+    /* "Mikado/scales/contrast.pyx":284
  *     for exon in prediction.exons:
  *         exon = (exon[0], exon[1] + 1)
  *         __pred_exons.add(exon)             # <<<<<<<<<<<<<<
  *         for other_exon in reference.exons:
  *             other_exon = (other_exon[0], other_exon[1] + 1)
  */
-    __pyx_t_15 = PySet_Add(__pyx_v___pred_exons, __pyx_v_exon); if (unlikely(__pyx_t_15 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 283; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_15 = PySet_Add(__pyx_v___pred_exons, __pyx_v_exon); if (unlikely(__pyx_t_15 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
 
-    /* "Mikado/scales/contrast.pyx":284
+    /* "Mikado/scales/contrast.pyx":285
  *         exon = (exon[0], exon[1] + 1)
  *         __pred_exons.add(exon)
  *         for other_exon in reference.exons:             # <<<<<<<<<<<<<<
  *             other_exon = (other_exon[0], other_exon[1] + 1)
  *             __ref_exons.add(other_exon)
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exons); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exons); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
     if (likely(PyList_CheckExact(__pyx_t_3)) || PyTuple_CheckExact(__pyx_t_3)) {
       __pyx_t_14 = __pyx_t_3; __Pyx_INCREF(__pyx_t_14); __pyx_t_16 = 0;
       __pyx_t_17 = NULL;
     } else {
-      __pyx_t_16 = -1; __pyx_t_14 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_16 = -1; __pyx_t_14 = PyObject_GetIter(__pyx_t_3); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_14);
-      __pyx_t_17 = Py_TYPE(__pyx_t_14)->tp_iternext; if (unlikely(!__pyx_t_17)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_17 = Py_TYPE(__pyx_t_14)->tp_iternext; if (unlikely(!__pyx_t_17)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     }
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     for (;;) {
@@ -4391,17 +4395,17 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
         if (likely(PyList_CheckExact(__pyx_t_14))) {
           if (__pyx_t_16 >= PyList_GET_SIZE(__pyx_t_14)) break;
           #if CYTHON_COMPILING_IN_CPYTHON
-          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_14, __pyx_t_16); __Pyx_INCREF(__pyx_t_3); __pyx_t_16++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+          __pyx_t_3 = PyList_GET_ITEM(__pyx_t_14, __pyx_t_16); __Pyx_INCREF(__pyx_t_3); __pyx_t_16++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
           #else
-          __pyx_t_3 = PySequence_ITEM(__pyx_t_14, __pyx_t_16); __pyx_t_16++; if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+          __pyx_t_3 = PySequence_ITEM(__pyx_t_14, __pyx_t_16); __pyx_t_16++; if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         } else {
           if (__pyx_t_16 >= PyTuple_GET_SIZE(__pyx_t_14)) break;
           #if CYTHON_COMPILING_IN_CPYTHON
-          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_14, __pyx_t_16); __Pyx_INCREF(__pyx_t_3); __pyx_t_16++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+          __pyx_t_3 = PyTuple_GET_ITEM(__pyx_t_14, __pyx_t_16); __Pyx_INCREF(__pyx_t_3); __pyx_t_16++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
           #else
-          __pyx_t_3 = PySequence_ITEM(__pyx_t_14, __pyx_t_16); __pyx_t_16++; if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+          __pyx_t_3 = PySequence_ITEM(__pyx_t_14, __pyx_t_16); __pyx_t_16++; if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
           __Pyx_GOTREF(__pyx_t_3);
           #endif
         }
@@ -4411,17 +4415,17 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
             if (likely(exc_type == PyExc_StopIteration || PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) PyErr_Clear();
-            else {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+            else {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
           }
           break;
         }
         __Pyx_GOTREF(__pyx_t_3);
       }
-      if (!(likely(PyTuple_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "tuple", Py_TYPE(__pyx_t_3)->tp_name), 0))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 284; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      if (!(likely(PyTuple_CheckExact(__pyx_t_3))||((__pyx_t_3) == Py_None)||(PyErr_Format(PyExc_TypeError, "Expected %.16s, got %.200s", "tuple", Py_TYPE(__pyx_t_3)->tp_name), 0))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_XDECREF_SET(__pyx_v_other_exon, ((PyObject*)__pyx_t_3));
       __pyx_t_3 = 0;
 
-      /* "Mikado/scales/contrast.pyx":285
+      /* "Mikado/scales/contrast.pyx":286
  *         __pred_exons.add(exon)
  *         for other_exon in reference.exons:
  *             other_exon = (other_exon[0], other_exon[1] + 1)             # <<<<<<<<<<<<<<
@@ -4430,20 +4434,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
       if (unlikely(__pyx_v_other_exon == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+        {__pyx_filename = __pyx_f[0]; __pyx_lineno = 286; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       }
-      __pyx_t_3 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_3 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+      __pyx_t_3 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_3 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 286; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
       __Pyx_GOTREF(__pyx_t_3);
       if (unlikely(__pyx_v_other_exon == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "'NoneType' object is not subscriptable");
-        {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+        {__pyx_filename = __pyx_f[0]; __pyx_lineno = 286; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       }
-      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 286; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_18 = __Pyx_PyInt_AddObjC(__pyx_t_1, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_18 = __Pyx_PyInt_AddObjC(__pyx_t_1, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 286; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_18);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 285; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 286; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_1);
       __Pyx_GIVEREF(__pyx_t_3);
       PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_3);
@@ -4454,48 +4458,48 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __Pyx_DECREF_SET(__pyx_v_other_exon, ((PyObject*)__pyx_t_1));
       __pyx_t_1 = 0;
 
-      /* "Mikado/scales/contrast.pyx":286
+      /* "Mikado/scales/contrast.pyx":287
  *         for other_exon in reference.exons:
  *             other_exon = (other_exon[0], other_exon[1] + 1)
  *             __ref_exons.add(other_exon)             # <<<<<<<<<<<<<<
  *             nucl_overlap += c_overlap(exon[0], exon[1],
  *                                       other_exon[0], other_exon[1],
  */
-      __pyx_t_15 = PySet_Add(__pyx_v___ref_exons, __pyx_v_other_exon); if (unlikely(__pyx_t_15 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 286; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_15 = PySet_Add(__pyx_v___ref_exons, __pyx_v_other_exon); if (unlikely(__pyx_t_15 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 287; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
 
-      /* "Mikado/scales/contrast.pyx":287
+      /* "Mikado/scales/contrast.pyx":288
  *             other_exon = (other_exon[0], other_exon[1] + 1)
  *             __ref_exons.add(other_exon)
  *             nucl_overlap += c_overlap(exon[0], exon[1],             # <<<<<<<<<<<<<<
  *                                       other_exon[0], other_exon[1],
  *                                       flank=0,
  */
-      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 287; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_11 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_11 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 287; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_11 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_11 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 287; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_10 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_10 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 287; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_10 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_10 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "Mikado/scales/contrast.pyx":288
+      /* "Mikado/scales/contrast.pyx":289
  *             __ref_exons.add(other_exon)
  *             nucl_overlap += c_overlap(exon[0], exon[1],
  *                                       other_exon[0], other_exon[1],             # <<<<<<<<<<<<<<
  *                                       flank=0,
  *                                       positive=1)
  */
-      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 289; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_9 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_9 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_9 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_9 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 289; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+      __pyx_t_1 = __Pyx_GetItemInt_Tuple(__pyx_v_other_exon, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_1 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 289; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_8 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_8 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 288; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_8 = __Pyx_PyInt_As_long(__pyx_t_1); if (unlikely((__pyx_t_8 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 289; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-      /* "Mikado/scales/contrast.pyx":287
+      /* "Mikado/scales/contrast.pyx":288
  *             other_exon = (other_exon[0], other_exon[1] + 1)
  *             __ref_exons.add(other_exon)
  *             nucl_overlap += c_overlap(exon[0], exon[1],             # <<<<<<<<<<<<<<
@@ -4508,7 +4512,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __pyx_t_19 = __pyx_f_6Mikado_9utilities_7overlap_c_overlap(__pyx_t_11, __pyx_t_10, __pyx_t_9, __pyx_t_8, &__pyx_t_20); 
       __pyx_v_nucl_overlap = (__pyx_v_nucl_overlap + __pyx_t_19);
 
-      /* "Mikado/scales/contrast.pyx":284
+      /* "Mikado/scales/contrast.pyx":285
  *         exon = (exon[0], exon[1] + 1)
  *         __pred_exons.add(exon)
  *         for other_exon in reference.exons:             # <<<<<<<<<<<<<<
@@ -4518,7 +4522,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     }
     __Pyx_DECREF(__pyx_t_14); __pyx_t_14 = 0;
 
-    /* "Mikado/scales/contrast.pyx":281
+    /* "Mikado/scales/contrast.pyx":282
  *     __ref_exons = set()
  * 
  *     for exon in prediction.exons:             # <<<<<<<<<<<<<<
@@ -4528,7 +4532,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   }
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "Mikado/scales/contrast.pyx":293
+  /* "Mikado/scales/contrast.pyx":294
  * 
  *     # Quick verification that the overlap is not too big
  *     assert nucl_overlap <= min(r_cdna_length, p_cdna_length), \             # <<<<<<<<<<<<<<
@@ -4546,40 +4550,40 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     }
     if (unlikely(!((__pyx_v_nucl_overlap <= __pyx_t_21) != 0))) {
 
-      /* "Mikado/scales/contrast.pyx":294
+      /* "Mikado/scales/contrast.pyx":295
  *     # Quick verification that the overlap is not too big
  *     assert nucl_overlap <= min(r_cdna_length, p_cdna_length), \
  *         (prediction.id, prediction.cdna_length,             # <<<<<<<<<<<<<<
  *          reference.id, reference.cdna_length, nucl_overlap)
  * 
  */
-      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_id); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 294; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_id); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 295; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_2);
-      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 294; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_14 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 295; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_14);
 
-      /* "Mikado/scales/contrast.pyx":295
+      /* "Mikado/scales/contrast.pyx":296
  *     assert nucl_overlap <= min(r_cdna_length, p_cdna_length), \
  *         (prediction.id, prediction.cdna_length,
  *          reference.id, reference.cdna_length, nucl_overlap)             # <<<<<<<<<<<<<<
  * 
  *     nucl_recall = nucl_overlap / r_cdna_length  # Sensitivity
  */
-      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_id); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 295; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_id); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 296; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_18 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 295; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_18 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_cdna_length); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 296; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_18);
-      __pyx_t_3 = __Pyx_PyInt_From_long(__pyx_v_nucl_overlap); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 295; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_3 = __Pyx_PyInt_From_long(__pyx_v_nucl_overlap); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 296; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_3);
 
-      /* "Mikado/scales/contrast.pyx":294
+      /* "Mikado/scales/contrast.pyx":295
  *     # Quick verification that the overlap is not too big
  *     assert nucl_overlap <= min(r_cdna_length, p_cdna_length), \
  *         (prediction.id, prediction.cdna_length,             # <<<<<<<<<<<<<<
  *          reference.id, reference.cdna_length, nucl_overlap)
  * 
  */
-      __pyx_t_22 = PyTuple_New(5); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 294; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_22 = PyTuple_New(5); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 295; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_22);
       __Pyx_GIVEREF(__pyx_t_2);
       PyTuple_SET_ITEM(__pyx_t_22, 0, __pyx_t_2);
@@ -4596,17 +4600,17 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __pyx_t_1 = 0;
       __pyx_t_18 = 0;
       __pyx_t_3 = 0;
-      __pyx_t_3 = PyTuple_Pack(1, __pyx_t_22); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 294; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_3 = PyTuple_Pack(1, __pyx_t_22); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 295; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_3);
       __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
       PyErr_SetObject(PyExc_AssertionError, __pyx_t_3);
       __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 293; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 294; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     }
   }
   #endif
 
-  /* "Mikado/scales/contrast.pyx":297
+  /* "Mikado/scales/contrast.pyx":298
  *          reference.id, reference.cdna_length, nucl_overlap)
  * 
  *     nucl_recall = nucl_overlap / r_cdna_length  # Sensitivity             # <<<<<<<<<<<<<<
@@ -4615,11 +4619,11 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   if (unlikely(__pyx_v_r_cdna_length == 0)) {
     PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 297; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 298; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_v_nucl_recall = (__pyx_v_nucl_overlap / __pyx_v_r_cdna_length);
 
-  /* "Mikado/scales/contrast.pyx":298
+  /* "Mikado/scales/contrast.pyx":299
  * 
  *     nucl_recall = nucl_overlap / r_cdna_length  # Sensitivity
  *     nucl_precision = nucl_overlap / p_cdna_length             # <<<<<<<<<<<<<<
@@ -4628,11 +4632,11 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   if (unlikely(__pyx_v_p_cdna_length == 0)) {
     PyErr_SetString(PyExc_ZeroDivisionError, "float division");
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 298; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 299; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_v_nucl_precision = (__pyx_v_nucl_overlap / __pyx_v_p_cdna_length);
 
-  /* "Mikado/scales/contrast.pyx":299
+  /* "Mikado/scales/contrast.pyx":300
  *     nucl_recall = nucl_overlap / r_cdna_length  # Sensitivity
  *     nucl_precision = nucl_overlap / p_cdna_length
  *     nucl_f1 = calc_f1(nucl_recall, nucl_precision)             # <<<<<<<<<<<<<<
@@ -4641,14 +4645,14 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   __pyx_v_nucl_f1 = __pyx_f_6Mikado_6scales_2f1_calc_f1(__pyx_v_nucl_recall, __pyx_v_nucl_precision, 0);
 
-  /* "Mikado/scales/contrast.pyx":302
+  /* "Mikado/scales/contrast.pyx":303
  * 
  *     # Exon statistics
  *     recalled_exons = set.intersection(__pred_exons, __ref_exons)             # <<<<<<<<<<<<<<
  *     exon_recall = len(recalled_exons)/len(reference.exons)
  *     exon_precision = len(recalled_exons)/len(prediction.exons)
  */
-  __pyx_t_22 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PySet_Type)), __pyx_n_s_intersection); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 302; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_22 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PySet_Type)), __pyx_n_s_intersection); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_22);
   __pyx_t_18 = NULL;
   __pyx_t_12 = 0;
@@ -4662,7 +4666,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __pyx_t_12 = 1;
     }
   }
-  __pyx_t_1 = PyTuple_New(2+__pyx_t_12); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 302; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = PyTuple_New(2+__pyx_t_12); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
   if (__pyx_t_18) {
     __Pyx_GIVEREF(__pyx_t_18); PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_t_18); __pyx_t_18 = NULL;
@@ -4673,58 +4677,58 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_INCREF(__pyx_v___ref_exons);
   __Pyx_GIVEREF(__pyx_v___ref_exons);
   PyTuple_SET_ITEM(__pyx_t_1, 1+__pyx_t_12, __pyx_v___ref_exons);
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_22, __pyx_t_1, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 302; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_22, __pyx_t_1, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
   __pyx_v_recalled_exons = __pyx_t_3;
   __pyx_t_3 = 0;
 
-  /* "Mikado/scales/contrast.pyx":303
+  /* "Mikado/scales/contrast.pyx":304
  *     # Exon statistics
  *     recalled_exons = set.intersection(__pred_exons, __ref_exons)
  *     exon_recall = len(recalled_exons)/len(reference.exons)             # <<<<<<<<<<<<<<
  *     exon_precision = len(recalled_exons)/len(prediction.exons)
  *     exon_f1 = calc_f1(exon_recall, exon_precision)
  */
-  __pyx_t_12 = PyObject_Length(__pyx_v_recalled_exons); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exons); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_12 = PyObject_Length(__pyx_v_recalled_exons); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exons); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_16 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_16 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_16 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_16 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (unlikely(__pyx_t_16 == 0)) {
     PyErr_SetString(PyExc_ZeroDivisionError, "integer division or modulo by zero");
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   else if (sizeof(Py_ssize_t) == sizeof(long) && (!(((Py_ssize_t)-1) > 0)) && unlikely(__pyx_t_16 == (Py_ssize_t)-1)  && unlikely(UNARY_NEG_WOULD_OVERFLOW(__pyx_t_12))) {
     PyErr_SetString(PyExc_OverflowError, "value too large to perform division");
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 303; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_v_exon_recall = __Pyx_div_Py_ssize_t(__pyx_t_12, __pyx_t_16);
 
-  /* "Mikado/scales/contrast.pyx":304
+  /* "Mikado/scales/contrast.pyx":305
  *     recalled_exons = set.intersection(__pred_exons, __ref_exons)
  *     exon_recall = len(recalled_exons)/len(reference.exons)
  *     exon_precision = len(recalled_exons)/len(prediction.exons)             # <<<<<<<<<<<<<<
  *     exon_f1 = calc_f1(exon_recall, exon_precision)
  * 
  */
-  __pyx_t_16 = PyObject_Length(__pyx_v_recalled_exons); if (unlikely(__pyx_t_16 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exons); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_16 = PyObject_Length(__pyx_v_recalled_exons); if (unlikely(__pyx_t_16 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 305; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exons); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 305; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_12 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_12 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 305; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (unlikely(__pyx_t_12 == 0)) {
     PyErr_SetString(PyExc_ZeroDivisionError, "integer division or modulo by zero");
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 305; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   else if (sizeof(Py_ssize_t) == sizeof(long) && (!(((Py_ssize_t)-1) > 0)) && unlikely(__pyx_t_12 == (Py_ssize_t)-1)  && unlikely(UNARY_NEG_WOULD_OVERFLOW(__pyx_t_16))) {
     PyErr_SetString(PyExc_OverflowError, "value too large to perform division");
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 304; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 305; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_v_exon_precision = __Pyx_div_Py_ssize_t(__pyx_t_16, __pyx_t_12);
 
-  /* "Mikado/scales/contrast.pyx":305
+  /* "Mikado/scales/contrast.pyx":306
  *     exon_recall = len(recalled_exons)/len(reference.exons)
  *     exon_precision = len(recalled_exons)/len(prediction.exons)
  *     exon_f1 = calc_f1(exon_recall, exon_precision)             # <<<<<<<<<<<<<<
@@ -4733,7 +4737,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   __pyx_v_exon_f1 = __pyx_f_6Mikado_6scales_2f1_calc_f1(__pyx_v_exon_recall, __pyx_v_exon_precision, 0);
 
-  /* "Mikado/scales/contrast.pyx":307
+  /* "Mikado/scales/contrast.pyx":308
  *     exon_f1 = calc_f1(exon_recall, exon_precision)
  * 
  *     reference_exon = None             # <<<<<<<<<<<<<<
@@ -4743,7 +4747,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_INCREF(Py_None);
   __pyx_v_reference_exon = Py_None;
 
-  /* "Mikado/scales/contrast.pyx":310
+  /* "Mikado/scales/contrast.pyx":311
  * 
  *     # Both multiexonic
  *     if p_exon_num > 1 and r_exon_num > 1:             # <<<<<<<<<<<<<<
@@ -4761,39 +4765,39 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __pyx_L8_bool_binop_done:;
   if (__pyx_t_23) {
 
-    /* "Mikado/scales/contrast.pyx":311
+    /* "Mikado/scales/contrast.pyx":312
  *     # Both multiexonic
  *     if p_exon_num > 1 and r_exon_num > 1:
  *         junction_overlap = len(set.intersection(             # <<<<<<<<<<<<<<
  *             set(prediction.splices),
  *             set(reference.splices)))
  */
-    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PySet_Type)), __pyx_n_s_intersection); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 311; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(((PyObject *)(&PySet_Type)), __pyx_n_s_intersection); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 312; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_22);
 
-    /* "Mikado/scales/contrast.pyx":312
+    /* "Mikado/scales/contrast.pyx":313
  *     if p_exon_num > 1 and r_exon_num > 1:
  *         junction_overlap = len(set.intersection(
  *             set(prediction.splices),             # <<<<<<<<<<<<<<
  *             set(reference.splices)))
  *         junction_recall = junction_overlap / len(reference.splices)
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_splices); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 312; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_splices); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 313; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_18 = PySet_New(__pyx_t_1); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 312; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_18 = PySet_New(__pyx_t_1); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 313; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_18);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "Mikado/scales/contrast.pyx":313
+    /* "Mikado/scales/contrast.pyx":314
  *         junction_overlap = len(set.intersection(
  *             set(prediction.splices),
  *             set(reference.splices)))             # <<<<<<<<<<<<<<
  *         junction_recall = junction_overlap / len(reference.splices)
  *         junction_precision = junction_overlap / len(prediction.splices)
  */
-    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_splices); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 313; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_splices); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 314; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_1);
-    __pyx_t_14 = PySet_New(__pyx_t_1); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 313; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_14 = PySet_New(__pyx_t_1); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 314; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_14);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_1 = NULL;
@@ -4808,7 +4812,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
         __pyx_t_12 = 1;
       }
     }
-    __pyx_t_2 = PyTuple_New(2+__pyx_t_12); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 311; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_2 = PyTuple_New(2+__pyx_t_12); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 312; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_2);
     if (__pyx_t_1) {
       __Pyx_GIVEREF(__pyx_t_1); PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_1); __pyx_t_1 = NULL;
@@ -4819,66 +4823,66 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     PyTuple_SET_ITEM(__pyx_t_2, 1+__pyx_t_12, __pyx_t_14);
     __pyx_t_18 = 0;
     __pyx_t_14 = 0;
-    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_22, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 311; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_22, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 312; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
 
-    /* "Mikado/scales/contrast.pyx":311
+    /* "Mikado/scales/contrast.pyx":312
  *     # Both multiexonic
  *     if p_exon_num > 1 and r_exon_num > 1:
  *         junction_overlap = len(set.intersection(             # <<<<<<<<<<<<<<
  *             set(prediction.splices),
  *             set(reference.splices)))
  */
-    __pyx_t_12 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 311; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_12 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 312; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyInt_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 311; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = PyInt_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 312; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_v_junction_overlap = __pyx_t_3;
     __pyx_t_3 = 0;
 
-    /* "Mikado/scales/contrast.pyx":314
+    /* "Mikado/scales/contrast.pyx":315
  *             set(prediction.splices),
  *             set(reference.splices)))
  *         junction_recall = junction_overlap / len(reference.splices)             # <<<<<<<<<<<<<<
  *         junction_precision = junction_overlap / len(prediction.splices)
  *         junction_f1 = calc_f1(junction_recall, junction_precision)
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_splices); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 314; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_splices); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_12 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 314; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_12 = PyObject_Length(__pyx_t_3); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_3 = PyInt_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 314; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = PyInt_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_22 = __Pyx_PyNumber_Divide(__pyx_v_junction_overlap, __pyx_t_3); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 314; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = __Pyx_PyNumber_Divide(__pyx_v_junction_overlap, __pyx_t_3); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_22);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_21 = __pyx_PyFloat_AsDouble(__pyx_t_22); if (unlikely((__pyx_t_21 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 314; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_21 = __pyx_PyFloat_AsDouble(__pyx_t_22); if (unlikely((__pyx_t_21 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
     __pyx_v_junction_recall = __pyx_t_21;
 
-    /* "Mikado/scales/contrast.pyx":315
+    /* "Mikado/scales/contrast.pyx":316
  *             set(reference.splices)))
  *         junction_recall = junction_overlap / len(reference.splices)
  *         junction_precision = junction_overlap / len(prediction.splices)             # <<<<<<<<<<<<<<
  *         junction_f1 = calc_f1(junction_recall, junction_precision)
  * 
  */
-    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_splices); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_splices); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 316; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_22);
-    __pyx_t_12 = PyObject_Length(__pyx_t_22); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_12 = PyObject_Length(__pyx_t_22); if (unlikely(__pyx_t_12 == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 316; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-    __pyx_t_22 = PyInt_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = PyInt_FromSsize_t(__pyx_t_12); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 316; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_22);
-    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_junction_overlap, __pyx_t_22); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyNumber_Divide(__pyx_v_junction_overlap, __pyx_t_22); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 316; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-    __pyx_t_21 = __pyx_PyFloat_AsDouble(__pyx_t_3); if (unlikely((__pyx_t_21 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 315; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_21 = __pyx_PyFloat_AsDouble(__pyx_t_3); if (unlikely((__pyx_t_21 == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 316; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __pyx_v_junction_precision = __pyx_t_21;
 
-    /* "Mikado/scales/contrast.pyx":316
+    /* "Mikado/scales/contrast.pyx":317
  *         junction_recall = junction_overlap / len(reference.splices)
  *         junction_precision = junction_overlap / len(prediction.splices)
  *         junction_f1 = calc_f1(junction_recall, junction_precision)             # <<<<<<<<<<<<<<
@@ -4887,7 +4891,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
     __pyx_v_junction_f1 = __pyx_f_6Mikado_6scales_2f1_calc_f1(__pyx_v_junction_recall, __pyx_v_junction_precision, 0);
 
-    /* "Mikado/scales/contrast.pyx":310
+    /* "Mikado/scales/contrast.pyx":311
  * 
  *     # Both multiexonic
  *     if p_exon_num > 1 and r_exon_num > 1:             # <<<<<<<<<<<<<<
@@ -4897,7 +4901,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     goto __pyx_L7;
   }
 
-  /* "Mikado/scales/contrast.pyx":318
+  /* "Mikado/scales/contrast.pyx":319
  *         junction_f1 = calc_f1(junction_recall, junction_precision)
  * 
  *     elif p_exon_num == r_exon_num == 1:             # <<<<<<<<<<<<<<
@@ -4911,7 +4915,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __pyx_t_24 = (__pyx_t_23 != 0);
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":320
+    /* "Mikado/scales/contrast.pyx":321
  *     elif p_exon_num == r_exon_num == 1:
  *         # junction_overlap = junction_f1 = junction_precision = junction_recall = 1
  *         junction_f1 = junction_precision = junction_recall = 1             # <<<<<<<<<<<<<<
@@ -4922,7 +4926,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __pyx_v_junction_precision = 1.0;
     __pyx_v_junction_recall = 1.0;
 
-    /* "Mikado/scales/contrast.pyx":318
+    /* "Mikado/scales/contrast.pyx":319
  *         junction_f1 = calc_f1(junction_recall, junction_precision)
  * 
  *     elif p_exon_num == r_exon_num == 1:             # <<<<<<<<<<<<<<
@@ -4932,7 +4936,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     goto __pyx_L7;
   }
 
-  /* "Mikado/scales/contrast.pyx":323
+  /* "Mikado/scales/contrast.pyx":324
  *     else:
  *         # junction_overlap = junction_f1 = junction_precision = junction_recall = 0
  *         junction_f1 = junction_precision = junction_recall = 0             # <<<<<<<<<<<<<<
@@ -4946,7 +4950,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   }
   __pyx_L7:;
 
-  /* "Mikado/scales/contrast.pyx":325
+  /* "Mikado/scales/contrast.pyx":326
  *         junction_f1 = junction_precision = junction_recall = 0
  * 
  *     ccode = ""             # <<<<<<<<<<<<<<
@@ -4956,7 +4960,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_INCREF(__pyx_kp_s_);
   __pyx_v_ccode = __pyx_kp_s_;
 
-  /* "Mikado/scales/contrast.pyx":326
+  /* "Mikado/scales/contrast.pyx":327
  * 
  *     ccode = ""
  *     distance = 0             # <<<<<<<<<<<<<<
@@ -4965,7 +4969,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   __pyx_v_distance = 0;
 
-  /* "Mikado/scales/contrast.pyx":327
+  /* "Mikado/scales/contrast.pyx":328
  *     ccode = ""
  *     distance = 0
  *     if junction_f1 == 1 and prediction.exon_num > 1:             # <<<<<<<<<<<<<<
@@ -4978,35 +4982,35 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __pyx_t_24 = __pyx_t_23;
     goto __pyx_L11_bool_binop_done;
   }
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 327; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 328; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_22 = PyObject_RichCompare(__pyx_t_3, __pyx_int_1, Py_GT); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 327; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_22 = PyObject_RichCompare(__pyx_t_3, __pyx_int_1, Py_GT); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 328; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 327; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 328; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
   __pyx_t_24 = __pyx_t_23;
   __pyx_L11_bool_binop_done:;
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":328
+    /* "Mikado/scales/contrast.pyx":329
  *     distance = 0
  *     if junction_f1 == 1 and prediction.exon_num > 1:
  *         if prediction.strand == reference.strand:             # <<<<<<<<<<<<<<
  *             ccode = "="  # We have recovered all the junctions
  *         else:
  */
-    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 328; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 329; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_22);
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 328; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 329; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = PyObject_RichCompare(__pyx_t_22, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 328; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_2 = PyObject_RichCompare(__pyx_t_22, __pyx_t_3, Py_EQ); __Pyx_XGOTREF(__pyx_t_2); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 329; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __pyx_t_24 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 328; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 329; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (__pyx_t_24) {
 
-      /* "Mikado/scales/contrast.pyx":329
+      /* "Mikado/scales/contrast.pyx":330
  *     if junction_f1 == 1 and prediction.exon_num > 1:
  *         if prediction.strand == reference.strand:
  *             ccode = "="  # We have recovered all the junctions             # <<<<<<<<<<<<<<
@@ -5016,7 +5020,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __Pyx_INCREF(__pyx_kp_s__3);
       __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_kp_s__3);
 
-      /* "Mikado/scales/contrast.pyx":328
+      /* "Mikado/scales/contrast.pyx":329
  *     distance = 0
  *     if junction_f1 == 1 and prediction.exon_num > 1:
  *         if prediction.strand == reference.strand:             # <<<<<<<<<<<<<<
@@ -5026,7 +5030,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       goto __pyx_L13;
     }
 
-    /* "Mikado/scales/contrast.pyx":331
+    /* "Mikado/scales/contrast.pyx":332
  *             ccode = "="  # We have recovered all the junctions
  *         else:
  *             ccode = "c"  # We will set this to x at the end of the function             # <<<<<<<<<<<<<<
@@ -5039,7 +5043,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     }
     __pyx_L13:;
 
-    /* "Mikado/scales/contrast.pyx":327
+    /* "Mikado/scales/contrast.pyx":328
  *     ccode = ""
  *     distance = 0
  *     if junction_f1 == 1 and prediction.exon_num > 1:             # <<<<<<<<<<<<<<
@@ -5049,7 +5053,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     goto __pyx_L10;
   }
 
-  /* "Mikado/scales/contrast.pyx":333
+  /* "Mikado/scales/contrast.pyx":334
  *             ccode = "c"  # We will set this to x at the end of the function
  * 
  *     elif junction_f1 == 1 and nucl_f1 >= 0.80:             # <<<<<<<<<<<<<<
@@ -5067,22 +5071,22 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __pyx_L14_bool_binop_done:;
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":334
+    /* "Mikado/scales/contrast.pyx":335
  * 
  *     elif junction_f1 == 1 and nucl_f1 >= 0.80:
  *         reference_exon = reference.exons[0]             # <<<<<<<<<<<<<<
  *         ccode = "_"  # We have recovered all the junctions
  * 
  */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exons); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 334; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_exons); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 335; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_3 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 334; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
+    __pyx_t_3 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(__pyx_t_3 == NULL)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 335; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
     __Pyx_GOTREF(__pyx_t_3);
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __Pyx_DECREF_SET(__pyx_v_reference_exon, __pyx_t_3);
     __pyx_t_3 = 0;
 
-    /* "Mikado/scales/contrast.pyx":335
+    /* "Mikado/scales/contrast.pyx":336
  *     elif junction_f1 == 1 and nucl_f1 >= 0.80:
  *         reference_exon = reference.exons[0]
  *         ccode = "_"  # We have recovered all the junctions             # <<<<<<<<<<<<<<
@@ -5092,7 +5096,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __Pyx_INCREF(__pyx_n_s__2);
     __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_n_s__2);
 
-    /* "Mikado/scales/contrast.pyx":333
+    /* "Mikado/scales/contrast.pyx":334
  *             ccode = "c"  # We will set this to x at the end of the function
  * 
  *     elif junction_f1 == 1 and nucl_f1 >= 0.80:             # <<<<<<<<<<<<<<
@@ -5102,59 +5106,59 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     goto __pyx_L10;
   }
 
-  /* "Mikado/scales/contrast.pyx":338
+  /* "Mikado/scales/contrast.pyx":339
  * 
  *     # Outside the transcript - polymerase run-on
  *     elif prediction.start > reference.end or prediction.end < reference.start:             # <<<<<<<<<<<<<<
  *         if reference.strand == prediction.strand:
  *             ccode = "p"
  */
-  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_start); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_start); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_end); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_end); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_22 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_GT); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_22 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_GT); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
   if (!__pyx_t_23) {
   } else {
     __pyx_t_24 = __pyx_t_23;
     goto __pyx_L16_bool_binop_done;
   }
-  __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_end); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_end); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_22);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_start); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_start); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = PyObject_RichCompare(__pyx_t_22, __pyx_t_2, Py_LT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = PyObject_RichCompare(__pyx_t_22, __pyx_t_2, Py_LT); __Pyx_XGOTREF(__pyx_t_3); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 338; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_3); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   __pyx_t_24 = __pyx_t_23;
   __pyx_L16_bool_binop_done:;
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":339
+    /* "Mikado/scales/contrast.pyx":340
  *     # Outside the transcript - polymerase run-on
  *     elif prediction.start > reference.end or prediction.end < reference.start:
  *         if reference.strand == prediction.strand:             # <<<<<<<<<<<<<<
  *             ccode = "p"
  *         else:
  */
-    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 340; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 340; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_22 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = PyObject_RichCompare(__pyx_t_3, __pyx_t_2, Py_EQ); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 340; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_24 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 339; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 340; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
     if (__pyx_t_24) {
 
-      /* "Mikado/scales/contrast.pyx":340
+      /* "Mikado/scales/contrast.pyx":341
  *     elif prediction.start > reference.end or prediction.end < reference.start:
  *         if reference.strand == prediction.strand:
  *             ccode = "p"             # <<<<<<<<<<<<<<
@@ -5164,7 +5168,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __Pyx_INCREF(__pyx_n_s_p);
       __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_n_s_p);
 
-      /* "Mikado/scales/contrast.pyx":339
+      /* "Mikado/scales/contrast.pyx":340
  *     # Outside the transcript - polymerase run-on
  *     elif prediction.start > reference.end or prediction.end < reference.start:
  *         if reference.strand == prediction.strand:             # <<<<<<<<<<<<<<
@@ -5174,7 +5178,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       goto __pyx_L18;
     }
 
-    /* "Mikado/scales/contrast.pyx":342
+    /* "Mikado/scales/contrast.pyx":343
  *             ccode = "p"
  *         else:
  *             ccode = "P"             # <<<<<<<<<<<<<<
@@ -5187,7 +5191,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     }
     __pyx_L18:;
 
-    /* "Mikado/scales/contrast.pyx":343
+    /* "Mikado/scales/contrast.pyx":344
  *         else:
  *             ccode = "P"
  *         distance = max(p_start - r_end, r_start - p_end)             # <<<<<<<<<<<<<<
@@ -5203,7 +5207,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     }
     __pyx_v_distance = __pyx_t_9;
 
-    /* "Mikado/scales/contrast.pyx":338
+    /* "Mikado/scales/contrast.pyx":339
  * 
  *     # Outside the transcript - polymerase run-on
  *     elif prediction.start > reference.end or prediction.end < reference.start:             # <<<<<<<<<<<<<<
@@ -5213,7 +5217,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     goto __pyx_L10;
   }
 
-  /* "Mikado/scales/contrast.pyx":345
+  /* "Mikado/scales/contrast.pyx":346
  *         distance = max(p_start - r_end, r_start - p_end)
  * 
  *     elif nucl_precision == 1:             # <<<<<<<<<<<<<<
@@ -5223,30 +5227,30 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __pyx_t_24 = ((__pyx_v_nucl_precision == 1.0) != 0);
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":346
+    /* "Mikado/scales/contrast.pyx":347
  * 
  *     elif nucl_precision == 1:
  *         if prediction.exon_num == 1 or (prediction.exon_num > 1 and junction_precision == 1):             # <<<<<<<<<<<<<<
  *             ccode = "c"
  * 
  */
-    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 346; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 347; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_22);
-    __pyx_t_2 = __Pyx_PyInt_EqObjC(__pyx_t_22, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 346; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_2 = __Pyx_PyInt_EqObjC(__pyx_t_22, __pyx_int_1, 1, 0); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 347; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
-    __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 346; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_2); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 347; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (!__pyx_t_23) {
     } else {
       __pyx_t_24 = __pyx_t_23;
       goto __pyx_L20_bool_binop_done;
     }
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 346; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_exon_num); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 347; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_22 = PyObject_RichCompare(__pyx_t_2, __pyx_int_1, Py_GT); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 346; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = PyObject_RichCompare(__pyx_t_2, __pyx_int_1, Py_GT); __Pyx_XGOTREF(__pyx_t_22); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 347; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-    __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 346; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_22); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 347; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
     if (__pyx_t_23) {
     } else {
@@ -5258,7 +5262,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __pyx_L20_bool_binop_done:;
     if (__pyx_t_24) {
 
-      /* "Mikado/scales/contrast.pyx":347
+      /* "Mikado/scales/contrast.pyx":348
  *     elif nucl_precision == 1:
  *         if prediction.exon_num == 1 or (prediction.exon_num > 1 and junction_precision == 1):
  *             ccode = "c"             # <<<<<<<<<<<<<<
@@ -5268,7 +5272,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __Pyx_INCREF(__pyx_n_s_c);
       __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_n_s_c);
 
-      /* "Mikado/scales/contrast.pyx":346
+      /* "Mikado/scales/contrast.pyx":347
  * 
  *     elif nucl_precision == 1:
  *         if prediction.exon_num == 1 or (prediction.exon_num > 1 and junction_precision == 1):             # <<<<<<<<<<<<<<
@@ -5277,7 +5281,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
     }
 
-    /* "Mikado/scales/contrast.pyx":345
+    /* "Mikado/scales/contrast.pyx":346
  *         distance = max(p_start - r_end, r_start - p_end)
  * 
  *     elif nucl_precision == 1:             # <<<<<<<<<<<<<<
@@ -5287,66 +5291,66 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   }
   __pyx_L10:;
 
-  /* "Mikado/scales/contrast.pyx":349
+  /* "Mikado/scales/contrast.pyx":350
  *             ccode = "c"
  * 
  *     if ccode == "":             # <<<<<<<<<<<<<<
  *         stats = (nucl_recall, nucl_precision, nucl_f1,
  *                  exon_recall, exon_precision, exon_f1,
  */
-  __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_v_ccode, __pyx_kp_s_, Py_EQ)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 349; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_v_ccode, __pyx_kp_s_, Py_EQ)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 350; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":350
+    /* "Mikado/scales/contrast.pyx":351
  * 
  *     if ccode == "":
  *         stats = (nucl_recall, nucl_precision, nucl_f1,             # <<<<<<<<<<<<<<
  *                  exon_recall, exon_precision, exon_f1,
  *                  junction_recall, junction_precision, junction_f1)
  */
-    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_nucl_recall); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 350; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_22 = PyFloat_FromDouble(__pyx_v_nucl_recall); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 351; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_22);
-    __pyx_t_2 = PyFloat_FromDouble(__pyx_v_nucl_precision); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 350; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_2 = PyFloat_FromDouble(__pyx_v_nucl_precision); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 351; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = PyFloat_FromDouble(__pyx_v_nucl_f1); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 350; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_3 = PyFloat_FromDouble(__pyx_v_nucl_f1); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 351; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
 
-    /* "Mikado/scales/contrast.pyx":351
+    /* "Mikado/scales/contrast.pyx":352
  *     if ccode == "":
  *         stats = (nucl_recall, nucl_precision, nucl_f1,
  *                  exon_recall, exon_precision, exon_f1,             # <<<<<<<<<<<<<<
  *                  junction_recall, junction_precision, junction_f1)
  * 
  */
-    __pyx_t_14 = PyFloat_FromDouble(__pyx_v_exon_recall); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 351; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_14 = PyFloat_FromDouble(__pyx_v_exon_recall); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 352; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_14);
-    __pyx_t_18 = PyFloat_FromDouble(__pyx_v_exon_precision); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 351; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_18 = PyFloat_FromDouble(__pyx_v_exon_precision); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 352; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_18);
-    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_exon_f1); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 351; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_1 = PyFloat_FromDouble(__pyx_v_exon_f1); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 352; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_1);
 
-    /* "Mikado/scales/contrast.pyx":352
+    /* "Mikado/scales/contrast.pyx":353
  *         stats = (nucl_recall, nucl_precision, nucl_f1,
  *                  exon_recall, exon_precision, exon_f1,
  *                  junction_recall, junction_precision, junction_f1)             # <<<<<<<<<<<<<<
  * 
  *         if min(p_exon_num, r_exon_num) > 1:
  */
-    __pyx_t_25 = PyFloat_FromDouble(__pyx_v_junction_recall); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 352; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_25 = PyFloat_FromDouble(__pyx_v_junction_recall); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 353; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_25);
-    __pyx_t_26 = PyFloat_FromDouble(__pyx_v_junction_precision); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 352; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_26 = PyFloat_FromDouble(__pyx_v_junction_precision); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 353; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_26);
-    __pyx_t_27 = PyFloat_FromDouble(__pyx_v_junction_f1); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 352; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_27 = PyFloat_FromDouble(__pyx_v_junction_f1); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 353; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_27);
 
-    /* "Mikado/scales/contrast.pyx":350
+    /* "Mikado/scales/contrast.pyx":351
  * 
  *     if ccode == "":
  *         stats = (nucl_recall, nucl_precision, nucl_f1,             # <<<<<<<<<<<<<<
  *                  exon_recall, exon_precision, exon_f1,
  *                  junction_recall, junction_precision, junction_f1)
  */
-    __pyx_t_28 = PyTuple_New(9); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 350; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_28 = PyTuple_New(9); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 351; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_28);
     __Pyx_GIVEREF(__pyx_t_22);
     PyTuple_SET_ITEM(__pyx_t_28, 0, __pyx_t_22);
@@ -5378,7 +5382,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __pyx_v_stats = ((PyObject*)__pyx_t_28);
     __pyx_t_28 = 0;
 
-    /* "Mikado/scales/contrast.pyx":354
+    /* "Mikado/scales/contrast.pyx":355
  *                  junction_recall, junction_precision, junction_f1)
  * 
  *         if min(p_exon_num, r_exon_num) > 1:             # <<<<<<<<<<<<<<
@@ -5395,19 +5399,19 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __pyx_t_24 = ((__pyx_t_29 > 1) != 0);
     if (__pyx_t_24) {
 
-      /* "Mikado/scales/contrast.pyx":355
+      /* "Mikado/scales/contrast.pyx":356
  * 
  *         if min(p_exon_num, r_exon_num) > 1:
  *             ccode = __assign_multiexonic_ccode(prediction, reference,             # <<<<<<<<<<<<<<
  *                                                nucl_overlap, stats)
  *         else:
  */
-      __pyx_t_28 = __pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode(__pyx_v_prediction, __pyx_v_reference, __pyx_v_nucl_overlap, __pyx_v_stats); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 355; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_28 = __pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode(__pyx_v_prediction, __pyx_v_reference, __pyx_v_nucl_overlap, __pyx_v_stats); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 356; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_28);
       __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_t_28);
       __pyx_t_28 = 0;
 
-      /* "Mikado/scales/contrast.pyx":354
+      /* "Mikado/scales/contrast.pyx":355
  *                  junction_recall, junction_precision, junction_f1)
  * 
  *         if min(p_exon_num, r_exon_num) > 1:             # <<<<<<<<<<<<<<
@@ -5417,7 +5421,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       goto __pyx_L24;
     }
 
-    /* "Mikado/scales/contrast.pyx":358
+    /* "Mikado/scales/contrast.pyx":359
  *                                                nucl_overlap, stats)
  *         else:
  *             ccode = __assign_monoexonic_ccode(prediction, reference,             # <<<<<<<<<<<<<<
@@ -5426,21 +5430,21 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
     /*else*/ {
 
-      /* "Mikado/scales/contrast.pyx":359
+      /* "Mikado/scales/contrast.pyx":360
  *         else:
  *             ccode = __assign_monoexonic_ccode(prediction, reference,
  *                                               nucl_overlap, stats)             # <<<<<<<<<<<<<<
  * 
  *     if (prediction.strand != reference.strand and
  */
-      __pyx_t_28 = __pyx_f_6Mikado_6scales_8contrast___assign_monoexonic_ccode(__pyx_v_prediction, __pyx_v_reference, __pyx_v_nucl_overlap, __pyx_v_stats); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 358; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_28 = __pyx_f_6Mikado_6scales_8contrast___assign_monoexonic_ccode(__pyx_v_prediction, __pyx_v_reference, __pyx_v_nucl_overlap, __pyx_v_stats); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 359; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_28);
       __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_t_28);
       __pyx_t_28 = 0;
     }
     __pyx_L24:;
 
-    /* "Mikado/scales/contrast.pyx":349
+    /* "Mikado/scales/contrast.pyx":350
  *             ccode = "c"
  * 
  *     if ccode == "":             # <<<<<<<<<<<<<<
@@ -5449,21 +5453,21 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   }
 
-  /* "Mikado/scales/contrast.pyx":361
+  /* "Mikado/scales/contrast.pyx":362
  *                                               nucl_overlap, stats)
  * 
  *     if (prediction.strand != reference.strand and             # <<<<<<<<<<<<<<
  *             all([_ is not None for _ in (prediction.strand, reference.strand)])):
  *         if ccode in ("e", "mo", "c", "m", "_", "C"):
  */
-  __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 361; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 361; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_27);
-  __pyx_t_26 = PyObject_RichCompare(__pyx_t_28, __pyx_t_27, Py_NE); __Pyx_XGOTREF(__pyx_t_26); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 361; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_26 = PyObject_RichCompare(__pyx_t_28, __pyx_t_27, Py_NE); __Pyx_XGOTREF(__pyx_t_26); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
   __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
-  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_26); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 361; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_26); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_26); __pyx_t_26 = 0;
   if (__pyx_t_23) {
   } else {
@@ -5471,20 +5475,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     goto __pyx_L26_bool_binop_done;
   }
 
-  /* "Mikado/scales/contrast.pyx":362
+  /* "Mikado/scales/contrast.pyx":363
  * 
  *     if (prediction.strand != reference.strand and
  *             all([_ is not None for _ in (prediction.strand, reference.strand)])):             # <<<<<<<<<<<<<<
  *         if ccode in ("e", "mo", "c", "m", "_", "C"):
  *             ccode = "x"  # "x{0}".format(ccode)
  */
-  __pyx_t_26 = PyList_New(0); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_26 = PyList_New(0); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_26);
-  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_27);
-  __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_25 = PyTuple_New(2); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_25 = PyTuple_New(2); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_25);
   __Pyx_GIVEREF(__pyx_t_27);
   PyTuple_SET_ITEM(__pyx_t_25, 0, __pyx_t_27);
@@ -5497,34 +5501,34 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   for (;;) {
     if (__pyx_t_12 >= 2) break;
     #if CYTHON_COMPILING_IN_CPYTHON
-    __pyx_t_25 = PyTuple_GET_ITEM(__pyx_t_28, __pyx_t_12); __Pyx_INCREF(__pyx_t_25); __pyx_t_12++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_25 = PyTuple_GET_ITEM(__pyx_t_28, __pyx_t_12); __Pyx_INCREF(__pyx_t_25); __pyx_t_12++; if (unlikely(0 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     #else
-    __pyx_t_25 = PySequence_ITEM(__pyx_t_28, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_25 = PySequence_ITEM(__pyx_t_28, __pyx_t_12); __pyx_t_12++; if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_25);
     #endif
     __Pyx_XDECREF_SET(__pyx_v__, __pyx_t_25);
     __pyx_t_25 = 0;
     __pyx_t_23 = (__pyx_v__ != Py_None);
-    __pyx_t_25 = __Pyx_PyBool_FromLong(__pyx_t_23); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_25 = __Pyx_PyBool_FromLong(__pyx_t_23); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_25);
-    if (unlikely(__Pyx_ListComp_Append(__pyx_t_26, (PyObject*)__pyx_t_25))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    if (unlikely(__Pyx_ListComp_Append(__pyx_t_26, (PyObject*)__pyx_t_25))) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_DECREF(__pyx_t_25); __pyx_t_25 = 0;
   }
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
-  __pyx_t_28 = PyTuple_New(1); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_28 = PyTuple_New(1); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_28);
   __Pyx_GIVEREF(__pyx_t_26);
   PyTuple_SET_ITEM(__pyx_t_28, 0, __pyx_t_26);
   __pyx_t_26 = 0;
-  __pyx_t_26 = __Pyx_PyObject_Call(__pyx_builtin_all, __pyx_t_28, NULL); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_26 = __Pyx_PyObject_Call(__pyx_builtin_all, __pyx_t_28, NULL); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_26);
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
-  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_26); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_23 = __Pyx_PyObject_IsTrue(__pyx_t_26); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_26); __pyx_t_26 = 0;
   __pyx_t_24 = __pyx_t_23;
   __pyx_L26_bool_binop_done:;
 
-  /* "Mikado/scales/contrast.pyx":361
+  /* "Mikado/scales/contrast.pyx":362
  *                                               nucl_overlap, stats)
  * 
  *     if (prediction.strand != reference.strand and             # <<<<<<<<<<<<<<
@@ -5533,7 +5537,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":363
+    /* "Mikado/scales/contrast.pyx":364
  *     if (prediction.strand != reference.strand and
  *             all([_ is not None for _ in (prediction.strand, reference.strand)])):
  *         if ccode in ("e", "mo", "c", "m", "_", "C"):             # <<<<<<<<<<<<<<
@@ -5542,44 +5546,44 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
     __Pyx_INCREF(__pyx_v_ccode);
     __pyx_t_26 = __pyx_v_ccode;
-    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_e, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_e, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 364; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (!__pyx_t_23) {
     } else {
       __pyx_t_24 = __pyx_t_23;
       goto __pyx_L31_bool_binop_done;
     }
-    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_mo, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_mo, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 364; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (!__pyx_t_23) {
     } else {
       __pyx_t_24 = __pyx_t_23;
       goto __pyx_L31_bool_binop_done;
     }
-    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_c, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_c, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 364; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (!__pyx_t_23) {
     } else {
       __pyx_t_24 = __pyx_t_23;
       goto __pyx_L31_bool_binop_done;
     }
-    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_m, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_m, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 364; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (!__pyx_t_23) {
     } else {
       __pyx_t_24 = __pyx_t_23;
       goto __pyx_L31_bool_binop_done;
     }
-    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s__2, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s__2, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 364; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (!__pyx_t_23) {
     } else {
       __pyx_t_24 = __pyx_t_23;
       goto __pyx_L31_bool_binop_done;
     }
-    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_C, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_23 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_C, Py_EQ)); if (unlikely(__pyx_t_23 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 364; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __pyx_t_24 = __pyx_t_23;
     __pyx_L31_bool_binop_done:;
     __Pyx_DECREF(__pyx_t_26); __pyx_t_26 = 0;
     __pyx_t_23 = (__pyx_t_24 != 0);
     if (__pyx_t_23) {
 
-      /* "Mikado/scales/contrast.pyx":364
+      /* "Mikado/scales/contrast.pyx":365
  *             all([_ is not None for _ in (prediction.strand, reference.strand)])):
  *         if ccode in ("e", "mo", "c", "m", "_", "C"):
  *             ccode = "x"  # "x{0}".format(ccode)             # <<<<<<<<<<<<<<
@@ -5589,7 +5593,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __Pyx_INCREF(__pyx_n_s_x);
       __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_n_s_x);
 
-      /* "Mikado/scales/contrast.pyx":363
+      /* "Mikado/scales/contrast.pyx":364
  *     if (prediction.strand != reference.strand and
  *             all([_ is not None for _ in (prediction.strand, reference.strand)])):
  *         if ccode in ("e", "mo", "c", "m", "_", "C"):             # <<<<<<<<<<<<<<
@@ -5599,7 +5603,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       goto __pyx_L30;
     }
 
-    /* "Mikado/scales/contrast.pyx":365
+    /* "Mikado/scales/contrast.pyx":366
  *         if ccode in ("e", "mo", "c", "m", "_", "C"):
  *             ccode = "x"  # "x{0}".format(ccode)
  *         elif ccode not in ("u", "i", "I", "p", "P", "x"):             # <<<<<<<<<<<<<<
@@ -5608,44 +5612,44 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
     __Pyx_INCREF(__pyx_v_ccode);
     __pyx_t_26 = __pyx_v_ccode;
-    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_u, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 365; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_u, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 366; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (__pyx_t_24) {
     } else {
       __pyx_t_23 = __pyx_t_24;
       goto __pyx_L37_bool_binop_done;
     }
-    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_i, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 365; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_i, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 366; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (__pyx_t_24) {
     } else {
       __pyx_t_23 = __pyx_t_24;
       goto __pyx_L37_bool_binop_done;
     }
-    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_I, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 365; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_I, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 366; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (__pyx_t_24) {
     } else {
       __pyx_t_23 = __pyx_t_24;
       goto __pyx_L37_bool_binop_done;
     }
-    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_p, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 365; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_p, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 366; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (__pyx_t_24) {
     } else {
       __pyx_t_23 = __pyx_t_24;
       goto __pyx_L37_bool_binop_done;
     }
-    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_P, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 365; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_P, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 366; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     if (__pyx_t_24) {
     } else {
       __pyx_t_23 = __pyx_t_24;
       goto __pyx_L37_bool_binop_done;
     }
-    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_x, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 365; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_t_26, __pyx_n_s_x, Py_NE)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 366; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __pyx_t_23 = __pyx_t_24;
     __pyx_L37_bool_binop_done:;
     __Pyx_DECREF(__pyx_t_26); __pyx_t_26 = 0;
     __pyx_t_24 = (__pyx_t_23 != 0);
     if (__pyx_t_24) {
 
-      /* "Mikado/scales/contrast.pyx":366
+      /* "Mikado/scales/contrast.pyx":367
  *             ccode = "x"  # "x{0}".format(ccode)
  *         elif ccode not in ("u", "i", "I", "p", "P", "x"):
  *             ccode = "X"  # "X{0}".format(ccode)             # <<<<<<<<<<<<<<
@@ -5655,7 +5659,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __Pyx_INCREF(__pyx_n_s_X);
       __Pyx_DECREF_SET(__pyx_v_ccode, __pyx_n_s_X);
 
-      /* "Mikado/scales/contrast.pyx":365
+      /* "Mikado/scales/contrast.pyx":366
  *         if ccode in ("e", "mo", "c", "m", "_", "C"):
  *             ccode = "x"  # "x{0}".format(ccode)
  *         elif ccode not in ("u", "i", "I", "p", "P", "x"):             # <<<<<<<<<<<<<<
@@ -5665,7 +5669,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     }
     __pyx_L30:;
 
-    /* "Mikado/scales/contrast.pyx":361
+    /* "Mikado/scales/contrast.pyx":362
  *                                               nucl_overlap, stats)
  * 
  *     if (prediction.strand != reference.strand and             # <<<<<<<<<<<<<<
@@ -5674,25 +5678,25 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   }
 
-  /* "Mikado/scales/contrast.pyx":368
+  /* "Mikado/scales/contrast.pyx":369
  *             ccode = "X"  # "X{0}".format(ccode)
  * 
  *     if prediction.strand != reference.strand:             # <<<<<<<<<<<<<<
  *         reference_exon = None
  * 
  */
-  __pyx_t_26 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 368; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_26 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_strand); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 369; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_26);
-  __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 368; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_strand); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 369; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_25 = PyObject_RichCompare(__pyx_t_26, __pyx_t_28, Py_NE); __Pyx_XGOTREF(__pyx_t_25); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 368; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_25 = PyObject_RichCompare(__pyx_t_26, __pyx_t_28, Py_NE); __Pyx_XGOTREF(__pyx_t_25); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 369; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_26); __pyx_t_26 = 0;
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
-  __pyx_t_24 = __Pyx_PyObject_IsTrue(__pyx_t_25); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 368; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_24 = __Pyx_PyObject_IsTrue(__pyx_t_25); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 369; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_DECREF(__pyx_t_25); __pyx_t_25 = 0;
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":369
+    /* "Mikado/scales/contrast.pyx":370
  * 
  *     if prediction.strand != reference.strand:
  *         reference_exon = None             # <<<<<<<<<<<<<<
@@ -5702,7 +5706,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
     __Pyx_INCREF(Py_None);
     __Pyx_DECREF_SET(__pyx_v_reference_exon, Py_None);
 
-    /* "Mikado/scales/contrast.pyx":368
+    /* "Mikado/scales/contrast.pyx":369
  *             ccode = "X"  # "X{0}".format(ccode)
  * 
  *     if prediction.strand != reference.strand:             # <<<<<<<<<<<<<<
@@ -5711,64 +5715,64 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   }
 
-  /* "Mikado/scales/contrast.pyx":371
+  /* "Mikado/scales/contrast.pyx":372
  *         reference_exon = None
  * 
  *     result = ResultStorer(reference.id,             # <<<<<<<<<<<<<<
  *                           ",".join(reference.parent),
  *                           ccode, prediction.id,
  */
-  __pyx_t_28 = __Pyx_GetModuleGlobalName(__pyx_n_s_ResultStorer); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 371; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_28 = __Pyx_GetModuleGlobalName(__pyx_n_s_ResultStorer); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 372; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_28);
-  __pyx_t_26 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_id); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 371; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_26 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_id); if (unlikely(!__pyx_t_26)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 372; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_26);
 
-  /* "Mikado/scales/contrast.pyx":372
+  /* "Mikado/scales/contrast.pyx":373
  * 
  *     result = ResultStorer(reference.id,
  *                           ",".join(reference.parent),             # <<<<<<<<<<<<<<
  *                           ccode, prediction.id,
  *                           ",".join(prediction.parent),
  */
-  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_parent); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 372; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_reference, __pyx_n_s_parent); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 373; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_27);
-  __pyx_t_1 = __Pyx_PyString_Join(__pyx_kp_s__4, __pyx_t_27); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 372; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __Pyx_PyString_Join(__pyx_kp_s__4, __pyx_t_27); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 373; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_27); __pyx_t_27 = 0;
 
-  /* "Mikado/scales/contrast.pyx":373
+  /* "Mikado/scales/contrast.pyx":374
  *     result = ResultStorer(reference.id,
  *                           ",".join(reference.parent),
  *                           ccode, prediction.id,             # <<<<<<<<<<<<<<
  *                           ",".join(prediction.parent),
  *                           # Nucleotide stats
  */
-  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_id); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 373; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_27 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_id); if (unlikely(!__pyx_t_27)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 374; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_27);
 
-  /* "Mikado/scales/contrast.pyx":374
+  /* "Mikado/scales/contrast.pyx":375
  *                           ",".join(reference.parent),
  *                           ccode, prediction.id,
  *                           ",".join(prediction.parent),             # <<<<<<<<<<<<<<
  *                           # Nucleotide stats
  *                           round(nucl_precision * 100, 2),
  */
-  __pyx_t_18 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_parent); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 374; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_18 = __Pyx_PyObject_GetAttrStr(__pyx_v_prediction, __pyx_n_s_parent); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 375; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_18);
-  __pyx_t_14 = __Pyx_PyString_Join(__pyx_kp_s__4, __pyx_t_18); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 374; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_14 = __Pyx_PyString_Join(__pyx_kp_s__4, __pyx_t_18); if (unlikely(!__pyx_t_14)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 375; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_14);
   __Pyx_DECREF(__pyx_t_18); __pyx_t_18 = 0;
 
-  /* "Mikado/scales/contrast.pyx":376
+  /* "Mikado/scales/contrast.pyx":377
  *                           ",".join(prediction.parent),
  *                           # Nucleotide stats
  *                           round(nucl_precision * 100, 2),             # <<<<<<<<<<<<<<
  *                           round(100 * nucl_recall, 2),
  *                           round(100 * nucl_f1, 2),
  */
-  __pyx_t_18 = PyFloat_FromDouble((__pyx_v_nucl_precision * 100.0)); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 376; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_18 = PyFloat_FromDouble((__pyx_v_nucl_precision * 100.0)); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 377; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_18);
-  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 376; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = PyTuple_New(2); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 377; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_GIVEREF(__pyx_t_18);
   PyTuple_SET_ITEM(__pyx_t_3, 0, __pyx_t_18);
@@ -5776,20 +5780,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_3, 1, __pyx_int_2);
   __pyx_t_18 = 0;
-  __pyx_t_18 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_3, NULL); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 376; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_18 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_3, NULL); if (unlikely(!__pyx_t_18)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 377; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_18);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-  /* "Mikado/scales/contrast.pyx":377
+  /* "Mikado/scales/contrast.pyx":378
  *                           # Nucleotide stats
  *                           round(nucl_precision * 100, 2),
  *                           round(100 * nucl_recall, 2),             # <<<<<<<<<<<<<<
  *                           round(100 * nucl_f1, 2),
  *                           # Junction stats
  */
-  __pyx_t_3 = PyFloat_FromDouble((100.0 * __pyx_v_nucl_recall)); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 377; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = PyFloat_FromDouble((100.0 * __pyx_v_nucl_recall)); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 378; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 377; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 378; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_3);
   PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_3);
@@ -5797,20 +5801,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_int_2);
   __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 377; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_2, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 378; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "Mikado/scales/contrast.pyx":378
+  /* "Mikado/scales/contrast.pyx":379
  *                           round(nucl_precision * 100, 2),
  *                           round(100 * nucl_recall, 2),
  *                           round(100 * nucl_f1, 2),             # <<<<<<<<<<<<<<
  *                           # Junction stats
  *                           round(junction_precision * 100, 2),
  */
-  __pyx_t_2 = PyFloat_FromDouble((100.0 * __pyx_v_nucl_f1)); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 378; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = PyFloat_FromDouble((100.0 * __pyx_v_nucl_f1)); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 379; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_22 = PyTuple_New(2); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 378; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_22 = PyTuple_New(2); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 379; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_22);
   __Pyx_GIVEREF(__pyx_t_2);
   PyTuple_SET_ITEM(__pyx_t_22, 0, __pyx_t_2);
@@ -5818,20 +5822,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_22, 1, __pyx_int_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_22, NULL); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 378; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_22, NULL); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 379; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_22); __pyx_t_22 = 0;
 
-  /* "Mikado/scales/contrast.pyx":380
+  /* "Mikado/scales/contrast.pyx":381
  *                           round(100 * nucl_f1, 2),
  *                           # Junction stats
  *                           round(junction_precision * 100, 2),             # <<<<<<<<<<<<<<
  *                           round(100 * junction_recall, 2),
  *                           round(100 * junction_f1, 2),
  */
-  __pyx_t_22 = PyFloat_FromDouble((__pyx_v_junction_precision * 100.0)); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 380; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_22 = PyFloat_FromDouble((__pyx_v_junction_precision * 100.0)); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 381; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_22);
-  __pyx_t_30 = PyTuple_New(2); if (unlikely(!__pyx_t_30)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 380; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_30 = PyTuple_New(2); if (unlikely(!__pyx_t_30)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 381; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_30);
   __Pyx_GIVEREF(__pyx_t_22);
   PyTuple_SET_ITEM(__pyx_t_30, 0, __pyx_t_22);
@@ -5839,20 +5843,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_30, 1, __pyx_int_2);
   __pyx_t_22 = 0;
-  __pyx_t_22 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_30, NULL); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 380; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_22 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_30, NULL); if (unlikely(!__pyx_t_22)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 381; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_22);
   __Pyx_DECREF(__pyx_t_30); __pyx_t_30 = 0;
 
-  /* "Mikado/scales/contrast.pyx":381
+  /* "Mikado/scales/contrast.pyx":382
  *                           # Junction stats
  *                           round(junction_precision * 100, 2),
  *                           round(100 * junction_recall, 2),             # <<<<<<<<<<<<<<
  *                           round(100 * junction_f1, 2),
  *                           # Exonic stats
  */
-  __pyx_t_30 = PyFloat_FromDouble((100.0 * __pyx_v_junction_recall)); if (unlikely(!__pyx_t_30)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 381; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_30 = PyFloat_FromDouble((100.0 * __pyx_v_junction_recall)); if (unlikely(!__pyx_t_30)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 382; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_30);
-  __pyx_t_31 = PyTuple_New(2); if (unlikely(!__pyx_t_31)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 381; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_31 = PyTuple_New(2); if (unlikely(!__pyx_t_31)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 382; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_31);
   __Pyx_GIVEREF(__pyx_t_30);
   PyTuple_SET_ITEM(__pyx_t_31, 0, __pyx_t_30);
@@ -5860,20 +5864,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_31, 1, __pyx_int_2);
   __pyx_t_30 = 0;
-  __pyx_t_30 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_31, NULL); if (unlikely(!__pyx_t_30)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 381; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_30 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_31, NULL); if (unlikely(!__pyx_t_30)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 382; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_30);
   __Pyx_DECREF(__pyx_t_31); __pyx_t_31 = 0;
 
-  /* "Mikado/scales/contrast.pyx":382
+  /* "Mikado/scales/contrast.pyx":383
  *                           round(junction_precision * 100, 2),
  *                           round(100 * junction_recall, 2),
  *                           round(100 * junction_f1, 2),             # <<<<<<<<<<<<<<
  *                           # Exonic stats
  *                           round(exon_precision * 100, 2),
  */
-  __pyx_t_31 = PyFloat_FromDouble((100.0 * __pyx_v_junction_f1)); if (unlikely(!__pyx_t_31)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 382; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_31 = PyFloat_FromDouble((100.0 * __pyx_v_junction_f1)); if (unlikely(!__pyx_t_31)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 383; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_31);
-  __pyx_t_32 = PyTuple_New(2); if (unlikely(!__pyx_t_32)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 382; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_32 = PyTuple_New(2); if (unlikely(!__pyx_t_32)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 383; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_32);
   __Pyx_GIVEREF(__pyx_t_31);
   PyTuple_SET_ITEM(__pyx_t_32, 0, __pyx_t_31);
@@ -5881,20 +5885,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_32, 1, __pyx_int_2);
   __pyx_t_31 = 0;
-  __pyx_t_31 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_32, NULL); if (unlikely(!__pyx_t_31)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 382; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_31 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_32, NULL); if (unlikely(!__pyx_t_31)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 383; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_31);
   __Pyx_DECREF(__pyx_t_32); __pyx_t_32 = 0;
 
-  /* "Mikado/scales/contrast.pyx":384
+  /* "Mikado/scales/contrast.pyx":385
  *                           round(100 * junction_f1, 2),
  *                           # Exonic stats
  *                           round(exon_precision * 100, 2),             # <<<<<<<<<<<<<<
  *                           round(100 * exon_recall, 2),
  *                           round(100 * exon_f1, 2),
  */
-  __pyx_t_32 = PyFloat_FromDouble((__pyx_v_exon_precision * 100.0)); if (unlikely(!__pyx_t_32)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_32 = PyFloat_FromDouble((__pyx_v_exon_precision * 100.0)); if (unlikely(!__pyx_t_32)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_32);
-  __pyx_t_33 = PyTuple_New(2); if (unlikely(!__pyx_t_33)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_33 = PyTuple_New(2); if (unlikely(!__pyx_t_33)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_33);
   __Pyx_GIVEREF(__pyx_t_32);
   PyTuple_SET_ITEM(__pyx_t_33, 0, __pyx_t_32);
@@ -5902,20 +5906,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_33, 1, __pyx_int_2);
   __pyx_t_32 = 0;
-  __pyx_t_32 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_33, NULL); if (unlikely(!__pyx_t_32)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 384; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_32 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_33, NULL); if (unlikely(!__pyx_t_32)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_32);
   __Pyx_DECREF(__pyx_t_33); __pyx_t_33 = 0;
 
-  /* "Mikado/scales/contrast.pyx":385
+  /* "Mikado/scales/contrast.pyx":386
  *                           # Exonic stats
  *                           round(exon_precision * 100, 2),
  *                           round(100 * exon_recall, 2),             # <<<<<<<<<<<<<<
  *                           round(100 * exon_f1, 2),
  *                           distance)
  */
-  __pyx_t_33 = PyFloat_FromDouble((100.0 * __pyx_v_exon_recall)); if (unlikely(!__pyx_t_33)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_33 = PyFloat_FromDouble((100.0 * __pyx_v_exon_recall)); if (unlikely(!__pyx_t_33)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 386; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_33);
-  __pyx_t_34 = PyTuple_New(2); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_34 = PyTuple_New(2); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 386; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_34);
   __Pyx_GIVEREF(__pyx_t_33);
   PyTuple_SET_ITEM(__pyx_t_34, 0, __pyx_t_33);
@@ -5923,20 +5927,20 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_34, 1, __pyx_int_2);
   __pyx_t_33 = 0;
-  __pyx_t_33 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_34, NULL); if (unlikely(!__pyx_t_33)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 385; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_33 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_34, NULL); if (unlikely(!__pyx_t_33)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 386; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_33);
   __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
 
-  /* "Mikado/scales/contrast.pyx":386
+  /* "Mikado/scales/contrast.pyx":387
  *                           round(exon_precision * 100, 2),
  *                           round(100 * exon_recall, 2),
  *                           round(100 * exon_f1, 2),             # <<<<<<<<<<<<<<
  *                           distance)
  * 
  */
-  __pyx_t_34 = PyFloat_FromDouble((100.0 * __pyx_v_exon_f1)); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 386; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_34 = PyFloat_FromDouble((100.0 * __pyx_v_exon_f1)); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 387; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_34);
-  __pyx_t_35 = PyTuple_New(2); if (unlikely(!__pyx_t_35)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 386; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_35 = PyTuple_New(2); if (unlikely(!__pyx_t_35)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 387; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_35);
   __Pyx_GIVEREF(__pyx_t_34);
   PyTuple_SET_ITEM(__pyx_t_35, 0, __pyx_t_34);
@@ -5944,18 +5948,18 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_GIVEREF(__pyx_int_2);
   PyTuple_SET_ITEM(__pyx_t_35, 1, __pyx_int_2);
   __pyx_t_34 = 0;
-  __pyx_t_34 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_35, NULL); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 386; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_34 = __Pyx_PyObject_Call(__pyx_builtin_round, __pyx_t_35, NULL); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 387; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_34);
   __Pyx_DECREF(__pyx_t_35); __pyx_t_35 = 0;
 
-  /* "Mikado/scales/contrast.pyx":387
+  /* "Mikado/scales/contrast.pyx":388
  *                           round(100 * exon_recall, 2),
  *                           round(100 * exon_f1, 2),
  *                           distance)             # <<<<<<<<<<<<<<
  * 
  *     if ccode == "":
  */
-  __pyx_t_35 = __Pyx_PyInt_From_long(__pyx_v_distance); if (unlikely(!__pyx_t_35)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 387; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_35 = __Pyx_PyInt_From_long(__pyx_v_distance); if (unlikely(!__pyx_t_35)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 388; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_35);
   __pyx_t_36 = NULL;
   __pyx_t_12 = 0;
@@ -5969,7 +5973,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       __pyx_t_12 = 1;
     }
   }
-  __pyx_t_37 = PyTuple_New(15+__pyx_t_12); if (unlikely(!__pyx_t_37)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 371; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_37 = PyTuple_New(15+__pyx_t_12); if (unlikely(!__pyx_t_37)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 372; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_37);
   if (__pyx_t_36) {
     __Pyx_GIVEREF(__pyx_t_36); PyTuple_SET_ITEM(__pyx_t_37, 0, __pyx_t_36); __pyx_t_36 = NULL;
@@ -6019,33 +6023,33 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __pyx_t_33 = 0;
   __pyx_t_34 = 0;
   __pyx_t_35 = 0;
-  __pyx_t_25 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_t_37, NULL); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 371; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_25 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_t_37, NULL); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 372; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_25);
   __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
   __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
   __pyx_v_result = __pyx_t_25;
   __pyx_t_25 = 0;
 
-  /* "Mikado/scales/contrast.pyx":389
+  /* "Mikado/scales/contrast.pyx":390
  *                           distance)
  * 
  *     if ccode == "":             # <<<<<<<<<<<<<<
  *         raise ValueError("Ccode is null;\n{0}".format(repr(result)))
  * 
  */
-  __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_v_ccode, __pyx_kp_s_, Py_EQ)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 389; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_24 = (__Pyx_PyString_Equals(__pyx_v_ccode, __pyx_kp_s_, Py_EQ)); if (unlikely(__pyx_t_24 < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   if (__pyx_t_24) {
 
-    /* "Mikado/scales/contrast.pyx":390
+    /* "Mikado/scales/contrast.pyx":391
  * 
  *     if ccode == "":
  *         raise ValueError("Ccode is null;\n{0}".format(repr(result)))             # <<<<<<<<<<<<<<
  * 
  *     return (result, reference_exon)
  */
-    __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_kp_s_Ccode_is_null_0, __pyx_n_s_format); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_28 = __Pyx_PyObject_GetAttrStr(__pyx_kp_s_Ccode_is_null_0, __pyx_n_s_format); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_28);
-    __pyx_t_37 = PyObject_Repr(__pyx_v_result); if (unlikely(!__pyx_t_37)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_37 = PyObject_Repr(__pyx_v_result); if (unlikely(!__pyx_t_37)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_37);
     __pyx_t_35 = NULL;
     if (CYTHON_COMPILING_IN_CPYTHON && likely(PyMethod_Check(__pyx_t_28))) {
@@ -6058,34 +6062,34 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
       }
     }
     if (!__pyx_t_35) {
-      __pyx_t_25 = __Pyx_PyObject_CallOneArg(__pyx_t_28, __pyx_t_37); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_25 = __Pyx_PyObject_CallOneArg(__pyx_t_28, __pyx_t_37); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_DECREF(__pyx_t_37); __pyx_t_37 = 0;
       __Pyx_GOTREF(__pyx_t_25);
     } else {
-      __pyx_t_34 = PyTuple_New(1+1); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_34 = PyTuple_New(1+1); if (unlikely(!__pyx_t_34)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_34);
       __Pyx_GIVEREF(__pyx_t_35); PyTuple_SET_ITEM(__pyx_t_34, 0, __pyx_t_35); __pyx_t_35 = NULL;
       __Pyx_GIVEREF(__pyx_t_37);
       PyTuple_SET_ITEM(__pyx_t_34, 0+1, __pyx_t_37);
       __pyx_t_37 = 0;
-      __pyx_t_25 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_t_34, NULL); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+      __pyx_t_25 = __Pyx_PyObject_Call(__pyx_t_28, __pyx_t_34, NULL); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
       __Pyx_GOTREF(__pyx_t_25);
       __Pyx_DECREF(__pyx_t_34); __pyx_t_34 = 0;
     }
     __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
-    __pyx_t_28 = PyTuple_New(1); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_28 = PyTuple_New(1); if (unlikely(!__pyx_t_28)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_28);
     __Pyx_GIVEREF(__pyx_t_25);
     PyTuple_SET_ITEM(__pyx_t_28, 0, __pyx_t_25);
     __pyx_t_25 = 0;
-    __pyx_t_25 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_t_28, NULL); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_25 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_t_28, NULL); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_25);
     __Pyx_DECREF(__pyx_t_28); __pyx_t_28 = 0;
     __Pyx_Raise(__pyx_t_25, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_25); __pyx_t_25 = 0;
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
 
-    /* "Mikado/scales/contrast.pyx":389
+    /* "Mikado/scales/contrast.pyx":390
  *                           distance)
  * 
  *     if ccode == "":             # <<<<<<<<<<<<<<
@@ -6094,13 +6098,13 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
  */
   }
 
-  /* "Mikado/scales/contrast.pyx":392
+  /* "Mikado/scales/contrast.pyx":393
  *         raise ValueError("Ccode is null;\n{0}".format(repr(result)))
  * 
  *     return (result, reference_exon)             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_25 = PyTuple_New(2); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 392; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_25 = PyTuple_New(2); if (unlikely(!__pyx_t_25)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 393; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_25);
   __Pyx_INCREF(__pyx_v_result);
   __Pyx_GIVEREF(__pyx_v_result);
@@ -6112,9 +6116,9 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __pyx_t_25 = 0;
   goto __pyx_L0;
 
-  /* "Mikado/scales/contrast.pyx":201
+  /* "Mikado/scales/contrast.pyx":202
  * 
- * 
+ * @cython.profile(True)
  * cpdef tuple compare(prediction, reference):             # <<<<<<<<<<<<<<
  * 
  *     """Function to compare two transcripts and determine a ccode.
@@ -6155,6 +6159,7 @@ static PyObject *__pyx_f_6Mikado_6scales_8contrast_compare(PyObject *__pyx_v_pre
   __Pyx_XDECREF(__pyx_v_result);
   __Pyx_XDECREF(__pyx_v__);
   __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_TraceReturn(__pyx_r, 0);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
@@ -6191,11 +6196,11 @@ static PyObject *__pyx_pw_6Mikado_6scales_8contrast_1compare(PyObject *__pyx_sel
         case  1:
         if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_reference)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("compare", 1, 2, 2, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 201; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+          __Pyx_RaiseArgtupleInvalid("compare", 1, 2, 2, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 202; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "compare") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 201; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "compare") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 202; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
       }
     } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
       goto __pyx_L5_argtuple_error;
@@ -6208,7 +6213,7 @@ static PyObject *__pyx_pw_6Mikado_6scales_8contrast_1compare(PyObject *__pyx_sel
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("compare", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 201; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+  __Pyx_RaiseArgtupleInvalid("compare", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 202; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
   __pyx_L3_error:;
   __Pyx_AddTraceback("Mikado.scales.contrast.compare", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
@@ -6223,14 +6228,16 @@ static PyObject *__pyx_pw_6Mikado_6scales_8contrast_1compare(PyObject *__pyx_sel
 
 static PyObject *__pyx_pf_6Mikado_6scales_8contrast_compare(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_prediction, PyObject *__pyx_v_reference) {
   PyObject *__pyx_r = NULL;
+  __Pyx_TraceDeclarations
   __Pyx_RefNannyDeclarations
   PyObject *__pyx_t_1 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("compare", 0);
+  __Pyx_TraceCall("compare", __pyx_f[0], 202, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 202; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __pyx_f_6Mikado_6scales_8contrast_compare(__pyx_v_prediction, __pyx_v_reference, 0); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 201; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_1 = __pyx_f_6Mikado_6scales_8contrast_compare(__pyx_v_prediction, __pyx_v_reference, 0); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 202; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
@@ -6243,6 +6250,7 @@ static PyObject *__pyx_pf_6Mikado_6scales_8contrast_compare(CYTHON_UNUSED PyObje
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_TraceReturn(__pyx_r, 0);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
@@ -6674,9 +6682,9 @@ static int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_max = __Pyx_GetBuiltinName(__pyx_n_s_max); if (!__pyx_builtin_max) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 61; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_builtin_min = __Pyx_GetBuiltinName(__pyx_n_s_min); if (!__pyx_builtin_min) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 153; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 173; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __pyx_builtin_all = __Pyx_GetBuiltinName(__pyx_n_s_all); if (!__pyx_builtin_all) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 362; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __pyx_builtin_round = __Pyx_GetBuiltinName(__pyx_n_s_round); if (!__pyx_builtin_round) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 376; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 390; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_builtin_all = __Pyx_GetBuiltinName(__pyx_n_s_all); if (!__pyx_builtin_all) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 363; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_builtin_round = __Pyx_GetBuiltinName(__pyx_n_s_round); if (!__pyx_builtin_round) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 377; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 391; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -6788,6 +6796,9 @@ PyMODINIT_FUNC PyInit_contrast(void)
   /*--- Global init code ---*/
   /*--- Variable export code ---*/
   /*--- Function export code ---*/
+  if (__Pyx_ExportFunction("compare", (void (*)(void))__pyx_f_6Mikado_6scales_8contrast_compare, "PyObject *(PyObject *, PyObject *, int __pyx_skip_dispatch)") < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (__Pyx_ExportFunction("__assign_multiexonic_ccode", (void (*)(void))__pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode, "PyObject *(PyObject *, PyObject *, long, PyObject *)") < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (__Pyx_ExportFunction("__assign_monoexonic_ccode", (void (*)(void))__pyx_f_6Mikado_6scales_8contrast___assign_monoexonic_ccode, "PyObject *(PyObject *, PyObject *, long, PyObject *)") < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   /*--- Type init code ---*/
   if (PyType_Ready(&__pyx_type_6Mikado_6scales_8contrast___pyx_scope_struct____pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 90; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_type_6Mikado_6scales_8contrast___pyx_scope_struct____pyx_f_6Mikado_6scales_8contrast___assign_multiexonic_ccode.tp_print = 0;
@@ -9633,6 +9644,42 @@ static int __Pyx_check_binary_version(void) {
         return PyErr_WarnEx(NULL, message, 1);
     }
     return 0;
+}
+
+static int __Pyx_ExportFunction(const char *name, void (*f)(void), const char *sig) {
+    PyObject *d = 0;
+    PyObject *cobj = 0;
+    union {
+        void (*fp)(void);
+        void *p;
+    } tmp;
+    d = PyObject_GetAttrString(__pyx_m, (char *)"__pyx_capi__");
+    if (!d) {
+        PyErr_Clear();
+        d = PyDict_New();
+        if (!d)
+            goto bad;
+        Py_INCREF(d);
+        if (PyModule_AddObject(__pyx_m, (char *)"__pyx_capi__", d) < 0)
+            goto bad;
+    }
+    tmp.fp = f;
+#if PY_VERSION_HEX >= 0x02070000
+    cobj = PyCapsule_New(tmp.p, sig, 0);
+#else
+    cobj = PyCObject_FromVoidPtrAndDesc(tmp.p, (void *)sig, 0);
+#endif
+    if (!cobj)
+        goto bad;
+    if (PyDict_SetItemString(d, name, cobj) < 0)
+        goto bad;
+    Py_DECREF(cobj);
+    Py_DECREF(d);
+    return 0;
+bad:
+    Py_XDECREF(cobj);
+    Py_XDECREF(d);
+    return -1;
 }
 
 #ifndef __PYX_HAVE_RT_ImportModule

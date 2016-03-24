@@ -19,6 +19,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tup
         short p_exon_num, r_exon_num
         long p_start, p_end, r_start, r_end
         long over
+        long over_left, over_right
         long p_cdna_length
         long i_length, i_start, i_end
         
@@ -57,8 +58,8 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tup
             elif len(overlaps) > 2:
                 ccode = "mo"
             elif len(overlaps) == 2:
-                overs = [overlaps[0][0], overlaps[0][0]]
-                if max(overs) < 10:
+                over_left, over_right = overlaps[0][0], overlaps[1][0]
+                if over_left < 10 and over_right < 10:
                     ccode = "mo"
                 else:
                     ccode = "e"

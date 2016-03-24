@@ -1,8 +1,9 @@
-import os,sys
+import os
+import sys
 import glob
 import itertools
-import Mikado.configuration.configurator
 from Mikado.utilities import path_join
+import Mikado.configuration.configurator
 import subprocess
 
 swissprot = "uniprot_sprot_plants.fasta"

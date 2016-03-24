@@ -10,7 +10,7 @@ from . import log_utils
 import collections
 from ..parsers import to_gff
 from itertools import zip_longest
-from .overlap import c_overlap, c_overlap_positive
+from .overlap import overlap
 
 __author__ = 'Luca Venturini'
 
@@ -88,42 +88,42 @@ def merge_partial(filenames, handle):
     return total
 
 
-def overlap(first_interval: tuple([int, int]),
-            second_interval: tuple([int, int]), flank=0,
-            positive=False) -> int:
-
-    """
-    :param first_interval: a tuple of integers
-    :type first_interval: (int,int)
-
-    :param second_interval: a tuple of integers
-    :type second_interval: (int,int | intervaltree.Interval)
-
-    :param flank: an optional extending parameter to check for neighbours
-    :type flank: int
-
-    :param positive: boolean flag. If set to true, the max between overlap and 0 will be returned.
-    :type positive: bool
-
-    This static method returns the overlap between two intervals.
-
-    Values<=0 indicate no overlap.
-
-    The optional "flank" argument (default 0) allows to expand a locus
-    upstream and downstream.
-    As a static method, it can be used also outside of any instance -
-    "abstractlocus.overlap()" will function.
-    Input: two 2-tuples of integers.
-    """
-
-    if positive is False:
-        return c_overlap(first_interval[0], first_interval[1],
-                         second_interval[0], second_interval[1],
-                         flank)
-    else:
-        return c_overlap_positive(first_interval[0], first_interval[1],
-                                  second_interval[0], second_interval[1],
-                                  flank)
+# def overlap(first_interval: tuple([int, int]),
+#             second_interval: tuple([int, int]), flank=0,
+#             positive=False) -> int:
+#
+#     """
+#     :param first_interval: a tuple of integers
+#     :type first_interval: (int,int)
+#
+#     :param second_interval: a tuple of integers
+#     :type second_interval: (int,int | intervaltree.Interval)
+#
+#     :param flank: an optional extending parameter to check for neighbours
+#     :type flank: int
+#
+#     :param positive: boolean flag. If set to true, the max between overlap and 0 will be returned.
+#     :type positive: bool
+#
+#     This static method returns the overlap between two intervals.
+#
+#     Values<=0 indicate no overlap.
+#
+#     The optional "flank" argument (default 0) allows to expand a locus
+#     upstream and downstream.
+#     As a static method, it can be used also outside of any instance -
+#     "abstractlocus.overlap()" will function.
+#     Input: two 2-tuples of integers.
+#     """
+#
+#     if positive is False:
+#         return c_overlap(first_interval[0], first_interval[1],
+#                          second_interval[0], second_interval[1],
+#                          flank)
+#     else:
+#         return c_overlap_positive(first_interval[0], first_interval[1],
+#                                   second_interval[0], second_interval[1],
+#                                   flank)
 
 
 def grouper(iterable, n):

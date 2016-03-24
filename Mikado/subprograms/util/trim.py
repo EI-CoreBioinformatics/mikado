@@ -6,8 +6,6 @@
 import argparse
 import sys
 
-from intervaltree import Interval
-
 from .. import to_gff
 from ...exceptions import InvalidTranscript
 from ...loci import Transcript
@@ -38,7 +36,7 @@ def trim_noncoding(transcript, max_length=0):
     if (first[1] - first[0] + 1) > max_length:
         # newfirst = list(first)
         # newfirst[0] = first[1] - max_length
-        newfirst = Interval(first.end - max_length, first.end)
+        newfirst = tuple([first[1] - max_length, first[1]])
         transcript.start = newfirst[0]
         transcript.exons[0] = newfirst
     # last = transcript.exons[-1]
@@ -46,7 +44,7 @@ def trim_noncoding(transcript, max_length=0):
         newlast = list(last[:])
         newlast[1] = last[0] + max_length
         transcript.end = newlast[1]
-        transcript.exons[-1] = Interval(*newlast)
+        transcript.exons[-1] = tuple(newlast)
         # if transcript.selected_cds_length > 0:
         #     last_utr = [segment for segment in transcript.combined_utr if
         #                 segment[1] == last[1]][0]
@@ -78,7 +76,7 @@ def trim_start(transcript, cds_start, max_length=0):
         if first[1] - first[0] + 1 > max_length:
             # First exon longer than max_length; trim it,
             # remove from UTR and exons, substitute with trimmed exon
-            newfirst = Interval(first[1] - max_length, first[1])
+            newfirst = tuple([first[1] - max_length, first[1]])
             transcript.combined_utr.remove(first)
             transcript.exons.remove(first)
             transcript.combined_utr.append(newfirst)
@@ -89,7 +87,7 @@ def trim_start(transcript, cds_start, max_length=0):
     elif first[0] < cds_start <= first[1]:
         # Partly UTR partly CDS
         if first[1] - first[0] + 1 > max_length:
-            newfirst = Interval(min(cds_start, first[1] - max_length), first[1])
+            newfirst = tuple([min(cds_start, first[1] - max_length), first[1]])
             # Retrieve and remove offending UTR segment
             utr_segment = [segment for segment in transcript.combined_utr
                            if segment[0] == first[0]][0]
@@ -98,7 +96,7 @@ def trim_start(transcript, cds_start, max_length=0):
             transcript.exons.append(newfirst)
             if newfirst[0] < cds_start:
                 # Create new UTR segment
-                newu = Interval(newfirst[0], cds_start - 1)
+                newu = tuple([newfirst[0], cds_start - 1])
                 transcript.combined_utr.append(newu)
         else:
             newfirst = first
@@ -127,9 +125,9 @@ def trim_end(transcript, cds_end, max_length=0):
 
     # We have to sort b/c we appended a new exon in trim_start
     last = sorted(transcript.exons)[-1]
-    if last.begin > cds_end:
+    if last[0] > cds_end:
         if last[1] - last[0] + 1 > max_length:
-            newlast = Interval(last[0], last[0] + max_length)
+            newlast = tuple([last[0], last[0] + max_length])
             transcript.combined_utr.remove(last)
             transcript.exons.remove(last)
             transcript.combined_utr.append(newlast)
@@ -138,14 +136,14 @@ def trim_end(transcript, cds_end, max_length=0):
             newlast = last
     elif last[0] <= cds_end < last[1]:
         if last[1] - last[0] + 1 > max_length:
-            newlast = Interval(last[0], max(cds_end, last[0] + max_length))
+            newlast = tuple([last[0], max(cds_end, last[0] + max_length)])
             utr_segment = [segment for segment in transcript.combined_utr if
                            segment[1] == last[1]][0]
             transcript.combined_utr.remove(utr_segment)
             transcript.exons.remove(last)
             transcript.exons.append(newlast)
             if newlast[1] > cds_end:
-                newu = Interval(cds_end + 1, newlast[1])
+                newu = tuple([cds_end + 1, newlast[1]])
                 transcript.combined_utr.append(newu)
         else:
             newlast = last
@@ -153,7 +151,7 @@ def trim_end(transcript, cds_end, max_length=0):
         newlast = last
 
     transcript.end = newlast[1]
-    assert all([(exon.end <= newlast.end for exon in transcript.exons)])
+    assert all([(exon[1] <= newlast[1] for exon in transcript.exons)])
     return transcript
 
 

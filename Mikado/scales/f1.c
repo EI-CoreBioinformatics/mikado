@@ -240,8 +240,8 @@ static CYTHON_INLINE float __PYX_NAN() {
   #endif
 #endif
 
-#define __PYX_HAVE__Mikado__utilities__overlap
-#define __PYX_HAVE_API__Mikado__utilities__overlap
+#define __PYX_HAVE__Mikado__scales__f1
+#define __PYX_HAVE_API__Mikado__scales__f1
 #ifdef _OPENMP
 #include <omp.h>
 #endif /* _OPENMP */
@@ -450,21 +450,10 @@ static const char *__pyx_filename;
 
 
 static const char *__pyx_f[] = {
-  "Mikado/utilities/overlap.pyx",
+  "Mikado/scales/f1.pyx",
 };
 
 /*--- Type declarations ---*/
-struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap;
-
-/* "Mikado/utilities/overlap.pxd":1
- * cpdef long overlap(first, second, long flank=?, bint positive=?)             # <<<<<<<<<<<<<<
- * cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bint positive)
- */
-struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap {
-  int __pyx_n;
-  long flank;
-  int positive;
-};
 
 /* --- Runtime support code (head) --- */
 #ifndef CYTHON_REFNANNY
@@ -528,6 +517,23 @@ struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap {
     } while (0)
 #define __Pyx_CLEAR(r)    do { PyObject* tmp = ((PyObject*)(r)); r = NULL; __Pyx_DECREF(tmp);} while(0)
 #define __Pyx_XCLEAR(r)   do { if((r) != NULL) {PyObject* tmp = ((PyObject*)(r)); r = NULL; __Pyx_DECREF(tmp);}} while(0)
+
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_getattro))
+        return tp->tp_getattro(obj, attr_name);
+#if PY_MAJOR_VERSION < 3
+    if (likely(tp->tp_getattr))
+        return tp->tp_getattr(obj, PyString_AS_STRING(attr_name));
+#endif
+    return PyObject_GetAttr(obj, attr_name);
+}
+#else
+#define __Pyx_PyObject_GetAttrStr(o,n) PyObject_GetAttr(o,n)
+#endif
+
+static PyObject *__Pyx_GetBuiltinName(PyObject *name);
 
 #ifndef CYTHON_PROFILE
   #define CYTHON_PROFILE 1
@@ -726,21 +732,16 @@ struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap {
   #define __Pyx_TraceLine(lineno, nogil, goto_error)   if (1); else goto_error;
 #endif
 
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetSlice(
-        PyObject* obj, Py_ssize_t cstart, Py_ssize_t cstop,
-        PyObject** py_start, PyObject** py_stop, PyObject** py_slice,
-        int has_cstart, int has_cstop, int wraparound);
-
-static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected);
-
-static CYTHON_INLINE void __Pyx_RaiseNeedMoreValuesError(Py_ssize_t index);
-
-static CYTHON_INLINE int __Pyx_IterFinish(void);
-
-static int __Pyx_IternextUnpackEndCheck(PyObject *retval, Py_ssize_t expected);
+#if CYTHON_COMPILING_IN_CPYTHON
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg, PyObject *kw);
+#else
+#define __Pyx_PyObject_Call(func, arg, kw) PyObject_Call(func, arg, kw)
+#endif
 
 static CYTHON_INLINE void __Pyx_ErrRestore(PyObject *type, PyObject *value, PyObject *tb);
 static CYTHON_INLINE void __Pyx_ErrFetch(PyObject **type, PyObject **value, PyObject **tb);
+
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
 
 static void __Pyx_WriteUnraisable(const char *name, int clineno,
                                   int lineno, const char *filename,
@@ -772,9 +773,9 @@ static void __pyx_insert_code_object(int code_line, PyCodeObject* code_object);
 static void __Pyx_AddTraceback(const char *funcname, int c_line,
                                int py_line, const char *filename);
 
-static CYTHON_INLINE long __Pyx_PyInt_As_long(PyObject *);
-
 static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value);
+
+static CYTHON_INLINE long __Pyx_PyInt_As_long(PyObject *);
 
 static CYTHON_INLINE int __Pyx_PyInt_As_int(PyObject *);
 
@@ -787,227 +788,245 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry *t);
 
 /* Module declarations from 'cython' */
 
-/* Module declarations from 'Mikado.utilities.overlap' */
-static long __pyx_f_6Mikado_9utilities_7overlap_overlap(PyObject *, PyObject *, int __pyx_skip_dispatch, struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap *__pyx_optional_args); /*proto*/
-static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long, long, long, long, long, int); /*proto*/
-#define __Pyx_MODULE_NAME "Mikado.utilities.overlap"
-int __pyx_module_is_main_Mikado__utilities__overlap = 0;
+/* Module declarations from 'Mikado.scales.f1' */
+static double __pyx_f_6Mikado_6scales_2f1_calc_f1(double, double, int __pyx_skip_dispatch); /*proto*/
+#define __Pyx_MODULE_NAME "Mikado.scales.f1"
+int __pyx_module_is_main_Mikado__scales__f1 = 0;
 
-/* Implementation of 'Mikado.utilities.overlap' */
+/* Implementation of 'Mikado.scales.f1' */
+static PyObject *__pyx_builtin_ValueError;
 static char __pyx_k_main[] = "__main__";
 static char __pyx_k_test[] = "__test__";
-static char __pyx_k_first[] = "first";
-static char __pyx_k_flank[] = "flank";
-static char __pyx_k_second[] = "second";
-static char __pyx_k_positive[] = "positive";
-static PyObject *__pyx_n_s_first;
-static PyObject *__pyx_n_s_flank;
+static char __pyx_k_format[] = "format";
+static char __pyx_k_recall[] = "recall";
+static char __pyx_k_precision[] = "precision";
+static char __pyx_k_ValueError[] = "ValueError";
+static char __pyx_k_Negative_values_are_an_invalid_i[] = "Negative values are an invalid input! ({0}, {1})";
+static PyObject *__pyx_kp_s_Negative_values_are_an_invalid_i;
+static PyObject *__pyx_n_s_ValueError;
+static PyObject *__pyx_n_s_format;
 static PyObject *__pyx_n_s_main;
-static PyObject *__pyx_n_s_positive;
-static PyObject *__pyx_n_s_second;
+static PyObject *__pyx_n_s_precision;
+static PyObject *__pyx_n_s_recall;
 static PyObject *__pyx_n_s_test;
-static PyObject *__pyx_pf_6Mikado_9utilities_7overlap_overlap(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_first, PyObject *__pyx_v_second, long __pyx_v_flank, int __pyx_v_positive); /* proto */
-static PyObject *__pyx_int_2;
-static PyObject *__pyx_slice_;
-static PyObject *__pyx_slice__2;
+static PyObject *__pyx_pf_6Mikado_6scales_2f1_calc_f1(CYTHON_UNUSED PyObject *__pyx_self, double __pyx_v_recall, double __pyx_v_precision); /* proto */
 
-/* "Mikado/utilities/overlap.pyx":4
- * 
+/* "Mikado/scales/f1.pyx":6
  * @cython.profile(True)
- * cpdef long overlap(first, second, long flank=0, bint positive=0):             # <<<<<<<<<<<<<<
- * 
- *     """This function quickly computes the overlap between two
+ * @cython.cdivision(True)
+ * cpdef double calc_f1(double recall, double precision):             # <<<<<<<<<<<<<<
+ *     """
+ *     Static method to calculate the F1 statistic given precision
  */
 
-static PyObject *__pyx_pw_6Mikado_9utilities_7overlap_1overlap(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static long __pyx_f_6Mikado_9utilities_7overlap_overlap(PyObject *__pyx_v_first, PyObject *__pyx_v_second, CYTHON_UNUSED int __pyx_skip_dispatch, struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap *__pyx_optional_args) {
-  long __pyx_v_flank = ((long)0);
-  int __pyx_v_positive = ((int)0);
-  long __pyx_v_start;
-  long __pyx_v_end;
-  long __pyx_v_ostart;
-  long __pyx_v_oend;
-  long __pyx_r;
+static PyObject *__pyx_pw_6Mikado_6scales_2f1_1calc_f1(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static double __pyx_f_6Mikado_6scales_2f1_calc_f1(double __pyx_v_recall, double __pyx_v_precision, CYTHON_UNUSED int __pyx_skip_dispatch) {
+  double __pyx_v_result;
+  double __pyx_v_summa;
+  double __pyx_v_product;
+  double __pyx_r;
   __Pyx_TraceDeclarations
   __Pyx_RefNannyDeclarations
-  PyObject *__pyx_t_1 = NULL;
-  PyObject *__pyx_t_2 = NULL;
+  int __pyx_t_1;
+  int __pyx_t_2;
   PyObject *__pyx_t_3 = NULL;
   PyObject *__pyx_t_4 = NULL;
-  PyObject *(*__pyx_t_5)(PyObject *);
-  long __pyx_t_6;
-  long __pyx_t_7;
+  PyObject *__pyx_t_5 = NULL;
+  PyObject *__pyx_t_6 = NULL;
+  PyObject *__pyx_t_7 = NULL;
+  Py_ssize_t __pyx_t_8;
+  PyObject *__pyx_t_9 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("overlap", 0);
-  __Pyx_TraceCall("overlap", __pyx_f[0], 4, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
-  if (__pyx_optional_args) {
-    if (__pyx_optional_args->__pyx_n > 0) {
-      __pyx_v_flank = __pyx_optional_args->flank;
-      if (__pyx_optional_args->__pyx_n > 1) {
-        __pyx_v_positive = __pyx_optional_args->positive;
+  __Pyx_RefNannySetupContext("calc_f1", 0);
+  __Pyx_TraceCall("calc_f1", __pyx_f[0], 6, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
+
+  /* "Mikado/scales/f1.pyx":14
+ *     cdef double result, summa, product
+ * 
+ *     if precision < 0 or recall < 0:             # <<<<<<<<<<<<<<
+ *         raise ValueError("Negative values are an invalid input! ({0}, {1})".format(
+ *             recall, precision))
+ */
+  __pyx_t_2 = ((__pyx_v_precision < 0.0) != 0);
+  if (!__pyx_t_2) {
+  } else {
+    __pyx_t_1 = __pyx_t_2;
+    goto __pyx_L4_bool_binop_done;
+  }
+  __pyx_t_2 = ((__pyx_v_recall < 0.0) != 0);
+  __pyx_t_1 = __pyx_t_2;
+  __pyx_L4_bool_binop_done:;
+  if (__pyx_t_1) {
+
+    /* "Mikado/scales/f1.pyx":15
+ * 
+ *     if precision < 0 or recall < 0:
+ *         raise ValueError("Negative values are an invalid input! ({0}, {1})".format(             # <<<<<<<<<<<<<<
+ *             recall, precision))
+ * 
+ */
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_kp_s_Negative_values_are_an_invalid_i, __pyx_n_s_format); if (unlikely(!__pyx_t_4)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 15; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __Pyx_GOTREF(__pyx_t_4);
+
+    /* "Mikado/scales/f1.pyx":16
+ *     if precision < 0 or recall < 0:
+ *         raise ValueError("Negative values are an invalid input! ({0}, {1})".format(
+ *             recall, precision))             # <<<<<<<<<<<<<<
+ * 
+ *     elif precision == 0 or recall == 0:
+ */
+    __pyx_t_5 = PyFloat_FromDouble(__pyx_v_recall); if (unlikely(!__pyx_t_5)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 16; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_6 = PyFloat_FromDouble(__pyx_v_precision); if (unlikely(!__pyx_t_6)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 16; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __Pyx_GOTREF(__pyx_t_6);
+    __pyx_t_7 = NULL;
+    __pyx_t_8 = 0;
+    if (CYTHON_COMPILING_IN_CPYTHON && likely(PyMethod_Check(__pyx_t_4))) {
+      __pyx_t_7 = PyMethod_GET_SELF(__pyx_t_4);
+      if (likely(__pyx_t_7)) {
+        PyObject* function = PyMethod_GET_FUNCTION(__pyx_t_4);
+        __Pyx_INCREF(__pyx_t_7);
+        __Pyx_INCREF(function);
+        __Pyx_DECREF_SET(__pyx_t_4, function);
+        __pyx_t_8 = 1;
       }
     }
-  }
+    __pyx_t_9 = PyTuple_New(2+__pyx_t_8); if (unlikely(!__pyx_t_9)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 15; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __Pyx_GOTREF(__pyx_t_9);
+    if (__pyx_t_7) {
+      __Pyx_GIVEREF(__pyx_t_7); PyTuple_SET_ITEM(__pyx_t_9, 0, __pyx_t_7); __pyx_t_7 = NULL;
+    }
+    __Pyx_GIVEREF(__pyx_t_5);
+    PyTuple_SET_ITEM(__pyx_t_9, 0+__pyx_t_8, __pyx_t_5);
+    __Pyx_GIVEREF(__pyx_t_6);
+    PyTuple_SET_ITEM(__pyx_t_9, 1+__pyx_t_8, __pyx_t_6);
+    __pyx_t_5 = 0;
+    __pyx_t_6 = 0;
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_t_4, __pyx_t_9, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 15; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __Pyx_GOTREF(__pyx_t_3);
+    __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "Mikado/utilities/overlap.pyx":11
- *     cdef long start, end, ostart, oend
+    /* "Mikado/scales/f1.pyx":15
  * 
- *     start, end = first[:2]             # <<<<<<<<<<<<<<
- *     ostart, oend = second[:2]
+ *     if precision < 0 or recall < 0:
+ *         raise ValueError("Negative values are an invalid input! ({0}, {1})".format(             # <<<<<<<<<<<<<<
+ *             recall, precision))
  * 
  */
-  __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_first, 0, 2, NULL, NULL, &__pyx_slice_, 0, 1, 1); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_GOTREF(__pyx_t_1);
-  if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
-    PyObject* sequence = __pyx_t_1;
-    #if CYTHON_COMPILING_IN_CPYTHON
-    Py_ssize_t size = Py_SIZE(sequence);
-    #else
-    Py_ssize_t size = PySequence_Size(sequence);
-    #endif
-    if (unlikely(size != 2)) {
-      if (size > 2) __Pyx_RaiseTooManyValuesError(2);
-      else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    }
-    #if CYTHON_COMPILING_IN_CPYTHON
-    if (likely(PyTuple_CheckExact(sequence))) {
-      __pyx_t_2 = PyTuple_GET_ITEM(sequence, 0); 
-      __pyx_t_3 = PyTuple_GET_ITEM(sequence, 1); 
-    } else {
-      __pyx_t_2 = PyList_GET_ITEM(sequence, 0); 
-      __pyx_t_3 = PyList_GET_ITEM(sequence, 1); 
-    }
-    __Pyx_INCREF(__pyx_t_2);
-    __Pyx_INCREF(__pyx_t_3);
-    #else
-    __pyx_t_2 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __Pyx_GOTREF(__pyx_t_3);
-    #endif
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  } else {
-    Py_ssize_t index = -1;
-    __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    __pyx_t_4 = PyTuple_New(1); if (unlikely(!__pyx_t_4)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 15; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_5 = Py_TYPE(__pyx_t_4)->tp_iternext;
-    index = 0; __pyx_t_2 = __pyx_t_5(__pyx_t_4); if (unlikely(!__pyx_t_2)) goto __pyx_L3_unpacking_failed;
-    __Pyx_GOTREF(__pyx_t_2);
-    index = 1; __pyx_t_3 = __pyx_t_5(__pyx_t_4); if (unlikely(!__pyx_t_3)) goto __pyx_L3_unpacking_failed;
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_4, 0, __pyx_t_3);
+    __pyx_t_3 = 0;
+    __pyx_t_3 = __Pyx_PyObject_Call(__pyx_builtin_ValueError, __pyx_t_4, NULL); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 15; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     __Pyx_GOTREF(__pyx_t_3);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_5(__pyx_t_4), 2) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __pyx_t_5 = NULL;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    goto __pyx_L4_unpacking_done;
-    __pyx_L3_unpacking_failed:;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_5 = NULL;
-    if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __pyx_L4_unpacking_done:;
-  }
-  __pyx_t_6 = __Pyx_PyInt_As_long(__pyx_t_2); if (unlikely((__pyx_t_6 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_7 = __Pyx_PyInt_As_long(__pyx_t_3); if (unlikely((__pyx_t_7 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_v_start = __pyx_t_6;
-  __pyx_v_end = __pyx_t_7;
+    __Pyx_Raise(__pyx_t_3, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 15; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
 
-  /* "Mikado/utilities/overlap.pyx":12
+    /* "Mikado/scales/f1.pyx":14
+ *     cdef double result, summa, product
  * 
- *     start, end = first[:2]
- *     ostart, oend = second[:2]             # <<<<<<<<<<<<<<
- * 
- *     return c_overlap(start, end, ostart, oend, flank=flank, positive=positive)
+ *     if precision < 0 or recall < 0:             # <<<<<<<<<<<<<<
+ *         raise ValueError("Negative values are an invalid input! ({0}, {1})".format(
+ *             recall, precision))
  */
-  __pyx_t_1 = __Pyx_PyObject_GetSlice(__pyx_v_second, 0, 2, NULL, NULL, &__pyx_slice__2, 0, 1, 1); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_GOTREF(__pyx_t_1);
-  if ((likely(PyTuple_CheckExact(__pyx_t_1))) || (PyList_CheckExact(__pyx_t_1))) {
-    PyObject* sequence = __pyx_t_1;
-    #if CYTHON_COMPILING_IN_CPYTHON
-    Py_ssize_t size = Py_SIZE(sequence);
-    #else
-    Py_ssize_t size = PySequence_Size(sequence);
-    #endif
-    if (unlikely(size != 2)) {
-      if (size > 2) __Pyx_RaiseTooManyValuesError(2);
-      else if (size >= 0) __Pyx_RaiseNeedMoreValuesError(size);
-      {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    }
-    #if CYTHON_COMPILING_IN_CPYTHON
-    if (likely(PyTuple_CheckExact(sequence))) {
-      __pyx_t_3 = PyTuple_GET_ITEM(sequence, 0); 
-      __pyx_t_2 = PyTuple_GET_ITEM(sequence, 1); 
-    } else {
-      __pyx_t_3 = PyList_GET_ITEM(sequence, 0); 
-      __pyx_t_2 = PyList_GET_ITEM(sequence, 1); 
-    }
-    __Pyx_INCREF(__pyx_t_3);
-    __Pyx_INCREF(__pyx_t_2);
-    #else
-    __pyx_t_3 = PySequence_ITEM(sequence, 0); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __Pyx_GOTREF(__pyx_t_3);
-    __pyx_t_2 = PySequence_ITEM(sequence, 1); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __Pyx_GOTREF(__pyx_t_2);
-    #endif
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  }
+
+  /* "Mikado/scales/f1.pyx":18
+ *             recall, precision))
+ * 
+ *     elif precision == 0 or recall == 0:             # <<<<<<<<<<<<<<
+ *         return 0
+ *     else:
+ */
+  __pyx_t_2 = ((__pyx_v_precision == 0.0) != 0);
+  if (!__pyx_t_2) {
   } else {
-    Py_ssize_t index = -1;
-    __pyx_t_4 = PyObject_GetIter(__pyx_t_1); if (unlikely(!__pyx_t_4)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __Pyx_GOTREF(__pyx_t_4);
-    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-    __pyx_t_5 = Py_TYPE(__pyx_t_4)->tp_iternext;
-    index = 0; __pyx_t_3 = __pyx_t_5(__pyx_t_4); if (unlikely(!__pyx_t_3)) goto __pyx_L5_unpacking_failed;
-    __Pyx_GOTREF(__pyx_t_3);
-    index = 1; __pyx_t_2 = __pyx_t_5(__pyx_t_4); if (unlikely(!__pyx_t_2)) goto __pyx_L5_unpacking_failed;
-    __Pyx_GOTREF(__pyx_t_2);
-    if (__Pyx_IternextUnpackEndCheck(__pyx_t_5(__pyx_t_4), 2) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __pyx_t_5 = NULL;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    goto __pyx_L6_unpacking_done;
-    __pyx_L5_unpacking_failed:;
-    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_5 = NULL;
-    if (__Pyx_IterFinish() == 0) __Pyx_RaiseNeedMoreValuesError(index);
-    {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    __pyx_L6_unpacking_done:;
+    __pyx_t_1 = __pyx_t_2;
+    goto __pyx_L6_bool_binop_done;
   }
-  __pyx_t_7 = __Pyx_PyInt_As_long(__pyx_t_3); if (unlikely((__pyx_t_7 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_6 = __Pyx_PyInt_As_long(__pyx_t_2); if (unlikely((__pyx_t_6 == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_v_ostart = __pyx_t_7;
-  __pyx_v_oend = __pyx_t_6;
+  __pyx_t_2 = ((__pyx_v_recall == 0.0) != 0);
+  __pyx_t_1 = __pyx_t_2;
+  __pyx_L6_bool_binop_done:;
+  if (__pyx_t_1) {
 
-  /* "Mikado/utilities/overlap.pyx":14
- *     ostart, oend = second[:2]
+    /* "Mikado/scales/f1.pyx":19
  * 
- *     return c_overlap(start, end, ostart, oend, flank=flank, positive=positive)             # <<<<<<<<<<<<<<
- * 
- * 
+ *     elif precision == 0 or recall == 0:
+ *         return 0             # <<<<<<<<<<<<<<
+ *     else:
+ *         product = 2 * precision * recall
  */
-  __pyx_r = __pyx_f_6Mikado_9utilities_7overlap_c_overlap(__pyx_v_start, __pyx_v_end, __pyx_v_ostart, __pyx_v_oend, __pyx_v_flank, __pyx_v_positive);
-  goto __pyx_L0;
+    __pyx_r = 0.0;
+    goto __pyx_L0;
 
-  /* "Mikado/utilities/overlap.pyx":4
+    /* "Mikado/scales/f1.pyx":18
+ *             recall, precision))
  * 
+ *     elif precision == 0 or recall == 0:             # <<<<<<<<<<<<<<
+ *         return 0
+ *     else:
+ */
+  }
+
+  /* "Mikado/scales/f1.pyx":21
+ *         return 0
+ *     else:
+ *         product = 2 * precision * recall             # <<<<<<<<<<<<<<
+ *         summa = precision + recall
+ *         result = product / summa
+ */
+  /*else*/ {
+    __pyx_v_product = ((2.0 * __pyx_v_precision) * __pyx_v_recall);
+
+    /* "Mikado/scales/f1.pyx":22
+ *     else:
+ *         product = 2 * precision * recall
+ *         summa = precision + recall             # <<<<<<<<<<<<<<
+ *         result = product / summa
+ *         return result
+ */
+    __pyx_v_summa = (__pyx_v_precision + __pyx_v_recall);
+
+    /* "Mikado/scales/f1.pyx":23
+ *         product = 2 * precision * recall
+ *         summa = precision + recall
+ *         result = product / summa             # <<<<<<<<<<<<<<
+ *         return result
+ */
+    __pyx_v_result = (__pyx_v_product / __pyx_v_summa);
+
+    /* "Mikado/scales/f1.pyx":24
+ *         summa = precision + recall
+ *         result = product / summa
+ *         return result             # <<<<<<<<<<<<<<
+ */
+    __pyx_r = __pyx_v_result;
+    goto __pyx_L0;
+  }
+
+  /* "Mikado/scales/f1.pyx":6
  * @cython.profile(True)
- * cpdef long overlap(first, second, long flank=0, bint positive=0):             # <<<<<<<<<<<<<<
- * 
- *     """This function quickly computes the overlap between two
+ * @cython.cdivision(True)
+ * cpdef double calc_f1(double recall, double precision):             # <<<<<<<<<<<<<<
+ *     """
+ *     Static method to calculate the F1 statistic given precision
  */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_1);
-  __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_4);
-  __Pyx_WriteUnraisable("Mikado.utilities.overlap.overlap", __pyx_clineno, __pyx_lineno, __pyx_filename, 0, 0);
+  __Pyx_XDECREF(__pyx_t_5);
+  __Pyx_XDECREF(__pyx_t_6);
+  __Pyx_XDECREF(__pyx_t_7);
+  __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_WriteUnraisable("Mikado.scales.f1.calc_f1", __pyx_clineno, __pyx_lineno, __pyx_filename, 0, 0);
   __pyx_r = 0;
   __pyx_L0:;
   __Pyx_TraceReturn(Py_None, 0);
@@ -1016,28 +1035,24 @@ static long __pyx_f_6Mikado_9utilities_7overlap_overlap(PyObject *__pyx_v_first,
 }
 
 /* Python wrapper */
-static PyObject *__pyx_pw_6Mikado_9utilities_7overlap_1overlap(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_6Mikado_9utilities_7overlap_overlap[] = "This function quickly computes the overlap between two\n    ranges, with an optional flank.";
-static PyObject *__pyx_pw_6Mikado_9utilities_7overlap_1overlap(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
-  PyObject *__pyx_v_first = 0;
-  PyObject *__pyx_v_second = 0;
-  long __pyx_v_flank;
-  int __pyx_v_positive;
+static PyObject *__pyx_pw_6Mikado_6scales_2f1_1calc_f1(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static char __pyx_doc_6Mikado_6scales_2f1_calc_f1[] = "\n    Static method to calculate the F1 statistic given precision\n    and recall (order is unimportant). Definition:\n    F1 = (2 * precision * recall) / (precision + recall)\n    ";
+static PyObject *__pyx_pw_6Mikado_6scales_2f1_1calc_f1(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  double __pyx_v_recall;
+  double __pyx_v_precision;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
-  __Pyx_RefNannySetupContext("overlap (wrapper)", 0);
+  __Pyx_RefNannySetupContext("calc_f1 (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_first,&__pyx_n_s_second,&__pyx_n_s_flank,&__pyx_n_s_positive,0};
-    PyObject* values[4] = {0,0,0,0};
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_recall,&__pyx_n_s_precision,0};
+    PyObject* values[2] = {0,0};
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
-        case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
-        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
         case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
         case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
         case  0: break;
@@ -1046,92 +1061,62 @@ static PyObject *__pyx_pw_6Mikado_9utilities_7overlap_1overlap(PyObject *__pyx_s
       kw_args = PyDict_Size(__pyx_kwds);
       switch (pos_args) {
         case  0:
-        if (likely((values[0] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_first)) != 0)) kw_args--;
+        if (likely((values[0] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_recall)) != 0)) kw_args--;
         else goto __pyx_L5_argtuple_error;
         case  1:
-        if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_second)) != 0)) kw_args--;
+        if (likely((values[1] = PyDict_GetItem(__pyx_kwds, __pyx_n_s_precision)) != 0)) kw_args--;
         else {
-          __Pyx_RaiseArgtupleInvalid("overlap", 0, 2, 4, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
-        }
-        case  2:
-        if (kw_args > 0) {
-          PyObject* value = PyDict_GetItem(__pyx_kwds, __pyx_n_s_flank);
-          if (value) { values[2] = value; kw_args--; }
-        }
-        case  3:
-        if (kw_args > 0) {
-          PyObject* value = PyDict_GetItem(__pyx_kwds, __pyx_n_s_positive);
-          if (value) { values[3] = value; kw_args--; }
+          __Pyx_RaiseArgtupleInvalid("calc_f1", 1, 2, 2, 1); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
         }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "overlap") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "calc_f1") < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
       }
+    } else if (PyTuple_GET_SIZE(__pyx_args) != 2) {
+      goto __pyx_L5_argtuple_error;
     } else {
-      switch (PyTuple_GET_SIZE(__pyx_args)) {
-        case  4: values[3] = PyTuple_GET_ITEM(__pyx_args, 3);
-        case  3: values[2] = PyTuple_GET_ITEM(__pyx_args, 2);
-        case  2: values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
-        values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
-        break;
-        default: goto __pyx_L5_argtuple_error;
-      }
+      values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+      values[1] = PyTuple_GET_ITEM(__pyx_args, 1);
     }
-    __pyx_v_first = values[0];
-    __pyx_v_second = values[1];
-    if (values[2]) {
-      __pyx_v_flank = __Pyx_PyInt_As_long(values[2]); if (unlikely((__pyx_v_flank == (long)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
-    } else {
-      __pyx_v_flank = ((long)0);
-    }
-    if (values[3]) {
-      __pyx_v_positive = __Pyx_PyObject_IsTrue(values[3]); if (unlikely((__pyx_v_positive == (int)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
-    } else {
-      __pyx_v_positive = ((int)0);
-    }
+    __pyx_v_recall = __pyx_PyFloat_AsDouble(values[0]); if (unlikely((__pyx_v_recall == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+    __pyx_v_precision = __pyx_PyFloat_AsDouble(values[1]); if (unlikely((__pyx_v_precision == (double)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("overlap", 0, 2, 4, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
+  __Pyx_RaiseArgtupleInvalid("calc_f1", 1, 2, 2, PyTuple_GET_SIZE(__pyx_args)); {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
   __pyx_L3_error:;
-  __Pyx_AddTraceback("Mikado.utilities.overlap.overlap", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_AddTraceback("Mikado.scales.f1.calc_f1", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_6Mikado_9utilities_7overlap_overlap(__pyx_self, __pyx_v_first, __pyx_v_second, __pyx_v_flank, __pyx_v_positive);
+  __pyx_r = __pyx_pf_6Mikado_6scales_2f1_calc_f1(__pyx_self, __pyx_v_recall, __pyx_v_precision);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_6Mikado_9utilities_7overlap_overlap(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_first, PyObject *__pyx_v_second, long __pyx_v_flank, int __pyx_v_positive) {
+static PyObject *__pyx_pf_6Mikado_6scales_2f1_calc_f1(CYTHON_UNUSED PyObject *__pyx_self, double __pyx_v_recall, double __pyx_v_precision) {
   PyObject *__pyx_r = NULL;
   __Pyx_TraceDeclarations
   __Pyx_RefNannyDeclarations
-  long __pyx_t_1;
-  struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap __pyx_t_2;
-  PyObject *__pyx_t_3 = NULL;
+  PyObject *__pyx_t_1 = NULL;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("overlap", 0);
-  __Pyx_TraceCall("overlap", __pyx_f[0], 4, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
+  __Pyx_RefNannySetupContext("calc_f1", 0);
+  __Pyx_TraceCall("calc_f1", __pyx_f[0], 6, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_2.__pyx_n = 2;
-  __pyx_t_2.flank = __pyx_v_flank;
-  __pyx_t_2.positive = __pyx_v_positive;
-  __pyx_t_1 = __pyx_f_6Mikado_9utilities_7overlap_overlap(__pyx_v_first, __pyx_v_second, 0, &__pyx_t_2); 
-  __pyx_t_3 = __Pyx_PyInt_From_long(__pyx_t_1); if (unlikely(!__pyx_t_3)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 4; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_GOTREF(__pyx_t_3);
-  __pyx_r = __pyx_t_3;
-  __pyx_t_3 = 0;
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_f_6Mikado_6scales_2f1_calc_f1(__pyx_v_recall, __pyx_v_precision, 0)); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 6; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_r = __pyx_t_1;
+  __pyx_t_1 = 0;
   goto __pyx_L0;
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_3);
-  __Pyx_AddTraceback("Mikado.utilities.overlap.overlap", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_AddTraceback("Mikado.scales.f1.calc_f1", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
   __Pyx_XGIVEREF(__pyx_r);
@@ -1140,293 +1125,8 @@ static PyObject *__pyx_pf_6Mikado_9utilities_7overlap_overlap(CYTHON_UNUSED PyOb
   return __pyx_r;
 }
 
-/* "Mikado/utilities/overlap.pyx":18
- * 
- * @cython.profile(True)
- * cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bint positive):             # <<<<<<<<<<<<<<
- *     if start > end:
- *         start, end = end, start
- */
-
-static long __pyx_f_6Mikado_9utilities_7overlap_c_overlap(long __pyx_v_start, long __pyx_v_end, long __pyx_v_ostart, long __pyx_v_oend, long __pyx_v_flank, int __pyx_v_positive) {
-  long __pyx_v_right;
-  long __pyx_v_left;
-  long __pyx_v_left_one;
-  long __pyx_v_left_two;
-  long __pyx_v_right_one;
-  long __pyx_v_right_two;
-  long __pyx_v_result;
-  long __pyx_r;
-  __Pyx_TraceDeclarations
-  __Pyx_RefNannyDeclarations
-  int __pyx_t_1;
-  long __pyx_t_2;
-  long __pyx_t_3;
-  int __pyx_t_4;
-  int __pyx_lineno = 0;
-  const char *__pyx_filename = NULL;
-  int __pyx_clineno = 0;
-  __Pyx_RefNannySetupContext("c_overlap", 0);
-  __Pyx_TraceCall("c_overlap", __pyx_f[0], 18, 0, {__pyx_filename = __pyx_f[0]; __pyx_lineno = 18; __pyx_clineno = __LINE__; goto __pyx_L1_error;});
-
-  /* "Mikado/utilities/overlap.pyx":19
- * @cython.profile(True)
- * cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bint positive):
- *     if start > end:             # <<<<<<<<<<<<<<
- *         start, end = end, start
- *     if ostart > oend:
- */
-  __pyx_t_1 = ((__pyx_v_start > __pyx_v_end) != 0);
-  if (__pyx_t_1) {
-
-    /* "Mikado/utilities/overlap.pyx":20
- * cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bint positive):
- *     if start > end:
- *         start, end = end, start             # <<<<<<<<<<<<<<
- *     if ostart > oend:
- *         ostart, oend = oend, ostart
- */
-    __pyx_t_2 = __pyx_v_end;
-    __pyx_t_3 = __pyx_v_start;
-    __pyx_v_start = __pyx_t_2;
-    __pyx_v_end = __pyx_t_3;
-
-    /* "Mikado/utilities/overlap.pyx":19
- * @cython.profile(True)
- * cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bint positive):
- *     if start > end:             # <<<<<<<<<<<<<<
- *         start, end = end, start
- *     if ostart > oend:
- */
-  }
-
-  /* "Mikado/utilities/overlap.pyx":21
- *     if start > end:
- *         start, end = end, start
- *     if ostart > oend:             # <<<<<<<<<<<<<<
- *         ostart, oend = oend, ostart
- * 
- */
-  __pyx_t_1 = ((__pyx_v_ostart > __pyx_v_oend) != 0);
-  if (__pyx_t_1) {
-
-    /* "Mikado/utilities/overlap.pyx":22
- *         start, end = end, start
- *     if ostart > oend:
- *         ostart, oend = oend, ostart             # <<<<<<<<<<<<<<
- * 
- *     cdef long right
- */
-    __pyx_t_3 = __pyx_v_oend;
-    __pyx_t_2 = __pyx_v_ostart;
-    __pyx_v_ostart = __pyx_t_3;
-    __pyx_v_oend = __pyx_t_2;
-
-    /* "Mikado/utilities/overlap.pyx":21
- *     if start > end:
- *         start, end = end, start
- *     if ostart > oend:             # <<<<<<<<<<<<<<
- *         ostart, oend = oend, ostart
- * 
- */
-  }
-
-  /* "Mikado/utilities/overlap.pyx":27
- *     cdef long left
- * 
- *     cdef long left_one = start - flank             # <<<<<<<<<<<<<<
- *     cdef long left_two = ostart - flank
- * 
- */
-  __pyx_v_left_one = (__pyx_v_start - __pyx_v_flank);
-
-  /* "Mikado/utilities/overlap.pyx":28
- * 
- *     cdef long left_one = start - flank
- *     cdef long left_two = ostart - flank             # <<<<<<<<<<<<<<
- * 
- *     if left_one > left_two:
- */
-  __pyx_v_left_two = (__pyx_v_ostart - __pyx_v_flank);
-
-  /* "Mikado/utilities/overlap.pyx":30
- *     cdef long left_two = ostart - flank
- * 
- *     if left_one > left_two:             # <<<<<<<<<<<<<<
- *         left = left_one
- *     else:
- */
-  __pyx_t_1 = ((__pyx_v_left_one > __pyx_v_left_two) != 0);
-  if (__pyx_t_1) {
-
-    /* "Mikado/utilities/overlap.pyx":31
- * 
- *     if left_one > left_two:
- *         left = left_one             # <<<<<<<<<<<<<<
- *     else:
- *         left = left_two
- */
-    __pyx_v_left = __pyx_v_left_one;
-
-    /* "Mikado/utilities/overlap.pyx":30
- *     cdef long left_two = ostart - flank
- * 
- *     if left_one > left_two:             # <<<<<<<<<<<<<<
- *         left = left_one
- *     else:
- */
-    goto __pyx_L5;
-  }
-
-  /* "Mikado/utilities/overlap.pyx":33
- *         left = left_one
- *     else:
- *         left = left_two             # <<<<<<<<<<<<<<
- * 
- *     cdef long right_one = end + flank
- */
-  /*else*/ {
-    __pyx_v_left = __pyx_v_left_two;
-  }
-  __pyx_L5:;
-
-  /* "Mikado/utilities/overlap.pyx":35
- *         left = left_two
- * 
- *     cdef long right_one = end + flank             # <<<<<<<<<<<<<<
- *     cdef long right_two = oend + flank
- * 
- */
-  __pyx_v_right_one = (__pyx_v_end + __pyx_v_flank);
-
-  /* "Mikado/utilities/overlap.pyx":36
- * 
- *     cdef long right_one = end + flank
- *     cdef long right_two = oend + flank             # <<<<<<<<<<<<<<
- * 
- *     if right_one < right_two:
- */
-  __pyx_v_right_two = (__pyx_v_oend + __pyx_v_flank);
-
-  /* "Mikado/utilities/overlap.pyx":38
- *     cdef long right_two = oend + flank
- * 
- *     if right_one < right_two:             # <<<<<<<<<<<<<<
- *         right = right_one
- *     else:
- */
-  __pyx_t_1 = ((__pyx_v_right_one < __pyx_v_right_two) != 0);
-  if (__pyx_t_1) {
-
-    /* "Mikado/utilities/overlap.pyx":39
- * 
- *     if right_one < right_two:
- *         right = right_one             # <<<<<<<<<<<<<<
- *     else:
- *         right = right_two
- */
-    __pyx_v_right = __pyx_v_right_one;
-
-    /* "Mikado/utilities/overlap.pyx":38
- *     cdef long right_two = oend + flank
- * 
- *     if right_one < right_two:             # <<<<<<<<<<<<<<
- *         right = right_one
- *     else:
- */
-    goto __pyx_L6;
-  }
-
-  /* "Mikado/utilities/overlap.pyx":41
- *         right = right_one
- *     else:
- *         right = right_two             # <<<<<<<<<<<<<<
- * 
- *     cdef long result = right - left
- */
-  /*else*/ {
-    __pyx_v_right = __pyx_v_right_two;
-  }
-  __pyx_L6:;
-
-  /* "Mikado/utilities/overlap.pyx":43
- *         right = right_two
- * 
- *     cdef long result = right - left             # <<<<<<<<<<<<<<
- *     if positive == 1 and result < 0:
- *         return 0
- */
-  __pyx_v_result = (__pyx_v_right - __pyx_v_left);
-
-  /* "Mikado/utilities/overlap.pyx":44
- * 
- *     cdef long result = right - left
- *     if positive == 1 and result < 0:             # <<<<<<<<<<<<<<
- *         return 0
- *     else:
- */
-  __pyx_t_4 = ((__pyx_v_positive == 1) != 0);
-  if (__pyx_t_4) {
-  } else {
-    __pyx_t_1 = __pyx_t_4;
-    goto __pyx_L8_bool_binop_done;
-  }
-  __pyx_t_4 = ((__pyx_v_result < 0) != 0);
-  __pyx_t_1 = __pyx_t_4;
-  __pyx_L8_bool_binop_done:;
-  if (__pyx_t_1) {
-
-    /* "Mikado/utilities/overlap.pyx":45
- *     cdef long result = right - left
- *     if positive == 1 and result < 0:
- *         return 0             # <<<<<<<<<<<<<<
- *     else:
- *         return result
- */
-    __pyx_r = 0;
-    goto __pyx_L0;
-
-    /* "Mikado/utilities/overlap.pyx":44
- * 
- *     cdef long result = right - left
- *     if positive == 1 and result < 0:             # <<<<<<<<<<<<<<
- *         return 0
- *     else:
- */
-  }
-
-  /* "Mikado/utilities/overlap.pyx":47
- *         return 0
- *     else:
- *         return result             # <<<<<<<<<<<<<<
- * 
- * # def overlap_positive(int start, int end, int ostart, int oend, int flank):
- */
-  /*else*/ {
-    __pyx_r = __pyx_v_result;
-    goto __pyx_L0;
-  }
-
-  /* "Mikado/utilities/overlap.pyx":18
- * 
- * @cython.profile(True)
- * cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bint positive):             # <<<<<<<<<<<<<<
- *     if start > end:
- *         start, end = end, start
- */
-
-  /* function exit code */
-  __pyx_L1_error:;
-  __Pyx_WriteUnraisable("Mikado.utilities.overlap.c_overlap", __pyx_clineno, __pyx_lineno, __pyx_filename, 0, 0);
-  __pyx_r = 0;
-  __pyx_L0:;
-  __Pyx_TraceReturn(Py_None, 0);
-  __Pyx_RefNannyFinishContext();
-  return __pyx_r;
-}
-
 static PyMethodDef __pyx_methods[] = {
-  {"overlap", (PyCFunction)__pyx_pw_6Mikado_9utilities_7overlap_1overlap, METH_VARARGS|METH_KEYWORDS, __pyx_doc_6Mikado_9utilities_7overlap_overlap},
+  {"calc_f1", (PyCFunction)__pyx_pw_6Mikado_6scales_2f1_1calc_f1, METH_VARARGS|METH_KEYWORDS, __pyx_doc_6Mikado_6scales_2f1_calc_f1},
   {0, 0, 0, 0}
 };
 
@@ -1437,7 +1137,7 @@ static struct PyModuleDef __pyx_moduledef = {
   #else
     PyModuleDef_HEAD_INIT,
   #endif
-    "overlap",
+    "f1",
     0, /* m_doc */
     -1, /* m_size */
     __pyx_methods /* m_methods */,
@@ -1449,64 +1149,42 @@ static struct PyModuleDef __pyx_moduledef = {
 #endif
 
 static __Pyx_StringTabEntry __pyx_string_tab[] = {
-  {&__pyx_n_s_first, __pyx_k_first, sizeof(__pyx_k_first), 0, 0, 1, 1},
-  {&__pyx_n_s_flank, __pyx_k_flank, sizeof(__pyx_k_flank), 0, 0, 1, 1},
+  {&__pyx_kp_s_Negative_values_are_an_invalid_i, __pyx_k_Negative_values_are_an_invalid_i, sizeof(__pyx_k_Negative_values_are_an_invalid_i), 0, 0, 1, 0},
+  {&__pyx_n_s_ValueError, __pyx_k_ValueError, sizeof(__pyx_k_ValueError), 0, 0, 1, 1},
+  {&__pyx_n_s_format, __pyx_k_format, sizeof(__pyx_k_format), 0, 0, 1, 1},
   {&__pyx_n_s_main, __pyx_k_main, sizeof(__pyx_k_main), 0, 0, 1, 1},
-  {&__pyx_n_s_positive, __pyx_k_positive, sizeof(__pyx_k_positive), 0, 0, 1, 1},
-  {&__pyx_n_s_second, __pyx_k_second, sizeof(__pyx_k_second), 0, 0, 1, 1},
+  {&__pyx_n_s_precision, __pyx_k_precision, sizeof(__pyx_k_precision), 0, 0, 1, 1},
+  {&__pyx_n_s_recall, __pyx_k_recall, sizeof(__pyx_k_recall), 0, 0, 1, 1},
   {&__pyx_n_s_test, __pyx_k_test, sizeof(__pyx_k_test), 0, 0, 1, 1},
   {0, 0, 0, 0, 0, 0, 0}
 };
 static int __Pyx_InitCachedBuiltins(void) {
+  __pyx_builtin_ValueError = __Pyx_GetBuiltinName(__pyx_n_s_ValueError); if (!__pyx_builtin_ValueError) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 15; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   return 0;
+  __pyx_L1_error:;
+  return -1;
 }
 
 static int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
-
-  /* "Mikado/utilities/overlap.pyx":11
- *     cdef long start, end, ostart, oend
- * 
- *     start, end = first[:2]             # <<<<<<<<<<<<<<
- *     ostart, oend = second[:2]
- * 
- */
-  __pyx_slice_ = PySlice_New(Py_None, __pyx_int_2, Py_None); if (unlikely(!__pyx_slice_)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 11; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_GOTREF(__pyx_slice_);
-  __Pyx_GIVEREF(__pyx_slice_);
-
-  /* "Mikado/utilities/overlap.pyx":12
- * 
- *     start, end = first[:2]
- *     ostart, oend = second[:2]             # <<<<<<<<<<<<<<
- * 
- *     return c_overlap(start, end, ostart, oend, flank=flank, positive=positive)
- */
-  __pyx_slice__2 = PySlice_New(Py_None, __pyx_int_2, Py_None); if (unlikely(!__pyx_slice__2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 12; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  __Pyx_GOTREF(__pyx_slice__2);
-  __Pyx_GIVEREF(__pyx_slice__2);
   __Pyx_RefNannyFinishContext();
   return 0;
-  __pyx_L1_error:;
-  __Pyx_RefNannyFinishContext();
-  return -1;
 }
 
 static int __Pyx_InitGlobals(void) {
   if (__Pyx_InitStrings(__pyx_string_tab) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;};
-  __pyx_int_2 = PyInt_FromLong(2); if (unlikely(!__pyx_int_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   return 0;
   __pyx_L1_error:;
   return -1;
 }
 
 #if PY_MAJOR_VERSION < 3
-PyMODINIT_FUNC initoverlap(void); /*proto*/
-PyMODINIT_FUNC initoverlap(void)
+PyMODINIT_FUNC initf1(void); /*proto*/
+PyMODINIT_FUNC initf1(void)
 #else
-PyMODINIT_FUNC PyInit_overlap(void); /*proto*/
-PyMODINIT_FUNC PyInit_overlap(void)
+PyMODINIT_FUNC PyInit_f1(void); /*proto*/
+PyMODINIT_FUNC PyInit_f1(void)
 #endif
 {
   PyObject *__pyx_t_1 = NULL;
@@ -1523,7 +1201,7 @@ PyMODINIT_FUNC PyInit_overlap(void)
           Py_FatalError("failed to import 'refnanny' module");
   }
   #endif
-  __Pyx_RefNannySetupContext("PyMODINIT_FUNC PyInit_overlap(void)", 0);
+  __Pyx_RefNannySetupContext("PyMODINIT_FUNC PyInit_f1(void)", 0);
   if (__Pyx_check_binary_version() < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_empty_tuple = PyTuple_New(0); if (unlikely(!__pyx_empty_tuple)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __pyx_empty_bytes = PyBytes_FromStringAndSize("", 0); if (unlikely(!__pyx_empty_bytes)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
@@ -1551,7 +1229,7 @@ PyMODINIT_FUNC PyInit_overlap(void)
   #endif
   /*--- Module creation code ---*/
   #if PY_MAJOR_VERSION < 3
-  __pyx_m = Py_InitModule4("overlap", __pyx_methods, 0, 0, PYTHON_API_VERSION); Py_XINCREF(__pyx_m);
+  __pyx_m = Py_InitModule4("f1", __pyx_methods, 0, 0, PYTHON_API_VERSION); Py_XINCREF(__pyx_m);
   #else
   __pyx_m = PyModule_Create(&__pyx_moduledef);
   #endif
@@ -1568,14 +1246,14 @@ PyMODINIT_FUNC PyInit_overlap(void)
   #if PY_MAJOR_VERSION < 3 && (__PYX_DEFAULT_STRING_ENCODING_IS_ASCII || __PYX_DEFAULT_STRING_ENCODING_IS_DEFAULT)
   if (__Pyx_init_sys_getdefaultencoding_params() < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   #endif
-  if (__pyx_module_is_main_Mikado__utilities__overlap) {
+  if (__pyx_module_is_main_Mikado__scales__f1) {
     if (PyObject_SetAttrString(__pyx_m, "__name__", __pyx_n_s_main) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   #if PY_MAJOR_VERSION >= 3
   {
     PyObject *modules = PyImport_GetModuleDict(); if (unlikely(!modules)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-    if (!PyDict_GetItemString(modules, "Mikado.utilities.overlap")) {
-      if (unlikely(PyDict_SetItemString(modules, "Mikado.utilities.overlap", __pyx_m) < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    if (!PyDict_GetItemString(modules, "Mikado.scales.f1")) {
+      if (unlikely(PyDict_SetItemString(modules, "Mikado.scales.f1", __pyx_m) < 0)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
     }
   }
   #endif
@@ -1586,8 +1264,7 @@ PyMODINIT_FUNC PyInit_overlap(void)
   /*--- Global init code ---*/
   /*--- Variable export code ---*/
   /*--- Function export code ---*/
-  if (__Pyx_ExportFunction("overlap", (void (*)(void))__pyx_f_6Mikado_9utilities_7overlap_overlap, "long (PyObject *, PyObject *, int __pyx_skip_dispatch, struct __pyx_opt_args_6Mikado_9utilities_7overlap_overlap *__pyx_optional_args)") < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
-  if (__Pyx_ExportFunction("c_overlap", (void (*)(void))__pyx_f_6Mikado_9utilities_7overlap_c_overlap, "long (long, long, long, long, long, int)") < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  if (__Pyx_ExportFunction("calc_f1", (void (*)(void))__pyx_f_6Mikado_6scales_2f1_calc_f1, "double (double, double, int __pyx_skip_dispatch)") < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   /*--- Type init code ---*/
   /*--- Type import code ---*/
   /*--- Variable import code ---*/
@@ -1597,10 +1274,10 @@ PyMODINIT_FUNC PyInit_overlap(void)
   if (__Pyx_patch_abc() < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   #endif
 
-  /* "Mikado/utilities/overlap.pyx":1
+  /* "Mikado/scales/f1.pyx":1
  * import cython             # <<<<<<<<<<<<<<
  * 
- * @cython.profile(True)
+ * 
  */
   __pyx_t_1 = PyDict_New(); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 1; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
@@ -1614,11 +1291,11 @@ PyMODINIT_FUNC PyInit_overlap(void)
   __Pyx_XDECREF(__pyx_t_1);
   if (__pyx_m) {
     if (__pyx_d) {
-      __Pyx_AddTraceback("init Mikado.utilities.overlap", __pyx_clineno, __pyx_lineno, __pyx_filename);
+      __Pyx_AddTraceback("init Mikado.scales.f1", __pyx_clineno, __pyx_lineno, __pyx_filename);
     }
     Py_DECREF(__pyx_m); __pyx_m = 0;
   } else if (!PyErr_Occurred()) {
-    PyErr_SetString(PyExc_ImportError, "init Mikado.utilities.overlap");
+    PyErr_SetString(PyExc_ImportError, "init Mikado.scales.f1");
   }
   __pyx_L0:;
   __Pyx_RefNannyFinishContext();
@@ -1645,6 +1322,19 @@ end:
     return (__Pyx_RefNannyAPIStruct *)r;
 }
 #endif
+
+static PyObject *__Pyx_GetBuiltinName(PyObject *name) {
+    PyObject* result = __Pyx_PyObject_GetAttrStr(__pyx_b, name);
+    if (unlikely(!result)) {
+        PyErr_Format(PyExc_NameError,
+#if PY_MAJOR_VERSION >= 3
+            "name '%U' is not defined", name);
+#else
+            "name '%.200s' is not defined", PyString_AS_STRING(name));
+#endif
+    }
+    return result;
+}
 
 #if CYTHON_PROFILE
 static int __Pyx_TraceSetupAndCall(PyCodeObject** code,
@@ -1738,158 +1428,24 @@ bad:
 }
 #endif
 
-static CYTHON_INLINE PyObject* __Pyx_PyObject_GetSlice(PyObject* obj,
-        Py_ssize_t cstart, Py_ssize_t cstop,
-        PyObject** _py_start, PyObject** _py_stop, PyObject** _py_slice,
-        int has_cstart, int has_cstop, CYTHON_UNUSED int wraparound) {
 #if CYTHON_COMPILING_IN_CPYTHON
-    PyMappingMethods* mp;
-#if PY_MAJOR_VERSION < 3
-    PySequenceMethods* ms = Py_TYPE(obj)->tp_as_sequence;
-    if (likely(ms && ms->sq_slice)) {
-        if (!has_cstart) {
-            if (_py_start && (*_py_start != Py_None)) {
-                cstart = __Pyx_PyIndex_AsSsize_t(*_py_start);
-                if ((cstart == (Py_ssize_t)-1) && PyErr_Occurred()) goto bad;
-            } else
-                cstart = 0;
-        }
-        if (!has_cstop) {
-            if (_py_stop && (*_py_stop != Py_None)) {
-                cstop = __Pyx_PyIndex_AsSsize_t(*_py_stop);
-                if ((cstop == (Py_ssize_t)-1) && PyErr_Occurred()) goto bad;
-            } else
-                cstop = PY_SSIZE_T_MAX;
-        }
-        if (wraparound && unlikely((cstart < 0) | (cstop < 0)) && likely(ms->sq_length)) {
-            Py_ssize_t l = ms->sq_length(obj);
-            if (likely(l >= 0)) {
-                if (cstop < 0) {
-                    cstop += l;
-                    if (cstop < 0) cstop = 0;
-                }
-                if (cstart < 0) {
-                    cstart += l;
-                    if (cstart < 0) cstart = 0;
-                }
-            } else {
-                if (PyErr_ExceptionMatches(PyExc_OverflowError))
-                    PyErr_Clear();
-                else
-                    goto bad;
-            }
-        }
-        return ms->sq_slice(obj, cstart, cstop);
+static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg, PyObject *kw) {
+    PyObject *result;
+    ternaryfunc call = func->ob_type->tp_call;
+    if (unlikely(!call))
+        return PyObject_Call(func, arg, kw);
+    if (unlikely(Py_EnterRecursiveCall((char*)" while calling a Python object")))
+        return NULL;
+    result = (*call)(func, arg, kw);
+    Py_LeaveRecursiveCall();
+    if (unlikely(!result) && unlikely(!PyErr_Occurred())) {
+        PyErr_SetString(
+            PyExc_SystemError,
+            "NULL result without error in PyObject_Call");
     }
+    return result;
+}
 #endif
-    mp = Py_TYPE(obj)->tp_as_mapping;
-    if (likely(mp && mp->mp_subscript))
-#endif
-    {
-        PyObject* result;
-        PyObject *py_slice, *py_start, *py_stop;
-        if (_py_slice) {
-            py_slice = *_py_slice;
-        } else {
-            PyObject* owned_start = NULL;
-            PyObject* owned_stop = NULL;
-            if (_py_start) {
-                py_start = *_py_start;
-            } else {
-                if (has_cstart) {
-                    owned_start = py_start = PyInt_FromSsize_t(cstart);
-                    if (unlikely(!py_start)) goto bad;
-                } else
-                    py_start = Py_None;
-            }
-            if (_py_stop) {
-                py_stop = *_py_stop;
-            } else {
-                if (has_cstop) {
-                    owned_stop = py_stop = PyInt_FromSsize_t(cstop);
-                    if (unlikely(!py_stop)) {
-                        Py_XDECREF(owned_start);
-                        goto bad;
-                    }
-                } else
-                    py_stop = Py_None;
-            }
-            py_slice = PySlice_New(py_start, py_stop, Py_None);
-            Py_XDECREF(owned_start);
-            Py_XDECREF(owned_stop);
-            if (unlikely(!py_slice)) goto bad;
-        }
-#if CYTHON_COMPILING_IN_CPYTHON
-        result = mp->mp_subscript(obj, py_slice);
-#else
-        result = PyObject_GetItem(obj, py_slice);
-#endif
-        if (!_py_slice) {
-            Py_DECREF(py_slice);
-        }
-        return result;
-    }
-    PyErr_Format(PyExc_TypeError,
-        "'%.200s' object is unsliceable", Py_TYPE(obj)->tp_name);
-bad:
-    return NULL;
-}
-
-static CYTHON_INLINE void __Pyx_RaiseTooManyValuesError(Py_ssize_t expected) {
-    PyErr_Format(PyExc_ValueError,
-                 "too many values to unpack (expected %" CYTHON_FORMAT_SSIZE_T "d)", expected);
-}
-
-static CYTHON_INLINE void __Pyx_RaiseNeedMoreValuesError(Py_ssize_t index) {
-    PyErr_Format(PyExc_ValueError,
-                 "need more than %" CYTHON_FORMAT_SSIZE_T "d value%.1s to unpack",
-                 index, (index == 1) ? "" : "s");
-}
-
-static CYTHON_INLINE int __Pyx_IterFinish(void) {
-#if CYTHON_COMPILING_IN_CPYTHON
-    PyThreadState *tstate = PyThreadState_GET();
-    PyObject* exc_type = tstate->curexc_type;
-    if (unlikely(exc_type)) {
-        if (likely(exc_type == PyExc_StopIteration) || PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)) {
-            PyObject *exc_value, *exc_tb;
-            exc_value = tstate->curexc_value;
-            exc_tb = tstate->curexc_traceback;
-            tstate->curexc_type = 0;
-            tstate->curexc_value = 0;
-            tstate->curexc_traceback = 0;
-            Py_DECREF(exc_type);
-            Py_XDECREF(exc_value);
-            Py_XDECREF(exc_tb);
-            return 0;
-        } else {
-            return -1;
-        }
-    }
-    return 0;
-#else
-    if (unlikely(PyErr_Occurred())) {
-        if (likely(PyErr_ExceptionMatches(PyExc_StopIteration))) {
-            PyErr_Clear();
-            return 0;
-        } else {
-            return -1;
-        }
-    }
-    return 0;
-#endif
-}
-
-static int __Pyx_IternextUnpackEndCheck(PyObject *retval, Py_ssize_t expected) {
-    if (unlikely(retval)) {
-        Py_DECREF(retval);
-        __Pyx_RaiseTooManyValuesError(expected);
-        return -1;
-    } else {
-        return __Pyx_IterFinish();
-    }
-    return 0;
-}
 
 static CYTHON_INLINE void __Pyx_ErrRestore(PyObject *type, PyObject *value, PyObject *tb) {
 #if CYTHON_COMPILING_IN_CPYTHON
@@ -1921,6 +1477,166 @@ static CYTHON_INLINE void __Pyx_ErrFetch(PyObject **type, PyObject **value, PyOb
     PyErr_Fetch(type, value, tb);
 #endif
 }
+
+#if PY_MAJOR_VERSION < 3
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb,
+                        CYTHON_UNUSED PyObject *cause) {
+    Py_XINCREF(type);
+    if (!value || value == Py_None)
+        value = NULL;
+    else
+        Py_INCREF(value);
+    if (!tb || tb == Py_None)
+        tb = NULL;
+    else {
+        Py_INCREF(tb);
+        if (!PyTraceBack_Check(tb)) {
+            PyErr_SetString(PyExc_TypeError,
+                "raise: arg 3 must be a traceback or None");
+            goto raise_error;
+        }
+    }
+    if (PyType_Check(type)) {
+#if CYTHON_COMPILING_IN_PYPY
+        if (!value) {
+            Py_INCREF(Py_None);
+            value = Py_None;
+        }
+#endif
+        PyErr_NormalizeException(&type, &value, &tb);
+    } else {
+        if (value) {
+            PyErr_SetString(PyExc_TypeError,
+                "instance exception may not have a separate value");
+            goto raise_error;
+        }
+        value = type;
+        type = (PyObject*) Py_TYPE(type);
+        Py_INCREF(type);
+        if (!PyType_IsSubtype((PyTypeObject *)type, (PyTypeObject *)PyExc_BaseException)) {
+            PyErr_SetString(PyExc_TypeError,
+                "raise: exception class must be a subclass of BaseException");
+            goto raise_error;
+        }
+    }
+    __Pyx_ErrRestore(type, value, tb);
+    return;
+raise_error:
+    Py_XDECREF(value);
+    Py_XDECREF(type);
+    Py_XDECREF(tb);
+    return;
+}
+#else
+static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause) {
+    PyObject* owned_instance = NULL;
+    if (tb == Py_None) {
+        tb = 0;
+    } else if (tb && !PyTraceBack_Check(tb)) {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: arg 3 must be a traceback or None");
+        goto bad;
+    }
+    if (value == Py_None)
+        value = 0;
+    if (PyExceptionInstance_Check(type)) {
+        if (value) {
+            PyErr_SetString(PyExc_TypeError,
+                "instance exception may not have a separate value");
+            goto bad;
+        }
+        value = type;
+        type = (PyObject*) Py_TYPE(value);
+    } else if (PyExceptionClass_Check(type)) {
+        PyObject *instance_class = NULL;
+        if (value && PyExceptionInstance_Check(value)) {
+            instance_class = (PyObject*) Py_TYPE(value);
+            if (instance_class != type) {
+                int is_subclass = PyObject_IsSubclass(instance_class, type);
+                if (!is_subclass) {
+                    instance_class = NULL;
+                } else if (unlikely(is_subclass == -1)) {
+                    goto bad;
+                } else {
+                    type = instance_class;
+                }
+            }
+        }
+        if (!instance_class) {
+            PyObject *args;
+            if (!value)
+                args = PyTuple_New(0);
+            else if (PyTuple_Check(value)) {
+                Py_INCREF(value);
+                args = value;
+            } else
+                args = PyTuple_Pack(1, value);
+            if (!args)
+                goto bad;
+            owned_instance = PyObject_Call(type, args, NULL);
+            Py_DECREF(args);
+            if (!owned_instance)
+                goto bad;
+            value = owned_instance;
+            if (!PyExceptionInstance_Check(value)) {
+                PyErr_Format(PyExc_TypeError,
+                             "calling %R should have returned an instance of "
+                             "BaseException, not %R",
+                             type, Py_TYPE(value));
+                goto bad;
+            }
+        }
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+            "raise: exception class must be a subclass of BaseException");
+        goto bad;
+    }
+#if PY_VERSION_HEX >= 0x03030000
+    if (cause) {
+#else
+    if (cause && cause != Py_None) {
+#endif
+        PyObject *fixed_cause;
+        if (cause == Py_None) {
+            fixed_cause = NULL;
+        } else if (PyExceptionClass_Check(cause)) {
+            fixed_cause = PyObject_CallObject(cause, NULL);
+            if (fixed_cause == NULL)
+                goto bad;
+        } else if (PyExceptionInstance_Check(cause)) {
+            fixed_cause = cause;
+            Py_INCREF(fixed_cause);
+        } else {
+            PyErr_SetString(PyExc_TypeError,
+                            "exception causes must derive from "
+                            "BaseException");
+            goto bad;
+        }
+        PyException_SetCause(value, fixed_cause);
+    }
+    PyErr_SetObject(type, value);
+    if (tb) {
+#if CYTHON_COMPILING_IN_PYPY
+        PyObject *tmp_type, *tmp_value, *tmp_tb;
+        PyErr_Fetch(&tmp_type, &tmp_value, &tmp_tb);
+        Py_INCREF(tb);
+        PyErr_Restore(tmp_type, tmp_value, tb);
+        Py_XDECREF(tmp_tb);
+#else
+        PyThreadState *tstate = PyThreadState_GET();
+        PyObject* tmp_tb = tstate->curexc_traceback;
+        if (tb != tmp_tb) {
+            Py_INCREF(tb);
+            tstate->curexc_traceback = tb;
+            Py_XDECREF(tmp_tb);
+        }
+#endif
+    }
+bad:
+    Py_XDECREF(owned_instance);
+    return;
+}
+#endif
 
 static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
                                   CYTHON_UNUSED int lineno, CYTHON_UNUSED const char *filename,
@@ -2256,6 +1972,32 @@ bad:
     Py_XDECREF(py_frame);
 }
 
+static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value) {
+    const long neg_one = (long) -1, const_zero = (long) 0;
+    const int is_unsigned = neg_one > const_zero;
+    if (is_unsigned) {
+        if (sizeof(long) < sizeof(long)) {
+            return PyInt_FromLong((long) value);
+        } else if (sizeof(long) <= sizeof(unsigned long)) {
+            return PyLong_FromUnsignedLong((unsigned long) value);
+        } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
+            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
+        }
+    } else {
+        if (sizeof(long) <= sizeof(long)) {
+            return PyInt_FromLong((long) value);
+        } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
+            return PyLong_FromLongLong((PY_LONG_LONG) value);
+        }
+    }
+    {
+        int one = 1; int little = (int)*(unsigned char *)&one;
+        unsigned char *bytes = (unsigned char *)&value;
+        return _PyLong_FromByteArray(bytes, sizeof(long),
+                                     little, !is_unsigned);
+    }
+}
+
 #define __PYX_VERIFY_RETURN_INT(target_type, func_type, func_value)\
     __PYX__VERIFY_RETURN_INT(target_type, func_type, func_value, 0)
 #define __PYX_VERIFY_RETURN_INT_EXC(target_type, func_type, func_value)\
@@ -2463,32 +2205,6 @@ raise_neg_overflow:
     PyErr_SetString(PyExc_OverflowError,
         "can't convert negative value to long");
     return (long) -1;
-}
-
-static CYTHON_INLINE PyObject* __Pyx_PyInt_From_long(long value) {
-    const long neg_one = (long) -1, const_zero = (long) 0;
-    const int is_unsigned = neg_one > const_zero;
-    if (is_unsigned) {
-        if (sizeof(long) < sizeof(long)) {
-            return PyInt_FromLong((long) value);
-        } else if (sizeof(long) <= sizeof(unsigned long)) {
-            return PyLong_FromUnsignedLong((unsigned long) value);
-        } else if (sizeof(long) <= sizeof(unsigned PY_LONG_LONG)) {
-            return PyLong_FromUnsignedLongLong((unsigned PY_LONG_LONG) value);
-        }
-    } else {
-        if (sizeof(long) <= sizeof(long)) {
-            return PyInt_FromLong((long) value);
-        } else if (sizeof(long) <= sizeof(PY_LONG_LONG)) {
-            return PyLong_FromLongLong((PY_LONG_LONG) value);
-        }
-    }
-    {
-        int one = 1; int little = (int)*(unsigned char *)&one;
-        unsigned char *bytes = (unsigned char *)&value;
-        return _PyLong_FromByteArray(bytes, sizeof(long),
-                                     little, !is_unsigned);
-    }
 }
 
 static CYTHON_INLINE int __Pyx_PyInt_As_int(PyObject *x) {

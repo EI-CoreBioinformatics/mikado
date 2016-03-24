@@ -11,6 +11,7 @@ from .transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
+from ..utilities.log_utils import create_null_logger
 
 
 class Gene:
@@ -21,19 +22,24 @@ class Gene:
     :param logger: an optional Logger from the logging module.
     """
 
-    def __init__(self, transcr: [None, Transcript], gid=None, logger=None):
+    __name__ = "gene"
+
+    def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False):
 
         self.transcripts = dict()
-        self.logger = None
-        self.set_logger(logger)
+        self.__logger = None
         self.__introns = None
         self.exception_message = ''
         self.chrom, self.source, self.start, self.end, self.strand = [None] * 5
+        self.only_coding = only_coding
+        self.coding_transcripts = set()
+        self.id = None
 
         if transcr is not None:
             if isinstance(transcr, Transcript):
                 self.transcripts[transcr.id] = transcr
                 self.id = transcr.parent[0]
+                self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
                 assert transcr.is_gene is True
                 self.id = transcr.id
@@ -45,22 +51,35 @@ class Gene:
                                                                           transcr.start,
                                                                           transcr.end,
                                                                           transcr.strand)
-            self.transcripts[transcr.id] = transcr
 
         if gid is not None:
             self.id = gid
+        self.logger = logger
 
-    def set_logger(self, logger):
-        """
-        :param logger: a Logger instance.
-        :type logger: None | logging.Logger
+    @property
+    def logger(self):
 
         """
-        if logger is None:
-            return
+        Logger instance for the class.
+        :rtype : logging.Logger
+        """
+        return self.__logger
+
+    @logger.setter
+    def logger(self, logger):
+        """Set a logger for the instance.
+        :param logger
+        :type logger: logging.Logger | Nonell
+        """
+        if isinstance(logger, logging.Logger):
+            self.__logger = logger
+        elif logger is None:
+            name = "gene_{0}".format(self.id if self.id else "generic")
+            self.__logger = create_null_logger(name)
         else:
-            assert isinstance(logger, logging.Logger)
-            self.logger = logger
+            raise TypeError("Invalid object for logger: {0}, (type {1})".format(
+                logger, type(logger)))
+
         for tid in self.transcripts:
             self.transcripts[tid].logger = logger
 
@@ -82,6 +101,7 @@ class Gene:
                 raise AssertionError("Discrepant strands for gene {0} and transcript {1}".format(
                     self.id, transcr.id
                 ))
+        transcr.logger = self.logger
 
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]
@@ -99,6 +119,10 @@ class Gene:
         for tid in self.transcripts:
             try:
                 self.transcripts[tid].finalize()
+                if self.only_coding is True and self.transcripts[tid].selected_cds_length == 0:
+                    to_remove.add(tid)
+                if self.transcripts[tid].selected_cds_length > 0:
+                    self.coding_transcripts.add(tid)
                 if exclude_utr is True:
                     self.transcripts[tid].remove_utrs()
             except InvalidCDS:
@@ -111,18 +135,20 @@ class Gene:
                 raise
         for k in to_remove:
             del self.transcripts[k]
-        __new_start = min(_.start for _ in self)
 
-        if __new_start != self.start:
-            self.logger.warning("Resetting the start for %s from %d to %d",
-                                self.id, self.start, __new_start)
-            self.start = __new_start
+        if len(self.transcripts) > 0:
+            __new_start = min(_.start for _ in self)
 
-        __new_end = max(_.end for _ in self)
-        if __new_end != self.end:
-            self.logger.warning("Resetting the end for %s from %d to %d",
-                                self.id, self.end, __new_end)
-            self.end = __new_end
+            if __new_start != self.start:
+                self.logger.warning("Resetting the start for %s from %d to %d",
+                                    self.id, self.start, __new_start)
+                self.start = __new_start
+
+            __new_end = max(_.end for _ in self)
+            if __new_end != self.end:
+                self.logger.warning("Resetting the end for %s from %d to %d",
+                                    self.id, self.end, __new_end)
+                self.end = __new_end
 
     def as_dict(self):
 
@@ -152,9 +178,10 @@ class Gene:
             transcript.load_dict(tvalues)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:
-                print("{0} is non coding ({1}, {2})".format(transcript.id,
-                                                       transcript.combined_cds,
-                                                       transcript.segments))
+                self.logger.debug("{0} is non coding ({1}, {2})".format(
+                    transcript.id,
+                    transcript.combined_cds,
+                    transcript.segments))
                 continue
             if exclude_utr is True:
                 has_utrs = (transcript.utr_length > 0)
@@ -203,7 +230,7 @@ class Gene:
 
     def __setstate__(self, state):
         self.__dict__.update(state)
-        self.set_logger(None)
+        self.logger = None
 
     def __lt__(self, other):
         if self.chrom != other.chrom:
@@ -267,3 +294,47 @@ class Gene:
             self.__introns = set.union(*[_.introns for _ in self.transcripts.values()])
 
         return self.__introns
+
+    @property
+    def introns(self):
+        """
+        It returns the set of all introns in the container.
+        :rtype : set
+        """
+
+        return set(self.transcripts[tid].introns for tid in self.transcripts)
+
+    @property
+    def exons(self):
+        """
+        It returns the set of all exons in the container.
+        :rtype : set
+        """
+        return set.union(*[set(self.transcripts[tid].exons) for tid in self.transcripts])
+
+    @property
+    def has_monoexonic(self):
+        """
+        True if any of the transcripts is monoexonic.
+        :rtype : bool
+        """
+        return any(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
+
+    @property
+    def monoexonic(self):
+        return all(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
+
+    @property
+    def num_transcripts(self):
+        """
+        Number of transcripts.
+        :rtype : int
+        """
+        return len(self.transcripts)
+
+    @property
+    def is_coding(self):
+        """
+        Property. It evaluates to True if at least one transcript is coding, False otherwise.
+        """
+        return any(self.transcripts[tid].selected_cds_length > 0 for tid in self.transcripts.keys())

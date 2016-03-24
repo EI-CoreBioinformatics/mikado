@@ -12,13 +12,13 @@ import logging
 import Mikado
 import Mikado.parsers
 import Mikado.loci
-from Mikado.utilities.log_utils import create_null_logger, create_default_logger
+from Mikado.utilities.log_utils import create_null_logger  # , create_default_logger
 
 
 class TranscriptTesterNegative(unittest.TestCase):
 
     logger = create_null_logger("null")
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.WARNING)
 
     tr_gff = """Chr1    TAIR10    mRNA    5928    8737    .    -    .    ID=AT1G01020.1;Parent=AT1G01020
 Chr1    TAIR10    five_prime_UTR    8667    8737    .    -    .    Parent=AT1G01020.1
@@ -58,7 +58,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
     def setUp(self):
         """Basic creation test."""
 
-        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0])
+        self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0], logger=self.logger)
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
         self.tr.finalize()
@@ -109,12 +109,21 @@ Chr1\tTAIR10\tCDS\t8571\t8666\t.\t-\t0\tID=AT1G01020.1.CDS9;Parent=AT1G01020.1
 Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1
 Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR1;Parent=AT1G01020.1"""
 
-        print(self.tr.format("gff3"))
-        print("==========")
-        print(real_printed)
+        rp = set(real_printed.split("\n"))
+        fp = set(str(self.tr).split("\n"))
+
+        # print()
+        # print(real_printed)
+        # print("============")
+        # print(str(self.tr))
+        # print("============")
+
+        diff = "\n====\n".join(["\n".join(sorted(list(rp - set.intersection(rp, fp)))),
+                               "\n".join(sorted(list(fp - set.intersection(rp, fp))))])
 
         self.assertEqual(real_printed,
-                         self.tr.format("gff3"))
+                         str(self.tr),
+                         diff)
 
     def test_empty(self):
 
@@ -163,28 +172,30 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         self.assertEqual(self.tr.exon_num, len(self.tr.exons))
         self.assertEqual(self.tr.start, 5928)
         self.assertEqual(self.tr.end, 8737)
-        exons = [(5928, 6263), (6437, 7069), (7157, 7232), (7384, 7450), (7564, 7649), (7762, 7835),
-                          (7942, 7987), (8236, 8325), (8417, 8464), (8571, 8737)]
-        exons = [intervaltree.Interval(*exon) for exon in exons]
+        exons = [(5928, 6263), (6437, 7069), (7157, 7232),
+                 (7384, 7450), (7564, 7649), (7762, 7835),
+                 (7942, 7987), (8236, 8325), (8417, 8464), (8571, 8737)]
+        # exons = [intervaltree.Interval(*exon) for exon in exons]
         self.assertEqual(self.tr.exons,
                          exons,
                          self.tr.exons)
 
     def test_cds(self):
-        self.assertEqual(self.tr.combined_cds, self.tr.selected_cds)
+        self.assertEqual(sorted(self.tr.combined_cds),
+                         sorted(self.tr.selected_cds))
         cds = [(6915, 7069), (7157, 7232), (7384, 7450), (7564, 7649), (7762, 7835), (7942, 7987),
                (8236, 8325), (8417, 8464), (8571, 8666)]
 
         self.assertEqual(self.tr.combined_cds,
-                         [intervaltree.Interval(*exon) for exon in cds],
+                         cds,
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 8666)
         self.assertEqual(self.tr.selected_cds_end, 6915)
 
     def test_utr(self):
-        self.assertEqual(self.tr.five_utr, [intervaltree.Interval(8667, 8737)])
-        self.assertEqual(self.tr.three_utr, [intervaltree.Interval(5928, 6263),
-                                             intervaltree.Interval(6437, 6914)])
+        self.assertEqual(self.tr.five_utr, [(8667, 8737)])
+        self.assertEqual(self.tr.three_utr, [(5928, 6263),
+                                             (6437, 6914)])
 
     def test_utr_metrics(self):
 
@@ -204,31 +215,35 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
                          6263 + 1 - 5928 + 6915 - 6437,
                          self.tr.selected_end_distance_from_tes)
         self.assertEqual(self.tr.selected_end_distance_from_junction,
-                         6915 - 6437)
+                         6915 - 6437,
+                         self.tr.selected_cds_end)
         self.assertEqual(self.tr.end_distance_from_junction,
                          self.tr.selected_end_distance_from_junction)
 
     def test_introns(self):
 
-        _ = {(8465, 8570), (8326, 8416), (7988, 8235), (7836, 7941), (7650, 7761), (7451, 7563),
-             (7233, 7383), (7070, 7156), (6264, 6436)}
+        introns = {(8465, 8570), (8326, 8416), (7988, 8235),
+                   (7836, 7941), (7650, 7761), (7451, 7563),
+                   (7233, 7383), (7070, 7156), (6264, 6436)}
 
         self.assertEqual(self.tr.introns,
-                         {intervaltree.Interval(*intron) for intron in _},
+                         introns,
                          self.tr.introns)
 
-        _ = {(8465, 8570), (8326, 8416), (7988, 8235), (7836, 7941), (7650, 7761), (7451, 7563),
-             (7233, 7383), (7070, 7156)}
+        cds_introns = {(8465, 8570), (8326, 8416), (7988, 8235),
+                       (7836, 7941), (7650, 7761), (7451, 7563),
+                       (7233, 7383), (7070, 7156)}
 
         self.assertEqual(self.tr.combined_cds_introns,
-                         {intervaltree.Interval(*intron) for intron in _},
+                         cds_introns,
                          self.tr.combined_cds_introns)
 
-        _ = {(8465, 8570), (8326, 8416), (7988, 8235), (7836, 7941), (7650, 7761), (7451, 7563),
-             (7233, 7383), (7070, 7156)}
+        selected_cds_introns = {(8465, 8570), (8326, 8416), (7988, 8235),
+                                (7836, 7941), (7650, 7761), (7451, 7563),
+                                (7233, 7383), (7070, 7156)}
 
         self.assertEqual(self.tr.selected_cds_introns,
-                         {intervaltree.Interval(*intron) for intron in _},
+                         selected_cds_introns,
                          self.tr.selected_cds_introns)
 
     # @unittest.SkipTest
@@ -259,21 +274,23 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
 
         # tr = deepcopy(self.tr)
         # tr.remove_utrs()
-        self.assertEqual(self.tr.selected_cds_start, self.tr.end)
+        self.assertEqual(self.tr.selected_cds_start, self.tr.end,
+                         ((self.tr.selected_cds_start, self.tr.selected_cds_end),
+                          (self.tr.start, self.tr.end)))
         self.assertEqual(self.tr.selected_cds_end, self.tr.start)
         self.assertEqual(self.tr.three_utr, [])
         self.assertEqual(self.tr.five_utr, [])
-        _ = [(6915, 7069),
-             (7157, 7232),
-             (7384, 7450),
-             (7564, 7649),
-             (7762, 7835),
-             (7942, 7987),
-             (8236, 8325),
-             (8417, 8464),
-             (8571, 8666)]
+        combined_cds = [(6915, 7069),
+                        (7157, 7232),
+                        (7384, 7450),
+                        (7564, 7649),
+                        (7762, 7835),
+                        (7942, 7987),
+                        (8236, 8325),
+                        (8417, 8464),
+                        (8571, 8666)]
         self.assertEqual(self.tr.combined_cds,
-                         [intervaltree.Interval(*c) for c in _],
+                         combined_cds,
                          self.tr.combined_cds)
         self.assertEqual(self.tr.combined_utr, [], self.tr.combined_utr)
 
@@ -284,11 +301,12 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         self.tr.strip_cds()
         self.tr.load_orfs([self.orf])
 
-        _ = [(6915, 7069), (7157, 7232), (7384, 7450), (7564, 7649), (7762, 7835), (7942, 7987),
-             (8236, 8325), (8417, 8464), (8571, 8666)]
+        combined_cds = [(6915, 7069), (7157, 7232), (7384, 7450),
+                        (7564, 7649), (7762, 7835), (7942, 7987),
+                        (8236, 8325), (8417, 8464), (8571, 8666)]
 
         self.assertEqual(self.tr.combined_cds,
-                         [intervaltree.Interval(*seg) for seg in _],
+                         combined_cds,
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 8666)
         self.assertEqual(self.tr.selected_cds_end, 6915)
@@ -394,7 +412,7 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         second_orf.transcriptomic = True
         self.assertFalse(second_orf.invalid, (len(second_orf), second_orf.cds_len))
 
-        self.assertTrue(Mikado.loci.transcript.Transcript.is_overlapping_cds(first_orf, second_orf))
+        self.assertTrue(Mikado.loci.Transcript.is_overlapping_cds(first_orf, second_orf))
 
         # This should be added
         third_orf = Mikado.parsers.bed12.BED12()
@@ -415,10 +433,10 @@ Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1
         self.assertFalse(third_orf.invalid, (len(third_orf), third_orf.cds_len))
 
         self.assertFalse(
-            Mikado.loci.transcript.Transcript.is_overlapping_cds(
+            Mikado.loci.Transcript.is_overlapping_cds(
                 first_orf, third_orf))
         self.assertFalse(
-            Mikado.loci.transcript.Transcript.is_overlapping_cds(
+            Mikado.loci.Transcript.is_overlapping_cds(
                 second_orf, third_orf))
 
         self.assertFalse(third_orf == second_orf)

@@ -89,7 +89,7 @@ def finalize_reference(genes, positions, queue_logger, args) \
     non_coding_to_remove = set()
     genes_to_remove = set()
     for gid in genes:
-        genes[gid].set_logger(queue_logger)
+        genes[gid].logger = queue_logger
         genes[gid].finalize(exclude_utr=args.exclude_utr)
         if len(genes[gid]) == 0:
             genes_to_remove.add(gid)
@@ -193,17 +193,16 @@ def parse_prediction(args, genes, positions, queue_logger):
     This function performs the real comparison between the reference and the prediction.
      It needs the following inputs:
     :param args: the Namespace with the necessary parameters
-    :param genes: Dictionary with the reference genes
-    :param positions: Dictionary with the positions of the reference genes
+    :param genes: Dictionary with the reference genes, of the form
+    dict[chrom][(start,end)] = [gene object]
+    :param positions: Dictionary with the positions of the reference genes, of the form
+    dict[chrom][IntervalTree]
     :param queue_logger: Logger
     :return:
     """
 
     # start the class which will manage the statistics
     accountant_instance = Accountant(genes, args)
-    # genes: a dictionary with the reference annotation, indexed by GID
-    # positions: a dictionary of the form dict[chrom][(start,end)] = [gene object]
-    # assigner_instance = Assigner(genes, positions, args, accountant_instance)
     assigner_instance = Assigner(genes, positions, args, accountant_instance)
 
     transcript = None
@@ -325,6 +324,7 @@ def compare(args):
             queue_logger.info("Starting loading the indexed reference")
             with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
                 positions = collections.defaultdict(dict)
+                # TODO: parallelise index loading. It is way too slow in single-process
                 try:
                     cp_genes = json.load(index)
                     genes = dict()

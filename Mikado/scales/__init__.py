@@ -14,24 +14,25 @@ This module defines the classes needed for the "compare" script, namely:
 """
 
 from . import resultstorer
+from .f1 import calc_f1
 
 
-def calc_f1(recall, precision):
-    """
-    Static method to calculate the F1 statistic given precision
-    and recall (order is unimportant). Definition:
-    F1 = (2 * precision * recall) / (precision + recall)
-
-    :type recall: float
-    :type precision: float
-    :rtype: float
-    """
-    if max(precision, recall) == 0:
-        return 0
-    else:
-        product = 2 * precision * recall
-        summa = precision + recall
-        return product / summa
+# def calc_f1(recall, precision):
+#     """
+#     Static method to calculate the F1 statistic given precision
+#     and recall (order is unimportant). Definition:
+#     F1 = (2 * precision * recall) / (precision + recall)
+#
+#     :type recall: float
+#     :type precision: float
+#     :rtype: float
+#     """
+#     if max(precision, recall) == 0:
+#         return 0
+#     else:
+#         product = 2 * precision * recall
+#         summa = precision + recall
+#         return product / summa
 
 
 # noinspection PyPep8

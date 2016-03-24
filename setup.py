@@ -45,7 +45,12 @@ setup(
         "Operating System :: Linux"
     ],
     ext_modules=cythonize([Extension(path.join("Mikado.utilities.overlap"),
-                                     [path.join("Mikado", "utilities", "overlap.pyx")])]),
+                                     [path.join("Mikado", "utilities", "overlap.pyx")]),
+                           Extension(path.join("Mikado.scales.f1"),
+                                     [path.join("Mikado", "scales", "f1.pyx")]),
+                           Extension(path.join("Mikado.scales.contrast"),
+                                     [path.join("Mikado", "scales", "contrast.pyx")]),
+                           ]),
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),
@@ -55,9 +60,13 @@ setup(
         "postgresql": ["psycopg2"],
         "mysql": ["mysqlclient>=1.3.6"],
     },
-    test_suite="nose.runmodule",
-    data_files=[
-        ("Mikado/configuration",
-         glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"))],
+    test_suite="Mikado.test",
+    package_data={
+        "Mikado.configuration":
+            glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml")},
+    include_package_data=True
+    # data_files=[
+    #     ("Mikado/configuration",
+    #      glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"))],
 
 )

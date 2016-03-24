@@ -36,9 +36,9 @@ class MonoBaseTester(unittest.TestCase):
         self.tr.id = "StringTie_DN.70115.4"
         self.tr.source = "StringTie"
         self.tr.feature = "transcript"
-        self.tr.exons = [intervaltree.Interval(22597965, 22601782),
-                         intervaltree.Interval(22601862, 22601957),
-                         intervaltree.Interval(22602039, 22602701)]
+        self.tr.add_exons([(22597965, 22601782),
+                           (22601862, 22601957),
+                           (22602039, 22602701)])
 
         self.tr.logger = self.logger
 
@@ -352,7 +352,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
                  (628465, 628676),
                  (629070, 629176)]
         self.assertEqual(self.tr.exons,
-                         [intervaltree.Interval(*exon) for exon in exons],
+                         exons,
                          self.tr.exons)
 
     def test_cds(self):
@@ -369,7 +369,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
                (628465, 628569)]
 
         self.assertEqual(self.tr.combined_cds,
-                         [intervaltree.Interval(*segment) for segment in cds],
+                         cds,
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 626878)
         self.assertEqual(self.tr.selected_cds_end, 628569)
@@ -380,33 +380,37 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.assertEqual(self.tr.cds_not_maximal_fraction, 0)
 
     def test_utr(self):
-        self.assertEqual(self.tr.five_utr, [intervaltree.Interval(626642, 626780),
-                                            intervaltree.Interval(626842, 626877)])
-        self.assertEqual(self.tr.three_utr, [intervaltree.Interval(628570, 628676),
-                                             intervaltree.Interval(629070, 629176)])
+        self.assertEqual(self.tr.five_utr, [(626642, 626780),
+                                            (626842, 626877)])
+        self.assertEqual(self.tr.three_utr, [(628570, 628676),
+                                             (629070, 629176)])
 
     def test_introns(self):
 
-        _ = {(626781, 626841), (626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487),
-             (627560, 627695), (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464),
-             (628677, 629069)}
+        introns = {(626781, 626841), (626881, 626962), (627060, 627136),
+                   (627194, 627311), (627398, 627487), (627560, 627695),
+                   (627750, 627839), (627916, 628043), (628106, 628181),
+                   (628242, 628464), (628677, 629069)}
 
         self.assertEqual(self.tr.introns,
-                         set(intervaltree.Interval(*intron) for intron in _),
+                         introns,
                          self.tr.introns)
 
-        _ = {(626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487), (627560, 627695),
-             (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464)}
+        introns = {(626881, 626962), (627060, 627136), (627194, 627311),
+                   (627398, 627487), (627560, 627695), (627750, 627839),
+                   (627916, 628043), (628106, 628181), (628242, 628464)}
 
         self.assertEqual(self.tr.combined_cds_introns,
-                         {intervaltree.Interval(*intron) for intron in _},
-                         self.tr.combined_cds_introns)
+                         introns,
+                         (sorted(self.tr.combined_cds_introns),
+                          sorted(introns)))
 
-        _ = {(626881, 626962), (627060, 627136), (627194, 627311), (627398, 627487), (627560, 627695),
-             (627750, 627839), (627916, 628043), (628106, 628181), (628242, 628464)}
+        cds_introns = {(626881, 626962), (627060, 627136), (627194, 627311),
+                       (627398, 627487), (627560, 627695), (627750, 627839),
+                       (627916, 628043), (628106, 628181), (628242, 628464)}
 
         self.assertEqual(self.tr.selected_cds_introns,
-                         {intervaltree.Interval(*intron) for intron in _},
+                         cds_introns,
                          self.tr.selected_cds_introns
                          )
 
@@ -479,23 +483,29 @@ Chr2    TAIR10    CDS    628465    628569    .    +    0    Parent=AT2G02380.1
 Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"""
 
         tr_lines = tr_gff.split("\n")
+        logger = create_default_logger("test")
+        logger.setLevel("INFO")
         for pos, line in enumerate(tr_lines):
             tr_lines[pos] = re.sub("\s+", "\t", line)
             assert len(tr_lines[pos].split("\t")) == 9, line.split("\t")
 
         tr_gff_lines = [Mikado.parsers.GFF.GffLine(line) for line in tr_lines]
 
-        transcript = Mikado.loci.Transcript(tr_gff_lines[0])
+        transcript = Mikado.loci.Transcript(tr_gff_lines[0],
+                                            logger=logger)
         for line in tr_gff_lines[1:]:
             transcript.add_exon(line)
 
-        transcript.finalize()
         self.assertEqual(transcript.exons, self.tr.exons)
-        self.assertEqual(transcript.three_utr, self.tr.three_utr)
+        self.assertNotEqual([], transcript.combined_cds)
+        transcript.finalize()
+        self.assertTrue(transcript.is_coding)
         self.assertEqual(transcript.five_utr, self.tr.five_utr)
+        self.assertEqual(transcript.three_utr, self.tr.three_utr)
 
     def test_remove_utr(self):
-        """Test for CDS stripping. We remove the UTRs and verify that start/end have moved, no UTR is present, etc."""
+        """Test for CDS stripping. We remove the UTRs and verify
+        that start/end have moved, no UTR is present, etc."""
 
         self.tr.remove_utrs()
         self.assertEqual(self.tr.selected_cds_start, self.tr.start)
@@ -514,7 +524,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
                (628465, 628569)]
 
         self.assertEqual(self.tr.combined_cds,
-                         [intervaltree.Interval(*c) for c in cds],
+                         cds,
                          self.tr.combined_cds)
         self.assertEqual(self.tr.combined_utr, [], self.tr.combined_utr)
 
@@ -522,19 +532,22 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         """Test for loading a single ORF. We strip the CDS and reload it."""
 
-        self.tr.strip_cds()
+        with self.assertLogs("test_at", level="WARNING") as cm_out:
+            self.tr.strip_cds()
+            self.assertIn("Stripping CDS", cm_out.output[0])
         self.tr.load_orfs([self.orf])
         cds = [(626878, 626880), (626963, 627059), (627137, 627193), (627312, 627397), (627488, 627559),
                (627696, 627749), (627840, 627915), (628044, 628105), (628182, 628241), (628465, 628569)]
 
         self.assertEqual(self.tr.combined_cds,
-                         [intervaltree.Interval(*segment) for segment in cds    ],
+                         cds,
                          self.tr.combined_cds)
         self.assertEqual(self.tr.selected_cds_start, 626878)
         self.assertEqual(self.tr.selected_cds_end, 628569)
 
     def test_negative_orf(self):
-        """Test loading a negative strand ORF onto a multiexonic transcript. This should have no effect."""
+        """Test loading a negative strand ORF onto a multiexonic transcript.
+        This should have no effect."""
 
         self.orf.strand = "-"
         self.tr.strip_cds()
@@ -546,8 +559,12 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
         self.tr.finalized = False
         self.tr.strand = None
 
-        self.assertRaises(Mikado.exceptions.InvalidTranscript, self.tr.finalize)
+        __current = self.tr.deepcopy()
+        self.assertRaises(Mikado.exceptions.InvalidTranscript,
+                          self.tr.finalize)
 
+        self.assertFalse(self.tr.finalized)
+        # self.assertTrue(__current is self.tr)
         self.tr.strand = "+"
         self.tr.finalize()
         self.tr.finalized = False
@@ -748,6 +765,81 @@ Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.1
 
         new_transcripts = [_ for _ in self.tr.split_by_cds()]
         self.assertEqual(len(new_transcripts), 2)
+
+
+class AugustusTester(unittest.TestCase):
+
+    logger = create_default_logger("augustus")
+    logger.setLevel("DEBUG")
+
+    def test_truncated(self):
+
+        lines = """Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	mRNA	1	2785	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1;Parent=TRIAE4565_1AL_Aug_0021880;Name=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	1601	2446	.	+	1	ID=TRIAE4565_1AL_Aug_0021880.1.CDS1;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	1601	2446	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1.exon1;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	2540	2654	.	+	1	ID=TRIAE4565_1AL_Aug_0021880.1.CDS2;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	2540	2785	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1.exon2;Parent=TRIAE4565_1AL_Aug_0021880.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	three_prime_UTR	2655	2785	.	+	.	ID=TRIAE4565_1AL_Aug_0021880.1.three_prime_UTR1;Parent=TRIAE4565_1AL_Aug_0021880.1"""
+
+        lines = [Mikado.parsers.GFF.GffLine("\t".join(_.split())) for _ in lines.split("\n")]
+
+        transcript = Mikado.loci.Transcript(lines[0], logger=self.logger)
+        transcript.add_exons(lines[1:])
+
+        with self.assertLogs("augustus", level="WARNING") as cm_out:
+            transcript.finalize()
+            self.assertTrue(any(
+                "The transcript TRIAE4565_1AL_Aug_0021880.1 has coordinates 1:2785" in _ for
+            _ in cm_out.output))
+
+        self.assertTrue(transcript.is_coding)
+
+    @unittest.skip
+    def test_three_truncated(self):
+        lines = """Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	mRNA	204336	224434	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1;Parent=TRIAE4565_1AL_Aug_0024630;Name=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	204336	205303	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	five_prime_UTR	204336	204546	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.five_prime_UTR1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	204547	205303	.	+	0	ID=TRIAE4565_1AL_Aug_0024630.1.CDS1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	206227	207040	.	+	2	ID=TRIAE4565_1AL_Aug_0024630.1.CDS2;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	206227	207040	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon2;Parent=TRIAE4565_1AL_Aug_0024630.1"""
+
+        lines = [Mikado.parsers.GFF.GffLine("\t".join(_.split())) for _ in lines.split("\n")]
+
+        transcript = Mikado.loci.Transcript(lines[0], logger=self.logger)
+        transcript.add_exons(lines[1:])
+
+        with self.assertLogs("augustus", level="WARNING") as cm_out:
+            transcript.finalize()
+            self.assertTrue(any(
+                "The transcript TRIAE4565_1AL_Aug_0024630.1 has coordinates 204336:224434" in _ for
+            _ in cm_out.output))
+
+        self.assertTrue(transcript.is_coding)
+
+    def test_invalid_three_truncated(self):
+        lines = """Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	mRNA	204336	225434	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1;Parent=TRIAE4565_1AL_Aug_0024630;Name=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	204336	205303	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	five_prime_UTR	204336	204546	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.five_prime_UTR1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	204547	205303	.	+	0	ID=TRIAE4565_1AL_Aug_0024630.1.CDS1;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	CDS	206227	207042	.	+	2	ID=TRIAE4565_1AL_Aug_0024630.1.CDS2;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	206227	207042	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon2;Parent=TRIAE4565_1AL_Aug_0024630.1
+Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	208227	210040	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon2;Parent=TRIAE4565_1AL_Aug_0024630.1"""
+
+        lines = [Mikado.parsers.GFF.GffLine("\t".join(_.split())) for _ in lines.split("\n")]
+
+        transcript = Mikado.loci.Transcript(lines[0], logger=self.logger)
+        transcript.add_exons(lines[1:])
+
+        with self.assertLogs("augustus", level="WARNING") as cm_out:
+            transcript.finalize()
+            self.assertTrue(any(
+                "The transcript TRIAE4565_1AL_Aug_0024630.1 has coordinates 204336:225434" in _ for
+            _ in cm_out.output))
+            # self.assertTrue(any(
+            #     "strip_cds" in _ for
+            # _ in cm_out.output))
+
+        self.assertFalse(transcript.is_coding)
 
 if __name__ == '__main__':
     unittest.main()

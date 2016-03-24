@@ -10,20 +10,26 @@ __title__ = "Mikado"
 __author__ = 'Luca Venturini'
 __license__ = 'GPL3'
 __copyright__ = 'Copyright 2015-2016 Luca Venturini'
-__version__ = "0.19.1"
+__version__ = "0.19.2"
 
-__all__ = ["exceptions",
-           "utilities",
+__all__ = ["configuration",
+           "exceptions",
+           "loci",
            "parsers",
+           "picking",
+           "preparation",
+           "scales",
            "serializers",
-           "loci_objects",
-           "configuration",
-           "scales"]
+           "subprograms",
+           "utilities"]
 
-from . import exceptions
-from . import utilities
 from . import configuration
-from . import parsers
-from . import serializers
+from . import exceptions
 from . import loci
+from . import parsers
+from . import picking
+from . import preparation
 from . import scales
+from . import serializers
+from . import subprograms
+from . import utilities

@@ -1,4 +1,5 @@
 import Mikado.utilities
+import Mikado.exceptions
 from Mikado.parsers.GFF import GffLine
 from Mikado.loci import Transcript
 from intervaltree import Interval
@@ -26,7 +27,7 @@ class TestTrimming(unittest.TestCase):
                  (48051942, 48051999)]
 
         transcript.strand = "+"
-        transcript.exons = [Interval(*exon) for exon in exons]
+        transcript.add_exons(exons)
         transcript.id = "ENST00000560636"
         transcript.parent = "ENSG00000137872"
         cds_line = "\t".join(["15",
@@ -42,7 +43,8 @@ class TestTrimming(unittest.TestCase):
         transcript.add_exon(cds_line)
         logger = Mikado.utilities.log_utils.create_null_logger("wrong_cds")
         transcript.logger = logger
-        transcript.finalize()
+        with self.assertLogs("wrong_cds", level="WARNING"):
+            transcript.finalize()
 
         trimmed = trim_coding(transcript, logger, max_length=50)
         self.assertEqual(trimmed.start, 47631366)
@@ -61,15 +63,14 @@ class TestTrimming(unittest.TestCase):
                  (12000, 13000),
                  (15000, 18000),
                  (19000, 20000)]
-        exons = [Interval(*exon) for exon in exons]
 
         cds = [(11400, 11500),  # 101
                (12000, 13000),  # 1001 ==> 1102
                (15000, 17998)]  # 2998 == > 3090 (y)
-        cds = [Interval(*seg) for seg in cds]
 
-        transcript.exons = exons
-        transcript.combined_cds = cds
+        transcript.add_exons(exons)
+        transcript.add_exons(cds, features="CDS")
+
         transcript.strand = "+"
         transcript.finalize()
 
@@ -99,9 +100,8 @@ class TestTrimming(unittest.TestCase):
                  (12000, 13000),
                  (15000, 18000),
                  (19000, 20000)]
-        exons = [Interval(*exon) for exon in exons]
 
-        transcript.exons = exons
+        transcript.add_exons(exons)
         transcript.strand = "+"
         transcript.finalize()
 

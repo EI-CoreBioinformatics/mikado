@@ -9,7 +9,6 @@ import functools
 from ...parsers.GTF import GtfLine
 from ...parsers.GFF import GffLine
 from ...parsers.bed12 import BED12
-import intervaltree
 
 __author__ = 'Luca Venturini'
 
@@ -17,7 +16,8 @@ __author__ = 'Luca Venturini'
 def __create_cds_lines(transcript,
                        cds_run,
                        tid,
-                       to_gtf=False, with_introns=False):
+                       to_gtf=False,
+                       with_introns=False):
 
     """
     Private method to create the exon/UTR/CDS lines for printing
@@ -58,6 +58,12 @@ def __create_cds_lines(transcript,
             raise IndexError(cds_run)
         assert exon_line.start >= transcript.start, (transcript.start, segment, cds_run)
         assert exon_line.end <= transcript.end
+        if segment[0] == "CDS":
+            assert len(segment) == 3, (segment, cds_run)
+            if to_gtf is False:
+                exon_line.phase = segment[2]
+            else:
+                exon_line.phase = (3 - segment[2]) % 3
         exon_lines.append(exon_line)
 
     # if to_gtf is False:
@@ -81,7 +87,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     :type transcript: mikado_lib.loci_objects.transcript.Transcript
 
     :param segment: a segment of the form (feature, start, end)
-    :type segment: list(str, intervaltree.Interval)
+    :type segment: list(str, tuple)
 
     :param counter: a Counter object that keeps track of how many exons,
     CDS, UTR segments we have already seen
@@ -163,7 +169,6 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
 
     :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
 
-    :param first_phase: number it indicates the phase of the first CDS exon. It defaults to 0.
     :param with_introns: boolean, if set to True, introns will be printed as well.
     :return:
     """

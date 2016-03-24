@@ -14,6 +14,7 @@ import os
 import Mikado.parsers
 import csv
 
+
 class AssignerTester(unittest.TestCase):
     """
     This unit test has the purpose of testing the scales module of Mikado.py.
@@ -27,8 +28,7 @@ class AssignerTester(unittest.TestCase):
         reference.chrom = "Chr1"
         reference.id = "G1.1"
         reference.parent = "G1"
-        reference.exons = [(100, 300), (500, 1000), (1500, 2000)]
-        reference.exons = [intervaltree.Interval(*_) for _ in reference.exons]
+        reference.add_exons([(100, 300), (500, 1000), (1500, 2000)])
         reference.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(reference, reference)
@@ -827,7 +827,7 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("C",))
+        self.assertEqual(result.ccode, ("C",), result)
 
     def test_contained_alternative(self):
 
@@ -1014,6 +1014,37 @@ class AssignerTester(unittest.TestCase):
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("h",))
+
+    def test_double_h_case(self):
+
+        """
+        ===============---------=======-------============
+        ===================-----------------=========
+        :return:
+        """
+
+        reference = Mikado.loci.Transcript()
+        reference.start = 1000
+        reference.end = 3000
+        reference.strand = "+"
+        reference.chrom = "Chr1"
+        reference.id = "G1.1"
+        reference.parent = "G1"
+        reference.exons = [(1000, 1300), (1700, 2000), (2500, 3000)]
+        reference.finalize()
+
+        prediction = Mikado.loci.Transcript()
+        prediction.start = 1200
+        prediction.end = 2450
+        prediction.strand = "+"
+        prediction.chrom = "Chr1"
+        prediction.id = "P1.1"
+        prediction.parent = "P1"
+        prediction.exons = [(1200, 1500), (2200, 2450)]
+        prediction.finalize()
+
+
+
 
     def test_non_h_case(self):
 

@@ -356,7 +356,7 @@ def __split_complex_exon(transcript, exon, texon, sentinel, boundary, invert=Fal
     # Prevent monobase exons
     # if new_exon[0] == new_exon[1]:
     #     new_exon[1] += 1
-    new_exon = Interval(new_exon[0], new_exon[1])
+    new_exon = tuple([new_exon[0], new_exon[1]])
 
     return new_exon, texon, to_discard
 
@@ -510,6 +510,7 @@ def __create_splitted_transcripts(transcript, cds_boundaries):
         new_transcript.end = max(exon[1] for exon in new_transcript.exons)
         assert new_transcript.end <= transcript.end
         assert new_transcript.start >= transcript.start
+        assert new_transcript.is_coding is False
         new_transcript.json_conf = transcript.json_conf
         # Now we have to modify the BED12s to reflect
         # the fact that we are starting/ending earlier

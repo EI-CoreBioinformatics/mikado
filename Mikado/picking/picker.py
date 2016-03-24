@@ -20,6 +20,7 @@ from sqlalchemy.engine import create_engine  # SQLAlchemy/DB imports
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.pool import QueuePool as SqlPool
 import sqlalchemy
+import sqlalchemy.exc
 from ..utilities import path_join
 from ..utilities.log_utils import formatter
 from ..parsers.GTF import GTF
@@ -316,10 +317,19 @@ memory intensive, proceed with caution!")
         engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
                                creator=self.db_connection)
         session = sqlalchemy.orm.sessionmaker(bind=engine)()
-        for chrom in session.query(Chrom).order_by(Chrom.name.asc()):
-            print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
-                  file=locus_out)
-            locus_out.flush()
+        try:
+            for chrom in session.query(Chrom).order_by(Chrom.name.asc()):
+                print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
+                      file=locus_out)
+                locus_out.flush()
+        except sqlalchemy.exc.OperationalError as exc:
+            self.logger.warning("Empty database! Creating a mock one")
+            self.json_conf["db_settings"]["dbtype"] = "sqlite"
+            self.json_conf["db_settings"]["db"] = tempfile.mktemp()
+            engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
+                                   creator=self.db_connection)
+            session = sqlalchemy.orm.sessionmaker(bind=engine)()
+            dbutils.DBBASE.metadata.create_all(engine)
 
         if self.sub_out != '':
             assert isinstance(self.sub_out, str)

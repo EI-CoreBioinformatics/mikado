@@ -83,7 +83,7 @@ def create_simple_config():
 
     del default["scoring"]
     del default["requirements"]
-    del default["soft_requirements"]
+    # del default["soft_requirements"]
 
     new_dict = dict()
     composite_keys = [(ckey[1:]) for ckey in

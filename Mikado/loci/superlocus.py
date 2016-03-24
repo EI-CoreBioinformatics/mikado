@@ -436,11 +436,11 @@ class Superlocus(Abstractlocus):
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",
                                   self.chrom, self.strand, intron[0], intron[1])
-                if (intron.begin, intron.end) in ver_introns:
+                if (intron[0], intron[1]) in ver_introns:
                     self.logger.debug("Verified intron %s:%d-%d",
-                                      self.chrom, intron.begin, intron.end)
-                    self.locus_verified_introns.append((intron.begin,
-                                                        intron.end,
+                                      self.chrom, intron[0], intron[1])
+                    self.locus_verified_introns.append((intron[0],
+                                                        intron[1],
                                                         self.strand))
         else:
             for intron in self.introns:

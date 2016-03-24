@@ -241,10 +241,10 @@ def create_lines_bed(transcript):
     else:
         bed12.thick_start = bed12.thick_end = bed12.start
     bed12.block_count = transcript.exon_num
-    bed12.block_sizes = [exon.end - exon.begin + 1 for exon in transcript.exons]
+    bed12.block_sizes = [exon[1] - exon[0] + 1 for exon in transcript.exons]
     bed12.block_starts = [0]
     for pos, intron in enumerate(transcript.introns):
-        bed12.block_starts.append(bed12.block_sizes[pos] + intron.end - intron.begin + 1)
+        bed12.block_starts.append(bed12.block_sizes[pos] + intron[1] - intron[0] + 1)
     return str(bed12)
 
 

@@ -1,1 +1,1 @@
-def overlap(first, second, flank, positive)
+cpdef int overlap(first, second, int flank=?, bint positive=?)

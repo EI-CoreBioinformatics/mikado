@@ -1,4 +1,4 @@
-cdef int overlap(first, second, int flank=0, bint positive=0):
+cpdef int overlap(first, second, int flank=0, bint positive=0):
 
     """This function quickly computes the overlap between two
     ranges, with an optional flank."""

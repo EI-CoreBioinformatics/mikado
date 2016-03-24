@@ -1,14 +1,24 @@
+from .resultstorer import ResultStorer
+from ..loci import Transcript
 from ..utilities.overlap cimport overlap
+from .f1 cimport calc_f1
+
 
 __author__ = 'Luca Venturini'
 
-def __assign_monoexonic_ccode(prediction, reference, nucl_overlap, stats):
+cdef tuple __assign_monoexonic_ccode(prediction, reference, int nucl_overlap, tuple stats):
 
     cdef:
         str ccode
-        unsigned double nucl_recall, nucl_precision, nucl_f1
-        unsigned double exon_recall, exon_precision, exon_f1
-        unsigned double junction_recall, junction_precision, junction_f1
+        double nucl_recall, nucl_precision, nucl_f1
+        double exon_recall, exon_precision, exon_f1
+        double junction_recall, junction_precision, junction_f1
+        list overlaps
+        int p_exon_num, p_start, p_end
+        int r_exon_num, r_start, r_end
+        
+    p_exon_num, p_start, p_end = prediction.exon_num, prediction.start, prediction.end
+    r_exon_num, r_start, r_end = reference.exon_num, reference.start, reference.end
 
     ccode = ""
     (nucl_recall, nucl_precision, nucl_f1,
@@ -19,9 +29,11 @@ def __assign_monoexonic_ccode(prediction, reference, nucl_overlap, stats):
     if prediction.exon_num == 1 and reference.exon_num > 1:
         if nucl_precision < 1 and nucl_overlap > 0:
             prediction_coords = (prediction.start, prediction.end)
+
             overlaps = []
             for intron in sorted([tuple([_[0], _[1]]) for _ in reference.introns]):
-                cdef int over = overlap(intron, prediction_coords)
+
+                over = overlap(intron, prediction_coords)
                 if over > 0:
                     overlaps.append((over, (intron[1] - intron[0] + 1)))
             if len(overlaps) == 0:
@@ -71,9 +83,11 @@ def __assign_monoexonic_ccode(prediction, reference, nucl_overlap, stats):
              exon_recall, exon_precision, exon_f1,
              junction_recall, junction_precision, junction_f1)
 
-    return ccode, stats
+    cdef tuple result
+    result = (ccode, stats)
+    return result
 
-@staticmethod
+
 def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
 
     """
@@ -159,8 +173,8 @@ def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
 
     return ccode, stats
 
-@classmethod
-def compare(cls, prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
+
+def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
 
     """Function to compare two transcripts and determine a ccode.
 
@@ -302,10 +316,10 @@ def compare(cls, prediction: Transcript, reference: Transcript) -> (ResultStorer
                  junction_recall, junction_precision, junction_f1)
 
         if min(prediction.exon_num, reference.exon_num) > 1:
-            ccode, stats = cls.__assign_multiexonic_ccode(prediction, reference,
+            ccode, stats = __assign_multiexonic_ccode(prediction, reference,
                                                           nucl_overlap, stats)
         else:
-            ccode, stats = cls.__assign_monoexonic_ccode(prediction, reference,
+            ccode, stats = __assign_monoexonic_ccode(prediction, reference,
                                                           nucl_overlap, stats)
 
         (nucl_recall, nucl_precision, nucl_f1,

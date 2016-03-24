@@ -69,3 +69,10 @@ sample_data/reference.gff3.midx
 lib.linux-x86_64-3.5/
 scripts-3.5/
 Mikado/utilities/overlap.cpython-35m-x86_64-linux-gnu.so
+Mikado/scales/contrast.c
+Mikado/scales/contrast.cpython-35m-x86_64-linux-gnu.so
+Mikado/scales/contrast.html
+Mikado/scales/f1.html
+Mikado/scales/f1.c
+Mikado/scales/f1.cpython-35m-x86_64-linux-gnu.so
+Mikado/utilities/overlap.html

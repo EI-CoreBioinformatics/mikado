@@ -22,6 +22,8 @@ class Gene:
     :param logger: an optional Logger from the logging module.
     """
 
+    __name__ = "gene"
+
     def __init__(self, transcr: [None, Transcript], gid=None, logger=None, only_coding=False):
 
         self.transcripts = dict()
@@ -37,6 +39,7 @@ class Gene:
             if isinstance(transcr, Transcript):
                 self.transcripts[transcr.id] = transcr
                 self.id = transcr.parent[0]
+                self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
                 assert transcr.is_gene is True
                 self.id = transcr.id
@@ -48,7 +51,6 @@ class Gene:
                                                                           transcr.start,
                                                                           transcr.end,
                                                                           transcr.strand)
-            # self.transcripts[transcr.id] = transcr
 
         if gid is not None:
             self.id = gid
@@ -57,16 +59,18 @@ class Gene:
     @property
     def logger(self):
 
+        """
+        Logger instance for the class.
+        :rtype : logging.Logger
+        """
         return self.__logger
 
     @logger.setter
     def logger(self, logger):
+        """Set a logger for the instance.
+        :param logger
+        :type logger: logging.Logger | Nonell
         """
-        :param logger: a Logger instance.
-        :type logger: None | logging.Logger
-
-        """
-
         if isinstance(logger, logging.Logger):
             self.__logger = logger
         elif logger is None:
@@ -131,6 +135,7 @@ class Gene:
                 raise
         for k in to_remove:
             del self.transcripts[k]
+
         if len(self.transcripts) > 0:
             __new_start = min(_.start for _ in self)
 

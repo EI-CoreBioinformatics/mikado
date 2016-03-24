@@ -487,9 +487,10 @@ def finalize(transcript):
             transcript.combined_utr = []
             try:
                 _check_cdna_vs_utr(transcript)
-            except InvalidCDS:
+            except InvalidCDS as exc:
                 transcript.logger.warning("CDS for %s completely invalid. Removing it.",
                                           transcript.id)
+                transcript.logger.exception(exc)
                 transcript.combined_cds = []
                 transcript.combined_utr = []
                 transcript.segments = []

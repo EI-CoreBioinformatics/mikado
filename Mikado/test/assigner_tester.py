@@ -14,6 +14,7 @@ import os
 import Mikado.parsers
 import csv
 
+
 class AssignerTester(unittest.TestCase):
     """
     This unit test has the purpose of testing the scales module of Mikado.py.
@@ -826,7 +827,7 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("C",))
+        self.assertEqual(result.ccode, ("C",), result)
 
     def test_contained_alternative(self):
 

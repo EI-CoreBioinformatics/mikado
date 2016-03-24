@@ -20,6 +20,7 @@ from ..loci.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
 from ..utilities import overlap
+from .contrast import compare as c_compare
 
 
 # noinspection PyPropertyAccess,PyPropertyAccess
@@ -236,7 +237,7 @@ class Assigner:
                               match,
                               [_.id for _ in gene_matches])
             for gene_match in gene_matches:
-                __res = sorted([self.calc_compare(prediction, tra) for tra in gene_match],
+                __res = sorted([self.calc_and_store_compare(prediction, tra) for tra in gene_match],
                                reverse=True, key=self.get_f1)
                 best_res = (gene_match.strand, __res)
                 if best is None:
@@ -343,7 +344,7 @@ class Assigner:
             results = []
             for match in matches:
                 self.logger.debug("%s: type %s", repr(match), type(match))
-                results.extend([self.calc_compare(prediction, tra) for tra in match])
+                results.extend([self.calc_and_store_compare(prediction, tra) for tra in match])
 
             results = sorted(results, reverse=True,
                              key=operator.attrgetter("j_f1", "n_f1"))
@@ -412,7 +413,7 @@ class Assigner:
         elif distances[0][1] > 0:
             # Polymerase run-on
             match = self.genes[self.positions[prediction.chrom][distances[0][0]][0]]
-            results = [self.calc_compare(prediction, reference) for reference in match]
+            results = [self.calc_and_store_compare(prediction, reference) for reference in match]
             best_result = sorted(results,
                                  key=operator.attrgetter("distance"))[0]
         else:
@@ -439,8 +440,8 @@ class Assigner:
         self.stat_calculator.print_stats()
         self.tmap_out.close()
 
-    def calc_compare(self, prediction: Transcript, reference: Transcript) -> ResultStorer:
-        """Thin layer around the calc_compare class method.
+    def calc_and_store_compare(self, prediction: Transcript, reference: Transcript) -> ResultStorer:
+        """Thin layer around the calc_and_store_compare class method.
 
         :param prediction: a Transcript instance.
 
@@ -450,7 +451,7 @@ class Assigner:
 
         """
 
-        result, reference_exon = self.compare(prediction, reference)
+        result, reference_exon = c_compare(prediction, reference)
 
         assert reference_exon is None or reference_exon in reference.exons
         self.stat_calculator.store(prediction, result, reference_exon)
@@ -607,8 +608,68 @@ class Assigner:
 
         return ccode, stats
 
+
+    @staticmethod
+    def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
+
+        """Function to compare two transcripts and determine a ccode. Thin wrapper
+        around the compare cython code.
+
+        :param prediction: the transcript query
+        :type prediction: Transcript
+
+        :param reference: the reference transcript against which we desire to
+        calculate the ccode and other stats.
+        :type reference: Transcript
+
+        :rtype (ResultStorer, (int,int)) | (ResultStorer, None)
+
+        Available ccodes (from Cufflinks documentation):
+
+        - =    Complete intron chain match
+        - c    Contained (perfect junction recall and precision, imperfect recall)
+        - j    Potentially novel isoform (fragment): at least one splice junction is shared
+        with a reference transcript
+        - e    Single exon transfrag overlapping a reference exon and at least
+        10 bp of a reference intron, indicating a possible pre-mRNA fragment.
+        - i    A *monoexonic* transfrag falling entirely within a reference intron
+        - o    Generic exonic overlap with a reference transcript
+        - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
+        - u    Unknown, intergenic transcript
+        - x    Exonic overlap with reference on the opposite strand (class codes e, o, m, c, _)
+        - X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake,
+               unless non-canonical splicing junctions are involved).
+
+        Please note that the description for i is changed from Cufflinks.
+
+        We also provide the following additional classifications:
+
+        - f    gene fusion - in this case, this ccode will be followed by the
+        ccodes of the matches for each gene, separated by comma
+        - _    Complete match, for monoexonic transcripts
+        (nucleotide F1>=80% - i.e. min(precision,recall)>=66.7%
+        - m    Exon overlap between two monoexonic transcripts
+        - n    Potential extension of the reference - we have added new splice junctions
+        *outside* the boundaries of the transcript itself
+        - C    Contained transcript with overextensions on either side
+        (perfect junction recall, imperfect nucleotide specificity)
+        - J    Potentially novel isoform, where all the known junctions
+        have been confirmed and we have added others as well *externally*
+        - I    *multiexonic* transcript falling completely inside a known transcript
+        - h    AS event in which at least a couple of introns overlaps but without any
+               junction in common.
+        - O    Reverse generic overlap - the reference is monoexonic while the prediction isn't
+        - P    Possible polymerase run-on fragment
+        - mo   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic
+        (within 2K bases of a reference transcript), on the opposite strand
+
+        This is a class method, and can therefore be used outside of a class instance.
+        """
+
+        return c_compare(prediction, reference)
+
     @classmethod
-    def compare(cls, prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
+    def __old_compare(cls, prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
 
         """Function to compare two transcripts and determine a ccode.
 

@@ -476,7 +476,7 @@ Chr1\tTAIR10\texon\t5928\t8737\t.\t.\t.\tParent=AT1G01020.1"""
         self.tr.logger = self.logger
         self.tr.strip_cds()
         self.tr.strand = "+"
-        self.logger.setLevel("DEBUG")
+        self.logger.setLevel("WARNING")
         # self.tr.load_orfs([orf])
         with self.assertLogs("null", level="DEBUG") as cm_out:
             self.tr.load_orfs([orf])

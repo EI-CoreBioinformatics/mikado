@@ -1,3 +1,4 @@
+@cython.profile(True)
 cpdef double calc_f1(double recall, double precision):
     """
     Static method to calculate the F1 statistic given precision

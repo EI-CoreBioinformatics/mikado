@@ -1,12 +1,14 @@
 from .resultstorer import ResultStorer
 from ..loci import Transcript
-from ..utilities.overlap cimport overlap
+from ..utilities.overlap cimport c_overlap
 from .f1 cimport calc_f1
+import cython
 
 
 __author__ = 'Luca Venturini'
 
-cdef tuple __assign_monoexonic_ccode(prediction, reference, int nucl_overlap, tuple stats):
+@cython.profile(True)
+cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tuple stats):
 
     cdef:
         str ccode
@@ -14,8 +16,11 @@ cdef tuple __assign_monoexonic_ccode(prediction, reference, int nucl_overlap, tu
         double exon_recall, exon_precision, exon_f1
         double junction_recall, junction_precision, junction_f1
         list overlaps
-        int p_exon_num, p_start, p_end
-        int r_exon_num, r_start, r_end
+        short p_exon_num, r_exon_num
+        long p_start, p_end, r_start, r_end
+        long over
+        long p_cdna_length
+        long i_length, i_start, i_end
         
     p_exon_num, p_start, p_end = prediction.exon_num, prediction.start, prediction.end
     r_exon_num, r_start, r_end = reference.exon_num, reference.start, reference.end
@@ -25,27 +30,25 @@ cdef tuple __assign_monoexonic_ccode(prediction, reference, int nucl_overlap, tu
      exon_recall, exon_precision, exon_f1,
      junction_recall, junction_precision, junction_f1) = stats
 
-
-    if prediction.exon_num == 1 and reference.exon_num > 1:
+    if p_exon_num == 1 and r_exon_num > 1:
         if nucl_precision < 1 and nucl_overlap > 0:
-            prediction_coords = (prediction.start, prediction.end)
-
             overlaps = []
-            for intron in sorted([tuple([_[0], _[1]]) for _ in reference.introns]):
-
-                over = overlap(intron, prediction_coords)
+            for intron in sorted(reference.introns):
+                i_start, i_end = intron[0], intron[1]
+                over = c_overlap(i_start, i_end, p_start, p_end, flank=0, positive=True)
                 if over > 0:
-                    overlaps.append((over, (intron[1] - intron[0] + 1)))
+                    i_length = i_end - i_start + 1
+                    overlaps.append((over, i_length))
             if len(overlaps) == 0:
                 # Completely contained inside
                 ccode = "mo"
             elif len(overlaps) == 1:
                 over, i_length = overlaps.pop()
-                if over == i_length and over < prediction.cdna_length:
+                p_cdna_length = prediction.cdna_length
+                if over == i_length and over < p_cdna_length:
                     ccode = "mo"
                 elif 10 < over < i_length:
-                    if (reference.start < prediction.start <
-                            prediction.end < reference.end):
+                    if (r_start < p_start < p_end < r_end):
                         ccode = "e"
                     else:
                         ccode = "mo"
@@ -61,16 +64,14 @@ cdef tuple __assign_monoexonic_ccode(prediction, reference, int nucl_overlap, tu
                     ccode = "e"
         elif nucl_overlap > 0:
             ccode = "mo"
-        elif (nucl_recall == 0 and
-              reference.start < prediction.start < reference.end):
+        elif (nucl_recall == 0 and r_start < p_start < r_end):
             ccode = "i"  # Monoexonic fragment inside an intron
-    elif prediction.exon_num > 1 and reference.exon_num == 1:
+    elif p_exon_num > 1 and r_exon_num == 1:
         # if nucl_recall == 1:
         #     ccode = "h"  # Extension
         # else:
         ccode = "O"  # Reverse generic overlap
-    elif prediction.exon_num == reference.exon_num == 1:
-        junction_f1 = junction_precision = junction_recall = 1  # Set to one
+    elif p_exon_num == r_exon_num == 1:
         if nucl_f1 >= 0.95 and reference.strand == prediction.strand:
             reference_exon = reference.exons[0]
             ccode = "_"
@@ -79,16 +80,14 @@ cdef tuple __assign_monoexonic_ccode(prediction, reference, int nucl_overlap, tu
         else:
             ccode = "m"  # just a generic exon overlap b/w two monoexonic transcripts
 
-    stats = (nucl_recall, nucl_precision, nucl_f1,
-             exon_recall, exon_precision, exon_f1,
-             junction_recall, junction_precision, junction_f1)
+    # stats = (nucl_recall, nucl_precision, nucl_f1,
+    #         exon_recall, exon_precision, exon_f1,
+    #         junction_recall, junction_precision, junction_f1)
 
-    cdef tuple result
-    result = (ccode, stats)
-    return result
+    return ccode
 
 
-def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
+cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, tuple stats):
 
     """
     Static method to assign a class code when both transcripts are multiexonic.
@@ -103,11 +102,32 @@ def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
     :return:
     """
 
+    cdef:
+        str ccode
+        double nucl_recall, nucl_precision, nucl_f1
+        double exon_recall, exon_precision, exon_f1
+        double junction_recall, junction_precision, junction_f1
+        list overlaps
+        int p_exon_num, r_exon_num
+        long p_start, p_end, r_start, r_end
+        long over
+        set r_splices, p_splices
+        set r_introns, p_introns
+        long intron_start, intron_end
+        bint start_in, end_ind
+        long min_splice, max_splice
+        list corr_exons
+
+    r_splices, p_splices = reference.splices, prediction.splices
+    r_introns, p_introns = reference.introns, prediction.introns
+    p_exon_num, p_start, p_end = prediction.exon_num, prediction.start, prediction.end
+    r_exon_num, r_start, r_end = reference.exon_num, reference.start, reference.end
+
     (nucl_recall, nucl_precision, nucl_f1,
      exon_recall, exon_precision, exon_f1,
      junction_recall, junction_precision, junction_f1) = stats
 
-    ccode = None
+    ccode = ""
     if junction_recall == 1 and junction_precision < 1:
         # Check if this is an extension
         new_splices = set(prediction.splices) - set(reference.splices)
@@ -123,22 +143,24 @@ def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
             else:
                 ccode = "n"
     elif 0 < junction_recall < 1 and 0 < junction_precision < 1:
-        # if one_intron_confirmed is True:
         ccode = "j"
-        # else:
-        #     ccode = "o"
     elif junction_precision == 1 and junction_recall < 1:
         if nucl_precision == 1:
-            assert nucl_recall < 1
+            # assert nucl_recall < 1
             ccode = "c"
         else:
-            missed_introns = reference.introns - prediction.introns
-            start_in = any([True for intron in missed_introns if
-                            (prediction.start < intron[0] and
-                             intron[1] < min(prediction.splices))])
-            end_in = any([True for intron in missed_introns if
-                            (prediction.end > intron[1] and
-                             intron[0] > max(prediction.splices))])
+            missed_introns = r_introns - p_introns
+            min_splice, max_splice = min(prediction.splices), max(prediction.splices)
+            start_in = 0
+            end_in = 0
+            for intron in missed_introns:
+                intron_start, intron_end = intron
+                if p_start < intron_start and intron_end < min_splice:
+                    start_in = 1
+                    break
+                if p_end > intron_end and intron_start > max_splice:
+                    end_in = 1
+                    break
 
             if start_in or end_in:
                 ccode = "j"
@@ -148,9 +170,11 @@ def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
     elif junction_recall == 0 and junction_precision == 0:
         if nucl_f1 > 0:
             corr_exons = []
-            for pred_index, intron in enumerate(prediction.introns):
-                for ref_index, ref_intron in enumerate(reference.introns):
-                    if overlap(ref_intron, intron) > 0:
+            for pred_index, intron in enumerate(p_introns):
+                for ref_index, ref_intron in enumerate(r_introns):
+                    if c_overlap(ref_intron[0], ref_intron[1],
+                                 intron[0], intron[1],
+                                 flank=0, positive=1) > 0:
                         corr_exons.append((ref_index, pred_index))
                 if len(corr_exons) >= 1:
                     break
@@ -162,19 +186,20 @@ def __assign_multiexonic_ccode(prediction, reference, nucl_overlap, stats):
             if nucl_overlap == 0:
                 # The only explanation for no nucleotide overlap
                 # and no junction overlap is that it is inside an intron
-                if reference.start < prediction.start < reference.end:
+                if r_start < p_start < r_end:
                     ccode = "I"
-                elif prediction.start < reference.start < prediction.end:
+                elif p_start < r_start < p_end:
                     ccode = "rI"  # reverse intron retention
 
-    stats = (nucl_recall, nucl_precision, nucl_f1,
-             exon_recall, exon_precision, exon_f1,
-             junction_recall, junction_precision, junction_f1)
+    # stats = (nucl_recall, nucl_precision, nucl_f1,
+    #          exon_recall, exon_precision, exon_f1,
+    #          junction_recall, junction_precision, junction_f1)
 
-    return ccode, stats
+    return ccode
 
 
-def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tuple):
+@cython.profile(True)
+cpdef tuple compare(prediction, reference):
 
     """Function to compare two transcripts and determine a ccode.
 
@@ -232,27 +257,46 @@ def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tup
     prediction.finalize()
     reference.finalize()
 
+    cdef:
+        long nucl_overlap, distance
+        set __pred_exons, __ref_exons
+        tuple exon, other_exon, stats
+        double p_cdna_length, r_cdna_length  # Cast as doubles to ensure division correctness
+        double nucl_recall, nucl_precision, nucl_f1
+        double exon_recall, exon_precision, exon_f1
+        double junction_recall, junction_precision, junction_f1
+        short r_exon_num, p_exon_num
+        long p_start, p_end, r_start, r_end
+
+
+    p_cdna_length, r_cdna_length = prediction.cdna_length, reference.cdna_length
+    p_exon_num, r_exon_num = prediction.exon_num, reference.exon_num
+    p_start, p_end, r_start, r_end = (prediction.start, prediction.end,
+                                      reference.start, reference.end)
+
     nucl_overlap = 0
 
     __pred_exons = set()
     __ref_exons = set()
 
     for exon in prediction.exons:
-        exon = tuple([exon[0], exon[1] + 1])
+        exon = (exon[0], exon[1] + 1)
         __pred_exons.add(exon)
         for other_exon in reference.exons:
-            other_exon = tuple([other_exon[0], other_exon[1] + 1])
+            other_exon = (other_exon[0], other_exon[1] + 1)
             __ref_exons.add(other_exon)
-            nucl_overlap += overlap(exon, other_exon, positive=True)
+            nucl_overlap += c_overlap(exon[0], exon[1],
+                                      other_exon[0], other_exon[1],
+                                      flank=0,
+                                      positive=1)
 
     # Quick verification that the overlap is not too big
-    assert nucl_overlap <= min(reference.cdna_length,
-                               prediction.cdna_length), \
+    assert nucl_overlap <= min(r_cdna_length, p_cdna_length), \
         (prediction.id, prediction.cdna_length,
          reference.id, reference.cdna_length, nucl_overlap)
 
-    nucl_recall = nucl_overlap / reference.cdna_length  # Sensitivity
-    nucl_precision = nucl_overlap / prediction.cdna_length
+    nucl_recall = nucl_overlap / r_cdna_length  # Sensitivity
+    nucl_precision = nucl_overlap / p_cdna_length
     nucl_f1 = calc_f1(nucl_recall, nucl_precision)
 
     # Exon statistics
@@ -262,15 +306,9 @@ def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tup
     exon_f1 = calc_f1(exon_recall, exon_precision)
 
     reference_exon = None
-    # one_intron_confirmed = False
 
     # Both multiexonic
-    if min(prediction.exon_num, reference.exon_num) > 1:
-        # assert min(len(prediction.splices),
-        #            len(reference.splices)) > 0,\
-        #     (prediction.introns, prediction.splices)
-        # one_intron_confirmed = any(intron in reference.introns for
-        #                            intron in prediction.introns)
+    if p_exon_num > 1 and r_exon_num > 1:
         junction_overlap = len(set.intersection(
             set(prediction.splices),
             set(reference.splices)))
@@ -278,14 +316,14 @@ def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tup
         junction_precision = junction_overlap / len(prediction.splices)
         junction_f1 = calc_f1(junction_recall, junction_precision)
 
-    elif prediction.exon_num == reference.exon_num == 1:
+    elif p_exon_num == r_exon_num == 1:
         # junction_overlap = junction_f1 = junction_precision = junction_recall = 1
         junction_f1 = junction_precision = junction_recall = 1
     else:
         # junction_overlap = junction_f1 = junction_precision = junction_recall = 0
         junction_f1 = junction_precision = junction_recall = 0
 
-    ccode = None
+    ccode = ""
     distance = 0
     if junction_f1 == 1 and prediction.exon_num > 1:
         if prediction.strand == reference.strand:
@@ -303,28 +341,23 @@ def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tup
             ccode = "p"
         else:
             ccode = "P"
-        distance = max(prediction.start - reference.end,
-                       reference.start - prediction.end)
+        distance = max(p_start - r_end, r_start - p_end)
 
     elif nucl_precision == 1:
         if prediction.exon_num == 1 or (prediction.exon_num > 1 and junction_precision == 1):
             ccode = "c"
 
-    if ccode is None:
+    if ccode == "":
         stats = (nucl_recall, nucl_precision, nucl_f1,
                  exon_recall, exon_precision, exon_f1,
                  junction_recall, junction_precision, junction_f1)
 
-        if min(prediction.exon_num, reference.exon_num) > 1:
-            ccode, stats = __assign_multiexonic_ccode(prediction, reference,
-                                                          nucl_overlap, stats)
+        if min(p_exon_num, r_exon_num) > 1:
+            ccode = __assign_multiexonic_ccode(prediction, reference,
+                                               nucl_overlap, stats)
         else:
-            ccode, stats = __assign_monoexonic_ccode(prediction, reference,
-                                                          nucl_overlap, stats)
-
-        (nucl_recall, nucl_precision, nucl_f1,
-         exon_recall, exon_precision, exon_f1,
-         junction_recall, junction_precision, junction_f1) = stats
+            ccode = __assign_monoexonic_ccode(prediction, reference,
+                                              nucl_overlap, stats)
 
     if (prediction.strand != reference.strand and
             all([_ is not None for _ in (prediction.strand, reference.strand)])):
@@ -353,7 +386,8 @@ def compare(prediction: Transcript, reference: Transcript) -> (ResultStorer, tup
                           round(100 * exon_recall, 2),
                           round(100 * exon_f1, 2),
                           distance)
-    if ccode is None:
+
+    if ccode == "":
         raise ValueError("Ccode is null;\n{0}".format(repr(result)))
 
-    return result, reference_exon
+    return (result, reference_exon)

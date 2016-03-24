@@ -1,7 +1,12 @@
-def c_overlap(int start, int end, int ostart, int oend, int flank):
+cdef int overlap(first, second, int flank=0, bint positive=0):
 
     """This function quickly computes the overlap between two
     ranges, with an optional flank."""
+
+    cdef int start, end, ostart, oend
+
+    start, end = first[:2]
+    ostart, oend = second[:2]
 
     if start > end:
         start, end = end, start
@@ -28,18 +33,21 @@ def c_overlap(int start, int end, int ostart, int oend, int flank):
         right = right_two
 
     cdef int result = right - left
-    # if positive == 1 and result < 0:
-    #     return 0
-    return result
-
-
-def c_overlap_positive(int start, int end, int ostart, int oend, int flank):
-
-    """This function quickly computes the overlap between two
-    ranges, with an optional flank, and a minimum result of 0."""
-
-    cdef int result = c_overlap(start, end, ostart, oend, flank)
-    if result < 0:
+    if positive == 1 and result < 0:
         return 0
     else:
         return result
+
+    # return result
+
+
+# def overlap_positive(int start, int end, int ostart, int oend, int flank):
+#
+#    """This function quickly computes the overlap between two
+#    ranges, with an optional flank, and a minimum result of 0."""
+#
+#    cdef int result = overlap(start, end, ostart, oend, flank)
+#    if result < 0:
+#        return 0
+#    else:
+#        return result

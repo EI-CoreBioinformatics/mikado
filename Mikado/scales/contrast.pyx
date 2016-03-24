@@ -9,7 +9,7 @@ __author__ = 'Luca Venturini'
 
 @cython.profile(True)
 @cython.boundscheck(False)
-cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tuple stats):
+cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, double stats[9]):
 
     cdef:
         str ccode
@@ -23,14 +23,21 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tup
         long over_left, over_right
         long p_cdna_length
         long i_length, i_start, i_end
+        # double stats[9]
         
     p_exon_num, p_start, p_end = prediction.exon_num, prediction.start, prediction.end
     r_exon_num, r_start, r_end = reference.exon_num, reference.start, reference.end
 
     ccode = ""
-    (nucl_recall, nucl_precision, nucl_f1,
-     exon_recall, exon_precision, exon_f1,
-     junction_recall, junction_precision, junction_f1) = stats
+    nucl_recall = stats[0]
+    nucl_precision = stats[1]
+    nucl_f1 = stats[2]
+    exon_recall = stats[3]
+    exon_precision = stats[4]
+    exon_f1 = stats[5]
+    junction_recall = stats[6]
+    junction_precision = stats[7]
+    junction_f1 = stats[8]
 
     if p_exon_num == 1 and r_exon_num > 1:
         if nucl_precision < 1 and nucl_overlap > 0:
@@ -89,7 +96,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, tup
     return ccode
 
 
-cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, tuple stats):
+cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, double stats[9]):
 
     """
     Static method to assign a class code when both transcripts are multiexonic.
@@ -125,9 +132,15 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, tu
     p_exon_num, p_start, p_end = prediction.exon_num, prediction.start, prediction.end
     r_exon_num, r_start, r_end = reference.exon_num, reference.start, reference.end
 
-    (nucl_recall, nucl_precision, nucl_f1,
-     exon_recall, exon_precision, exon_f1,
-     junction_recall, junction_precision, junction_f1) = stats
+    nucl_recall = stats[0]
+    nucl_precision = stats[1]
+    nucl_f1 = stats[2]
+    exon_recall = stats[3]
+    exon_precision = stats[4]
+    exon_f1 = stats[5]
+    junction_recall = stats[6]
+    junction_precision = stats[7]
+    junction_f1 = stats[8]
 
     ccode = ""
     if junction_recall == 1 and junction_precision < 1:
@@ -201,6 +214,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, tu
 
 
 @cython.profile(True)
+@cython.cdivision(True)
 cpdef tuple compare(prediction, reference):
 
     """Function to compare two transcripts and determine a ccode.
@@ -262,14 +276,16 @@ cpdef tuple compare(prediction, reference):
     cdef:
         long nucl_overlap, distance
         set __pred_exons, __ref_exons
-        tuple exon, other_exon, stats
+        long exon_a, exon_b, other_exon_a, other_exon_b
         double p_cdna_length, r_cdna_length  # Cast as doubles to ensure division correctness
         double nucl_recall, nucl_precision, nucl_f1
         double exon_recall, exon_precision, exon_f1
         double junction_recall, junction_precision, junction_f1
         short r_exon_num, p_exon_num
         long p_start, p_end, r_start, r_end
-
+        double len_r_splices, len_p_splices
+        long junction_overlap
+        double stats[9]
 
     p_cdna_length, r_cdna_length = prediction.cdna_length, reference.cdna_length
     p_exon_num, r_exon_num = prediction.exon_num, reference.exon_num
@@ -282,13 +298,13 @@ cpdef tuple compare(prediction, reference):
     __ref_exons = set()
 
     for exon in prediction.exons:
-        exon = (exon[0], exon[1] + 1)
+        exon_a, exon_b = exon[0], exon[1] + 1
         __pred_exons.add(exon)
         for other_exon in reference.exons:
-            other_exon = (other_exon[0], other_exon[1] + 1)
+            other_exon_a, other_exon_b = other_exon[0], other_exon[1] + 1
             __ref_exons.add(other_exon)
-            nucl_overlap += c_overlap(exon[0], exon[1],
-                                      other_exon[0], other_exon[1],
+            nucl_overlap += c_overlap(exon_a, exon_b,
+                                      other_exon_a, other_exon_b,
                                       flank=0,
                                       positive=1)
 
@@ -311,11 +327,12 @@ cpdef tuple compare(prediction, reference):
 
     # Both multiexonic
     if p_exon_num > 1 and r_exon_num > 1:
+        len_rsplices, len_psplices = len(reference.splices), len(prediction.splices)
         junction_overlap = len(set.intersection(
-            set(prediction.splices),
-            set(reference.splices)))
-        junction_recall = junction_overlap / len(reference.splices)
-        junction_precision = junction_overlap / len(prediction.splices)
+            prediction.splices,
+            reference.splices))
+        junction_recall = junction_overlap / len_rsplices
+        junction_precision = junction_overlap / len_psplices
         junction_f1 = calc_f1(junction_recall, junction_precision)
 
     elif p_exon_num == r_exon_num == 1:
@@ -327,7 +344,7 @@ cpdef tuple compare(prediction, reference):
 
     ccode = ""
     distance = 0
-    if junction_f1 == 1 and prediction.exon_num > 1:
+    if junction_f1 == 1 and p_exon_num > 1:
         if prediction.strand == reference.strand:
             ccode = "="  # We have recovered all the junctions
         else:
@@ -338,7 +355,7 @@ cpdef tuple compare(prediction, reference):
         ccode = "_"  # We have recovered all the junctions
 
     # Outside the transcript - polymerase run-on
-    elif prediction.start > reference.end or prediction.end < reference.start:
+    elif p_start > r_end or p_end < r_start:
         if reference.strand == prediction.strand:
             ccode = "p"
         else:
@@ -346,13 +363,23 @@ cpdef tuple compare(prediction, reference):
         distance = max(p_start - r_end, r_start - p_end)
 
     elif nucl_precision == 1:
-        if prediction.exon_num == 1 or (prediction.exon_num > 1 and junction_precision == 1):
+        if p_exon_num == 1 or (p_exon_num > 1 and junction_precision == 1):
             ccode = "c"
 
     if ccode == "":
-        stats = (nucl_recall, nucl_precision, nucl_f1,
-                 exon_recall, exon_precision, exon_f1,
-                 junction_recall, junction_precision, junction_f1)
+        # stats = (nucl_recall, nucl_precision, nucl_f1,
+        #         exon_recall, exon_precision, exon_f1,
+        #          junction_recall, junction_precision, junction_f1)
+        stats[0] = nucl_recall
+        stats[1] = nucl_precision
+        stats[2] = nucl_f1
+        stats[3] = exon_recall
+        stats[4] = exon_precision
+        stats[5] = exon_f1
+        stats[6] = junction_recall
+        stats[7] = junction_precision
+        stats[8] = junction_f1
+
 
         if min(p_exon_num, r_exon_num) > 1:
             ccode = __assign_multiexonic_ccode(prediction, reference,

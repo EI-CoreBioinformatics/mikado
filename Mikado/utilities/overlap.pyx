@@ -15,7 +15,7 @@ cpdef long overlap(first, second, long flank=0, bint positive=0):
 
 
 @cython.profile(True)
-cdef long c_overlap(long start, long end, long ostart, long oend, long flank=0, bint positive=0):
+cdef long c_overlap(long start, long end, long ostart, long oend, long flank, bint positive):
     if start > end:
         start, end = end, start
     if ostart > oend:

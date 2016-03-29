@@ -199,8 +199,8 @@ class Accountant:
                 found_transcripts += (0b10 & val) >> 1
                 found_transcripts_stringent += 0b1 & val
                 # Will evaluate to 1 if the transcript has at least one match
-                private_transcripts += (0b1000 & val) >> 3 ^ 0b1
-                gene_not_found ^= (0b1000 & val) >> 3 ^ 0b1
+                private_transcripts += (val >> 2) ^ 0b1
+                gene_not_found ^= (val >> 2) ^ 0b1
                 gene_match |= val
             found_genes_stringent += gene_match & 0b1
             # Shift back by 1

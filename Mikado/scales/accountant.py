@@ -60,7 +60,7 @@ class Accountant:
                 # First bit: stringent match (100% F1)
                 # Second bit: normal match (95% F1)
                 # Third bit: lenient match (80% F1)
-                self.ref_genes[gene][transcr.id] = 0b000
+                self.ref_genes[gene][transcr.id] = 0b1000
                 #                 self.ref_transcript_num+=1
                 if transcr.chrom not in self.introns:
                     self.exons[transcr.chrom] = dict([("+", dict()), ("-", dict())])
@@ -189,18 +189,19 @@ class Accountant:
         # First bit: stringent match (100% F1)
         # Second bit: normal match (95% F1)
         # Third bit: lenient match (80% F1)
+        # Fourth bit: private
 
         for gene in store:
             gene_match = 0b000
-            gene_not_found = 0b0
+            gene_not_found = 0b1
             for _, val in store[gene].items():
                 total_transcripts += 1
                 found_transcripts_lenient += (0b100 & val) >> 2
                 found_transcripts += (0b10 & val) >> 1
                 found_transcripts_stringent += 0b1 & val
                 # Will evaluate to 1 if the transcript has at least one match
-                private_transcripts += (val >> 2) ^ 0b1
-                gene_not_found ^= (val >> 2) ^ 0b1
+                private_transcripts += (0b1000 & val) >> 3
+                gene_not_found &= (0b1000 & val) >> 3
                 gene_match |= val
             found_genes_stringent += gene_match & 0b1
             # Shift back by 1
@@ -583,6 +584,8 @@ class Accountant:
                                 self.pred_genes[parent][transcr.id] |= 0b10
                             if nucl_f1 == 100:
                                 self.pred_genes[parent][transcr.id] |= 0b01
+                        # Unset the "private" mark
+                        self.ref_genes[refgene][refid] ^= 0b1000
                         self.ref_genes[refgene][refid] |= 0b100
                         if nucl_f1 >= 95:
                             self.ref_genes[refgene][refid] |= 0b10

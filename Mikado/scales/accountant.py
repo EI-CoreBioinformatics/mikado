@@ -561,7 +561,7 @@ class Accountant:
             if parent not in self.pred_genes:
                 self.pred_genes[parent] = dict()
             if transcr.id not in self.pred_genes[parent]:
-                self.pred_genes[parent][transcr.id] = 0b0000
+                self.pred_genes[parent][transcr.id] = 0b1000
 
         if transcr.strand is None:
             strand = "+"
@@ -570,9 +570,10 @@ class Accountant:
 
         if result.ccode != ("u",):
             for parent in transcr.parent:
-                self.pred_genes[parent][transcr.id] |= 0b1000
+                self.pred_genes[parent][transcr.id] &= ~(1 << 3)  # Clear the fourth bit
             for refid, refgene in zip(result.ref_id, result.ref_gene):
-                self.ref_genes[refgene][refid] |= 0b1000
+                # self.ref_genes[refgene][refid] |= 0b1000
+                self.ref_genes[refgene][refid] &= ~(1 << 3)  # Clear the fourth bit
 
             if len(result.j_f1) == 1:
                 zipper = zip(result.ref_id, result.ref_gene, result.j_f1, result.n_f1)
@@ -585,12 +586,15 @@ class Accountant:
                             if nucl_f1 == 100:
                                 self.pred_genes[parent][transcr.id] |= 0b01
                         # Unset the "private" mark
-                        self.ref_genes[refgene][refid] ^= 0b1000
+
                         self.ref_genes[refgene][refid] |= 0b100
                         if nucl_f1 >= 95:
                             self.ref_genes[refgene][refid] |= 0b10
                         if nucl_f1 == 100:
                             self.ref_genes[refgene][refid] |= 0b01
+        else:
+            for parent in transcr.parent:
+                self.pred_genes[parent][transcr.id] &= 0b1000
 
         if transcr.chrom not in self.exons:
             self.exons[transcr.chrom] = dict([("+", dict()), ("-", dict())])

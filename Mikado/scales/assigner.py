@@ -239,6 +239,8 @@ class Assigner:
             for gene_match in gene_matches:
                 __res = sorted([self.calc_and_store_compare(prediction, tra) for tra in gene_match],
                                reverse=True, key=self.get_f1)
+                # Add to the refmap - inefficient, but ..
+                [self.add_to_refmap(_) for _ in __res]
                 best_res = (gene_match.strand, __res)
                 if best is None:
                     best = best_res

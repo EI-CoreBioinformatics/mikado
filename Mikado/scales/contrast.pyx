@@ -93,7 +93,12 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, dou
         # if nucl_recall == 1:
         #     ccode = "h"  # Extension
         # else:
-        ccode = "O"  # Reverse generic overlap
+        if nucl_overlap > 0:
+            ccode = "O"  # Reverse generic overlap
+        elif c_overlap(p_start, p_end, r_start, r_end, 0, 1) > 0:
+            ccode = "ri"
+        else:
+            ccode = "p"
     elif p_exon_num == r_exon_num == 1:
         if nucl_f1 >= 0.95 and r_strand == p_strand:
             reference_exon = reference.exons[0]

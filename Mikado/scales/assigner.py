@@ -225,7 +225,7 @@ class Assigner:
         :return:
         """
 
-        new_matches = []
+        new_matches = collections.defaultdict(list)
 
         # Matches format: [(start,end), distance]
         for match in matches:
@@ -239,31 +239,44 @@ class Assigner:
             for gene_match in gene_matches:
                 __res = sorted([self.calc_and_store_compare(prediction, tra) for tra in gene_match],
                                reverse=True, key=self.get_f1)
-                # Add to the refmap - inefficient, but ..
-                [self.add_to_refmap(_) for _ in __res]
-                best_res = (gene_match.strand, __res)
-                if best is None:
-                    best = best_res
-                else:
-                    best = sorted([best, best_res],
-                                  reverse=True,
-                                  key=lambda res: self.get_f1(res[1][0]))[0]
-            if best is not None:
-                new_matches.append(best)
+                new_matches[(match[0], gene_match.strand)].append(__res)
 
-        matches = new_matches
-        strands = set(_[0] for _ in matches)
+            #     best_res = (gene_match.strand, __res)
+            #     if best is None:
+            #         best = best_res
+            #     else:
+            #         best = sorted([best, best_res],
+            #                       reverse=True,
+            #                       key=lambda res: self.get_f1(res[1][0]))[0]
+            # if best is not None:
+            #     new_matches.append(best)
+
+        strands = set(_[1] for _ in new_matches)
+        # strands = set(_[0] for _ in matches)
         if len(strands) > 1 and prediction.strand in strands:
-            matches = list(mmatch for mmatch in matches
-                           if mmatch[0] == prediction.strand)
-        if len(matches) == 0:
-            raise ValueError("I filtered out all matches. This is wrong!")
+            matches = dict((_[0][0],
+                            sorted(_[1], reverse=True,
+                                   key=lambda res: self.get_f1(res[1][0]))[0])
+                           for _ in new_matches.items() if
+                           _[0][1] == prediction.strand)
+            # matches = list(mmatch for mmatch in matches
+            #                if mmatch[0] == prediction.strand)
+            if len(matches) == 0:
+                raise ValueError("I filtered out all matches. This is wrong!")
+        else:
+            matches = dict((_[0][0],
+                            sorted(_[1], reverse=True,
+                                   key=lambda res: self.get_f1(res[1][0]))[0])
+                           for _ in new_matches.items())
 
         best_fusion_results = []
         results = []  # Final results
         dubious = []  # Necessary for a double check.
 
         for match in matches:
+
+
+
             m_res = match[1]
             # A fusion is called only if I have one of the following conditions:
             # the transcript gets one of the junctions of the other transcript

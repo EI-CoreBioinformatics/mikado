@@ -19,6 +19,7 @@ from . import calc_f1
 from ..loci.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
+import itertools
 from ..utilities import overlap
 from .contrast import compare as c_compare
 
@@ -225,80 +226,70 @@ class Assigner:
         :return:
         """
 
-        new_matches = collections.defaultdict(list)
+        # Input: dict[(start, end), distance]: [gene1, gene2 ...]
+        # What we need to achieve in this section of the program
+        # Detect which genes in range *are* fused
+        # Assign a "fused" tag to each transcript in the fused gene that passes the criteria
 
-        # Matches format: [(start,end), distance]
-        for match in matches:
-            best = None
-            gene_matches = [self.genes[_] for _ in
-                            self.positions[prediction.chrom][match[0]]]
+        results = []
+        new_matches = dict()
 
-            self.logger.debug("Match for %s: %s",
-                              match,
-                              [_.id for _ in gene_matches])
-            for gene_match in gene_matches:
-                __res = sorted([self.calc_and_store_compare(prediction, tra) for tra in gene_match],
-                               reverse=True, key=self.get_f1)
-                new_matches[(match[0], gene_match.strand)].append(__res)
-
-            #     best_res = (gene_match.strand, __res)
-            #     if best is None:
-            #         best = best_res
-            #     else:
-            #         best = sorted([best, best_res],
-            #                       reverse=True,
-            #                       key=lambda res: self.get_f1(res[1][0]))[0]
-            # if best is not None:
-            #     new_matches.append(best)
-
-        strands = set(_[1] for _ in new_matches)
-        # strands = set(_[0] for _ in matches)
-        if len(strands) > 1 and prediction.strand in strands:
-            matches = dict((_[0][0],
-                            sorted(_[1], reverse=True,
-                                   key=lambda res: self.get_f1(res[1][0]))[0])
-                           for _ in new_matches.items() if
-                           _[0][1] == prediction.strand)
-            # matches = list(mmatch for mmatch in matches
-            #                if mmatch[0] == prediction.strand)
-            if len(matches) == 0:
-                raise ValueError("I filtered out all matches. This is wrong!")
-        else:
-            matches = dict((_[0][0],
-                            sorted(_[1], reverse=True,
-                                   key=lambda res: self.get_f1(res[1][0]))[0])
-                           for _ in new_matches.items())
-
-        best_fusion_results = []
-        results = []  # Final results
-        dubious = []  # Necessary for a double check.
+        same_strand = set()
+        other_strand = set()
 
         for match in matches:
+            for gene, gene_match in iter((gene, self.genes[gene]) for gene in
+                                         self.positions[prediction.chrom][match[0]]):
+                if gene_match.strand == prediction.strand:
+                    same_strand.add(gene)
+                else:
+                    other_strand.add(gene)
+                new_matches[gene] = sorted(
+                    [self.calc_and_store_compare(prediction, tra) for tra in gene_match],
+                    key=self.get_f1, reverse=True)
+
+        if len(same_strand) > 0:
+            for gene in other_strand:
+                # Add to the final results the
+                results.extend(new_matches[gene])
+                del new_matches[gene]
+
+        assert len(new_matches) > 0
+
+        fused = collections.defaultdict(list)
+        dubious = set()
+        best = set()
+
+        for match, genes in matches:
+            local_best = []
+            local_results = []
+            for gene in genes:
+                if gene not in new_matches:
+                    continue
+                # The best match is the first
+                if new_matches[gene][0].j_f1[0] == 0 and new_matches[gene][0].n_recall[0] < 10:
+                    dubious.add(gene)
+                    continue
+                else:
+                    local_best.append(new_matches[gene][0])
+                    fused[match].append(gene)
+            if local_best > 0:
+                best.add(sorted(local_best, key=self.get_f1, reverse=True)[0])
 
 
 
-            m_res = match[1]
-            # A fusion is called only if I have one of the following conditions:
-            # the transcript gets one of the junctions of the other transcript
-            # the exonic overlap is >=10% (n_recall)_
-
-            if m_res[0].j_f1[0] == 0 and m_res[0].n_recall[0] < 10:
-                dubious.append(m_res)
-                continue
-            # List of ResultStorer instances
-            results.extend(m_res)
-            best_fusion_results.append(m_res[0])
-
-        if len(results) == 0:
-            self.logger.debug("Filtered out all results for %s, using the dubious ones",
+        if len(best) == 0:
+            self.logger.debug("Filtered out all results for %s, selecting the best dubious one",
                               prediction.id)
             # I have filtered out all the results,
             # because I only match partially the reference genes
+            best =
+
+
             dubious = sorted(dubious, key=self.dubious_getter)
             results = dubious[0]
             best_fusion_results = [results[0]]
 
-        fused_group = tuple(sorted([_.ref_gene[0] for _ in best_fusion_results]))
 
         values = []
         if len(fused_group) > 1:

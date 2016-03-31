@@ -320,11 +320,15 @@ def compare(args):
         queue_logger.info("Finished to create an index for %s, with %d genes",
                           args.reference.name, len(genes))
     else:
-        if os.path.exists("{0}.midx".format(args.reference.name)):
+        if (os.path.exists("{0}.midx".format(args.reference.name)) and
+            os.stat(args.reference.name).st_mtime >= os.stat(
+                    "{0}.midx".format(args.reference.name)).st_mtime):
+            queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
+            os.remove("{0}.midx".format(args.reference.name))
+        elif os.path.exists("{0}.midx".format(args.reference.name)):
             queue_logger.info("Starting loading the indexed reference")
             with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
                 positions = collections.defaultdict(dict)
-                # TODO: parallelise index loading. It is way too slow in single-process
                 try:
                     cp_genes = json.load(index)
                     genes = dict()

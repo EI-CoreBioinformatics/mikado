@@ -15,12 +15,9 @@ import argparse
 import operator
 from collections import namedtuple
 from .resultstorer import ResultStorer
-from . import calc_f1
 from ..loci.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
-import itertools
-from ..utilities import overlap
 from .contrast import compare as c_compare
 
 
@@ -223,6 +220,7 @@ class Assigner:
         multiple matches at distance 0 is indeed a fusion, or not.
         :param prediction:
         :param matches:
+        :type matches: list
         :return:
         """
 
@@ -233,13 +231,15 @@ class Assigner:
 
         results = []
         new_matches = dict()
+        match_to_gene = dict()
 
         same_strand = set()
         other_strand = set()
 
         for match in matches:
+            match_to_gene[match[0]] = self.positions[prediction.chrom][match[0]]
             for gene, gene_match in iter((gene, self.genes[gene]) for gene in
-                                         self.positions[prediction.chrom][match[0]]):
+                                         match_to_gene[match[0]]):
                 if gene_match.strand == prediction.strand:
                     same_strand.add(gene)
                 else:
@@ -260,9 +260,8 @@ class Assigner:
         dubious = set()
         best = set()
 
-        for match, genes in matches:
+        for match, genes in match_to_gene.items():
             local_best = []
-            local_results = []
             for gene in genes:
                 if gene not in new_matches:
                     continue
@@ -273,42 +272,45 @@ class Assigner:
                 else:
                     local_best.append(new_matches[gene][0])
                     fused[match].append(gene)
-            if local_best > 0:
-                best.add(sorted(local_best, key=self.get_f1, reverse=True)[0])
+            if len(local_best)> 0:
+                best.add((match, sorted(local_best, key=self.get_f1, reverse=True)[0]))
 
+        if len(best) > 1:  # We have a fusion
+            # Add the fusion tag to all transcripts of fused genes, if applicable
+            values = []
+            # Now retrieve the results according to their order on the genome
+            # Keep only the result, not their position
+            best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
+            for key in ResultStorer.__slots__:
+                if key in ["gid", "tid", "distance"]:
+                    values.append(getattr(best[0], key))
+                elif key == "ccode":
+                    values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
+                else:
+                    val = tuple([getattr(result, key)[0] for result in best])
+                    values.append(val)
+            best_result = ResultStorer(*values)
+            for match, genes in fused.items():
+                for gene in iter(_ for _ in genes if _ not in dubious):
+                    for position, result in enumerate(new_matches[gene]):
+                        if result.j_f1[0] > 0 or result.n_recall[0] > 10:
+                            result.ccode = ("f", result.ccode[0])
+                            new_matches[gene][position] = result
 
-
-        if len(best) == 0:
+        elif len(best) == 1:
+            best_result = best.pop()[1]
+        else:  # We have to retrieve the best result from the dubious
             self.logger.debug("Filtered out all results for %s, selecting the best dubious one",
                               prediction.id)
             # I have filtered out all the results,
             # because I only match partially the reference genes
-            best =
+            best_result = sorted([new_matches[gene][0] for gene in dubious],
+                                 key=self.get_f1, reverse=True)[0]
 
-
-            dubious = sorted(dubious, key=self.dubious_getter)
-            results = dubious[0]
-            best_fusion_results = [results[0]]
-
-
-        values = []
-        if len(fused_group) > 1:
-            for result in results:
-                result.ccode = ("f", result.ccode[0])
-            for key in ResultStorer.__slots__:
-                if key in ["gid", "tid", "distance"]:
-                    values.append(getattr(best_fusion_results[0], key))
-                elif key == "ccode":
-                    values.append(
-                        tuple(["f"] + [getattr(_, "ccode")[1] for _ in best_fusion_results])
-                    )
-                else:
-                    val = tuple([getattr(x, key)[0] for x in best_fusion_results])
-                    values.append(val)
-            best_result = ResultStorer(*values)
-        else:
-            best_result = sorted(best_fusion_results, reverse=True, key=self.get_f1)[0]
-        # Finished creating the fusion result
+        # Finally add the results
+        for gene in new_matches:
+            results.extend(new_matches[gene])
+        self.logger.warning("\n".join([str(result) for result in results]))
 
         return results, best_result
 

@@ -233,28 +233,34 @@ class Assigner:
         new_matches = dict()
         match_to_gene = dict()
 
-        same_strand = set()
-        other_strand = set()
+        strands = collections.defaultdict(set)
 
+        # Get all the results for the single genea
+        # We *want* to do the calculation for all hits
         for match in matches:
             match_to_gene[match[0]] = self.positions[prediction.chrom][match[0]]
             for gene, gene_match in iter((gene, self.genes[gene]) for gene in
                                          match_to_gene[match[0]]):
-                if gene_match.strand == prediction.strand:
-                    same_strand.add(gene)
-                else:
-                    other_strand.add(gene)
+                strands[gene_match.strand].add(gene)
                 new_matches[gene] = sorted(
                     [self.calc_and_store_compare(prediction, tra) for tra in gene_match],
                     key=self.get_f1, reverse=True)
 
-        if len(same_strand) > 0:
-            for gene in other_strand:
-                # Add to the final results the
-                results.extend(new_matches[gene])
-                del new_matches[gene]
+        # If we have candidates for the fusion which are on its same strand
+        # Keep only those. Otherwise in compact genomes we might call as "fusions"
+        # all transcripts which are assigned to genes overlapping on the same strand!
+        if prediction.strand is not None and len(strands[prediction.strand]) > 0:
+            for strand in iter(key for key in strands.keys() if key != prediction.strand):
+                for gene in strands[strand]:
+                    # Add to the final results the data for the gene
+                    results.extend(new_matches[gene])
+                    del new_matches[gene]
 
-        assert len(new_matches) > 0
+        if len(new_matches) == 0:
+            error = AssertionError("Filtered all results for %s. This is wrong!",
+                                   prediction.id)
+            self.logger.error(error)
+            raise error
 
         fused = collections.defaultdict(list)
         dubious = set()
@@ -272,7 +278,7 @@ class Assigner:
                 else:
                     local_best.append(new_matches[gene][0])
                     fused[match].append(gene)
-            if len(local_best)> 0:
+            if len(local_best) > 0:
                 best.add((match, sorted(local_best, key=self.get_f1, reverse=True)[0]))
 
         if len(best) > 1:  # We have a fusion

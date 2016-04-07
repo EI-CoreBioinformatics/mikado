@@ -503,8 +503,10 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             self.logger.debug("No introns in the locus to check against. Exiting.")
 
         if transcript.cds_tree is None:
+            # Enlarge the CDS segments if they are of length 1
             transcript.cds_tree = intervaltree.IntervalTree(
-                [intervaltree.Interval(cds[0], cds[1]) for cds in transcript.combined_cds])
+                [intervaltree.Interval(cds[0], max(cds[1], cds[0]+1))
+                 for cds in transcript.combined_cds])
 
         for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
             # Monobase exons are a problem

@@ -645,7 +645,7 @@ class Transcript:
 
         return retrieval.find_overlapping_cds(self, candidate_orfs)
 
-    def as_dict(self):
+    def as_dict(self, remove_attributes=True):
 
         """
         Method to transform the transcript object into a JSON-friendly representation.
@@ -655,7 +655,11 @@ class Transcript:
         state = dict()
 
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
+
             state[key] = getattr(self, key)
+            if key == "attributes" and remove_attributes is True:
+                for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
+                    del state[key][subkey]
 
         state["exons"] = []
         for exon in self.exons:

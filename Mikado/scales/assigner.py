@@ -531,7 +531,7 @@ class Assigner:
 
         return c_compare(prediction, reference)
 
-    def print_tmap(self, res: ResultStorer):
+    def print_tmap(self, res: [ResultStorer | None]):
         """
         This method will print a ResultStorer instance onto the TMAP file.
         :param res: result from compare

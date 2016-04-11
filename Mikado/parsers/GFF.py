@@ -8,6 +8,7 @@ Module to serialize GFF files.
 
 from . import Parser
 from .gfannotation import GFAnnotation
+from sys import intern
 
 
 # This class has exactly how many attributes I need it to have
@@ -15,11 +16,25 @@ from .gfannotation import GFAnnotation
 class GffLine(GFAnnotation):
     """Object which serializes a GFF line."""
 
-    def __init__(self, line: str, my_line='', header=False):
+    __negative_order = [intern(_) for _ in ["three_prime_utr",
+                                            "exon",
+                                            "stop_codon",
+                                            "CDS",
+                                            "start_codon",
+                                            "five_prime_utr"]]
+
+    __positive_order = [intern(_) for _ in ["five_prime_utr",
+                                            "exon",
+                                            "start_codon",
+                                            "CDS",
+                                            "stop_codon",
+                                            "three_prime_utr"]]
+
+    def __init__(self, line, my_line='', header=False):
         """
         Constructor method.
         :param line: the GFF line to be serialised
-        :type line: str,None
+        :type line: (str|None)
 
         :param my_line: optional string to be passed along. For exotic uses of the constructor.
         :type my_line: str
@@ -53,32 +68,6 @@ class GffLine(GFAnnotation):
                     self.attribute_order.append(itemized[0])
             except IndexError:
                 pass
-
-    def _sort_feature(self, feature):
-        """
-        Private method that sorts features according to the normal order in a GF file.
-        :param feature:
-        :return: numeric sort index
-        """
-
-        if self.strand == "-":
-            order = ["three_prime_utr",
-                     "exon",
-                     "stop_codon",
-                     "CDS",
-                     "start_codon",
-                     "five_prime_utr"]
-        else:
-            order = ["five_prime_utr",
-                     "exon",
-                     "start_codon",
-                     "CDS",
-                     "stop_codon",
-                     "three_prime_utr"]
-        if feature not in order:
-            return float("inf")
-        else:
-            return order.index(feature)
 
     def _format_attributes(self):
         """

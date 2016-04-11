@@ -61,6 +61,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.tr = Mikado.loci.Transcript(self.tr_gff_lines[0], logger=self.logger)
         for line in self.tr_gff_lines[1:]:
             self.tr.add_exon(line)
+        self.tr.name = self.tr.id
         self.tr.finalize()
         self.tr.logger = self.logger
 
@@ -354,7 +355,7 @@ Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8;Parent=AT1G01020.1
 Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9;Parent=AT1G01020.1;Name=AT1G01020.1
 Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1;Name=AT1G01020.1"""
 
-        self.assertEqual(real_printed, self.tr.__str__(print_cds=False))
+        self.assertEqual(real_printed, self.tr.format("gff", with_cds=False))
 
         real_printed_gtf = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
 Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";

@@ -6,6 +6,7 @@ Generic parser for GTF files.
 
 from . import Parser
 from .gfannotation import GFAnnotation
+import sys
 
 
 # This class has exactly how many attributes I need it to have
@@ -34,6 +35,19 @@ class GtfLine(GFAnnotation):
 
     # _slots=['chrom','source','feature','start',\
     # 'end','score','strand','phase','info']
+
+    __negative_order = ["3UTR",
+                        "exon",
+                        "stop_codon",
+                        "CDS",
+                        "start_codon",
+                        "5UTR"]
+    __positive_order = ["5UTR",
+                        "exon",
+                        "start_codon",
+                        "CDS",
+                        "stop_codon",
+                        "3UTR"]
 
     def __init__(self, line, my_line='', header=False):
 
@@ -117,32 +131,6 @@ class GtfLine(GFAnnotation):
             info_list.append("{0} \"{1}\"".format(info, val))
         attributes = "; ".join(info_list) + ";"
         return attributes
-
-    def _sort_feature(self, feature):
-        """
-        Private method that sorts features according to the normal order in a GF file.
-        :param feature:
-        :return: numeric sort index
-        """
-
-        if self.strand == "-":
-            order = ["3UTR",
-                     "exon",
-                     "stop_codon",
-                     "CDS",
-                     "start_codon",
-                     "5UTR"]
-        else:
-            order = ["5UTR",
-                     "exon",
-                     "start_codon",
-                     "CDS",
-                     "stop_codon",
-                     "3UTR"]
-        if feature not in order:
-            return float("inf")
-        else:
-            return order.index(feature)
 
     @property
     def name(self):

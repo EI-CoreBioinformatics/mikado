@@ -64,6 +64,7 @@ pick:
     preload: false
     procs: 1
     single_thread: false
+  scoring_file: plants.yaml
 prepare:
   #  Options related to the input data preparation.
   #  - gff: array of GFF3/GTF files containing the predictions. Required.

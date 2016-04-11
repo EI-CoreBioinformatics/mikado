@@ -267,6 +267,47 @@ def parse_self(args, genes, queue_logger):
     queue_logger.info("Finished.")
 
 
+def load_index(args, queue_logger):
+
+    """
+    Function to load the genes and positions from the indexed GFF.
+    :param args:
+    :param queue_logger:
+    :return: genes, positions
+    :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
+    """
+
+    with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
+        positions = collections.defaultdict(dict)
+        try:
+            cp_genes = json.load(index)
+            genes = dict()
+            for gid, gobj in cp_genes.items():
+                gene = Gene(None)
+                gene.load_dict(gobj,
+                               exclude_utr=args.exclude_utr,
+                               protein_coding=args.protein_coding)
+                # Necessary for when we are excluding non-coding
+                if len(gene.transcripts) > 0:
+                    genes[gid] = gene
+                    if (gene.start, gene.end) not in positions[gene.chrom]:
+                        positions[gene.chrom][(gene.start, gene.end)] = []
+                    positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
+                else:
+                    queue_logger.warning("No transcripts for %s", gid)
+
+            if not (isinstance(genes, dict) and
+                    isinstance(positions, collections.defaultdict) and
+                    positions.default_factory is dict):
+                raise EOFError
+        except EOFError:
+            genes, positions = None, None
+            queue_logger.error("Invalid index; deleting and rebuilding.")
+            os.remove("{0}.midx".format(args.reference.name))
+
+    return genes, positions
+
+
 def compare(args):
     """
     This function performs the comparison between two different files.
@@ -327,34 +368,7 @@ def compare(args):
             os.remove("{0}.midx".format(args.reference.name))
         elif os.path.exists("{0}.midx".format(args.reference.name)):
             queue_logger.info("Starting loading the indexed reference")
-            with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
-                positions = collections.defaultdict(dict)
-                try:
-                    cp_genes = json.load(index)
-                    genes = dict()
-                    for gid, gobj in cp_genes.items():
-                        gene = Gene(None)
-                        gene.load_dict(gobj,
-                                       exclude_utr=args.exclude_utr,
-                                       protein_coding=args.protein_coding)
-                        # Necessary for when we are excluding non-coding
-                        if len(gene.transcripts) > 0:
-                            genes[gid] = gene
-                            if (gene.start, gene.end) not in positions[gene.chrom]:
-                                positions[gene.chrom][(gene.start, gene.end)] = []
-                            positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
-                        else:
-                            queue_logger.warning("No transcripts for %s", gid)
-
-                    if not (isinstance(genes, dict) and
-                            isinstance(positions, collections.defaultdict) and
-                            positions.default_factory is dict):
-                        raise EOFError
-                except EOFError:
-                    genes, positions = None, None
-                    logger.error("Invalid index; deleting and rebuilding.")
-                    os.remove("{0}.midx".format(args.reference.name))
-
+            genes, positions = load_index(args, queue_logger)
         if genes is None:
             queue_logger.info("Starting parsing the reference")
             exclude_utr, protein_coding = args.exclude_utr, args.protein_coding

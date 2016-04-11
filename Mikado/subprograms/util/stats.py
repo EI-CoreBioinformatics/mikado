@@ -14,6 +14,7 @@ from ...loci import Transcript, Gene
 from ...parsers import GFF
 import numpy
 from collections import namedtuple, Counter
+import multiprocessing
 
 __author__ = "Luca Venturini"
 
@@ -141,6 +142,18 @@ class TranscriptComputer(Transcript):
         return self.data_tuple(**constructor)
 
 
+def finalize_wrapper(finalizable):
+
+    """
+    Wrapper around the finalize method for the object
+    :param finalizable: an object with the finalize method
+    :return:
+    """
+
+    finalizable.finalize()
+    return finalizable
+
+
 class Calculator:
 
     """
@@ -159,6 +172,7 @@ class Calculator:
             self.is_gff = False
         self.only_coding = parsed_args.only_coding
         self.out = parsed_args.out
+        self.procs = parsed_args.procs
         self.genes = dict()
         self.coding_genes = []
         self.__distances = numpy.array([])
@@ -221,8 +235,18 @@ class Calculator:
                         raise KeyError("{0}, line: {1}".format(err, record))
                     self.genes[gid].transcripts[parent].add_exon(record)
 
-        for gid in self.genes:
-            self.genes[gid].finalize()
+        if self.procs == 1:
+            for gid in self.genes:
+                self.genes[gid].finalize()
+        else:
+            multiprocessing.set_start_method("spawn", force=True)
+            pool = multiprocessing.Pool(self.procs)
+            for gid in self.genes:
+                self.genes[gid] = pool.apply_async(finalize_wrapper, args=(self.genes[gid],))
+            pool.close()
+            pool.join()
+            for gid in self.genes:
+                self.genes[gid] = self.genes[gid].get()
 
     def __call__(self):
 
@@ -262,13 +286,15 @@ class Calculator:
         """
 
         # Decimal to second digit precision
-        if array is None:
+
+        all_keys = ["Average", "Mode",
+                    'Min', '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
+
+        if array is None or len(array) == 0:
             return row
 
-        try:
-            array, weights = array
-        except ValueError as exc:
-            raise ValueError((exc, row["Stat"], array))
+        # array, weights = array
+        array, weights = array
 
         row["Average"] = "{0:,.2f}".format(round(
             sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
@@ -523,8 +549,11 @@ class Calculator:
             total = len(self.__arrays[stat])
         else:
             if total is sum:
-                _, weights = self.__arrays[stat]
-                total = sum(weights)
+                try:
+                    _, weights = self.__arrays[stat]
+                    total = sum(weights)
+                except ValueError:
+                    total = "NA"
             elif not isinstance(total, int):
                 assert total in self.__arrays
                 total = len(self.__arrays[total])
@@ -560,6 +589,8 @@ def stats_parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--only-coding', dest="only_coding", action="store_true", default=False)
+    parser.add_argument('-p', "--processors", dest="procs", type=int,
+                        default=1)
     parser.add_argument('gff', type=to_gff, help="GFF file to parse.")
     parser.add_argument('out', type=argparse.FileType('w'), default=sys.stdout, nargs='?')
     parser.set_defaults(func=launch)

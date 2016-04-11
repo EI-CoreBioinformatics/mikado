@@ -316,7 +316,7 @@ class Assigner:
         # Finally add the results
         for gene in new_matches:
             results.extend(new_matches[gene])
-        self.logger.warning("\n".join([str(result) for result in results]))
+        self.logger.debug("\n".join([str(result) for result in results]))
 
         return results, best_result
 
@@ -531,11 +531,11 @@ class Assigner:
 
         return c_compare(prediction, reference)
 
-    def print_tmap(self, res: [ResultStorer | None]):
+    def print_tmap(self, res):
         """
         This method will print a ResultStorer instance onto the TMAP file.
         :param res: result from compare
-        :type res: ResultStorer | None
+        :type res: (ResultStorer | None)
         """
         if self.done % 10000 == 0 and self.done > 0:
             self.logger.info("Done %d transcripts", self.done)

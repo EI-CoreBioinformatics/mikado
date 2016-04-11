@@ -8,7 +8,7 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 
 import logging
 import copy
-import sys
+from sys import intern, maxsize
 import re
 import inspect
 import intervaltree
@@ -72,7 +72,7 @@ class Transcript:
     The database queries are baked at the *class* level in order to minimize overhead.
     """
 
-    __name__ = "transcript"
+    __name__ = intern("transcript")
     __logger = create_null_logger(__name__)
 
     # Query baking to minimize overhead
@@ -99,7 +99,7 @@ class Transcript:
     def __init__(self, *args,
                  source=None,
                  logger=None,
-                 intron_range=(0, sys.maxsize)):
+                 intron_range=(0, maxsize)):
 
         """Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
@@ -179,6 +179,8 @@ class Transcript:
         else:
             self.__initialize_with_line(args[0])
 
+        self.feature = intern(self.feature)
+
     def __initialize_with_line(self, transcript_row):
         """
         Private method to copy the necessary attributes from
@@ -193,21 +195,22 @@ class Transcript:
             raise TypeError(
                 "Invalid transcript line, the feature should be a transcript:\n{0}".format(
                     transcript_row))
-        self.chrom = transcript_row.chrom
-        self.feature = transcript_row.feature
+        self.chrom = intern(transcript_row.chrom)
+        self.feature = intern(transcript_row.feature)
         # pylint: disable=invalid-name
         self.id = transcript_row.id
         # pylint: enable=invalid-name
         self.name = transcript_row.name
         if self.source is None:
-            self.source = transcript_row.source
+            self.source = intern(transcript_row.source)
         self.start = transcript_row.start
         self.strand = transcript_row.strand
         self.end = transcript_row.end
         self.score = transcript_row.score
         self.scores = dict()
         self.parent = transcript_row.parent
-        self.attributes = transcript_row.attributes
+        for key, val in transcript_row.attributes.items():
+            self.attributes[intern(key)] = val
         self.blast_hits = []
         self.json_conf = None
 
@@ -416,7 +419,10 @@ class Transcript:
         :param format_name: the name of the format to use
         :param with_introns: if True, introns will be printed as well.
         :type with_introns: bool
-        :return:
+        :param with_cds: if set to False, CDS lines will be omitted from the output
+        :type with_cds: bool
+        :return: the formatted string
+        :rtype: str
         """
 
         if format_name not in ("gff", "gtf", "gff3", "bed", "bed12"):
@@ -687,9 +693,15 @@ class Transcript:
         self.finalized = False
 
         for key in ["chrom", "source",
-                    "start", "end", "strand", "score", "attributes",
+                    "start", "end", "strand", "score",
                     "parent", "id"]:
+            if isinstance(state[key], str):
+                state[key] = intern(state[key])
             setattr(self, key, state[key])
+
+        self.attributes = {}
+        for key, val in state["attributes"].items():
+            self.attributes[intern(key)] = val
 
         self.exons = []
         self.combined_cds = []
@@ -789,6 +801,7 @@ class Transcript:
         return communities
 
     @classmethod
+    @functools.lru_cache(maxsize=None, typed=True)
     def get_available_metrics(cls) -> list:
         """This function retrieves all metrics available for the class."""
         metrics = [member[0] for member in inspect.getmembers(cls) if
@@ -897,9 +910,8 @@ class Transcript:
         if not isinstance(newid, str):
             raise ValueError("Invalid value for id: {0}, type {1}".format(
                 newid, type(newid)))
-        self.__id = sys.intern(newid)
+        self.__id = intern(newid)
     # pylint: enable=invalid-name
-
 
     @property
     @functools.lru_cache(maxsize=None, typed=True)
@@ -925,8 +937,9 @@ class Transcript:
         if not isinstance(name, (type(None), str)):
             raise ValueError("Invalid name: {0}".format(name))
 
+        if name is not None:
+            name = intern(name)
         self.attributes["Name"] = name
-
 
     @property
     def strand(self):
@@ -1406,6 +1419,7 @@ index {3}, internal ORFs: {4}".format(
         else:
             raise ValueError("Invalid value for parent: {0}, type {1}".format(
                 parent, type(parent)))
+        self.__parent = [intern(_) for _ in self.__parent]
 
     @Metric
     def score(self):

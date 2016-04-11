@@ -12,6 +12,7 @@ from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
 from ..utilities.log_utils import create_null_logger
+from sys import intern
 
 
 class Gene:
@@ -54,6 +55,10 @@ class Gene:
 
         if gid is not None:
             self.id = gid
+        # Internalize in memory for less memory usage
+        [intern(_) for _ in [self.chrom, self.source, self.id]
+         if _ is not None]
+
         self.logger = logger
 
     @property
@@ -190,6 +195,10 @@ class Gene:
                     raise AssertionError("Failed to remove the UTRs!")
             self.transcripts[tid] = transcript
 
+        self.chrom = intern(self.chrom)
+        self.source = intern(self.source)
+        self.id = intern(self.id)
+
         return
 
     def remove(self, tid: str):
@@ -241,7 +250,14 @@ class Gene:
             elif self.end != other.end:
                 return self.end < other.end
             else:
-                return self.strand < other.strand
+                if self.strand is not None and other.strand is not None:
+                    return self.strand < other.strand
+                elif self.strand is None and other.strand is not None:
+                    return False
+                elif self.strand is not None and other.strand is None:
+                    return True
+                else:
+                    return False
 
     def __eq__(self, other):
         if self.chrom == other.chrom and self.start == other.start and \

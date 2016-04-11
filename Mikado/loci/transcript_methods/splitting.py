@@ -700,13 +700,13 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
         import copy
         obj = copy.deepcopy(obj)
         if obj.strand == "-":
-            transcript.logger.warning("Inverting ORFs")
             thick_start = obj.end - obj.thick_end + 1
             thick_end = obj.end - obj.thick_start + 1
             old_start, old_end = tstart, tend
             local_tstart = obj.end - old_end + 1
             local_tend = obj.end - old_start + 1
-            assert (old_end - old_start) == (local_tend - local_tstart), ((old_start, old_end), (local_tstart, local_tend))
+            assert (old_end - old_start) == (local_tend - local_tstart), (
+                (old_start, old_end), (local_tstart, local_tend))
             assert (thick_end - thick_start) == (obj.thick_end - obj.thick_start)
             obj.strand = "+"
             obj.start = 1
@@ -719,6 +719,8 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
             assert obj.thick_end > obj.thick_start > 0
             obj.block_sizes = [obj.end]
             obj.block_starts = [obj.block_starts]
+            transcript.logger.warning("Inverting negative ORF in %s",
+                                      transcript.id)
         else:
             obj.start = 1
             obj.end = min(obj.end, tend) - tstart + 1

@@ -207,7 +207,7 @@ class Calculator:
         derived_features = set()
 
         for record in self.gff:
-            if record.header is True or re.search(r"[^^]locus", record.feature):
+            if record.header is True:
                 continue
             elif record.is_transcript is True:
                 if record.parent is None:

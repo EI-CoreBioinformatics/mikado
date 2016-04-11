@@ -103,7 +103,6 @@ class TranscriptComputer(Transcript):
         self.cds_intron_lengths = []
         self.utr_intron_lengths = []
 
-
     def finalize(self):
         """
         Method to be called when all exons/features have been
@@ -291,9 +290,6 @@ class Calculator:
         """
 
         # Decimal to second digit precision
-
-        all_keys = ["Average", "Mode",
-                    'Min', '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
 
         if array is None or len(array) == 0:
             return row

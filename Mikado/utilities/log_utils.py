@@ -28,12 +28,10 @@ def create_null_logger(instance):
         name = instance
     else:
         name = instance.__name__
-    logger = create_default_logger(name)
-    while len(logger.handlers) > 0:
-        logger.removeHandler(logger.handlers[0])
+    logger = logging.getLogger(name)
     handler = logging.NullHandler()
     handler.setFormatter(formatter)
-    logger.setLevel(logging.WARN)
+    logger.setLevel(logging.CRITICAL)
     logger.addHandler(handler)
     return logger
 

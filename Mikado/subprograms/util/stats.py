@@ -221,7 +221,8 @@ class Calculator:
                     if new_record.gene not in self.genes:
                         self.genes[new_record.gene] = Gene(
                             new_record,
-                            only_coding=self.only_coding)
+                            only_coding=self.only_coding,
+                            logger=self.__logger)
                 self.genes[record.parent[0]].transcripts[record.id] = TranscriptComputer(record,
                                                                                          logger=self.__logger)
             elif record.is_derived is True:  # and record.is_gene is False:

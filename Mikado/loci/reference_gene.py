@@ -29,7 +29,6 @@ class Gene:
 
         self.transcripts = dict()
         self.__logger = None
-        self.logger = logger
         self.__introns = None
         self.exception_message = ''
         self.chrom, self.source, self.start, self.end, self.strand = [None] * 5
@@ -59,6 +58,7 @@ class Gene:
         # Internalize in memory for less memory usage
         [intern(_) for _ in [self.chrom, self.source, self.id]
          if _ is not None]
+        self.logger = logger
 
     @property
     def logger(self):

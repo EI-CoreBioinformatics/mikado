@@ -227,7 +227,7 @@ class Calculator:
                                                                                          logger=self.__logger)
             elif record.is_derived is True:  # and record.is_gene is False:
                 derived_features.add(record.id)
-            elif self.__is_gene(record) is True:
+            elif record.is_gene is True:
                 self.genes[record.id] = Gene(
                     record, only_coding=self.only_coding,
                     logger=self.__logger)

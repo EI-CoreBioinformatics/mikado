@@ -140,10 +140,12 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
         # Assume we are going to use GTF for the moment
         if row.is_transcript is True:
             queue_logger.debug("Transcript\n%s", str(row))
-            transcript = Transcript(row)
+            transcript = Transcript(row, logger=queue_logger)
             transcript2gene[row.id] = row.gene
             if row.gene not in genes:
-                genes[row.gene] = Gene(transcript, gid=row.gene)
+                genes[row.gene] = Gene(transcript,
+                                       gid=row.gene,
+                                       logger=queue_logger)
             genes[row.gene].add(transcript)
             assert transcript.id in genes[row.gene].transcripts
         elif row.is_exon is True:
@@ -218,7 +220,7 @@ def parse_prediction(args, genes, positions, queue_logger):
                     pass
                 else:
                     assigner_instance.get_best(transcript)
-            transcript = Transcript(row)
+            transcript = Transcript(row, logger=queue_logger)
         elif row.is_exon is True:
             queue_logger.debug("Adding exon to transcript %s: %s",
                                transcript.id, row)
@@ -283,7 +285,7 @@ def load_index(args, queue_logger):
             cp_genes = json.load(index)
             genes = dict()
             for gid, gobj in cp_genes.items():
-                gene = Gene(None)
+                gene = Gene(None, logger=queue_logger)
                 gene.load_dict(gobj,
                                exclude_utr=args.exclude_utr,
                                protein_coding=args.protein_coding)

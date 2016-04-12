@@ -114,7 +114,7 @@ class Picker:
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
                 self.regressor = pickle.load(forest)
             if not isinstance(self.regressor, RandomForestRegressor):
-                exc=TypeError("Invalid regressor provided, type: %s", type(self.regressor))
+                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor))
                 self.logger.critical(exc)
                 return
         else:
@@ -322,8 +322,8 @@ memory intensive, proceed with caution!")
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=locus_out)
                 locus_out.flush()
-        except sqlalchemy.exc.OperationalError as exc:
-            self.logger.warning("Empty database! Creating a mock one")
+        except sqlalchemy.exc.OperationalError as _:
+            self.logger.error("Empty database! Creating a mock one")
             self.json_conf["db_settings"]["dbtype"] = "sqlite"
             self.json_conf["db_settings"]["db"] = tempfile.mktemp()
             engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
@@ -821,6 +821,7 @@ memory intensive, proceed with caution!")
                                               prefix="mikado_pick_tmp",
                                               dir=self.json_conf["pick"]["files"]["output_dir"])
 
+        self.logger.info("Creating the worker processes")
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
                                            handles,
@@ -831,6 +832,7 @@ memory intensive, proceed with caution!")
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
+        self.logger.info("Started all %d workers", self.procs)
         # No sense in keeping this data available on the main thread now
         del data_dict
 

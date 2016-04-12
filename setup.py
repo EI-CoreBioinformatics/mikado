@@ -50,6 +50,8 @@ setup(
                                      [path.join("Mikado", "scales", "f1.pyx")]),
                            Extension(path.join("Mikado.scales.contrast"),
                                      [path.join("Mikado", "scales", "contrast.pyx")]),
+                           Extension(path.join("Mikado.scales.intervaltree"),
+                                     [path.join("Mikado", "scales", "intervaltree.pyx")]),
                            ]),
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",

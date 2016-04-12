@@ -10,10 +10,13 @@ from .transcript import Transcript
 from ..scales.assigner import Assigner
 from .sublocus import Sublocus
 from .abstractlocus import Abstractlocus
-from ..utilities import overlap
 from ..parsers.GFF import GffLine
 import collections
-from collections import OrderedDict
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 import operator
 
 class Locus(Sublocus, Abstractlocus):
@@ -392,7 +395,7 @@ class Locus(Sublocus, Abstractlocus):
 
         else:
             valid_metrics = self.regressor.metrics
-            metric_rows = OrderedDict()
+            metric_rows = SortedDict()
             for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
                 for param in valid_metrics:
                     self.scores[tid][param] = "NA"
@@ -406,7 +409,7 @@ class Locus(Sublocus, Abstractlocus):
                             val = 0
                     row.append(val)
                 metric_rows[tid] = row
-            # scores = OrderedDict.fromkeys(metric_rows.keys())
+            # scores = SortedDict.fromkeys(metric_rows.keys())
             for pos, score in enumerate(self.regressor.predict(list(metric_rows.values()))):
                 tid = list(metric_rows.keys())[pos]
                 if tid in self.__orf_doubles:

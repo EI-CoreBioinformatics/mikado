@@ -6,7 +6,8 @@ This class is the main workhorse of the compare.py utility.
 
 import sys
 import csv
-from intervaltree import IntervalTree
+# from intervaltree import IntervalTree
+from .intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue
 import logging
@@ -59,8 +60,25 @@ class Assigner:
             self.args.loq_queue = queue.Queue()
             self.args.exclude_utr = False
             self.args.verbose = False
+            self.lenient = False
         else:
             self.args = args
+            if not hasattr(args, "out"):
+                self.args.out = sys.stdout
+            if not hasattr(args, "distance"):
+                self.args.distance = 2000
+            if not hasattr(args, "protein_coding"):
+                self.args.protein_coding = False
+            if not hasattr(args, "loq_queue"):
+                self.args.loq_queue = queue.Queue()
+            if not hasattr(args, "exclude_utr"):
+                self.args.exclude_utr = False
+            if not hasattr(args, "verbose"):
+                self.args.verbose = False
+            if hasattr(args, "lenient"):
+                self.lenient = args.lenient
+            else:
+                self.lenient = False
 
         # noinspection PyUnresolvedReferences
         # pylint: disable=no-member
@@ -142,7 +160,7 @@ class Assigner:
         if len(keys) == 0:
             return []
 
-        found = keys.search(start-distance, end+distance)
+        found = keys.search(start, end, max_distance=distance)
 
         distances = []
         for key in found:
@@ -288,7 +306,7 @@ class Assigner:
             # Keep only the result, not their position
             best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
             for key in ResultStorer.__slots__:
-                if key in ["gid", "tid", "distance"]:
+                if key in ["gid", "tid", "distance", "tid_num_exons"]:
                     values.append(getattr(best[0], key))
                 elif key == "ccode":
                     values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
@@ -421,7 +439,10 @@ class Assigner:
             best_result = ResultStorer("-", "-",
                                        ccode,
                                        prediction.id,
-                                       ",".join(prediction.parent), *[0] * 9 + ["-"])
+                                       prediction.parent[0],
+                                       prediction.exon_num,
+                                       "-",
+                                       *[0] * 9 + ["-"])
             self.stat_calculator.store(prediction, best_result, None)
             results = [best_result]
         elif distances[0][1] > 0:
@@ -465,7 +486,8 @@ class Assigner:
 
         """
 
-        result, reference_exon = c_compare(prediction, reference)
+        result, reference_exon = c_compare(prediction, reference,
+                                           lenient=self.lenient)
 
         assert reference_exon is None or reference_exon in reference.exons
         self.stat_calculator.store(prediction, result, reference_exon)

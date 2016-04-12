@@ -154,7 +154,7 @@ class Gene:
                                     self.id, self.end, __new_end)
                 self.end = __new_end
 
-    def as_dict(self, remove_atributes=True):
+    def as_dict(self, remove_attributes=True):
 
         """
         Method to transform the gene object into a JSON-friendly representation.
@@ -168,7 +168,13 @@ class Gene:
         state["transcripts"] = dict.fromkeys(self.transcripts.keys())
 
         for tid in state["transcripts"]:
-            state["transcripts"][tid] = self.transcripts[tid].as_dict(remove_atributes=remove_atributes)
+            try:
+                state["transcripts"][tid] = self.transcripts[tid].as_dict(
+                    remove_attributes=remove_attributes)
+            except TypeError as exc:
+                self.logger.error(tid, repr(self.transcripts[tid]))
+                self.logger.exception(exc)
+                raise TypeError(exc)
 
         return state
 

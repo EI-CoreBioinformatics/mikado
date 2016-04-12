@@ -285,11 +285,13 @@ cdef class Interval:
 
     """
     cdef public int start, end
+    cdef public int begin
     cdef public object value, chrom, strand
 
     def __init__(self, int start, int end, object value=None, object chrom=None, object strand=None ):
         assert start <= end, "start must be less than end"
         self.start  = start
+        self.begin = self.start  # Necessary for compatibility reasons
         self.end   = end
         self.value = value
         self.chrom = chrom
@@ -379,9 +381,11 @@ cdef class IntervalTree:
     """
 
     cdef IntervalNode root
+    cdef int num_intervals
 
     def __cinit__( self ):
         root = None
+        num_intervals = 0
 
     # ---- Position based interfaces -----------------------------------------
 
@@ -393,19 +397,33 @@ cdef class IntervalTree:
             self.root = IntervalNode( start, end, value )
         else:
             self.root = self.root.insert( start, end, value )
+        self.num_intervals += 1
 
     add = insert
 
-
-    def find( self, start, end ):
+    def find( self, int start, int end, int max_distance=0, int num_intervals=1):
         """
         Return a sorted list of all intervals overlapping [start,end).
         """
         if self.root is None:
             return []
-        return self.root.find( start, end )
 
-    def before( self, position, num_intervals=1, max_dist=2500 ):
+        if max_distance == 0:
+            return self.root.find( start, end )
+        else:
+            found = self.root.find( start, end )
+            found.extend(self.before( start, num_intervals=num_intervals, max_dist=max_distance))
+            found.extend(self.after( end, num_intervals=num_intervals, max_dist=max_distance))
+            return found
+
+    search = find
+
+    def __len__(self):
+        """Return the number of intervals in the tree."""
+
+        return self.num_intervals
+
+    def before( self, position, num_intervals=1, max_dist=2000 ):
         """
         Find `num_intervals` intervals that lie before `position` and are no
         further than `max_dist` positions away
@@ -414,7 +432,7 @@ cdef class IntervalTree:
             return []
         return self.root.left( position, num_intervals, max_dist )
 
-    def after( self, position, num_intervals=1, max_dist=2500 ):
+    def after( self, position, num_intervals=1, max_dist=25000 ):
         """
         Find `num_intervals` intervals that lie after `position` and are no
         further than `max_dist` positions away
@@ -431,6 +449,7 @@ cdef class IntervalTree:
         attributes)
         """
         self.insert( interval.start, interval.end, interval )
+        self.num_intervals += 1
 
     add_interval = insert_interval
 
@@ -483,6 +502,18 @@ cdef class IntervalTree:
         if self.root is None:
             return None
         return self.root.traverse(fn)
+
+    @classmethod
+    def from_tuples(cls, tuples):
+        """
+        Create a new IntervalTree from an iterable of 2- or 3-tuples,
+         where the tuple lists begin, end, and optionally data.
+        """
+
+        tree = IntervalTree()
+        for iv in tuples:
+            tree.insert_interval(Interval(*iv))
+        return tree
 
 # For backward compatibility
 Intersecter = IntervalTree

@@ -302,7 +302,7 @@ def load_index(args, queue_logger):
                     isinstance(positions, collections.defaultdict) and
                     positions.default_factory is dict):
                 raise EOFError
-        except EOFError:
+        except (EOFError, json.decoder.JSONDecodeError):
             genes, positions = None, None
             queue_logger.error("Invalid index; deleting and rebuilding.")
             os.remove("{0}.midx".format(args.reference.name))

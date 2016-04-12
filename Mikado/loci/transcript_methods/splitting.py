@@ -4,7 +4,11 @@ multiple transcripts, if the conditions are met (multiple ORFs present and BLAST
 supporting them being part of the same transcript).
 """
 
-from collections import OrderedDict
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 import collections
 import operator
 from intervaltree import IntervalTree, Interval
@@ -48,7 +52,7 @@ def check_split_by_blast(transcript, cds_boundaries):
     minimal_overlap = transcript.json_conf[
         "pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
-    cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
+    cds_hit_dict = SortedDict().fromkeys(cds_boundaries.keys())
     for key in cds_hit_dict:
         cds_hit_dict[key] = collections.defaultdict(list)
 
@@ -92,7 +96,7 @@ def check_split_by_blast(transcript, cds_boundaries):
 
     transcript.logger.debug("Final cds_hit_dict for %s: %s", transcript.id, cds_hit_dict)
 
-    final_boundaries = OrderedDict()
+    final_boundaries = SortedDict()
     for boundary in __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
         if len(boundary) == 1:
             assert len(boundary[0]) == 2
@@ -758,7 +762,7 @@ def split_by_cds(transcript):
         new_transcripts = [transcript]  # If we only have one ORF this is easy
     else:
 
-        cds_boundaries = OrderedDict()
+        cds_boundaries = SortedDict()
         for orf in sorted(transcript.loaded_bed12,
                           key=operator.attrgetter("thick_start", "thick_end")):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]

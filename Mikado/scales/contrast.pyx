@@ -7,6 +7,9 @@ import cython
 
 __author__ = 'Luca Venturini'
 
+cdef inline long long_max(long a, long b): return a if a >= b else b
+cdef inline double double_min(double a, double b): return a if a <= b else b
+
 @cython.profile(True)
 @cython.boundscheck(False)
 cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, double stats[9]):
@@ -228,7 +231,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
 
 @cython.profile(True)
 @cython.cdivision(True)
-cpdef tuple compare(prediction, reference):
+cpdef tuple compare(prediction, reference, bint lenient=False):
 
     """Function to compare two transcripts and determine a ccode.
 
@@ -238,6 +241,10 @@ cpdef tuple compare(prediction, reference):
     :param reference: the reference transcript against which we desire to
     calculate the ccode and other stats.
     :type reference: Transcript
+    
+    :param lenient: a boolean flag that indicates whether the exon-level features should be calculated
+    leniently or not.
+    :type lenient: bool
 
     :rtype (ResultStorer, (int,int)) | (ResultStorer, None)
 
@@ -335,7 +342,7 @@ cpdef tuple compare(prediction, reference):
                                       positive=1)
 
     # Quick verification that the overlap is not too big
-    assert nucl_overlap <= min(r_cdna_length, p_cdna_length), \
+    assert nucl_overlap <= double_min(r_cdna_length, p_cdna_length), \
         (prediction.id, prediction.cdna_length,
          reference.id, reference.cdna_length, nucl_overlap)
 
@@ -344,6 +351,21 @@ cpdef tuple compare(prediction, reference):
     nucl_f1 = calc_f1(nucl_recall, nucl_precision)
 
     # Exon statistics
+    if lenient is True:
+        if len(__pred_exons) > 1 and len(__ref_exons) > 1:
+            # If both are multiexonic, consider only the internal boundary
+            __pred_exons.remove(prediction.exons[0])
+            __pred_exons.add(prediction.exons[0][1])
+            __pred_exons.remove(prediction.exons[-1])
+            __pred_exons.add(prediction.exons[-1][0])
+            __ref_exons.remove(reference.exons[0])
+            __ref_exons.add(reference.exons[0][1])
+            __ref_exons.remove(reference.exons[-1])
+            __ref_exons.add(reference.exons[-1][0])
+        elif len(__pred_exons) == len(__ref_exons) == 1 and nucl_f1 > 0.8:
+            # If both are monoexonic and nucleotide F1 is >= 0.8
+            __ref_exons = __pred_exons.copy()
+
     recalled_exons = len(set.intersection(__pred_exons, __ref_exons))
     exon_recall = recalled_exons / r_exon_num
     exon_precision = recalled_exons / p_exon_num
@@ -385,7 +407,7 @@ cpdef tuple compare(prediction, reference):
             ccode = "p"
         else:
             ccode = "P"
-        distance = max(p_start - r_end, r_start - p_end)
+        distance = long_max(p_start - r_end, r_start - p_end)
 
     elif nucl_precision == 1:
         if p_exon_num == 1 or (p_exon_num > 1 and junction_precision == 1):
@@ -406,7 +428,7 @@ cpdef tuple compare(prediction, reference):
         stats[8] = junction_f1
 
 
-        if min(p_exon_num, r_exon_num) > 1:
+        if double_min(p_exon_num, r_exon_num) > 1:
             ccode = __assign_multiexonic_ccode(prediction, reference,
                                                nucl_overlap, stats)
         else:
@@ -426,6 +448,8 @@ cpdef tuple compare(prediction, reference):
                           ",".join(reference.parent),
                           ccode, prediction.id,
                           ",".join(prediction.parent),
+                          len(prediction.exons),
+                          len(reference.exons),
                           # Nucleotide stats
                           round(nucl_precision * 100, 2),
                           round(100 * nucl_recall, 2),

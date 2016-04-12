@@ -61,7 +61,7 @@ cdef class IntervalNode:
     """
     A single node of an `IntervalTree`.
 
-    NOTE: Unless you really know what you are doing, you probably should us
+    NOTE: Unless you really know what you are doing, you probably should use
           `IntervalTree` rather than using this directly.
     """
     cdef float priority

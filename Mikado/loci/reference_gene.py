@@ -178,7 +178,7 @@ class Gene:
             setattr(self, key, state[key])
 
         for tid, tvalues in state["transcripts"].items():
-            transcript = Transcript()
+            transcript = Transcript(logger=self.logger)
             transcript.load_dict(tvalues)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:

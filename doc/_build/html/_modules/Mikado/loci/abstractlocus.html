@@ -1,0 +1,784 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.loci.abstractlocus &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.loci.abstractlocus</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Module that defines the blueprint for all loci classes.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">abc</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">sys</span> <span class="kn">import</span> <span class="n">maxsize</span>
+<span class="kn">from</span> <span class="nn">.clique_methods</span> <span class="kn">import</span> <span class="n">find_cliques</span><span class="p">,</span> <span class="n">find_communities</span><span class="p">,</span> <span class="n">define_graph</span>
+<span class="kn">import</span> <span class="nn">intervaltree</span>
+<span class="kn">import</span> <span class="nn">networkx</span>
+<span class="kn">from</span> <span class="nn">..exceptions</span> <span class="kn">import</span> <span class="n">NotInLocusError</span>
+<span class="kn">from</span> <span class="nn">..utilities</span> <span class="kn">import</span> <span class="n">overlap</span>
+<span class="kn">from</span> <span class="nn">..utilities.log_utils</span> <span class="kn">import</span> <span class="n">create_null_logger</span>
+<span class="kn">from</span> <span class="nn">.transcript</span> <span class="kn">import</span> <span class="n">Transcript</span>
+<span class="kn">from</span> <span class="nn">sklearn.ensemble</span> <span class="kn">import</span> <span class="n">RandomForestRegressor</span>
+
+
+<span class="c1"># I do not care that there are too many attributes: this IS a massive class!</span>
+<span class="c1"># pylint: disable=too-many-instance-attributes,too-many-public-methods</span>
+<div class="viewcode-block" id="Abstractlocus"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus">[docs]</a><span class="k">class</span> <span class="nc">Abstractlocus</span><span class="p">(</span><span class="n">metaclass</span><span class="o">=</span><span class="n">abc</span><span class="o">.</span><span class="n">ABCMeta</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This abstract class defines the basic features of any Locus-like object.</span>
+<span class="sd">    It also defines methods/properties that are needed throughout the program,</span>
+<span class="sd">    e.g. the Bron-Kerbosch algorithm for defining cliques, or the find_retained_introns method.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__name__</span> <span class="o">=</span> <span class="s2">&quot;Abstractlocus&quot;</span>
+    <span class="n">available_metrics</span> <span class="o">=</span> <span class="n">Transcript</span><span class="o">.</span><span class="n">get_available_metrics</span><span class="p">()</span>
+
+    <span class="c1"># ##### Special methods #########</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+
+        <span class="c1"># Mock values</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__source</span> <span class="o">=</span> <span class="n">source</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__stranded</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">exons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="c1"># Consider only the CDS part</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_cds_introns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="n">maxsize</span><span class="p">,</span> <span class="o">-</span><span class="n">maxsize</span><span class="p">,</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stranded</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">monoexonic</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">chrom</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cds_introns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__cds_introntree</span> <span class="o">=</span> <span class="n">intervaltree</span><span class="o">.</span><span class="n">IntervalTree</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__regressor</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="nd">@abc.abstractmethod</span>
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;This is an abstract class and it cannot be printed directly!&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">transcript_list</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transcript_list</span> <span class="o">=</span> <span class="s2">&quot;NA&quot;</span>
+
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span>
+                          <span class="bp">self</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span>
+                          <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">),</span>
+                          <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">),</span>
+                          <span class="bp">self</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span>
+                          <span class="n">transcript_list</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        <span class="k">for</span> <span class="n">feature</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s2">&quot;strand&quot;</span><span class="p">,</span> <span class="s2">&quot;start&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;end&quot;</span><span class="p">,</span> <span class="s2">&quot;exons&quot;</span><span class="p">,</span> <span class="s2">&quot;introns&quot;</span><span class="p">,</span>
+                        <span class="s2">&quot;splices&quot;</span><span class="p">,</span> <span class="s2">&quot;stranded&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">feature</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">feature</span><span class="p">):</span>
+                <span class="k">return</span> <span class="bp">False</span>
+        <span class="k">return</span> <span class="bp">True</span>
+
+    <span class="k">def</span> <span class="nf">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This has to be defined, otherwise abstractloci objects won&#39;t be hashable</span>
+<span class="sd">        (and therefore operations like adding to sets will be forbidden)&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__hash__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="mi">1</span>
+
+    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">strand</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrom</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">chrom</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="bp">self</span> <span class="o">==</span> <span class="n">other</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">start</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">start</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">return</span> <span class="bp">False</span>
+
+    <span class="k">def</span> <span class="nf">__gt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="bp">self</span> <span class="o">&lt;</span> <span class="n">other</span>
+
+    <span class="k">def</span> <span class="nf">__le__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span> <span class="o">==</span> <span class="n">other</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="bp">self</span> <span class="o">&lt;</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__ge__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span> <span class="o">==</span> <span class="n">other</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="bp">self</span> <span class="o">&gt;</span> <span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to allow serialisation - we remove the byte-compiled eval expression.&quot;&quot;&quot;</span>
+
+        <span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;json_conf&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s2">&quot;requirements&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span> <span class="ow">and</span> <span class="s2">&quot;compiled&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;requirements&quot;</span><span class="p">]:</span>
+                <span class="k">del</span> <span class="n">state</span><span class="p">[</span><span class="s2">&quot;json_conf&quot;</span><span class="p">][</span><span class="s2">&quot;requirements&quot;</span><span class="p">][</span><span class="s2">&quot;compiled&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;session&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">expunge_all</span><span class="p">()</span>
+                <span class="n">state</span><span class="p">[</span><span class="s2">&quot;session&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">expunge_all</span><span class="p">()</span>
+            <span class="n">state</span><span class="p">[</span><span class="s2">&quot;sessionmaker&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="n">state</span><span class="p">[</span><span class="s2">&quot;session&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;engine&quot;</span><span class="p">):</span>
+            <span class="k">del</span> <span class="n">state</span><span class="p">[</span><span class="s2">&quot;engine&quot;</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to recreate the object after serialisation.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;json_conf&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="s2">&quot;requirements&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span> <span class="ow">and</span> <span class="s2">&quot;expression&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;requirements&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;requirements&quot;</span><span class="p">][</span><span class="s2">&quot;compiled&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">compile</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;requirements&quot;</span><span class="p">][</span><span class="s2">&quot;expression&quot;</span><span class="p">],</span>
+                    <span class="s2">&quot;&lt;json&gt;&quot;</span><span class="p">,</span> <span class="s2">&quot;eval&quot;</span><span class="p">)</span>
+        <span class="c1"># Set the logger to NullHandler</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">create_null_logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="c1"># #### Static methods #######</span>
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Abstractlocus.overlap"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.overlap">[docs]</a>    <span class="k">def</span> <span class="nf">overlap</span><span class="p">(</span><span class="n">first_interval</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]),</span>
+                <span class="n">second_interval</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]),</span> <span class="n">flank</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param first_interval: a tuple of integers</span>
+<span class="sd">        :type first_interval: (int,int)</span>
+
+<span class="sd">        :param second_interval: a tuple of integers</span>
+<span class="sd">        :type second_interval: (int,int | intervaltree.Interval)</span>
+
+<span class="sd">        :param flank: an optional extending parameter to check for neighbours</span>
+<span class="sd">        :type flank: int</span>
+
+<span class="sd">        This static method returns the overlap between two intervals.</span>
+
+<span class="sd">        Values&lt;=0 indicate no overlap.</span>
+
+<span class="sd">        The optional &quot;flank&quot; argument (default 0) allows to expand a locus</span>
+<span class="sd">        upstream and downstream.</span>
+<span class="sd">        As a static method, it can be used also outside of any instance -</span>
+<span class="sd">        &quot;abstractlocus.overlap()&quot; will function.</span>
+<span class="sd">        Input: two 2-tuples of integers.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">overlap</span><span class="p">(</span><span class="n">first_interval</span><span class="p">,</span> <span class="n">second_interval</span><span class="p">,</span> <span class="n">flank</span><span class="p">)</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Abstractlocus.evaluate"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.evaluate">[docs]</a>    <span class="k">def</span> <span class="nf">evaluate</span><span class="p">(</span><span class="n">param</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">conf</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param param: string to be checked according to the expression in the configuration</span>
+<span class="sd">        :type param: str</span>
+
+<span class="sd">        :param conf: a dictionary containing the expressions to evaluate</span>
+<span class="sd">        :type conf: dict</span>
+
+<span class="sd">        This static method evaluates a single parameter using the requested</span>
+<span class="sd">        operation from the JSON dict file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;eq&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">==</span> <span class="nb">float</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;ne&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">float</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;gt&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;lt&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">float</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;ge&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="nb">float</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;le&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">param</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">float</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;in&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="n">param</span> <span class="ow">in</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;not in&quot;</span><span class="p">:</span>
+            <span class="n">comparison</span> <span class="o">=</span> <span class="p">(</span><span class="n">param</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">conf</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unknown operator: {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">conf</span><span class="p">[</span><span class="s2">&quot;operator&quot;</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">comparison</span></div>
+
+    <span class="c1"># #### Class methods ########</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Abstractlocus.in_locus"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.in_locus">[docs]</a>    <span class="k">def</span> <span class="nf">in_locus</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">locus_instance</span><span class="p">,</span> <span class="n">transcript</span><span class="p">,</span> <span class="n">flank</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param locus_instance: an inheritor of this class</span>
+<span class="sd">        :param transcript: a transcript instance</span>
+
+<span class="sd">        :param flank: an optional extending parameter to check for neighbours</span>
+<span class="sd">        :type flank: int</span>
+
+<span class="sd">        Function to determine whether a transcript should be added or not to the locus_instance.</span>
+<span class="sd">        This is a class method, i.e. it can be used also unbound from any</span>
+<span class="sd">        specific instance of the class.</span>
+<span class="sd">        It will be possible therefore to use it to compare any locus_instance to any transcript.</span>
+<span class="sd">        Arguments:</span>
+<span class="sd">        - a &quot;locus_instance&quot; object</span>
+<span class="sd">        - a &quot;transcript&quot; object (it must possess the &quot;finalize&quot; method)</span>
+<span class="sd">        - flank - optional keyword&quot;&quot;&quot;</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+        <span class="c1"># We want to check for the strand only if we are considering the strand</span>
+        <span class="k">if</span> <span class="n">locus_instance</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="n">locus_instance</span><span class="o">.</span><span class="n">chrom</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">locus_instance</span><span class="o">.</span><span class="n">stranded</span> <span class="ow">is</span> <span class="bp">False</span> <span class="ow">or</span> <span class="n">locus_instance</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span><span class="p">:</span>
+                <span class="n">lbound</span> <span class="o">=</span> <span class="p">(</span><span class="n">locus_instance</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">locus_instance</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+                <span class="n">tbound</span> <span class="o">=</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">cls</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">lbound</span><span class="p">,</span> <span class="n">tbound</span><span class="p">,</span> <span class="n">flank</span><span class="o">=</span><span class="n">flank</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">return</span> <span class="bp">False</span></div>
+
+<div class="viewcode-block" id="Abstractlocus.define_graph"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.define_graph">[docs]</a>    <span class="k">def</span> <span class="nf">define_graph</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objects</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">inters</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">networkx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param objects: a dictionary of objects to be grouped into a graph</span>
+<span class="sd">        :type objects: dict</span>
+
+<span class="sd">        :param inters: the intersecting function to be used to define the graph</span>
+<span class="sd">        :type inters: callable</span>
+
+<span class="sd">        :param kwargs: optional arguments to be passed to the inters function</span>
+<span class="sd">        :type kwargs: dict</span>
+
+<span class="sd">        This function will compute the graph which will later be used by find_communities.</span>
+<span class="sd">        The method takes as mandatory inputs the following:</span>
+<span class="sd">            - &quot;objects&quot; a dictionary of objects that form the graph</span>
+<span class="sd">            - &quot;inters&quot; a function/method that determines whether two objects are connected or not.</span>
+
+<span class="sd">        It will then return a graph.</span>
+<span class="sd">        The method accepts also kwargs that can be passed to the inters function.</span>
+<span class="sd">        WARNING: the kwargs option is really stupid and does not check</span>
+<span class="sd">        for correctness of the arguments!</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">inters</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">inters</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_intersecting</span>
+
+        <span class="k">return</span> <span class="n">define_graph</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">inters</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Abstractlocus.find_communities"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.find_communities">[docs]</a>    <span class="k">def</span> <span class="nf">find_communities</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">:</span> <span class="n">networkx</span><span class="o">.</span><span class="n">Graph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param graph: a Graph instance from networkx</span>
+<span class="sd">        :type graph: networkx.Graph</span>
+
+<span class="sd">        This function is a wrapper around the networkX methods to find</span>
+<span class="sd">        cliques and communities inside a graph.</span>
+<span class="sd">        The method takes as input a precomputed graph and returns</span>
+<span class="sd">        two lists:</span>
+<span class="sd">            - cliques</span>
+<span class="sd">            - communities</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">find_communities</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Abstractlocus.find_cliques"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.find_cliques">[docs]</a>    <span class="k">def</span> <span class="nf">find_cliques</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">graph</span><span class="p">:</span> <span class="n">networkx</span><span class="o">.</span><span class="n">Graph</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">networkx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param graph: graph to which it is necessary to call the cliques for.</span>
+
+<span class="sd">        Wrapper for the BronKerbosch algorithm, which returns the maximal cliques in the graph.</span>
+<span class="sd">        It is the new interface for the BronKerbosch function, which is not called directly</span>
+<span class="sd">        from outside this class any longer.</span>
+<span class="sd">        The &quot;inters&quot; keyword provides the function used to determine</span>
+<span class="sd">        whether two vertices are connected or not in the graph.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">find_cliques</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span></div>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Abstractlocus.choose_best"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.choose_best">[docs]</a>    <span class="k">def</span> <span class="nf">choose_best</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">transcripts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param transcripts: the dictionary of transcripts of the instance</span>
+<span class="sd">        :type transcripts: dict</span>
+
+<span class="sd">        Given a transcript dictionary, this function will choose the one with the highest score.</span>
+<span class="sd">        If multiple transcripts have exactly the same score, one will be chosen randomly.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Choose one transcript randomly between those that have the maximum score</span>
+        <span class="n">max_score</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">transcripts</span><span class="o">.</span><span class="n">values</span><span class="p">(),</span>
+                        <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">attrgetter</span><span class="p">(</span><span class="s2">&quot;score&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">score</span>
+        <span class="k">return</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">transc</span> <span class="k">for</span> <span class="n">transc</span> <span class="ow">in</span> <span class="n">transcripts</span> <span class="k">if</span> <span class="n">transcripts</span><span class="p">[</span><span class="n">transc</span><span class="p">]</span><span class="o">.</span><span class="n">score</span> <span class="o">==</span> <span class="n">max_score</span><span class="p">])</span></div>
+
+    <span class="c1"># ###### Class instance methods  #######</span>
+
+<div class="viewcode-block" id="Abstractlocus.add_transcript_to_locus"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.add_transcript_to_locus">[docs]</a>    <span class="k">def</span> <span class="nf">add_transcript_to_locus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transcript</span><span class="p">,</span> <span class="n">check_in_locus</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param transcript</span>
+<span class="sd">        :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">        :param check_in_locus: flag to indicate whether the function</span>
+<span class="sd">        should check the transcript before adding it</span>
+<span class="sd">        or instead whether to trust the assignment to be correct</span>
+<span class="sd">        :type check_in_locus: bool</span>
+
+<span class="sd">        This method checks that a transcript is contained within the superlocus</span>
+<span class="sd">        (using the &quot;in_superlocus&quot; class method)</span>
+<span class="sd">        and upon a successful check extends the superlocus with the new transcript.</span>
+<span class="sd">        More precisely, it updates the boundaries (start and end) it adds the transcript</span>
+<span class="sd">        to the internal &quot;transcripts&quot; store, and finally it extends</span>
+<span class="sd">        the splices and introns with those found inside the transcript.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">monoexonic</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">check_in_locus</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                <span class="k">pass</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">in_locus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transcript</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">NotInLocusError</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;Trying to merge a Locus with an incompatible transcript!</span>
+<span class="s2">                Locus: {lchrom}:{lstart}-{lend} {lstrand} [{stids}]</span>
+<span class="s2">                Transcript: {tchrom}:{tstart}-{tend} {tstrand} {tid}</span>
+<span class="s2">                &quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">lchrom</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">lstart</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">lend</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="n">lstrand</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span>
+                    <span class="n">tchrom</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span>
+                    <span class="n">tstart</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span>
+                    <span class="n">tend</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">,</span>
+                    <span class="n">tstrand</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span>
+                    <span class="n">tid</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">stids</span><span class="o">=</span><span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">keys</span><span class="p">())),</span>
+
+                <span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chrom</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">transcript</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">splices</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">splices</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">selected_cds_introns</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_introns</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># self.source = transcript.source</span>
+        <span class="c1">#         self.source = &quot;Mikado.py&quot;</span>
+        <span class="k">return</span></div>
+
+<div class="viewcode-block" id="Abstractlocus.remove_transcript_from_locus"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.remove_transcript_from_locus">[docs]</a>    <span class="k">def</span> <span class="nf">remove_transcript_from_locus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param tid: name of the transcript to remove</span>
+<span class="sd">        :type tid: str</span>
+
+<span class="sd">         This method will remove a transcript from an Abstractlocus-like</span>
+<span class="sd">         instance and reset appropriately all derived attributes</span>
+<span class="sd">         (e.g. introns, start, end, etc.).</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">tid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;Transcript {0} is not present in the Locus.&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tid</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">exons</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">splices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">cds_introns</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">selected_cds_introns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;Inf&quot;</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-Inf&quot;</span><span class="p">),</span> <span class="bp">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stranded</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="n">tid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">end</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">if</span> <span class="n">t</span> <span class="o">!=</span> <span class="n">tid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">t</span><span class="p">]</span><span class="o">.</span><span class="n">start</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">if</span> <span class="n">t</span> <span class="o">!=</span> <span class="n">tid</span><span class="p">)</span>
+
+            <span class="c1"># Remove excess exons</span>
+            <span class="n">other_exons</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">otid</span><span class="p">]</span><span class="o">.</span><span class="n">exons</span> <span class="k">if</span>
+                    <span class="n">otid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">else</span> <span class="p">[])</span> <span class="k">for</span> <span class="n">otid</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
+            <span class="n">other_exons</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="n">other_exons</span><span class="p">)</span>
+            <span class="n">exons_to_remove</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">exons</span><span class="p">),</span> <span class="n">other_exons</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">exons_to_remove</span><span class="p">)</span>
+
+            <span class="c1"># Remove excess introns</span>
+            <span class="n">other_introns</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+                <span class="o">*</span><span class="p">[</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">otid</span><span class="p">]</span><span class="o">.</span><span class="n">introns</span> <span class="k">if</span> <span class="n">otid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">else</span> <span class="p">[])</span>
+                  <span class="k">for</span> <span class="n">otid</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+            <span class="n">introns_to_remove</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">introns</span><span class="p">),</span> <span class="n">other_introns</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">introns_to_remove</span><span class="p">)</span>
+
+            <span class="c1"># Remove excess cds introns</span>
+            <span class="n">other_cds_introns</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+                <span class="o">*</span><span class="p">[</span><span class="nb">set</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">otid</span><span class="p">]</span><span class="o">.</span><span class="n">combined_cds_introns</span>
+                    <span class="k">if</span> <span class="n">otid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">else</span> <span class="p">[])</span>
+                  <span class="k">for</span> <span class="n">otid</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">otid</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">otid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+                    <span class="n">other_cds_introns</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">otid</span><span class="p">]</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">))</span>
+
+            <span class="n">cds_introns_to_remove</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span>
+                <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">),</span>
+                <span class="n">other_cds_introns</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">cds_introns_to_remove</span><span class="p">)</span>
+
+            <span class="c1"># Remove excess selected_cds_introns</span>
+            <span class="n">other_selected_cds_introns</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+                <span class="o">*</span><span class="p">[</span><span class="nb">set</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">otid</span><span class="p">]</span><span class="o">.</span><span class="n">selected_cds_introns</span> <span class="k">if</span> <span class="n">otid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">else</span> <span class="p">[]</span>
+                <span class="p">)</span> <span class="k">for</span> <span class="n">otid</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+            <span class="n">selected_cds_introns_to_remove</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span>
+                <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">selected_cds_introns</span><span class="p">),</span>
+                <span class="n">other_selected_cds_introns</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">selected_cds_introns</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">selected_cds_introns_to_remove</span><span class="p">)</span>
+
+            <span class="c1"># Remove excess splices</span>
+            <span class="n">other_splices</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+                <span class="o">*</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">otid</span><span class="p">]</span><span class="o">.</span><span class="n">splices</span>
+                  <span class="k">if</span> <span class="n">otid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">else</span> <span class="nb">set</span><span class="p">()</span> <span class="k">for</span> <span class="n">otid</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">])</span>
+            <span class="n">splices_to_remove</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">splices</span><span class="p">,</span> <span class="n">other_splices</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">splices</span><span class="o">.</span><span class="n">difference_update</span><span class="p">(</span><span class="n">splices_to_remove</span><span class="p">)</span>
+
+            <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span></div>
+
+<div class="viewcode-block" id="Abstractlocus.find_retained_introns"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.find_retained_introns">[docs]</a>    <span class="k">def</span> <span class="nf">find_retained_introns</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transcript</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;This method checks the number of exons that are possibly retained</span>
+<span class="sd">        introns for a given transcript.</span>
+<span class="sd">        A retained intron is defined as an exon which:</span>
+
+<span class="sd">         - spans completely an intron of another model *between coding exons*</span>
+<span class="sd">         - is not completely coding itself</span>
+<span class="sd">         - has *part* of the non-coding section lying inside the intron</span>
+
+<span class="sd">        The results are stored inside the transcript instance,</span>
+<span class="sd">        in the &quot;retained_introns&quot; tuple.</span>
+
+<span class="sd">        :param transcript: a Transcript instance</span>
+<span class="sd">        :type transcript: Transcript</span>
+
+<span class="sd">        :returns : None</span>
+<span class="sd">        :rtype : None</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># introns = intervaltree.IntervalTree([</span>
+        <span class="c1">#     intervaltree.Interval(*intron) for intron in self.combined_cds_introns</span>
+        <span class="c1"># ])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Starting to calculate retained introns for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cds_introntree</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">retained_introns</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No CDS intron found in </span><span class="si">%s</span><span class="s2">, exiting for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="c1"># self.logger.debug(&quot;Introns: %d (%d orig, %d (%d, %d CDS segs) transcript)&quot;,</span>
+        <span class="c1">#                   len(self._cds_introntree), len(self.combined_cds_introns),</span>
+        <span class="c1">#                   len(transcript.combined_cds_introns),</span>
+        <span class="c1">#                   len(transcript.selected_cds_introns),</span>
+        <span class="c1">#                   len(transcript.selected_cds))</span>
+
+        <span class="n">retained_introns</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No introns in the locus to check against. Exiting.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">cds_tree</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="c1"># Enlarge the CDS segments if they are of length 1</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">cds_tree</span> <span class="o">=</span> <span class="n">intervaltree</span><span class="o">.</span><span class="n">IntervalTree</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">intervaltree</span><span class="o">.</span><span class="n">Interval</span><span class="p">(</span><span class="n">cds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">max</span><span class="p">(</span><span class="n">cds</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+                 <span class="k">for</span> <span class="n">cds</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span> <span class="k">if</span> <span class="n">_</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">):</span>
+            <span class="c1"># Monobase exons are a problem</span>
+            <span class="k">if</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Monobase exon found in </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">:</span><span class="si">%d</span><span class="s2">-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span>
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                <span class="k">continue</span>
+
+            <span class="n">exon_interval</span> <span class="o">=</span> <span class="n">intervaltree</span><span class="o">.</span><span class="n">IntervalTree</span><span class="p">([</span>
+                <span class="n">intervaltree</span><span class="o">.</span><span class="n">Interval</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">max</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))])</span>
+
+            <span class="k">for</span> <span class="n">cds_segment</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">cds_tree</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="o">*</span><span class="n">exon</span><span class="p">):</span>
+                <span class="n">exon_interval</span><span class="o">.</span><span class="n">chop</span><span class="p">(</span><span class="n">cds_segment</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cds_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+            <span class="c1"># Exclude from consideration any exon which is fully coding</span>
+            <span class="k">for</span> <span class="n">frag</span> <span class="ow">in</span> <span class="n">exon_interval</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking </span><span class="si">%s</span><span class="s2"> from exon </span><span class="si">%s</span><span class="s2"> for retained introns for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                  <span class="n">frag</span><span class="p">,</span> <span class="n">exon</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cds_introntree</span><span class="o">.</span><span class="n">overlaps_range</span><span class="p">(</span><span class="n">frag</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">frag</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Exon </span><span class="si">%s</span><span class="s2"> of </span><span class="si">%s</span><span class="s2"> is a retained intron&quot;</span><span class="p">,</span>
+                                      <span class="n">exon</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                    <span class="n">retained_introns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">exon</span><span class="p">)</span>
+                    <span class="k">break</span>
+
+        <span class="c1"># Sort the exons marked as retained introns</span>
+        <span class="c1"># self.logger.info(&quot;Finished calculating retained introns for %s&quot;, transcript.id)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">retained_introns</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">retained_introns</span><span class="p">))</span></div>
+        <span class="c1"># self.logger.info(&quot;Returning retained introns for %s&quot;, transcript.id)</span>
+        <span class="c1"># return transcript</span>
+
+<div class="viewcode-block" id="Abstractlocus.print_metrics"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.print_metrics">[docs]</a>    <span class="k">def</span> <span class="nf">print_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;This method yields dictionary &quot;rows&quot; that will be given to a csv.DictWriter class.&quot;&quot;&quot;</span>
+
+        <span class="c1"># Check that rower is an instance of the csv.DictWriter class</span>
+
+        <span class="c1"># The rower is an instance of the DictWriter class from the standard CSV module</span>
+
+        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">ttid</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">ttid</span><span class="p">]):</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_metrics</span> <span class="o">!=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">available_metrics</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;id&quot;</span><span class="p">,</span> <span class="s2">&quot;tid&quot;</span><span class="p">):</span>
+                    <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">tid</span>
+                <span class="k">elif</span> <span class="n">key</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;parent&quot;</span><span class="p">:</span>
+                    <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">],</span> <span class="n">key</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="nb">float</span><span class="p">):</span>
+                    <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                    <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;NA&quot;</span>
+            <span class="k">assert</span> <span class="n">row</span> <span class="o">!=</span> <span class="p">{}</span>
+            <span class="k">yield</span> <span class="n">row</span>
+
+        <span class="k">return</span></div>
+
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc.abstractmethod</span>
+<div class="viewcode-block" id="Abstractlocus.is_intersecting"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.abstractlocus.Abstractlocus.is_intersecting">[docs]</a>    <span class="k">def</span> <span class="nf">is_intersecting</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param args: positional arguments</span>
+<span class="sd">        :param kwargs: keyword arguments</span>
+
+<span class="sd">        This class method defines how two transcript objects will be considered as overlapping.</span>
+<span class="sd">        It is used by the BronKerbosch method, and must be implemented</span>
+<span class="sd">        at the class level for each child object.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;The is_intersecting method should be defined for each child!&quot;</span><span class="p">)</span></div>
+
+    <span class="c1"># ##### Properties #######</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">stranded</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This property determines whether a Monosublocus will consider</span>
+<span class="sd">        the strand for e.g. the in_locus method.</span>
+<span class="sd">        By default, the parameter is set to True (i.e. the loci are strand-specific).</span>
+<span class="sd">        At the moment, the only class which modifies the parameter is the superlocus class.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__stranded</span>
+
+    <span class="nd">@stranded.setter</span>
+    <span class="k">def</span> <span class="nf">stranded</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">flag</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param flag: boolean value</span>
+<span class="sd">        :type flag: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The stranded attribute must be boolean!&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__stranded</span> <span class="o">=</span> <span class="n">flag</span>
+
+    <span class="c1"># pylint: disable=invalid-name</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is a generic string generator for all inherited children.</span>
+<span class="sd">        :rtype : str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;{0}:{1}{2}:{3}-{4}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">end</span><span class="p">)</span>
+    <span class="c1"># pylint: enable=invalid-name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Alias for id.</span>
+<span class="sd">        :rtype : str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">logger</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Logger instance for the class.</span>
+<span class="sd">        :rtype : logging.Logger</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span>
+
+    <span class="nd">@logger.setter</span>
+    <span class="k">def</span> <span class="nf">logger</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Set a logger for the instance.</span>
+<span class="sd">        :param logger</span>
+<span class="sd">        :type logger: logging.Logger | Nonell</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">logger</span> <span class="o">=</span> <span class="n">create_null_logger</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">logger</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid logger: {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">logger</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span> <span class="o">=</span> <span class="n">logger</span>
+
+    <span class="nd">@logger.deleter</span>
+    <span class="k">def</span> <span class="nf">logger</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Deleter method. It sets the logger to None. Used specifically for pickling.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__logger</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Property. Returns the source field.</span>
+<span class="sd">        :rtype : str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__source</span>
+
+    <span class="nd">@source.setter</span>
+    <span class="k">def</span> <span class="nf">source</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Setter for source. It accepts only strings.</span>
+<span class="sd">        :param value:</span>
+<span class="sd">        :type value: str</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="s2">&quot;Mikado.py&quot;</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__source</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">_cds_introntree</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :rtype: intervaltree.IntervalTree</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__cds_introntree</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__cds_introntree</span> <span class="o">=</span> <span class="n">intervaltree</span><span class="o">.</span><span class="n">IntervalTree</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">intervaltree</span><span class="o">.</span><span class="n">Interval</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">])</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__cds_introntree</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">longest_transcript</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">regressor</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__regressor</span>
+
+    <span class="nd">@regressor.setter</span>
+    <span class="k">def</span> <span class="nf">regressor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">regr</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">regr</span><span class="p">,</span> <span class="n">RandomForestRegressor</span><span class="p">)</span> <span class="ow">or</span> <span class="n">regr</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid regressor provided, type: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">regr</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Set regressor&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__regressor</span> <span class="o">=</span> <span class="n">regr</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

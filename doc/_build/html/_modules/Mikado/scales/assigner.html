@@ -1,0 +1,729 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.scales.assigner &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.scales.assigner</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This class is the main workhorse of the compare.py utility.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">from</span> <span class="nn">intervaltree</span> <span class="kn">import</span> <span class="n">IntervalTree</span>
+<span class="kn">from</span> <span class="nn">logging</span> <span class="kn">import</span> <span class="n">handlers</span> <span class="k">as</span> <span class="n">log_handlers</span>
+<span class="kn">import</span> <span class="nn">queue</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">.resultstorer</span> <span class="kn">import</span> <span class="n">ResultStorer</span>
+<span class="kn">from</span> <span class="nn">..loci.transcript</span> <span class="kn">import</span> <span class="n">Transcript</span>
+<span class="kn">from</span> <span class="nn">..exceptions</span> <span class="kn">import</span> <span class="n">InvalidTranscript</span><span class="p">,</span> <span class="n">InvalidCDS</span>
+<span class="kn">from</span> <span class="nn">.accountant</span> <span class="kn">import</span> <span class="n">Accountant</span>
+<span class="kn">from</span> <span class="nn">.contrast</span> <span class="kn">import</span> <span class="n">compare</span> <span class="k">as</span> <span class="n">c_compare</span>
+
+
+<span class="c1"># noinspection PyPropertyAccess,PyPropertyAccess</span>
+<div class="viewcode-block" id="Assigner"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner">[docs]</a><span class="k">class</span> <span class="nc">Assigner</span><span class="p">:</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class has the purpose of assiging each prediction transcript to its best match</span>
+<span class="sd">    among the reference transcripts.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">genes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+                 <span class="n">positions</span><span class="p">:</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">,</span>
+                 <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">,</span>
+                 <span class="n">stat_calculator</span><span class="p">:</span> <span class="n">Accountant</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param genes: a dictionary which contains</span>
+<span class="sd">        the gene containers for the reference transcript objects.</span>
+<span class="sd">        :type genes: dict</span>
+
+<span class="sd">        :param positions: a defaultdict which is used for fast lookup of genomic positions</span>
+<span class="sd">        :type positions: collections.defaultdict</span>
+
+<span class="sd">        :param args: the parameters passed through the command line</span>
+<span class="sd">        :type args: None | argparse.Namespace</span>
+
+<span class="sd">        :param stat_calculator: an instance of Accountant, to which the results will be sent to.</span>
+<span class="sd">        :type stat_calculator: Accountant</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">args</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">out</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">stdout</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">distance</span> <span class="o">=</span> <span class="mi">2000</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">protein_coding</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">loq_queue</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">exclude_utr</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">args</span> <span class="o">=</span> <span class="n">args</span>
+
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue_handler</span> <span class="o">=</span> <span class="n">log_handlers</span><span class="o">.</span><span class="n">QueueHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">log_queue</span><span class="p">)</span>
+        <span class="c1"># pylint: enable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;Assigner&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">queue_handler</span><span class="p">)</span>
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">genes</span> <span class="o">=</span> <span class="n">genes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">positions</span> <span class="o">=</span> <span class="n">positions</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">gid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">genes</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">genes</span><span class="p">[</span><span class="n">gid</span><span class="p">]</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">gid</span><span class="p">][</span><span class="n">tid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1">#</span>
+        <span class="c1"># for chrom in positions:</span>
+        <span class="c1">#     for key in positions[chrom]:</span>
+        <span class="c1">#         for gid in positions[chrom][key]:</span>
+        <span class="c1">#             self.gene_matches[gid] = dict()</span>
+        <span class="c1">#             for tid in self.genes[gid]:</span>
+        <span class="c1">#                 self.gene_matches[gid][tid.id] = []</span>
+        <span class="c1">#</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">indexer</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="n">positions</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">indexer</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span> <span class="o">=</span> <span class="n">IntervalTree</span><span class="o">.</span><span class="n">from_tuples</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tmap_out</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;{0}.tmap&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">),</span> <span class="s1">&#39;wt&#39;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tmap_rower</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictWriter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tmap_out</span><span class="p">,</span> <span class="n">ResultStorer</span><span class="o">.</span><span class="n">__slots__</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tmap_rower</span><span class="o">.</span><span class="n">writeheader</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stat_calculator</span> <span class="o">=</span> <span class="n">stat_calculator</span>
+
+<div class="viewcode-block" id="Assigner.add_to_refmap"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.add_to_refmap">[docs]</a>    <span class="k">def</span> <span class="nf">add_to_refmap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">ResultStorer</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param result: the result of the compare function</span>
+
+<span class="sd">        This method verifies whether the comparison in input is the best available for the</span>
+<span class="sd">        candidate reference gene, and loads it into the refmap dictionary if such is the case.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span> <span class="o">!=</span> <span class="p">(</span><span class="s2">&quot;u&quot;</span><span class="p">,):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">ref_gene</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="n">result</span><span class="o">.</span><span class="n">ref_id</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">return</span></div>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Assigner.find_neighbours"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.find_neighbours">[docs]</a>    <span class="k">def</span> <span class="nf">find_neighbours</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">position</span><span class="p">,</span> <span class="n">distance</span><span class="o">=</span><span class="mi">2000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This class method is used to find the possible matches of a given prediction key.</span>
+<span class="sd">        :param keys: the start</span>
+<span class="sd">        :type keys: intervaltree.IntervalTree</span>
+
+<span class="sd">        :param position: the position of my prediction in the genome</span>
+<span class="sd">        :type position: (int, int)</span>
+
+<span class="sd">        :param distance: optional maximum distance of a prediction</span>
+<span class="sd">        from reference before being called an unknown</span>
+<span class="sd">        :type distance: int</span>
+
+<span class="sd">        :return: a list of distances, with the following format:</span>
+<span class="sd">                 (start, end), distance</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">position</span>
+
+        <span class="c1"># This should happen only if we are analysing a prediction from a scaffold</span>
+        <span class="c1"># with no reference annotation on it</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="n">found</span> <span class="o">=</span> <span class="n">keys</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">start</span><span class="o">-</span><span class="n">distance</span><span class="p">,</span> <span class="n">end</span><span class="o">+</span><span class="n">distance</span><span class="p">)</span>
+
+        <span class="n">distances</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">found</span><span class="p">:</span>
+            <span class="c1"># Append the key (to be used later for retrieval) and the distance</span>
+            <span class="n">distances</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="p">((</span><span class="n">key</span><span class="o">.</span><span class="n">begin</span><span class="p">,</span> <span class="n">key</span><span class="o">.</span><span class="n">end</span><span class="p">),</span>
+                 <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span>
+                     <span class="nb">max</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">key</span><span class="o">.</span><span class="n">begin</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">end</span><span class="p">,</span> <span class="n">key</span><span class="o">.</span><span class="n">end</span><span class="p">))))</span>
+
+        <span class="c1"># Sort by distance</span>
+        <span class="n">distances</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">distances</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">distances</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Assigner.dubious_getter"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.dubious_getter">[docs]</a>    <span class="k">def</span> <span class="nf">dubious_getter</span><span class="p">(</span><span class="n">dubious_result</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function used to perform the sorting of the matches.</span>
+<span class="sd">        :param dubious_result: a result</span>
+<span class="sd">        :type dubious_result: ResultStorer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">getter</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">attrgetter</span><span class="p">(</span><span class="s2">&quot;j_f1&quot;</span><span class="p">,</span> <span class="s2">&quot;n_f1&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">getter</span><span class="p">(</span><span class="n">dubious_result</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Assigner.get_f1"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.get_f1">[docs]</a>    <span class="k">def</span> <span class="nf">get_f1</span><span class="p">(</span><span class="n">curr_result</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Simple getter for F1 statistics (N_F1 and J_F1)</span>
+<span class="sd">        :param curr_result: a result storer</span>
+<span class="sd">        :type curr_result: ResultStorer</span>
+
+<span class="sd">        :return: (J_F1, N_F1)</span>
+<span class="sd">        :rtype (float, float)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">curr_result</span><span class="o">.</span><span class="n">j_f1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">curr_result</span><span class="o">.</span><span class="n">n_f1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+    <span class="k">def</span> <span class="nf">__prepare_transcript</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Private method that checks that a prediction transcript is OK</span>
+<span class="sd">        before starting to analyse its concordance with the reference.</span>
+<span class="sd">        :param prediction:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Prepare the prediction to be analysed</span>
+        <span class="n">prediction</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">prediction</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+            <span class="c1"># noinspection PyUnresolvedReferences</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">exclude_utr</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">prediction</span><span class="o">.</span><span class="n">remove_utrs</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">InvalidCDS</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">prediction</span><span class="o">.</span><span class="n">strip_cds</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">InvalidTranscript</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Invalid transcript (due to CDS): </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                 <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Error message: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">print_tmap</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">None</span>
+        <span class="k">except</span> <span class="n">InvalidTranscript</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="c1">#         args.queue.put_nowait(&quot;mock&quot;)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Invalid transcript: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Error message: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">err</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">print_tmap</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">None</span>
+        <span class="k">return</span> <span class="n">prediction</span>
+
+    <span class="k">def</span> <span class="nf">__check_for_fusions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">matches</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This private method checks whether a transcript with</span>
+<span class="sd">        multiple matches at distance 0 is indeed a fusion, or not.</span>
+<span class="sd">        :param prediction:</span>
+<span class="sd">        :param matches:</span>
+<span class="sd">        :type matches: list</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Input: dict[(start, end), distance]: [gene1, gene2 ...]</span>
+        <span class="c1"># What we need to achieve in this section of the program</span>
+        <span class="c1"># Detect which genes in range *are* fused</span>
+        <span class="c1"># Assign a &quot;fused&quot; tag to each transcript in the fused gene that passes the criteria</span>
+
+        <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">new_matches</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">match_to_gene</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+        <span class="n">strands</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+
+        <span class="c1"># Get all the results for the single genea</span>
+        <span class="c1"># We *want* to do the calculation for all hits</span>
+        <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">:</span>
+            <span class="n">match_to_gene</span><span class="p">[</span><span class="n">match</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">prediction</span><span class="o">.</span><span class="n">chrom</span><span class="p">][</span><span class="n">match</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="k">for</span> <span class="n">gene</span><span class="p">,</span> <span class="n">gene_match</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">((</span><span class="n">gene</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">genes</span><span class="p">[</span><span class="n">gene</span><span class="p">])</span> <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span>
+                                         <span class="n">match_to_gene</span><span class="p">[</span><span class="n">match</span><span class="p">[</span><span class="mi">0</span><span class="p">]]):</span>
+                <span class="n">strands</span><span class="p">[</span><span class="n">gene_match</span><span class="o">.</span><span class="n">strand</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
+                <span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                    <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">calc_and_store_compare</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">tra</span><span class="p">)</span> <span class="k">for</span> <span class="n">tra</span> <span class="ow">in</span> <span class="n">gene_match</span><span class="p">],</span>
+                    <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_f1</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+        <span class="c1"># If we have candidates for the fusion which are on its same strand</span>
+        <span class="c1"># Keep only those. Otherwise in compact genomes we might call as &quot;fusions&quot;</span>
+        <span class="c1"># all transcripts which are assigned to genes overlapping on the same strand!</span>
+        <span class="k">if</span> <span class="n">prediction</span><span class="o">.</span><span class="n">strand</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">strands</span><span class="p">[</span><span class="n">prediction</span><span class="o">.</span><span class="n">strand</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">strand</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">key</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">strands</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">key</span> <span class="o">!=</span> <span class="n">prediction</span><span class="o">.</span><span class="n">strand</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">strands</span><span class="p">[</span><span class="n">strand</span><span class="p">]:</span>
+                    <span class="c1"># Add to the final results the data for the gene</span>
+                    <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">])</span>
+                    <span class="k">del</span> <span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">new_matches</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">error</span> <span class="o">=</span> <span class="ne">AssertionError</span><span class="p">(</span><span class="s2">&quot;Filtered all results for </span><span class="si">%s</span><span class="s2">. This is wrong!&quot;</span><span class="p">,</span>
+                                   <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">error</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">error</span>
+
+        <span class="n">fused</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="n">dubious</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">best</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+        <span class="k">for</span> <span class="n">match</span><span class="p">,</span> <span class="n">genes</span> <span class="ow">in</span> <span class="n">match_to_gene</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">local_best</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">genes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">gene</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">new_matches</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="c1"># The best match is the first</span>
+                <span class="k">if</span> <span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">j_f1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">n_recall</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>
+                    <span class="n">dubious</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">local_best</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="n">fused</span><span class="p">[</span><span class="n">match</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">gene</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">local_best</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">best</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">match</span><span class="p">,</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">local_best</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_f1</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># We have a fusion</span>
+            <span class="c1"># Add the fusion tag to all transcripts of fused genes, if applicable</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="c1"># Now retrieve the results according to their order on the genome</span>
+            <span class="c1"># Keep only the result, not their position</span>
+            <span class="n">best</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">res</span><span class="p">:</span> <span class="p">(</span><span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">res</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]))]</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">ResultStorer</span><span class="o">.</span><span class="n">__slots__</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;gid&quot;</span><span class="p">,</span> <span class="s2">&quot;tid&quot;</span><span class="p">,</span> <span class="s2">&quot;distance&quot;</span><span class="p">]:</span>
+                    <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">best</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">key</span><span class="p">))</span>
+                <span class="k">elif</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;ccode&quot;</span><span class="p">:</span>
+                    <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="s2">&quot;f&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">best</span><span class="p">]))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">getattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">key</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">best</span><span class="p">])</span>
+                    <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+            <span class="n">best_result</span> <span class="o">=</span> <span class="n">ResultStorer</span><span class="p">(</span><span class="o">*</span><span class="n">values</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">match</span><span class="p">,</span> <span class="n">genes</span> <span class="ow">in</span> <span class="n">fused</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">genes</span> <span class="k">if</span> <span class="n">_</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">dubious</span><span class="p">):</span>
+                    <span class="k">for</span> <span class="n">position</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">]):</span>
+                        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">j_f1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">result</span><span class="o">.</span><span class="n">n_recall</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">:</span>
+                            <span class="n">result</span><span class="o">.</span><span class="n">ccode</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                            <span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">][</span><span class="n">position</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span>
+
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">best</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">best_result</span> <span class="o">=</span> <span class="n">best</span><span class="o">.</span><span class="n">pop</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># We have to retrieve the best result from the dubious</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Filtered out all results for </span><span class="si">%s</span><span class="s2">, selecting the best dubious one&quot;</span><span class="p">,</span>
+                              <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="c1"># I have filtered out all the results,</span>
+            <span class="c1"># because I only match partially the reference genes</span>
+            <span class="n">best_result</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">dubious</span><span class="p">],</span>
+                                 <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">get_f1</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Finally add the results</span>
+        <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">new_matches</span><span class="p">:</span>
+            <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">new_matches</span><span class="p">[</span><span class="n">gene</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">results</span><span class="p">,</span> <span class="n">best_result</span>
+
+    <span class="k">def</span> <span class="nf">__prepare_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">,</span> <span class="n">distances</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This private method prepares the matching result for cases where the</span>
+<span class="sd">        minimum distance from a reference gene/transcript is 0.</span>
+<span class="sd">        :param prediction:</span>
+<span class="sd">        :param distances:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">matches</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">distance</span> <span class="k">for</span> <span class="n">distance</span> <span class="ow">in</span> <span class="n">distances</span> <span class="k">if</span> <span class="n">distance</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Matches for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                          <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                          <span class="n">matches</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">prediction</span><span class="o">.</span><span class="n">strand</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">correct</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">:</span>
+                    <span class="k">for</span> <span class="n">gid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">prediction</span><span class="o">.</span><span class="n">chrom</span><span class="p">][</span><span class="n">match</span><span class="p">[</span><span class="mi">0</span><span class="p">]]:</span>
+                        <span class="k">if</span> <span class="nb">any</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">genes</span><span class="p">[</span><span class="n">gid</span><span class="p">]</span><span class="o">.</span><span class="n">strand</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">strand</span><span class="p">)]):</span>
+                            <span class="n">correct</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">match</span><span class="p">)</span>
+                            <span class="k">break</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">correct</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">matches</span> <span class="o">=</span> <span class="n">correct</span><span class="p">[:]</span>
+                <span class="k">del</span> <span class="n">correct</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">matches</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;More than one match for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                              <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                              <span class="n">matches</span><span class="p">)</span>
+            <span class="n">results</span><span class="p">,</span> <span class="n">best_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__check_for_fusions</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">matches</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">matches</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">genes</span><span class="p">[</span><span class="n">_</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span>
+                       <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">prediction</span><span class="o">.</span><span class="n">chrom</span><span class="p">][</span><span class="n">matches</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]]]</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">matches</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2">: type </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">match</span><span class="p">),</span> <span class="nb">type</span><span class="p">(</span><span class="n">match</span><span class="p">))</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">calc_and_store_compare</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">tra</span><span class="p">)</span> <span class="k">for</span> <span class="n">tra</span> <span class="ow">in</span> <span class="n">match</span><span class="p">])</span>
+
+            <span class="n">results</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                             <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">attrgetter</span><span class="p">(</span><span class="s2">&quot;j_f1&quot;</span><span class="p">,</span> <span class="s2">&quot;n_f1&quot;</span><span class="p">))</span>
+
+            <span class="n">best_result</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">results</span><span class="p">,</span> <span class="n">best_result</span>
+
+<div class="viewcode-block" id="Assigner.get_best"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.get_best">[docs]</a>    <span class="k">def</span> <span class="nf">get_best</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param prediction: the candidate transcript to be analysed</span>
+<span class="sd">        :type prediction: Transcript</span>
+
+<span class="sd">        This function will get the best possible assignment for each transcript.</span>
+<span class="sd">        Fusion genes are called when the following conditions are verified:</span>
+<span class="sd">        - the prediction intersects (at least) two transcripts in (at least)</span>
+<span class="sd">        two different loci</span>
+<span class="sd">        - the suspected fusion transcript lies on the same strand of all</span>
+<span class="sd">        candidate fused genes</span>
+<span class="sd">        - each candidate transcript has at least one fusion or</span>
+<span class="sd">        10% of its nucleotides covered by the fusion transcript.</span>
+<span class="sd">        The 10% threshold is hard-coded in the function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Started with </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="c1"># Quickly check that the transcript is OK</span>
+        <span class="n">prediction</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__prepare_transcript</span><span class="p">(</span><span class="n">prediction</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">prediction</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+
+        <span class="c1"># Ignore non-coding RNAs if we are interested in protein-coding transcripts only</span>
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">protein_coding</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">and</span> <span class="n">prediction</span><span class="o">.</span><span class="n">combined_cds_length</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1">#         args.queue.put_nowait(&quot;mock&quot;)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No CDS for </span><span class="si">%s</span><span class="s2">. Ignoring.&quot;</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">print_tmap</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">None</span>
+
+        <span class="k">if</span> <span class="n">prediction</span><span class="o">.</span><span class="n">chrom</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">indexer</span><span class="p">:</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">indexer</span><span class="p">[</span><span class="n">prediction</span><span class="o">.</span><span class="n">chrom</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">keys</span> <span class="o">=</span> <span class="n">IntervalTree</span><span class="p">()</span>
+
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="n">distances</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">find_neighbours</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span>
+                                         <span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">end</span><span class="p">),</span>
+                                         <span class="n">distance</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">distance</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Distances for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                          <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                          <span class="n">distances</span><span class="p">)</span>
+
+        <span class="c1"># Unknown transcript</span>
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">distances</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">distances</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">distance</span><span class="p">:</span>
+            <span class="n">ccode</span> <span class="o">=</span> <span class="s2">&quot;u&quot;</span>
+            <span class="c1"># noinspection PyTypeChecker,PyUnresolvedReferences</span>
+            <span class="n">best_result</span> <span class="o">=</span> <span class="n">ResultStorer</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;-&quot;</span><span class="p">,</span>
+                                       <span class="n">ccode</span><span class="p">,</span>
+                                       <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                                       <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">prediction</span><span class="o">.</span><span class="n">parent</span><span class="p">),</span> <span class="o">*</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="mi">9</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;-&quot;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">stat_calculator</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">best_result</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">best_result</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">distances</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Polymerase run-on</span>
+            <span class="n">match</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">genes</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">positions</span><span class="p">[</span><span class="n">prediction</span><span class="o">.</span><span class="n">chrom</span><span class="p">][</span><span class="n">distances</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]][</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">calc_and_store_compare</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">reference</span><span class="p">)</span> <span class="k">for</span> <span class="n">reference</span> <span class="ow">in</span> <span class="n">match</span><span class="p">]</span>
+            <span class="n">best_result</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">results</span><span class="p">,</span>
+                                 <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">attrgetter</span><span class="p">(</span><span class="s2">&quot;distance&quot;</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># All other cases</span>
+            <span class="n">results</span><span class="p">,</span> <span class="n">best_result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__prepare_result</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">distances</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">result</span> <span class="ow">in</span> <span class="n">results</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_to_refmap</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Finished with </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">prediction</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">print_tmap</span><span class="p">(</span><span class="n">best_result</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">best_result</span></div>
+
+<div class="viewcode-block" id="Assigner.finish"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.finish">[docs]</a>    <span class="k">def</span> <span class="nf">finish</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This function is called upon completion of the input file parsing.</span>
+<span class="sd">        It will print out the reference file assignments into the refmap</span>
+<span class="sd">        file, and the final statistics into the stats file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished parsing, total: </span><span class="si">%d</span><span class="s2"> transcript</span><span class="si">%s</span><span class="s2">.&quot;</span><span class="p">,</span>
+                         <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">,</span> <span class="s2">&quot;s&quot;</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">refmap_printer</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stat_calculator</span><span class="o">.</span><span class="n">print_stats</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tmap_out</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="Assigner.calc_and_store_compare"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.calc_and_store_compare">[docs]</a>    <span class="k">def</span> <span class="nf">calc_and_store_compare</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">prediction</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">,</span> <span class="n">reference</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ResultStorer</span><span class="p">:</span>
+        <span class="sd">&quot;&quot;&quot;Thin layer around the calc_and_store_compare class method.</span>
+
+<span class="sd">        :param prediction: a Transcript instance.</span>
+
+<span class="sd">        :param reference: a Transcript instance to which the prediction is compared to.</span>
+
+<span class="sd">        :rtype ResultStorer</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">result</span><span class="p">,</span> <span class="n">reference_exon</span> <span class="o">=</span> <span class="n">c_compare</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">reference</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">reference_exon</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">reference_exon</span> <span class="ow">in</span> <span class="n">reference</span><span class="o">.</span><span class="n">exons</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stat_calculator</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">result</span><span class="p">,</span> <span class="n">reference_exon</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">result</span></div>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="Assigner.compare"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.compare">[docs]</a>    <span class="k">def</span> <span class="nf">compare</span><span class="p">(</span><span class="n">prediction</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">,</span> <span class="n">reference</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="p">(</span><span class="n">ResultStorer</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Function to compare two transcripts and determine a ccode. Thin wrapper</span>
+<span class="sd">        around the compare cython code.</span>
+
+<span class="sd">        :param prediction: the transcript query</span>
+<span class="sd">        :type prediction: Transcript</span>
+
+<span class="sd">        :param reference: the reference transcript against which we desire to</span>
+<span class="sd">        calculate the ccode and other stats.</span>
+<span class="sd">        :type reference: Transcript</span>
+
+<span class="sd">        :rtype (ResultStorer, (int,int)) | (ResultStorer, None)</span>
+
+<span class="sd">        Available ccodes (from Cufflinks documentation):</span>
+
+<span class="sd">        - =    Complete intron chain match</span>
+<span class="sd">        - c    Contained (perfect junction recall and precision, imperfect recall)</span>
+<span class="sd">        - j    Potentially novel isoform (fragment): at least one splice junction is shared</span>
+<span class="sd">        with a reference transcript</span>
+<span class="sd">        - e    Single exon transfrag overlapping a reference exon and at least</span>
+<span class="sd">        10 bp of a reference intron, indicating a possible pre-mRNA fragment.</span>
+<span class="sd">        - i    A *monoexonic* transfrag falling entirely within a reference intron</span>
+<span class="sd">        - o    Generic exonic overlap with a reference transcript</span>
+<span class="sd">        - p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)</span>
+<span class="sd">        - u    Unknown, intergenic transcript</span>
+<span class="sd">        - x    Exonic overlap with reference on the opposite strand (class codes e, o, m, c, _)</span>
+<span class="sd">        - X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake,</span>
+<span class="sd">               unless non-canonical splicing junctions are involved).</span>
+
+<span class="sd">        Please note that the description for i is changed from Cufflinks.</span>
+
+<span class="sd">        We also provide the following additional classifications:</span>
+
+<span class="sd">        - f    gene fusion - in this case, this ccode will be followed by the</span>
+<span class="sd">        ccodes of the matches for each gene, separated by comma</span>
+<span class="sd">        - _    Complete match, for monoexonic transcripts</span>
+<span class="sd">        (nucleotide F1&gt;=80% - i.e. min(precision,recall)&gt;=66.7%</span>
+<span class="sd">        - m    Exon overlap between two monoexonic transcripts</span>
+<span class="sd">        - n    Potential extension of the reference - we have added new splice junctions</span>
+<span class="sd">        *outside* the boundaries of the transcript itself</span>
+<span class="sd">        - C    Contained transcript with overextensions on either side</span>
+<span class="sd">        (perfect junction recall, imperfect nucleotide specificity)</span>
+<span class="sd">        - J    Potentially novel isoform, where all the known junctions</span>
+<span class="sd">        have been confirmed and we have added others as well *externally*</span>
+<span class="sd">        - I    *multiexonic* transcript falling completely inside a known transcript</span>
+<span class="sd">        - h    AS event in which at least a couple of introns overlaps but without any</span>
+<span class="sd">               junction in common.</span>
+<span class="sd">        - O    Reverse generic overlap - the reference is monoexonic while the prediction isn&#39;t</span>
+<span class="sd">        - P    Possible polymerase run-on fragment</span>
+<span class="sd">        - mo   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic</span>
+<span class="sd">        (within 2K bases of a reference transcript), on the opposite strand</span>
+
+<span class="sd">        This is a class method, and can therefore be used outside of a class instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">c_compare</span><span class="p">(</span><span class="n">prediction</span><span class="p">,</span> <span class="n">reference</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Assigner.print_tmap"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.print_tmap">[docs]</a>    <span class="k">def</span> <span class="nf">print_tmap</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">res</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This method will print a ResultStorer instance onto the TMAP file.</span>
+<span class="sd">        :param res: result from compare</span>
+<span class="sd">        :type res: (ResultStorer | None)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">%</span> <span class="mi">10000</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Done </span><span class="si">%d</span><span class="s2"> transcripts&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">%</span> <span class="mi">1000</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Done </span><span class="si">%d</span><span class="s2"> transcripts&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">done</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">res</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">ResultStorer</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="s2">&quot;Wrong type for res: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">res</span><span class="p">)))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">res</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">tmap_rower</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">res</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span></div>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">__result_sorter</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method to sort the results for the refmap. Order:</span>
+<span class="sd">        - CCode does not contain &quot;x&quot;, &quot;P&quot;, &quot;p&quot; (i.e. fragments on opposite strand or</span>
+<span class="sd">        polymerase run-on fragments)</span>
+<span class="sd">        - Exonic F1 (e_f1)</span>
+<span class="sd">        - Junction F1 (j_f1)</span>
+<span class="sd">        - &quot;f&quot; in ccode (i.e. transcript is a fusion)</span>
+<span class="sd">        - Nucleotide F1 (n_f1)</span>
+
+<span class="sd">        :param result: a resultStorer object</span>
+<span class="sd">        :type result: ResultStorer</span>
+<span class="sd">        :return: (int, float, float, float)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">bad_ccodes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">]</span>
+        <span class="n">bad_ccodes</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">bad_ccodes</span><span class="p">)</span>
+
+        <span class="n">orderer</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">bad_ccodes</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">)))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
+                   <span class="n">result</span><span class="o">.</span><span class="n">j_f1</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">e_f1</span><span class="p">,</span>
+                   <span class="n">result</span><span class="o">.</span><span class="n">n_f1</span><span class="p">,</span>
+                   <span class="s2">&quot;f&quot;</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">orderer</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Assigner.result_sorter"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.result_sorter">[docs]</a>    <span class="k">def</span> <span class="nf">result_sorter</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Public interface of __result_sorter</span>
+<span class="sd">        :param result: a result</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">__result_sorter</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Assigner.refmap_printer"><a class="viewcode-back" href="../../../Mikado.scales.html#Mikado.scales.assigner.Assigner.refmap_printer">[docs]</a>    <span class="k">def</span> <span class="nf">refmap_printer</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="bp">None</span><span class="p">:</span>
+
+        <span class="sd">&quot;&quot;&quot;Function to print out the best match for each gene.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting printing RefMap&quot;</span><span class="p">)</span>
+        <span class="c1"># noinspection PyUnresolvedReferences</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;{0}.refmap&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">),</span> <span class="s1">&#39;wt&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">out</span><span class="p">:</span>
+            <span class="n">fields</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ref_id&quot;</span><span class="p">,</span> <span class="s2">&quot;ccode&quot;</span><span class="p">,</span> <span class="s2">&quot;tid&quot;</span><span class="p">,</span> <span class="s2">&quot;gid&quot;</span><span class="p">,</span>
+                      <span class="s2">&quot;ref_gene&quot;</span><span class="p">,</span> <span class="s2">&quot;best_ccode&quot;</span><span class="p">,</span> <span class="s2">&quot;best_tid&quot;</span><span class="p">,</span> <span class="s2">&quot;best_gid&quot;</span><span class="p">]</span>
+            <span class="n">out_tuple</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s2">&quot;refmap&quot;</span><span class="p">,</span> <span class="n">fields</span><span class="p">)</span>
+
+            <span class="n">rower</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">DictWriter</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">rower</span><span class="o">.</span><span class="n">writeheader</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">gid</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+
+                <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">best_picks</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">gid</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">gid</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">gid</span><span class="p">][</span><span class="n">tid</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="n">row</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">tid</span><span class="p">,</span> <span class="n">gid</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">])</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="bp">True</span> <span class="k">if</span> <span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">j_f1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">x</span><span class="o">.</span><span class="n">n_f1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="k">else</span> <span class="bp">False</span>
+                               <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">gid</span><span class="p">][</span><span class="n">tid</span><span class="p">]):</span>
+                            <span class="n">best</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">gid</span><span class="p">][</span><span class="n">tid</span><span class="p">],</span>
+                                          <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">__result_sorter</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">best</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gene_matches</span><span class="p">[</span><span class="n">gid</span><span class="p">][</span><span class="n">tid</span><span class="p">],</span>
+                                          <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">attrgetter</span><span class="p">(</span><span class="s2">&quot;distance&quot;</span><span class="p">),</span>
+                                          <span class="n">reverse</span><span class="o">=</span><span class="bp">False</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                        <span class="n">best_picks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best</span><span class="p">)</span>
+                        <span class="n">row</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">tid</span><span class="p">,</span> <span class="n">gid</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">best</span><span class="o">.</span><span class="n">ccode</span><span class="p">),</span>
+                                     <span class="n">best</span><span class="o">.</span><span class="n">tid</span><span class="p">,</span> <span class="n">best</span><span class="o">.</span><span class="n">gid</span><span class="p">])</span>
+
+                    <span class="n">rows</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">best_picks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">best_pick</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">best_picks</span><span class="p">,</span>
+                                       <span class="n">key</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">__result_sorter</span><span class="p">,</span>
+                                       <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">best_pick</span> <span class="o">=</span> <span class="bp">None</span>
+
+                <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">best_pick</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                        <span class="k">assert</span> <span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="n">row</span>
+                        <span class="n">row</span> <span class="o">=</span> <span class="n">out_tuple</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+                                        <span class="n">row</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span>
+                                        <span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">best_pick</span><span class="o">.</span><span class="n">ccode</span><span class="p">),</span>
+                                        <span class="n">best_pick</span><span class="o">.</span><span class="n">tid</span><span class="p">,</span> <span class="n">best_pick</span><span class="o">.</span><span class="n">gid</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">row</span> <span class="o">=</span> <span class="n">out_tuple</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">,</span> <span class="s2">&quot;NA&quot;</span><span class="p">)</span>
+                    <span class="c1"># noinspection PyProtectedMember,PyProtectedMember</span>
+                    <span class="n">rower</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">_asdict</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished printing RefMap&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">None</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,300 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.serializers.blast_serializer.hsp &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Module code" href="../../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.serializers.blast_serializer.hsp</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module implements the HSP serialisation class.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">Column</span><span class="p">,</span> <span class="n">String</span><span class="p">,</span> <span class="n">Integer</span><span class="p">,</span> <span class="n">Float</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">,</span> <span class="n">Index</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.sql.schema</span> <span class="kn">import</span> <span class="n">PrimaryKeyConstraint</span><span class="p">,</span> <span class="n">UniqueConstraint</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm</span> <span class="kn">import</span> <span class="n">relationship</span><span class="p">,</span> <span class="n">column_property</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">select</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.ext.hybrid</span> <span class="kn">import</span> <span class="n">hybrid_property</span>  <span class="c1"># hybrid_method</span>
+<span class="kn">from</span> <span class="nn">...utilities.dbutils</span> <span class="kn">import</span> <span class="n">DBBASE</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">Query</span><span class="p">,</span> <span class="n">Target</span><span class="p">,</span> <span class="n">prepare_hsp</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="Hsp"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.hsp.Hsp">[docs]</a><span class="k">class</span> <span class="nc">Hsp</span><span class="p">(</span><span class="n">DBBASE</span><span class="p">):</span>
+
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    This class serializes and stores into the DB the various HSPs.</span>
+<span class="sd">    It is directly connected to the Hit table, through the &quot;hit_id&quot;</span>
+<span class="sd">    reference key.</span>
+<span class="sd">    The Hit reference can be accessed through the hit_object attribute;</span>
+<span class="sd">    back-reference (Hit to Hsps) is given by the &quot;hsps&quot; attribute.</span>
+
+<span class="sd">    Keys:</span>
+
+<span class="sd">    :return hit_id: Reference key for the Hit table</span>
+<span class="sd">    :rtype hit_id: int</span>
+
+<span class="sd">    :return counter: It indicates the progressive number of the HSP for the hit</span>
+<span class="sd">    :rtype counter: int</span>
+
+<span class="sd">    :return query_hsp_start: Start position on the query</span>
+<span class="sd">    :rtype query_hsp_start; int</span>
+
+<span class="sd">    :return query_hsp_end: End position on the query</span>
+<span class="sd">    :rtype query_hsp_end: int</span>
+
+<span class="sd">    :return target_hsp_start: Start position on the target</span>
+<span class="sd">    :rtype target_hsp_start: int</span>
+
+<span class="sd">    :return target_hsp_end: End position on the target</span>
+<span class="sd">    :rtype target_hsp_end: int</span>
+
+<span class="sd">    :return hsp_evalue: Evalue of the HSP</span>
+<span class="sd">    :rtype hsp_evalue: float</span>
+
+<span class="sd">    :return hsp_bits: Bit-score of the HSP</span>
+<span class="sd">    :rtype hsp_bits: float</span>
+
+<span class="sd">    :return hsp_identity: Identity (in %) of the alignment</span>
+<span class="sd">    :rtype  hsp_identity: float</span>
+
+<span class="sd">    :return hsp_length: Length of the HSP</span>
+<span class="sd">    :rtype hsp_length: int</span>
+
+<span class="sd">    :return match: the match line between query and target, with the following specs:</span>
+<span class="sd">        - If the position is a match/positive, keep the original value</span>
+<span class="sd">        - If the position is a gap *for the query*, insert a - (dash)</span>
+<span class="sd">        - If the position is a gap *for the target*, insert a _ (underscore)</span>
+<span class="sd">        - If the position is a gap *for both*, insert a \ (backslash)</span>
+
+<span class="sd">    An HSP row has the following constraints:</span>
+<span class="sd">    - Counter,hit_id must be unique (and are primary keys)</span>
+<span class="sd">    - The combination (&quot;Hit_id&quot;,&quot;query_hsp_start&quot;,&quot;query_hsp_end&quot;,</span>
+<span class="sd">    &quot;target_hsp_start&quot;, &quot;target_hsp_end&quot;) must be unique</span>
+
+<span class="sd">    Moreover, the following properties are also present:</span>
+
+<span class="sd">    :return query_object: The referenced Query</span>
+<span class="sd">    :rtype query_object: Query</span>
+
+<span class="sd">    :return target_object: The reference Target</span>
+<span class="sd">    :rtype target_object: Target</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__tablename__</span> <span class="o">=</span> <span class="s2">&quot;hsp&quot;</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>  <span class="c1"># Indicates the number of the HSP inside the hit</span>
+    <span class="n">query_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="n">Query</span><span class="o">.</span><span class="n">query_id</span><span class="p">),</span> <span class="n">unique</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">target_id</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">,</span> <span class="n">ForeignKey</span><span class="p">(</span><span class="n">Target</span><span class="o">.</span><span class="n">target_id</span><span class="p">),</span> <span class="n">unique</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">pk_constraint</span> <span class="o">=</span> <span class="n">PrimaryKeyConstraint</span><span class="p">(</span><span class="s2">&quot;counter&quot;</span><span class="p">,</span>
+                                         <span class="s2">&quot;query_id&quot;</span><span class="p">,</span>
+                                         <span class="s2">&quot;target_id&quot;</span><span class="p">,</span>
+                                         <span class="n">name</span><span class="o">=</span><span class="s2">&quot;hsp_constraint&quot;</span><span class="p">)</span>
+    <span class="n">query_index</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;hsp_query_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;query_id&quot;</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">target_index</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;hsp_target_idx&quot;</span><span class="p">,</span> <span class="s2">&quot;target_id&quot;</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">hsp_evalue_index</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="s1">&#39;hsp_evalue_idx&#39;</span><span class="p">,</span> <span class="s1">&#39;hsp_evalue&#39;</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">combined_index</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;hsp_combined_idx&quot;</span><span class="p">,</span>
+                           <span class="s2">&quot;query_id&quot;</span><span class="p">,</span>
+                           <span class="s2">&quot;target_id&quot;</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">full_index</span> <span class="o">=</span> <span class="n">Index</span><span class="p">(</span><span class="s2">&quot;hsp_full_idx&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;counter&quot;</span><span class="p">,</span> <span class="s2">&quot;query_id&quot;</span><span class="p">,</span> <span class="s2">&quot;target_id&quot;</span><span class="p">,</span> <span class="n">unique</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">query_hsp_start</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+    <span class="n">query_hsp_end</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+    <span class="n">target_hsp_start</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+    <span class="n">target_hsp_end</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+    <span class="n">uni_constraint</span> <span class="o">=</span> <span class="n">UniqueConstraint</span><span class="p">(</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span> <span class="s2">&quot;target_id&quot;</span><span class="p">,</span>
+                                      <span class="s2">&quot;query_hsp_start&quot;</span><span class="p">,</span> <span class="s2">&quot;query_hsp_end&quot;</span><span class="p">,</span>
+                                      <span class="s2">&quot;target_hsp_start&quot;</span><span class="p">,</span> <span class="s2">&quot;target_hsp_end&quot;</span><span class="p">)</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">String</span><span class="p">(</span><span class="mi">10000</span><span class="p">))</span>
+    <span class="n">hsp_evalue</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">)</span>
+    <span class="n">hsp_bits</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">)</span>
+    <span class="n">hsp_identity</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">)</span>
+    <span class="n">hsp_positives</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Float</span><span class="p">)</span>
+    <span class="n">hsp_length</span> <span class="o">=</span> <span class="n">Column</span><span class="p">(</span><span class="n">Integer</span><span class="p">)</span>
+
+    <span class="n">query_object</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">Query</span><span class="p">,</span> <span class="n">uselist</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">target_object</span> <span class="o">=</span> <span class="n">relationship</span><span class="p">(</span><span class="n">Target</span><span class="p">,</span> <span class="n">uselist</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+    <span class="n">query</span> <span class="o">=</span> <span class="n">column_property</span><span class="p">(</span><span class="n">select</span><span class="p">([</span><span class="n">Query</span><span class="o">.</span><span class="n">query_name</span><span class="p">])</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">Query</span><span class="o">.</span><span class="n">query_id</span> <span class="o">==</span> <span class="n">query_id</span><span class="p">))</span>
+    <span class="n">query_length</span> <span class="o">=</span> <span class="n">column_property</span><span class="p">(</span><span class="n">select</span><span class="p">([</span><span class="n">Query</span><span class="o">.</span><span class="n">query_length</span><span class="p">])</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">Query</span><span class="o">.</span><span class="n">query_id</span> <span class="o">==</span> <span class="n">query_id</span><span class="p">))</span>
+    <span class="n">target</span> <span class="o">=</span> <span class="n">select</span><span class="p">([</span><span class="n">Target</span><span class="o">.</span><span class="n">target_name</span><span class="p">])</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">Target</span><span class="o">.</span><span class="n">target_id</span> <span class="o">==</span> <span class="n">target_id</span><span class="p">)</span>
+    <span class="n">target_length</span> <span class="o">=</span> <span class="n">select</span><span class="p">([</span><span class="n">Target</span><span class="o">.</span><span class="n">target_length</span><span class="p">])</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">Target</span><span class="o">.</span><span class="n">target_id</span> <span class="o">==</span> <span class="n">target_id</span><span class="p">)</span>
+
+    <span class="n">__table_args__</span> <span class="o">=</span> <span class="p">(</span><span class="n">pk_constraint</span><span class="p">,</span> <span class="n">query_index</span><span class="p">,</span> <span class="n">target_index</span><span class="p">,</span> <span class="n">combined_index</span><span class="p">,</span> <span class="n">hsp_evalue_index</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hsp</span><span class="p">,</span> <span class="n">counter</span><span class="p">,</span> <span class="n">query_id</span><span class="p">,</span> <span class="n">target_id</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param hsp: an hsp object from the serialized XML</span>
+
+<span class="sd">        :param counter: integer which indicates the HSP position in the HSP</span>
+<span class="sd">         list for the hit</span>
+<span class="sd">        :type counter: int</span>
+
+<span class="sd">        :param query_id: Foreign key for the Query table</span>
+<span class="sd">        :type query_id: int</span>
+
+<span class="sd">        :param target_id: Foreign key for the Target table</span>
+<span class="sd">        :type target_id: int</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="n">counter</span>
+        <span class="n">hsp_dict</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">prepare_hsp</span><span class="p">(</span><span class="n">hsp</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">hsp_dict</span><span class="p">:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">hsp_dict</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">query_id</span> <span class="o">=</span> <span class="n">query_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">target_id</span> <span class="o">=</span> <span class="n">target_id</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Simple printing function.&quot;&quot;&quot;</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_hsp_start</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query_hsp_end</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_hsp_start</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">target_hsp_end</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">hsp_evalue</span><span class="p">]</span>
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">line</span><span class="p">])</span>
+
+    <span class="c1"># @profile</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Hsp.as_dict_static"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.hsp.Hsp.as_dict_static">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict_static</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">state_obj</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to return a dict representation of the object. Necessary for storing.</span>
+<span class="sd">        This method returns a dictionary *without any attribute that requires joined data*.</span>
+<span class="sd">        As a static method, it is useful to be used outside of the class.</span>
+<span class="sd">        :param state_obj: an instance of the HSP class or a</span>
+<span class="sd">        collections.namedtuple object from a direct query</span>
+
+<span class="sd">        :rtype : dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;query_hsp_start&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;query_hsp_end&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;target_hsp_start&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;target_hsp_end&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hsp_evalue&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;hsp_bits&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;match&quot;</span>
+        <span class="p">]</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+            <span class="n">state</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">state_obj</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span></div>
+
+<div class="viewcode-block" id="Hsp.as_dict"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.hsp.Hsp.as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to return a dict representation of the object. Necessary for storing.</span>
+<span class="sd">        This method returns a dictionary *without any attribute that requires joined data*.</span>
+<span class="sd">        It is meant to be used only by the method as_dict of the Hit class.&quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_dict_static</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Hsp.as_full_dict"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.hsp.Hsp.as_full_dict">[docs]</a>    <span class="k">def</span> <span class="nf">as_full_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Method to return a dict representation of the object.</span>
+<span class="sd">        This method also checks query name and hit name, so it is slower than as_dict and used</span>
+<span class="sd">        when it is necessary to retrieve data independently from Hit.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_dict</span><span class="p">()</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;query&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;target&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;query_hsp_cov&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_hsp_cov</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;target_hsp_cov&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_hsp_cov</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;match&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">match</span>
+
+        <span class="k">return</span> <span class="n">state</span></div>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">query_hsp_cov</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This property returns the percentage of the query which is covered by the HSP.&quot;&quot;&quot;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_hsp_end</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_hsp_start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">val</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_length</span>
+        <span class="k">return</span> <span class="n">val</span>
+
+    <span class="nd">@hybrid_property</span>
+    <span class="k">def</span> <span class="nf">target_hsp_cov</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This property returns the percentage of the target which is covered by the HSP.&quot;&quot;&quot;</span>
+        <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_hsp_end</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_hsp_start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">val</span> <span class="o">/=</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_length</span>
+        <span class="k">return</span> <span class="n">val</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,875 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.serializers.blast_serializer.xml_serialiser &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Module code" href="../../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.serializers.blast_serializer.xml_serialiser</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">XML serialisation class.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">logging.handlers</span> <span class="kn">as</span> <span class="nn">logging_handlers</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy.exc</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">sessionmaker</span>
+<span class="kn">from</span> <span class="nn">...utilities.dbutils</span> <span class="kn">import</span> <span class="n">DBBASE</span>
+<span class="kn">import</span> <span class="nn">pyfaidx</span>
+<span class="kn">from</span> <span class="nn">...utilities.dbutils</span> <span class="kn">import</span> <span class="n">connect</span>
+<span class="kn">from</span> <span class="nn">...parsers.blast_utils</span> <span class="kn">import</span> <span class="n">BlastOpener</span>  <span class="c1"># , XMLMerger</span>
+<span class="kn">from</span> <span class="nn">...utilities.log_utils</span> <span class="kn">import</span> <span class="n">create_null_logger</span><span class="p">,</span> <span class="n">check_logger</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">Query</span><span class="p">,</span> <span class="n">Target</span><span class="p">,</span> <span class="n">Hsp</span><span class="p">,</span> <span class="n">Hit</span><span class="p">,</span> <span class="n">prepare_hit</span><span class="p">,</span> <span class="n">InvalidHit</span>
+<span class="kn">from</span> <span class="nn">xml.parsers.expat</span> <span class="kn">import</span> <span class="n">ExpatError</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<span class="c1"># A serialisation class must have a ton of attributes ...</span>
+<span class="c1"># pylint: disable=too-many-instance-attributes</span>
+
+<span class="k">class</span> <span class="nc">_XmlPickler</span><span class="p">(</span><span class="n">multiprocessing</span><span class="o">.</span><span class="n">Process</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                 <span class="n">filequeue</span><span class="p">,</span>
+                 <span class="n">returnqueue</span><span class="p">,</span>
+                 <span class="n">default_header</span><span class="p">,</span>
+                 <span class="n">maxobjects</span><span class="p">,</span>
+                 <span class="n">identifier</span><span class="p">,</span>
+                 <span class="n">logging_queue</span><span class="p">,</span>
+                 <span class="n">level</span><span class="o">=</span><span class="s2">&quot;WARN&quot;</span><span class="p">):</span>
+
+        <span class="nb">super</span><span class="p">(</span><span class="n">_XmlPickler</span><span class="p">,</span>  <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handler</span> <span class="o">=</span> <span class="n">logging_handlers</span><span class="o">.</span><span class="n">QueueHandler</span><span class="p">(</span><span class="n">logging_queue</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__identifier</span> <span class="o">=</span> <span class="n">identifier</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;_XmlPickler-{0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">identifier</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handler</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filequeue</span> <span class="o">=</span> <span class="n">filequeue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">returnqueue</span> <span class="o">=</span> <span class="n">returnqueue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">default_header</span> <span class="o">=</span> <span class="n">default_header</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span> <span class="o">=</span> <span class="n">maxobjects</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span> <span class="o">=</span> <span class="n">logging_queue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">level</span> <span class="o">=</span> <span class="n">level</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pickler</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">_pickle_xml</span><span class="p">,</span>
+                                          <span class="o">**</span><span class="p">{</span><span class="s2">&quot;default_header&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_header</span><span class="p">,</span>
+                                             <span class="s2">&quot;maxobjects&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span><span class="p">,</span>
+                                             <span class="s2">&quot;logging_queue&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">,</span>
+                                             <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;logger&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="s2">&quot;handler&quot;</span><span class="p">])</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;handler&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;handler&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;_pickler&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">state</span><span class="p">[</span><span class="s2">&quot;logger&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span> <span class="nf">__setstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">handler</span> <span class="o">=</span> <span class="n">logging_handlers</span><span class="o">.</span><span class="n">QueueHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">handler</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pickler</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">_pickle_xml</span><span class="p">,</span>
+                                          <span class="o">**</span><span class="p">{</span><span class="s2">&quot;default_header&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">default_header</span><span class="p">,</span>
+                                           <span class="s2">&quot;maxobjects&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span><span class="p">,</span>
+                                           <span class="s2">&quot;logging_queue&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">,</span>
+                                           <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        While running, the process will get the filenames to analyse from the first queue</span>
+<span class="sd">        and return them through the second one.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filequeue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">filename</span> <span class="o">==</span> <span class="s2">&quot;EXIT&quot;</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">filequeue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+                <span class="k">return</span> <span class="mi">0</span>
+            <span class="n">pfiles</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pickler</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">returnqueue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">pfiles</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">identifier</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__identifier</span>
+
+
+<span class="k">def</span> <span class="nf">_pickle_xml</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span>
+                <span class="n">default_header</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+                <span class="n">maxobjects</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span>
+                <span class="n">logging_queue</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                <span class="n">level</span><span class="o">=</span><span class="s2">&quot;WARN&quot;</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Private method to load the records from an XML file into a pickled file,</span>
+<span class="sd">    for faster loading.</span>
+<span class="sd">    :param filename:</span>
+<span class="sd">    :param logging_queue: the queue to be used for logging</span>
+
+<span class="sd">    :return: a list of the</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">pfiles</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="n">logging_queue</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">NullHandler</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">handler</span> <span class="o">=</span> <span class="n">logging_handlers</span><span class="o">.</span><span class="n">QueueHandler</span><span class="p">(</span><span class="n">logging_queue</span><span class="p">)</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;pickle_{0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">filename</span><span class="p">)))</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+
+    <span class="c1"># Check the header is alright</span>
+    <span class="k">assert</span> <span class="n">default_header</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+    <span class="n">valid</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">exc</span> <span class="o">=</span> <span class="n">BlastOpener</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">sniff</span><span class="p">(</span><span class="n">default_header</span><span class="o">=</span><span class="n">default_header</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Invalid BLAST file: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">pfiles</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Starting to pickle </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+    <span class="k">with</span> <span class="n">BlastOpener</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">opened</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">opened</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">descriptions</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">records</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">maxobjects</span><span class="p">:</span>
+                    <span class="n">pickle_temp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.pickle&quot;</span><span class="p">,</span>
+                                                   <span class="nb">dir</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span>
+                    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_temp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pickled</span><span class="p">:</span>
+                        <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">pickled</span><span class="p">)</span>
+                    <span class="n">pfiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pickle_temp</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+                    <span class="n">records</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">except</span> <span class="n">ExpatError</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is an invalid BLAST file, sending back anything salvageable&quot;</span><span class="p">,</span>
+                         <span class="n">filename</span><span class="p">)</span>
+
+    <span class="n">pickle_temp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.pickle&quot;</span><span class="p">,</span>
+                                   <span class="nb">dir</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_temp</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pickled</span><span class="p">:</span>
+        <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">pickled</span><span class="p">)</span>
+    <span class="n">pfiles</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pickle_temp</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Finished pickling </span><span class="si">%s</span><span class="s2"> in </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">pfiles</span><span class="p">)</span>
+    <span class="k">del</span> <span class="n">records</span>
+    <span class="k">return</span> <span class="n">pfiles</span>
+
+
+<div class="viewcode-block" id="XmlSerializer"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.xml_serialiser.XmlSerializer">[docs]</a><span class="k">class</span> <span class="nc">XmlSerializer</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This class has the role of taking in input a blast XML file and (partially)</span>
+<span class="sd">    serialise it into a database. We are using SQLalchemy, so the database type</span>
+<span class="sd">    could be any of SQLite, MySQL, PSQL, etc.&quot;&quot;&quot;</span>
+
+    <span class="n">__name__</span> <span class="o">=</span> <span class="s2">&quot;XMLSerializer&quot;</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">create_null_logger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+    <span class="c1"># This evaluates to characters A-z and |. Used to detect true matches</span>
+    <span class="c1"># in the match line of blast alignments</span>
+    <span class="c1"># Put here so it&#39;s calculated *once* inside the program</span>
+    <span class="n">__valid_matches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">chr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">65</span><span class="p">,</span> <span class="mi">91</span><span class="p">)]</span> <span class="o">+</span>
+                          <span class="p">[</span><span class="nb">chr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">97</span><span class="p">,</span> <span class="mi">123</span><span class="p">)]</span> <span class="o">+</span>
+                          <span class="p">[</span><span class="s2">&quot;|&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">xml</span><span class="p">,</span>
+                 <span class="n">logger</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                 <span class="n">json_conf</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Initializing method. Arguments:</span>
+
+<span class="sd">        :param xml: The XML to parse.</span>
+
+<span class="sd">        Arguments:</span>
+
+<span class="sd">        :param json_conf: a configuration dictionary.</span>
+<span class="sd">        :type json_conf: dict</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">json_conf</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No configuration provided!&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">check_logger</span><span class="p">(</span><span class="n">logger</span><span class="p">)</span>
+
+        <span class="c1"># Runtime arguments</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">procs</span> <span class="o">=</span> <span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;procs&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">single_thread</span> <span class="o">=</span> <span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;single_thread&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span> <span class="o">=</span> <span class="n">json_conf</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">procs</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">single_thread</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="c1"># pylint: disable=unexpected-argument</span>
+            <span class="n">multiprocessing</span><span class="o">.</span><span class="n">set_start_method</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;multiprocessing_method&quot;</span><span class="p">],</span>
+                                             <span class="n">force</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="c1"># pylint: enable=unexpected-argument</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger_queue_handler</span> <span class="o">=</span> <span class="n">logging_handlers</span><span class="o">.</span><span class="n">QueueHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">queue_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;parser&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">queue_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logger_queue_handler</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">queue_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s2">&quot;log_level&quot;</span><span class="p">])</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">queue_logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_writer</span> <span class="o">=</span> <span class="n">logging_handlers</span><span class="o">.</span><span class="n">QueueListener</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">log_writer</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">discard_definition</span> <span class="o">=</span> <span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;discard_definition&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__max_target_seqs</span> <span class="o">=</span> <span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;max_target_seqs&quot;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span> <span class="o">=</span> <span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;max_objects&quot;</span><span class="p">]</span>
+        <span class="n">target_seqs</span> <span class="o">=</span> <span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;blast_targets&quot;</span><span class="p">]</span>
+        <span class="n">query_seqs</span> <span class="o">=</span> <span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;transcripts&quot;</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">if</span> <span class="n">xml</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No BLAST XML provided. Exiting.&quot;</span><span class="p">)</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">engine</span> <span class="o">=</span> <span class="n">connect</span><span class="p">(</span><span class="n">json_conf</span><span class="p">)</span>
+
+        <span class="n">session</span> <span class="o">=</span> <span class="n">sessionmaker</span><span class="p">()</span>
+        <span class="n">session</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span>
+        <span class="n">DBBASE</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span>  <span class="c1"># @UndefinedVariable</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">session</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Created the session&quot;</span><span class="p">)</span>
+        <span class="c1"># Load sequences if necessary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__determine_sequences</span><span class="p">(</span><span class="n">query_seqs</span><span class="p">,</span> <span class="n">target_seqs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">xml</span> <span class="o">=</span> <span class="n">xml</span>
+        <span class="c1"># Just a mock definition</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_query</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__get_query_for_blast</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">not_pickable</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;manager&quot;</span><span class="p">,</span> <span class="s2">&quot;printer_process&quot;</span><span class="p">,</span>
+                             <span class="s2">&quot;context&quot;</span><span class="p">,</span> <span class="s2">&quot;logger_queue_handler&quot;</span><span class="p">,</span> <span class="s2">&quot;queue_logger&quot;</span><span class="p">,</span>
+                             <span class="s2">&quot;log_writer&quot;</span><span class="p">,</span>
+                             <span class="s2">&quot;log_process&quot;</span><span class="p">,</span> <span class="s2">&quot;pool&quot;</span><span class="p">,</span> <span class="s2">&quot;main_logger&quot;</span><span class="p">,</span>
+                             <span class="s2">&quot;log_handler&quot;</span><span class="p">,</span> <span class="s2">&quot;log_writer&quot;</span><span class="p">,</span> <span class="s2">&quot;logger&quot;</span><span class="p">,</span> <span class="s2">&quot;session&quot;</span><span class="p">,</span>
+                             <span class="s2">&quot;get_query&quot;</span><span class="p">,</span> <span class="s2">&quot;engine&quot;</span><span class="p">,</span> <span class="s2">&quot;query_seqs&quot;</span><span class="p">,</span> <span class="s2">&quot;target_seqs&quot;</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">__getstate__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">state</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">not_pickable</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">not_pickable</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">not_pickable</span> <span class="ow">in</span> <span class="n">state</span><span class="p">:</span>
+                <span class="k">del</span> <span class="n">state</span><span class="p">[</span><span class="n">not_pickable</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">state</span>
+
+    <span class="k">def</span> <span class="nf">__determine_sequences</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query_seqs</span><span class="p">,</span> <span class="n">target_seqs</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Private method to assign the sequence file variables</span>
+<span class="sd">        if necessary.</span>
+<span class="sd">        :param query_seqs:</span>
+<span class="sd">        :param target_seqs:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">query_seqs</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">query_seqs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span> <span class="o">=</span> <span class="n">pyfaidx</span><span class="o">.</span><span class="n">Fasta</span><span class="p">(</span><span class="n">query_seqs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">query_seqs</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Query type: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">query_seqs</span><span class="p">))</span>
+            <span class="c1"># assert &quot;SeqIO.index&quot; in repr(query_seqs)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span> <span class="o">=</span> <span class="n">query_seqs</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">target_seqs</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">assert</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">target_seqs</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_seqs</span> <span class="o">=</span> <span class="n">pyfaidx</span><span class="o">.</span><span class="n">Fasta</span><span class="p">(</span><span class="n">target_seqs</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">target_seqs</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_seqs</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Target (</span><span class="si">%s</span><span class="s2">) type: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                             <span class="n">target_seqs</span><span class="p">,</span>
+                             <span class="nb">type</span><span class="p">(</span><span class="n">target_seqs</span><span class="p">))</span>
+            <span class="c1"># assert &quot;SeqIO.index&quot; in repr(target_seqs)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">target_seqs</span> <span class="o">=</span> <span class="n">target_seqs</span>
+        <span class="k">return</span>
+
+    <span class="k">def</span> <span class="nf">__serialize_queries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">queries</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Private method used to serialise the queries.</span>
+<span class="sd">        Additional argument: a set containing all queries already present</span>
+<span class="sd">        in the database.&quot;&quot;&quot;</span>
+
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started to serialise the queries&quot;</span><span class="p">)</span>
+        <span class="n">objects</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span><span class="o">.</span><span class="n">records</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">queries</span> <span class="ow">and</span> <span class="n">queries</span><span class="p">[</span><span class="n">record</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">elif</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Query</span><span class="o">.</span><span class="n">query_name</span> <span class="o">==</span> <span class="n">record</span><span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="p">{</span><span class="s2">&quot;query_length&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span><span class="p">[</span><span class="n">record</span><span class="p">])})</span>
+                <span class="n">queries</span><span class="p">[</span><span class="n">record</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">queries</span><span class="p">[</span><span class="n">record</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span><span class="p">[</span><span class="n">record</span><span class="p">]))</span>
+                <span class="k">continue</span>
+
+            <span class="n">objects</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">&quot;query_name&quot;</span><span class="p">:</span> <span class="n">record</span><span class="p">,</span>
+                <span class="s2">&quot;query_length&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span><span class="p">[</span><span class="n">record</span><span class="p">])</span>
+            <span class="p">})</span>
+            <span class="c1">#</span>
+            <span class="c1"># objects.append(Target(record, len(self.target_seqs[record])))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">objects</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">%d</span><span class="s2"> objects into the </span><span class="se">\&quot;</span><span class="s2">query</span><span class="se">\&quot;</span><span class="s2"> table (total </span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span>
+                                 <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+                <span class="c1"># self.session.bulk_insert_mappings(Query, objects)</span>
+                <span class="c1"># pylint: disable=no-member</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">Query</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">(),</span> <span class="n">objects</span><span class="p">)</span>
+                <span class="c1"># pylint: enable=no-member</span>
+
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="n">counter</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">objects</span><span class="p">)</span>
+                <span class="n">objects</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="c1"># pylint: disable=no-member</span>
+                <span class="c1"># # pylint: enable=no-member</span>
+                <span class="c1"># self.logger.info(&quot;Loaded %d objects into the \&quot;target\&quot; table&quot;,</span>
+                <span class="c1">#                  len(objects))</span>
+                <span class="c1"># objects = []</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">%d</span><span class="s2"> objects into the </span><span class="se">\&quot;</span><span class="s2">query</span><span class="se">\&quot;</span><span class="s2"> table (total </span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span>
+                         <span class="nb">len</span><span class="p">(</span><span class="n">objects</span><span class="p">),</span> <span class="n">counter</span><span class="o">+</span><span class="nb">len</span><span class="p">(</span><span class="n">objects</span><span class="p">))</span>
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="c1"># self.engine.execute(Target.__table__.insert(),</span>
+        <span class="c1">#                     [{&quot;target_name&quot;: obj.target_name,</span>
+        <span class="c1">#                       &quot;target_length&quot;: obj.target_length} for obj in objects])</span>
+        <span class="n">counter</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">objects</span><span class="p">)</span>
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">Query</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">(),</span> <span class="n">objects</span><span class="p">)</span>
+        <span class="c1"># pylint: enable=no-member</span>
+        <span class="c1"># self.session.bulk_insert_mappings(Query, objects)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="c1"># pylint: enable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded </span><span class="si">%d</span><span class="s2"> objects into the </span><span class="se">\&quot;</span><span class="s2">query</span><span class="se">\&quot;</span><span class="s2"> table&quot;</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">query</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">):</span>
+            <span class="n">queries</span><span class="p">[</span><span class="n">query</span><span class="o">.</span><span class="n">query_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">query</span><span class="o">.</span><span class="n">query_id</span><span class="p">,</span> <span class="n">query</span><span class="o">.</span><span class="n">query_length</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> in queries&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">queries</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">queries</span>
+
+    <span class="k">def</span> <span class="nf">__serialize_targets</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This private method serialises all targets contained inside the target_seqs</span>
+<span class="sd">        file into the database.</span>
+<span class="sd">        :param targets: a cache dictionary which records whether the sequence</span>
+<span class="sd">          is already present in the DB or not.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">objects</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started to serialise the targets&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_seqs</span><span class="o">.</span><span class="n">records</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">targets</span> <span class="ow">and</span> <span class="n">targets</span><span class="p">[</span><span class="n">record</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">elif</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Target</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Target</span><span class="o">.</span><span class="n">target_name</span> <span class="o">==</span> <span class="n">record</span><span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="p">{</span><span class="s2">&quot;target_length&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_seqs</span><span class="p">[</span><span class="n">record</span><span class="p">])})</span>
+                <span class="n">targets</span><span class="p">[</span><span class="n">record</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">targets</span><span class="p">[</span><span class="n">record</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="bp">True</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">objects</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+                <span class="s2">&quot;target_name&quot;</span><span class="p">:</span> <span class="n">record</span><span class="p">,</span>
+                <span class="s2">&quot;target_length&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_seqs</span><span class="p">[</span><span class="n">record</span><span class="p">])</span>
+            <span class="p">})</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="c1">#</span>
+            <span class="c1"># objects.append(Target(record, len(self.target_seqs[record])))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">objects</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span><span class="p">:</span>
+                <span class="c1"># counter += len(objects)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">%d</span><span class="s2"> objects into the </span><span class="se">\&quot;</span><span class="s2">target</span><span class="se">\&quot;</span><span class="s2"> table&quot;</span><span class="p">,</span>
+                                 <span class="n">counter</span><span class="p">)</span>
+                <span class="c1"># self.session.bulk_insert_mappings(Target, objects)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">Target</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">(),</span> <span class="n">objects</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="n">objects</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="c1"># pylint: disable=no-member</span>
+                <span class="c1"># pylint: enable=no-member</span>
+                <span class="c1"># self.logger.info(&quot;Loaded %d objects into the \&quot;target\&quot; table&quot;,</span>
+                <span class="c1">#                  len(objects))</span>
+                <span class="c1"># objects = []</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">%d</span><span class="s2"> objects into the </span><span class="se">\&quot;</span><span class="s2">target</span><span class="se">\&quot;</span><span class="s2"> table, (total </span><span class="si">%d</span><span class="s2">)&quot;</span><span class="p">,</span>
+                         <span class="nb">len</span><span class="p">(</span><span class="n">objects</span><span class="p">),</span> <span class="n">counter</span><span class="p">)</span>
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">Target</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">(),</span> <span class="n">objects</span><span class="p">)</span>
+        <span class="c1"># pylint: enable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded </span><span class="si">%d</span><span class="s2"> objects into the </span><span class="se">\&quot;</span><span class="s2">target</span><span class="se">\&quot;</span><span class="s2"> table&quot;</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Target</span><span class="p">):</span>
+            <span class="n">targets</span><span class="p">[</span><span class="n">target</span><span class="o">.</span><span class="n">target_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">target_id</span><span class="p">,</span> <span class="n">target</span><span class="o">.</span><span class="n">target_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> in targets&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">targets</span>
+
+    <span class="k">def</span> <span class="nf">__serialise_sequences</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot; Private method called at the beginning of serialize. It is tasked</span>
+<span class="sd">        with loading all necessary FASTA sequences into the DB and precaching the IDs.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">targets</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="n">queries</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading previous IDs&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">query</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">):</span>
+            <span class="n">queries</span><span class="p">[</span><span class="n">query</span><span class="o">.</span><span class="n">query_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">query</span><span class="o">.</span><span class="n">query_id</span><span class="p">,</span> <span class="p">(</span><span class="n">query</span><span class="o">.</span><span class="n">query_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Target</span><span class="p">):</span>
+            <span class="n">targets</span><span class="p">[</span><span class="n">target</span><span class="o">.</span><span class="n">target_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">target_id</span><span class="p">,</span> <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">target_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded previous IDs; </span><span class="si">%d</span><span class="s2"> for queries, </span><span class="si">%d</span><span class="s2"> for targets&quot;</span><span class="p">,</span>
+                         <span class="nb">len</span><span class="p">(</span><span class="n">queries</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started the sequence serialisation&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">target_seqs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__serialize_targets</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">targets</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_seqs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">queries</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__serialize_queries</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">queries</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">return</span> <span class="n">queries</span><span class="p">,</span> <span class="n">targets</span>
+
+    <span class="k">def</span> <span class="nf">__load_into_db</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">        :param hits:</span>
+<span class="sd">        :param hsps:</span>
+
+<span class="sd">        :param force: boolean flag. If set, data will be loaded no matter what.</span>
+<span class="sd">        To be used at the end of the serialisation to load the final batch of data.</span>
+<span class="sd">        :type force: bool</span>
+
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking whether to load </span><span class="si">%d</span><span class="s2"> hits and </span><span class="si">%d</span><span class="s2"> hsps&quot;</span><span class="p">,</span>
+                          <span class="nb">len</span><span class="p">(</span><span class="n">hits</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">hsps</span><span class="p">))</span>
+
+        <span class="n">tot_objects</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">hits</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">hsps</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">hits</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No hits to serialise. Exiting&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span>
+
+        <span class="k">if</span> <span class="n">tot_objects</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span> <span class="ow">or</span> <span class="n">force</span><span class="p">:</span>
+            <span class="c1"># Bulk load</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">%d</span><span class="s2"> BLAST objects into database&quot;</span><span class="p">,</span> <span class="n">tot_objects</span><span class="p">)</span>
+
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># pylint: disable=no-member</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">Hit</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">(),</span> <span class="n">hits</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">Hsp</span><span class="o">.</span><span class="n">__table__</span><span class="o">.</span><span class="n">insert</span><span class="p">(),</span> <span class="n">hsps</span><span class="p">)</span>
+                <span class="c1"># pylint: enable=no-member</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">IntegrityError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Failed to serialise BLAST!&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">err</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded </span><span class="si">%d</span><span class="s2"> BLAST objects into database&quot;</span><span class="p">,</span> <span class="n">tot_objects</span><span class="p">)</span>
+            <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">return</span> <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span>
+
+    <span class="k">def</span> <span class="nf">__serialise_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Private method to serialise a single record into the DB.</span>
+
+<span class="sd">        :param record: The BLAST record to load into the DB.</span>
+<span class="sd">        :param hits: Cache of hits to load into the DB.</span>
+<span class="sd">        :type hits: list</span>
+
+<span class="sd">        :param hsps: Cache of hsps to load into the DB.</span>
+<span class="sd">        :type hsps: list</span>
+
+<span class="sd">        :param targets: dictionary which holds the relationship target ID/name.</span>
+<span class="sd">         It can be updated in place if a target has not been serialised already.</span>
+
+<span class="sd">        :returns: hits, hsps, hit_counter, targets</span>
+<span class="sd">        :rtype: (list, list, int, dict)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">hit_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">descriptions</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span><span class="p">,</span> <span class="n">hit_counter</span><span class="p">,</span> <span class="n">targets</span>
+
+        <span class="n">current_query</span><span class="p">,</span> <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_query</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+        <span class="n">current_evalue</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="n">current_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">ccc</span><span class="p">,</span> <span class="n">alignment</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">alignments</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">ccc</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">__max_target_seqs</span><span class="p">:</span>
+                <span class="k">break</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Started the hit </span><span class="si">%s</span><span class="s2"> vs. </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                              <span class="n">name</span><span class="p">,</span> <span class="n">record</span><span class="o">.</span><span class="n">alignments</span><span class="p">[</span><span class="n">ccc</span><span class="p">]</span><span class="o">.</span><span class="n">accession</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">current_target</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__get_target_for_blast</span><span class="p">(</span><span class="n">alignment</span><span class="p">,</span>
+                                                                      <span class="n">targets</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">IntegrityError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="n">hit_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+
+            <span class="n">hit_dict_params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+            <span class="p">(</span><span class="n">hit_dict_params</span><span class="p">[</span><span class="s2">&quot;query_multiplier&quot;</span><span class="p">],</span>
+             <span class="n">hit_dict_params</span><span class="p">[</span><span class="s2">&quot;target_multiplier&quot;</span><span class="p">])</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__get_multipliers</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">current_evalue</span> <span class="o">&lt;</span> <span class="n">record</span><span class="o">.</span><span class="n">descriptions</span><span class="p">[</span><span class="n">ccc</span><span class="p">]</span><span class="o">.</span><span class="n">e</span><span class="p">:</span>
+                <span class="n">current_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">current_evalue</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">descriptions</span><span class="p">[</span><span class="n">ccc</span><span class="p">]</span><span class="o">.</span><span class="n">e</span>
+
+            <span class="n">hit_dict_params</span><span class="p">[</span><span class="s2">&quot;hit_number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_counter</span>
+            <span class="n">hit_dict_params</span><span class="p">[</span><span class="s2">&quot;evalue&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">descriptions</span><span class="p">[</span><span class="n">ccc</span><span class="p">]</span><span class="o">.</span><span class="n">e</span>
+            <span class="n">hit_dict_params</span><span class="p">[</span><span class="s2">&quot;bits&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">descriptions</span><span class="p">[</span><span class="n">ccc</span><span class="p">]</span><span class="o">.</span><span class="n">bits</span>
+
+            <span class="c1"># Prepare for bulk load</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">hit</span><span class="p">,</span> <span class="n">hit_hsps</span> <span class="o">=</span> <span class="n">prepare_hit</span><span class="p">(</span><span class="n">alignment</span><span class="p">,</span> <span class="n">current_query</span><span class="p">,</span> <span class="n">current_target</span><span class="p">,</span>
+                                            <span class="o">**</span><span class="n">hit_dict_params</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">InvalidHit</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">hits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hit</span><span class="p">)</span>
+            <span class="n">hsps</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">hit_hsps</span><span class="p">)</span>
+
+            <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__load_into_db</span><span class="p">(</span><span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span><span class="p">,</span> <span class="n">hit_counter</span><span class="p">,</span> <span class="n">targets</span>
+
+<div class="viewcode-block" id="XmlSerializer.serialize"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.xml_serialiser.XmlSerializer.serialize">[docs]</a>    <span class="k">def</span> <span class="nf">serialize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Method to serialize the BLAST XML file into a database</span>
+<span class="sd">        provided with the __init__ method &quot;&quot;&quot;</span>
+
+        <span class="c1"># Load sequences in DB, precache IDs</span>
+        <span class="n">queries</span><span class="p">,</span> <span class="n">targets</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__serialise_sequences</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">xml</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">]</span>
+            <span class="c1"># self.xml_parser = xparser(create_opener(self.xml))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">set</span><span class="p">))</span>
+            <span class="c1"># if len(self.xml) &lt; 1:</span>
+            <span class="c1">#     raise ValueError(&quot;No input file provided!&quot;)</span>
+            <span class="c1"># elif len(self.xml) == 1:</span>
+            <span class="c1">#     self.xml_parser = xparser(create_opener(list(self.xml)[0]))</span>
+            <span class="c1"># else:</span>
+            <span class="c1">#     self.xml_parser = xparser(XMLMerger(self.xml))  # Merge in memory</span>
+
+        <span class="c1"># Create the function that will retrieve the query_id given the name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_query</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__get_query_for_blast</span><span class="p">,</span>
+                                           <span class="o">**</span><span class="p">{</span><span class="s2">&quot;queries&quot;</span><span class="p">:</span> <span class="n">queries</span><span class="p">})</span>
+
+        <span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="n">hit_counter</span><span class="p">,</span> <span class="n">record_counter</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+
+        <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">:</span>
+            <span class="n">valid</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">exc</span> <span class="o">=</span> <span class="n">BlastOpener</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">sniff</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">valid</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">header</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">single_thread</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">:</span>
+                <span class="n">valid</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">exc</span> <span class="o">=</span> <span class="n">BlastOpener</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">sniff</span><span class="p">(</span><span class="n">default_header</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">valid</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                    <span class="k">continue</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Analysing </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+                    <span class="k">with</span> <span class="n">BlastOpener</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">opened</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">opened</span><span class="p">:</span>
+                            <span class="n">record_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                            <span class="k">if</span> <span class="n">record_counter</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">record_counter</span> <span class="o">%</span> <span class="mi">10000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Parsed </span><span class="si">%d</span><span class="s2"> queries&quot;</span><span class="p">,</span> <span class="n">record_counter</span><span class="p">)</span>
+                            <span class="p">(</span><span class="n">hits</span><span class="p">,</span>
+                             <span class="n">hsps</span><span class="p">,</span>
+                             <span class="n">partial_hit_counter</span><span class="p">,</span>
+                             <span class="n">targets</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__serialise_record</span><span class="p">(</span><span class="n">record</span><span class="p">,</span>
+                                                                <span class="n">hits</span><span class="p">,</span>
+                                                                <span class="n">hsps</span><span class="p">,</span>
+                                                                <span class="n">targets</span><span class="p">)</span>
+                            <span class="n">hit_counter</span> <span class="o">+=</span> <span class="n">partial_hit_counter</span>
+                            <span class="k">if</span> <span class="n">hit_counter</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">hit_counter</span> <span class="o">%</span> <span class="mi">10000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Serialized </span><span class="si">%d</span><span class="s2"> alignments&quot;</span><span class="p">,</span> <span class="n">hit_counter</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Finished </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+                <span class="k">except</span> <span class="n">ExpatError</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is an invalid BLAST file, saving what&#39;s available&quot;</span><span class="p">,</span>
+                                      <span class="n">filename</span><span class="p">)</span>
+
+            <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__load_into_db</span><span class="p">(</span><span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Creating a pool with </span><span class="si">%d</span><span class="s2"> processes&quot;</span><span class="p">,</span>
+                             <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">procs</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">)))</span>
+
+            <span class="c1"># pool = multiprocessing.Pool(min(self.procs, len(self.xml)))</span>
+            <span class="c1"># args = zip(</span>
+            <span class="c1">#     self.xml,</span>
+            <span class="c1">#     [self.header] * len(self.xml),</span>
+            <span class="c1">#     [self.maxobjects] * len(self.xml),</span>
+            <span class="c1">#     [self.logging_queue] * len(self.xml),</span>
+            <span class="c1">#     [self.json_conf[&quot;log_settings&quot;][&quot;log_level&quot;]] * len(self.xml)</span>
+            <span class="c1"># )</span>
+
+            <span class="n">filequeue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">returnqueue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+            <span class="n">procs</span> <span class="o">=</span> <span class="p">[</span><span class="n">_XmlPickler</span><span class="p">(</span><span class="n">filequeue</span><span class="p">,</span>
+                                 <span class="n">returnqueue</span><span class="p">,</span>
+                                 <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">,</span>
+                                 <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">maxobjects</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">procs</span><span class="p">),</span>
+                                 <span class="n">_</span><span class="p">,</span>
+                                 <span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">,</span>
+                                 <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s2">&quot;log_level&quot;</span><span class="p">])</span>
+                     <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">procs</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">)])</span>
+            <span class="p">)]</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to pickle and serialise </span><span class="si">%d</span><span class="s2"> files&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">))</span>
+            <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">start</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">]</span>  <span class="c1"># Start processes</span>
+            <span class="k">for</span> <span class="n">xml</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">xml</span><span class="p">:</span>
+                <span class="n">filequeue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">xml</span><span class="p">)</span>
+
+            <span class="n">filequeue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s2">&quot;EXIT&quot;</span><span class="p">)</span>
+            <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">join</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">]</span>  <span class="c1"># Wait for processes to join</span>
+            <span class="k">del</span> <span class="n">procs</span>
+            <span class="n">returnqueue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s2">&quot;EXIT&quot;</span><span class="p">)</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="k">while</span> <span class="n">result</span> <span class="o">!=</span> <span class="s2">&quot;EXIT&quot;</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">returnqueue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="s2">&quot;EXIT&quot;</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">for</span> <span class="n">pickle_file</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+                    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">pickled</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">pickled</span><span class="p">):</span>
+                            <span class="n">record_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                            <span class="k">if</span> <span class="n">record_counter</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">record_counter</span> <span class="o">%</span> <span class="mi">10000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Parsed </span><span class="si">%d</span><span class="s2"> queries&quot;</span><span class="p">,</span> <span class="n">record_counter</span><span class="p">)</span>
+
+                            <span class="p">(</span><span class="n">hits</span><span class="p">,</span>
+                             <span class="n">hsps</span><span class="p">,</span>
+                             <span class="n">partial_hit_counter</span><span class="p">,</span>
+                             <span class="n">targets</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__serialise_record</span><span class="p">(</span><span class="n">record</span><span class="p">,</span>
+                                                                <span class="n">hits</span><span class="p">,</span>
+                                                                <span class="n">hsps</span><span class="p">,</span>
+                                                                <span class="n">targets</span><span class="p">)</span>
+
+                            <span class="n">hit_counter</span> <span class="o">+=</span> <span class="n">partial_hit_counter</span>
+                            <span class="k">if</span> <span class="n">hit_counter</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">hit_counter</span> <span class="o">%</span> <span class="mi">10000</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Serialized </span><span class="si">%d</span><span class="s2"> alignments&quot;</span><span class="p">,</span> <span class="n">hit_counter</span><span class="p">)</span>
+                    <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">pickle_file</span><span class="p">)</span>
+
+            <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__load_into_db</span><span class="p">(</span><span class="n">hits</span><span class="p">,</span> <span class="n">hsps</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="n">returnqueue</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">filequeue</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded </span><span class="si">%d</span><span class="s2"> alignments for </span><span class="si">%d</span><span class="s2"> queries&quot;</span><span class="p">,</span>
+                         <span class="n">hit_counter</span><span class="p">,</span> <span class="n">record_counter</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished loading blast hits&quot;</span><span class="p">)</span>
+        <span class="c1"># [_.close() for _ in self.logger.handlers]</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;logging_queue&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logging_queue</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Alias for serialize</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">serialize</span><span class="p">()</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">__get_multipliers</span><span class="p">(</span><span class="n">record</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Private quick method to determine the multipliers for a BLAST alignment</span>
+<span class="sd">        according to the application present in the record.</span>
+<span class="sd">        :param record:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">q_mult</span><span class="p">,</span> <span class="n">h_mult</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span>
+
+        <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">application</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;BLASTN&quot;</span><span class="p">,</span> <span class="s2">&quot;TBLASTX&quot;</span><span class="p">,</span> <span class="s2">&quot;BLASTP&quot;</span><span class="p">):</span>
+            <span class="n">q_mult</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">h_mult</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">record</span><span class="o">.</span><span class="n">application</span> <span class="o">==</span> <span class="s2">&quot;BLASTX&quot;</span><span class="p">:</span>
+            <span class="n">q_mult</span> <span class="o">=</span> <span class="mi">3</span>
+            <span class="n">h_mult</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">elif</span> <span class="n">record</span><span class="o">.</span><span class="n">application</span> <span class="o">==</span> <span class="s2">&quot;TBLASTN&quot;</span><span class="p">:</span>
+            <span class="n">q_mult</span> <span class="o">=</span> <span class="mi">1</span>
+            <span class="n">h_mult</span> <span class="o">=</span> <span class="mi">3</span>
+
+        <span class="k">return</span> <span class="n">q_mult</span><span class="p">,</span> <span class="n">h_mult</span>
+
+    <span class="k">def</span> <span class="nf">__get_query_for_blast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">record</span><span class="p">,</span> <span class="n">queries</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot; This private method formats the name of the query</span>
+<span class="sd">        recovered from the BLAST hit, verifies whether it is present or not</span>
+<span class="sd">        in the DB, and moreover whether the data can be updated (e.g.</span>
+<span class="sd">        by adding the query length)</span>
+<span class="sd">        :param record:</span>
+<span class="sd">        :param queries:</span>
+<span class="sd">        :return: current_query (ID in the database), name</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">discard_definition</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="n">record</span><span class="o">.</span><span class="n">query_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Started with </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">queries</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">current_query</span> <span class="o">=</span> <span class="n">queries</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;{0}, {1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">queries</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Query</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">Query</span><span class="o">.</span><span class="n">query_name</span> <span class="o">==</span> <span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                    <span class="p">{</span><span class="s2">&quot;query_length&quot;</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">query_length</span><span class="p">})</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not found among queries, adding to the DB now&quot;</span><span class="p">,</span>
+                             <span class="n">name</span><span class="p">)</span>
+            <span class="n">current_query</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">record</span><span class="o">.</span><span class="n">query_length</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">current_query</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="n">queries</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_query</span><span class="o">.</span><span class="n">query_id</span><span class="p">,</span> <span class="bp">True</span><span class="p">)</span>
+            <span class="n">current_query</span> <span class="o">=</span> <span class="n">current_query</span><span class="o">.</span><span class="n">query_id</span>
+        <span class="k">return</span> <span class="n">current_query</span><span class="p">,</span> <span class="n">name</span>
+
+    <span class="k">def</span> <span class="nf">__get_target_for_blast</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">alignment</span><span class="p">,</span> <span class="n">targets</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot; This private method retrieves the correct target_id</span>
+<span class="sd">        key for the target of the BLAST. If the entry is not present</span>
+<span class="sd">        in the database, it will be created on the fly.</span>
+<span class="sd">        The method returns the index of the current target and</span>
+<span class="sd">        and an updated target dictionary.</span>
+<span class="sd">        :param alignment: an alignment child of a BLAST record object</span>
+<span class="sd">        :param targets: dictionary caching the known targets</span>
+<span class="sd">        :return: current_target (ID in the database), targets</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">alignment</span><span class="o">.</span><span class="n">accession</span> <span class="ow">in</span> <span class="n">targets</span><span class="p">:</span>
+            <span class="n">current_target</span> <span class="o">=</span> <span class="n">targets</span><span class="p">[</span><span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">targets</span><span class="p">[</span><span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Target</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span>
+                    <span class="n">Target</span><span class="o">.</span><span class="n">target_name</span> <span class="o">==</span> <span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">)</span><span class="o">.</span>\
+                    <span class="n">update</span><span class="p">({</span><span class="s2">&quot;target_length&quot;</span><span class="p">:</span> <span class="n">alignment</span><span class="o">.</span><span class="n">length</span><span class="p">})</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+                <span class="n">targets</span><span class="p">[</span><span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">targets</span><span class="p">[</span><span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                                                <span class="bp">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">current_target</span> <span class="o">=</span> <span class="n">Target</span><span class="p">(</span><span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">,</span>
+                                    <span class="n">alignment</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not found among targets, adding to the DB now&quot;</span><span class="p">,</span>
+                             <span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">current_target</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current_target</span><span class="o">.</span><span class="n">target_id</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+            <span class="n">targets</span><span class="p">[</span><span class="n">alignment</span><span class="o">.</span><span class="n">accession</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">current_target</span><span class="o">.</span><span class="n">target_id</span><span class="p">,</span> <span class="bp">True</span><span class="p">)</span>
+            <span class="n">current_target</span> <span class="o">=</span> <span class="n">current_target</span><span class="o">.</span><span class="n">target_id</span>
+        <span class="k">return</span> <span class="n">current_target</span><span class="p">,</span> <span class="n">targets</span>
+
+<div class="viewcode-block" id="XmlSerializer.load_into_db"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.xml_serialiser.XmlSerializer.load_into_db">[docs]</a>    <span class="k">def</span> <span class="nf">load_into_db</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objects</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param objects: Objects to be loaded into the database</span>
+<span class="sd">        :type objects: list</span>
+
+<span class="sd">        Method to perform the bulk loading of objects into the SQL database.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">bulk_save_objects</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">return_defaults</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+        <span class="k">except</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">exc</span><span class="o">.</span><span class="n">IntegrityError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Database corrupted&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">err</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s1">&#39;Dropping and reloading&#39;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">rollback</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hsp</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Hit</span><span class="p">)</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">bulk_save_objects</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">return_defaults</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div></div>
+<span class="c1"># pylint: enable=too-many-instance-attributes</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

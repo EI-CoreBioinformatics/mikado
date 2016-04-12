@@ -1,0 +1,671 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.loci.locus &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.loci.locus</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module defines the last object to be created during the picking,</span>
+<span class="sd">i.e. the locus.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">itertools</span>
+<span class="kn">from</span> <span class="nn">.transcript</span> <span class="kn">import</span> <span class="n">Transcript</span>
+<span class="kn">from</span> <span class="nn">..scales.assigner</span> <span class="kn">import</span> <span class="n">Assigner</span>
+<span class="kn">from</span> <span class="nn">.sublocus</span> <span class="kn">import</span> <span class="n">Sublocus</span>
+<span class="kn">from</span> <span class="nn">.abstractlocus</span> <span class="kn">import</span> <span class="n">Abstractlocus</span>
+<span class="kn">from</span> <span class="nn">..utilities</span> <span class="kn">import</span> <span class="n">overlap</span>
+<span class="kn">from</span> <span class="nn">..parsers.GFF</span> <span class="kn">import</span> <span class="n">GffLine</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+
+<div class="viewcode-block" id="Locus"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus">[docs]</a><span class="k">class</span> <span class="nc">Locus</span><span class="p">(</span><span class="n">Sublocus</span><span class="p">,</span> <span class="n">Abstractlocus</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Class that defines the final loci.</span>
+<span class="sd">    It is a child of monosublocus, but it also has the possibility of adding</span>
+<span class="sd">    additional transcripts if they are valid splicing isoforms.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transcript</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Constructor class. Like all loci, also Locus is defined starting from a transcript.</span>
+
+<span class="sd">        :param transcript: the transcript which is used to initialize the Locus</span>
+<span class="sd">        :type transcript: Transcript</span>
+
+<span class="sd">        :param logger: the logger instance.</span>
+<span class="sd">        :type logger: None | logging.Logger</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;primary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># simple tag to avoid collisions</span>
+        <span class="n">Abstractlocus</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># this must be defined straight away</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">monoexonic</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span>
+        <span class="n">Abstractlocus</span><span class="o">.</span><span class="n">add_transcript_to_locus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transcript</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">locus_verified_introns</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">verified_introns</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics_calculated</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scores_calculated</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">score</span>
+        <span class="c1"># A set of the transcript we will ignore during printing</span>
+        <span class="c1"># because they are duplications of the original instance. Done solely to</span>
+        <span class="c1"># get the metrics right.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">excluded</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tid</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Created Locus object with {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript_id</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;is_fragment&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_lines_store</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__id</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">print_cds</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__name__</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature</span> <span class="o">!=</span> <span class="s2">&quot;Monosublocus&quot;</span>
+        <span class="c1"># Hacky fix to make sure that the primary transcript has the attribute</span>
+        <span class="c1"># Set to True in any case.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;primary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># BF, really just a hack.</span>
+        <span class="k">for</span> <span class="n">transcript</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">transcript</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript_id</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">transcript</span><span class="p">]</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;primary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">self_line</span> <span class="o">=</span> <span class="n">GffLine</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s1">&#39;feature&#39;</span><span class="p">,</span> <span class="s1">&#39;source&#39;</span><span class="p">,</span> <span class="s1">&#39;start&#39;</span><span class="p">,</span> <span class="s1">&#39;end&#39;</span><span class="p">,</span> <span class="s1">&#39;strand&#39;</span><span class="p">]:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">self_line</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+        <span class="n">self_line</span><span class="o">.</span><span class="n">phase</span><span class="p">,</span> <span class="n">self_line</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">score</span>
+        <span class="n">self_line</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">self_line</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">self_line</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;superlocus&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">self_line</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s2">&quot;is_fragment&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;is_fragment&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="k">del</span> <span class="n">self_line</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;is_fragment&quot;</span><span class="p">]</span>
+        <span class="n">self_line</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;multiexonic&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">monoexonic</span><span class="p">)</span>
+        <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">self_line</span><span class="p">))</span>
+
+        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+            <span class="n">transcript_instance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+            <span class="n">transcript_instance</span><span class="o">.</span><span class="n">source</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">source</span>
+            <span class="n">transcript_instance</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">self_line</span><span class="o">.</span><span class="n">id</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">attribute</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">attribute</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">transcript_instance</span><span class="o">.</span><span class="n">attributes</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">attribute</span> <span class="o">==</span> <span class="s2">&quot;is_fragment&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="n">attribute</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">transcript_instance</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="n">attribute</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="n">attribute</span><span class="p">]</span>
+
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">transcript_instance</span><span class="o">.</span><span class="n">__str__</span><span class="p">(</span><span class="n">print_cds</span><span class="o">=</span><span class="n">print_cds</span><span class="p">)</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
+
+        <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Locus.add_transcript_to_locus"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.add_transcript_to_locus">[docs]</a>    <span class="k">def</span> <span class="nf">add_transcript_to_locus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transcript</span><span class="p">:</span> <span class="n">Transcript</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Implementation of the add_transcript_to_locus method.</span>
+<span class="sd">        Before a transcript is added, the class checks that it is a valid splicing isoform</span>
+<span class="sd">        and that we have not exceeded already the maximum number of isoforms for the Locus.</span>
+
+<span class="sd">        :param transcript: the candidate transcript</span>
+<span class="sd">        :type transcript: Transcript</span>
+
+<span class="sd">        :param kwargs: optional keyword arguments are ignored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">_</span> <span class="o">=</span> <span class="n">kwargs</span>
+        <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># Total, 5&#39;, 3&#39;</span>
+        <span class="n">max_utr_lenghts</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;max_utr_length&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;five&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;max_fiveutr_length&quot;</span><span class="p">],</span>
+            <span class="s2">&quot;three&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;max_threeutr_length&quot;</span><span class="p">]}</span>
+        <span class="n">max_isoforms</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;max_isoforms&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">max_isoforms</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because the Locus has already too many transcripts.&quot;</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;only_confirmed_introns&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">to_check</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">introns</span>
+            <span class="n">to_check</span> <span class="o">-=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">verified_introns</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">to_check</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because it has </span><span class="si">%d</span><span class="s2"> non-confirmed intron</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">to_check</span><span class="p">),</span>
+                    <span class="s2">&quot;s&quot;</span> <span class="o">*</span> <span class="nb">min</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">to_check</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+                <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">to_be_added</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">score</span> <span class="o">&lt;</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">score</span> <span class="o">*</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;min_score_perc&quot;</span><span class="p">]):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because its score (</span><span class="si">%.2f</span><span class="s2">) is less </span><span class="se">\</span>
+<span class="s2">                than </span><span class="si">%.2f%%</span><span class="s2"> of the primary score (</span><span class="si">%.2f</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">score</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;min_score_perc&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">score</span><span class="p">)</span>
+            <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="n">to_be_added</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because it has a different strand from </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%s</span><span class="s2"> vs. </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span><span class="p">)</span>
+            <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="n">to_be_added</span><span class="p">:</span>
+            <span class="n">is_alternative</span><span class="p">,</span> <span class="n">ccode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">is_alternative_splicing</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">is_alternative</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because it is not a </span><span class="se">\</span>
+<span class="s2">                valid splicing isoform. Ccode: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                  <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">ccode</span><span class="p">)</span>
+                <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;ccode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ccode</span>
+        <span class="k">if</span> <span class="n">to_be_added</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr_length</span> <span class="o">&gt;</span> <span class="n">max_utr_lenghts</span><span class="p">[</span><span class="s2">&quot;total&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because it has too much UTR (</span><span class="si">%d</span><span class="s2">).&quot;</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr_length</span><span class="p">)</span>
+            <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="n">to_be_added</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">five_utr_length</span> <span class="o">&gt;</span> <span class="n">max_utr_lenghts</span><span class="p">[</span><span class="s2">&quot;five&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because it has too much 5&#39;UTR (</span><span class="si">%d</span><span class="s2">).&quot;</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">five_utr_length</span><span class="p">)</span>
+            <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="n">to_be_added</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">three_utr_length</span> <span class="o">&gt;</span> <span class="n">max_utr_lenghts</span><span class="p">[</span><span class="s2">&quot;three&quot;</span><span class="p">]:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because it has too much 3&#39;UTR (</span><span class="si">%d</span><span class="s2">).&quot;</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                              <span class="n">transcript</span><span class="o">.</span><span class="n">three_utr_length</span><span class="p">)</span>
+            <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">find_retained_introns</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">to_be_added</span> <span class="ow">and</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;keep_retained_introns&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">retained_intron_num</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because it has </span><span class="si">%d</span><span class="s2"> retained introns.&quot;</span><span class="p">,</span>
+                                  <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                                  <span class="n">transcript</span><span class="o">.</span><span class="n">retained_intron_num</span><span class="p">)</span>
+                <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="n">to_be_added</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;min_cdna_overlap&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">tr_nucls</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">]))</span>
+            <span class="n">primary_nucls</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                                                  <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">]))</span>
+            <span class="n">nucl_overlap</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">primary_nucls</span><span class="p">,</span> <span class="n">tr_nucls</span><span class="p">))</span>
+            <span class="n">overlap</span> <span class="o">=</span> <span class="n">nucl_overlap</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">overlap</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;min_cdna_overlap&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because its CDNA overlap is too low (</span><span class="si">%f%%</span><span class="s2">).&quot;</span><span class="p">,</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="nb">round</span><span class="p">(</span><span class="n">overlap</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+                <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="n">to_be_added</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;min_cds_overlap&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">combined_cds_length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">tr_nucls</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span>
+                    <span class="o">*</span><span class="p">[</span><span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">]))</span>
+                <span class="n">primary_nucls</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span>
+                    <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span>
+                        <span class="o">*</span><span class="p">[</span><span class="nb">range</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">]))</span>
+                <span class="n">nucl_overlap</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">primary_nucls</span><span class="p">,</span> <span class="n">tr_nucls</span><span class="p">))</span>
+                <span class="n">overlap</span> <span class="o">=</span> <span class="n">nucl_overlap</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">combined_cds_length</span>
+                <span class="k">if</span> <span class="n">overlap</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;min_cds_overlap&quot;</span><span class="p">]:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                        <span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> not added because its CDS overlap is too low (</span><span class="si">%f%%</span><span class="s2">).&quot;</span><span class="p">,</span>
+                        <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="nb">round</span><span class="p">(</span><span class="n">overlap</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+                    <span class="n">to_be_added</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">if</span> <span class="n">to_be_added</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Keeping </span><span class="si">%s</span><span class="s2"> as a valid alternative isoform for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                          <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;primary&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="n">Abstractlocus</span><span class="o">.</span><span class="n">add_transcript_to_locus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transcript</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">locus_verified_introns</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">verified_introns</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Locus.is_intersecting"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.is_intersecting">[docs]</a>    <span class="k">def</span> <span class="nf">is_intersecting</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Not implemented: this function makes no sense for a single-transcript container.</span>
+<span class="sd">        :param args: any argument to this nethod will be ignored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;Loci do not use this method, but rather</span>
+<span class="s2">        assess whether a transcript is a splicing isoform or not.&quot;&quot;&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Locus.other_is_fragment"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.other_is_fragment">[docs]</a>    <span class="k">def</span> <span class="nf">other_is_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">,</span> <span class="n">minimal_cds_length</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param other: another Locus to compare against</span>
+<span class="sd">        :type other: Locus</span>
+
+<span class="sd">        :param minimal_cds_length: Minimal CDS length to consider</span>
+<span class="sd">        a Locus as non-fragment, no matter the ccode.</span>
+<span class="sd">        :type minimal_cds_length: int</span>
+
+
+<span class="sd">        This function checks whether another *monoexonic* Locus</span>
+<span class="sd">        *on the opposite strand* is a fragment,by checking its classification</span>
+<span class="sd">        according to Assigner.compare.</span>
+<span class="sd">        Briefly, a transcript is classified as fragment</span>
+<span class="sd">        if it follows the following criteria:</span>
+
+<span class="sd">            - it is monoexonic</span>
+<span class="sd">            - it has a combined_cds_length inferior to maximal_cds</span>
+<span class="sd">            - it is classified as x,i,P</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">other</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;I can compare only loci.&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Comparing </span><span class="si">%s</span><span class="s2"> with </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                          <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript_id</span><span class="p">,</span>
+                          <span class="n">other</span><span class="o">.</span><span class="n">primary_transcript_id</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">other</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">combined_cds_length</span> <span class="o">&gt;</span> <span class="n">minimal_cds_length</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> has a CDS of </span><span class="si">%d</span><span class="s2">, not a fragment by definition&quot;</span><span class="p">,</span>
+                              <span class="n">other</span><span class="o">.</span><span class="n">primary_transcript_id</span><span class="p">,</span>
+                              <span class="n">other</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">combined_cds_length</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">False</span>
+
+        <span class="n">result</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Assigner</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">primary_transcript</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="p">)</span>
+        <span class="c1"># Exclude anything which is completely contained within an intron,</span>
+        <span class="c1"># or is a monoexonic fragment overlapping/in the neighborhood</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Comparison between {0} (strand {3}) and {1}: class code </span><span class="se">\&quot;</span><span class="s2">{2}</span><span class="se">\&quot;</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">other</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="n">other</span><span class="o">.</span><span class="n">strand</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;i&quot;</span><span class="p">,</span> <span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">,</span> <span class="s2">&quot;x&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;{0} is a fragment (ccode {1})&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">other</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">elif</span> <span class="n">other</span><span class="o">.</span><span class="n">strand</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">,</span> <span class="s2">&quot;o&quot;</span><span class="p">,</span> <span class="s2">&quot;e&quot;</span><span class="p">,</span> <span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="s2">&quot;mo&quot;</span><span class="p">,</span> <span class="s2">&quot;rI&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Unstranded {0} is a fragment (ccode {1})&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">other</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+            <span class="k">return</span> <span class="bp">True</span>
+
+        <span class="k">return</span> <span class="bp">False</span></div>
+
+<div class="viewcode-block" id="Locus.set_json_conf"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.set_json_conf">[docs]</a>    <span class="k">def</span> <span class="nf">set_json_conf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">jconf</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Setter for the configuration dictionary.</span>
+<span class="sd">        :param jconf:</span>
+<span class="sd">        :type jconf: dict</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">jconf</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid configuration of type {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">jconf</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span> <span class="o">=</span> <span class="n">jconf</span></div>
+
+<div class="viewcode-block" id="Locus.get_metrics"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.get_metrics">[docs]</a>    <span class="k">def</span> <span class="nf">get_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;Quick wrapper to calculate the metrics for all the transcripts.&quot;&quot;&quot;</span>
+
+        <span class="c1"># TODO: Find an intelligent way ot restoring this check</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">metrics_calculated</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># self.logger.info(&quot;Calculating the intron tree for %s&quot;, self.id)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cds_introntree</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">combined_cds_introns</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">calculate_metrics</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Finished to calculate the metrics for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metrics_calculated</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">return</span></div>
+
+<div class="viewcode-block" id="Locus.calculate_metrics"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.calculate_metrics">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_metrics</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param tid: the name of the transcript to be analysed</span>
+<span class="sd">        :type tid: str</span>
+
+<span class="sd">        This function will calculate the metrics for a transcript which are relative in nature</span>
+<span class="sd">        i.e. that depend on the other transcripts in the sublocus. Examples include the fraction</span>
+<span class="sd">        of introns or exons in the sublocus, or the number/fraction of retained introns.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Calculating metrics for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">number_internal_orfs</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">calculate_metrics</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transcript</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+            <span class="n">selected</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf</span>
+            <span class="n">new_transcript</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="s2">&quot;{0}.orf1&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_transcript</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">calculate_metrics</span><span class="p">(</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">num</span><span class="p">,</span> <span class="n">orf</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">([</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span> <span class="k">if</span>
+                                       <span class="n">_</span> <span class="o">!=</span> <span class="n">selected</span><span class="p">]):</span>
+                <span class="n">new_transcript</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">new_transcript</span><span class="p">,</span> <span class="n">Transcript</span><span class="p">)</span>
+                <span class="n">new_transcript</span><span class="o">.</span><span class="n">internal_orfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">orf</span><span class="p">]</span>
+                <span class="n">new_transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span> <span class="k">if</span>
+                                                     <span class="n">orf</span> <span class="o">!=</span> <span class="n">_</span><span class="p">])</span>
+                <span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="s2">&quot;{0}.orf{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">num</span> <span class="o">+</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_transcript</span>
+                <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">calculate_metrics</span><span class="p">(</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">new_transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Calculated metrics for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tid</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Locus.calculate_scores"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.calculate_scores">[docs]</a>    <span class="k">def</span> <span class="nf">calculate_scores</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Function to calculate a score for each transcript, given the metrics derived</span>
+<span class="sd">        with the calculate_metrics method and the scoring scheme provided in the JSON configuration.</span>
+<span class="sd">        If any requirements have been specified, all transcripts which do not pass them</span>
+<span class="sd">        will be assigned a score of 0 and subsequently ignored.</span>
+<span class="sd">        Scores are rounded to the nearest integer.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores_calculated</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;logger&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="s2">&quot;DEBUG&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Calculating scores for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">scores</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">regressor</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;scoring&quot;</span><span class="p">]:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_score</span><span class="p">(</span><span class="n">param</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">scores</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+
+                <span class="k">if</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+                    <span class="k">continue</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;score&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">score</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">valid_metrics</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regressor</span><span class="o">.</span><span class="n">metrics</span>
+            <span class="n">metric_rows</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="p">()</span>
+            <span class="k">for</span> <span class="n">tid</span><span class="p">,</span> <span class="n">transcript</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">)):</span>
+                <span class="k">for</span> <span class="n">param</span> <span class="ow">in</span> <span class="n">valid_metrics</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="n">param</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;NA&quot;</span>
+                <span class="n">row</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="n">valid_metrics</span><span class="p">:</span>
+                    <span class="n">val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">attr</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                        <span class="k">if</span> <span class="n">val</span><span class="p">:</span>
+                            <span class="n">val</span> <span class="o">=</span> <span class="mi">1</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">val</span> <span class="o">=</span> <span class="mi">0</span>
+                    <span class="n">row</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+                <span class="n">metric_rows</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span> <span class="o">=</span> <span class="n">row</span>
+            <span class="c1"># scores = OrderedDict.fromkeys(metric_rows.keys())</span>
+            <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">score</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">regressor</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">metric_rows</span><span class="o">.</span><span class="n">values</span><span class="p">()))):</span>
+                <span class="n">tid</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">metric_rows</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="n">pos</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+                    <span class="k">continue</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;score&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">score</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="n">score</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">metric_lines_store</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_metrics</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;tid&quot;</span><span class="p">]</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">metric_lines_store</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">doubled</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">partial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">__orf_doubles</span><span class="p">[</span><span class="n">doubled</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">partial</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">partial</span><span class="p">]</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">scores_calculated</span> <span class="o">=</span> <span class="bp">True</span></div>
+
+<div class="viewcode-block" id="Locus.print_scores"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.print_scores">[docs]</a>    <span class="k">def</span> <span class="nf">print_scores</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;This method yields dictionary rows that are given to a csv.DictWriter class.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">calculate_scores</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">regressor</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">score_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;scoring&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">()))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">score_keys</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">regressor</span><span class="o">.</span><span class="n">metrics</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;tid&quot;</span><span class="p">,</span> <span class="s2">&quot;parent&quot;</span><span class="p">,</span> <span class="s2">&quot;score&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">score_keys</span>
+
+        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">:</span>
+            <span class="n">row</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
+            <span class="n">row</span><span class="p">[</span><span class="s2">&quot;tid&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tid</span>
+            <span class="n">row</span><span class="p">[</span><span class="s2">&quot;parent&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span>
+            <span class="n">row</span><span class="p">[</span><span class="s2">&quot;score&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;score&quot;</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="n">calculate_total</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">regressor</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">score_keys</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">calculate_total</span><span class="p">:</span>
+                    <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;NA&quot;</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+                    <span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="n">key</span><span class="p">],</span> <span class="mi">2</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">calculate_total</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">score_sum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">score_keys</span><span class="p">)</span>
+                <span class="c1">#</span>
+                <span class="k">assert</span> <span class="nb">round</span><span class="p">(</span><span class="n">score_sum</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scores</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;score&quot;</span><span class="p">],</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span>
+                    <span class="n">score_sum</span><span class="p">,</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">score</span><span class="p">,</span>
+                    <span class="n">tid</span><span class="p">)</span>
+            <span class="k">yield</span> <span class="n">row</span></div>
+
+<div class="viewcode-block" id="Locus.is_alternative_splicing"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.locus.Locus.is_alternative_splicing">[docs]</a>    <span class="k">def</span> <span class="nf">is_alternative_splicing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;This function defines whether another transcript could be a</span>
+<span class="sd">        putative alternative splice variant of the primary Locus</span>
+<span class="sd">        transcript.</span>
+<span class="sd">        To do so, it compares the candidate against all transcripts in the Locus, and calculates</span>
+<span class="sd">        the class code using scales.Assigner.compare.</span>
+<span class="sd">        If all the matches are &quot;n&quot; or &quot;j&quot;, the transcript is considered as an AS event.</span>
+
+<span class="sd">        :param other: another transcript to compare against</span>
+<span class="sd">        :type other: Transcript</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">is_valid</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># main_ccode = None</span>
+
+        <span class="n">valid_ccodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;valid_ccodes&quot;</span><span class="p">]</span>
+        <span class="n">redundant_ccodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;alternative_splicing&quot;</span><span class="p">][</span><span class="s2">&quot;redundant_ccodes&quot;</span><span class="p">]</span>
+
+        <span class="n">main_result</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Assigner</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="p">)</span>
+        <span class="n">main_ccode</span> <span class="o">=</span> <span class="n">main_result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">main_ccode</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_ccodes</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is not a valid splicing isoform. Ccode: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                              <span class="n">other</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                              <span class="n">main_result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">is_valid</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="n">is_valid</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">tid</span> <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span> <span class="k">if</span>
+                            <span class="n">tid</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript_id</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">id</span><span class="p">)):</span>
+                <span class="n">candidate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span>
+                <span class="n">result</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">Assigner</span><span class="o">.</span><span class="n">compare</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="n">candidate</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="n">redundant_ccodes</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is a redundant isoform of </span><span class="si">%s</span><span class="s2"> (ccode </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                                      <span class="n">other</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">candidate</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                    <span class="n">is_valid</span> <span class="o">=</span> <span class="bp">False</span>
+                    <span class="k">break</span>
+
+        <span class="k">return</span> <span class="n">is_valid</span><span class="p">,</span> <span class="n">main_ccode</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">__name__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;locus&quot;</span>
+        <span class="k">elif</span> <span class="nb">any</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_length</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">for</span>
+                 <span class="n">transcript</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+            <span class="k">return</span> <span class="s2">&quot;gene&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;ncRNA_gene&quot;</span>
+
+    <span class="c1"># pylint: disable=invalid-name</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Override of the abstractlocus method.</span>
+<span class="sd">        :rtype str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__id</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">myid</span> <span class="o">=</span> <span class="n">Abstractlocus</span><span class="o">.</span><span class="n">id</span><span class="o">.</span><span class="n">fget</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>  <span class="c1"># @UndefinedVariable</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">myid</span> <span class="o">=</span> <span class="s2">&quot;{0}.{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">myid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">counter</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">myid</span>
+
+    <span class="c1"># pylint: disable=arguments-differ</span>
+    <span class="nd">@id.setter</span>
+    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Override of the original method from AbstractLocus. This override allows to</span>
+<span class="sd">        create proper IDs for the final annotation to be output by Mikado.</span>
+<span class="sd">        :param string:</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Setting new ID for </span><span class="si">%s</span><span class="s2"> to </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">string</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__id</span> <span class="o">=</span> <span class="n">string</span>
+        <span class="n">primary_id</span> <span class="o">=</span> <span class="s2">&quot;{0}.1&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+        <span class="n">old_primary</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;Alias&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">primary_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">primary_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript_id</span> <span class="o">=</span> <span class="n">primary_id</span>
+        <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">old_primary</span><span class="p">]</span>
+
+        <span class="n">order</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="n">primary_id</span><span class="p">],</span>
+                       <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">xtid</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">xtid</span><span class="p">])</span>
+
+        <span class="k">for</span> <span class="n">counter</span><span class="p">,</span> <span class="n">tid</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">order</span><span class="p">):</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">2</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;Alias&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tid</span>
+            <span class="n">new_id</span> <span class="o">=</span> <span class="s2">&quot;{0}.{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">new_id</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="n">new_id</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+
+    <span class="c1"># pylint: enable=invalid-name,arguments-differ</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">is_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :rtype : bool</span>
+<span class="sd">        Flag. It returns the value of self.attributes[&quot;is_fragment&quot;]</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;is_fragment&quot;</span><span class="p">]</span>
+
+    <span class="nd">@is_fragment.setter</span>
+    <span class="k">def</span> <span class="nf">is_fragment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">:</span> <span class="nb">bool</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Setter for is_fragment. Only boolean values are accepted.</span>
+
+<span class="sd">        :param val: flag</span>
+<span class="sd">        :type val: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;is_fragment&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">primary_transcript</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This property returns the primary transcript of the Locus</span>
+<span class="sd">        (i.e. the one which has been used for creation and which has the highest score).</span>
+<span class="sd">        :rtype : Transcript</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">transcripts</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">primary_transcript_id</span><span class="p">]</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

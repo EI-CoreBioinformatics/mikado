@@ -1,0 +1,180 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.test.test_db_utils &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.test.test_db_utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">TestCase to test the DButils module</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">unittest</span>
+<span class="kn">import</span> <span class="nn">Mikado.utilities.dbutils</span>
+<span class="kn">import</span> <span class="nn">Mikado.configuration.configurator</span>
+<span class="kn">import</span> <span class="nn">Mikado.serializers</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy.orm.session</span>
+<span class="kn">import</span> <span class="nn">sqlalchemy.engine.base</span>
+<span class="kn">import</span> <span class="nn">sqlite3</span>
+<span class="kn">import</span> <span class="nn">Mikado.serializers.junction</span>
+<span class="kn">import</span> <span class="nn">Mikado.serializers.blast_serializer</span>
+<span class="kn">import</span> <span class="nn">Mikado.serializers.orf</span>
+
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="TestDbConnect"><a class="viewcode-back" href="../../../Mikado.test.html#Mikado.test.test_db_utils.TestDbConnect">[docs]</a><span class="k">class</span> <span class="nc">TestDbConnect</span><span class="p">(</span><span class="n">unittest</span><span class="o">.</span><span class="n">TestCase</span><span class="p">):</span>
+
+<div class="viewcode-block" id="TestDbConnect.setUp"><a class="viewcode-back" href="../../../Mikado.test.html#Mikado.test.test_db_utils.TestDbConnect.setUp">[docs]</a>    <span class="k">def</span> <span class="nf">setUp</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">json</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">configuration</span><span class="o">.</span><span class="n">configurator</span><span class="o">.</span><span class="n">to_json</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s2">&quot;configuration.yaml&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;db&quot;</span><span class="p">],</span> <span class="s2">&quot;mikado.db&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span>
+                                                      <span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;db&quot;</span><span class="p">],)</span></div>
+
+
+<div class="viewcode-block" id="TestDbConnect.test_connector"><a class="viewcode-back" href="../../../Mikado.test.html#Mikado.test.test_db_utils.TestDbConnect.test_connector">[docs]</a>    <span class="k">def</span> <span class="nf">test_connector</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">connector</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">utilities</span><span class="o">.</span><span class="n">dbutils</span><span class="o">.</span><span class="n">create_connector</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">connector</span><span class="p">,</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Connection</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestDbConnect.test_engine"><a class="viewcode-back" href="../../../Mikado.test.html#Mikado.test.test_db_utils.TestDbConnect.test_engine">[docs]</a>    <span class="k">def</span> <span class="nf">test_engine</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">utilities</span><span class="o">.</span><span class="n">dbutils</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">engine</span><span class="p">,</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">base</span><span class="o">.</span><span class="n">Engine</span><span class="p">)</span>
+        <span class="n">table_names</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;chrom&#39;</span><span class="p">,</span> <span class="s1">&#39;hit&#39;</span><span class="p">,</span> <span class="s1">&#39;hsp&#39;</span><span class="p">,</span> <span class="s1">&#39;junctions&#39;</span><span class="p">,</span> <span class="s1">&#39;orf&#39;</span><span class="p">,</span> <span class="s1">&#39;query&#39;</span><span class="p">,</span> <span class="s1">&#39;target&#39;</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">engine</span><span class="o">.</span><span class="n">table_names</span><span class="p">(),</span> <span class="n">table_names</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestDbConnect.test_content"><a class="viewcode-back" href="../../../Mikado.test.html#Mikado.test.test_db_utils.TestDbConnect.test_content">[docs]</a>    <span class="k">def</span> <span class="nf">test_content</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">utilities</span><span class="o">.</span><span class="n">dbutils</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">json</span><span class="p">)</span>
+        <span class="n">sessionmaker</span> <span class="o">=</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">orm</span><span class="o">.</span><span class="n">sessionmaker</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="n">engine</span><span class="p">)</span>
+        <span class="n">session</span> <span class="o">=</span> <span class="n">sessionmaker</span><span class="p">()</span>
+        <span class="c1"># Simple tests based on the static content of the dictionary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">junction</span><span class="o">.</span><span class="n">Junction</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">371</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">orf</span><span class="o">.</span><span class="n">Orf</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">82</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Target</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">38909</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Query</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">95</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Hit</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">576</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertEqual</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Hsp</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="mi">684</span><span class="p">)</span>
+
+        <span class="n">first_query</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Query</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+        <span class="n">astup</span> <span class="o">=</span> <span class="n">first_query</span><span class="o">.</span><span class="n">as_tuple</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">_fields</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;query_id&quot;</span><span class="p">,</span> <span class="s2">&quot;query_name&quot;</span><span class="p">,</span> <span class="s2">&quot;query_length&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">query_id</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">query_length</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">query_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+        
+        <span class="n">first_target</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span>
+            <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Target</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+        <span class="n">astup</span> <span class="o">=</span> <span class="n">first_target</span><span class="o">.</span><span class="n">as_tuple</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertTrue</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">_fields</span><span class="p">,</span> <span class="p">(</span><span class="s2">&quot;target_id&quot;</span><span class="p">,</span> <span class="s2">&quot;target_name&quot;</span><span class="p">,</span> <span class="s2">&quot;target_length&quot;</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">target_id</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">target_length</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">assertIsInstance</span><span class="p">(</span><span class="n">astup</span><span class="o">.</span><span class="n">target_name</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>        </div>
+
+<div class="viewcode-block" id="TestDbConnect.test_query_init"><a class="viewcode-back" href="../../../Mikado.test.html#Mikado.test.test_db_utils.TestDbConnect.test_query_init">[docs]</a>    <span class="k">def</span> <span class="nf">test_query_init</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Query</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Query</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Query</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Query</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Query</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="TestDbConnect.test_target_init"><a class="viewcode-back" href="../../../Mikado.test.html#Mikado.test.test_db_utils.TestDbConnect.test_target_init">[docs]</a>    <span class="k">def</span> <span class="nf">test_target_init</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Target</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Target</span><span class="p">(</span><span class="mi">100</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Target</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Target</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="o">-</span><span class="mi">10</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">assertRaises</span><span class="p">(</span><span class="ne">TypeError</span><span class="p">):</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="n">Mikado</span><span class="o">.</span><span class="n">serializers</span><span class="o">.</span><span class="n">blast_serializer</span><span class="o">.</span><span class="n">Target</span><span class="p">(</span><span class="s2">&quot;foo&quot;</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">)</span></div></div>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">unittest</span><span class="o">.</span><span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.exceptions &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.exceptions</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding:utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Custom exceptions for Mikado.py.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="NotInLocusError"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.NotInLocusError">[docs]</a><span class="k">class</span> <span class="nc">NotInLocusError</span><span class="p">(</span><span class="ne">AssertionError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Error to be raised when a method tries to add a transcript to a Locus it does not belong to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="NoJsonConfigError"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.NoJsonConfigError">[docs]</a><span class="k">class</span> <span class="nc">NoJsonConfigError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised if no/an invalid configuration dictionary has been provided.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="InvalidLocusError"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.InvalidLocusError">[docs]</a><span class="k">class</span> <span class="nc">InvalidLocusError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when something has made a Locus object invalid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="ModificationError"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.ModificationError">[docs]</a><span class="k">class</span> <span class="nc">ModificationError</span><span class="p">(</span><span class="ne">RuntimeError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This exception is raised when something tries to modify a finalized object.&quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="UnrecognizedOperator"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.UnrecognizedOperator">[docs]</a><span class="k">class</span> <span class="nc">UnrecognizedOperator</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when the configuration file contains an unsupported operator</span>
+<span class="sd">    for a scoring/filtering function.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="UnrecognizedRescaler"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.UnrecognizedRescaler">[docs]</a><span class="k">class</span> <span class="nc">UnrecognizedRescaler</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when the configuration file contains an unsupported rescaling</span>
+<span class="sd">    function for a scoring operation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="InvalidJson"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.InvalidJson">[docs]</a><span class="k">class</span> <span class="nc">InvalidJson</span><span class="p">(</span><span class="ne">KeyError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when the JSON/YAML is invalid.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="InvalidTranscript"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.InvalidTranscript">[docs]</a><span class="k">class</span> <span class="nc">InvalidTranscript</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when a transcript contains corrupted data</span>
+<span class="sd">    (e.g. overlapping or missing exons).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="InvalidCDS"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.InvalidCDS">[docs]</a><span class="k">class</span> <span class="nc">InvalidCDS</span><span class="p">(</span><span class="n">InvalidTranscript</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when a transcript contains an invalid CDS</span>
+<span class="sd">    (e.g. with a UTR in the middle).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="IncorrectStrandError"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.IncorrectStrandError">[docs]</a><span class="k">class</span> <span class="nc">IncorrectStrandError</span><span class="p">(</span><span class="n">InvalidTranscript</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when a transcript contains an invalid intron</span>
+<span class="sd">    (e.g. an AG-GT intron assigned to the minus strand).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="UnsortedInput"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.UnsortedInput">[docs]</a><span class="k">class</span> <span class="nc">UnsortedInput</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when the input for pick is not properly sorted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="InvalidAssembly"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.InvalidAssembly">[docs]</a><span class="k">class</span> <span class="nc">InvalidAssembly</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Exception to be raised when the input for prepare is not properly formatted.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="RedundantNames"><a class="viewcode-back" href="../../Mikado.html#Mikado.exceptions.RedundantNames">[docs]</a><span class="k">class</span> <span class="nc">RedundantNames</span><span class="p">(</span><span class="ne">KeyError</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

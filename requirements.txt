@@ -1,3 +1,4 @@
+wheel>=0.28.0
 pyyaml
 jsonschema
 Cython

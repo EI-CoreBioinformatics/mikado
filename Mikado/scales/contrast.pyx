@@ -382,7 +382,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
         junction_precision = junction_overlap / len_psplices
         junction_f1 = calc_f1(junction_recall, junction_precision)
 
-    elif p_exon_num == r_exon_num == 1:
+    elif p_exon_num == r_exon_num == 1 and nucl_f1 > 0:
         # junction_overlap = junction_f1 = junction_precision = junction_recall = 1
         junction_f1 = junction_precision = junction_recall = 1
     else:

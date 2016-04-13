@@ -258,7 +258,7 @@ def __verify_boundaries(transcript):
             err, transcript.id, str(transcript.exons))
 
 
-def __check_internal_orf(transcript, index, phases=None):
+def __check_internal_orf(transcript, index):
 
     """
     Method that verifies that an internal ORF does not have any internal gap.
@@ -278,9 +278,8 @@ def __check_internal_orf(transcript, index, phases=None):
     previous_exon_index, exon_found = None, False
     total_cds_length = 0
 
-    exons = sorted(transcript.exons, reverse=(transcript.strand == "-"))
-
-    if phases:
+    if index == 0 and transcript.phases:
+        phases = transcript.phases
         phases_keys = sorted(phases.keys(), reverse=(transcript.strand == "-"))
         phase_orf = [phases[_] for _ in phases_keys]
         previous = (3 - phases[phases_keys[0]] % 3) % 3
@@ -288,17 +287,28 @@ def __check_internal_orf(transcript, index, phases=None):
     else:
         phase_orf = []
         previous = 0
+        phases = None
 
     transcript.logger.debug("Phases, previous, phase_orf: %s, %d, %s",
                             phases, previous, phase_orf)
 
-    orf = sorted(orf, key=operator.itemgetter(1), reverse=(transcript.strand == "-"))
+    exons = sorted(transcript.exons, reverse=(transcript.strand == "-"))
 
-    first, last = float("inf"), float("-inf")
+    coding = sorted([_ for _ in orf if _[0] == "CDS"], reverse=(transcript.strand == "-"))
+    utr = sorted([_ for _ in orf if _[0] != "CDS"], reverse=(transcript.strand == "-"))
+
+    if len(coding) == 0:
+        raise InvalidCDS("No ORF for %s index %d!", transcript.id, index)
+
 
     for orf_segment in orf:
         first = min(first, orf_segment[1][0])
         last = max(last, orf_segment[1][1])
+
+
+
+    for orf_segment in orf:
+
 
         if orf_segment[0] != "CDS":
             new_orf.append(orf_segment)
@@ -444,8 +454,7 @@ def __check_phase_correctness(transcript):
         try:
             transcript.logger.debug("ORF #%d: %s", orf_index, transcript.phases)
             transcript = __check_internal_orf(transcript,
-                                              orf_index,
-                                              phases=transcript.phases)
+                                              orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
             transcript.logger.exception(exc)
             transcript.logger.warning("Stripping the CDS from %s", transcript.id)

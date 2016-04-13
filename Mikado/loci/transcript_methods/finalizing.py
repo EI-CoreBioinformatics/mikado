@@ -4,6 +4,7 @@ e.g. reliability of the CDS/UTR, sanity of borders, etc.
 """
 
 import intervaltree
+import itertools
 import operator
 from ...exceptions import InvalidCDS, InvalidTranscript
 
@@ -447,8 +448,9 @@ def __check_phase_correctness(transcript):
                                               orf_index,
                                               phases=transcript.phases)
         except (InvalidTranscript, InvalidCDS) as exc:
-            transcript.logger.exception(exc)
-            transcript.logger.warning("Stripping the CDS from %s", transcript.id)
+            # transcript.logger.debug(exc)
+            transcript.logger.warning("Stripping the CDS from %s, error: %s",
+                                      transcript.id, exc)
             transcript.strip_cds(strand_specific=True)
             break
 

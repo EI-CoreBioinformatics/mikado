@@ -5918,7 +5918,7 @@ static PyObject *__pyx_pf_6Mikado_6scales_12intervaltree_12IntervalTree_2insert(
 /* "Mikado/scales/intervaltree.pyx":404
  *     add = insert
  * 
- *     def find( self, int start, int end, int max_distance=0, int num_intervals=1):             # <<<<<<<<<<<<<<
+ *     def find( self, int start, int end, int max_distance=0, int num_intervals=100):             # <<<<<<<<<<<<<<
  *         """
  *         Return a sorted list of all intervals overlapping [start,end).
  */
@@ -5995,7 +5995,7 @@ static PyObject *__pyx_pw_6Mikado_6scales_12intervaltree_12IntervalTree_5find(Py
     if (values[3]) {
       __pyx_v_num_intervals = __Pyx_PyInt_As_int(values[3]); if (unlikely((__pyx_v_num_intervals == (int)-1) && PyErr_Occurred())) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 404; __pyx_clineno = __LINE__; goto __pyx_L3_error;}
     } else {
-      __pyx_v_num_intervals = ((int)1);
+      __pyx_v_num_intervals = ((int)0x64);
     }
   }
   goto __pyx_L4_argument_unpacking_done;
@@ -6311,7 +6311,7 @@ static PyObject *__pyx_pf_6Mikado_6scales_12intervaltree_12IntervalTree_4find(st
   /* "Mikado/scales/intervaltree.pyx":404
  *     add = insert
  * 
- *     def find( self, int start, int end, int max_distance=0, int num_intervals=1):             # <<<<<<<<<<<<<<
+ *     def find( self, int start, int end, int max_distance=0, int num_intervals=100):             # <<<<<<<<<<<<<<
  *         """
  *         Return a sorted list of all intervals overlapping [start,end).
  */
@@ -8868,7 +8868,7 @@ PyMODINIT_FUNC PyInit_intervaltree(void)
  * 
  *     add = insert             # <<<<<<<<<<<<<<
  * 
- *     def find( self, int start, int end, int max_distance=0, int num_intervals=1):
+ *     def find( self, int start, int end, int max_distance=0, int num_intervals=100):
  */
   __pyx_t_1 = __Pyx_GetNameInClass((PyObject *)__pyx_ptype_6Mikado_6scales_12intervaltree_IntervalTree, __pyx_n_s_insert); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 402; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);

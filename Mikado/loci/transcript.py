@@ -173,6 +173,7 @@ class Transcript:
         self.engine, self.session, self.sessionmaker = None, None, None
         # Initialisation of the CDS segments used for finding retained introns
         self.__cds_tree = None
+        self.__expandable = False
         # self.query_id = None
 
         if len(args) == 0:
@@ -193,13 +194,21 @@ class Transcript:
         if not isinstance(transcript_row, (GffLine, GtfLine)):
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
         if transcript_row.is_transcript is False:
-            raise TypeError(
-                "Invalid transcript line, the feature should be a transcript:\n{0}".format(
-                    transcript_row))
+            if transcript_row.is_exon is False or isinstance(transcript_row, GffLine):
+                raise TypeError(
+                    "Invalid transcript line, the feature should be a transcript:\n{0}".format(
+                        transcript_row))
+            self.__expandable = True
+            self.parent = transcript_row.gene
+            self.id = transcript_row.transcript
+        else:
+            self.parent = transcript_row.parent
+            self.id = transcript_row.id
+
         self.chrom = intern(transcript_row.chrom)
         self.feature = intern(transcript_row.feature)
         # pylint: disable=invalid-name
-        self.id = transcript_row.id
+
         # pylint: enable=invalid-name
         self.name = transcript_row.name
         if self.source is None:
@@ -209,7 +218,7 @@ class Transcript:
         self.end = transcript_row.end
         self.score = transcript_row.score
         self.scores = dict()
-        self.parent = transcript_row.parent
+
         for key, val in transcript_row.attributes.items():
             self.attributes[intern(key)] = val
         self.blast_hits = []
@@ -358,6 +367,7 @@ class Transcript:
                     {1}
                     {2}""".format(self.id, gffline.parent, gffline))
             assert gffline.is_exon is True, str(gffline)
+            assert gffline.chrom == self.chrom, (gffline.chrom, self.chrom)
             phase = gffline.phase
 
         assert isinstance(start, int) and isinstance(end, int)
@@ -386,6 +396,9 @@ class Transcript:
 
         segment = tuple([start, end])
         # assert isinstance(segment[0], int) and isinstance(segment[1], int)
+        if self.__expandable is True:
+            self.start = min([self.start, start])
+            self.end = max([self.end, end])
         store.append(segment)
 
     def add_exons(self, exons, features=None):
@@ -544,7 +557,7 @@ class Transcript:
         the strand will be removed from it.
         """
 
-        self.logger.warning("Stripping CDS from {0}".format(self.id))
+        self.logger.debug("Stripping CDS from {0}".format(self.id))
         self.finalized = False
         assert len(self.exons) > 0
         if self.monoexonic is True and strand_specific is False:

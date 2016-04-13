@@ -257,7 +257,7 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
 
         with self.assertLogs("null", level="DEBUG") as log_split:
             self.tr.strip_cds()
-        self.assertIn("WARNING:null:Stripping CDS from AT1G01020.1", log_split.output)
+        self.assertIn("DEBUG:null:Stripping CDS from AT1G01020.1", log_split.output)
 
         self.assertEqual(self.tr.selected_cds_length, 0)
         self.assertEqual(self.tr.three_utr, [])

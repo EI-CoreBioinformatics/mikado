@@ -140,7 +140,7 @@ class Assigner:
         """
         This class method is used to find the possible matches of a given prediction key.
         :param keys: the start
-        :type keys: intervaltree.IntervalTree
+        :type keys: Mikado.scales.intervaltree.IntervalTree
 
         :param position: the position of my prediction in the genome
         :type position: (int, int)

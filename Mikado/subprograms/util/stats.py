@@ -361,7 +361,7 @@ class Calculator:
         cds_exons = Counter()
         cds_exon_num = Counter()
         cds_exon_num_coding = Counter()
-        cdna_lengths = Counter() # Done
+        cdna_lengths = Counter()  # Done
         cdna_lengths_coding = Counter()
         cds_lengths = Counter()  # Done
         cds_ratio = Counter()

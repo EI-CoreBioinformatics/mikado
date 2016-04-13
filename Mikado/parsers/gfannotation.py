@@ -13,6 +13,7 @@ __author__ = 'Luca Venturini'
 
 [intern(_) for _ in ["+", "-", "?"]]
 
+
 # This class has exactly how many attributes I need it to have
 # pylint: disable=too-many-instance-attributes
 class GFAnnotation(metaclass=abc.ABCMeta):
@@ -51,9 +52,9 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         else:
             self._line = line
 
-        self._line = self._line.rstrip()
+        self._line = self._line.strip()
 
-        self._fields = line.rstrip().split('\t')
+        self._fields = self._line.split('\t')
         self.header = header
 
         if self.header or len(self._fields) != 9 or self._line == '' or self._line[0] == "#":

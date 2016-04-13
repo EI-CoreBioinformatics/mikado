@@ -199,6 +199,7 @@ def check_loaded_orfs(transcript):
     if transcript.internal_orfs:
         transcript.feature = "mRNA"
 
+    transcript.phases = dict()
     transcript.finalize()
 
 

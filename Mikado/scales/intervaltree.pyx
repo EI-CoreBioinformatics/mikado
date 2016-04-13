@@ -401,7 +401,7 @@ cdef class IntervalTree:
 
     add = insert
 
-    def find( self, int start, int end, int max_distance=0, int num_intervals=1):
+    def find( self, int start, int end, int max_distance=0, int num_intervals=100):
         """
         Return a sorted list of all intervals overlapping [start,end).
         """

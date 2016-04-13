@@ -167,20 +167,12 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                     genes[row.gene][row.transcript].add_exon(row)
                 else:
                     if row.gene not in genes:
-                        exc = KeyError("Gene {0} not encountered yet, line: {1}".format(
-                            row.gene, str(row)
-                        ))
-                    elif row.transcript not in genes[row.gene]:
-                        exc = KeyError("TID {0} not found for {1}; found tids: {2}".format(
-                            row.transcript, row.gene,
-                            ",".join(genes[row.gene].transcripts.keys())
-                        ))
-                    else:
-                        exc = KeyError("Weird error; both {0} and {1} are in the hash..".format(
-                            row.gene, row.transcript
-                        ))
-                    queue_logger.exception(exc)
-                    raise exc
+                        genes[row.gene] = Gene(None, gid=row.gene, logger=queue_logger)
+                    if row.transcript not in genes[row.gene]:
+                        transcript = Transcript(row, logger=queue_logger)
+                        transcript2gene[row.id] = row.gene
+                        genes[row.gene].add(transcript)
+                    genes[row.gene][row.transcript].add_exon(row)
 
     genes, positions = finalize_reference(genes, positions, queue_logger, args)
 
@@ -208,6 +200,7 @@ def parse_prediction(args, genes, positions, queue_logger):
     assigner_instance = Assigner(genes, positions, args, accountant_instance)
 
     transcript = None
+    ref_gff = isinstance(args.prediction, GFF3)
     for row in args.prediction:
         if row.header is True:
             continue
@@ -222,6 +215,17 @@ def parse_prediction(args, genes, positions, queue_logger):
                     assigner_instance.get_best(transcript)
             transcript = Transcript(row, logger=queue_logger)
         elif row.is_exon is True:
+            if ref_gff is False:
+                if transcript is None or (transcript is not None and transcript.id != row.transcript):
+                    if transcript is not None:
+                        if re.search(r"\.orf[0-9]+$", transcript.id) and \
+                                (not transcript.id.endswith("orf1")):
+                            pass
+                        else:
+                            assigner_instance.get_best(transcript)
+                    queue_logger.debug("New transcript: %s", row.transcript)
+                    transcript = Transcript(row, logger=queue_logger)
+
             queue_logger.debug("Adding exon to transcript %s: %s",
                                transcript.id, row)
             transcript.add_exon(row)
@@ -302,9 +306,15 @@ def load_index(args, queue_logger):
                     isinstance(positions, collections.defaultdict) and
                     positions.default_factory is dict):
                 raise EOFError
-        except (EOFError, json.decoder.JSONDecodeError):
+        except (EOFError, json.decoder.JSONDecodeError) as exc:
             genes, positions = None, None
-            queue_logger.error("Invalid index; deleting and rebuilding.")
+            queue_logger.error("Invalid index file; deleting and rebuilding. Error: %s", exc)
+            queue_logger.exception(exc)
+            os.remove("{0}.midx".format(args.reference.name))
+        except (TypeError, ValueError) as exc:
+            genes, positions = None, None
+            queue_logger.error("Corrupted index file; deleting and rebuilding.")
+            queue_logger.exception(exc)
             os.remove("{0}.midx".format(args.reference.name))
 
     return genes, positions

@@ -93,9 +93,14 @@ class Gene:
         :param transcr: the transcript to be added.
         """
 
-        self.start = min(self.start, transcr.start)
-        self.end = max(self.end, transcr.end)
         self.transcripts[transcr.id] = transcr
+        if self.chrom is None:
+            self.chrom = transcr.chrom
+        elif self.chrom != transcr.chrom:
+            raise AssertionError("Discrepant chromosome for gene {0} and transcript {1}".format(
+                    self.id, transcr.id
+                ))
+
         if transcr.strand != self.strand:
             if self.strand is None:
                 self.strand = transcr.strand
@@ -105,6 +110,7 @@ class Gene:
                 raise AssertionError("Discrepant strands for gene {0} and transcript {1}".format(
                     self.id, transcr.id
                 ))
+
         transcr.logger = self.logger
 
     def __getitem__(self, tid: str) -> Transcript:
@@ -141,16 +147,18 @@ class Gene:
             del self.transcripts[k]
 
         if len(self.transcripts) > 0:
+            if self.source is None:
+                self.source = set([_.source for _ in self.transcripts.values()]).pop()
             __new_start = min(_.start for _ in self)
 
             if __new_start != self.start:
-                self.logger.warning("Resetting the start for %s from %d to %d",
+                self.logger.debug("Resetting the start for %s from %s to %d",
                                     self.id, self.start, __new_start)
                 self.start = __new_start
 
             __new_end = max(_.end for _ in self)
             if __new_end != self.end:
-                self.logger.warning("Resetting the end for %s from %d to %d",
+                self.logger.debug("Resetting the end for %s from %s to %d",
                                     self.id, self.end, __new_end)
                 self.end = __new_end
 

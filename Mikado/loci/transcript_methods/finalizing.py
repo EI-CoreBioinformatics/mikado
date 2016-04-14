@@ -348,13 +348,15 @@ def __check_internal_orf(transcript, index):
         raise InvalidCDS("Both UTR presents with a truncated ORF in %s",
                          transcript.id)
     elif total_cds_length % 3 != 0 and three_utr:
-        total_cds_length, __calculated_phases = __calculate_phases(coding,
-                                                                   total_cds_length % 3)
-        if total_cds_length % 3 != 0:
+
+        for num in (0, 1, 2):
             total_cds_length, __calculated_phases = __calculate_phases(coding,
-                                                                       (3 - total_cds_length) % 3)
-            if total_cds_length % 3 != 0:
-                raise InvalidCDS("Persistently bad ORF for %s", transcript.id)
+                                                                       num)
+            if total_cds_length % 3 == 0:
+                break
+                
+        if total_cds_length % 3 != 0:
+            raise InvalidCDS("Persistently bad ORF for %s", transcript.id)
 
     if __calculated_phases[0] != 0 and five_utr:
         raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for %s",

@@ -890,7 +890,12 @@ class Transcript:
     def phases(self):
         """
         This property contains the first phase gleaned for each internal ORF from the
-         GFF.
+         GFF. Structure:
+
+         dict[(start,end)] = phase
+
+        where (start, end) are the coordinates of the coding segment
+
         :return: __phases, a list
         :rtype: dict
         """

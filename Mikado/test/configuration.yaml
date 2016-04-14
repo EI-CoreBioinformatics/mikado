@@ -9,6 +9,7 @@ db_settings:
   db: mikado.db
   dbtype: sqlite
 pick:
+  scoring_file: plants.yaml
   alternative_splicing:
     #  Parameters related to alternative splicing reporting.
     #  - report: whether to report at all or not the AS events.

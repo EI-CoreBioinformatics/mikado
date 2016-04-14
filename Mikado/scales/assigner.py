@@ -552,7 +552,7 @@ class Assigner:
         :return: (int, float, float, float)
         """
 
-        bad_ccodes = ["x", "P", "p"]
+        bad_ccodes = ["x", "X", "P", "p"]
         bad_ccodes = set(bad_ccodes)
 
         orderer = (len(set.intersection(bad_ccodes, set(result.ccode))) == 0,

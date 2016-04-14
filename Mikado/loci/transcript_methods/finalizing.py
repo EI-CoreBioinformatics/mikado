@@ -344,8 +344,8 @@ def __check_internal_orf(transcript, index):
 
     if total_cds_length % 3 != 0 and three_utr and five_utr:
         # The transcript is truncated.
-        raise InvalidCDS("Both UTR presents with a truncated ORF in %s",
-                         transcript.id)
+        raise InvalidCDS("Both UTR presents with a truncated ORF in %s".format(
+                         transcript.id))
     elif total_cds_length % 3 != 0 and three_utr:
         for num in (0, 1, 2):
             total_cds_length, __calculated_phases = __calculate_phases(coding,

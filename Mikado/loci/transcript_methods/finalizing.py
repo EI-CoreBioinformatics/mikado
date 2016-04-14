@@ -34,7 +34,7 @@ def __basic_final_checks(transcript):
         if not isinstance(exon, tuple):
             if (isinstance(exon, intervaltree.Interval) or
                     (isinstance(exon, list) and len(exon) == 2 and
-                         isinstance(exon[0], int) and isinstance(exon[1], int))):
+                     isinstance(exon[0], int) and isinstance(exon[1], int))):
                 exon = tuple([exon])
             else:
                 raise ValueError("Invalid exon: {0}, type {1}".format(
@@ -138,7 +138,6 @@ def __calculate_introns(transcript):
     and splice sites positions.
     """
 
-
     introns = []
     cds_introns = []
     splices = []
@@ -157,18 +156,17 @@ def __calculate_introns(transcript):
     transcript.introns = set(introns)
     transcript.splices = set(splices)
 
-    if transcript.number_internal_orfs == 0 or \
-                len(transcript.selected_cds) < 2 or \
-                len(transcript.combined_cds) < 2:
+    if (transcript.number_internal_orfs == 0 or
+            len(transcript.selected_cds) < 2 or
+            len(transcript.combined_cds) < 2):
         pass
     else:
         # Start calculating the selected CDS introns
-
         for first, second in zip(transcript.selected_cds[:-1],
                                  transcript.selected_cds[1:]):
             assert first != second, transcript.selected_cds
-            assert first[1] < second[0], (first, second)
-            # first, second = sorted([first, second])
+            # assert first[1] < second[0], (first, second)
+            first, second = sorted([first, second])
             intron = tuple([first[1] + 1, second[0] - 1])
             assert intron in transcript.introns, (intron, first, second)
             cds_introns.append(intron)
@@ -186,8 +184,9 @@ def __calculate_introns(transcript):
                 if junc in transcript.introns:
                     cds_introns.append(junc)
             cintrons = set(cds_introns)
+            assert len(cintrons) > 0
             transcript._combined_cds_introns = cintrons
-            assert len(transcript._combined_cds_introns) > 0
+            # assert len(transcript._combined_cds_introns) > 0
 
             # for index, orf in enumerate(transcript.internal_orfs):
             #     if index == transcript.selected_internal_orf_index:
@@ -202,11 +201,10 @@ def __calculate_introns(transcript):
             #         cds_introns.append(intron)
             # cds_introns = set(cds_introns)
             # transcript._combined_cds_introns = cds_introns
-
         else:
             transcript._combined_cds_introns = transcript._selected_cds_introns.copy()
 
-        assert len(transcript._combined_cds_introns) > 0
+        # assert len(transcript._combined_cds_introns) > 0
 
     assert len(transcript._combined_cds_introns) >= len(transcript._selected_cds_introns)
     return transcript
@@ -257,6 +255,19 @@ def __verify_boundaries(transcript):
         raise InvalidTranscript(
             err, transcript.id, str(transcript.exons))
 
+def __calculate_phases(coding, previous):
+    """"""
+
+    total_cds_length = -previous
+
+    __calculated_phases = []
+    for cds_segment in coding:
+        length = cds_segment[1][1] - cds_segment[1][0] + 1
+        phase = (3 - (total_cds_length % 3)) % 3
+        total_cds_length += length
+        __calculated_phases.append(phase)
+
+    return total_cds_length, __calculated_phases
 
 def __check_internal_orf(transcript, index):
 
@@ -267,135 +278,91 @@ def __check_internal_orf(transcript, index):
     :type transcript: Mikado.loci.Transcript
     :param index: index of the internal orf to check
     :type index: int
-    :param phases: dictionary of the phases derived from the GFF file
-    :type phases: dict
 
     :return: the updated transcript
     :rtype: Mikado.loci.Transcript
     """
 
     orf, new_orf = transcript.internal_orfs[index], []
-    total_cds_length = 0
 
     exons = sorted(transcript.exons, reverse=(transcript.strand == "-"))
 
-    coding = sorted([_ for _ in orf if _[0] == "CDS"], reverse=(transcript.strand == "-"))
-    utr = sorted([_ for _ in orf if _[0] != "CDS"], reverse=(transcript.strand == "-"))
-
-    if len(coding) == 0:
+    coding = sorted([(_[0], _[1]) for _ in orf if _[0] == "CDS"],
+                    key=operator.itemgetter(1))
+    if not coding:
         raise InvalidCDS("No ORF for %s index %d!", transcript.id, index)
+    before = sorted([_ for _ in orf
+                     if _[0] == "UTR" and _[1][1] < coding[0][1][0]], key=operator.itemgetter(1))
+    after = sorted([_ for _ in orf
+                    if _[0] == "UTR" and _[1][0] > coding[-1][1][1]], key=operator.itemgetter(1))
 
-    # Check that the number of exons with a coding section is correct and that they are in the correct order.
-    coding_exons = [_ for _ in enumerate(exons) if _[1][1] >= coding[0][1] and _[1][0] <= coding[-1][0]]
-    if len(coding_exons) != len(coding) or coding_exons[-1][0] - coding_exons[0][0] + 1 != len(coding):
-        raise InvalidCDS("Invalid number of coding exons for %s", transcript.id)
-
-    if utr:
-        first = min(coding[0][0], utr[0][0])
-        last = max(coding[-1][1], utr[-1][1])
-    else:
-        first = coding[0][0]
-        last = coding[-1][0]
+    first = min(coding[0][1][0], float("inf") if not before else before[0][1][0])
+    last = max(coding[-1][1][1], float("-inf") if not after else after[-1][1][1])
 
     if first != transcript.start or last != transcript.end:
         raise InvalidCDS("Invalid start and stop of the ORF for %s", transcript.id)
 
+    # Check that the number of exons with a coding section is correct and that they are in the correct order.
+    coding_exons = [_ for _ in enumerate(exons) if
+                    _[1][1] >= coding[0][1][1] and _[1][0] <= coding[-1][1][0]]
+    if len(coding_exons) != len(coding) or coding_exons[-1][0] - coding_exons[0][0] + 1 != len(coding):
+        raise InvalidCDS("Invalid number of coding exons for %s", transcript.id)
+
     # Now it's time to check the phases
+    if transcript.strand == "-":
+        coding = list(reversed(coding))
+        five_utr = list(reversed(after))
+        three_utr = list(reversed(before))
+    else:
+        five_utr = before
+        three_utr = after
+
+    del before, after
+
     if index == 0 and transcript.phases:
-        phases = transcript.phases
-        phases_keys = sorted(phases.keys(), reverse=(transcript.strand == "-"))
-        phase_orf = [phases[_] for _ in phases_keys]
+        phases_keys = sorted(transcript.phases.keys(), reverse=(transcript.strand == "-"))
+        phase_orf = [transcript.phases[_] for _ in phases_keys]
         # TODO: Why am I calculating the complement of the phase here?
-        previous = (3 - phases[phases_keys[0]] % 3) % 3
+        previous = (3 - phase_orf[0]) % 3
+        transcript.logger.warning(previous)
     else:
         phase_orf = []
         previous = 0
-        phases = None
 
-    total_cds_length += previous
+    total_cds_length, __calculated_phases = __calculate_phases(coding, previous)
 
-    __calculated_phases = []
-    for cds_segment in coding:
-        length = cds_segment[1][1] - cds_segment[1][0] + 1
-        phase = (3 - (total_cds_length % 3)) % 3
-        if phases:
-            assert cds_segment[1] in phases
+    if len(__calculated_phases) != len(coding):
+        # This is a mistake which should crash the program
+        raise ValueError("Error in calculating the phases!")
 
-    for orf_segment in orf:
-
-
-        if orf_segment[0] != "CDS":
-            new_orf.append(orf_segment)
-            continue
-
-
-        phase = (3 - (total_cds_length % 3)) % 3
-        if phases:
-            key = (orf_segment[1][0], orf_segment[1][1])
-            if key not in phases:
-                transcript.logger.warning("Phase not found for %s key %s, recalculating." % (
-                    transcript.id, key))
-                phases = None
-            elif phases[key] != phase:
-                transcript.logger.warning(
-                    "Wrong phase in % sfor key %s, %d instead of %d. recalculating." % (
-                        transcript.id, key, phases[key], phase))
-            else:
-                phase = phases[key]
-
-        phase_orf.append(phase)
-        new_orf.append((orf_segment[0], orf_segment[1], phase))
-        previous = orf_segment[1][1] - orf_segment[1][0] + 1
-        total_cds_length += previous
+    if phase_orf and __calculated_phases != phase_orf:
+        transcript.logger.warning("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
+                                  transcript.id,
+                                  phase_orf, __calculated_phases)
 
     transcript.logger.debug("Total CDS length %d", total_cds_length)
-    assert first == transcript.start, (transcript.start, first, orf[0], new_orf[0])
-    assert last == transcript.end, (transcript.end, last, orf, new_orf)
 
-    if total_cds_length % 3 != 0:
-        # The transcript is truncated. Check it makes sense.
+    if total_cds_length % 3 != 0 and three_utr and five_utr:
+        # The transcript is truncated.
+        raise InvalidCDS("Both UTR presents with a truncated ORF in %s",
+                         transcript.id)
+    elif total_cds_length % 3 != 0 and three_utr:
+        total_cds_length, __calculated_phases = __calculate_phases(coding,
+                                                                   (3 - total_cds_length % 3) % 3)
+        assert total_cds_length % 3 == 0
 
-        cds, utr = [], []
-        for _ in new_orf:
-            if _[0] == "CDS":
-                cds.append(_[1])
-            elif _[0] == "UTR":
-                utr.append(_[1])
+    if __calculated_phases[0] != 0 and five_utr:
+        raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for %s",
+                         transcript.id)
 
-        total = sum(_[1] - _[0] + 1 for _ in cds)
-        # This is the amount of bases left over
-        remainder = total % 3
+    new_orf = five_utr[:]
+    new_orf.extend([(_[0][0], _[0][1], _[1]) for _ in zip(coding, __calculated_phases)])
+    new_orf.extend(three_utr)
 
-        orf_start = min(_[0] for _ in cds)
-        orf_end = max(_[1] for _ in cds)
-
-        five_utr = [_ for _ in utr if _[1] < orf_start]
-        three_utr = [_ for _ in utr if _[0] > orf_end]
-        assert (len(five_utr) + len(three_utr)) == len(utr), (utr,
-                                                              five_utr,
-                                                              three_utr,
-                                                              cds)
-
-        if transcript.strand == "-":
-            orf_start, orf_end = orf_end, orf_start
-            five_utr, three_utr = three_utr, five_utr
-
-        if phase_orf[0] != 0 and five_utr:
-            raise InvalidCDS("Truncated ORF at 5' with 5' UTR for {0}".format(
-                transcript.id))
-
-        remainder = total % 3 - phase_orf[0]
-        transcript.logger.debug("In %s Remainder %d, three_utr %s (UTR %s)",
-                                transcript.id, remainder, three_utr, utr)
-        if remainder > 0 and three_utr:
-            raise InvalidCDS("Truncated ORF at 3' with 3' UTR for {0}".format(
-                transcript.id))
-
-    if transcript.strand == "-":
-        new_orf = list(reversed(new_orf))
+    new_orf.extend([("exon", _) for _ in transcript.exons])
+    new_orf = sorted(new_orf, key=operator.itemgetter(1, 0))
 
     transcript.internal_orfs[index] = new_orf
-    assert all((len(_) == 3) for _ in new_orf if new_orf[0] == "CDS"), new_orf
     return transcript
 
 
@@ -495,7 +462,7 @@ def finalize(transcript):
         __check_completeness(transcript)
         __verify_boundaries(transcript)
         assert all([segment[1] in transcript.exons for segment in transcript.segments if
-                        segment[0] == "exon"]), (transcript.exons, transcript.segments)
+                    segment[0] == "exon"]), (transcript.exons, transcript.segments)
         __check_phase_correctness(transcript)
         __calculate_introns(transcript)
     except (InvalidCDS, InvalidTranscript):
@@ -519,8 +486,6 @@ def finalize(transcript):
 
     # Create the interval tree
     transcript.cds_tree = None
-        # intervaltree.IntervalTree([
-        # intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])
 
     # BUG somewhere ... I am not sorting this properly before (why?)
     transcript.exons = sorted(transcript.exons)

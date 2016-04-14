@@ -193,18 +193,6 @@ class Transcript:
 
         if not isinstance(transcript_row, (GffLine, GtfLine)):
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
-        if transcript_row.is_transcript is False:
-            if transcript_row.is_exon is False or isinstance(transcript_row, GffLine):
-                raise TypeError(
-                    "Invalid transcript line, the feature should be a transcript:\n{0}".format(
-                        transcript_row))
-            self.__expandable = True
-            self.parent = transcript_row.gene
-            self.id = transcript_row.transcript
-        else:
-            self.parent = transcript_row.parent
-            self.id = transcript_row.id
-
         self.chrom = intern(transcript_row.chrom)
         self.feature = intern(transcript_row.feature)
         # pylint: disable=invalid-name
@@ -223,6 +211,19 @@ class Transcript:
             self.attributes[intern(key)] = val
         self.blast_hits = []
         self.json_conf = None
+
+        if transcript_row.is_transcript is False:
+            if transcript_row.is_exon is False or isinstance(transcript_row, GffLine):
+                raise TypeError(
+                    "Invalid transcript line, the feature should be a transcript:\n{0}".format(
+                        transcript_row))
+            self.__expandable = True
+            self.parent = transcript_row.gene
+            self.id = transcript_row.transcript
+            self.add_exon(transcript_row)
+        else:
+            self.parent = transcript_row.parent
+            self.id = transcript_row.id
 
     def __str__(self, to_gtf=False, print_cds=True):
         """

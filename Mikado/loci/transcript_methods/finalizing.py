@@ -256,6 +256,7 @@ def __verify_boundaries(transcript):
         raise InvalidTranscript(
             err, transcript.id, str(transcript.exons))
 
+
 def __calculate_phases(coding, previous):
     """"""
 
@@ -325,7 +326,6 @@ def __check_internal_orf(transcript, index):
         phase_orf = [transcript.phases[_] for _ in phases_keys]
         # TODO: Why am I calculating the complement of the phase here?
         previous = (3 - phase_orf[0]) % 3
-        transcript.logger.warning(previous)
     else:
         phase_orf = []
         previous = 0
@@ -337,7 +337,7 @@ def __check_internal_orf(transcript, index):
         raise ValueError("Error in calculating the phases!")
 
     if phase_orf and __calculated_phases != phase_orf:
-        transcript.logger.warning("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
+        transcript.logger.debug("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
                                   transcript.id,
                                   phase_orf, __calculated_phases)
 
@@ -349,8 +349,12 @@ def __check_internal_orf(transcript, index):
                          transcript.id)
     elif total_cds_length % 3 != 0 and three_utr:
         total_cds_length, __calculated_phases = __calculate_phases(coding,
-                                                                   (3 - total_cds_length % 3) % 3)
-        assert total_cds_length % 3 == 0
+                                                                   total_cds_length % 3)
+        if total_cds_length % 3 != 0:
+            total_cds_length, __calculated_phases = __calculate_phases(coding,
+                                                                       (3 - total_cds_length) % 3)
+            if total_cds_length % 3 != 0:
+                raise InvalidCDS("Persistently bad ORF for %s", transcript.id)
 
     if __calculated_phases[0] != 0 and five_utr:
         raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for %s",

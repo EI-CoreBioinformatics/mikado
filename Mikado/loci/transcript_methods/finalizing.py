@@ -275,22 +275,7 @@ def __check_internal_orf(transcript, index):
     """
 
     orf, new_orf = transcript.internal_orfs[index], []
-    previous_exon_index, exon_found = None, False
     total_cds_length = 0
-
-    if index == 0 and transcript.phases:
-        phases = transcript.phases
-        phases_keys = sorted(phases.keys(), reverse=(transcript.strand == "-"))
-        phase_orf = [phases[_] for _ in phases_keys]
-        previous = (3 - phases[phases_keys[0]] % 3) % 3
-        total_cds_length += previous
-    else:
-        phase_orf = []
-        previous = 0
-        phases = None
-
-    transcript.logger.debug("Phases, previous, phase_orf: %s, %d, %s",
-                            phases, previous, phase_orf)
 
     exons = sorted(transcript.exons, reverse=(transcript.strand == "-"))
 
@@ -300,12 +285,41 @@ def __check_internal_orf(transcript, index):
     if len(coding) == 0:
         raise InvalidCDS("No ORF for %s index %d!", transcript.id, index)
 
+    # Check that the number of exons with a coding section is correct and that they are in the correct order.
+    coding_exons = [_ for _ in enumerate(exons) if _[1][1] >= coding[0][1] and _[1][0] <= coding[-1][0]]
+    if len(coding_exons) != len(coding) or coding_exons[-1][0] - coding_exons[0][0] + 1 != len(coding):
+        raise InvalidCDS("Invalid number of coding exons for %s", transcript.id)
 
-    for orf_segment in orf:
-        first = min(first, orf_segment[1][0])
-        last = max(last, orf_segment[1][1])
+    if utr:
+        first = min(coding[0][0], utr[0][0])
+        last = max(coding[-1][1], utr[-1][1])
+    else:
+        first = coding[0][0]
+        last = coding[-1][0]
 
+    if first != transcript.start or last != transcript.end:
+        raise InvalidCDS("Invalid start and stop of the ORF for %s", transcript.id)
 
+    # Now it's time to check the phases
+    if index == 0 and transcript.phases:
+        phases = transcript.phases
+        phases_keys = sorted(phases.keys(), reverse=(transcript.strand == "-"))
+        phase_orf = [phases[_] for _ in phases_keys]
+        # TODO: Why am I calculating the complement of the phase here?
+        previous = (3 - phases[phases_keys[0]] % 3) % 3
+    else:
+        phase_orf = []
+        previous = 0
+        phases = None
+
+    total_cds_length += previous
+
+    __calculated_phases = []
+    for cds_segment in coding:
+        length = cds_segment[1][1] - cds_segment[1][0] + 1
+        phase = (3 - (total_cds_length % 3)) % 3
+        if phases:
+            assert cds_segment[1] in phases
 
     for orf_segment in orf:
 
@@ -314,42 +328,6 @@ def __check_internal_orf(transcript, index):
             new_orf.append(orf_segment)
             continue
 
-        for exon_position, exon in enumerate(exons):
-            if exon[0] <= orf_segment[1][0] <= orf_segment[1][1] <= exon[1]:
-                if previous_exon_index is None:
-                    previous_exon_index = exon_position
-                else:
-                    previous_exon_index += 1
-
-                if previous_exon_index != exon_position:
-                    exc = InvalidTranscript(
-                        """Invalid ORF for {0}, invalid index: {1} (for {2}), expected {3} ({4})
-                        {4} CDS vs. {5} exons""".format(
-                            transcript.id,
-                            exon_position,
-                            orf_segment,
-                            previous_exon_index + 1,
-                            [_ for _ in enumerate(exons) if _[1][0] == orf_segment[1][0] or
-                             _[1][1] == orf_segment[1][1]][0],
-                            orf,
-                            exons))
-                    transcript.logger.error(exc)
-                    current = len(transcript.internal_orfs)
-                    del transcript.internal_orfs[index]
-                    assert len(transcript.internal_orfs) == current - 1
-                    raise exc
-
-                exon_found = True
-                break
-
-        if exon_found is False:
-            exc = InvalidTranscript(
-                "Invalid ORF for {0}, no exon found: {1} CDS vs. {2} exons".format(
-                    transcript.id, orf, exons))
-            transcript.logger.exception(exc)
-            raise exc
-
-        exon_found = False
 
         phase = (3 - (total_cds_length % 3)) % 3
         if phases:

@@ -40,7 +40,7 @@ def check_split_by_blast(transcript, cds_boundaries):
     of those is in common.
 
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
     :param cds_boundaries:
     :return: cds_boundaries
     :rtype: dict
@@ -125,7 +125,7 @@ def check_common_hits(transcript, cds_hits, old_hits):
     duplication.
 
     :param transcript: the transcript instance to analyse
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param cds_hits:
     :param old_hits:
@@ -563,11 +563,11 @@ def __load_blast_hits(new_transcript, boundary, transcript):
     """
     Function to load the BLAST hits into the new splitted transcript.
     :param new_transcript: the splitted transcript
-    :type new_transcript: mikado_lib.loci_objects.Transcript
+    :type new_transcript: Mikado.loci_objects.Transcript
     :param boundary: tuple(start, end) of the boundary of the new transcript
     :type boundary: tuple(int, int)
     :param transcript:  the original transcript
-    :type transcript: mikado_lib.loci_objects.Transcript
+    :type transcript: Mikado.loci_objects.Transcript
     :return:
     """
 
@@ -751,7 +751,7 @@ def split_by_cds(transcript):
     UTR information will be retained only if no ORF is down/upstream.
 
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
     """
 
     transcript.finalize()

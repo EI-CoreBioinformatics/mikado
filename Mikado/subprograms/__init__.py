@@ -1,6 +1,6 @@
 # coding: utf-8
 
-"""This module contains the ORM modules necessary to create the starting DB from the input data."""
+"""This module contains the subprograms launched by the Mikado suite"""
 
 from ..parsers import GTF, GFF
 from ..utilities import to_gff

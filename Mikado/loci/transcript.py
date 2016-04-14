@@ -55,7 +55,7 @@ class Transcript:
     :type start: int
     :param end: End of the transcript. Checked against the exons.
     :type end: int
-    :param score: The score assigned to the transcript. Modified inside Mikado.py.
+    :param score: The score assigned to the transcript. Modified inside Mikado.
     :type score: float
     :param strand: one of +,-,None
     :type strand: str
@@ -247,7 +247,7 @@ class Transcript:
     def __eq__(self, other) -> bool:
         """
         :param other: another transcript instance to compare to
-        :type other: mikado_lib.loci_objects.transcript.Transcript
+        :type other: Mikado.loci_objects.transcript.Transcript
 
         Two transcripts are considered identical if they have the same
         start, end, chromosome, strand and internal exons.
@@ -339,7 +339,7 @@ class Transcript:
     def add_exon(self, gffline, feature=None):
         """This function will append an exon/CDS feature to the object.
         :param gffline: an annotation line
-        :type gffline: Mikado.py.parsers.GFF.GffLine, Mikado.py.parsers.GTF.GtfLine
+        :type gffline: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine)
         :type feature: flag to indicate what kind of feature we are adding
         """
 

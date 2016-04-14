@@ -1171,9 +1171,9 @@ class Superlocus(Abstractlocus):
         :rtype : bool
         :param transcript: a transcript for which we wish to verify
         whether it is intersecting with another transcript or not.
-        :type transcript: mikado_lib.loci_objects.transcript.Transcript
+        :type transcript: Mikado.loci_objects.transcript.Transcript
         :param other: the transcript which will be used for the comparison.
-        :type other: mikado_lib.loci_objects.transcript.Transcript
+        :type other: Mikado.loci_objects.transcript.Transcript
 
         :param cds_only: boolean flag. If enabled, only CDS exons/intron
         will be considered when deciding whether two transcripts are part

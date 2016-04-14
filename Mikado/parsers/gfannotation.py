@@ -79,7 +79,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         score, strand, phase = self.__format_middle()
         attributes = self._format_attributes()
         if self.source is None:
-            self.source = "Mikado.py"
+            self.source = "Mikado"
         line = [self.chrom, self.source, self.feature,
                 self.start, self.end, score,
                 strand, phase, attributes]

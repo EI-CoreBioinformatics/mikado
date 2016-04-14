@@ -22,10 +22,10 @@ def load_orfs(transcript, candidate_orfs):
     """
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param candidate_orfs: The ORFs to be inspected for loading.
-    :type candidate_orfs: list[Mikado.py.parsers.serializers.orf.Orf
+    :type candidate_orfs: list[Mikado.serializers.orf.Orf]
 
     This method replicates what is done internally by the
     "cdna_alignment_orf_to_genome_orf.pl"
@@ -118,7 +118,7 @@ def check_loaded_orfs(transcript):
     loading from an external data structure/database.
 
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :return:
     """
@@ -216,7 +216,7 @@ def __load_blast(transcript):
     (using the Hit.as_dict() method).
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
     """
 
     # if self.query_id is None:
@@ -262,7 +262,7 @@ def __connect_to_db(transcript):
     """This method will connect to the database using the information
     contained in the JSON configuration.
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     """
 
@@ -279,7 +279,7 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
     """This method will invoke the check for:
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param json_conf: Necessary configuration file
     :type json_conf: dict
@@ -330,7 +330,7 @@ def retrieve_from_dict(transcript, data_dict):
     Method to retrieve transcript data directly from a dictionary.
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param data_dict: the dictionary with loaded data from DB
     :type data_dict: (None | dict)
@@ -413,10 +413,10 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
     (first element of the Abstractlocus.find_communities results)
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param candidates: candidate ORFs to analyse
-    :type candidates: list(Mikado.py.serializers.orf.Orf)
+    :type candidates: list[Mikado.serializers.orf.Orf]
 
     """
 
@@ -471,10 +471,10 @@ def __create_internal_orf(transcript, orf):
     coordinates of the transcriptomic ORF.
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param orf: candidate ORF to transform into an internal ORF
-    :type orf: mikado_lib.serializers.orf.Orf
+    :type orf: Mikado.serializers.orf.Orf
 
     """
 
@@ -541,7 +541,7 @@ def __load_verified_introns(transcript, data_dict=None, introns=None):
     (usually the superlocus class).
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param data_dict: the dictionary with data to load
     :type data_dict: (dict | None)
@@ -601,7 +601,7 @@ def retrieve_orfs(transcript):
     During the selection, the function will also remove overlapping ORFs.
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     """
 
@@ -643,7 +643,7 @@ def orf_sorter(orf):
     """Sorting function for the ORFs."
 
     :param orf: an ORF to sort
-    :type orf: mikado_lib.serializers.orf.Orf
+    :type orf: Mikado.serializers.orf.Orf
     """
     return ((orf.has_start_codon and orf.has_stop_codon),
             (orf.has_start_codon or orf.has_stop_codon),
@@ -656,7 +656,7 @@ def find_candidate_orfs(transcript, graph, orf_dictionary) -> list:
     Function that returns the best non-overlapping ORFs
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param graph: The NetworkX graph to be analysed
     :type graph: networkx.Graph

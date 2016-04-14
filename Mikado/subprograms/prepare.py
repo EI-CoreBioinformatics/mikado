@@ -2,7 +2,7 @@
 # coding: utf-8
 
 """
-Subprogram that constitutes the first step of the Mikado.py pipeline.
+Subprogram that constitutes the first step of the Mikado pipeline.
 """
 
 import sys

@@ -2,7 +2,7 @@
 # coding: utf-8
 
 """
-Launcher for the Mikado.py compare utility.
+Launcher for the Mikado compare utility.
 """
 
 import collections

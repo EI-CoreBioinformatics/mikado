@@ -2,7 +2,7 @@
 # coding=utf-8
 
 """
-This module defines the Picker class, which is the main workhorse for Mikado.py pick.
+This module defines the Picker class, which is the main workhorse for Mikado pick.
 """
 
 import sys
@@ -42,7 +42,7 @@ import pickle
 class Picker:
 
     """
-    This class is used to launch the main Mikado.py pipeline. Its purpose is to parse
+    This class is used to launch the main Mikado pipeline. Its purpose is to parse
     an input sorted annotation file, locate the loci, and perform the selection analysis
     using the parameters provided in the input configuration file.
     """
@@ -792,7 +792,7 @@ memory intensive, proceed with caution!")
     def __submit_multi_threading(self, data_dict):
 
         """
-        Method to execute Mikado.py pick in multi threaded mode.
+        Method to execute Mikado pick in multi threaded mode.
 
         :param data_dict: The data dictionary
         :return:
@@ -949,7 +949,7 @@ memory intensive, proceed with caution!")
     def __submit_single_threaded(self, data_dict):
 
         """
-        Method to execute Mikado.py pick in single threaded mode.
+        Method to execute Mikado pick in single threaded mode.
         :param data_dict:
         :return:
         """

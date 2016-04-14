@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-The Sublocus class is the first to be invoked during the Mikado.py pick analysis.
+The Sublocus class is the first to be invoked during the Mikado pick analysis.
 Each of these containers holds transcripts which either are monoexonic and overlapping,
 or multiexonic and with at least one intron in common.
 """
@@ -177,7 +177,7 @@ class Sublocus(Abstractlocus):
 
         :param excluded: the excluded Locus to which transcripts from purged loci will be added to
         :type excluded: None
-        :type excluded: mikado_lib.loci_objects.excluded.Excluded
+        :type excluded: Mikado.loci_objects.excluded.Excluded
 
         This function retrieves the best non-overlapping transcripts inside
         the sublocus, according to the score calculated by

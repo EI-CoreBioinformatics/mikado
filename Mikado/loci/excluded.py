@@ -21,7 +21,7 @@ class Excluded(Abstractlocus):
         Constructor method
 
         :param monosublocus_instance:
-        :type monosublocus_instance: mikado_lib.loci_objects.monosublocus.Monosublocus
+        :type monosublocus_instance: Mikado.loci_objects.monosublocus.Monosublocus
 
         :param json_conf: configuration file
         :type json_conf: dict
@@ -41,7 +41,7 @@ class Excluded(Abstractlocus):
         """Override of the sublocus method, and reversal to the original
         method in the Abstractlocus class.
         :param transcript: a transcript to add
-        :type transcript: mikado_lib.loci_objects.transcript.Transcript
+        :type transcript: Mikado.loci_objects.transcript.Transcript
 
         :param kwargs: optional arguments are completely ignored by this method.
         """
@@ -55,7 +55,7 @@ class Excluded(Abstractlocus):
         """Wrapper to extract the transcript from the monosubloci and pass it
         to the constructor.
         :param monosublocus_instance
-        :type monosublocus_instance: mikado_lib.loci_objects.monosublocus.Monosublocus
+        :type monosublocus_instance: Mikado.loci_objects.monosublocus.Monosublocus
         """
         assert len(monosublocus_instance.transcripts) == 1
         for tid in monosublocus_instance.transcripts:

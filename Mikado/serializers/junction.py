@@ -75,7 +75,7 @@ class Junction(DBBASE):
         """
         Serialization initializer.
         :param bed12_object: a BED12-like class instance.
-        :type bed12_object: mikado_lib.parsers.bed12.BED12
+        :type bed12_object: Mikado.parsers.bed12.BED12
 
         :param chrom_id: the numerical foreign key for the Chrom table.
         :type chrom_id: int

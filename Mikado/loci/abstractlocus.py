@@ -321,7 +321,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def add_transcript_to_locus(self, transcript, check_in_locus=True):
         """
         :param transcript
-        :type transcript: mikado_lib.loci_objects.transcript.Transcript
+        :type transcript: Mikado.loci_objects.transcript.Transcript
 
         :param check_in_locus: flag to indicate whether the function
         should check the transcript before adding it
@@ -379,8 +379,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if self.initialized is False:
             self.initialized = True
-        # self.source = transcript.source
-        #         self.source = "Mikado.py"
         return
 
     def remove_transcript_from_locus(self, tid: str):
@@ -666,7 +664,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         """
         if not value:
-            value = "Mikado.py"
+            value = "Mikado"
         assert isinstance(value, str)
         self.__source = value
 

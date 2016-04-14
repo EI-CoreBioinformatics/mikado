@@ -120,7 +120,7 @@ def trim_end(transcript, cds_end, max_length=0):
     :type max_length: int
 
     :return: transcript
-    :rtype: mikado_lib.loci_objects.transcript.Transcript
+    :rtype: Mikado.loci_objects.transcript.Transcript
     """
 
     # We have to sort b/c we appended a new exon in trim_start

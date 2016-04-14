@@ -336,9 +336,9 @@ def __check_internal_orf(transcript, index):
         raise ValueError("Error in calculating the phases!")
 
     if phase_orf and __calculated_phases != phase_orf:
-        transcript.logger.warning("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
-                                  transcript.id,
-                                  phase_orf, __calculated_phases)
+        transcript.logger.debug("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
+                                transcript.id,
+                                phase_orf, __calculated_phases)
 
     transcript.logger.debug("Total CDS length %d", total_cds_length)
 
@@ -347,9 +347,14 @@ def __check_internal_orf(transcript, index):
         raise InvalidCDS("Both UTR presents with a truncated ORF in %s",
                          transcript.id)
     elif total_cds_length % 3 != 0 and three_utr:
-        total_cds_length, __calculated_phases = __calculate_phases(coding,
-                                                                   (3 - total_cds_length % 3) % 3)
-        assert total_cds_length % 3 == 0
+        for num in (0, 1, 2):
+            total_cds_length, __calculated_phases = __calculate_phases(coding,
+                                                                       num)
+            if total_cds_length % 3 == 0:
+                break
+
+        if total_cds_length % 3 != 0:
+            raise InvalidCDS("Persistently wrong ORF for %s at 5' end", transcript.id)
 
     if __calculated_phases[0] != 0 and five_utr:
         raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for %s",
@@ -401,8 +406,8 @@ def __check_phase_correctness(transcript):
             transcript = __check_internal_orf(transcript,
                                               orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
-            transcript.logger.exception(exc)
-            transcript.logger.warning("Stripping the CDS from %s", transcript.id)
+            transcript.logger.warning("Stripping the CDS from %s, error: %s",
+                                      transcript.id, exc)
             transcript.strip_cds(strand_specific=True)
             break
 

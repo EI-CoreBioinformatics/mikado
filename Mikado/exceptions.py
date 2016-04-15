@@ -1,7 +1,7 @@
 # coding:utf-8
 
 """
-Custom exceptions for Mikado.py.
+Custom exceptions for Mikado.
 """
 
 

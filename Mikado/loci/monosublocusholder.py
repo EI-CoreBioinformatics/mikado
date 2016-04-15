@@ -5,7 +5,11 @@ This module defines a holder of Monosublocus instances. It is the last step
 before the definition of real loci.
 """
 
-import collections
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 import itertools
 from .transcript import Transcript
 from .abstractlocus import Abstractlocus
@@ -48,7 +52,7 @@ class MonosublocusHolder(Sublocus, Abstractlocus):
         # Add the transcript to the Locus
         self.locus_verified_introns = set()
         self.add_monosublocus(monosublocus_instance)
-        self.loci = collections.OrderedDict()
+        self.loci = SortedDict()
 
     # Overriding is correct here
     # pylint: disable=arguments-differ

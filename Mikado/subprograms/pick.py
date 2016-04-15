@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
-"""Launcher of the Mikado.py pick step."""
+"""Launcher of the Mikado pick step."""
 
 import argparse
 import sys
@@ -118,7 +118,7 @@ def pick_parser():
     """
     Parser for the picking step.
     """
-    parser = argparse.ArgumentParser("Launcher of the Mikado.py pipeline.")
+    parser = argparse.ArgumentParser("Launcher of the Mikado pipeline.")
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
@@ -135,7 +135,7 @@ def pick_parser():
                         If it is not specified in the configuration file,
                         it must be provided here.""")
     parser.add_argument("--prefix", type=str, default=None,
-                        help="Prefix for the genes. Default: Mikado.py")
+                        help="Prefix for the genes. Default: Mikado")
     parser.add_argument("--no_cds", action="store_true", default=None,
                         help="""Flag. If set, not CDS information
                         will be printed out in the GFF output files.""")
@@ -151,7 +151,7 @@ def pick_parser():
                         WARNING: if set, the DB copy will be persistently copied
                         into memory, so that multiple pickers can share.""")
     parser.add_argument('--preload', action='store_true', default=False,
-                        help='''Flag. If set, the Mikado.py DB will be pre-loaded
+                        help='''Flag. If set, the Mikado DB will be pre-loaded
                         into memory for faster access. WARNING: this option will
                         increase memory usage and the preloading might be quite slow.''')
     parser.add_argument("-db", "--sqlite-db", dest="sqlite_db",

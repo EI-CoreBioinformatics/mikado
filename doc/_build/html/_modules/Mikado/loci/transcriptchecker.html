@@ -1,0 +1,384 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.loci.transcriptchecker &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.loci.transcriptchecker</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module defines a child of the Transcript class, which is used</span>
+<span class="sd">to verify that e.g. the assigned strand is correct.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">.transcript</span> <span class="kn">import</span> <span class="n">Transcript</span>
+<span class="kn">from</span> <span class="nn">..exceptions</span> <span class="kn">import</span> <span class="n">IncorrectStrandError</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">zip_longest</span>
+
+
+<span class="c1"># pylint: disable=too-many-instance-attributes</span>
+<div class="viewcode-block" id="TranscriptChecker"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.transcriptchecker.TranscriptChecker">[docs]</a><span class="k">class</span> <span class="nc">TranscriptChecker</span><span class="p">(</span><span class="n">Transcript</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This is a subclass of the generic transcript class. Its purpose is to compare</span>
+<span class="sd">    the information of the transcript instance with the information contained in a</span>
+<span class="sd">    genomic FASTA file, to verify some of the information.</span>
+<span class="sd">    At the moment, the class implements only a check on the strandedness made by extracting</span>
+<span class="sd">    the FASTA sequence of the splice sites and verifying that they are concordant</span>
+<span class="sd">    with the annotated strand.</span>
+<span class="sd">    Keyword arguments:</span>
+<span class="sd">        - strand_specific: if set, monoexonic transcripts are not set to &quot;unknown&quot; strand.</span>
+<span class="sd">        - lenient: boolean. If set to True, a transcript with mixed splices will</span>
+<span class="sd">        not throw an exception but rather will just report the number</span>
+<span class="sd">        of splices supporting each strand.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__translation_table</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">maketrans</span><span class="p">(</span><span class="s2">&quot;ACGT&quot;</span><span class="p">,</span> <span class="s2">&quot;TGCA&quot;</span><span class="p">)</span>
+
+    <span class="c1"># The arguments are all needed here.</span>
+    <span class="c1"># pylint: disable=too-many-arguments</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gffline</span><span class="p">,</span> <span class="n">seq</span><span class="p">,</span>
+                 <span class="n">strand_specific</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">lenient</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                 <span class="n">canonical_splices</span><span class="o">=</span><span class="p">((</span><span class="s2">&quot;GT&quot;</span><span class="p">,</span> <span class="s2">&quot;AG&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;GC&quot;</span><span class="p">,</span> <span class="s2">&quot;AG&quot;</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;AT&quot;</span><span class="p">,</span> <span class="s2">&quot;AC&quot;</span><span class="p">)),</span>
+                 <span class="n">logger</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Constructor method. It inherits from Transcript, with some modifications.</span>
+
+<span class="sd">        :param gffline: annotation line to begin the construction.</span>
+<span class="sd">        :type gffline: (mikado_lib.parsers.gfannotation.GFAnnotation|Transcript)</span>
+
+<span class="sd">        :param seq: a SeqIO indexed FASTA file</span>
+
+<span class="sd">        :param strand_specific: flag. If set, transcripts will not have their strand changed.</span>
+<span class="sd">        :type strand_specific: bool</span>
+
+<span class="sd">        :param lenient: boolean flag. If set, incorrect transcripts will be</span>
+<span class="sd">        flagged rather than discarded.</span>
+<span class="sd">        :type lenient: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__strand_specific</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mixed_attribute</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">seq</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No sequence provided!&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">gffline</span><span class="p">,</span> <span class="p">(</span><span class="n">Transcript</span><span class="p">,</span> <span class="n">TranscriptChecker</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">gffline</span><span class="o">.</span><span class="n">__dict__</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">gffline</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">original_strand</span> <span class="o">=</span> <span class="n">gffline</span><span class="o">.</span><span class="n">strand</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_strand</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">gffline</span><span class="o">.</span><span class="n">attributes</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">gffline</span><span class="o">.</span><span class="n">parent</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fasta_seq</span> <span class="o">=</span> <span class="n">seq</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">strand_specific</span> <span class="o">=</span> <span class="n">strand_specific</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">checked</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lenient</span> <span class="o">=</span> <span class="n">lenient</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mixed_splices</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reversed</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canonical_splices</span> <span class="o">=</span> <span class="n">canonical_splices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">canonical_junctions</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+    <span class="c1"># pylint: enable=too-many-arguments</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">translation_table</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the table used to reverse complement FASTA strings.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__translation_table</span>
+
+<div class="viewcode-block" id="TranscriptChecker.rev_complement"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.transcriptchecker.TranscriptChecker.rev_complement">[docs]</a>    <span class="k">def</span> <span class="nf">rev_complement</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">string</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Quick method to perform the reverse complement of a given string,</span>
+<span class="sd">        using the class translation table.</span>
+
+<span class="sd">        :param string: the sequence to be rev-complented</span>
+<span class="sd">        :type string: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span>
+            <span class="n">string</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">translation_table</span><span class="p">)</span>
+        <span class="p">))</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">strand_specific</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Flag, set from the constructor. If True, transcript will not have their strand changed.</span>
+<span class="sd">        :rtype: bool</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__strand_specific</span>
+
+    <span class="nd">@strand_specific.setter</span>
+    <span class="k">def</span> <span class="nf">strand_specific</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Setter for strand_specific. Only boolean values are considered as valid.</span>
+<span class="sd">        :param value: flag</span>
+<span class="sd">        :type value: bool</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid value for boolean property: {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__strand_specific</span> <span class="o">=</span> <span class="n">value</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">print_cds</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">to_gtf</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">introns</span> <span class="o">=</span> <span class="bp">False</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_strand</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">mixed_splices</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;mixed_splices&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mixed_attribute</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__str__</span><span class="p">(</span><span class="n">print_cds</span><span class="o">=</span><span class="n">print_cds</span><span class="p">,</span> <span class="n">to_gtf</span><span class="o">=</span><span class="n">to_gtf</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TranscriptChecker.check_strand"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.transcriptchecker.TranscriptChecker.check_strand">[docs]</a>    <span class="k">def</span> <span class="nf">check_strand</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This method will check that the transcript instance has all the splice sites</span>
+<span class="sd">        on one strand,or at most with non-canonical (therefore unknowable) splice junctions.</span>
+<span class="sd">        If the transcript is monoexonic and strand_specific is set to False,</span>
+<span class="sd">        the strand of the transcript will be set to None.</span>
+
+<span class="sd">        The finalize method is called preliminarly before any operation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">==</span> <span class="mi">0</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fasta_seq</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">checked</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand_specific</span> <span class="ow">is</span> <span class="bp">False</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="n">canonical_counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+            <span class="n">canonical_index</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">intron</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">):</span>
+                <span class="n">canonical_index</span><span class="p">[</span><span class="n">pos</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_intron</span><span class="p">(</span><span class="n">intron</span><span class="p">)</span>
+
+            <span class="n">canonical_counter</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">canonical_index</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+            <span class="k">if</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="bp">None</span><span class="p">]</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Transcript </span><span class="si">%s</span><span class="s2"> only has non-canonical splices&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">lenient</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="n">IncorrectStrandError</span><span class="p">(</span><span class="s2">&quot;No correct strand found for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+            <span class="k">elif</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;-&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># if self.lenient is False:</span>
+                <span class="n">err_messg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;Transcript {0} has {1} positive and {2} negative splice junctions. </span><span class="se">\</span>
+<span class="s2">Aborting.&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">],</span>
+                    <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;-&quot;</span><span class="p">])</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">err_messg</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">IncorrectStrandError</span><span class="p">(</span><span class="n">err_messg</span><span class="p">)</span>
+
+                <span class="c1"># else:</span>
+                <span class="c1">#     self.mixed_splices = True</span>
+                <span class="c1">#</span>
+                <span class="c1">#     if canonical_counter[&quot;+&quot;] &gt;= canonical_counter[&quot;-&quot;]:</span>
+                <span class="c1">#         self.mixed_attribute = &quot;{0}concordant,{1}discordant&quot;.format(</span>
+                <span class="c1">#             canonical_counter[&quot;+&quot;],</span>
+                <span class="c1">#             canonical_counter[&quot;-&quot;])</span>
+                <span class="c1">#     else:</span>
+                <span class="c1">#         self.reverse_strand()</span>
+                <span class="c1">#         self.mixed_attribute = &quot;{0}concordant,{1}discordant&quot;.format(</span>
+                <span class="c1">#             canonical_counter[&quot;-&quot;],</span>
+                <span class="c1">#             canonical_counter[&quot;+&quot;])</span>
+
+            <span class="k">elif</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;-&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reverse_strand</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">reversed</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">assert</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="bp">None</span><span class="p">]</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">)</span>
+
+            <span class="c1"># self.attributes[&quot;canonical_splices&quot;] = &quot;,&quot;.join(</span>
+            <span class="c1">#     str(k) for k in canonical_index.keys() if</span>
+            <span class="c1">#     canonical_index[k] in (&quot;+&quot;, &quot;-&quot;))</span>
+            <span class="k">if</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;+&quot;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="s2">&quot;-&quot;</span><span class="p">]:</span>
+                <span class="n">strand</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">strand</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;canonical_number&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="n">strand</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span>
+                <span class="s2">&quot;canonical_proportion&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">canonical_counter</span><span class="p">[</span><span class="n">strand</span><span class="p">]</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">introns</span><span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">canonical_junctions</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">canonical_index</span> <span class="k">if</span>
+                                        <span class="n">canonical_index</span><span class="p">[</span><span class="n">_</span><span class="p">]</span> <span class="o">==</span> <span class="n">strand</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;canonical_junctions&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span>
+                                                               <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">canonical_junctions</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">checked</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">return</span></div>
+
+    <span class="k">def</span> <span class="nf">_check_intron</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intron</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Private method that checks whether an intron has canonical splice sites</span>
+<span class="sd">        or not.</span>
+<span class="sd">        :param intron: the intron tuple (int,int) in 1-base offset</span>
+<span class="sd">        :param canonical_splices: list of acceptable splice tuples, e.g.</span>
+<span class="sd">        [(&quot;AG&quot;,&quot;GT&quot;)]</span>
+<span class="sd">        :return: strand of the intron (None | &quot;+&quot; | &quot;-&quot;)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">splice_donor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fasta_seq</span><span class="p">[</span><span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">:</span><span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">splice_donor</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span>
+        <span class="n">splice_acceptor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fasta_seq</span><span class="p">[</span><span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">:</span><span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">splice_donor</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">splice_donor</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">splice_donor</span><span class="o">.</span><span class="n">seq</span><span class="p">)</span>
+            <span class="n">splice_acceptor</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">splice_acceptor</span><span class="o">.</span><span class="n">seq</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">splice_acceptor</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span>
+
+        <span class="c1"># splice_donor = self.fasta_index[self.chrom][intron[0] - 1:intron[0] + 1]</span>
+        <span class="c1"># splice_acceptor = self.fasta_index[self.chrom][intron[1] - 2:intron[1]]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">splice_donor</span><span class="p">,</span> <span class="n">splice_acceptor</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rev_complement</span><span class="p">(</span><span class="n">splice_acceptor</span><span class="p">),</span>
+                                             <span class="bp">self</span><span class="o">.</span><span class="n">rev_complement</span><span class="p">(</span><span class="n">splice_donor</span><span class="p">))</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">splice_donor</span><span class="p">,</span> <span class="n">splice_acceptor</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">canonical_splices</span><span class="p">:</span>
+            <span class="n">strand</span> <span class="o">=</span> <span class="s2">&quot;+&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">splice_donor</span><span class="p">,</span> <span class="n">splice_acceptor</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rev_complement</span><span class="p">(</span><span class="n">splice_acceptor</span><span class="p">),</span>
+                                             <span class="bp">self</span><span class="o">.</span><span class="n">rev_complement</span><span class="p">(</span><span class="n">splice_donor</span><span class="p">))</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">splice_donor</span><span class="p">,</span> <span class="n">splice_acceptor</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">canonical_splices</span><span class="p">:</span>
+                <span class="n">strand</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">strand</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">return</span> <span class="n">strand</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fasta</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This property calculates and returns the FASTA sequence associated with</span>
+<span class="sd">        the transcript instance.</span>
+<span class="sd">        The FASTA sequence itself will be formatted to be in lines with 60 characters</span>
+<span class="sd">        (the standard).</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_strand</span><span class="p">()</span>
+        <span class="n">fasta</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&gt;{0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="p">)]</span>
+        <span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span>
+
+        <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">exons</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">start</span>
+            <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fasta_seq</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+            <span class="n">sequence</span> <span class="o">+=</span> <span class="n">_</span>
+
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="s2">&quot;seq&quot;</span><span class="p">):</span>
+                <span class="n">sequence</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sequence</span><span class="o">.</span><span class="n">seq</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Invalid object for sequence: {0} ({1})&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="nb">type</span><span class="p">(</span><span class="n">sequence</span><span class="p">),</span>
+                    <span class="nb">repr</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+                <span class="p">))</span>
+        <span class="c1"># pylint: enable=no-member</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">sequence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rev_complement</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="c1"># assert len(sequence) == sum(exon[1] + 1 - exon[0] for exon in self.exons), (</span>
+        <span class="c1">#     len(sequence), sum(exon[1] + 1 - exon[0] for exon in self.exons)</span>
+        <span class="c1"># )</span>
+
+        <span class="n">sequence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grouper</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="mi">60</span><span class="p">)</span>
+        <span class="n">fasta</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="n">fasta</span> <span class="o">=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">fasta</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">fasta</span>
+
+    <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="TranscriptChecker.grouper"><a class="viewcode-back" href="../../../Mikado.loci.html#Mikado.loci.transcriptchecker.TranscriptChecker.grouper">[docs]</a>    <span class="k">def</span> <span class="nf">grouper</span><span class="p">(</span><span class="n">iterable</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">fillvalue</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Collect data into fixed-length chunks or blocks. From core documentation.</span>
+
+<span class="sd">        :param iterable: the iterable to be considered for grouping.</span>
+<span class="sd">        :param num: length of the chunks.</span>
+<span class="sd">        :type num: int</span>
+
+<span class="sd">        :param fillvalue: the default filler for missing positions while grouping.</span>
+<span class="sd">        :type fillvalue: str</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># grouper(&#39;ABCDEFG&#39;, 3, &#39;x&#39;) --&gt; ABC DEF Gxx&quot;</span>
+        <span class="n">args</span> <span class="o">=</span> <span class="p">[</span><span class="nb">iter</span><span class="p">(</span><span class="n">iterable</span><span class="p">)]</span> <span class="o">*</span> <span class="n">num</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">zip_longest</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">fillvalue</span><span class="o">=</span><span class="n">fillvalue</span><span class="p">))</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

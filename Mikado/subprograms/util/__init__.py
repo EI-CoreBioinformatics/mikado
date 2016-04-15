@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Collection of utilities that are useful for managing Mikado.py-related files,
+Collection of utilities that are useful for managing Mikado-related files,
 including e.g. a statistical calculator for GFF/GTFs, an awk-like utility for
 GTFs, and a grep-like utility for annotation files.
 """
@@ -32,33 +32,33 @@ def util_parser():
     utils.add_parser("awk_gtf",
                      help="Script to retrieve specific feature slices from a GTF file.")
     utils.choices["awk_gtf"] = awk_gtf.awk_parser()
-    utils.choices["awk_gtf"].prog = "Mikado.py util awk_gtf"
+    utils.choices["awk_gtf"].prog = "mikado.py util awk_gtf"
 
     utils.add_parser("grep",
                      help="Script to extract specific models from GFF/GTF files.")
     utils.choices["grep"] = grep.grep_parser()
-    utils.choices["grep"].prog = "Mikado.py util grep"
+    utils.choices["grep"].prog = "mikado.py util grep"
 
     utils.add_parser("metrics",
                      help="Simple script to obtain the documentation on the transcript metrics.")
     utils.choices["metrics"] = metrics.metric_parser()
-    utils.choices["metrics"].prog = "Mikado.py util metrics"
+    utils.choices["metrics"].prog = "mikado.py util metrics"
 
     utils.add_parser("stats", help="""GFF/GTF statistics script.
     It will compute median/average length of RNAs, exons, CDS features, etc.""")
     utils.choices["stats"] = stats.stats_parser()
-    utils.choices["stats"].prog = "Mikado.py util stats"
+    utils.choices["stats"].prog = "mikado.py util stats"
 
     utils.add_parser("trim",
                      help="Script to remove up to N bps from terminal exons in an annotation file.")
     utils.choices["trim"] = trim.trim_parser()
-    utils.choices["trim"].prog = "Mikado.py util trim"
+    utils.choices["trim"].prog = "mikado.py util trim"
 
     utils.add_parser("merge_blast",
                      help="""Script to merge together multiple BLAST XML files.
                      It also converts them on the fly if they are in ASN/compressed XML.""")
     utils.choices["merge_blast"] = merge_blast.merger_parser()
-    utils.choices["merge_blast"].prog = "Mikado.py util merge_blast"
+    utils.choices["merge_blast"].prog = "mikado.py util merge_blast"
 
     parser.add_help = True
 

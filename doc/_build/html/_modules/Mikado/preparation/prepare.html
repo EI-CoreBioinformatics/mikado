@@ -1,0 +1,471 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.preparation.prepare &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.preparation.prepare</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">gc</span>
+<span class="kn">from</span> <span class="nn">.checking</span> <span class="kn">import</span> <span class="n">create_transcript</span><span class="p">,</span> <span class="n">CheckingProcess</span>
+<span class="kn">from</span> <span class="nn">.annotation_parser</span> <span class="kn">import</span> <span class="n">AnnotationParser</span><span class="p">,</span> <span class="n">load_from_gtf</span><span class="p">,</span> <span class="n">load_from_gff</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">exceptions</span>
+<span class="c1"># import logging</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">logging.handlers</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+<span class="kn">import</span> <span class="nn">multiprocessing.connection</span>
+<span class="kn">import</span> <span class="nn">multiprocessing.sharedctypes</span>
+<span class="kn">import</span> <span class="nn">pyfaidx</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">..utilities</span> <span class="kn">import</span> <span class="n">path_join</span><span class="p">,</span> <span class="n">to_gff</span><span class="p">,</span> <span class="n">merge_partial</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="store_transcripts"><a class="viewcode-back" href="../../../Mikado.preparation.html#Mikado.preparation.prepare.store_transcripts">[docs]</a><span class="k">def</span> <span class="nf">store_transcripts</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that analyses the exon lines from the original file</span>
+<span class="sd">    and organises the data into a proper dictionary.</span>
+<span class="sd">    :param exon_lines: dictionary of exon lines, ordered by TID</span>
+<span class="sd">    :type exon_lines: dict</span>
+
+<span class="sd">    :param logger: logger instance.</span>
+<span class="sd">    :type logger: logging.Logger</span>
+
+<span class="sd">    :param min_length: minimal length of the transcript.</span>
+<span class="sd">    If it is not met, the transcript will be discarded.</span>
+<span class="sd">    :type min_length: int</span>
+
+<span class="sd">    :return: transcripts: dictionary which will be the final output</span>
+<span class="sd">    :rtype: transcripts</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to organise </span><span class="si">%d</span><span class="s2"> transcripts&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">))</span>
+    <span class="n">transcripts</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">exon_lines</span><span class="p">:</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;exon&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;features&quot;</span><span class="p">]</span> <span class="ow">or</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;features&quot;</span><span class="p">][</span><span class="s2">&quot;exon&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No valid exon feature for </span><span class="si">%s</span><span class="s2">, continuing&quot;</span><span class="p">,</span> <span class="n">tid</span><span class="p">)</span>
+
+        <span class="n">chrom</span> <span class="o">=</span> <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;chrom&quot;</span><span class="p">]</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="nb">min</span><span class="p">((</span><span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;features&quot;</span><span class="p">][</span><span class="s2">&quot;exon&quot;</span><span class="p">]))</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="nb">max</span><span class="p">((</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;features&quot;</span><span class="p">][</span><span class="s2">&quot;exon&quot;</span><span class="p">]))</span>
+        <span class="n">tlength</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;features&quot;</span><span class="p">][</span><span class="s2">&quot;exon&quot;</span><span class="p">])</span>
+        <span class="c1"># Discard transcript under a certain size</span>
+        <span class="k">if</span> <span class="n">tlength</span> <span class="o">&lt;</span> <span class="n">min_length</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Discarding </span><span class="si">%s</span><span class="s2"> because its size (</span><span class="si">%d</span><span class="s2">) is under the minimum of </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span>
+                         <span class="n">tid</span><span class="p">,</span> <span class="n">tlength</span><span class="p">,</span> <span class="n">min_length</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">transcripts</span><span class="p">[</span><span class="n">chrom</span><span class="p">]:</span>
+            <span class="n">transcripts</span><span class="p">[</span><span class="n">chrom</span><span class="p">][(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">transcripts</span><span class="p">[</span><span class="n">chrom</span><span class="p">][(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to sort </span><span class="si">%d</span><span class="s2"> transcripts&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">))</span>
+    <span class="c1"># keys = []</span>
+    <span class="c1"># counter = 0</span>
+    <span class="k">for</span> <span class="n">chrom</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcripts</span><span class="o">.</span><span class="n">keys</span><span class="p">()):</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Starting with </span><span class="si">%s</span><span class="s2"> (</span><span class="si">%d</span><span class="s2"> positions)&quot;</span><span class="p">,</span>
+                     <span class="n">chrom</span><span class="p">,</span>
+                     <span class="nb">len</span><span class="p">(</span><span class="n">transcripts</span><span class="p">[</span><span class="n">chrom</span><span class="p">]))</span>
+
+        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcripts</span><span class="p">[</span><span class="n">chrom</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span>
+                          <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="n">tids</span> <span class="o">=</span> <span class="n">transcripts</span><span class="p">[</span><span class="n">chrom</span><span class="p">][</span><span class="n">key</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tids</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">exons</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">tids</span><span class="p">:</span>
+                    <span class="n">exon_set</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span>
+                        <span class="p">[(</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;strand&quot;</span><span class="p">])</span> <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span>
+                         <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">][</span><span class="s2">&quot;features&quot;</span><span class="p">][</span><span class="s2">&quot;exon&quot;</span><span class="p">]],</span>
+                        <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+                    <span class="n">exons</span><span class="p">[</span><span class="n">exon_set</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+                <span class="n">tids</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%d</span><span class="s2"> intron chains for pos </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                             <span class="nb">len</span><span class="p">(</span><span class="n">exons</span><span class="p">),</span> <span class="s2">&quot;{}:{}-{}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">chrom</span><span class="p">,</span> <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+                <span class="k">for</span> <span class="n">tid_list</span> <span class="ow">in</span> <span class="n">exons</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+                    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">tid_list</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;The following transcripts are redundant: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                     <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">tid_list</span><span class="p">))</span>
+                        <span class="n">to_keep</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">choice</span><span class="p">(</span><span class="n">tid_list</span><span class="p">)</span>
+                        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Keeping only </span><span class="si">%s</span><span class="s2"> out of the list&quot;</span><span class="p">,</span>
+                                     <span class="n">to_keep</span><span class="p">)</span>
+                        <span class="n">tids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">to_keep</span><span class="p">)</span>
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="n">tids</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">tid_list</span><span class="p">)</span>
+
+            <span class="c1"># seq = chrom_seq[key[0]-1:key[1]]</span>
+            <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="n">tids</span><span class="p">:</span>
+                <span class="c1"># counter += 1</span>
+                <span class="k">yield</span> <span class="p">[</span><span class="n">tid</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">key</span><span class="p">]</span></div>
+            <span class="c1"># keys.extend([tid, seq] for tid in tids)</span>
+
+    <span class="c1"># logger.info(&quot;Finished to sort %d transcripts, %d remain&quot;, len(exon_lines), counter)</span>
+
+    <span class="c1"># return keys</span>
+
+
+<div class="viewcode-block" id="perform_check"><a class="viewcode-back" href="../../../Mikado.preparation.html#Mikado.preparation.prepare.perform_check">[docs]</a><span class="k">def</span> <span class="nf">perform_check</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">exon_lines</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This is the most important method. After preparing the data structure,</span>
+<span class="sd">    this function creates the real transcript instances and checks that</span>
+<span class="sd">    they are correct when looking at the underlying genome sequence.</span>
+<span class="sd">    This is also the point at which we start using multithreading, if</span>
+<span class="sd">    so requested.</span>
+<span class="sd">    :param keys: sorted list of [tid, sequence]</span>
+<span class="sd">    :param exon_lines: dictionary hosting the exon lines, indexed by TID</span>
+<span class="sd">    :param args: the namespace</span>
+<span class="sd">    :param logger: logger</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="c1"># FASTA extraction *has* to be done at the main process level, it&#39;s too slow</span>
+    <span class="c1"># to create an index in each process.</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">or</span> <span class="n">args</span><span class="o">.</span><span class="n">procs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+
+        <span class="c1"># Use functools to pre-configure the function</span>
+        <span class="c1"># with all necessary arguments aside for the lines</span>
+        <span class="n">partial_checker</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+            <span class="n">create_transcript</span><span class="p">,</span>
+            <span class="n">lenient</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;lenient&quot;</span><span class="p">],</span>
+            <span class="n">strand_specific</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;strand_specific&quot;</span><span class="p">],</span>
+            <span class="n">canonical_splices</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;canonical&quot;</span><span class="p">],</span>
+            <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">tid</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">:</span>
+            <span class="n">transcript_object</span> <span class="o">=</span> <span class="n">partial_checker</span><span class="p">(</span>
+                <span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">],</span>
+                <span class="nb">str</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">][</span><span class="n">chrom</span><span class="p">][</span><span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">-</span><span class="mi">1</span><span class="p">:</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]]),</span>
+                <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">],)</span>
+            <span class="k">if</span> <span class="n">transcript_object</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">counter</span> <span class="o">&gt;=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">4</span> <span class="ow">and</span> <span class="n">counter</span> <span class="o">%</span> <span class="p">(</span><span class="mi">10</span><span class="o">**</span><span class="mi">4</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Retrieved </span><span class="si">%d</span><span class="s2"> transcript positions&quot;</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">counter</span> <span class="o">&gt;=</span> <span class="mi">10</span><span class="o">**</span><span class="mi">3</span> <span class="ow">and</span> <span class="n">counter</span> <span class="o">%</span> <span class="p">(</span><span class="mi">10</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retrieved </span><span class="si">%d</span><span class="s2"> transcript positions&quot;</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">transcript_object</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;gtf&quot;</span><span class="p">),</span>
+                  <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out&quot;</span><span class="p">])</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">transcript_object</span><span class="o">.</span><span class="n">fasta</span><span class="p">,</span>
+                  <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out_fasta&quot;</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># pylint: disable=no-member</span>
+
+        <span class="n">submission_queue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">working_processes</span> <span class="o">=</span> <span class="p">[</span><span class="n">CheckingProcess</span><span class="p">(</span>
+            <span class="n">submission_queue</span><span class="p">,</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">,</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span>
+            <span class="n">_</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out_fasta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">tempdir</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">lenient</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;lenient&quot;</span><span class="p">],</span>
+            <span class="n">strand_specific</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;strand_specific&quot;</span><span class="p">],</span>
+            <span class="n">canonical_splices</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;canonical&quot;</span><span class="p">],</span>
+            <span class="n">log_level</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">level</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">procs</span><span class="p">)]</span>
+
+        <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">start</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">working_processes</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">counter</span><span class="p">,</span> <span class="n">keys</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">keys</span><span class="p">):</span>
+            <span class="n">tid</span><span class="p">,</span> <span class="n">chrom</span><span class="p">,</span> <span class="p">(</span><span class="n">pos</span><span class="p">)</span> <span class="o">=</span> <span class="n">keys</span>
+            <span class="n">submission_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">exon_lines</span><span class="p">[</span><span class="n">tid</span><span class="p">],</span> <span class="n">pos</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pos</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">submission_queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="s2">&quot;EXIT&quot;</span><span class="p">]</span><span class="o">*</span><span class="mi">4</span><span class="p">))</span>
+
+        <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">join</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">working_processes</span><span class="p">]</span>
+
+        <span class="n">partial_gtf</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">tempdir</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+                                    <span class="s2">&quot;{0}-{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                                        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                                        <span class="n">_</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">procs</span><span class="p">)]</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="n">merge_partial</span><span class="p">(</span><span class="n">partial_gtf</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out&quot;</span><span class="p">])</span>
+
+        <span class="n">partial_fasta</span> <span class="o">=</span> <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">tempdir</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;{0}-{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out_fasta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">_</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span>
+                         <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">procs</span><span class="p">)]</span>
+        <span class="n">merge_partial</span><span class="p">(</span><span class="n">partial_fasta</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out_fasta&quot;</span><span class="p">])</span>
+
+    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out_fasta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished to analyse </span><span class="si">%d</span><span class="s2"> transcripts (</span><span class="si">%d</span><span class="s2"> retained)&quot;</span><span class="p">,</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">),</span> <span class="n">counter</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">level</span><span class="p">)</span>
+    <span class="k">return</span></div>
+
+
+<div class="viewcode-block" id="load_exon_lines"><a class="viewcode-back" href="../../../Mikado.preparation.html#Mikado.preparation.prepare.load_exon_lines">[docs]</a><span class="k">def</span> <span class="nf">load_exon_lines</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;This function loads all exon lines from the GFF inputs into a</span>
+<span class="sd">     defaultdict instance.</span>
+<span class="sd">    :param args: the Namespace from the command line.</span>
+<span class="sd">    :param logger: the logger instance.</span>
+<span class="sd">    :type logger: logging.Logger</span>
+<span class="sd">    :return: exon_lines</span>
+<span class="sd">    :rtype: collections.defaultdict[list]</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">threads</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">]),</span> <span class="n">args</span><span class="o">.</span><span class="n">procs</span><span class="p">])</span>
+    <span class="n">strip_cds</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;strip_cds&quot;</span><span class="p">]</span>
+    <span class="n">exon_lines</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">dict</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">or</span> <span class="n">threads</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to load lines from </span><span class="si">%d</span><span class="s2"> files (single-threaded)&quot;</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">]))</span>
+        <span class="n">previous_file_ids</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">(</span><span class="nb">set</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">gff_name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;labels&quot;</span><span class="p">],</span>
+                                   <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">]):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting with </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">gff_name</span><span class="p">)</span>
+            <span class="n">gff_handle</span> <span class="o">=</span> <span class="n">to_gff</span><span class="p">(</span><span class="n">gff_name</span><span class="p">)</span>
+            <span class="n">found_ids</span> <span class="o">=</span> <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="nb">set</span><span class="p">(),</span> <span class="o">*</span><span class="n">previous_file_ids</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="k">if</span> <span class="n">gff_handle</span><span class="o">.</span><span class="n">__annot_type__</span> <span class="o">==</span> <span class="s2">&quot;gff3&quot;</span><span class="p">:</span>
+                <span class="n">exon_lines</span><span class="p">,</span> <span class="n">new_ids</span> <span class="o">=</span> <span class="n">load_from_gff</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">,</span> <span class="n">gff_handle</span><span class="p">,</span>
+                                                    <span class="n">label</span><span class="p">,</span> <span class="n">found_ids</span><span class="p">,</span> <span class="n">strip_cds</span><span class="o">=</span><span class="n">strip_cds</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">exon_lines</span><span class="p">,</span> <span class="n">new_ids</span> <span class="o">=</span> <span class="n">load_from_gtf</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">,</span> <span class="n">gff_handle</span><span class="p">,</span>
+                                                    <span class="n">label</span><span class="p">,</span> <span class="n">found_ids</span><span class="p">,</span> <span class="n">strip_cds</span><span class="o">=</span><span class="n">strip_cds</span><span class="p">)</span>
+
+            <span class="n">previous_file_ids</span><span class="p">[</span><span class="n">gff_handle</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_ids</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to load lines from </span><span class="si">%d</span><span class="s2"> files (using </span><span class="si">%d</span><span class="s2"> processes)&quot;</span><span class="p">,</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">]),</span> <span class="n">threads</span><span class="p">)</span>
+        <span class="n">submission_queue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">return_queue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">working_processes</span> <span class="o">=</span> <span class="p">[</span><span class="n">AnnotationParser</span><span class="p">(</span>
+            <span class="n">submission_queue</span><span class="p">,</span>
+            <span class="n">return_queue</span><span class="p">,</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">,</span>
+            <span class="n">_</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">tempdir</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="n">log_level</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">level</span><span class="p">,</span>
+            <span class="n">strip_cds</span><span class="o">=</span><span class="n">strip_cds</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">threads</span><span class="p">)]</span>
+        <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">start</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">working_processes</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">gff_name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;labels&quot;</span><span class="p">],</span>
+                                   <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">]):</span>
+            <span class="n">submission_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="n">label</span><span class="p">,</span> <span class="n">gff_name</span><span class="p">))</span>
+
+        <span class="n">submission_queue</span><span class="o">.</span><span class="n">put</span><span class="p">((</span><span class="s2">&quot;EXIT&quot;</span><span class="p">,</span> <span class="s2">&quot;EXIT&quot;</span><span class="p">))</span>
+
+        <span class="p">[</span><span class="n">_</span><span class="o">.</span><span class="n">join</span><span class="p">()</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">working_processes</span><span class="p">]</span>
+        <span class="n">return_queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s2">&quot;EXIT&quot;</span><span class="p">)</span>
+
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">return_queue</span><span class="o">.</span><span class="n">get</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">result</span> <span class="o">==</span> <span class="s2">&quot;EXIT&quot;</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading </span><span class="si">%s</span><span class="s2"> back into memory&quot;</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">inp_file</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">inp_file</span><span class="p">)</span>
+
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">inp_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">)</span> <span class="ow">or</span>
+                    <span class="n">result</span><span class="o">.</span><span class="n">default_factory</span> <span class="o">!=</span> <span class="n">exon_lines</span><span class="o">.</span><span class="n">default_factory</span><span class="p">):</span>
+                <span class="n">exception</span> <span class="o">=</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sd">&quot;&quot;&quot;I received a wrong result; I expected a defaultdict(dict) instance but</span>
+<span class="sd">                    I received a {0}{1} instance instead. Aborting.&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="nb">type</span><span class="p">(</span><span class="n">result</span><span class="p">),</span>
+                        <span class="s2">&quot; (default factory: {0})&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">default_factory</span><span class="p">)</span> <span class="k">if</span>
+                        <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">collections</span><span class="o">.</span><span class="n">defaultdict</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">))</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exception</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">exception</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="nb">set</span><span class="p">(</span><span class="n">exon_lines</span><span class="o">.</span><span class="n">keys</span><span class="p">())))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;labels&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;&quot;</span><span class="p">}:</span>
+                    <span class="n">exception</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">RedundantNames</span><span class="p">(</span>
+                        <span class="sd">&quot;&quot;&quot;Found redundant names during multiprocessed file analysis.</span>
+<span class="sd">                        Please repeat using distinct labels for your input files. Aborting.&quot;&quot;&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">exception</span> <span class="o">=</span> <span class="n">exceptions</span><span class="o">.</span><span class="n">RedundantNames</span><span class="p">(</span>
+                        <span class="sd">&quot;&quot;&quot;Found redundant names during multiprocessed file analysis, even if</span>
+<span class="sd">                        unique labels were provided. Please try to repeat with a different and</span>
+<span class="sd">                        more unique set of labels. Aborting.&quot;&quot;&quot;</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exception</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">exception</span>
+
+            <span class="n">exon_lines</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loaded </span><span class="si">%s</span><span class="s2"> back into memory&quot;</span><span class="p">,</span> <span class="n">inp_file</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">del</span> <span class="n">working_processes</span>
+        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished loading lines from </span><span class="si">%d</span><span class="s2"> files&quot;</span><span class="p">,</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">]))</span>
+
+    <span class="k">return</span> <span class="n">exon_lines</span></div>
+
+
+<div class="viewcode-block" id="prepare"><a class="viewcode-back" href="../../../Mikado.preparation.html#Mikado.preparation.prepare.prepare">[docs]</a><span class="k">def</span> <span class="nf">prepare</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Main script function.</span>
+
+<span class="sd">    :param args: the ArgumentParser-derived namespace.</span>
+<span class="sd">    :param logger: a logging instance</span>
+<span class="sd">    :type logger: logging.Logger</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">],</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">])):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Invalid FASTA file: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">])</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">pass</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;gff&quot;</span><span class="p">])</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;labels&quot;</span><span class="p">])</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">False</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">procs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">multiprocessing</span><span class="o">.</span><span class="n">set_start_method</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;multiprocessing_method&quot;</span><span class="p">],</span>
+                                         <span class="n">force</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">logging_queue</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Queue</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">tempdir</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;mikado_prepare_tmp&quot;</span><span class="p">,</span>
+                                                   <span class="nb">dir</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">])</span>
+
+        <span class="n">log_queue_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">QueueHandler</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">)</span>
+        <span class="n">log_queue_handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+        <span class="c1"># logger.addHandler(log_queue_handler)</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">listener</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">QueueListener</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">logging_queue</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">listener</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">listener</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out_fasta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span>
+        <span class="n">path_join</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">],</span>
+                  <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out_fasta&quot;</span><span class="p">]),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">path_join</span><span class="p">(</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">],</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;out&quot;</span><span class="p">]),</span> <span class="s1">&#39;w&#39;</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading reference file&quot;</span><span class="p">)</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pyfaidx</span><span class="o">.</span><span class="n">Fasta</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;fasta&quot;</span><span class="p">])</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished loading genome file&quot;</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started loading exon lines&quot;</span><span class="p">)</span>
+
+    <span class="n">exon_lines</span> <span class="o">=</span> <span class="n">load_exon_lines</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished loading exon lines&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Prepare the sorted data structure</span>
+    <span class="n">sorter</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+        <span class="n">store_transcripts</span><span class="p">,</span>
+        <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">,</span>
+        <span class="n">min_length</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;minimum_length&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">perform_check</span><span class="p">(</span><span class="n">sorter</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">),</span> <span class="n">exon_lines</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+
+    <span class="c1"># args.json_conf[&quot;prepare&quot;][&quot;out&quot;].close()</span>
+    <span class="c1"># args.json_conf[&quot;prepare&quot;][&quot;out_fasta&quot;].close()</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;single&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">False</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">procs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">tempdir</span><span class="o">.</span><span class="n">cleanup</span><span class="p">()</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">FileExistsError</span><span class="p">,</span> <span class="n">FileNotFoundError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Failed to remove temporary directory </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">tempdir</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="n">args</span><span class="o">.</span><span class="n">listener</span><span class="o">.</span><span class="n">enqueue_sentinel</span><span class="p">()</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished&quot;</span><span class="p">)</span></div>
+    <span class="c1"># for handler in logger.handlers:</span>
+    <span class="c1">#     handler.close()</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

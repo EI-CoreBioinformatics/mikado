@@ -1,0 +1,186 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.subprograms.util.awk_gtf &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Mikado.subprograms.util" href="../util.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.subprograms.util.awk_gtf</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Script to extract features from a GTF with certain coordinates.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">from</span> <span class="nn">...parsers.GTF</span> <span class="kn">import</span> <span class="n">GTF</span>
+<span class="kn">from</span> <span class="nn">...loci.transcript</span> <span class="kn">import</span> <span class="n">Transcript</span>
+
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="launch"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.awk_gtf.launch">[docs]</a><span class="k">def</span> <span class="nf">launch</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Simple launcher script.</span>
+
+<span class="sd">    :param args: the argparse Namespace</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="s2">&quot;region&quot;</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">region</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;{0} {1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">exc</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">region</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Start greater than end: {0}</span><span class="se">\t</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span><span class="p">))</span>
+
+    <span class="n">transcript</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">with</span> <span class="n">GTF</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">gtf</span><span class="p">)</span> <span class="k">as</span> <span class="n">gtf</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">gtf</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">row</span><span class="o">.</span><span class="n">chrom</span> <span class="o">!=</span> <span class="n">args</span><span class="o">.</span><span class="n">chrom</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">row</span><span class="o">.</span><span class="n">is_transcript</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">transcript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> \
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">args</span><span class="o">.</span><span class="n">start</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+                        <span class="k">print</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;gtf&quot;</span><span class="p">),</span> <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">assume_sorted</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">and</span> <span class="n">row</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+                        <span class="k">break</span>
+                    <span class="n">transcript</span> <span class="o">=</span> <span class="n">Transcript</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">add_exon</span><span class="p">(</span><span class="n">row</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">transcript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">args</span><span class="o">.</span><span class="n">start</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;=</span> <span class="n">args</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;gtf&quot;</span><span class="p">),</span> <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="to_region"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.awk_gtf.to_region">[docs]</a><span class="k">def</span> <span class="nf">to_region</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Snippet to convert from Apollo-style region to a tuple of chrom, start, end</span>
+<span class="sd">    :param string:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">fields</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid string!&quot;</span><span class="p">)</span>
+    <span class="n">chrom</span><span class="p">,</span> <span class="n">rest</span> <span class="o">=</span> <span class="n">fields</span>
+    <span class="k">if</span> <span class="s2">&quot;..&quot;</span> <span class="ow">in</span> <span class="n">rest</span><span class="p">:</span>
+        <span class="n">separator</span> <span class="o">=</span> <span class="s2">&quot;..&quot;</span>
+    <span class="k">elif</span> <span class="s2">&quot;-&quot;</span> <span class="ow">in</span> <span class="n">rest</span><span class="p">:</span>
+        <span class="n">separator</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid string!&quot;</span><span class="p">)</span>
+
+    <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">rest</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="n">separator</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="n">start</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Start greater than end: {0}</span><span class="se">\t</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">chrom</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span></div>
+
+
+<div class="viewcode-block" id="awk_parser"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.awk_gtf.awk_parser">[docs]</a><span class="k">def</span> <span class="nf">awk_parser</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parser for the command line</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="s2">&quot;Utility to extract features from a GTF within given coordinates.&quot;</span><span class="p">)</span>
+    <span class="n">region</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_mutually_exclusive_group</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">region</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-r&quot;</span><span class="p">,</span> <span class="s2">&quot;--region&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">to_region</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Region defined as a string like &lt;chrom&gt;:&lt;start&gt;..&lt;end&gt;&quot;</span><span class="p">)</span>
+    <span class="n">region</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--chrom&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-as&quot;</span><span class="p">,</span> <span class="s2">&quot;--assume-sorted&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;assume_sorted&quot;</span><span class="p">,</span>
+                        <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--start&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--end&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">))</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;gtf&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">FileType</span><span class="p">())</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">FileType</span><span class="p">(</span><span class="s2">&quot;w&quot;</span><span class="p">),</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">launch</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  <li><a href="../util.html">Mikado.subprograms.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

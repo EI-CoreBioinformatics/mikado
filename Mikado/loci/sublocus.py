@@ -1,7 +1,7 @@
 # coding: utf-8
 
 """
-The Sublocus class is the first to be invoked during the Mikado.py pick analysis.
+The Sublocus class is the first to be invoked during the Mikado pick analysis.
 Each of these containers holds transcripts which either are monoexonic and overlapping,
 or multiexonic and with at least one intron in common.
 """
@@ -12,7 +12,11 @@ from .excluded import Excluded
 from .monosublocus import Monosublocus
 from .transcript import Transcript
 from ..parsers.GFF import GffLine
-from collections import OrderedDict
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 import operator
 
 
@@ -173,7 +177,7 @@ class Sublocus(Abstractlocus):
 
         :param excluded: the excluded Locus to which transcripts from purged loci will be added to
         :type excluded: None
-        :type excluded: mikado_lib.loci_objects.excluded.Excluded
+        :type excluded: Mikado.loci_objects.excluded.Excluded
 
         This function retrieves the best non-overlapping transcripts inside
         the sublocus, according to the score calculated by
@@ -404,7 +408,7 @@ class Sublocus(Abstractlocus):
 
         else:
             valid_metrics = self.regressor.metrics
-            metric_rows = OrderedDict()
+            metric_rows = SortedDict()
             for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(0)):
                 for param in valid_metrics:
                     self.scores[tid][param] = "NA"
@@ -418,7 +422,7 @@ class Sublocus(Abstractlocus):
                             val = 0
                     row.append(val)
                 metric_rows[tid] = row
-            # scores = OrderedDict.fromkeys(metric_rows.keys())
+            # scores = SortedDict.fromkeys(metric_rows.keys())
             for pos, score in enumerate(self.regressor.predict(list(metric_rows.values()))):
                 self.scores[list(metric_rows.keys())[pos]]["score"] = score
                 self.transcripts[list(metric_rows.keys())[pos]].score = score

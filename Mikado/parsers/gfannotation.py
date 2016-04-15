@@ -7,8 +7,11 @@ GTF/GFF files.
 
 import abc
 import copy
+from sys import intern
 
 __author__ = 'Luca Venturini'
+
+[intern(_) for _ in ["+", "-", "?"]]
 
 
 # This class has exactly how many attributes I need it to have
@@ -49,9 +52,9 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         else:
             self._line = line
 
-        self._line = self._line.rstrip()
+        self._line = self._line.strip()
 
-        self._fields = line.rstrip().split('\t')
+        self._fields = self._line.split('\t')
         self.header = header
 
         if self.header or len(self._fields) != 9 or self._line == '' or self._line[0] == "#":
@@ -60,6 +63,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return
 
         self.chrom, self.source, self.feature = self._fields[0:3]
+        [intern(_) for _ in (self.chrom, self.source, self.feature)]
         self.start, self.end = tuple(int(i) for i in self._fields[3:5])
 
         self.score = self._fields[5]
@@ -75,7 +79,7 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         score, strand, phase = self.__format_middle()
         attributes = self._format_attributes()
         if self.source is None:
-            self.source = "Mikado.py"
+            self.source = "Mikado"
         line = [self.chrom, self.source, self.feature,
                 self.start, self.end, score,
                 strand, phase, attributes]
@@ -254,7 +258,6 @@ class GFAnnotation(metaclass=abc.ABCMeta):
             return True
         return False
 
-    @abc.abstractmethod
     def _sort_feature(self, feature):
         """
         Private method that sorts features according to the normal order in a GF file.
@@ -262,8 +265,14 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         :return: numeric sort index
         """
 
-        raise NotImplementedError(
-            "The sorting of features must be implemented at the class level")
+        if self.strand == "-":
+            order = self.__negative_order
+        else:
+            order = self.__positive_order
+        if feature not in order:
+            return float("inf")
+        else:
+            return order.index(feature)
 
     def __lt__(self, other):
 

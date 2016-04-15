@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 
-# import sys
-from collections import OrderedDict
 import operator
 import Mikado
 from Mikado.loci.transcript_methods import splitting
 import unittest
 import logging
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 
 __author__ = 'Luca Venturini'
 
@@ -157,7 +160,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
 
-        cds_boundaries = OrderedDict()
+        cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
                           key=operator.attrgetter("thick_start", "thick_end")):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
@@ -172,7 +175,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "STRINGENT"
 
-        cds_boundaries = OrderedDict()
+        cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
                           key=operator.attrgetter("thick_start", "thick_end")):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
@@ -189,7 +192,7 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "PERMISSIVE"
 
-        cds_boundaries = OrderedDict()
+        cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
                           key=operator.attrgetter("thick_start", "thick_end")):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]
@@ -197,7 +200,8 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2,
                          len(splitting.check_split_by_blast(self.transcript, cds_boundaries)))
 
-    def get_second_hit(self):
+    @staticmethod
+    def get_second_hit():
 
         hit1 = dict()
         hit1["evalue"] = 10**-6
@@ -259,7 +263,8 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.assertEqual(2,
                          len(list(splitting.split_by_cds(self.transcript))))
 
-    def get_spanning_hit(self):
+    @staticmethod
+    def get_spanning_hit():
 
         hit1 = dict()
         hit1["evalue"] = 10**-6
@@ -299,7 +304,7 @@ class TestSplitMonoexonic(unittest.TestCase):
     def test_spanning_hit_nocheck(self):
         self.transcript.blast_hits = [self.get_spanning_hit()]
         self.transcript.json_conf["pick"]["chimera_split"]["blast_check"] = False
-        cds_boundaries = OrderedDict()
+        cds_boundaries = SortedDict()
         for orf in sorted(self.transcript.loaded_bed12,
                           key=operator.attrgetter("thick_start", "thick_end")):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]

@@ -12,6 +12,7 @@ from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
 from ..parsers.GTF import GtfLine
 from ..utilities.log_utils import create_null_logger
+from sys import intern
 
 
 class Gene:
@@ -54,6 +55,9 @@ class Gene:
 
         if gid is not None:
             self.id = gid
+        # Internalize in memory for less memory usage
+        [intern(_) for _ in [self.chrom, self.source, self.id]
+         if _ is not None]
         self.logger = logger
 
     @property
@@ -89,9 +93,14 @@ class Gene:
         :param transcr: the transcript to be added.
         """
 
-        self.start = min(self.start, transcr.start)
-        self.end = max(self.end, transcr.end)
         self.transcripts[transcr.id] = transcr
+        if self.chrom is None:
+            self.chrom = transcr.chrom
+        elif self.chrom != transcr.chrom:
+            raise AssertionError("Discrepant chromosome for gene {0} and transcript {1}".format(
+                    self.id, transcr.id
+                ))
+
         if transcr.strand != self.strand:
             if self.strand is None:
                 self.strand = transcr.strand
@@ -101,6 +110,7 @@ class Gene:
                 raise AssertionError("Discrepant strands for gene {0} and transcript {1}".format(
                     self.id, transcr.id
                 ))
+
         transcr.logger = self.logger
 
     def __getitem__(self, tid: str) -> Transcript:
@@ -137,20 +147,22 @@ class Gene:
             del self.transcripts[k]
 
         if len(self.transcripts) > 0:
+            if self.source is None:
+                self.source = set([_.source for _ in self.transcripts.values()]).pop()
             __new_start = min(_.start for _ in self)
 
             if __new_start != self.start:
-                self.logger.warning("Resetting the start for %s from %d to %d",
+                self.logger.debug("Resetting the start for %s from %s to %d",
                                     self.id, self.start, __new_start)
                 self.start = __new_start
 
             __new_end = max(_.end for _ in self)
             if __new_end != self.end:
-                self.logger.warning("Resetting the end for %s from %d to %d",
+                self.logger.debug("Resetting the end for %s from %s to %d",
                                     self.id, self.end, __new_end)
                 self.end = __new_end
 
-    def as_dict(self):
+    def as_dict(self, remove_attributes=True):
 
         """
         Method to transform the gene object into a JSON-friendly representation.
@@ -164,7 +176,13 @@ class Gene:
         state["transcripts"] = dict.fromkeys(self.transcripts.keys())
 
         for tid in state["transcripts"]:
-            state["transcripts"][tid] = self.transcripts[tid].as_dict()
+            try:
+                state["transcripts"][tid] = self.transcripts[tid].as_dict(
+                    remove_attributes=remove_attributes)
+            except TypeError as exc:
+                self.logger.error(tid, repr(self.transcripts[tid]))
+                self.logger.exception(exc)
+                raise TypeError(exc)
 
         return state
 
@@ -174,7 +192,7 @@ class Gene:
             setattr(self, key, state[key])
 
         for tid, tvalues in state["transcripts"].items():
-            transcript = Transcript()
+            transcript = Transcript(logger=self.logger)
             transcript.load_dict(tvalues)
             transcript.finalize()
             if protein_coding is True and transcript.is_coding is False:
@@ -189,6 +207,10 @@ class Gene:
                 if has_utrs is True and (transcript.utr_length > 0):
                     raise AssertionError("Failed to remove the UTRs!")
             self.transcripts[tid] = transcript
+
+        self.chrom = intern(self.chrom)
+        self.source = intern(self.source)
+        self.id = intern(self.id)
 
         return
 
@@ -241,7 +263,14 @@ class Gene:
             elif self.end != other.end:
                 return self.end < other.end
             else:
-                return self.strand < other.strand
+                if self.strand is not None and other.strand is not None:
+                    return self.strand < other.strand
+                elif self.strand is None and other.strand is not None:
+                    return False
+                elif self.strand is not None and other.strand is None:
+                    return True
+                else:
+                    return False
 
     def __eq__(self, other):
         if self.chrom == other.chrom and self.start == other.start and \

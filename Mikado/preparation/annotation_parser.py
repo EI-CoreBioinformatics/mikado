@@ -5,6 +5,7 @@ import collections
 import logging
 import logging.handlers
 from .. import exceptions
+from sys import intern
 import pickle
 import os
 
@@ -226,6 +227,9 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
 
     if exon_lines is None:
         exon_lines = collections.defaultdict(dict)
+
+    # Reduce memory footprint
+    [intern(_) for _ in ["chrom", "features", "strand", "attributes", "tid", "parent", "attributes"]]
 
     new_ids = set()
     for row in gff_handle:

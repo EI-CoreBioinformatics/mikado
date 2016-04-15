@@ -1,0 +1,781 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.loci.transcript_methods.retrieval &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Module code" href="../../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.loci.transcript_methods.retrieval</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains the methods used by the Transcript class to retrieve information</span>
+<span class="sd">from the database/dictionary provided during the pick operation.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">groupby</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy.orm.session</span> <span class="kn">import</span> <span class="n">sessionmaker</span>
+<span class="kn">from</span> <span class="nn">...utilities</span> <span class="kn">import</span> <span class="n">dbutils</span>
+<span class="kn">from</span> <span class="nn">..clique_methods</span> <span class="kn">import</span> <span class="n">define_graph</span><span class="p">,</span> <span class="n">find_cliques</span><span class="p">,</span> <span class="n">find_communities</span>
+<span class="kn">from</span> <span class="nn">...serializers.junction</span> <span class="kn">import</span> <span class="n">Junction</span>
+<span class="kn">from</span> <span class="nn">...exceptions</span> <span class="kn">import</span> <span class="n">InvalidTranscript</span>
+<span class="kn">from</span> <span class="nn">sqlalchemy</span> <span class="kn">import</span> <span class="n">and_</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">intervaltree</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="load_orfs"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.load_orfs">[docs]</a><span class="k">def</span> <span class="nf">load_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">candidate_orfs</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param candidate_orfs: The ORFs to be inspected for loading.</span>
+<span class="sd">    :type candidate_orfs: list[Mikado.py.parsers.serializers.orf.Orf</span>
+
+<span class="sd">    This method replicates what is done internally by the</span>
+<span class="sd">    &quot;cdna_alignment_orf_to_genome_orf.pl&quot;</span>
+<span class="sd">    utility in the TransDecoder suite. It takes as argument &quot;candidate_orfs&quot;</span>
+<span class="sd">    i.e. a list of BED12 serialised objects.</span>
+<span class="sd">    The method expects as argument a dictionary containing BED entries,</span>
+<span class="sd">    and indexed by the transcript name. The indexed name *must* equal the</span>
+<span class="sd">    &quot;id&quot; property, otherwise the method returns immediately.</span>
+<span class="sd">    If no entry is found for the transcript, the method exits immediately.</span>
+<span class="sd">    Otherwise, any CDS information present in the original GFF/GTF</span>
+<span class="sd">    file is completely overwritten.</span>
+<span class="sd">    Briefly, it follows this logic:</span>
+<span class="sd">    - Finalise the transcript</span>
+<span class="sd">    - Retrieve from the dictionary (input) the CDS object</span>
+<span class="sd">    - Sort in decreasing order the CDSs on the basis of:</span>
+<span class="sd">        - Presence of start/stop codon</span>
+<span class="sd">        - CDS length (useful for monoexonic transcripts where we might want to set the strand)</span>
+<span class="sd">    - For each CDS:</span>
+<span class="sd">        - If the ORF is on the + strand:</span>
+<span class="sd">            - all good</span>
+<span class="sd">        - If the ORF is on the - strand:</span>
+<span class="sd">            - if the transcript is monoexonic: invert its genomic strand</span>
+<span class="sd">            - if the transcript is multiexonic: skip</span>
+<span class="sd">        - Start looking at the exons</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Prepare the transcript</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+
+    <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="n">find_overlapping_cds</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">candidate_orfs</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">candidate_orfs</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_orfs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;No ORF for </span><span class="si">%s</span><span class="s2">; </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">candidate_orfs</span><span class="p">)</span>
+        <span class="k">return</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">finalized</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="c1"># Token to be set to False after the first CDS is exhausted</span>
+    <span class="n">primary_orf</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="n">primary_strand</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="c1"># This will keep in memory the original BED12 objects</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">loaded_bed12</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">candidate_orfs</span><span class="p">:</span>
+        <span class="c1"># Minimal check</span>
+        <span class="k">if</span> <span class="n">primary_orf</span> <span class="ow">is</span> <span class="bp">False</span> <span class="ow">and</span> <span class="n">orf</span><span class="o">.</span><span class="n">strand</span> <span class="o">!=</span> <span class="n">primary_strand</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">check_sanity</span> <span class="o">=</span> <span class="p">(</span><span class="n">orf</span><span class="o">.</span><span class="n">thick_start</span> <span class="o">&gt;=</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_end</span> <span class="o">&lt;=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">cdna_length</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">orf</span><span class="p">)</span> <span class="o">!=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">cdna_length</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">check_sanity</span><span class="p">:</span>
+            <span class="n">message</span> <span class="o">=</span> <span class="s2">&quot;Wrong ORF for {0}: &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orf</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">message</span> <span class="o">+=</span> <span class="s2">&quot;cDNA length: {0}; &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">cdna_length</span><span class="p">)</span>
+            <span class="n">message</span> <span class="o">+=</span> <span class="s2">&quot;orf length: {0}; &quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">orf</span><span class="p">))</span>
+            <span class="n">message</span> <span class="o">+=</span> <span class="s2">&quot;CDS: {0}-{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">orf</span><span class="o">.</span><span class="n">thick_start</span><span class="p">,</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_end</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="n">orf</span><span class="o">.</span><span class="n">strand</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">loaded_bed12</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">orf</span><span class="p">)</span>
+        <span class="n">cds_exons</span> <span class="o">=</span> <span class="n">__create_internal_orf</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">orf</span><span class="p">)</span>
+        <span class="n">cds_exons</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">cds_exons</span><span class="p">,</span>
+                           <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cds_exons</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">primary_orf</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">has_start_codon</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">has_stop_codon</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">orf</span><span class="o">.</span><span class="n">has_start_codon</span><span class="p">,</span>
+                                                                       <span class="n">orf</span><span class="o">.</span><span class="n">has_stop_codon</span><span class="p">)</span>
+            <span class="n">primary_orf</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="n">primary_strand</span> <span class="o">=</span> <span class="n">orf</span><span class="o">.</span><span class="n">strand</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_index</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">cds_exons</span><span class="p">)</span>
+        <span class="c1"># transcript.phases.append(cds_exons[0][0], 0)</span>
+
+    <span class="c1"># Now verify the loaded content</span>
+    <span class="n">check_loaded_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="check_loaded_orfs"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.check_loaded_orfs">[docs]</a><span class="k">def</span> <span class="nf">check_loaded_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function verifies the ORF status after</span>
+<span class="sd">    loading from an external data structure/database.</span>
+
+<span class="sd">    :param transcript: the transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orf_lengths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No candidate ORF retained for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                  <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found 1 ORF for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                                <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">)],</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                                <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;UTR&quot;</span><span class="p">)],</span>
+            <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="p">)</span>
+
+    <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found </span><span class="si">%d</span><span class="s2"> ORFs for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">),</span>
+                                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">cds_spans</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">internal_cds</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">sum</span><span class="p">([</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">internal_cds</span> <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">])</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid internal:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                        <span class="n">internal_cds</span><span class="p">)</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid internals:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">]))</span>
+
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Invalid ORFs:</span><span class="se">\n</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">loaded_bed12</span><span class="p">]))</span>
+
+                <span class="k">raise</span> <span class="n">InvalidTranscript</span><span class="p">((</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                                         <span class="nb">sum</span><span class="p">([</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">_</span>
+                                              <span class="ow">in</span> <span class="n">internal_cds</span> <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">]),</span>
+                                         <span class="nb">sum</span><span class="p">([</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span>
+                                              <span class="n">_</span> <span class="ow">in</span> <span class="n">internal_cds</span> <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">])</span> <span class="o">%</span> <span class="mi">3</span><span class="p">,</span>
+                                         <span class="n">internal_cds</span><span class="p">))</span>
+
+            <span class="n">candidates</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">a</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">tup</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">internal_cds</span>
+                                    <span class="k">if</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">)])</span>
+
+        <span class="k">for</span> <span class="n">comm</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">find_communities</span><span class="p">(</span><span class="n">candidates</span><span class="p">):</span>
+            <span class="n">span</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">min</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">comm</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">comm</span><span class="p">)])</span>
+            <span class="n">cds_spans</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">span</span><span class="p">)</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">cds_spans</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+        <span class="c1"># This method is probably OBSCENELY inefficient,</span>
+        <span class="c1"># but I cannot think of a better one for the moment.</span>
+
+        <span class="c1"># curr_utr_segment = None  # temporary token with the UTR positions</span>
+
+        <span class="c1"># Calculate the positions inside the UTR</span>
+        <span class="n">utr_pos</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">difference</span><span class="p">(</span>
+            <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">]),</span>
+            <span class="nb">set</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">cds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cds</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">cds</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">])</span>
+        <span class="p">)))</span>
+
+        <span class="c1"># This code snippet using groupby is massively more efficient</span>
+        <span class="c1"># than the previous naive implementation</span>
+        <span class="n">getter</span> <span class="o">=</span> <span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">groupby</span><span class="p">(</span><span class="nb">enumerate</span><span class="p">(</span><span class="n">utr_pos</span><span class="p">),</span> <span class="k">lambda</span> <span class="n">items</span><span class="p">:</span> <span class="n">items</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">items</span><span class="p">[</span><span class="mi">1</span><span class="p">]):</span>
+            <span class="n">group</span> <span class="o">=</span> <span class="p">[</span><span class="n">getter</span><span class="p">(</span><span class="n">element</span><span class="p">)</span> <span class="k">for</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">group</span><span class="p">]</span>
+            <span class="c1"># group = list(map(operator.itemgetter(1), group))</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">group</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="n">group</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">group</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="n">group</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">group</span><span class="p">[</span><span class="mi">0</span><span class="p">]]))</span>
+
+        <span class="c1"># Check everything is alright</span>
+        <span class="n">equality</span> <span class="o">=</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">cdna_length</span> <span class="o">==</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds_length</span> <span class="o">+</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr_length</span><span class="p">)</span>
+
+        <span class="k">assert</span> <span class="n">equality</span><span class="p">,</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">cdna_length</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">feature</span> <span class="o">=</span> <span class="s2">&quot;mRNA&quot;</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span></div>
+
+
+<span class="k">def</span> <span class="nf">__load_blast</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;This method looks into the DB for hits corresponding to the desired requirements.</span>
+<span class="sd">    Hits will be loaded into the &quot;blast_hits&quot; list;</span>
+<span class="sd">    we will not store the SQLAlchemy query object,</span>
+<span class="sd">    but rather its representation as a dictionary</span>
+<span class="sd">    (using the Hit.as_dict() method).</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># if self.query_id is None:</span>
+    <span class="c1">#     return</span>
+
+    <span class="c1"># if self.json_conf[&quot;pick&quot;][&quot;chimera_split&quot;][&quot;blast_check&quot;] is False:</span>
+    <span class="c1">#     return</span>
+
+    <span class="n">max_target_seqs</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span>
+        <span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;chimera_split&quot;</span><span class="p">][</span><span class="s2">&quot;blast_params&quot;</span><span class="p">][</span><span class="s2">&quot;max_target_seqs&quot;</span><span class="p">]</span>
+    <span class="n">maximum_evalue</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;chimera_split&quot;</span><span class="p">][</span><span class="s2">&quot;blast_params&quot;</span><span class="p">][</span><span class="s2">&quot;evalue&quot;</span><span class="p">]</span>
+
+    <span class="n">blast_hits_query</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">blast_baked</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">params</span><span class="p">(</span>
+        <span class="n">query</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+        <span class="n">evalue</span><span class="o">=</span><span class="n">maximum_evalue</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Starting to load BLAST data for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="c1"># variables which take care of defining</span>
+    <span class="c1"># the maximum evalue and target seqs</span>
+    <span class="c1"># We do not trust the limit in the sqlite because</span>
+    <span class="c1"># we might lose legitimate hits with the same evalue as the</span>
+    <span class="c1"># best ones. So we collapse all hits with the same evalue.</span>
+    <span class="n">previous_evalue</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">hit</span> <span class="ow">in</span> <span class="n">blast_hits_query</span><span class="p">:</span>
+
+        <span class="k">if</span> <span class="n">counter</span> <span class="o">&gt;</span> <span class="n">max_target_seqs</span> <span class="ow">and</span> <span class="n">previous_evalue</span> <span class="o">&lt;</span> <span class="n">hit</span><span class="o">.</span><span class="n">evalue</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="k">elif</span> <span class="n">previous_evalue</span> <span class="o">&lt;</span> <span class="n">hit</span><span class="o">.</span><span class="n">evalue</span><span class="p">:</span>
+            <span class="n">previous_evalue</span> <span class="o">=</span> <span class="n">hit</span><span class="o">.</span><span class="n">evalue</span>
+
+        <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">blast_hits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hit</span><span class="o">.</span><span class="n">as_dict</span><span class="p">())</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loaded </span><span class="si">%d</span><span class="s2"> BLAST hits for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">counter</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">__connect_to_db</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;This method will connect to the database using the information</span>
+<span class="sd">    contained in the JSON configuration.</span>
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">engine</span> <span class="o">=</span> <span class="n">dbutils</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">sessionmaker</span> <span class="o">=</span> <span class="n">sessionmaker</span><span class="p">()</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">sessionmaker</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">sessionmaker</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="load_information_from_db"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.load_information_from_db">[docs]</a><span class="k">def</span> <span class="nf">load_information_from_db</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">json_conf</span><span class="p">,</span> <span class="n">introns</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                             <span class="n">data_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;This method will invoke the check for:</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param json_conf: Necessary configuration file</span>
+<span class="sd">    :type json_conf: dict</span>
+
+<span class="sd">    :param introns: the verified introns in the Locus</span>
+<span class="sd">    :type introns: None,set</span>
+
+<span class="sd">    :param session: an SQLAlchemy session</span>
+<span class="sd">    :type session: sqlalchemy.orm.session</span>
+
+<span class="sd">    :param data_dict: a dictionary containing the information directly</span>
+<span class="sd">    :type data_dict: dict</span>
+
+<span class="sd">    Verified introns can be provided from outside using the keyword.</span>
+<span class="sd">    Otherwise, they will be extracted from the database directly.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span> <span class="o">=</span> <span class="n">json_conf</span>
+
+    <span class="k">if</span> <span class="n">data_dict</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">retrieve_from_dict</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">data_dict</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">session</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">__connect_to_db</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">session</span>
+        <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retrieving the ORFs for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">retrieve_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+            <span class="n">candidate_orfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">orf</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retrieved the ORFs for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading the ORFs for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">load_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">candidate_orfs</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loaded the ORFs for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loading the BLAST data for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">__load_blast</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loaded the BLAST data for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="c1"># Finally load introns, separately</span>
+    <span class="n">__load_verified_introns</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">data_dict</span><span class="p">,</span> <span class="n">introns</span><span class="p">)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loaded data for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="retrieve_from_dict"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.retrieve_from_dict">[docs]</a><span class="k">def</span> <span class="nf">retrieve_from_dict</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">data_dict</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to retrieve transcript data directly from a dictionary.</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param data_dict: the dictionary with loaded data from DB</span>
+<span class="sd">    :type data_dict: (None | dict)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+        <span class="s2">&quot;Retrieving information from DB dictionary for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="c1"># Intron data</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking introns for </span><span class="si">%s</span><span class="s2">, candidates </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                            <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">))</span>
+
+    <span class="c1"># if introns is not None:</span>
+    <span class="c1">#     transcript.verified_introns = set.intersection(</span>
+    <span class="c1">#         set((intron[0], intron[1], transcript.strand) for intron in transcript.introns),</span>
+    <span class="c1">#         set(introns)</span>
+    <span class="c1">#     )</span>
+    <span class="c1"># else:</span>
+    <span class="c1">#     transcript.verified_introns = set()</span>
+    <span class="c1">#     for intron in transcript.introns:</span>
+    <span class="c1">#         key = (transcript.chrom, intron[0], intron[1])</span>
+    <span class="c1">#         if data_dict.get(key, None) == transcript.strand:</span>
+    <span class="c1">#             transcript.verified_introns.add(intron[0], intron[1], transcript.strand)</span>
+
+    <span class="c1"># transcript.logger.debug(&quot;Verified introns for %s: %s&quot;, transcript.id,</span>
+    <span class="c1">#                         sorted(transcript.verified_introns))</span>
+
+    <span class="c1"># ORF data</span>
+    <span class="n">trust_strand</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;orf_loading&quot;</span><span class="p">][</span><span class="s2">&quot;strand_specific&quot;</span><span class="p">]</span>
+    <span class="n">min_cds_len</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;orf_loading&quot;</span><span class="p">][</span><span class="s2">&quot;minimal_orf_length&quot;</span><span class="p">]</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retrieving ORF information from DB dictionary for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">data_dict</span><span class="p">[</span><span class="s2">&quot;orfs&quot;</span><span class="p">]:</span>
+        <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">orf</span> <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">data_dict</span><span class="p">[</span><span class="s2">&quot;orfs&quot;</span><span class="p">][</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">]</span> <span class="k">if</span>
+                              <span class="n">orf</span><span class="o">.</span><span class="n">cds_len</span> <span class="o">&gt;=</span> <span class="n">min_cds_len</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># They must already be as ORFs</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">and</span> <span class="n">trust_strand</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">):</span>
+        <span class="c1"># Remove negative strand ORFs for multiexonic transcripts,</span>
+        <span class="c1"># or monoexonic strand-specific transcripts</span>
+        <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">orf</span> <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">candidate_orfs</span> <span class="k">if</span> <span class="n">orf</span><span class="o">.</span><span class="n">strand</span> <span class="o">!=</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+
+    <span class="n">load_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">candidate_orfs</span><span class="p">)</span>
+
+    <span class="c1"># if transcript.json_conf[&quot;pick&quot;][&quot;chimera_split&quot;][&quot;blast_check&quot;] is True:</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retrieving BLAST hits for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="n">maximum_evalue</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;chimera_split&quot;</span><span class="p">][</span><span class="s2">&quot;blast_params&quot;</span><span class="p">][</span><span class="s2">&quot;evalue&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">data_dict</span><span class="p">[</span><span class="s2">&quot;hits&quot;</span><span class="p">]:</span>
+        <span class="c1"># this is a dictionary full of lists of dictionary</span>
+        <span class="n">hits</span> <span class="o">=</span> <span class="n">data_dict</span><span class="p">[</span><span class="s2">&quot;hits&quot;</span><span class="p">][</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">hits</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found </span><span class="si">%d</span><span class="s2"> potential BLAST hits for </span><span class="si">%s</span><span class="s2"> with evalue &lt;= </span><span class="si">%f</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">hits</span><span class="p">),</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                            <span class="n">maximum_evalue</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">blast_hits</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">hits</span><span class="p">)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Loaded </span><span class="si">%d</span><span class="s2"> BLAST hits for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">blast_hits</span><span class="p">),</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retrieved information from DB dictionary for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="find_overlapping_cds"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.find_overlapping_cds">[docs]</a><span class="k">def</span> <span class="nf">find_overlapping_cds</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">candidates</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper for the Abstractlocus method, used for finding overlapping ORFs.</span>
+<span class="sd">    It will pass to the function the class&#39;s &quot;is_overlapping_cds&quot; method</span>
+<span class="sd">    (which would be otherwise be inaccessible from the Abstractlocus class method).</span>
+<span class="sd">    As we are interested only in the communities, not the cliques,</span>
+<span class="sd">    this wrapper discards the cliques</span>
+<span class="sd">    (first element of the Abstractlocus.find_communities results)</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param candidates: candidate ORFs to analyse</span>
+<span class="sd">    :type candidates: list(Mikado.py.serializers.orf.Orf)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># If we are looking at a multiexonic transcript</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">corf</span> <span class="k">for</span> <span class="n">corf</span> <span class="ow">in</span> <span class="n">candidates</span> <span class="k">if</span> <span class="n">corf</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Prepare the minimal secondary length parameter</span>
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">minimal_secondary_orf_length</span> <span class="o">=</span> \
+            <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;orf_loading&quot;</span><span class="p">][</span><span class="s2">&quot;minimal_secondary_orf_length&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">minimal_secondary_orf_length</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;{0} input ORFs for {1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">),</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+    <span class="n">candidates</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">corf</span> <span class="k">for</span> <span class="n">corf</span> <span class="ow">in</span> <span class="n">candidates</span> <span class="k">if</span> <span class="n">corf</span><span class="o">.</span><span class="n">invalid</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;{0} filtered ORFs for {1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">),</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+
+    <span class="n">orf_dictionary</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">x</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">)</span>
+
+    <span class="c1"># First define the graph</span>
+    <span class="n">graph</span> <span class="o">=</span> <span class="n">define_graph</span><span class="p">(</span><span class="n">orf_dictionary</span><span class="p">,</span> <span class="n">inters</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">is_overlapping_cds</span><span class="p">)</span>
+    <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="n">find_candidate_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">graph</span><span class="p">,</span> <span class="n">orf_dictionary</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;{0} candidate retained ORFs for {1}: {2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="nb">len</span><span class="p">(</span><span class="n">candidate_orfs</span><span class="p">),</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+        <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">candidate_orfs</span><span class="p">]))</span>
+    <span class="n">final_orfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">candidate_orfs</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_orfs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="n">others</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">corf</span> <span class="k">for</span> <span class="n">corf</span> <span class="ow">in</span> <span class="n">candidate_orfs</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="k">if</span>
+                      <span class="n">corf</span><span class="o">.</span><span class="n">cds_len</span> <span class="o">&gt;=</span> <span class="n">minimal_secondary_orf_length</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found {0} secondary ORFs for {1} of length &gt;= {2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">others</span><span class="p">),</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="n">minimal_secondary_orf_length</span>
+        <span class="p">))</span>
+        <span class="n">final_orfs</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">others</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retained </span><span class="si">%d</span><span class="s2"> ORFs for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">final_orfs</span><span class="p">),</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                            <span class="p">[</span><span class="n">orf</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">final_orfs</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">final_orfs</span></div>
+
+
+<span class="k">def</span> <span class="nf">__create_internal_orf</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">orf</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Private method that calculates the assignment of the exons given the</span>
+<span class="sd">    coordinates of the transcriptomic ORF.</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param orf: candidate ORF to transform into an internal ORF</span>
+<span class="sd">    :type orf: mikado_lib.serializers.orf.Orf</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">cds_exons</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">current_start</span><span class="p">,</span> <span class="n">current_end</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">orf</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+        <span class="n">phase</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="c1"># We might decide to remove this check</span>
+        <span class="k">assert</span> <span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">True</span>
+        <span class="n">current_end</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">+</span> <span class="p">(</span><span class="n">orf</span><span class="o">.</span><span class="n">thick_start</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">current_start</span> <span class="o">=</span> <span class="n">current_end</span> <span class="o">+</span> <span class="n">orf</span><span class="o">.</span><span class="n">cds_len</span> <span class="o">-</span> <span class="mi">1</span>
+
+        <span class="k">assert</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;=</span> <span class="n">current_end</span> <span class="o">&lt;=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span>
+        <span class="k">assert</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">&lt;=</span> <span class="n">current_end</span> <span class="o">&lt;</span> <span class="n">current_start</span> <span class="o">&lt;=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="p">(</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">current_end</span><span class="p">,</span> <span class="n">current_start</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span>
+        <span class="p">)</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="n">current_start</span> <span class="o">-</span> <span class="n">current_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="p">(</span>
+            <span class="n">current_end</span><span class="p">,</span> <span class="n">current_start</span><span class="p">,</span>
+            <span class="n">current_start</span> <span class="o">-</span> <span class="n">current_end</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;exon&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="k">if</span> <span class="n">current_end</span> <span class="o">&gt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">:</span>
+            <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;UTR&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">current_end</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])))</span>
+        <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;CDS&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">current_end</span><span class="p">,</span> <span class="n">current_start</span><span class="p">]),</span> <span class="n">phase</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">current_start</span> <span class="o">&lt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;UTR&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">current_start</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">])))</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="s2">&quot;-&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+                           <span class="n">reverse</span><span class="o">=</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">)):</span>
+            <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;exon&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]])))</span>
+            <span class="n">current_start</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">current_end</span> <span class="o">+=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="c1"># Whole UTR</span>
+            <span class="k">if</span> <span class="n">current_end</span> <span class="o">&lt;</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_start</span> <span class="ow">or</span> <span class="n">current_start</span> <span class="o">&gt;</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_end</span><span class="p">:</span>
+                <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;UTR&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]])))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span><span class="p">:</span>
+                    <span class="n">c_start</span> <span class="o">=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_start</span> <span class="o">-</span> <span class="n">current_start</span><span class="p">)</span>
+                    <span class="n">c_end</span> <span class="o">=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">current_end</span> <span class="o">-</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_end</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">c_start</span> <span class="o">=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">current_end</span> <span class="o">-</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_end</span><span class="p">)</span>
+                    <span class="n">c_end</span> <span class="o">=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">orf</span><span class="o">.</span><span class="n">thick_start</span> <span class="o">-</span> <span class="n">current_start</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">c_start</span> <span class="o">&gt;</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                    <span class="n">u_end</span> <span class="o">=</span> <span class="n">c_start</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;UTR&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u_end</span><span class="p">])))</span>
+                <span class="k">if</span> <span class="n">c_start</span> <span class="o">&lt;=</span> <span class="n">c_end</span><span class="p">:</span>
+                    <span class="n">phase</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="p">(</span><span class="n">previous</span> <span class="o">%</span> <span class="mi">3</span><span class="p">))</span> <span class="o">%</span> <span class="mi">3</span>
+                    <span class="n">previous</span> <span class="o">+=</span> <span class="n">c_end</span> <span class="o">-</span> <span class="n">c_start</span> <span class="o">+</span> <span class="mi">1</span>
+                    <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;CDS&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">c_start</span><span class="p">,</span> <span class="n">c_end</span><span class="p">]),</span> <span class="n">phase</span><span class="p">))</span>
+                <span class="k">if</span> <span class="n">c_end</span> <span class="o">&lt;</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                    <span class="n">cds_exons</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;UTR&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">c_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]])))</span>
+            <span class="n">current_start</span> <span class="o">=</span> <span class="n">current_end</span>
+
+    <span class="k">return</span> <span class="n">cds_exons</span>
+
+
+<span class="k">def</span> <span class="nf">__load_verified_introns</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">data_dict</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">introns</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;This method will load verified junctions from the external</span>
+<span class="sd">    (usually the superlocus class).</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param data_dict: the dictionary with data to load</span>
+<span class="sd">    :type data_dict: (dict | None)</span>
+
+<span class="sd">    :param introns: verified introns</span>
+<span class="sd">    :type introns: (set | None)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking introns; candidates </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">data_dict</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking introns using the database for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">intron</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">:</span>
+            <span class="c1"># Disable checks as the hybridproperties confuse</span>
+            <span class="c1"># both pycharm and pylint</span>
+            <span class="c1"># noinspection PyCallByClass,PyTypeChecker</span>
+            <span class="c1"># pylint: disable=no-value-for-parameter</span>
+            <span class="c1"># chrom_id = self.session.query(Chrom).filter(Chrom.name == self.chrom).one().chrom_id</span>
+            <span class="c1"># import sqlalchemy</span>
+            <span class="k">for</span> <span class="n">ver_intron</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">Junction</span><span class="p">)</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">and_</span><span class="p">(</span>
+                    <span class="n">Junction</span><span class="o">.</span><span class="n">chrom</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span>
+                    <span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">Junction</span><span class="o">.</span><span class="n">junction_start</span><span class="p">,</span>
+                    <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">Junction</span><span class="o">.</span><span class="n">junction_end</span><span class="p">)):</span>
+                <span class="k">if</span> <span class="n">ver_intron</span><span class="o">.</span><span class="n">strand</span> <span class="ow">in</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span> <span class="bp">None</span><span class="p">):</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Verified intron </span><span class="si">%s%s</span><span class="s2">:</span><span class="si">%d</span><span class="s2">-</span><span class="si">%d</span><span class="s2"> for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                            <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">ver_intron</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span>
+                                            <span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">verified_introns</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">intron</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking introns using data structure for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">intron</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking intron </span><span class="si">%s%s</span><span class="s2">:</span><span class="si">%d</span><span class="s2">-</span><span class="si">%d</span><span class="s2"> for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                    <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span>
+                                    <span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span><span class="p">)</span> <span class="ow">in</span> <span class="n">introns</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Verified intron </span><span class="si">%s%s</span><span class="s2">:</span><span class="si">%d</span><span class="s2">-</span><span class="si">%d</span><span class="s2"> for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                        <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span><span class="p">,</span>
+                                        <span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">verified_introns</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">intron</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="bp">None</span><span class="p">)</span> <span class="ow">in</span> <span class="n">introns</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Verified intron </span><span class="si">%s%s</span><span class="s2">:</span><span class="si">%d</span><span class="s2">-</span><span class="si">%d</span><span class="s2"> for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                        <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="bp">None</span><span class="p">,</span>
+                                        <span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">verified_introns</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">intron</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found these introns for </span><span class="si">%s</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">verified_introns</span><span class="p">)</span>
+    <span class="k">return</span>
+
+
+<div class="viewcode-block" id="retrieve_orfs"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.retrieve_orfs">[docs]</a><span class="k">def</span> <span class="nf">retrieve_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;This method will look up the ORFs loaded inside the database.</span>
+<span class="sd">    During the selection, the function will also remove overlapping ORFs.</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># if self.query_id is None:</span>
+    <span class="c1">#     return []</span>
+
+    <span class="n">trust_strand</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;orf_loading&quot;</span><span class="p">][</span><span class="s2">&quot;strand_specific&quot;</span><span class="p">]</span>
+    <span class="n">min_cds_len</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;orf_loading&quot;</span><span class="p">][</span><span class="s2">&quot;minimal_orf_length&quot;</span><span class="p">]</span>
+
+    <span class="n">orf_results</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">orf_baked</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">params</span><span class="p">(</span><span class="n">query</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                                                                  <span class="n">cds_len</span><span class="o">=</span><span class="n">min_cds_len</span><span class="p">)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Retrieving ORFs from database for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="n">orf_results</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">)</span> <span class="ow">or</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">and</span> <span class="n">trust_strand</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">):</span>
+        <span class="c1"># Remove negative strand ORFs for multiexonic transcripts,</span>
+        <span class="c1"># or monoexonic strand-specific transcripts</span>
+        <span class="k">assert</span> <span class="n">orf_results</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+        <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">orf</span> <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">orf_results</span> <span class="k">if</span> <span class="n">orf</span><span class="o">.</span><span class="n">strand</span> <span class="o">!=</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="n">orf_results</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Found </span><span class="si">%d</span><span class="s2"> ORFs for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="nb">len</span><span class="p">(</span><span class="n">candidate_orfs</span><span class="p">),</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">candidate_orfs</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_orfs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">[]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">orf</span><span class="o">.</span><span class="n">as_bed12</span><span class="p">()</span> <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">candidate_orfs</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">orf</span> <span class="ow">in</span> <span class="n">result</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="n">orf</span><span class="o">.</span><span class="n">chrom</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="p">(</span><span class="n">orf</span><span class="o">.</span><span class="n">chrom</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="orf_sorter"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.orf_sorter">[docs]</a><span class="k">def</span> <span class="nf">orf_sorter</span><span class="p">(</span><span class="n">orf</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Sorting function for the ORFs.&quot;</span>
+
+<span class="sd">    :param orf: an ORF to sort</span>
+<span class="sd">    :type orf: mikado_lib.serializers.orf.Orf</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="p">((</span><span class="n">orf</span><span class="o">.</span><span class="n">has_start_codon</span> <span class="ow">and</span> <span class="n">orf</span><span class="o">.</span><span class="n">has_stop_codon</span><span class="p">),</span>
+            <span class="p">(</span><span class="n">orf</span><span class="o">.</span><span class="n">has_start_codon</span> <span class="ow">or</span> <span class="n">orf</span><span class="o">.</span><span class="n">has_stop_codon</span><span class="p">),</span>
+            <span class="n">orf</span><span class="o">.</span><span class="n">cds_len</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="find_candidate_orfs"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.retrieval.find_candidate_orfs">[docs]</a><span class="k">def</span> <span class="nf">find_candidate_orfs</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">graph</span><span class="p">,</span> <span class="n">orf_dictionary</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that returns the best non-overlapping ORFs</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param graph: The NetworkX graph to be analysed</span>
+<span class="sd">    :type graph: networkx.Graph</span>
+
+<span class="sd">    :param orf_dictionary: a dictionary which contains the orf indexed by name</span>
+<span class="sd">    :type orf_dictionary: dict</span>
+
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">cliques</span> <span class="o">=</span> <span class="n">find_cliques</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+        <span class="n">communities</span> <span class="o">=</span> <span class="n">find_communities</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+        <span class="n">clique_str</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">clique</span> <span class="ow">in</span> <span class="n">cliques</span><span class="p">:</span>
+            <span class="n">clique_str</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">([(</span><span class="n">orf_dictionary</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">thick_start</span><span class="p">,</span>
+                                    <span class="n">orf_dictionary</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">thick_end</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">clique</span><span class="p">]))</span>
+        <span class="n">comm_str</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">comm</span> <span class="ow">in</span> <span class="n">communities</span><span class="p">:</span>
+            <span class="n">comm_str</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">([(</span><span class="n">orf_dictionary</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">thick_start</span><span class="p">,</span>
+                                  <span class="n">orf_dictionary</span><span class="p">[</span><span class="n">x</span><span class="p">]</span><span class="o">.</span><span class="n">thick_end</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">comm</span><span class="p">]))</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;{0} communities for {1}:</span><span class="se">\n\t</span><span class="s2">{2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">communities</span><span class="p">),</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\n\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">comm_str</span><span class="p">)))</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;{0} cliques for {1}:</span><span class="se">\n\t</span><span class="s2">{2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="nb">len</span><span class="p">(</span><span class="n">cliques</span><span class="p">),</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+            <span class="s2">&quot;</span><span class="se">\n\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">clique_str</span><span class="p">)))</span>
+
+        <span class="n">to_remove</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">comm</span> <span class="ow">in</span> <span class="n">communities</span><span class="p">:</span>
+            <span class="n">comm</span> <span class="o">=</span> <span class="p">[</span><span class="n">orf_dictionary</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">comm</span><span class="p">]</span>
+            <span class="n">best_orf</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">comm</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">orf_sorter</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">candidate_orfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">best_orf</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">clique</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">cl</span> <span class="k">for</span> <span class="n">cl</span> <span class="ow">in</span> <span class="n">cliques</span> <span class="k">if</span> <span class="n">best_orf</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">cl</span><span class="p">):</span>
+                <span class="n">to_remove</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">clique</span><span class="p">)</span>
+        <span class="n">graph</span><span class="o">.</span><span class="n">remove_nodes_from</span><span class="p">(</span><span class="n">to_remove</span><span class="p">)</span>
+
+    <span class="n">candidate_orfs</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">candidate_orfs</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">orf_sorter</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">candidate_orfs</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

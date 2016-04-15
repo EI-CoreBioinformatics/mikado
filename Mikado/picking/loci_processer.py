@@ -327,7 +327,7 @@ def analyse_locus(slocus: Superlocus,
 
     """
     :param slocus: a superlocus instance
-    :type slocus: mikado_lib.loci_objects.superlocus.Superlocus
+    :type slocus: Mikado.loci_objects.superlocus.Superlocus
 
     :param counter: an integer which is used to create the proper name for the locus.
     :type counter: int

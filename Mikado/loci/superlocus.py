@@ -8,6 +8,11 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 
 # Core imports
 import collections
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 import networkx
 from sqlalchemy.engine import Engine
 from ..utilities import dbutils, grouper
@@ -131,7 +136,7 @@ class Superlocus(Abstractlocus):
         # Objects used during computation
         self.subloci = []
         self.locus_verified_introns = []
-        self.loci = collections.OrderedDict()
+        self.loci = SortedDict()
         self.sublocus_metrics = []
         self.monosubloci = []
         self.monoholders = []
@@ -570,8 +575,6 @@ class Superlocus(Abstractlocus):
                 #      "order by query_id, evalue asc;"]).format(
                 #     self.json_conf["pick"]["chimera_split"]["blast_params"]["evalue"],
                 #     self.json_conf["pick"]["chimera_split"]["blast_params"]["max_target_seqs"])))
-
-
                 #
                 # hits = self.hit_baked(self.session).params(
                 #     query_id=tid_id,
@@ -734,7 +737,7 @@ class Superlocus(Abstractlocus):
                     if neigh_first_corr[0][0] > current.start:
                         continue
                     neigh_last_corr = [_ for _ in neighbour.exons if
-                                        _[0] == sorted(current.exons)[-1][0]]
+                                       _[0] == sorted(current.exons)[-1][0]]
                     assert len(neigh_last_corr) == 1
                     if neigh_last_corr[0][1] < current.end:
                         continue
@@ -742,7 +745,7 @@ class Superlocus(Abstractlocus):
                     break
                 elif inters == neighbour.introns:
                     curr_first_corr = [_ for _ in current.exons if
-                                        _[1] == sorted(neighbour.exons)[0][1]]
+                                       _[1] == sorted(neighbour.exons)[0][1]]
                     assert len(curr_first_corr) == 1
                     if curr_first_corr[0][0] > neighbour.start:
                         continue
@@ -1052,7 +1055,7 @@ class Superlocus(Abstractlocus):
                           self.id, len(self.transcripts))
         self.calculate_mono_metrics()
 
-        self.loci = collections.OrderedDict()
+        self.loci = SortedDict()
         if len(self.monoholders) == 0:
             self.loci_defined = True
             return
@@ -1168,9 +1171,9 @@ class Superlocus(Abstractlocus):
         :rtype : bool
         :param transcript: a transcript for which we wish to verify
         whether it is intersecting with another transcript or not.
-        :type transcript: mikado_lib.loci_objects.transcript.Transcript
+        :type transcript: Mikado.loci_objects.transcript.Transcript
         :param other: the transcript which will be used for the comparison.
-        :type other: mikado_lib.loci_objects.transcript.Transcript
+        :type other: Mikado.loci_objects.transcript.Transcript
 
         :param cds_only: boolean flag. If enabled, only CDS exons/intron
         will be considered when deciding whether two transcripts are part

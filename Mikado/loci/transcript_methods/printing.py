@@ -23,7 +23,7 @@ def __create_cds_lines(transcript,
     Private method to create the exon/UTR/CDS lines for printing
     out in GTF/GFF format.
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
     :param cds_run: the internal orf run we are preparing
     :param tid: name of the transcript
     :param to_gtf: boolean, indicates whether the lines should be GTF or GFF
@@ -84,7 +84,7 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
     """
     Private method that creates an exon line for printing.
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param segment: a segment of the form (feature, start, end)
     :type segment: list(str, tuple)
@@ -165,7 +165,7 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
     Method to create the GTF/GFF lines for printing in the presence of CDS information.
     WARNING: at the moment, the phase support is disabled.
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
 
@@ -222,7 +222,7 @@ def create_lines_bed(transcript):
 
     """
     Method to create a BED12 object for printing
-    :param transcript: Mikado.py.loci.transcript.Transcript
+    :param transcript: Mikado.loci.transcript.Transcript
     :return:
     """
 
@@ -268,7 +268,7 @@ def __add_phase(transcript, exon_lines, first_phase=0):
        phase = 1
 
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param exon_lines:
     :return:
@@ -302,7 +302,7 @@ def __add_frame(transcript, exon_lines, first_phase=0):
     is aliased as "phase".
 
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param exon_lines:
     :return:
@@ -330,7 +330,7 @@ def create_lines_no_cds(transcript,
     Method to create the GTF/GFF lines for printing in the absence of CDS information.
 
     :param transcript: the Transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
     :type to_gtf: bool

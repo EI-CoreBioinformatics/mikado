@@ -1,0 +1,480 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.loci.transcript_methods package &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="mikado-loci-transcript-methods-package">
+<h1>Mikado.loci.transcript_methods package<a class="headerlink" href="#mikado-loci-transcript-methods-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-Mikado.loci.transcript_methods.finalizing">
+<span id="mikado-loci-transcript-methods-finalizing-module"></span><h2>Mikado.loci.transcript_methods.finalizing module<a class="headerlink" href="#module-Mikado.loci.transcript_methods.finalizing" title="Permalink to this headline">¶</a></h2>
+<p>This module provides the functions needed to check a transcript for consinstency,
+e.g. reliability of the CDS/UTR, sanity of borders, etc.</p>
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.finalizing.finalize">
+<code class="descclassname">Mikado.loci.transcript_methods.finalizing.</code><code class="descname">finalize</code><span class="sig-paren">(</span><em>transcript</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/finalizing.html#finalize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.finalizing.finalize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to calculate the internal introns from the exons.
+In the first step, it will sort the exons by their internal coordinates.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>transcript</strong> (<a class="reference internal" href="Mikado.loci.html#Mikado.loci.transcript.Transcript" title="Mikado.loci.transcript.Transcript"><em>Mikado.loci.transcript.Transcript</em></a>) &#8211; the Transcript instance to finalize.</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.loci.transcript_methods.printing">
+<span id="mikado-loci-transcript-methods-printing-module"></span><h2>Mikado.loci.transcript_methods.printing module<a class="headerlink" href="#module-Mikado.loci.transcript_methods.printing" title="Permalink to this headline">¶</a></h2>
+<p>This module contains the methods related to creating the proper output lines for printing
+GFFs/GTFs starting from the transcript class.</p>
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.printing.create_lines_bed">
+<code class="descclassname">Mikado.loci.transcript_methods.printing.</code><code class="descname">create_lines_bed</code><span class="sig-paren">(</span><em>transcript</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/printing.html#create_lines_bed"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.printing.create_lines_bed" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to create a BED12 object for printing
+:param transcript: Mikado.py.loci.transcript.Transcript
+:return:</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.printing.create_lines_cds">
+<code class="descclassname">Mikado.loci.transcript_methods.printing.</code><code class="descname">create_lines_cds</code><span class="sig-paren">(</span><em>transcript</em>, <em>to_gtf=False</em>, <em>with_introns=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/printing.html#create_lines_cds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.printing.create_lines_cds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to create the GTF/GFF lines for printing in the presence of CDS information.
+WARNING: at the moment, the phase support is disabled.
+:param transcript: the transcript instance
+:type transcript: mikado_lib.loci_objects.transcript.Transcript</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>to_gtf</strong> &#8211; boolean, it indicates whether the output is GTF (True) or GFF3 (False)</li>
+<li><strong>with_introns</strong> &#8211; boolean, if set to True, introns will be printed as well.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.printing.create_lines_no_cds">
+<code class="descclassname">Mikado.loci.transcript_methods.printing.</code><code class="descname">create_lines_no_cds</code><span class="sig-paren">(</span><em>transcript</em>, <em>to_gtf=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/printing.html#create_lines_no_cds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.printing.create_lines_no_cds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to create the GTF/GFF lines for printing in the absence of CDS information.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the Transcript instance</li>
+<li><strong>to_gtf</strong> (<em>bool</em>) &#8211; boolean, it indicates whether the output is GTF (True) or GFF3 (False)</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.loci.transcript_methods.retrieval">
+<span id="mikado-loci-transcript-methods-retrieval-module"></span><h2>Mikado.loci.transcript_methods.retrieval module<a class="headerlink" href="#module-Mikado.loci.transcript_methods.retrieval" title="Permalink to this headline">¶</a></h2>
+<p>This module contains the methods used by the Transcript class to retrieve information
+from the database/dictionary provided during the pick operation.</p>
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.check_loaded_orfs">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">check_loaded_orfs</code><span class="sig-paren">(</span><em>transcript</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#check_loaded_orfs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.check_loaded_orfs" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function verifies the ORF status after
+loading from an external data structure/database.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the transcript instance</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.find_candidate_orfs">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">find_candidate_orfs</code><span class="sig-paren">(</span><em>transcript</em>, <em>graph</em>, <em>orf_dictionary</em><span class="sig-paren">)</span> &rarr; list<a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#find_candidate_orfs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.find_candidate_orfs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function that returns the best non-overlapping ORFs</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the Transcript instance</li>
+<li><strong>graph</strong> (<em>networkx.Graph</em>) &#8211; The NetworkX graph to be analysed</li>
+<li><strong>orf_dictionary</strong> (<em>dict</em>) &#8211; a dictionary which contains the orf indexed by name</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.find_overlapping_cds">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">find_overlapping_cds</code><span class="sig-paren">(</span><em>transcript</em>, <em>candidates: list</em><span class="sig-paren">)</span> &rarr; list<a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#find_overlapping_cds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.find_overlapping_cds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper for the Abstractlocus method, used for finding overlapping ORFs.
+It will pass to the function the class&#8217;s &#8220;is_overlapping_cds&#8221; method
+(which would be otherwise be inaccessible from the Abstractlocus class method).
+As we are interested only in the communities, not the cliques,
+this wrapper discards the cliques
+(first element of the Abstractlocus.find_communities results)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the Transcript instance</li>
+<li><strong>candidates</strong> (<em>list(Mikado.py.serializers.orf.Orf)</em>) &#8211; candidate ORFs to analyse</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.load_information_from_db">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">load_information_from_db</code><span class="sig-paren">(</span><em>transcript</em>, <em>json_conf</em>, <em>introns=None</em>, <em>session=None</em>, <em>data_dict=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#load_information_from_db"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.load_information_from_db" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method will invoke the check for:</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the Transcript instance</li>
+<li><strong>json_conf</strong> (<em>dict</em>) &#8211; Necessary configuration file</li>
+<li><strong>introns</strong> (<em>None,set</em>) &#8211; the verified introns in the Locus</li>
+<li><strong>session</strong> (<em>sqlalchemy.orm.session</em>) &#8211; an SQLAlchemy session</li>
+<li><strong>data_dict</strong> (<em>dict</em>) &#8211; a dictionary containing the information directly</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>Verified introns can be provided from outside using the keyword.
+Otherwise, they will be extracted from the database directly.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.load_orfs">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">load_orfs</code><span class="sig-paren">(</span><em>transcript</em>, <em>candidate_orfs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#load_orfs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.load_orfs" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the Transcript instance</li>
+<li><strong>candidate_orfs</strong> (<em>list[Mikado.py.parsers.serializers.orf.Orf</em>) &#8211; The ORFs to be inspected for loading.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>This method replicates what is done internally by the
+&#8220;cdna_alignment_orf_to_genome_orf.pl&#8221;
+utility in the TransDecoder suite. It takes as argument &#8220;candidate_orfs&#8221;
+i.e. a list of BED12 serialised objects.
+The method expects as argument a dictionary containing BED entries,
+and indexed by the transcript name. The indexed name <em>must</em> equal the
+&#8220;id&#8221; property, otherwise the method returns immediately.
+If no entry is found for the transcript, the method exits immediately.
+Otherwise, any CDS information present in the original GFF/GTF
+file is completely overwritten.
+Briefly, it follows this logic:
+- Finalise the transcript
+- Retrieve from the dictionary (input) the CDS object
+- Sort in decreasing order the CDSs on the basis of:</p>
+<blockquote>
+<div><ul class="simple">
+<li>Presence of start/stop codon</li>
+<li>CDS length (useful for monoexonic transcripts where we might want to set the strand)</li>
+</ul>
+</div></blockquote>
+<ul>
+<li><dl class="first docutils">
+<dt>For each CDS:</dt>
+<dd><ul class="first last">
+<li><dl class="first docutils">
+<dt>If the ORF is on the + strand:</dt>
+<dd><ul class="first last simple">
+<li>all good</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>If the ORF is on the - strand:</dt>
+<dd><ul class="first last simple">
+<li>if the transcript is monoexonic: invert its genomic strand</li>
+<li>if the transcript is multiexonic: skip</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">Start looking at the exons</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.orf_sorter">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">orf_sorter</code><span class="sig-paren">(</span><em>orf</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#orf_sorter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.orf_sorter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sorting function for the ORFs.&#8221;</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>orf</strong> (<em>mikado_lib.serializers.orf.Orf</em>) &#8211; an ORF to sort</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.retrieve_from_dict">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">retrieve_from_dict</code><span class="sig-paren">(</span><em>transcript</em>, <em>data_dict</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#retrieve_from_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.retrieve_from_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to retrieve transcript data directly from a dictionary.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the Transcript instance</li>
+<li><strong>data_dict</strong> (<em>(None | dict)</em>) &#8211; the dictionary with loaded data from DB</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.retrieval.retrieve_orfs">
+<code class="descclassname">Mikado.loci.transcript_methods.retrieval.</code><code class="descname">retrieve_orfs</code><span class="sig-paren">(</span><em>transcript</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/retrieval.html#retrieve_orfs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.retrieval.retrieve_orfs" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method will look up the ORFs loaded inside the database.
+During the selection, the function will also remove overlapping ORFs.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the Transcript instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.loci.transcript_methods.splitting">
+<span id="mikado-loci-transcript-methods-splitting-module"></span><h2>Mikado.loci.transcript_methods.splitting module<a class="headerlink" href="#module-Mikado.loci.transcript_methods.splitting" title="Permalink to this headline">¶</a></h2>
+<p>This module contains the methods used by the Transcript class to split an instance into
+multiple transcripts, if the conditions are met (multiple ORFs present and BLAST not
+supporting them being part of the same transcript).</p>
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.splitting.check_common_hits">
+<code class="descclassname">Mikado.loci.transcript_methods.splitting.</code><code class="descname">check_common_hits</code><span class="sig-paren">(</span><em>transcript</em>, <em>cds_hits</em>, <em>old_hits</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/splitting.html#check_common_hits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.splitting.check_common_hits" title="Permalink to this definition">¶</a></dt>
+<dd><p>This private method verifies whether we have to split a transcript
+if there are hits for both ORFs and some of them refer to the same target.
+To do so, we check whether the two CDS runs actually share at least one HSPs
+(in which case we do NOT want to split); if not, we verify whether the HSPs
+cover a large fraction of the target length. If this is the case, we decide to
+break down the transcript because we are probably in the presence of a tandem
+duplication.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the transcript instance to analyse</li>
+<li><strong>cds_hits</strong> &#8211; </li>
+<li><strong>old_hits</strong> &#8211; </li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.splitting.check_split_by_blast">
+<code class="descclassname">Mikado.loci.transcript_methods.splitting.</code><code class="descname">check_split_by_blast</code><span class="sig-paren">(</span><em>transcript</em>, <em>cds_boundaries</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/splitting.html#check_split_by_blast"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.splitting.check_split_by_blast" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method verifies if a transcript with multiple ORFs has support by BLAST to
+NOT split it into its different components.</p>
+<dl class="docutils">
+<dt>The minimal overlap between ORF and HSP is defined inside the JSON at the key</dt>
+<dd>[&#8220;chimera_split&#8221;][&#8220;blast_params&#8221;][&#8220;minimal_hsp_overlap&#8221;]</dd>
+</dl>
+<p>basically, we consider a HSP a hit only if the overlap is over a certain threshold
+and the HSP evalue under a certain threshold.</p>
+<p>The split by CDS can be executed in three different ways - PERMISSIVE, LENIENT, STRINGENT:</p>
+<ul class="simple">
+<li>PERMISSIVE: split if two CDSs do not have hits in common,</li>
+</ul>
+<p>even when one or both do not have a hit at all.
+- STRINGENT: split only if two CDSs have hits and none
+of those is in common between them.
+- LENIENT: split if <em>both</em> lack hits, OR <em>both</em> have hits and none
+of those is in common.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the transcript instance</li>
+<li><strong>cds_boundaries</strong> &#8211; </li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first">cds_boundaries</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last">dict</p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.loci.transcript_methods.splitting.split_by_cds">
+<code class="descclassname">Mikado.loci.transcript_methods.splitting.</code><code class="descname">split_by_cds</code><span class="sig-paren">(</span><em>transcript</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/loci/transcript_methods/splitting.html#split_by_cds"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.loci.transcript_methods.splitting.split_by_cds" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method is used for transcripts that have multiple ORFs.
+It will split them according to the CDS information into multiple transcripts.
+UTR information will be retained only if no ORF is down/upstream.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>transcript</strong> (<em>mikado_lib.loci_objects.transcript.Transcript</em>) &#8211; the transcript instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.loci.transcript_methods">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-Mikado.loci.transcript_methods" title="Permalink to this headline">¶</a></h2>
+<p>This package contains the modules with the private methods employed by the Transcript class.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Mikado.loci.transcript_methods package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-Mikado.loci.transcript_methods.finalizing">Mikado.loci.transcript_methods.finalizing module</a></li>
+<li><a class="reference internal" href="#module-Mikado.loci.transcript_methods.printing">Mikado.loci.transcript_methods.printing module</a></li>
+<li><a class="reference internal" href="#module-Mikado.loci.transcript_methods.retrieval">Mikado.loci.transcript_methods.retrieval module</a></li>
+<li><a class="reference internal" href="#module-Mikado.loci.transcript_methods.splitting">Mikado.loci.transcript_methods.splitting module</a></li>
+<li><a class="reference internal" href="#module-Mikado.loci.transcript_methods">Module contents</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/Mikado.loci.transcript_methods.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+      |
+      <a href="_sources/Mikado.loci.transcript_methods.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

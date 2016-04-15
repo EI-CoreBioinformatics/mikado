@@ -40,7 +40,7 @@ class TranscriptChecker(Transcript):
         Constructor method. It inherits from Transcript, with some modifications.
 
         :param gffline: annotation line to begin the construction.
-        :type gffline: (mikado_lib.parsers.gfannotation.GFAnnotation|Transcript)
+        :type gffline: (Mikado.parsers.gfannotation.GFAnnotation|Transcript)
 
         :param seq: a SeqIO indexed FASTA file
 

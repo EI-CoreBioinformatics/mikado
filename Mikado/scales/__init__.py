@@ -38,6 +38,7 @@ from .f1 import calc_f1
 # noinspection PyPep8
 from . import accountant
 # noinspection PyPep8
+from . import intervaltree
 from . import assigner
 from . import compare
 from .assigner import Assigner

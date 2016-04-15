@@ -1,0 +1,286 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.utilities package &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="mikado-utilities-package">
+<h1>Mikado.utilities package<a class="headerlink" href="#mikado-utilities-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-Mikado.utilities.dbutils">
+<span id="mikado-utilities-dbutils-module"></span><h2>Mikado.utilities.dbutils module<a class="headerlink" href="#module-Mikado.utilities.dbutils" title="Permalink to this headline">¶</a></h2>
+<p>This initializer contains the base declaration for all the DB classes of the module.</p>
+<dl class="function">
+<dt id="Mikado.utilities.dbutils.connect">
+<code class="descclassname">Mikado.utilities.dbutils.</code><code class="descname">connect</code><span class="sig-paren">(</span><em>json_conf</em>, <em>logger=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities/dbutils.html#connect"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.dbutils.connect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to create an engine to connect to a DB with, using the
+configuration inside the provided json_conf.
+:param json_conf:
+:param logger:
+:return: sqlalchemy.engine.base.Engine</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.utilities.dbutils.create_connector">
+<code class="descclassname">Mikado.utilities.dbutils.</code><code class="descname">create_connector</code><span class="sig-paren">(</span><em>json_conf</em>, <em>logger=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities/dbutils.html#create_connector"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.dbutils.create_connector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creator function for the database connection. It necessitates the following information from
+the json_conf dictionary:</p>
+<ul class="simple">
+<li>dbtype (one of sqlite, mysql, postgresql)</li>
+<li>db (name of the database file, for sqlite, otherwise name of the database)</li>
+</ul>
+<p>If the database is MySQL/PostGreSQL, the method also requires:</p>
+<ul class="simple">
+<li>dbuser</li>
+<li>dbhost</li>
+<li>dbpasswd</li>
+<li>dbport</li>
+</ul>
+<p>These are controlled and added automatically by the json_utils functions.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>json_conf</strong> (<em>dict</em>) &#8211; configuration dictionary</li>
+<li><strong>logger</strong> (<em>logging.Logger</em>) &#8211; a logger instance</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>:rtype : MySQLdb.connect | sqlite3.connect | psycopg2.connect</p>
+</dd></dl>
+
+</div>
+<div class="section" id="mikado-utilities-intersection-module">
+<h2>Mikado.utilities.intersection module<a class="headerlink" href="#mikado-utilities-intersection-module" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-Mikado.utilities.log_utils">
+<span id="mikado-utilities-log-utils-module"></span><h2>Mikado.utilities.log_utils module<a class="headerlink" href="#module-Mikado.utilities.log_utils" title="Permalink to this headline">¶</a></h2>
+<p>Module which contains all functions related to logging.</p>
+<dl class="function">
+<dt id="Mikado.utilities.log_utils.check_logger">
+<code class="descclassname">Mikado.utilities.log_utils.</code><code class="descname">check_logger</code><span class="sig-paren">(</span><em>logger</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities/log_utils.html#check_logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.log_utils.check_logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Quick function to verify that a logger is really a logger,
+otherwise it raises a ValueError.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>logger</strong> (<em>logging.Logger</em>) &#8211; the logger instance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.utilities.log_utils.create_default_logger">
+<code class="descclassname">Mikado.utilities.log_utils.</code><code class="descname">create_default_logger</code><span class="sig-paren">(</span><em>name</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities/log_utils.html#create_default_logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.log_utils.create_default_logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Default logger
+:param name: string used to give a name to the logger.
+:type name: str</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.utilities.log_utils.create_null_logger">
+<code class="descclassname">Mikado.utilities.log_utils.</code><code class="descname">create_null_logger</code><span class="sig-paren">(</span><em>instance</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities/log_utils.html#create_null_logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.log_utils.create_null_logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Static method to create a default logging instance for the loci.
+The default is a null handler (no log)</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>instance</strong> &#8211; the instance used to derive a name for the logger. It must be either a string</td>
+</tr>
+</tbody>
+</table>
+<p>or a class instance with a __name__ attribute.</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.utilities.log_utils.create_queue_logger">
+<code class="descclassname">Mikado.utilities.log_utils.</code><code class="descname">create_queue_logger</code><span class="sig-paren">(</span><em>instance</em>, <em>prefix=''</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities/log_utils.html#create_queue_logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.log_utils.create_queue_logger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.utilities.overlap">
+<span id="mikado-utilities-overlap-module"></span><h2>Mikado.utilities.overlap module<a class="headerlink" href="#module-Mikado.utilities.overlap" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="Mikado.utilities.overlap.overlap">
+<code class="descclassname">Mikado.utilities.overlap.</code><code class="descname">overlap</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Mikado.utilities.overlap.overlap" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function quickly computes the overlap between two
+ranges, with an optional flank.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.utilities">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-Mikado.utilities" title="Permalink to this headline">¶</a></h2>
+<p>This module contains basic utilities for the suite, like e.g. database connection
+and log creation.</p>
+<dl class="function">
+<dt id="Mikado.utilities.grouper">
+<code class="descclassname">Mikado.utilities.</code><code class="descname">grouper</code><span class="sig-paren">(</span><em>iterable</em>, <em>n</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities.html#grouper"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.grouper" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to chunk an iterable into slices of at most n elements.
+:param iterable:
+:param n:
+:return:</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.utilities.memoize">
+<code class="descclassname">Mikado.utilities.</code><code class="descname">memoize</code><span class="sig-paren">(</span><em>obj</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities.html#memoize"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.memoize" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to memorize the results of functions/properties in memory for fast access.
+Source: <a class="reference external" href="https://wiki.python.org/moin/PythonDecoratorLibrary#Memoize">https://wiki.python.org/moin/PythonDecoratorLibrary#Memoize</a></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>obj</strong> &#8211; the object/function to memoize</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.utilities.merge_partial">
+<code class="descclassname">Mikado.utilities.</code><code class="descname">merge_partial</code><span class="sig-paren">(</span><em>filenames</em>, <em>handle</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities.html#merge_partial"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.merge_partial" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function merges the partial files created by the multiprocessing into a single
+sorted file.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>filenames</strong> (<em>list[str]</em>) &#8211; the filenames to merge into the handle</li>
+<li><strong>handle</strong> (<em>io.TextIOWrapper</em>) &#8211; the handle to use for printing</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.utilities.path_join">
+<code class="descclassname">Mikado.utilities.</code><code class="descname">path_join</code><span class="sig-paren">(</span><em>output_dir</em>, <em>output_file</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/utilities.html#path_join"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.utilities.path_join" title="Permalink to this definition">¶</a></dt>
+<dd><p>Small utility to join together a directory path and
+an output file, checking first that the output file is not
+an absolute path.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>output_dir</strong> &#8211; the output directory</li>
+<li><strong>output_file</strong> &#8211; the output file</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Mikado.utilities package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-Mikado.utilities.dbutils">Mikado.utilities.dbutils module</a></li>
+<li><a class="reference internal" href="#mikado-utilities-intersection-module">Mikado.utilities.intersection module</a></li>
+<li><a class="reference internal" href="#module-Mikado.utilities.log_utils">Mikado.utilities.log_utils module</a></li>
+<li><a class="reference internal" href="#module-Mikado.utilities.overlap">Mikado.utilities.overlap module</a></li>
+<li><a class="reference internal" href="#module-Mikado.utilities">Module contents</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/Mikado.utilities.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+      |
+      <a href="_sources/Mikado.utilities.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

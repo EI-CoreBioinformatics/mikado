@@ -1,0 +1,647 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.parsers.blast_utils &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Mikado.parsers" href="../parsers.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.parsers.blast_utils</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains generic-purpose utilities to deal with BLAST XML files.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">subprocess</span>
+<span class="kn">import</span> <span class="nn">gzip</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+<span class="kn">import</span> <span class="nn">io</span>
+<span class="kn">import</span> <span class="nn">collections</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">queue</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">HeaderError</span>
+<span class="kn">from</span> <span class="nn">..utilities.log_utils</span> <span class="kn">import</span> <span class="n">create_null_logger</span>
+<span class="kn">from</span> <span class="nn">Bio.Blast.NCBIXML</span> <span class="kn">import</span> <span class="n">parse</span> <span class="k">as</span> <span class="n">xparser</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="BlastOpener"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.BlastOpener">[docs]</a><span class="k">class</span> <span class="nc">BlastOpener</span><span class="p">:</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span> <span class="o">=</span> <span class="n">filename</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__closed</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__opened</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__enter__</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__create_handle</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__closed</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;I/O operation on closed file.&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__opened</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">,</span> <span class="p">(</span><span class="n">gzip</span><span class="o">.</span><span class="n">GzipFile</span><span class="p">,</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">)):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="s2">&quot;Non-existent file: {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.gz&quot;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.xml.gz&quot;</span><span class="p">):</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="o">=</span> <span class="n">gzip</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">,</span> <span class="s2">&quot;rt&quot;</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.asn.gz&quot;</span><span class="p">):</span>
+                    <span class="c1"># I cannot seem to make it work with gzip.open</span>
+                    <span class="n">zcat</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">([</span><span class="s2">&quot;zcat&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">],</span> <span class="n">shell</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                                            <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+                    <span class="n">blast_formatter</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+                        <span class="p">[</span><span class="s1">&#39;blast_formatter&#39;</span><span class="p">,</span> <span class="s1">&#39;-outfmt&#39;</span><span class="p">,</span> <span class="s1">&#39;5&#39;</span><span class="p">,</span> <span class="s1">&#39;-archive&#39;</span><span class="p">,</span> <span class="s1">&#39;-&#39;</span><span class="p">],</span>
+                        <span class="n">shell</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">stdin</span><span class="o">=</span><span class="n">zcat</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="n">blast_formatter</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.xml&quot;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">)</span>
+                <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.asn&quot;</span><span class="p">):</span>
+                <span class="n">blast_formatter</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span>
+                    <span class="p">[</span><span class="s1">&#39;blast_formatter&#39;</span><span class="p">,</span> <span class="s1">&#39;-outfmt&#39;</span><span class="p">,</span> <span class="s1">&#39;5&#39;</span><span class="p">,</span> <span class="s1">&#39;-archive&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">],</span>
+                    <span class="n">shell</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">TextIOWrapper</span><span class="p">(</span><span class="n">blast_formatter</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">&quot;UTF-8&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Unrecognized file format: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__opened</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span>
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__create_handle</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">parser</span> <span class="o">=</span> <span class="n">xparser</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__handle</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+<div class="viewcode-block" id="BlastOpener.open"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.BlastOpener.open">[docs]</a>    <span class="k">def</span> <span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__enter__</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__closed</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__closed</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__opened</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid handle&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parser</span><span class="p">)</span>
+
+<div class="viewcode-block" id="BlastOpener.close"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.BlastOpener.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__exit__</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="BlastOpener.read"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.BlastOpener.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__handle</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="BlastOpener.sniff"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.BlastOpener.sniff">[docs]</a>    <span class="k">def</span> <span class="nf">sniff</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">default_header</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method that either derives the default XML header for the instance (if undefined)</span>
+<span class="sd">        or checks that the given file is compatible with it.</span>
+<span class="sd">        :param default_header: optional default header to check for consistency</span>
+<span class="sd">        :return: boolean (passed or not passed)</span>
+<span class="sd">        :rtype: (bool, list, str)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">__opened</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__closed</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">__opened</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__create_handle</span><span class="p">()</span>
+
+        <span class="n">header</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">exc</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">valid</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># assert handle is not None</span>
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__handle</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+                <span class="c1"># Hack for empty files</span>
+                <span class="n">valid</span> <span class="o">=</span> <span class="bp">False</span>
+                <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;Invalid header for {0}:</span><span class="se">\n\n</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">,</span>
+                    <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+                <span class="p">))</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="s2">&quot;&lt;Iteration&gt;&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
+                <span class="n">valid</span> <span class="o">=</span> <span class="bp">False</span>
+                <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;Invalid header for {0}:</span><span class="se">\n\n</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">,</span>
+                    <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+                <span class="p">))</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">header</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="o">**</span><span class="mi">3</span><span class="p">:</span>
+                <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;Abnormally long header ({0}) for {1}:</span><span class="se">\n\n</span><span class="s2">{2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="nb">len</span><span class="p">(</span><span class="n">header</span><span class="p">),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">,</span>
+                    <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+                <span class="p">))</span>
+                <span class="k">break</span>
+            <span class="n">header</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">True</span> <span class="k">if</span> <span class="s2">&quot;BlastOutput&quot;</span> <span class="ow">in</span> <span class="n">x</span> <span class="k">else</span> <span class="bp">False</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">header</span><span class="p">)):</span>
+            <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;Invalid header for {0}:</span><span class="se">\n\n</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header</span><span class="p">)))</span>
+
+        <span class="k">if</span> <span class="n">default_header</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">exc</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="n">checker</span> <span class="o">=</span> <span class="p">[</span><span class="n">header_line</span> <span class="k">for</span> <span class="n">header_line</span> <span class="ow">in</span> <span class="n">header</span> <span class="k">if</span>
+                           <span class="s2">&quot;BlastOutput_query&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">header_line</span><span class="p">]</span>
+                <span class="n">previous_header</span> <span class="o">=</span> <span class="p">[</span><span class="n">header_line</span> <span class="k">for</span> <span class="n">header_line</span> <span class="ow">in</span> <span class="n">default_header</span> <span class="k">if</span>
+                                   <span class="s2">&quot;BlastOutput_query&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">header_line</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">checker</span> <span class="o">!=</span> <span class="n">previous_header</span><span class="p">:</span>
+                    <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;BLAST XML header does not match for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">__filename</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="n">exc</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">default_header</span> <span class="o">=</span> <span class="n">header</span>
+
+        <span class="k">if</span> <span class="n">exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">valid</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="k">return</span> <span class="n">valid</span><span class="p">,</span> <span class="n">default_header</span><span class="p">,</span> <span class="n">exc</span></div></div>
+
+<span class="c1"># def create_opener(filename):</span>
+<span class="c1">#</span>
+<span class="c1">#     &quot;&quot;&quot;</span>
+<span class="c1">#     Function to create the appropriate opener for a BLAST file.</span>
+<span class="c1">#     If a handle is given instead of a filename, the function returns the input immediately.</span>
+<span class="c1">#</span>
+<span class="c1">#     :param filename: the name of the filename to use.</span>
+<span class="c1">#     :return:</span>
+<span class="c1">#     &quot;&quot;&quot;</span>
+<span class="c1">#</span>
+<span class="c1">#     if isinstance(filename, (gzip.GzipFile, io.TextIOWrapper)):</span>
+<span class="c1">#         return filename</span>
+<span class="c1">#     elif not isinstance(filename, str) or not os.path.exists(filename):</span>
+<span class="c1">#         raise OSError(&quot;Non-existent file: {0}&quot;.format(filename))</span>
+<span class="c1">#</span>
+<span class="c1">#     if filename.endswith(&quot;.gz&quot;):</span>
+<span class="c1">#         if filename.endswith(&quot;.xml.gz&quot;):</span>
+<span class="c1">#             return gzip.open(filename, &quot;rt&quot;)</span>
+<span class="c1">#         elif filename.endswith(&quot;.asn.gz&quot;):</span>
+<span class="c1">#             # I cannot seem to make it work with gzip.open</span>
+<span class="c1">#             zcat = subprocess.Popen([&quot;zcat&quot;, filename], shell=False,</span>
+<span class="c1">#                                     stdout=subprocess.PIPE)</span>
+<span class="c1">#             blast_formatter = subprocess.Popen(</span>
+<span class="c1">#                 [&#39;blast_formatter&#39;, &#39;-outfmt&#39;, &#39;5&#39;, &#39;-archive&#39;, &#39;-&#39;],</span>
+<span class="c1">#                 shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)</span>
+<span class="c1">#             return io.TextIOWrapper(blast_formatter.stdout, encoding=&quot;UTF-8&quot;)</span>
+<span class="c1">#     elif filename.endswith(&quot;.xml&quot;):</span>
+<span class="c1">#         return open(filename)</span>
+<span class="c1">#     elif filename.endswith(&quot;.asn&quot;):</span>
+<span class="c1">#         blast_formatter = subprocess.Popen(</span>
+<span class="c1">#             [&#39;blast_formatter&#39;, &#39;-outfmt&#39;, &#39;5&#39;, &#39;-archive&#39;, filename],</span>
+<span class="c1">#             shell=False, stdout=subprocess.PIPE)</span>
+<span class="c1">#         return io.TextIOWrapper(blast_formatter.stdout, encoding=&quot;UTF-8&quot;)</span>
+<span class="c1">#     else:</span>
+<span class="c1">#         raise ValueError(&quot;Unrecognized file format: %s&quot;, filename)</span>
+
+
+<div class="viewcode-block" id="check_beginning"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.check_beginning">[docs]</a><span class="k">def</span> <span class="nf">check_beginning</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">previous_header</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Static method to check that the beginning of the XML file is actually correct.</span>
+
+<span class="sd">    :param handle: handle to the file to check.</span>
+<span class="sd">    :param filename: name of the file associated with the handle.</span>
+<span class="sd">    :type filename: str</span>
+
+<span class="sd">    :param previous_header: header found in previous file(s).</span>
+<span class="sd">    It is used the parameter used for the consinstency check.</span>
+<span class="sd">    :type previous_header: (None | list)</span>
+
+<span class="sd">    :return</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">exc</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">header</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">first_line</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+        <span class="n">first_line</span> <span class="o">=</span> <span class="n">first_line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">first_line</span> <span class="o">!=</span> <span class="s1">&#39;&lt;?xml version=&quot;1.0&quot;?&gt;&#39;</span><span class="p">:</span>
+            <span class="n">exc</span> <span class="o">=</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid header for {0}!</span><span class="se">\n\t</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">first_line</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">exc</span>
+        <span class="n">second_line</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+        <span class="n">second_line</span> <span class="o">=</span> <span class="n">second_line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="n">valid_schemas</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="s1">&#39;&lt;!DOCTYPE BlastOutput PUBLIC &quot;-//NCBI//NCBI BlastOutput/EN&quot;&#39;</span><span class="p">,</span>
+                      <span class="s1">&#39;&quot;http://www.ncbi.nlm.nih.gov/dtd/NCBI_BlastOutput.dtd&quot;&gt;&#39;</span><span class="p">]),</span>
+            <span class="s1">&#39;&lt;!DOCTYPE BlastOutput PUBLIC &quot;-//NCBI//NCBI BlastOutput/EN&quot; &quot;NCBI_BlastOutput.dtd&quot;&gt;&#39;</span>
+        <span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">second_line</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_schemas</span><span class="p">:</span>
+            <span class="n">exc</span> <span class="o">=</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid XML type for {0}!</span><span class="se">\n\t</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">second_line</span><span class="p">))</span>
+            <span class="k">raise</span> <span class="n">exc</span>
+        <span class="n">header</span> <span class="o">=</span> <span class="p">[</span><span class="n">first_line</span><span class="p">,</span> <span class="n">second_line</span><span class="p">]</span>
+    <span class="k">except</span> <span class="ne">StopIteration</span><span class="p">:</span>
+        <span class="n">exc</span> <span class="o">=</span> <span class="ne">OSError</span><span class="p">(</span><span class="s2">&quot;Empty file: {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    <span class="k">if</span> <span class="n">exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">handle</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">exc</span>
+
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">handle</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;&lt;Iteration&gt;&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+            <span class="k">break</span>
+        <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
+            <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;Invalid header for {0}:</span><span class="se">\n\n</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">filename</span><span class="p">,</span>
+                <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+            <span class="p">))</span>
+            <span class="k">break</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">header</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="o">**</span><span class="mi">3</span><span class="p">:</span>
+            <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;Abnormally long header ({0}) for {1}:</span><span class="se">\n\n</span><span class="s2">{2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="nb">len</span><span class="p">(</span><span class="n">header</span><span class="p">),</span>
+                <span class="n">filename</span><span class="p">,</span>
+                <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header</span><span class="p">)</span>
+            <span class="p">))</span>
+            <span class="k">break</span>
+        <span class="n">header</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="bp">True</span> <span class="k">if</span> <span class="s2">&quot;BlastOutput&quot;</span> <span class="ow">in</span> <span class="n">x</span> <span class="k">else</span> <span class="bp">False</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">header</span><span class="p">)):</span>
+        <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;Invalid header for {0}:</span><span class="se">\n\n</span><span class="s2">{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">header</span><span class="p">)))</span>
+
+    <span class="k">if</span> <span class="n">previous_header</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">checker</span> <span class="o">=</span> <span class="p">[</span><span class="n">header_line</span> <span class="k">for</span> <span class="n">header_line</span> <span class="ow">in</span> <span class="n">header</span> <span class="k">if</span>
+                   <span class="s2">&quot;BlastOutput_query&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">header_line</span><span class="p">]</span>
+        <span class="n">previous_header</span> <span class="o">=</span> <span class="p">[</span><span class="n">header_line</span> <span class="k">for</span> <span class="n">header_line</span> <span class="ow">in</span> <span class="n">previous_header</span> <span class="k">if</span>
+                           <span class="s2">&quot;BlastOutput_query&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">header_line</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">checker</span> <span class="o">!=</span> <span class="n">previous_header</span><span class="p">:</span>
+            <span class="n">exc</span> <span class="o">=</span> <span class="n">HeaderError</span><span class="p">(</span><span class="s2">&quot;BLAST XML header does not match for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">filename</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">handle</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">exc</span></div>
+
+
+<div class="viewcode-block" id="merge"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.merge">[docs]</a><span class="k">def</span> <span class="nf">merge</span><span class="p">(</span><span class="n">intervals</span><span class="p">:</span> <span class="p">[(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">)]):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function is used to merge together intervals, which have to be supplied as a list</span>
+<span class="sd">    of duplexes - (start,stop). The function will then merge together overlapping tuples and</span>
+<span class="sd">    return a list of non-overlapping tuples.</span>
+<span class="sd">    If the list is composed by only one element, the function returns immediately.</span>
+<span class="sd">    :param intervals: a list of integer duplexes</span>
+<span class="sd">    :type intervals: list</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Assume tuple of the form (start,end)</span>
+    <span class="c1"># And return 0- and 1-length intervals</span>
+    <span class="n">new_intervals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">interval</span> <span class="ow">in</span> <span class="n">intervals</span><span class="p">:</span>
+        <span class="n">new_intervals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">interval</span><span class="p">)))</span>
+
+    <span class="n">intervals</span> <span class="o">=</span> <span class="n">new_intervals</span><span class="p">[:]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">intervals</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">intervals</span>
+
+    <span class="c1"># Sort according to start, end</span>
+    <span class="n">intervals</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">intervals</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">final_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">intervals</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+
+    <span class="k">for</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="ow">in</span> <span class="n">intervals</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="k">if</span> <span class="n">start</span> <span class="o">&gt;</span> <span class="n">final_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">final_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="n">final_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="n">final_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">final_list</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">end</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">final_list</span></div>
+
+
+<span class="c1"># This is a private class, it does not need public methods</span>
+<span class="c1"># pylint: disable=no-member,too-few-public-methods</span>
+<span class="k">class</span> <span class="nc">_Merger</span><span class="p">(</span><span class="n">multiprocessing</span><span class="o">.</span><span class="n">Process</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This private class acts as a background process behind the XMLMerger class.</span>
+<span class="sd">    This allows the XMLMerger class to appear like a normal read-only</span>
+<span class="sd">    file-like objects, allowing compatibility with parsers such as</span>
+<span class="sd">    e.g. Bio.Blast.NCBIXML.parse</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filenames</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">other_queue</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Process</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="c1"># pylint: enable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span> <span class="o">=</span> <span class="n">other_queue</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">filenames</span> <span class="o">=</span> <span class="n">filenames</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">header</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Implementation of the &quot;run&quot; method of the Process mother class.</span>
+<span class="sd">        During the running, _Merger will perform the following:</span>
+
+<span class="sd">        - check that the XML header is compatible</span>
+<span class="sd">        - check that the file ends correctly</span>
+<span class="sd">        - append the new lines to the stream</span>
+
+<span class="sd">        WARNING: as it is impossible to look for the end of a</span>
+<span class="sd">        gzipped file or of a stream, we have to keep all lines in memory</span>
+<span class="sd">        to ascertain that the file we are trying to merge is not corrupt.</span>
+<span class="sd">        This makes unfeasible to use the current implementation for</span>
+<span class="sd">        merging large XML files.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># self.logger.info(&quot;Merger running&quot;)</span>
+        <span class="n">print_header</span> <span class="o">=</span> <span class="bp">True</span>
+
+        <span class="k">for</span> <span class="n">filename</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">filenames</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Begun </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">print_header</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="c1"># self.logger.info(&quot;Printing header&quot;)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
+                <span class="n">print_header</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">with</span> <span class="n">BlastOpener</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+                    <span class="n">handle</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">exc</span> <span class="o">=</span> <span class="n">check_beginning</span><span class="p">(</span><span class="n">handle</span><span class="p">,</span>
+                                                     <span class="n">filename</span><span class="p">,</span>
+                                                     <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Skipped </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Finished parsing header for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+            <span class="n">lines</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">deque</span><span class="p">()</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&lt;Iteration&gt;&quot;</span><span class="p">)</span>
+            <span class="n">bo_found</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">handle</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="s2">&quot;BlastOutput&quot;</span> <span class="ow">in</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="n">bo_found</span> <span class="o">=</span> <span class="bp">True</span>
+                    <span class="k">break</span>
+                <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
+
+            <span class="k">if</span> <span class="n">bo_found</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                <span class="n">exc</span> <span class="o">=</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;{0} is an invalid XML file&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">filename</span><span class="p">))</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="k">continue</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Finished parsing lines for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">put_nowait</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Sent </span><span class="si">%d</span><span class="s2"> lines for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">),</span> <span class="n">filename</span><span class="p">)</span>
+
+        <span class="c1"># We HAVE  to wait some seconds, otherwise the XML parser</span>
+        <span class="c1"># might miss the end of the file.</span>
+        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">put</span><span class="p">([</span><span class="s2">&quot;&lt;/BlastOutput_iterations&gt;</span><span class="se">\n</span><span class="s2">&lt;/BlastOutput&gt;&quot;</span><span class="p">])</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s2">&quot;Finished&quot;</span><span class="p">)</span>
+        <span class="k">return</span>
+<span class="c1"># pylint: enable=no-member,too-few-public-methods</span>
+
+
+<span class="c1"># pylint: disable=too-many-instance-attributes</span>
+<div class="viewcode-block" id="XMLMerger"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.XMLMerger">[docs]</a><span class="k">class</span> <span class="nc">XMLMerger</span><span class="p">(</span><span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This class has the purpose of merging on the fly multiple BLAST alignment</span>
+<span class="sd">    files, be they in XML, XML.gz, or ASN.gz format. It uses the _Merger</span>
+<span class="sd">    private class as a background process which bothers itself with the real</span>
+<span class="sd">    work, while this class provides a file-like interface for external</span>
+<span class="sd">    applications such Bio.Blast.NCBIXML.parse.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">__name__</span> <span class="o">=</span> <span class="s2">&quot;XMLMerger&quot;</span>
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">create_null_logger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filenames</span><span class="p">,</span> <span class="n">log_level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+        <span class="n">threading</span><span class="o">.</span><span class="n">Thread</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">log_level</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">log</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">file_handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="n">log</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+            <span class="n">formatter</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">formatter</span>
+            <span class="k">for</span> <span class="n">null_handler</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span><span class="n">handler</span> <span class="k">for</span> <span class="n">handler</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span> <span class="k">if</span>
+                                     <span class="nb">isinstance</span><span class="p">(</span><span class="n">handler</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">NullHandler</span><span class="p">)):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">null_handler</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">file_handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">formatter</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">file_handler</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">__filenames</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">deque</span><span class="p">(</span><span class="n">filenames</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__event</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Event</span><span class="p">()</span>
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="n">manager</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="o">.</span><span class="n">Manager</span><span class="p">()</span>
+        <span class="c1"># pylint: enable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__queue</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">Queue</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lines</span> <span class="o">=</span> <span class="n">collections</span><span class="o">.</span><span class="n">deque</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">started</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">finished</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filenames</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">_</span><span class="p">,</span> <span class="n">header</span><span class="p">,</span> <span class="n">exc</span> <span class="o">=</span> <span class="n">check_beginning</span><span class="p">(</span>
+                    <span class="n">BlastOpener</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filenames</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">__filenames</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="bp">None</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">exc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                    <span class="n">_</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__filenames</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+                    <span class="k">continue</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="n">header</span>
+                <span class="k">break</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Header has </span><span class="si">%d</span><span class="s2"> lines&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filenames</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="s2">&quot;No files left!&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">merger</span> <span class="o">=</span> <span class="n">_Merger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">__filenames</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">header</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">__queue</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+
+<div class="viewcode-block" id="XMLMerger.run"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.XMLMerger.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Method to start the process. Override of the original Thread method.</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">merger</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="c1"># pylint: enable=no-member</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Reader started&quot;</span><span class="p">)</span>
+        <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">lines</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__queue</span><span class="o">.</span><span class="n">get_nowait</span><span class="p">()</span>
+            <span class="k">except</span> <span class="n">queue</span><span class="o">.</span><span class="n">Empty</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Queue was empty, waiting&quot;</span><span class="p">)</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">lines</span> <span class="o">==</span> <span class="s2">&quot;Finished&quot;</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Received </span><span class="si">%d</span><span class="s2"> lines&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">lines</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">lines</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">finished</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># pylint: disable=no-member</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">merger</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="c1"># pylint: enable=no-member</span>
+        <span class="k">return</span></div>
+
+<div class="viewcode-block" id="XMLMerger.read"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.XMLMerger.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This method allows the XMLMerger class to act, for all purposes,</span>
+<span class="sd">        like a file-like interface. The bytes are read from the queue,</span>
+<span class="sd">        delivered by the background _Merger instance.</span>
+<span class="sd">        :param size: optional parameter to indicate how much we want to read</span>
+<span class="sd">        from the file-like interface.</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">finished</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">StopIteration</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">while</span> <span class="bp">self</span><span class="o">.</span><span class="n">finished</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+            <span class="n">total</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">previous_val</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="kn">import</span> <span class="nn">sys</span>
+            <span class="k">while</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">total</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">size</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">val</span> <span class="o">==</span> <span class="s2">&quot;&lt;/BlastOutput_iterations&gt;</span><span class="se">\n</span><span class="s2">&lt;/BlastOutput&gt;&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Received termination lines&quot;</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">previous_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Previous val: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                                         <span class="n">previous_val</span><span class="p">[</span><span class="o">-</span><span class="mi">2000</span><span class="p">:])</span>
+                <span class="n">total</span> <span class="o">+=</span> <span class="n">val</span>
+                <span class="k">if</span> <span class="n">previous_val</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="n">previous_val</span> <span class="o">+=</span> <span class="n">val</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">previous_val</span> <span class="o">=</span> <span class="n">val</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="n">total</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">total</span></div>
+
+    <span class="k">def</span> <span class="nf">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="k">while</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">finished</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Thread is finished and deque is exhausted. Finished</span>
+            <span class="k">raise</span> <span class="ne">StopIteration</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">lines</span><span class="o">.</span><span class="n">popleft</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+<div class="viewcode-block" id="XMLMerger.close"><a class="viewcode-back" href="../../../Mikado.parsers.html#Mikado.parsers.blast_utils.XMLMerger.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">__exit__</span><span class="p">()</span></div>
+
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">pass</span></div>
+<span class="c1"># pylint: enable=too-many-instance-attributes</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  <li><a href="../parsers.html">Mikado.parsers</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -927,10 +927,10 @@ class AssignerTester(unittest.TestCase):
         Test for the assignment of transcripts inside the index. Still a stub
         """
         keys = [(10, 200), (350, 500)]
-        keys = intervaltree.IntervalTree.from_tuples(keys)
+        keys = Mikado.scales.intervaltree.IntervalTree.from_tuples(keys)
         self.assertEqual(Mikado.scales.assigner.Assigner.find_neighbours(
-                         keys, (350,500)),
-                         [((350, 500), 0), ((10, 200), 150)]
+                         keys, (350,500), distance=2000),
+                         [((350, 500), 0), ((10, 200), 150)],
                          )
         self.assertEqual(Mikado.scales.assigner.Assigner.find_neighbours(
                          keys, (5350,5500), distance=1000),

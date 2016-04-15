@@ -3,6 +3,7 @@
 
 """
 Launcher for the Mikado compare utility.
+Launcher for the Mikado compare utility.
 """
 
 import collections

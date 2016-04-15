@@ -2869,7 +2869,7 @@ static void __pyx_f_6Mikado_6scales_12intervaltree_12IntervalNode__intersect(str
  *         if self.cleft is not EmptyNode and self.cleft.maxend > start:
  *             self.cleft._intersect( start, end, results )             # <<<<<<<<<<<<<<
  *         # This interval
- *         if ( self.end > start ) and ( self.start < end ):
+ *         if ( self.end >= start ) and ( self.start <= end ):
  */
     ((struct __pyx_vtabstruct_6Mikado_6scales_12intervaltree_IntervalNode *)__pyx_v_self->cleft->__pyx_vtab)->_intersect(__pyx_v_self->cleft, __pyx_v_start, __pyx_v_end, __pyx_v_results);
 
@@ -2885,24 +2885,24 @@ static void __pyx_f_6Mikado_6scales_12intervaltree_12IntervalNode__intersect(str
   /* "Mikado/scales/intervaltree.pyx":184
  *             self.cleft._intersect( start, end, results )
  *         # This interval
- *         if ( self.end > start ) and ( self.start < end ):             # <<<<<<<<<<<<<<
+ *         if ( self.end >= start ) and ( self.start <= end ):             # <<<<<<<<<<<<<<
  *             results.append( self.interval )
  *         # Right subtree
  */
-  __pyx_t_3 = ((__pyx_v_self->end > __pyx_v_start) != 0);
+  __pyx_t_3 = ((__pyx_v_self->end >= __pyx_v_start) != 0);
   if (__pyx_t_3) {
   } else {
     __pyx_t_1 = __pyx_t_3;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_3 = ((__pyx_v_self->start < __pyx_v_end) != 0);
+  __pyx_t_3 = ((__pyx_v_self->start <= __pyx_v_end) != 0);
   __pyx_t_1 = __pyx_t_3;
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_1) {
 
     /* "Mikado/scales/intervaltree.pyx":185
  *         # This interval
- *         if ( self.end > start ) and ( self.start < end ):
+ *         if ( self.end >= start ) and ( self.start <= end ):
  *             results.append( self.interval )             # <<<<<<<<<<<<<<
  *         # Right subtree
  *         if self.cright is not EmptyNode and self.start < end:
@@ -2919,7 +2919,7 @@ static void __pyx_f_6Mikado_6scales_12intervaltree_12IntervalNode__intersect(str
     /* "Mikado/scales/intervaltree.pyx":184
  *             self.cleft._intersect( start, end, results )
  *         # This interval
- *         if ( self.end > start ) and ( self.start < end ):             # <<<<<<<<<<<<<<
+ *         if ( self.end >= start ) and ( self.start <= end ):             # <<<<<<<<<<<<<<
  *             results.append( self.interval )
  *         # Right subtree
  */

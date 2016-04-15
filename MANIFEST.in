@@ -3,4 +3,3 @@ include *py
 recursive-include Mikado *.py *.json *.yaml
 include bin/*
 recursive-include util *py
-recursive-include test *py

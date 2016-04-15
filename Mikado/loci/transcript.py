@@ -100,7 +100,7 @@ class Transcript:
                  source=None,
                  logger=None,
                  intron_range=(0, maxsize),
-                 trust_orf = False):
+                 trust_orf=False):
 
         """Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.

@@ -8,7 +8,7 @@ This module defines the RNA objects. It also defines Metric, a property alias.
 
 import logging
 import copy
-import sys
+from sys import intern, maxsize
 import re
 import inspect
 import intervaltree
@@ -55,7 +55,7 @@ class Transcript:
     :type start: int
     :param end: End of the transcript. Checked against the exons.
     :type end: int
-    :param score: The score assigned to the transcript. Modified inside Mikado.py.
+    :param score: The score assigned to the transcript. Modified inside Mikado.
     :type score: float
     :param strand: one of +,-,None
     :type strand: str
@@ -72,7 +72,7 @@ class Transcript:
     The database queries are baked at the *class* level in order to minimize overhead.
     """
 
-    __name__ = "transcript"
+    __name__ = intern("transcript")
     __logger = create_null_logger(__name__)
 
     # Query baking to minimize overhead
@@ -99,8 +99,8 @@ class Transcript:
     def __init__(self, *args,
                  source=None,
                  logger=None,
-                 intron_range=(0, sys.maxsize),
-                 trust_orf=False):
+                 intron_range=(0, maxsize),
+                 trust_orf = False):
 
         """Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
@@ -124,6 +124,7 @@ class Transcript:
 
         # Mock setting of base hidden variables
         self.__id = ""
+        self.__logger = None
         self.__strand = self.__score = None
         self.__has_start_codon, self.__has_stop_codon = False, False
         self.__max_internal_orf_index = None
@@ -182,12 +183,15 @@ class Transcript:
         self.engine, self.session, self.sessionmaker = None, None, None
         # Initialisation of the CDS segments used for finding retained introns
         self.__cds_tree = None
+        self.__expandable = False
         # self.query_id = None
 
         if len(args) == 0:
             return
         else:
             self.__initialize_with_line(args[0])
+
+        self.feature = intern(self.feature)
 
     def __initialize_with_line(self, transcript_row):
         """
@@ -199,27 +203,37 @@ class Transcript:
 
         if not isinstance(transcript_row, (GffLine, GtfLine)):
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
-        if transcript_row.is_transcript is False:
-            raise TypeError(
-                "Invalid transcript line, the feature should be a transcript:\n{0}".format(
-                    transcript_row))
-        self.chrom = transcript_row.chrom
-        self.feature = transcript_row.feature
+        self.chrom = intern(transcript_row.chrom)
+        self.feature = intern(transcript_row.feature)
         # pylint: disable=invalid-name
-        self.id = transcript_row.id
+
         # pylint: enable=invalid-name
         self.name = transcript_row.name
         if self.source is None:
-            self.source = transcript_row.source
+            self.source = intern(transcript_row.source)
         self.start = transcript_row.start
         self.strand = transcript_row.strand
         self.end = transcript_row.end
         self.score = transcript_row.score
         self.scores = dict()
-        self.parent = transcript_row.parent
-        self.attributes = transcript_row.attributes
+
+        for key, val in transcript_row.attributes.items():
+            self.attributes[intern(key)] = val
         self.blast_hits = []
         self.json_conf = None
+
+        if transcript_row.is_transcript is False:
+            if transcript_row.is_exon is False or isinstance(transcript_row, GffLine):
+                raise TypeError(
+                    "Invalid transcript line, the feature should be a transcript:\n{0}".format(
+                        transcript_row))
+            self.__expandable = True
+            self.parent = transcript_row.gene
+            self.id = transcript_row.transcript
+            self.add_exon(transcript_row)
+        else:
+            self.parent = transcript_row.parent
+            self.id = transcript_row.id
 
     def __str__(self, to_gtf=False, print_cds=True):
         """
@@ -243,7 +257,7 @@ class Transcript:
     def __eq__(self, other) -> bool:
         """
         :param other: another transcript instance to compare to
-        :type other: mikado_lib.loci_objects.transcript.Transcript
+        :type other: Mikado.loci_objects.transcript.Transcript
 
         Two transcripts are considered identical if they have the same
         start, end, chromosome, strand and internal exons.
@@ -335,7 +349,7 @@ class Transcript:
     def add_exon(self, gffline, feature=None):
         """This function will append an exon/CDS feature to the object.
         :param gffline: an annotation line
-        :type gffline: Mikado.py.parsers.GFF.GffLine, Mikado.py.parsers.GTF.GtfLine
+        :type gffline: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine)
         :type feature: flag to indicate what kind of feature we are adding
         """
 
@@ -364,6 +378,7 @@ class Transcript:
                     {1}
                     {2}""".format(self.id, gffline.parent, gffline))
             assert gffline.is_exon is True, str(gffline)
+            assert gffline.chrom == self.chrom, (gffline.chrom, self.chrom)
             phase = gffline.phase
 
         assert isinstance(start, int) and isinstance(end, int)
@@ -392,6 +407,9 @@ class Transcript:
 
         segment = tuple([start, end])
         # assert isinstance(segment[0], int) and isinstance(segment[1], int)
+        if self.__expandable is True:
+            self.start = min([self.start, start])
+            self.end = max([self.end, end])
         store.append(segment)
 
     def add_exons(self, exons, features=None):
@@ -426,7 +444,10 @@ class Transcript:
         :param format_name: the name of the format to use
         :param with_introns: if True, introns will be printed as well.
         :type with_introns: bool
-        :return:
+        :param with_cds: if set to False, CDS lines will be omitted from the output
+        :type with_cds: bool
+        :return: the formatted string
+        :rtype: str
         """
 
         if format_name not in ("gff", "gtf", "gff3", "bed", "bed12"):
@@ -547,7 +568,7 @@ class Transcript:
         the strand will be removed from it.
         """
 
-        self.logger.warning("Stripping CDS from {0}".format(self.id))
+        self.logger.debug("Stripping CDS from {0}".format(self.id))
         self.finalized = False
         assert len(self.exons) > 0
         if self.monoexonic is True and strand_specific is False:
@@ -655,7 +676,7 @@ class Transcript:
 
         return retrieval.find_overlapping_cds(self, candidate_orfs)
 
-    def as_dict(self):
+    def as_dict(self, remove_attributes=True):
 
         """
         Method to transform the transcript object into a JSON-friendly representation.
@@ -665,7 +686,11 @@ class Transcript:
         state = dict()
 
         for key in ["chrom", "source", "start", "end", "strand", "score", "attributes"]:
+
             state[key] = getattr(self, key)
+            if key == "attributes" and remove_attributes is True:
+                for subkey in [_ for _ in state[key] if _ not in ("ID", "Parent", "Name")]:
+                    del state[key][subkey]
 
         state["exons"] = []
         for exon in self.exons:
@@ -693,9 +718,15 @@ class Transcript:
         self.finalized = False
 
         for key in ["chrom", "source",
-                    "start", "end", "strand", "score", "attributes",
+                    "start", "end", "strand", "score",
                     "parent", "id"]:
+            if isinstance(state[key], str):
+                state[key] = intern(state[key])
             setattr(self, key, state[key])
+
+        self.attributes = {}
+        for key, val in state["attributes"].items():
+            self.attributes[intern(key)] = val
 
         self.exons = []
         self.combined_cds = []
@@ -795,6 +826,7 @@ class Transcript:
         return communities
 
     @classmethod
+    @functools.lru_cache(maxsize=None, typed=True)
     def get_available_metrics(cls) -> list:
         """This function retrieves all metrics available for the class."""
         metrics = [member[0] for member in inspect.getmembers(cls) if
@@ -869,7 +901,12 @@ class Transcript:
     def phases(self):
         """
         This property contains the first phase gleaned for each internal ORF from the
-         GFF.
+         GFF. Structure:
+
+         dict[(start,end)] = phase
+
+        where (start, end) are the coordinates of the coding segment
+
         :return: __phases, a list
         :rtype: dict
         """
@@ -903,9 +940,8 @@ class Transcript:
         if not isinstance(newid, str):
             raise ValueError("Invalid value for id: {0}, type {1}".format(
                 newid, type(newid)))
-        self.__id = sys.intern(newid)
+        self.__id = intern(newid)
     # pylint: enable=invalid-name
-
 
     @property
     @functools.lru_cache(maxsize=None, typed=True)
@@ -931,8 +967,9 @@ class Transcript:
         if not isinstance(name, (type(None), str)):
             raise ValueError("Invalid name: {0}".format(name))
 
+        if name is not None:
+            name = intern(name)
         self.attributes["Name"] = name
-
 
     @property
     def strand(self):
@@ -1412,6 +1449,7 @@ index {3}, internal ORFs: {4}".format(
         else:
             raise ValueError("Invalid value for parent: {0}, type {1}".format(
                 parent, type(parent)))
+        self.__parent = [intern(_) for _ in self.__parent]
 
     @Metric
     def score(self):

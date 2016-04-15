@@ -14,7 +14,7 @@ def __basic_final_checks(transcript):
 
     """
     Function that verifies minimal criteria of a transcript before finalising.
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :return:
     """

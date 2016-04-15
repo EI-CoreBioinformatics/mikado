@@ -2,7 +2,7 @@
 # coding=utf-8
 
 """
-This module defines the Picker class, which is the main workhorse for Mikado.py pick.
+This module defines the Picker class, which is the main workhorse for Mikado pick.
 """
 
 import sys
@@ -42,7 +42,7 @@ import pickle
 class Picker:
 
     """
-    This class is used to launch the main Mikado.py pipeline. Its purpose is to parse
+    This class is used to launch the main Mikado pipeline. Its purpose is to parse
     an input sorted annotation file, locate the loci, and perform the selection analysis
     using the parameters provided in the input configuration file.
     """
@@ -114,7 +114,7 @@ class Picker:
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
                 self.regressor = pickle.load(forest)
             if not isinstance(self.regressor, RandomForestRegressor):
-                exc=TypeError("Invalid regressor provided, type: %s", type(self.regressor))
+                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor))
                 self.logger.critical(exc)
                 return
         else:
@@ -322,8 +322,8 @@ memory intensive, proceed with caution!")
                 print("##sequence-region {0} 1 {1}".format(chrom.name, chrom.length),
                       file=locus_out)
                 locus_out.flush()
-        except sqlalchemy.exc.OperationalError as exc:
-            self.logger.warning("Empty database! Creating a mock one")
+        except sqlalchemy.exc.OperationalError as _:
+            self.logger.error("Empty database! Creating a mock one")
             self.json_conf["db_settings"]["dbtype"] = "sqlite"
             self.json_conf["db_settings"]["db"] = tempfile.mktemp()
             engine = create_engine("{0}://".format(self.json_conf["db_settings"]["dbtype"]),
@@ -792,7 +792,7 @@ memory intensive, proceed with caution!")
     def __submit_multi_threading(self, data_dict):
 
         """
-        Method to execute Mikado.py pick in multi threaded mode.
+        Method to execute Mikado pick in multi threaded mode.
 
         :param data_dict: The data dictionary
         :return:
@@ -821,6 +821,7 @@ memory intensive, proceed with caution!")
                                               prefix="mikado_pick_tmp",
                                               dir=self.json_conf["pick"]["files"]["output_dir"])
 
+        self.logger.info("Creating the worker processes")
         working_processes = [LociProcesser(self.json_conf,
                                            data_dict,
                                            handles,
@@ -831,6 +832,7 @@ memory intensive, proceed with caution!")
                              for _ in range(1, self.procs+1)]
         # Start all processes
         [_.start() for _ in working_processes]
+        self.logger.info("Started all %d workers", self.procs)
         # No sense in keeping this data available on the main thread now
         del data_dict
 
@@ -947,7 +949,7 @@ memory intensive, proceed with caution!")
     def __submit_single_threaded(self, data_dict):
 
         """
-        Method to execute Mikado.py pick in single threaded mode.
+        Method to execute Mikado pick in single threaded mode.
         :param data_dict:
         :return:
         """

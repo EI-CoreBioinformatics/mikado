@@ -6,7 +6,7 @@ It can take both GTF and GFF files as input."""
 
 import sys
 import argparse
-import re
+# import re
 import csv
 from ...exceptions import InvalidCDS
 from .. import to_gff
@@ -14,6 +14,8 @@ from ...loci import Transcript, Gene
 from ...parsers import GFF
 import numpy
 from collections import namedtuple, Counter
+import multiprocessing
+from ...utilities.log_utils import create_default_logger, create_null_logger
 
 __author__ = "Luca Venturini"
 
@@ -141,6 +143,18 @@ class TranscriptComputer(Transcript):
         return self.data_tuple(**constructor)
 
 
+def finalize_wrapper(finalizable):
+
+    """
+    Wrapper around the finalize method for the object
+    :param finalizable: an object with the finalize method
+    :return:
+    """
+
+    finalizable.finalize()
+    return finalizable
+
+
 class Calculator:
 
     """
@@ -157,8 +171,10 @@ class Calculator:
             self.is_gff = True
         else:
             self.is_gff = False
+        self.__logger = create_null_logger("calculator")
         self.only_coding = parsed_args.only_coding
         self.out = parsed_args.out
+        self.procs = parsed_args.procs
         self.genes = dict()
         self.coding_genes = []
         self.__distances = numpy.array([])
@@ -193,7 +209,7 @@ class Calculator:
         derived_features = set()
 
         for record in self.gff:
-            if record.header is True or re.search(r"[^^]locus", record.feature):
+            if record.header is True:
                 continue
             elif record.is_transcript is True:
                 if record.parent is None:
@@ -205,13 +221,16 @@ class Calculator:
                     if new_record.gene not in self.genes:
                         self.genes[new_record.gene] = Gene(
                             new_record,
-                            only_coding=self.only_coding)
-                self.genes[record.parent[0]].transcripts[record.id] = TranscriptComputer(record)
+                            only_coding=self.only_coding,
+                            logger=self.__logger)
+                self.genes[record.parent[0]].transcripts[record.id] = TranscriptComputer(record,
+                                                                                         logger=self.__logger)
             elif record.is_derived is True:  # and record.is_gene is False:
                 derived_features.add(record.id)
-            elif self.__is_gene(record) is True:
+            elif record.is_gene is True:
                 self.genes[record.id] = Gene(
-                    record, only_coding=self.only_coding)
+                    record, only_coding=self.only_coding,
+                    logger=self.__logger)
             else:
                 for parent in iter(pparent for pparent in record.parent if
                                    pparent not in derived_features):
@@ -221,8 +240,18 @@ class Calculator:
                         raise KeyError("{0}, line: {1}".format(err, record))
                     self.genes[gid].transcripts[parent].add_exon(record)
 
-        for gid in self.genes:
-            self.genes[gid].finalize()
+        if self.procs == 1:
+            for gid in self.genes:
+                self.genes[gid].finalize()
+        else:
+            multiprocessing.set_start_method("spawn", force=True)
+            pool = multiprocessing.Pool(self.procs)
+            for gid in self.genes:
+                self.genes[gid] = pool.apply_async(finalize_wrapper, args=(self.genes[gid],))
+            pool.close()
+            pool.join()
+            for gid in self.genes:
+                self.genes[gid] = self.genes[gid].get()
 
     def __call__(self):
 
@@ -262,13 +291,12 @@ class Calculator:
         """
 
         # Decimal to second digit precision
-        if array is None:
+
+        if array is None or len(array) == 0:
             return row
 
-        try:
-            array, weights = array
-        except ValueError as exc:
-            raise ValueError((exc, row["Stat"], array))
+        # array, weights = array
+        array, weights = array
 
         row["Average"] = "{0:,.2f}".format(round(
             sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
@@ -333,7 +361,7 @@ class Calculator:
         cds_exons = Counter()
         cds_exon_num = Counter()
         cds_exon_num_coding = Counter()
-        cdna_lengths = Counter() # Done
+        cdna_lengths = Counter()  # Done
         cdna_lengths_coding = Counter()
         cds_lengths = Counter()  # Done
         cds_ratio = Counter()
@@ -523,8 +551,11 @@ class Calculator:
             total = len(self.__arrays[stat])
         else:
             if total is sum:
-                _, weights = self.__arrays[stat]
-                total = sum(weights)
+                try:
+                    _, weights = self.__arrays[stat]
+                    total = sum(weights)
+                except ValueError:
+                    total = "NA"
             elif not isinstance(total, int):
                 assert total in self.__arrays
                 total = len(self.__arrays[total])
@@ -560,6 +591,8 @@ def stats_parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--only-coding', dest="only_coding", action="store_true", default=False)
+    parser.add_argument('-p', "--processors", dest="procs", type=int,
+                        default=1)
     parser.add_argument('gff', type=to_gff, help="GFF file to parse.")
     parser.add_argument('out', type=argparse.FileType('w'), default=sys.stdout, nargs='?')
     parser.set_defaults(func=launch)

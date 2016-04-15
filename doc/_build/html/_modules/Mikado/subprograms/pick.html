@@ -1,0 +1,265 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.subprograms.pick &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.subprograms.pick</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;Launcher of the Mikado.py pick step.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">from</span> <span class="nn">..picking</span> <span class="kn">import</span> <span class="n">Picker</span>
+<span class="kn">from</span> <span class="nn">..configuration.configurator</span> <span class="kn">import</span> <span class="n">to_json</span>
+<span class="c1"># from . import to_gff</span>
+<span class="kn">from</span> <span class="nn">..exceptions</span> <span class="kn">import</span> <span class="n">UnsortedInput</span>
+
+
+<div class="viewcode-block" id="check_log_settings"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.pick.check_log_settings">[docs]</a><span class="k">def</span> <span class="nf">check_log_settings</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Quick method to check the consistency of log settings</span>
+<span class="sd">    from the namespace.</span>
+<span class="sd">    :param args: a Namespace</span>
+<span class="sd">    :return: args</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">log</span> <span class="o">==</span> <span class="s2">&quot;stderr&quot;</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s1">&#39;log&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">log</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s1">&#39;log&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">log</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">log_level</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s1">&#39;log_level&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">log_level</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">verbose</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s1">&#39;log_level&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;DEBUG&quot;</span>
+    <span class="k">elif</span> <span class="n">args</span><span class="o">.</span><span class="n">noverbose</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s1">&#39;log_level&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;ERROR&quot;</span>
+
+    <span class="k">return</span> <span class="n">args</span></div>
+
+
+<div class="viewcode-block" id="check_run_options"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.pick.check_run_options">[docs]</a><span class="k">def</span> <span class="nf">check_run_options</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Quick method to check the consistency of run option settings</span>
+<span class="sd">    from the namespace.</span>
+<span class="sd">    :param args: a Namespace</span>
+<span class="sd">    :return: args</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">start_method</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;multiprocessing_method&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">start_method</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">procs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;run_options&quot;</span><span class="p">][</span><span class="s2">&quot;procs&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">procs</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">shm_db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">args</span><span class="o">.</span><span class="n">shm</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">shm</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;run_options&quot;</span><span class="p">][</span><span class="s2">&quot;shm&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="c1"># I will deal with it being None or not in Creator</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;run_options&quot;</span><span class="p">][</span><span class="s2">&quot;shm_db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">shm_db</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">preload</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;run_options&quot;</span><span class="p">][</span><span class="s2">&quot;preload&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+
+    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;run_options&quot;</span><span class="p">][</span><span class="s2">&quot;single_thread&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">single</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">no_cds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;run_options&quot;</span><span class="p">][</span><span class="s2">&quot;exclude_cds&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">purge</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;run_options&quot;</span><span class="p">][</span><span class="s2">&quot;purge&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">output_dir</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">source</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;output_format&quot;</span><span class="p">][</span><span class="s2">&quot;source&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">source</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">prefix</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;output_format&quot;</span><span class="p">][</span><span class="s2">&quot;id_prefix&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">prefix</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">sqlite_db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">sqlite_db</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;dbtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;sqlite&quot;</span>
+
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;loci_out&quot;</span><span class="p">,</span> <span class="s2">&quot;gff&quot;</span><span class="p">,</span> <span class="s2">&quot;monoloci_out&quot;</span><span class="p">,</span> <span class="s2">&quot;subloci_out&quot;</span><span class="p">,</span> <span class="s2">&quot;log&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;gff&quot;</span><span class="p">:</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;input&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+                    <span class="n">args</span><span class="p">,</span>
+                    <span class="n">key</span><span class="p">,</span>
+                    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;input&quot;</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">val</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;loci_out&quot;</span><span class="p">,</span> <span class="s2">&quot;monoloci_out&quot;</span><span class="p">,</span> <span class="s2">&quot;subloci_out&quot;</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">val</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;gff3&quot;</span><span class="p">,</span> <span class="s2">&quot;gff&quot;</span><span class="p">):</span>
+                        <span class="n">val</span> <span class="o">=</span> <span class="s2">&quot;{0}.gff3&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;pick&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">val</span>
+
+    <span class="k">return</span> <span class="n">args</span></div>
+
+
+<div class="viewcode-block" id="pick"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.pick.pick">[docs]</a><span class="k">def</span> <span class="nf">pick</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This function launches the pick step, using the data derived from the Namespace.</span>
+<span class="sd">    :param args: argparse Namespace with the configuration for the run.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">check_log_settings</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">args</span> <span class="o">=</span> <span class="n">check_run_options</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="n">creator</span> <span class="o">=</span> <span class="n">Picker</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">,</span> <span class="n">commandline</span><span class="o">=</span><span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">))</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">creator</span><span class="p">()</span>  <span class="c1"># Run</span>
+    <span class="k">except</span> <span class="n">UnsortedInput</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">err</span><span class="p">,</span> <span class="nb">file</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stderr</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="pick_parser"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.pick.pick_parser">[docs]</a><span class="k">def</span> <span class="nf">pick_parser</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parser for the picking step.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="s2">&quot;Launcher of the Mikado.py pipeline.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--start-method&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;start_method&quot;</span><span class="p">,</span>
+                        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;fork&quot;</span><span class="p">,</span> <span class="s2">&quot;spawn&quot;</span><span class="p">,</span> <span class="s2">&quot;forkserver&quot;</span><span class="p">],</span>
+                        <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Multiprocessing start method.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-p&quot;</span><span class="p">,</span> <span class="s2">&quot;--procs&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Number of processors to use.</span>
+<span class="s2">                        Default: look in the configuration file (1 if undefined)&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--json-conf&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;json_conf&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="n">to_json</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;JSON/YAML configuration file for scoring transcripts.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--subloci_out&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--monoloci_out&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--loci_out&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;This output file is mandatory.</span>
+<span class="s2">                        If it is not specified in the configuration file,</span>
+<span class="s2">                        it must be provided here.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--prefix&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Prefix for the genes. Default: Mikado.py&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--no_cds&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Flag. If set, not CDS information</span>
+<span class="s2">                        will be printed out in the GFF output files.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--source&#39;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Source field to use for the output files.&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--purge&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;&#39;&#39;Flag. If set, the pipeline will suppress any loci</span>
+<span class="s1">                        whose transcripts do not pass the requirements set in the JSON file.&#39;&#39;&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-shm&quot;</span><span class="p">,</span> <span class="s2">&quot;--shared-memory&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;shm&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Flag. If set, the DB will be copied into memory.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-shmdb&quot;</span><span class="p">,</span> <span class="s2">&quot;--shared-memory-db&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;shm_db&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Name of the shared memory DB.</span>
+<span class="s2">                        WARNING: if set, the DB copy will be persistently copied</span>
+<span class="s2">                        into memory, so that multiple pickers can share.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--preload&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;&#39;&#39;Flag. If set, the Mikado.py DB will be pre-loaded</span>
+<span class="s1">                        into memory for faster access. WARNING: this option will</span>
+<span class="s1">                        increase memory usage and the preloading might be quite slow.&#39;&#39;&#39;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-db&quot;</span><span class="p">,</span> <span class="s2">&quot;--sqlite-db&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;sqlite_db&quot;</span><span class="p">,</span>
+                        <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Location of an SQLite database to overwrite what is specified </span><span class="se">\</span>
+<span class="s2">                             in the configuration file.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-od&quot;</span><span class="p">,</span> <span class="s2">&quot;--output-dir&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;output_dir&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output directory. Default: current working directory&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--single&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Flag. If set, Creator will be launched with a single process.</span>
+<span class="s2">                        Useful for debugging purposes only.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">log_options</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s2">&quot;Log options&quot;</span><span class="p">)</span>
+    <span class="n">log_options</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-l&quot;</span><span class="p">,</span> <span class="s2">&quot;--log&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                             <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;File to write the log to.</span>
+<span class="s2">                             Default: decided by the configuration file.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">verbosity</span> <span class="o">=</span> <span class="n">log_options</span><span class="o">.</span><span class="n">add_mutually_exclusive_group</span><span class="p">()</span>
+    <span class="n">verbosity</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-v&quot;</span><span class="p">,</span> <span class="s2">&quot;--verbose&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                           <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Flag. If set, the debug mode will be activated.&quot;</span><span class="p">)</span>
+    <span class="n">verbosity</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-nv&quot;</span><span class="p">,</span> <span class="s2">&quot;--noverbose&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                           <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Flag. If set, the debug mode will be activated.&quot;</span><span class="p">)</span>
+    <span class="n">log_options</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-lv&quot;</span><span class="p">,</span> <span class="s2">&quot;--log-level&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;log_level&quot;</span><span class="p">,</span>
+                             <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span> <span class="s2">&quot;INFO&quot;</span><span class="p">,</span> <span class="s2">&quot;WARN&quot;</span><span class="p">,</span> <span class="s2">&quot;ERROR&quot;</span><span class="p">,</span> <span class="s2">&quot;CRITICAL&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                             <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Logging level. Default: retrieved by the configuration file.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;gff&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">pick</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

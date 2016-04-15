@@ -284,7 +284,7 @@ def serialise_parser():
     :return: argparse.Namespace
     """
 
-    parser = argparse.ArgumentParser("Serialisation utility of the Mikado.py suite.")
+    parser = argparse.ArgumentParser("Serialisation utility of the Mikado suite.")
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")

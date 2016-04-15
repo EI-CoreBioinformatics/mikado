@@ -4,7 +4,11 @@ multiple transcripts, if the conditions are met (multiple ORFs present and BLAST
 supporting them being part of the same transcript).
 """
 
-from collections import OrderedDict
+from sys import version_info
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 import collections
 import operator
 from intervaltree import IntervalTree, Interval
@@ -36,7 +40,7 @@ def check_split_by_blast(transcript, cds_boundaries):
     of those is in common.
 
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
     :param cds_boundaries:
     :return: cds_boundaries
     :rtype: dict
@@ -48,7 +52,7 @@ def check_split_by_blast(transcript, cds_boundaries):
     minimal_overlap = transcript.json_conf[
         "pick"]["chimera_split"]["blast_params"]["minimal_hsp_overlap"]
 
-    cds_hit_dict = OrderedDict().fromkeys(cds_boundaries.keys())
+    cds_hit_dict = SortedDict().fromkeys(cds_boundaries.keys())
     for key in cds_hit_dict:
         cds_hit_dict[key] = collections.defaultdict(list)
 
@@ -92,7 +96,7 @@ def check_split_by_blast(transcript, cds_boundaries):
 
     transcript.logger.debug("Final cds_hit_dict for %s: %s", transcript.id, cds_hit_dict)
 
-    final_boundaries = OrderedDict()
+    final_boundaries = SortedDict()
     for boundary in __get_boundaries_from_blast(transcript, cds_boundaries, cds_hit_dict):
         if len(boundary) == 1:
             assert len(boundary[0]) == 2
@@ -121,7 +125,7 @@ def check_common_hits(transcript, cds_hits, old_hits):
     duplication.
 
     :param transcript: the transcript instance to analyse
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param cds_hits:
     :param old_hits:
@@ -559,11 +563,11 @@ def __load_blast_hits(new_transcript, boundary, transcript):
     """
     Function to load the BLAST hits into the new splitted transcript.
     :param new_transcript: the splitted transcript
-    :type new_transcript: mikado_lib.loci_objects.Transcript
+    :type new_transcript: Mikado.loci_objects.Transcript
     :param boundary: tuple(start, end) of the boundary of the new transcript
     :type boundary: tuple(int, int)
     :param transcript:  the original transcript
-    :type transcript: mikado_lib.loci_objects.Transcript
+    :type transcript: Mikado.loci_objects.Transcript
     :return:
     """
 
@@ -700,13 +704,13 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
         import copy
         obj = copy.deepcopy(obj)
         if obj.strand == "-":
-            transcript.logger.warning("Inverting ORFs")
             thick_start = obj.end - obj.thick_end + 1
             thick_end = obj.end - obj.thick_start + 1
             old_start, old_end = tstart, tend
             local_tstart = obj.end - old_end + 1
             local_tend = obj.end - old_start + 1
-            assert (old_end - old_start) == (local_tend - local_tstart), ((old_start, old_end), (local_tstart, local_tend))
+            assert (old_end - old_start) == (local_tend - local_tstart), (
+                (old_start, old_end), (local_tstart, local_tend))
             assert (thick_end - thick_start) == (obj.thick_end - obj.thick_start)
             obj.strand = "+"
             obj.start = 1
@@ -719,6 +723,8 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
             assert obj.thick_end > obj.thick_start > 0
             obj.block_sizes = [obj.end]
             obj.block_starts = [obj.block_starts]
+            transcript.logger.warning("Inverting negative ORF in %s",
+                                      transcript.id)
         else:
             obj.start = 1
             obj.end = min(obj.end, tend) - tstart + 1
@@ -745,7 +751,7 @@ def split_by_cds(transcript):
     UTR information will be retained only if no ORF is down/upstream.
 
     :param transcript: the transcript instance
-    :type transcript: mikado_lib.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci_objects.transcript.Transcript
     """
 
     transcript.finalize()
@@ -756,7 +762,7 @@ def split_by_cds(transcript):
         new_transcripts = [transcript]  # If we only have one ORF this is easy
     else:
 
-        cds_boundaries = OrderedDict()
+        cds_boundaries = SortedDict()
         for orf in sorted(transcript.loaded_bed12,
                           key=operator.attrgetter("thick_start", "thick_end")):
             cds_boundaries[(orf.thick_start, orf.thick_end)] = [orf]

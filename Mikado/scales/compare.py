@@ -2,7 +2,8 @@
 # coding: utf-8
 
 """
-Launcher for the Mikado.py compare utility.
+Launcher for the Mikado compare utility.
+Launcher for the Mikado compare utility.
 """
 
 import collections
@@ -140,10 +141,12 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
         # Assume we are going to use GTF for the moment
         if row.is_transcript is True:
             queue_logger.debug("Transcript\n%s", str(row))
-            transcript = Transcript(row)
+            transcript = Transcript(row, logger=queue_logger)
             transcript2gene[row.id] = row.gene
             if row.gene not in genes:
-                genes[row.gene] = Gene(transcript, gid=row.gene)
+                genes[row.gene] = Gene(transcript,
+                                       gid=row.gene,
+                                       logger=queue_logger)
             genes[row.gene].add(transcript)
             assert transcript.id in genes[row.gene].transcripts
         elif row.is_exon is True:
@@ -165,20 +168,12 @@ def prepare_reference(args, queue_logger, ref_gff=False) -> (dict, collections.d
                     genes[row.gene][row.transcript].add_exon(row)
                 else:
                     if row.gene not in genes:
-                        exc = KeyError("Gene {0} not encountered yet, line: {1}".format(
-                            row.gene, str(row)
-                        ))
-                    elif row.transcript not in genes[row.gene]:
-                        exc = KeyError("TID {0} not found for {1}; found tids: {2}".format(
-                            row.transcript, row.gene,
-                            ",".join(genes[row.gene].transcripts.keys())
-                        ))
-                    else:
-                        exc = KeyError("Weird error; both {0} and {1} are in the hash..".format(
-                            row.gene, row.transcript
-                        ))
-                    queue_logger.exception(exc)
-                    raise exc
+                        genes[row.gene] = Gene(None, gid=row.gene, logger=queue_logger)
+                    if row.transcript not in genes[row.gene]:
+                        transcript = Transcript(row, logger=queue_logger)
+                        transcript2gene[row.id] = row.gene
+                        genes[row.gene].add(transcript)
+                    genes[row.gene][row.transcript].add_exon(row)
 
     genes, positions = finalize_reference(genes, positions, queue_logger, args)
 
@@ -206,6 +201,7 @@ def parse_prediction(args, genes, positions, queue_logger):
     assigner_instance = Assigner(genes, positions, args, accountant_instance)
 
     transcript = None
+    ref_gff = isinstance(args.prediction, GFF3)
     for row in args.prediction:
         if row.header is True:
             continue
@@ -218,8 +214,19 @@ def parse_prediction(args, genes, positions, queue_logger):
                     pass
                 else:
                     assigner_instance.get_best(transcript)
-            transcript = Transcript(row)
+            transcript = Transcript(row, logger=queue_logger)
         elif row.is_exon is True:
+            if ref_gff is False:
+                if transcript is None or (transcript is not None and transcript.id != row.transcript):
+                    if transcript is not None:
+                        if re.search(r"\.orf[0-9]+$", transcript.id) and \
+                                (not transcript.id.endswith("orf1")):
+                            pass
+                        else:
+                            assigner_instance.get_best(transcript)
+                    queue_logger.debug("New transcript: %s", row.transcript)
+                    transcript = Transcript(row, logger=queue_logger)
+
             queue_logger.debug("Adding exon to transcript %s: %s",
                                transcript.id, row)
             transcript.add_exon(row)
@@ -265,6 +272,53 @@ def parse_self(args, genes, queue_logger):
             tmap_rower.writerow(result.as_dict())
 
     queue_logger.info("Finished.")
+
+
+def load_index(args, queue_logger):
+
+    """
+    Function to load the genes and positions from the indexed GFF.
+    :param args:
+    :param queue_logger:
+    :return: genes, positions
+    :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
+    """
+
+    with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
+        positions = collections.defaultdict(dict)
+        try:
+            cp_genes = json.load(index)
+            genes = dict()
+            for gid, gobj in cp_genes.items():
+                gene = Gene(None, logger=queue_logger)
+                gene.load_dict(gobj,
+                               exclude_utr=args.exclude_utr,
+                               protein_coding=args.protein_coding)
+                # Necessary for when we are excluding non-coding
+                if len(gene.transcripts) > 0:
+                    genes[gid] = gene
+                    if (gene.start, gene.end) not in positions[gene.chrom]:
+                        positions[gene.chrom][(gene.start, gene.end)] = []
+                    positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
+                else:
+                    queue_logger.warning("No transcripts for %s", gid)
+
+            if not (isinstance(genes, dict) and
+                    isinstance(positions, collections.defaultdict) and
+                    positions.default_factory is dict):
+                raise EOFError
+        except (EOFError, json.decoder.JSONDecodeError) as exc:
+            genes, positions = None, None
+            queue_logger.error("Invalid index file; deleting and rebuilding. Error: %s", exc)
+            queue_logger.exception(exc)
+            os.remove("{0}.midx".format(args.reference.name))
+        except (TypeError, ValueError) as exc:
+            genes, positions = None, None
+            queue_logger.error("Corrupted index file; deleting and rebuilding.")
+            queue_logger.exception(exc)
+            os.remove("{0}.midx".format(args.reference.name))
+
+    return genes, positions
 
 
 def compare(args):
@@ -320,37 +374,14 @@ def compare(args):
         queue_logger.info("Finished to create an index for %s, with %d genes",
                           args.reference.name, len(genes))
     else:
-        if os.path.exists("{0}.midx".format(args.reference.name)):
+        if (os.path.exists("{0}.midx".format(args.reference.name)) and
+            os.stat(args.reference.name).st_mtime >= os.stat(
+                    "{0}.midx".format(args.reference.name)).st_mtime):
+            queue_logger.warning("Reference index obsolete, deleting and rebuilding.")
+            os.remove("{0}.midx".format(args.reference.name))
+        elif os.path.exists("{0}.midx".format(args.reference.name)):
             queue_logger.info("Starting loading the indexed reference")
-            with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
-                positions = collections.defaultdict(dict)
-                # TODO: parallelise index loading. It is way too slow in single-process
-                try:
-                    cp_genes = json.load(index)
-                    genes = dict()
-                    for gid, gobj in cp_genes.items():
-                        gene = Gene(None)
-                        gene.load_dict(gobj,
-                                       exclude_utr=args.exclude_utr,
-                                       protein_coding=args.protein_coding)
-                        # Necessary for when we are excluding non-coding
-                        if len(gene.transcripts) > 0:
-                            genes[gid] = gene
-                            if (gene.start, gene.end) not in positions[gene.chrom]:
-                                positions[gene.chrom][(gene.start, gene.end)] = []
-                            positions[gene.chrom][(gene.start, gene.end)].append(gene.id)
-                        else:
-                            queue_logger.warning("No transcripts for %s", gid)
-
-                    if not (isinstance(genes, dict) and
-                            isinstance(positions, collections.defaultdict) and
-                            positions.default_factory is dict):
-                        raise EOFError
-                except EOFError:
-                    genes, positions = None, None
-                    logger.error("Invalid index; deleting and rebuilding.")
-                    os.remove("{0}.midx".format(args.reference.name))
-
+            genes, positions = load_index(args, queue_logger)
         if genes is None:
             queue_logger.info("Starting parsing the reference")
             exclude_utr, protein_coding = args.exclude_utr, args.protein_coding

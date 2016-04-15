@@ -1,0 +1,671 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.scales package &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="mikado-scales-package">
+<h1>Mikado.scales package<a class="headerlink" href="#mikado-scales-package" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Permalink to this headline">¶</a></h2>
+</div>
+<div class="section" id="module-Mikado.scales.accountant">
+<span id="mikado-scales-accountant-module"></span><h2>Mikado.scales.accountant module<a class="headerlink" href="#module-Mikado.scales.accountant" title="Permalink to this headline">¶</a></h2>
+<p>This class is used to store all the data calculated by the Assigner class, in order to produce
+the RefMap/Stats files.</p>
+<dl class="class">
+<dt id="Mikado.scales.accountant.Accountant">
+<em class="property">class </em><code class="descclassname">Mikado.scales.accountant.</code><code class="descname">Accountant</code><span class="sig-paren">(</span><em>genes: dict</em>, <em>args: argparse.Namespace</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/accountant.html#Accountant"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.accountant.Accountant" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>This class stores the data necessary to calculate the final statistics
+- base and exon Sn/Sp/F1 etc.</p>
+<dl class="method">
+<dt id="Mikado.scales.accountant.Accountant.print_stats">
+<code class="descname">print_stats</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/accountant.html#Accountant.print_stats"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.accountant.Accountant.print_stats" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method calculates and prints the final stats file.
+It is called when the prediction file
+parsing has been terminated correctly.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Mikado.scales.accountant.Accountant.store">
+<code class="descname">store</code><span class="sig-paren">(</span><em>transcr: Mikado.loci.transcript.Transcript</em>, <em>result: Mikado.scales.resultstorer.ResultStorer</em>, <em>other_exon</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/accountant.html#Accountant.store"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.accountant.Accountant.store" title="Permalink to this definition">¶</a></dt>
+<dd><p>Add exons introns intron chains etc. to the storage.
+:param transcr: a &#8220;Transcript&#8221; instance
+:param result: Instance of &#8220;result_storer&#8221;
+:param other_exon: either None or an integer duplex
+:type other_exon: None | (int,int)</p>
+<dl class="docutils">
+<dt>A transcript is considered a perfect match if it has:</dt>
+<dd>junction_f1==100 and nucleotide_f1==100;</dd>
+</dl>
+<p>a lenient match if it has junction_f1==100 and nucleotide_f1&gt;95,
+i.e. min(nucleotide_precision, nucleotide_recall)&gt;90.4</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="mikado-scales-assigner-module">
+<h2>Mikado.scales.assigner module<a class="headerlink" href="#mikado-scales-assigner-module" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-Mikado.scales.assigner"></span><p>This class is the main workhorse of the compare.py utility.</p>
+<dl class="class">
+<dt id="Mikado.scales.assigner.Assigner">
+<em class="property">class </em><code class="descclassname">Mikado.scales.assigner.</code><code class="descname">Assigner</code><span class="sig-paren">(</span><em>genes: dict</em>, <em>positions: collections.defaultdict</em>, <em>args: argparse.Namespace</em>, <em>stat_calculator: Mikado.scales.accountant.Accountant</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>This class has the purpose of assiging each prediction transcript to its best match
+among the reference transcripts.</p>
+<dl class="method">
+<dt id="Mikado.scales.assigner.Assigner.add_to_refmap">
+<code class="descname">add_to_refmap</code><span class="sig-paren">(</span><em>result: Mikado.scales.resultstorer.ResultStorer</em><span class="sig-paren">)</span> &rarr; None<a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.add_to_refmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.add_to_refmap" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>result</strong> &#8211; the result of the compare function</td>
+</tr>
+</tbody>
+</table>
+<p>This method verifies whether the comparison in input is the best available for the
+candidate reference gene, and loads it into the refmap dictionary if such is the case.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Mikado.scales.assigner.Assigner.calc_and_store_compare">
+<code class="descname">calc_and_store_compare</code><span class="sig-paren">(</span><em>prediction: Mikado.loci.transcript.Transcript</em>, <em>reference: Mikado.loci.transcript.Transcript</em><span class="sig-paren">)</span> &rarr; Mikado.scales.resultstorer.ResultStorer<a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.calc_and_store_compare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.calc_and_store_compare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Thin layer around the calc_and_store_compare class method.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>prediction</strong> &#8211; a Transcript instance.</li>
+<li><strong>reference</strong> &#8211; a Transcript instance to which the prediction is compared to.</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>:rtype ResultStorer</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Mikado.scales.assigner.Assigner.compare">
+<em class="property">static </em><code class="descname">compare</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.compare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.compare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to compare two transcripts and determine a ccode. Thin wrapper
+around the compare cython code.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>prediction</strong> (<a class="reference internal" href="Mikado.loci.html#Mikado.loci.transcript.Transcript" title="Mikado.loci.transcript.Transcript"><em>Transcript</em></a>) &#8211; the transcript query</li>
+<li><strong>reference</strong> &#8211; the reference transcript against which we desire to</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>calculate the ccode and other stats.
+:type reference: Transcript</p>
+<p>:rtype (ResultStorer, (int,int)) | (ResultStorer, None)</p>
+<p>Available ccodes (from Cufflinks documentation):</p>
+<ul class="simple">
+<li>=    Complete intron chain match</li>
+<li>c    Contained (perfect junction recall and precision, imperfect recall)</li>
+<li>j    Potentially novel isoform (fragment): at least one splice junction is shared</li>
+</ul>
+<p>with a reference transcript
+- e    Single exon transfrag overlapping a reference exon and at least
+10 bp of a reference intron, indicating a possible pre-mRNA fragment.
+- i    A <em>monoexonic</em> transfrag falling entirely within a reference intron
+- o    Generic exonic overlap with a reference transcript
+- p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
+- u    Unknown, intergenic transcript
+- x    Exonic overlap with reference on the opposite strand (class codes e, o, m, c, _)
+- X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake,</p>
+<blockquote>
+<div>unless non-canonical splicing junctions are involved).</div></blockquote>
+<p>Please note that the description for i is changed from Cufflinks.</p>
+<p>We also provide the following additional classifications:</p>
+<ul class="simple">
+<li>f    gene fusion - in this case, this ccode will be followed by the</li>
+</ul>
+<p>ccodes of the matches for each gene, separated by comma
+- _    Complete match, for monoexonic transcripts
+(nucleotide F1&gt;=80% - i.e. min(precision,recall)&gt;=66.7%
+- m    Exon overlap between two monoexonic transcripts
+- n    Potential extension of the reference - we have added new splice junctions
+<em>outside</em> the boundaries of the transcript itself
+- C    Contained transcript with overextensions on either side
+(perfect junction recall, imperfect nucleotide specificity)
+- J    Potentially novel isoform, where all the known junctions
+have been confirmed and we have added others as well <em>externally</em>
+- I    <em>multiexonic</em> transcript falling completely inside a known transcript
+- h    AS event in which at least a couple of introns overlaps but without any</p>
+<blockquote>
+<div>junction in common.</div></blockquote>
+<ul class="simple">
+<li>O    Reverse generic overlap - the reference is monoexonic while the prediction isn&#8217;t</li>
+<li>P    Possible polymerase run-on fragment</li>
+<li>mo   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic</li>
+</ul>
+<p>(within 2K bases of a reference transcript), on the opposite strand</p>
+<p>This is a class method, and can therefore be used outside of a class instance.</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Mikado.scales.assigner.Assigner.dubious_getter">
+<em class="property">static </em><code class="descname">dubious_getter</code><span class="sig-paren">(</span><em>dubious_result</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.dubious_getter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.dubious_getter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function used to perform the sorting of the matches.
+:param dubious_result: a result
+:type dubious_result: ResultStorer</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Mikado.scales.assigner.Assigner.find_neighbours">
+<em class="property">classmethod </em><code class="descname">find_neighbours</code><span class="sig-paren">(</span><em>keys</em>, <em>position</em>, <em>distance=2000</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.find_neighbours"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.find_neighbours" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class method is used to find the possible matches of a given prediction key.
+:param keys: the start
+:type keys: intervaltree.IntervalTree</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>position</strong> (<em>(int, int)</em>) &#8211; the position of my prediction in the genome</li>
+<li><strong>distance</strong> &#8211; optional maximum distance of a prediction</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>from reference before being called an unknown
+:type distance: int</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">a list of distances, with the following format:
+(start, end), distance</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="Mikado.scales.assigner.Assigner.finish">
+<code class="descname">finish</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.finish"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.finish" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is called upon completion of the input file parsing.
+It will print out the reference file assignments into the refmap
+file, and the final statistics into the stats file.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Mikado.scales.assigner.Assigner.get_best">
+<code class="descname">get_best</code><span class="sig-paren">(</span><em>prediction: Mikado.loci.transcript.Transcript</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.get_best"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.get_best" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>prediction</strong> (<a class="reference internal" href="Mikado.loci.html#Mikado.loci.transcript.Transcript" title="Mikado.loci.transcript.Transcript"><em>Transcript</em></a>) &#8211; the candidate transcript to be analysed</td>
+</tr>
+</tbody>
+</table>
+<p>This function will get the best possible assignment for each transcript.
+Fusion genes are called when the following conditions are verified:
+- the prediction intersects (at least) two transcripts in (at least)
+two different loci
+- the suspected fusion transcript lies on the same strand of all
+candidate fused genes
+- each candidate transcript has at least one fusion or
+10% of its nucleotides covered by the fusion transcript.
+The 10% threshold is hard-coded in the function.</p>
+</dd></dl>
+
+<dl class="staticmethod">
+<dt id="Mikado.scales.assigner.Assigner.get_f1">
+<em class="property">static </em><code class="descname">get_f1</code><span class="sig-paren">(</span><em>curr_result</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.get_f1"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.get_f1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Simple getter for F1 statistics (N_F1 and J_F1)
+:param curr_result: a result storer
+:type curr_result: ResultStorer</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body">(J_F1, N_F1)</td>
+</tr>
+</tbody>
+</table>
+<p>:rtype (float, float)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Mikado.scales.assigner.Assigner.print_tmap">
+<code class="descname">print_tmap</code><span class="sig-paren">(</span><em>res</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.print_tmap"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.print_tmap" title="Permalink to this definition">¶</a></dt>
+<dd><p>This method will print a ResultStorer instance onto the TMAP file.
+:param res: result from compare
+:type res: (ResultStorer | None)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="Mikado.scales.assigner.Assigner.refmap_printer">
+<code class="descname">refmap_printer</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &rarr; None<a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.refmap_printer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.refmap_printer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to print out the best match for each gene.</p>
+</dd></dl>
+
+<dl class="classmethod">
+<dt id="Mikado.scales.assigner.Assigner.result_sorter">
+<em class="property">classmethod </em><code class="descname">result_sorter</code><span class="sig-paren">(</span><em>result</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/assigner.html#Assigner.result_sorter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.assigner.Assigner.result_sorter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Public interface of __result_sorter
+:param result: a result
+:return:</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="mikado-scales-compare-module">
+<h2>Mikado.scales.compare module<a class="headerlink" href="#mikado-scales-compare-module" title="Permalink to this headline">¶</a></h2>
+<span class="target" id="module-Mikado.scales.compare"></span><p>Launcher for the Mikado.py compare utility.</p>
+<dl class="function">
+<dt id="Mikado.scales.compare.compare">
+<code class="descclassname">Mikado.scales.compare.</code><code class="descname">compare</code><span class="sig-paren">(</span><em>args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/compare.html#compare"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.compare.compare" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function performs the comparison between two different files.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>args</strong> &#8211; the argparse Namespace</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.scales.compare.finalize_reference">
+<code class="descclassname">Mikado.scales.compare.</code><code class="descname">finalize_reference</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/compare.html#finalize_reference"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.compare.finalize_reference" title="Permalink to this definition">¶</a></dt>
+<dd><table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>genes</strong> &#8211; </li>
+<li><strong>positions</strong> &#8211; </li>
+<li><strong>queue_logger</strong> &#8211; </li>
+<li><strong>args</strong> &#8211; </li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"></p>
+</td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.scales.compare.load_index">
+<code class="descclassname">Mikado.scales.compare.</code><code class="descname">load_index</code><span class="sig-paren">(</span><em>args</em>, <em>queue_logger</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/compare.html#load_index"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.compare.load_index" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to load the genes and positions from the indexed GFF.
+:param args:
+:param queue_logger:
+:return: genes, positions
+:rtype: ((None|collections.defaultdict),(None|collections.defaultdict))</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.scales.compare.parse_prediction">
+<code class="descclassname">Mikado.scales.compare.</code><code class="descname">parse_prediction</code><span class="sig-paren">(</span><em>args</em>, <em>genes</em>, <em>positions</em>, <em>queue_logger</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/compare.html#parse_prediction"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.compare.parse_prediction" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="docutils">
+<dt>This function performs the real comparison between the reference and the prediction.</dt>
+<dd>It needs the following inputs:</dd>
+</dl>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>args</strong> &#8211; the Namespace with the necessary parameters</li>
+<li><strong>genes</strong> &#8211; Dictionary with the reference genes, of the form</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>dict[chrom][(start,end)] = [gene object]
+:param positions: Dictionary with the positions of the reference genes, of the form
+dict[chrom][IntervalTree]
+:param queue_logger: Logger
+:return:</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.scales.compare.parse_self">
+<code class="descclassname">Mikado.scales.compare.</code><code class="descname">parse_self</code><span class="sig-paren">(</span><em>args</em>, <em>genes</em>, <em>queue_logger</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/compare.html#parse_self"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.compare.parse_self" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function is called when we desire to compare a reference against itself.
+:param args:
+:param genes:
+:param queue_logger:
+:return:</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.scales.compare.prepare_reference">
+<code class="descclassname">Mikado.scales.compare.</code><code class="descname">prepare_reference</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/compare.html#prepare_reference"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.compare.prepare_reference" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to prepare the data structures that hold the reference
+information for the parsing.
+:param args:
+:param queue_logger:
+:param ref_gff:
+:return: genes, positions</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="Mikado.scales.compare.setup_logger">
+<code class="descclassname">Mikado.scales.compare.</code><code class="descname">setup_logger</code><span class="sig-paren">(</span><em>args</em>, <em>manager</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/compare.html#setup_logger"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.compare.setup_logger" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to setup the logger for the compare function.
+:param args:
+:param manager:
+:return:</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.scales.contrast">
+<span id="mikado-scales-contrast-module"></span><h2>Mikado.scales.contrast module<a class="headerlink" href="#module-Mikado.scales.contrast" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="Mikado.scales.contrast.compare">
+<code class="descclassname">Mikado.scales.contrast.</code><code class="descname">compare</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Mikado.scales.contrast.compare" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to compare two transcripts and determine a ccode.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first last simple">
+<li><strong>prediction</strong> (<a class="reference internal" href="Mikado.loci.html#Mikado.loci.transcript.Transcript" title="Mikado.loci.transcript.Transcript"><em>Transcript</em></a>) &#8211; the transcript query</li>
+<li><strong>reference</strong> &#8211; the reference transcript against which we desire to</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
+<p>calculate the ccode and other stats.
+:type reference: Transcript</p>
+<p>:rtype (ResultStorer, (int,int)) | (ResultStorer, None)</p>
+<p>Available ccodes (from Cufflinks documentation):</p>
+<ul class="simple">
+<li>=    Complete intron chain match</li>
+<li>c    Contained (perfect junction recall and precision, imperfect recall)</li>
+<li>j    Potentially novel isoform (fragment): at least one splice junction is shared</li>
+</ul>
+<p>with a reference transcript
+- e    Single exon transfrag overlapping a reference exon and at least
+10 bp of a reference intron, indicating a possible pre-mRNA fragment.
+- i    A <em>monoexonic</em> transfrag falling entirely within a reference intron
+- o    Generic exonic overlap with a reference transcript
+- p    Possible polymerase run-on fragment (within 2Kbases of a reference transcript)
+- u    Unknown, intergenic transcript
+- x    Exonic overlap with reference on the opposite strand (class codes e, o, m, c, _)
+- X    Overlap on the opposite strand, with some junctions in common (probably a serious mistake,</p>
+<blockquote>
+<div>unless non-canonical splicing junctions are involved).</div></blockquote>
+<p>Please note that the description for i is changed from Cufflinks.</p>
+<p>We also provide the following additional classifications:</p>
+<ul class="simple">
+<li>f    gene fusion - in this case, this ccode will be followed by the</li>
+</ul>
+<p>ccodes of the matches for each gene, separated by comma
+- _    Complete match, for monoexonic transcripts
+(nucleotide F1&gt;=80% - i.e. min(precision,recall)&gt;=66.7%
+- m    Exon overlap between two monoexonic transcripts
+- n    Potential extension of the reference - we have added new splice junctions
+<em>outside</em> the boundaries of the transcript itself
+- C    Contained transcript with overextensions on either side
+(perfect junction recall, imperfect nucleotide specificity)
+- J    Potentially novel isoform, where all the known junctions
+have been confirmed and we have added others as well <em>externally</em>
+- I    <em>multiexonic</em> transcript falling completely inside a known transcript
+- h    AS event in which at least a couple of introns overlaps but without any</p>
+<blockquote>
+<div>junction in common.</div></blockquote>
+<ul class="simple">
+<li>O    Reverse generic overlap - the reference is monoexonic while the prediction isn&#8217;t</li>
+<li>P    Possible polymerase run-on fragment</li>
+<li>mo   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic</li>
+</ul>
+<p>(within 2K bases of a reference transcript), on the opposite strand</p>
+<p>This is a class method, and can therefore be used outside of a class instance.</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.scales.f1">
+<span id="mikado-scales-f1-module"></span><h2>Mikado.scales.f1 module<a class="headerlink" href="#module-Mikado.scales.f1" title="Permalink to this headline">¶</a></h2>
+<dl class="function">
+<dt id="Mikado.scales.f1.calc_f1">
+<code class="descclassname">Mikado.scales.f1.</code><code class="descname">calc_f1</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Mikado.scales.f1.calc_f1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Static method to calculate the F1 statistic given precision
+and recall (order is unimportant). Definition:
+F1 = (2 * precision * recall) / (precision + recall)</p>
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.scales.resultstorer">
+<span id="mikado-scales-resultstorer-module"></span><h2>Mikado.scales.resultstorer module<a class="headerlink" href="#module-Mikado.scales.resultstorer" title="Permalink to this headline">¶</a></h2>
+<p>This class defines the results of the Assigner.compare method.</p>
+<dl class="class">
+<dt id="Mikado.scales.resultstorer.ResultStorer">
+<em class="property">class </em><code class="descclassname">Mikado.scales.resultstorer.</code><code class="descname">ResultStorer</code><span class="sig-paren">(</span><em>*args</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/resultstorer.html#ResultStorer"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal"><span class="pre">object</span></code></p>
+<p>This class stores the results in pre-defined slots, to reduce memory usage.</p>
+<dl class="method">
+<dt id="Mikado.scales.resultstorer.ResultStorer.as_dict">
+<code class="descname">as_dict</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/Mikado/scales/resultstorer.html#ResultStorer.as_dict"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.as_dict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper for the protected method _asdict
+:return: dictionary</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.ccode">
+<code class="descname">ccode</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.ccode" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.distance">
+<code class="descname">distance</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.distance" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.e_f1">
+<code class="descname">e_f1</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.e_f1" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.e_prec">
+<code class="descname">e_prec</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.e_prec" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.e_recall">
+<code class="descname">e_recall</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.e_recall" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.gid">
+<code class="descname">gid</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.gid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.j_f1">
+<code class="descname">j_f1</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.j_f1" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.j_prec">
+<code class="descname">j_prec</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.j_prec" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.j_recall">
+<code class="descname">j_recall</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.j_recall" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.n_f1">
+<code class="descname">n_f1</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.n_f1" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.n_prec">
+<code class="descname">n_prec</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.n_prec" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.n_recall">
+<code class="descname">n_recall</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.n_recall" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.ref_gene">
+<code class="descname">ref_gene</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.ref_gene" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.ref_id">
+<code class="descname">ref_id</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.ref_id" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="Mikado.scales.resultstorer.ResultStorer.tid">
+<code class="descname">tid</code><a class="headerlink" href="#Mikado.scales.resultstorer.ResultStorer.tid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="module-Mikado.scales">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-Mikado.scales" title="Permalink to this headline">¶</a></h2>
+<p>This module defines the classes needed for the &#8220;compare&#8221; script, namely:</p>
+<ul>
+<li><dl class="first docutils">
+<dt>result_storer:    a glorified struct to</dt>
+<dd><p class="first last">hold the comparison results of a prediction vs. the reference</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>reference_gene:   data structure which holds the transcripts of a gene.</dt>
+<dd><p class="first last">No check is performed - transcripts are grouped according
+to their parent information.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>assigner:         Main workhorse of the sublibrary. This class</dt>
+<dd><p class="first last">assigns each transcript to its best match(es) in the reference annotation.</p>
+</dd>
+</dl>
+</li>
+<li><p class="first">accountant:       This class calculates the final summary statistics for the comparison.</p>
+</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Mikado.scales package</a><ul>
+<li><a class="reference internal" href="#submodules">Submodules</a></li>
+<li><a class="reference internal" href="#module-Mikado.scales.accountant">Mikado.scales.accountant module</a></li>
+<li><a class="reference internal" href="#mikado-scales-assigner-module">Mikado.scales.assigner module</a></li>
+<li><a class="reference internal" href="#mikado-scales-compare-module">Mikado.scales.compare module</a></li>
+<li><a class="reference internal" href="#module-Mikado.scales.contrast">Mikado.scales.contrast module</a></li>
+<li><a class="reference internal" href="#module-Mikado.scales.f1">Mikado.scales.f1 module</a></li>
+<li><a class="reference internal" href="#module-Mikado.scales.resultstorer">Mikado.scales.resultstorer module</a></li>
+<li><a class="reference internal" href="#module-Mikado.scales">Module contents</a></li>
+</ul>
+</li>
+</ul>
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/Mikado.scales.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+      |
+      <a href="_sources/Mikado.scales.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

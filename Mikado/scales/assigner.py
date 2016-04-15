@@ -6,7 +6,7 @@ This class is the main workhorse of the compare.py utility.
 
 import sys
 import csv
-from intervaltree import IntervalTree
+from .intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue
 import logging
@@ -15,11 +15,9 @@ import argparse
 import operator
 from collections import namedtuple
 from .resultstorer import ResultStorer
-from . import calc_f1
 from ..loci.transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from .accountant import Accountant
-from ..utilities import overlap
 from .contrast import compare as c_compare
 
 
@@ -61,8 +59,25 @@ class Assigner:
             self.args.loq_queue = queue.Queue()
             self.args.exclude_utr = False
             self.args.verbose = False
+            self.lenient = False
         else:
             self.args = args
+            if not hasattr(args, "out"):
+                self.args.out = sys.stdout
+            if not hasattr(args, "distance"):
+                self.args.distance = 2000
+            if not hasattr(args, "protein_coding"):
+                self.args.protein_coding = False
+            if not hasattr(args, "loq_queue"):
+                self.args.loq_queue = queue.Queue()
+            if not hasattr(args, "exclude_utr"):
+                self.args.exclude_utr = False
+            if not hasattr(args, "verbose"):
+                self.args.verbose = False
+            if hasattr(args, "lenient"):
+                self.lenient = args.lenient
+            else:
+                self.lenient = False
 
         # noinspection PyUnresolvedReferences
         # pylint: disable=no-member
@@ -124,7 +139,7 @@ class Assigner:
         """
         This class method is used to find the possible matches of a given prediction key.
         :param keys: the start
-        :type keys: intervaltree.IntervalTree
+        :type keys: Mikado.scales.intervaltree.IntervalTree
 
         :param position: the position of my prediction in the genome
         :type position: (int, int)
@@ -144,7 +159,7 @@ class Assigner:
         if len(keys) == 0:
             return []
 
-        found = keys.search(start-distance, end+distance)
+        found = keys.search(start, end, max_distance=distance)
 
         distances = []
         for key in found:
@@ -222,87 +237,103 @@ class Assigner:
         multiple matches at distance 0 is indeed a fusion, or not.
         :param prediction:
         :param matches:
+        :type matches: list
         :return:
         """
 
-        new_matches = []
+        # Input: dict[(start, end), distance]: [gene1, gene2 ...]
+        # What we need to achieve in this section of the program
+        # Detect which genes in range *are* fused
+        # Assign a "fused" tag to each transcript in the fused gene that passes the criteria
 
-        # Matches format: [(start,end), distance]
+        results = []
+        new_matches = dict()
+        match_to_gene = dict()
+
+        strands = collections.defaultdict(set)
+
+        # Get all the results for the single genea
+        # We *want* to do the calculation for all hits
         for match in matches:
-            best = None
-            gene_matches = [self.genes[_] for _ in
-                            self.positions[prediction.chrom][match[0]]]
+            match_to_gene[match[0]] = self.positions[prediction.chrom][match[0]]
+            for gene, gene_match in iter((gene, self.genes[gene]) for gene in
+                                         match_to_gene[match[0]]):
+                strands[gene_match.strand].add(gene)
+                new_matches[gene] = sorted(
+                    [self.calc_and_store_compare(prediction, tra) for tra in gene_match],
+                    key=self.get_f1, reverse=True)
 
-            self.logger.debug("Match for %s: %s",
-                              match,
-                              [_.id for _ in gene_matches])
-            for gene_match in gene_matches:
-                __res = sorted([self.calc_and_store_compare(prediction, tra) for tra in gene_match],
-                               reverse=True, key=self.get_f1)
-                best_res = (gene_match.strand, __res)
-                if best is None:
-                    best = best_res
+        # If we have candidates for the fusion which are on its same strand
+        # Keep only those. Otherwise in compact genomes we might call as "fusions"
+        # all transcripts which are assigned to genes overlapping on the same strand!
+        if prediction.strand is not None and len(strands[prediction.strand]) > 0:
+            for strand in iter(key for key in strands.keys() if key != prediction.strand):
+                for gene in strands[strand]:
+                    # Add to the final results the data for the gene
+                    results.extend(new_matches[gene])
+                    del new_matches[gene]
+
+        if len(new_matches) == 0:
+            error = AssertionError("Filtered all results for %s. This is wrong!",
+                                   prediction.id)
+            self.logger.error(error)
+            raise error
+
+        fused = collections.defaultdict(list)
+        dubious = set()
+        best = set()
+
+        for match, genes in match_to_gene.items():
+            local_best = []
+            for gene in genes:
+                if gene not in new_matches:
+                    continue
+                # The best match is the first
+                if new_matches[gene][0].j_f1[0] == 0 and new_matches[gene][0].n_recall[0] < 10:
+                    dubious.add(gene)
+                    continue
                 else:
-                    best = sorted([best, best_res],
-                                  reverse=True,
-                                  key=lambda res: self.get_f1(res[1][0]))[0]
-            if best is not None:
-                new_matches.append(best)
+                    local_best.append(new_matches[gene][0])
+                    fused[match].append(gene)
+            if len(local_best) > 0:
+                best.add((match, sorted(local_best, key=self.get_f1, reverse=True)[0]))
 
-        matches = new_matches
-        strands = set(_[0] for _ in matches)
-        if len(strands) > 1 and prediction.strand in strands:
-            matches = list(mmatch for mmatch in matches
-                           if mmatch[0] == prediction.strand)
-        if len(matches) == 0:
-            raise ValueError("I filtered out all matches. This is wrong!")
+        if len(best) > 1:  # We have a fusion
+            # Add the fusion tag to all transcripts of fused genes, if applicable
+            values = []
+            # Now retrieve the results according to their order on the genome
+            # Keep only the result, not their position
+            best = [_[1] for _ in sorted(best, key=lambda res: (res[0][0], res[0][1]))]
+            for key in ResultStorer.__slots__:
+                if key in ["gid", "tid", "distance", "tid_num_exons"]:
+                    values.append(getattr(best[0], key))
+                elif key == "ccode":
+                    values.append(tuple(["f"] + [_.ccode[0] for _ in best]))
+                else:
+                    val = tuple([getattr(result, key)[0] for result in best])
+                    values.append(val)
+            best_result = ResultStorer(*values)
+            for match, genes in fused.items():
+                for gene in iter(_ for _ in genes if _ not in dubious):
+                    for position, result in enumerate(new_matches[gene]):
+                        if result.j_f1[0] > 0 or result.n_recall[0] > 10:
+                            result.ccode = ("f", result.ccode[0])
+                            new_matches[gene][position] = result
 
-        best_fusion_results = []
-        results = []  # Final results
-        dubious = []  # Necessary for a double check.
-
-        for match in matches:
-            m_res = match[1]
-            # A fusion is called only if I have one of the following conditions:
-            # the transcript gets one of the junctions of the other transcript
-            # the exonic overlap is >=10% (n_recall)_
-
-            if m_res[0].j_f1[0] == 0 and m_res[0].n_recall[0] < 10:
-                dubious.append(m_res)
-                continue
-            # List of ResultStorer instances
-            results.extend(m_res)
-            best_fusion_results.append(m_res[0])
-
-        if len(results) == 0:
-            self.logger.debug("Filtered out all results for %s, using the dubious ones",
+        elif len(best) == 1:
+            best_result = best.pop()[1]
+        else:  # We have to retrieve the best result from the dubious
+            self.logger.debug("Filtered out all results for %s, selecting the best dubious one",
                               prediction.id)
             # I have filtered out all the results,
             # because I only match partially the reference genes
-            dubious = sorted(dubious, key=self.dubious_getter)
-            results = dubious[0]
-            best_fusion_results = [results[0]]
+            best_result = sorted([new_matches[gene][0] for gene in dubious],
+                                 key=self.get_f1, reverse=True)[0]
 
-        fused_group = tuple(sorted([_.ref_gene[0] for _ in best_fusion_results]))
-
-        values = []
-        if len(fused_group) > 1:
-            for result in results:
-                result.ccode = ("f", result.ccode[0])
-            for key in ResultStorer.__slots__:
-                if key in ["gid", "tid", "distance"]:
-                    values.append(getattr(best_fusion_results[0], key))
-                elif key == "ccode":
-                    values.append(
-                        tuple(["f"] + [getattr(_, "ccode")[1] for _ in best_fusion_results])
-                    )
-                else:
-                    val = tuple([getattr(x, key)[0] for x in best_fusion_results])
-                    values.append(val)
-            best_result = ResultStorer(*values)
-        else:
-            best_result = sorted(best_fusion_results, reverse=True, key=self.get_f1)[0]
-        # Finished creating the fusion result
+        # Finally add the results
+        for gene in new_matches:
+            results.extend(new_matches[gene])
+        self.logger.debug("\n".join([str(result) for result in results]))
 
         return results, best_result
 
@@ -407,7 +438,10 @@ class Assigner:
             best_result = ResultStorer("-", "-",
                                        ccode,
                                        prediction.id,
-                                       ",".join(prediction.parent), *[0] * 9 + ["-"])
+                                       prediction.parent[0],
+                                       prediction.exon_num,
+                                       "-",
+                                       *[0] * 9 + ["-"])
             self.stat_calculator.store(prediction, best_result, None)
             results = [best_result]
         elif distances[0][1] > 0:
@@ -451,7 +485,8 @@ class Assigner:
 
         """
 
-        result, reference_exon = c_compare(prediction, reference)
+        result, reference_exon = c_compare(prediction, reference,
+                                           lenient=self.lenient)
 
         assert reference_exon is None or reference_exon in reference.exons
         self.stat_calculator.store(prediction, result, reference_exon)
@@ -517,11 +552,11 @@ class Assigner:
 
         return c_compare(prediction, reference)
 
-    def print_tmap(self, res: ResultStorer):
+    def print_tmap(self, res):
         """
         This method will print a ResultStorer instance onto the TMAP file.
         :param res: result from compare
-        :type res: ResultStorer | None
+        :type res: (ResultStorer | None)
         """
         if self.done % 10000 == 0 and self.done > 0:
             self.logger.info("Done %d transcripts", self.done)

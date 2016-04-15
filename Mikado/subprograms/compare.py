@@ -56,11 +56,15 @@ def compare_parser():
                         (both in reference and prediction) will be considered.""")
     parser.add_argument("-o", "--out", default="mikado_compare", type=str,
                         help="Prefix for the output files. Default: %(default)s")
+    parser.add_argument("--lenient", action="store_true", default=False,
+                        help="""If set, exonic statistics will be calculated leniently
+in the TMAP as well - ie they will consider an exon as match even if only
+the internal junction has been recovered.""")
     parser.add_argument("-eu", "--exclude-utr", dest="exclude_utr",
                         default=False, action="store_true",
                         help="""Flag. If set, reference and prediction transcripts
                         will be stripped of their UTRs (if they are coding).""")
-    parser.add_argument("-n", "-no-save-index", dest="no_save_index",
+    parser.add_argument("-n", "--no-index", "--no-save-index", dest="no_save_index",
                         action="store_true", default=False,
                         help="""Unless this flag is set, compare will save an index of the
                         reference to quicken multiple calls.""")

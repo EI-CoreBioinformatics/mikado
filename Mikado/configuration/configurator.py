@@ -3,7 +3,7 @@
 
 """
 This module defines the functionalities needed to verify the integrity and completeness
-of Mikado.py configuration files. Missing values are replaced with default ones,
+of Mikado configuration files. Missing values are replaced with default ones,
 while existing values are checked for type and consistency.
 """
 
@@ -132,7 +132,7 @@ def check_scoring(json_conf):
 
     Function to check the "scoring" section of the configuration.
     Each scoring function will be checked for:
-    - validity of the expression (it can be interpreted by Mikado.py)
+    - validity of the expression (it can be interpreted by Mikado)
     - validity of the parameter (it is a valid Metric)
 
     :return: json_conf
@@ -220,7 +220,7 @@ def check_requirements(json_conf, require_schema):
     """
     Function to check the "requirements" section of the configuration.
     Each filtering function will be checked for:
-    - validity of the expression (it can be interpreted by Mikado.py)
+    - validity of the expression (it can be interpreted by Mikado)
     - validity of the parameter (it is a valid Metric)
 
     :param json_conf: configuration dictionary to check.

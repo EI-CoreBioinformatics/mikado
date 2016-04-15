@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Stub of pre-configurer for Mikado.py"""
+"""Stub of pre-configurer for Mikado"""
 
 
 import yaml

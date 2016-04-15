@@ -1,0 +1,260 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.serializers.blast_serializer.utils &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Module code" href="../../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.serializers.blast_serializer.utils</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Generic utilities used for BLAST serialising into a DB.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">...parsers.blast_utils</span> <span class="kn">import</span> <span class="n">merge</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="prepare_hsp"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.utils.prepare_hsp">[docs]</a><span class="k">def</span> <span class="nf">prepare_hsp</span><span class="p">(</span><span class="n">hsp</span><span class="p">,</span> <span class="n">counter</span><span class="p">):</span>
+
+    <span class="sd">r&quot;&quot;&quot;</span>
+<span class="sd">    Prepare a HSP for loading into the DB.</span>
+<span class="sd">    The match line will be reworked in the following way:</span>
+
+<span class="sd">    - If the position is a match/positive, keep the original value</span>
+<span class="sd">    - If the position is a gap *for the query*, insert a - (dash)</span>
+<span class="sd">    - If the position is a gap *for the target*, insert a _ (underscore)</span>
+<span class="sd">    - If the position is a gap *for both*, insert a \ (backslash)</span>
+
+<span class="sd">    :param hsp: An HSP object from Bio.Blast.NCBIXML</span>
+<span class="sd">    :type hsp: Bio.Blast.Record.HSP</span>
+<span class="sd">    :param counter: a digit that indicates the priority of the HSP in the hit</span>
+<span class="sd">    :return: hsp_dict, identical_positions, positives</span>
+<span class="sd">    :rtype: (dict, set, set)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">valid_matches</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="nb">chr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">65</span><span class="p">,</span> <span class="mi">91</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="nb">chr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">97</span><span class="p">,</span> <span class="mi">123</span><span class="p">)]</span> <span class="o">+</span>
+                        <span class="p">[</span><span class="s2">&quot;|&quot;</span><span class="p">,</span> <span class="s2">&quot;*&quot;</span><span class="p">])</span>
+
+    <span class="n">identical_positions</span><span class="p">,</span> <span class="n">positives</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="n">hsp_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="c1"># We must start from 1, otherwise MySQL crashes</span>
+    <span class="c1"># as its indices start from 1 not 0</span>
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;counter&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">counter</span> <span class="o">+</span> <span class="mi">1</span>
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;query_hsp_start&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">query_start</span>
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;query_hsp_end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">query_end</span>
+    <span class="c1"># Prepare the list for later calculation</span>
+    <span class="c1"># q_intervals.append((hsp.query_start, hsp.query_end))</span>
+
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;target_hsp_start&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">sbjct_start</span>
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;target_hsp_end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">sbjct_end</span>
+    <span class="c1"># Prepare the list for later calculation</span>
+    <span class="c1"># t_intervals.append((hsp.sbjct_start, hsp.sbjct_end))</span>
+
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;hsp_identity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">identities</span> <span class="o">/</span> <span class="n">hsp</span><span class="o">.</span><span class="n">align_length</span> <span class="o">*</span> <span class="mi">100</span>
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;hsp_positives&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">positives</span> <span class="o">/</span> <span class="n">hsp</span><span class="o">.</span><span class="n">align_length</span> <span class="o">*</span> <span class="mi">100</span>
+
+    <span class="c1"># Prepare the list for later calculation</span>
+    <span class="c1"># hit_dict[&quot;global_identity&quot;].append(hsp_dict[&quot;hsp_identity&quot;])</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">query_pos</span><span class="p">,</span> <span class="n">target_pos</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">query_start</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">hsp</span><span class="o">.</span><span class="n">sbjct_start</span> <span class="o">-</span> <span class="mi">1</span>
+    <span class="n">positive_count</span><span class="p">,</span> <span class="n">iden_count</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">query_aa</span><span class="p">,</span> <span class="n">middle_aa</span><span class="p">,</span> <span class="n">target_aa</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">hsp</span><span class="o">.</span><span class="n">query</span><span class="p">,</span> <span class="n">hsp</span><span class="o">.</span><span class="n">match</span><span class="p">,</span> <span class="n">hsp</span><span class="o">.</span><span class="n">sbjct</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">middle_aa</span> <span class="ow">in</span> <span class="n">valid_matches</span> <span class="ow">or</span> <span class="n">middle_aa</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span><span class="p">:</span>
+            <span class="n">query_pos</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">target_pos</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">match</span> <span class="o">+=</span> <span class="n">middle_aa</span>
+            <span class="n">positives</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">query_pos</span><span class="p">)</span>
+            <span class="n">positive_count</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">middle_aa</span> <span class="o">!=</span> <span class="s2">&quot;+&quot;</span><span class="p">:</span>
+                <span class="n">iden_count</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">identical_positions</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">query_pos</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">query_aa</span> <span class="o">==</span> <span class="n">target_aa</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">match</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span>
+        <span class="k">elif</span> <span class="n">query_aa</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">target_pos</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">match</span> <span class="o">+=</span> <span class="s2">&quot;-&quot;</span>
+        <span class="k">elif</span> <span class="n">target_aa</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">query_pos</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">match</span> <span class="o">+=</span> <span class="s2">&quot;_&quot;</span>
+
+    <span class="k">assert</span> <span class="n">query_pos</span> <span class="o">&lt;=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">query_end</span> <span class="ow">and</span> <span class="n">target_pos</span> <span class="o">&lt;=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">sbjct_end</span>
+    <span class="k">assert</span> <span class="n">positive_count</span> <span class="o">==</span> <span class="n">hsp</span><span class="o">.</span><span class="n">positives</span> <span class="ow">and</span> <span class="n">iden_count</span> <span class="o">==</span> <span class="n">hsp</span><span class="o">.</span><span class="n">identities</span>
+
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;match&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">match</span>
+
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;hsp_length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">align_length</span>
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;hsp_bits&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">bits</span>
+    <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;hsp_evalue&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">hsp</span><span class="o">.</span><span class="n">expect</span>
+
+    <span class="k">return</span> <span class="n">hsp_dict</span><span class="p">,</span> <span class="n">identical_positions</span><span class="p">,</span> <span class="n">positives</span></div>
+
+
+<span class="c1"># Splitting this function would make it less clear, and the internal variables</span>
+<span class="c1"># are all necessary for a correct serialisation.</span>
+<span class="c1"># pylint: disable=too-many-locals</span>
+
+<div class="viewcode-block" id="InvalidHit"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.utils.InvalidHit">[docs]</a><span class="k">class</span> <span class="nc">InvalidHit</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="prepare_hit"><a class="viewcode-back" href="../../../../Mikado.serializers.blast_serializer.html#Mikado.serializers.blast_serializer.utils.prepare_hit">[docs]</a><span class="k">def</span> <span class="nf">prepare_hit</span><span class="p">(</span><span class="n">hit</span><span class="p">,</span> <span class="n">query_id</span><span class="p">,</span> <span class="n">target_id</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Prepare the dictionary for fast loading of Hit and Hsp objects.</span>
+<span class="sd">    global_positives: the similarity rate for the global hit *using the query perspective*</span>
+<span class="sd">    global_identity: the identity rate for the global hit *using the query perspective*</span>
+
+<span class="sd">    :param hit: the hit to parse.</span>
+<span class="sd">    :type hit: Bio.Blast.Record.Alignment</span>
+
+<span class="sd">    :param query_id: the numeric ID of the query in the database. Necessary for serialisation.</span>
+<span class="sd">    :type query_id: int</span>
+
+<span class="sd">    :param target_id: the numeric ID of the target in the database. Necessary for serialisation.</span>
+<span class="sd">    :type target_id: int</span>
+
+<span class="sd">    :param kwargs: additional properties to give to the hit_dict. Retrieved e.g. from descriptions.</span>
+<span class="sd">    :type kwargs: dict</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">hit_dict</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">()</span>
+    <span class="n">hsp_dict_list</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># hit_dict[&quot;global_identity&quot;] = []</span>
+    <span class="n">q_intervals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">t_intervals</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">identical_positions</span><span class="p">,</span> <span class="n">positives</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(),</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="n">best_hsp</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">))</span>  <span class="c1"># E-Value, BitS</span>
+
+    <span class="k">def</span> <span class="nf">hsp_sorter</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param val: Evalue, Bit-Score</span>
+<span class="sd">        :return:</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">evalue</span><span class="p">,</span> <span class="n">bits</span> <span class="o">=</span> <span class="n">val</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">evalue</span><span class="p">,</span> <span class="n">bits</span>
+
+    <span class="k">for</span> <span class="n">counter</span><span class="p">,</span> <span class="n">hsp</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">hit</span><span class="o">.</span><span class="n">hsps</span><span class="p">):</span>
+        <span class="n">hsp_dict</span><span class="p">,</span> <span class="n">ident</span><span class="p">,</span> <span class="n">posit</span> <span class="o">=</span> <span class="n">prepare_hsp</span><span class="p">(</span><span class="n">hsp</span><span class="p">,</span> <span class="n">counter</span><span class="p">)</span>
+        <span class="n">identical_positions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">ident</span><span class="p">)</span>
+        <span class="n">positives</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">posit</span><span class="p">)</span>
+        <span class="n">best_hsp</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">best_hsp</span><span class="p">,</span>
+                           <span class="p">(</span><span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;hsp_evalue&quot;</span><span class="p">],</span> <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;hsp_bits&quot;</span><span class="p">])],</span>
+                          <span class="n">key</span><span class="o">=</span><span class="n">hsp_sorter</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="bp">True</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># if hsp_dict[&quot;hsp_evalue&quot;] &lt; best_hsp[0] and hsp_dict[&quot;hsp_bits&quot;] &gt; best_hsp[1]:</span>
+        <span class="c1">#     best_hsp = (hsp_dict[&quot;hsp_evalue&quot;], hsp_dict[&quot;hsp_bits&quot;])</span>
+        <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;query_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">query_id</span>
+        <span class="n">hsp_dict</span><span class="p">[</span><span class="s2">&quot;target_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_id</span>
+        <span class="n">hsp_dict_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hsp_dict</span><span class="p">)</span>
+        <span class="n">q_intervals</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">hsp</span><span class="o">.</span><span class="n">query_start</span><span class="p">,</span> <span class="n">hsp</span><span class="o">.</span><span class="n">query_end</span><span class="p">))</span>
+        <span class="n">t_intervals</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">hsp</span><span class="o">.</span><span class="n">sbjct_start</span><span class="p">,</span> <span class="n">hsp</span><span class="o">.</span><span class="n">sbjct_end</span><span class="p">))</span>
+
+    <span class="n">hit_dict</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;query_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">query_id</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;target_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">target_id</span>
+
+    <span class="n">q_merged_intervals</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">merge</span><span class="p">(</span><span class="n">q_intervals</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">q_aligned</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">q_merged_intervals</span><span class="p">])</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;query_aligned_length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">q_aligned</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;query_start&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">q_merged_intervals</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;query_end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">q_merged_intervals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">t_merged_intervals</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">merge</span><span class="p">(</span><span class="n">t_intervals</span><span class="p">),</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="n">t_aligned</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">tup</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">tup</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">tup</span> <span class="ow">in</span> <span class="n">t_merged_intervals</span><span class="p">])</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;target_aligned_length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t_aligned</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;target_start&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t_merged_intervals</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;target_end&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">t_merged_intervals</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;global_identity&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">identical_positions</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="o">/</span> <span class="n">q_aligned</span>
+    <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;global_positives&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">positives</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span> <span class="o">/</span> <span class="n">q_aligned</span>
+    <span class="k">if</span> <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;evalue&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">best_hsp</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;bits&quot;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">best_hsp</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="n">InvalidHit</span><span class="p">(</span><span class="s2">&quot;Discrepant evalue/bits for hsps and hit for {0} vs. {1}; </span><span class="se">\</span>
+<span class="s2">        best: {2}, reported {3}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">hit</span><span class="o">.</span><span class="n">hit_def</span><span class="p">,</span>
+            <span class="n">query_id</span><span class="p">,</span>
+            <span class="n">best_hsp</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;evalue&quot;</span><span class="p">],</span> <span class="n">hit_dict</span><span class="p">[</span><span class="s2">&quot;bits&quot;</span><span class="p">])</span>
+        <span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">hit_dict</span><span class="p">,</span> <span class="n">hsp_dict_list</span></div>
+<span class="c1"># pylint: enable=too-many-locals</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

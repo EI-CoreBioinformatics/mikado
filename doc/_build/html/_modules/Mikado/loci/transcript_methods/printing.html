@@ -1,0 +1,461 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.loci.transcript_methods.printing &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Module code" href="../../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.loci.transcript_methods.printing</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module contains the methods related to creating the proper output lines for printing</span>
+<span class="sd">GFFs/GTFs starting from the transcript class.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">from</span> <span class="nn">...parsers.GTF</span> <span class="kn">import</span> <span class="n">GtfLine</span>
+<span class="kn">from</span> <span class="nn">...parsers.GFF</span> <span class="kn">import</span> <span class="n">GffLine</span>
+<span class="kn">from</span> <span class="nn">...parsers.bed12</span> <span class="kn">import</span> <span class="n">BED12</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<span class="k">def</span> <span class="nf">__create_cds_lines</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span>
+                       <span class="n">cds_run</span><span class="p">,</span>
+                       <span class="n">tid</span><span class="p">,</span>
+                       <span class="n">to_gtf</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                       <span class="n">with_introns</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Private method to create the exon/UTR/CDS lines for printing</span>
+<span class="sd">    out in GTF/GFF format.</span>
+<span class="sd">    :param transcript: the transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+<span class="sd">    :param cds_run: the internal orf run we are preparing</span>
+<span class="sd">    :param tid: name of the transcript</span>
+<span class="sd">    :param to_gtf: boolean, indicates whether the lines should be GTF or GFF</span>
+<span class="sd">    :param with_introns: boolean, if True introns will be added to the output</span>
+<span class="sd">    we want GTF or GFF output</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">exon_lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cds_begin</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+
+    <span class="n">line_creator</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span><span class="n">__create_exon_line</span><span class="p">,</span>
+                                     <span class="n">transcript</span><span class="p">,</span>
+                                     <span class="o">**</span><span class="p">{</span><span class="s2">&quot;to_gtf&quot;</span><span class="p">:</span> <span class="n">to_gtf</span><span class="p">,</span>
+                                        <span class="s2">&quot;tid&quot;</span><span class="p">:</span> <span class="n">tid</span><span class="p">})</span>
+
+    <span class="k">if</span> <span class="n">with_introns</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">cds_run</span> <span class="o">=</span> <span class="n">cds_run</span><span class="p">[:]</span>
+        <span class="k">for</span> <span class="n">intron</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">:</span>
+            <span class="n">cds_run</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="s2">&quot;intron&quot;</span><span class="p">,</span> <span class="n">intron</span><span class="p">))</span>
+
+    <span class="n">cds_run</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">cds_run</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">segment</span><span class="p">:</span> <span class="p">(</span><span class="n">segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                                                   <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()))</span>
+
+    <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">cds_run</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">exon_line</span><span class="p">,</span> <span class="n">counter</span><span class="p">,</span> <span class="n">cds_begin</span> <span class="o">=</span> <span class="n">line_creator</span><span class="p">(</span><span class="n">segment</span><span class="p">,</span>
+                                                         <span class="n">counter</span><span class="p">,</span>
+                                                         <span class="n">cds_begin</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="n">cds_run</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">exon_line</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">segment</span><span class="p">,</span> <span class="n">cds_run</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="n">exon_line</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span>
+        <span class="k">if</span> <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">,</span> <span class="p">(</span><span class="n">segment</span><span class="p">,</span> <span class="n">cds_run</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">to_gtf</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+                <span class="n">exon_line</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="n">segment</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">exon_line</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="n">segment</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">%</span> <span class="mi">3</span>
+        <span class="n">exon_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">exon_line</span><span class="p">)</span>
+
+    <span class="c1"># if to_gtf is False:</span>
+    <span class="c1">#     exon_lines = [exon_line for exon_line in</span>
+    <span class="c1">#                   __add_phase(transcript, exon_lines, first_phase=first_phase)]</span>
+    <span class="c1"># else:</span>
+    <span class="c1">#     exon_lines = [exon_line for exon_line in</span>
+    <span class="c1">#                   __add_frame(transcript, exon_lines, first_phase=first_phase)]</span>
+
+    <span class="k">assert</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="bp">True</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">exon_lines</span> <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">feature</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span> <span class="ow">and</span> <span class="n">x</span><span class="o">.</span><span class="n">phase</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">),</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">exon_lines</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">exon_lines</span><span class="p">]</span>
+
+
+<span class="c1"># pylint: disable=too-many-arguments</span>
+<span class="k">def</span> <span class="nf">__create_exon_line</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">segment</span><span class="p">,</span> <span class="n">counter</span><span class="p">,</span> <span class="n">cds_begin</span><span class="p">,</span>
+                       <span class="n">tid</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">to_gtf</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Private method that creates an exon line for printing.</span>
+<span class="sd">    :param transcript: the transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param segment: a segment of the form (feature, start, end)</span>
+<span class="sd">    :type segment: list(str, tuple)</span>
+
+<span class="sd">    :param counter: a Counter object that keeps track of how many exons,</span>
+<span class="sd">    CDS, UTR segments we have already seen</span>
+<span class="sd">    :type counter: Counter</span>
+
+<span class="sd">    :param cds_begin: boolean flag that indicates whether the CDS has already begun</span>
+<span class="sd">    :type cds_begin: bool</span>
+
+<span class="sd">    :param tid: name of the transcript</span>
+<span class="sd">    :param to_gtf: boolean flag</span>
+
+<span class="sd">    :return: exon_line, counter, cds_begin</span>
+<span class="sd">    :rtype: ((GtfLine | GffLine), Counter, bool)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">to_gtf</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="n">GffLine</span>
+        <span class="n">utr3_feature</span> <span class="o">=</span> <span class="s2">&quot;three_prime_UTR&quot;</span>
+        <span class="n">utr5_feature</span> <span class="o">=</span> <span class="s2">&quot;five_prime_UTR&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="n">GtfLine</span>
+        <span class="n">utr3_feature</span> <span class="o">=</span> <span class="s2">&quot;3UTR&quot;</span>
+        <span class="n">utr5_feature</span> <span class="o">=</span> <span class="s2">&quot;5UTR&quot;</span>
+
+    <span class="k">assert</span> <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;UTR&quot;</span><span class="p">,</span> <span class="s2">&quot;CDS&quot;</span><span class="p">,</span> <span class="s2">&quot;exon&quot;</span><span class="p">,</span> <span class="s2">&quot;intron&quot;</span><span class="p">),</span> <span class="n">segment</span>
+
+    <span class="n">phase</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;UTR&quot;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">cds_begin</span> <span class="ow">is</span> <span class="bp">True</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span> <span class="ow">or</span> \
+                <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span> <span class="ow">and</span> <span class="n">cds_begin</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">):</span>
+            <span class="n">feature</span> <span class="o">=</span> <span class="n">utr5_feature</span>
+            <span class="n">counter</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="s2">&quot;five&quot;</span><span class="p">])</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">counter</span><span class="p">[</span><span class="s2">&quot;five&quot;</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">feature</span> <span class="o">=</span> <span class="n">utr3_feature</span>
+            <span class="n">counter</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="s2">&quot;three&quot;</span><span class="p">])</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">counter</span><span class="p">[</span><span class="s2">&quot;three&quot;</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">:</span>
+        <span class="n">cds_begin</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="n">counter</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="s2">&quot;CDS&quot;</span><span class="p">])</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">counter</span><span class="p">[</span><span class="s2">&quot;CDS&quot;</span><span class="p">]</span>
+        <span class="n">feature</span> <span class="o">=</span> <span class="s2">&quot;CDS&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">phase</span> <span class="o">=</span> <span class="n">segment</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">IndexError</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">IndexError</span><span class="p">(</span><span class="n">segment</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">counter</span><span class="o">.</span><span class="n">update</span><span class="p">([</span><span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">counter</span><span class="p">[</span><span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">feature</span> <span class="o">=</span> <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">exon_line</span> <span class="o">=</span> <span class="n">constructor</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;strand&quot;</span><span class="p">]:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">exon_line</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+
+    <span class="n">exon_line</span><span class="o">.</span><span class="n">feature</span> <span class="o">=</span> <span class="n">feature</span>
+    <span class="n">exon_line</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">exon_line</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">exon_line</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="n">phase</span>
+
+    <span class="n">exon_line</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">to_gtf</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="c1"># noinspection PyPropertyAccess</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">gene</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">parent</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">transcript</span> <span class="o">=</span> <span class="n">tid</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="s2">&quot;{0}.{1}{2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">feature</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">tid</span>
+    <span class="k">return</span> <span class="n">exon_line</span><span class="p">,</span> <span class="n">counter</span><span class="p">,</span> <span class="n">cds_begin</span>
+<span class="c1"># pylint: enable=too-many-arguments</span>
+
+
+<div class="viewcode-block" id="create_lines_cds"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.printing.create_lines_cds">[docs]</a><span class="k">def</span> <span class="nf">create_lines_cds</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">to_gtf</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">with_introns</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to create the GTF/GFF lines for printing in the presence of CDS information.</span>
+<span class="sd">    WARNING: at the moment, the phase support is disabled.</span>
+<span class="sd">    :param transcript: the transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)</span>
+
+<span class="sd">    :param with_introns: boolean, if set to True, introns will be printed as well.</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">to_gtf</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="n">GffLine</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="n">GtfLine</span>
+
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">transcript_counter</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">parent_line</span> <span class="o">=</span> <span class="n">constructor</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">is_coding</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">create_lines_no_cds</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">to_gtf</span><span class="o">=</span><span class="n">to_gtf</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">cds_run</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">number_internal_orfs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">transcript_counter</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">tid</span> <span class="o">=</span> <span class="s2">&quot;{0}.orf{1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">transcript_counter</span><span class="p">)</span>
+
+                <span class="k">if</span> <span class="n">index</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_index</span><span class="p">:</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;maximal&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;maximal&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">False</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tid</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span>
+            <span class="n">cds_run</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;feature&quot;</span><span class="p">,</span> <span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span>
+                         <span class="s2">&quot;score&quot;</span><span class="p">,</span> <span class="s2">&quot;strand&quot;</span><span class="p">,</span> <span class="s2">&quot;attributes&quot;</span><span class="p">,</span> <span class="s2">&quot;parent&quot;</span><span class="p">]:</span>
+                <span class="nb">setattr</span><span class="p">(</span><span class="n">parent_line</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+
+            <span class="n">parent_line</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span>
+
+            <span class="n">parent_line</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">tid</span>
+            <span class="n">parent_line</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span>
+
+            <span class="n">exon_lines</span> <span class="o">=</span> <span class="n">__create_cds_lines</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span>
+                                            <span class="n">cds_run</span><span class="p">,</span>
+                                            <span class="n">tid</span><span class="p">,</span>
+                                            <span class="n">to_gtf</span><span class="o">=</span><span class="n">to_gtf</span><span class="p">,</span>
+                                            <span class="n">with_introns</span><span class="o">=</span><span class="n">with_introns</span><span class="p">)</span>
+
+            <span class="n">lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">parent_line</span><span class="p">))</span>
+            <span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">lines</span></div>
+
+
+<div class="viewcode-block" id="create_lines_bed"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.printing.create_lines_bed">[docs]</a><span class="k">def</span> <span class="nf">create_lines_bed</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to create a BED12 object for printing</span>
+<span class="sd">    :param transcript: Mikado.py.loci.transcript.Transcript</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">bed12</span> <span class="o">=</span> <span class="n">BED12</span><span class="p">()</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">transcriptomic</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">header</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">chrom</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">chrom</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">score</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">strand</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span>
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">is_coding</span><span class="p">:</span>
+        <span class="n">bed12</span><span class="o">.</span><span class="n">thick_start</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">bed12</span><span class="o">.</span><span class="n">thick_end</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">bed12</span><span class="o">.</span><span class="n">thick_start</span> <span class="o">=</span> <span class="n">bed12</span><span class="o">.</span><span class="n">thick_end</span> <span class="o">=</span> <span class="n">bed12</span><span class="o">.</span><span class="n">start</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">block_count</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exon_num</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">block_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">]</span>
+    <span class="n">bed12</span><span class="o">.</span><span class="n">block_starts</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">pos</span><span class="p">,</span> <span class="n">intron</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">):</span>
+        <span class="n">bed12</span><span class="o">.</span><span class="n">block_starts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">bed12</span><span class="o">.</span><span class="n">block_sizes</span><span class="p">[</span><span class="n">pos</span><span class="p">]</span> <span class="o">+</span> <span class="n">intron</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">intron</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">bed12</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">__add_phase</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">exon_lines</span><span class="p">,</span> <span class="n">first_phase</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Private method to add the phase to a transcript. The phase is defined as</span>
+<span class="sd">    the reverse of the modulo 3 of the number of bases from the start.</span>
+<span class="sd">    Or:</span>
+
+<span class="sd">    (3 - (len(cds so far) % 3)) % 3</span>
+
+<span class="sd">    Or (more verbose):</span>
+
+<span class="sd">    modulo = len(cds so far) % 3</span>
+<span class="sd">    if modulo == 0:</span>
+<span class="sd">       phase = 0</span>
+<span class="sd">    elif modulo == 1:</span>
+<span class="sd">       phase = 2</span>
+<span class="sd">    else:</span>
+<span class="sd">       phase = 1</span>
+
+<span class="sd">    :param transcript: the transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param exon_lines:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># We start by 0 if no CDS loaded, else</span>
+    <span class="c1"># we use the first phase</span>
+
+    <span class="n">previous</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="p">(</span><span class="n">first_phase</span> <span class="o">%</span> <span class="mi">3</span><span class="p">))</span> <span class="o">%</span> <span class="mi">3</span>
+
+    <span class="n">new_lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">feature</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">:</span>
+            <span class="n">phase</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="p">(</span><span class="n">previous</span> <span class="o">%</span> <span class="mi">3</span><span class="p">))</span> <span class="o">%</span> <span class="mi">3</span>
+            <span class="n">line</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="n">phase</span>
+            <span class="n">previous</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="n">new_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">new_lines</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">__add_frame</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">exon_lines</span><span class="p">,</span> <span class="n">first_phase</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Private method to add the frame to a transcript. The frame is defined as</span>
+<span class="sd">    the modulo 3 of the number of bases from the start.</span>
+<span class="sd">    Or:</span>
+
+<span class="sd">    len(cds so far) % 3</span>
+
+<span class="sd">    In this library, the frame (correct definition for the field in GTF)</span>
+<span class="sd">    is aliased as &quot;phase&quot;.</span>
+
+<span class="sd">    :param transcript: the transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param exon_lines:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># We start by 0 if no CDS loaded, else</span>
+    <span class="c1"># we use the first phase</span>
+
+    <span class="n">previous</span> <span class="o">=</span> <span class="n">first_phase</span> <span class="o">%</span> <span class="mi">3</span>
+
+    <span class="n">new_lines</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">feature</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">:</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="n">previous</span> <span class="o">%</span> <span class="mi">3</span>
+            <span class="n">line</span><span class="o">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span>
+            <span class="n">previous</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+        <span class="n">new_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">new_lines</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="create_lines_no_cds"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.printing.create_lines_no_cds">[docs]</a><span class="k">def</span> <span class="nf">create_lines_no_cds</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span>
+                        <span class="n">to_gtf</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to create the GTF/GFF lines for printing in the absence of CDS information.</span>
+
+<span class="sd">    :param transcript: the Transcript instance</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)</span>
+<span class="sd">    :type to_gtf: bool</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">to_gtf</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="n">GtfLine</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="n">GffLine</span>
+
+    <span class="n">parent_line</span> <span class="o">=</span> <span class="n">constructor</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;feature&quot;</span><span class="p">,</span> <span class="s2">&quot;start&quot;</span><span class="p">,</span> <span class="s2">&quot;end&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;score&quot;</span><span class="p">,</span> <span class="s2">&quot;strand&quot;</span><span class="p">,</span> <span class="s2">&quot;attributes&quot;</span><span class="p">,</span> <span class="s2">&quot;parent&quot;</span><span class="p">]:</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="n">parent_line</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+
+    <span class="n">parent_line</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="s1">&#39;.&#39;</span>
+    <span class="n">parent_line</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span>
+
+    <span class="n">parent_line</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">parent_line</span><span class="p">)]</span>
+    <span class="n">exon_lines</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">exon_count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">:</span>
+        <span class="n">exon_count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">exon_line</span> <span class="o">=</span> <span class="n">constructor</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;chrom&quot;</span><span class="p">,</span> <span class="s2">&quot;source&quot;</span><span class="p">,</span> <span class="s2">&quot;strand&quot;</span><span class="p">,</span> <span class="s2">&quot;attributes&quot;</span><span class="p">]:</span>
+            <span class="nb">setattr</span><span class="p">(</span><span class="n">exon_line</span><span class="p">,</span> <span class="n">attr</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">attr</span><span class="p">))</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">feature</span> <span class="o">=</span> <span class="s2">&quot;exon&quot;</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">exon_line</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="n">exon_line</span><span class="o">.</span><span class="n">start</span> <span class="o">&gt;=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span>
+        <span class="k">assert</span> <span class="n">exon_line</span><span class="o">.</span><span class="n">end</span> <span class="o">&lt;=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">score</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">phase</span> <span class="o">=</span> <span class="bp">None</span>
+
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">id</span> <span class="o">=</span> <span class="s2">&quot;{0}.{1}{2}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="s2">&quot;exon&quot;</span><span class="p">,</span> <span class="n">exon_count</span><span class="p">)</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">parent</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span>
+        <span class="n">exon_line</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">exon_lines</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">exon_line</span><span class="p">))</span>
+
+    <span class="n">lines</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">exon_lines</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">lines</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

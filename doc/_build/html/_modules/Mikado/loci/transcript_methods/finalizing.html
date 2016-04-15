@@ -1,0 +1,629 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.loci.transcript_methods.finalizing &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Module code" href="../../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.loci.transcript_methods.finalizing</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This module provides the functions needed to check a transcript for consinstency,</span>
+<span class="sd">e.g. reliability of the CDS/UTR, sanity of borders, etc.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">intervaltree</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">from</span> <span class="nn">...exceptions</span> <span class="kn">import</span> <span class="n">InvalidCDS</span><span class="p">,</span> <span class="n">InvalidTranscript</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<span class="k">def</span> <span class="nf">__basic_final_checks</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that verifies minimal criteria of a transcript before finalising.</span>
+<span class="sd">    :type transcript: mikado_lib.loci_objects.transcript.Transcript</span>
+
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InvalidTranscript</span><span class="p">(</span>
+            <span class="s2">&quot;No exon defined for the transcript {0}. Aborting&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">):</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="p">[</span><span class="nb">tuple</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">int</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">])])</span> <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Converting to tuples&quot;</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span> <span class="o">=</span> <span class="n">_</span>
+
+    <span class="n">new_exons</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">invalid</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exon</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">exon</span><span class="p">,</span> <span class="n">intervaltree</span><span class="o">.</span><span class="n">Interval</span><span class="p">)</span> <span class="ow">or</span>
+                    <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">exon</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">exon</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span>
+                         <span class="nb">isinstance</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">int</span><span class="p">))):</span>
+                <span class="n">exon</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">exon</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Invalid exon: {0}, type {1}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">exon</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">exon</span><span class="p">)))</span>
+        <span class="k">if</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="ow">or</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="n">invalid</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="k">break</span>
+        <span class="n">new_exons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">exon</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">new_exons</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">invalid</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InvalidTranscript</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;Exons out of bounds of the transcript:</span>
+<span class="s2">        ({start}, {end})</span>
+<span class="s2">        Exons: {exons}&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">start</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span>
+                                 <span class="n">end</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">,</span>
+                                 <span class="n">exons</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InvalidTranscript</span><span class="p">(</span>
+            <span class="s2">&quot;Multiexonic transcripts must have a defined strand! Error for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">!=</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">==</span> <span class="p">[]:</span>
+        <span class="k">raise</span> <span class="n">InvalidTranscript</span><span class="p">(</span>
+            <span class="s2">&quot;Transcript {tid} has defined UTRs but no CDS feature!&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">tid</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_check_cdna_vs_utr</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Verify that cDNA + UTR in the transcript add up.</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Checking the cDNA for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">cdna_length</span> <span class="o">&gt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr_length</span> <span class="o">+</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds_length</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">==</span> <span class="p">[]:</span>
+            <span class="c1"># non-coding transcript</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%s</span><span class="s2"> is non coding, returning&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="k">assert</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">!=</span> <span class="p">[]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Recalculating the UTR for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c1"># Reset</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">,</span>
+                                         <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">exon</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="c1"># The end of the exon is before the first ORF start</span>
+            <span class="c1"># or the start is after the last ORF segment: UTR segment</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span>
+                  <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">exon</span><span class="p">)</span>
+
+            <span class="c1"># The last base of the exon is the first ORF base</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">and</span>
+                  <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]):</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span>
+                    <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]))</span>
+            <span class="c1"># The first base of the exon is the first base of the last ORF segment:</span>
+            <span class="c1"># UTR after</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">and</span>
+                  <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]):</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># If the ORF is contained inside a single exon, with UTR</span>
+                <span class="c1"># at both sites, then we create the two UTR segments</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span>
+                        <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]))</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span>
+                        <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># This means there is an INTERNAL UTR region between</span>
+                    <span class="c1"># two CDS segments: something is clearly wrong!</span>
+                    <span class="k">raise</span> <span class="n">InvalidCDS</span><span class="p">(</span>
+                        <span class="s2">&quot;Error while inferring the UTR&quot;</span><span class="p">,</span>
+                        <span class="n">exon</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                        <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">)</span>
+
+        <span class="c1"># If no CDS and no UTR are present, all good</span>
+        <span class="n">equality_one</span> <span class="o">=</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds_length</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr_length</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># Otherwise, if cDNA length == UTR + CDS, all good</span>
+        <span class="n">equality_two</span> <span class="o">=</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">cdna_length</span> <span class="o">==</span>
+                        <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr_length</span> <span class="o">+</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds_length</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">equality_one</span> <span class="ow">or</span> <span class="n">equality_two</span><span class="p">):</span>
+            <span class="c1"># Something fishy going on</span>
+            <span class="k">raise</span> <span class="n">InvalidCDS</span><span class="p">(</span>
+                <span class="s2">&quot;Failed to create the UTR&quot;</span><span class="p">,</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">,</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">__calculate_introns</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Private method to create the stores of intron</span>
+<span class="sd">    and splice sites positions.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+
+    <span class="n">introns</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">cds_introns</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">splices</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="n">exona</span><span class="p">,</span> <span class="n">exonb</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="n">index</span><span class="p">:</span><span class="n">index</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">exona</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">exonb</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="n">InvalidTranscript</span><span class="p">(</span>
+                    <span class="s2">&quot;Overlapping exons found!</span><span class="se">\n</span><span class="s2">{0} {1}/{2}</span><span class="se">\n</span><span class="s2">{3}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                        <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">exona</span><span class="p">,</span> <span class="n">exonb</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">))</span>
+            <span class="c1"># Append the splice junction</span>
+            <span class="n">introns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">tuple</span><span class="p">([</span><span class="n">exona</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">exonb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]))</span>
+            <span class="c1"># Append the splice locations</span>
+            <span class="n">splices</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">exona</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">exonb</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">introns</span><span class="p">)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">splices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">splices</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">number_internal_orfs</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> \
+                <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="ow">or</span> \
+                <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">pass</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Start calculating the selected CDS introns</span>
+
+        <span class="k">for</span> <span class="n">first</span><span class="p">,</span> <span class="n">second</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+                                 <span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds</span><span class="p">[</span><span class="mi">1</span><span class="p">:]):</span>
+            <span class="k">assert</span> <span class="n">first</span> <span class="o">!=</span> <span class="n">second</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds</span>
+            <span class="k">assert</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">second</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">)</span>
+            <span class="c1"># first, second = sorted([first, second])</span>
+            <span class="n">intron</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">second</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+            <span class="k">assert</span> <span class="n">intron</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">,</span> <span class="p">(</span><span class="n">intron</span><span class="p">,</span> <span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">)</span>
+            <span class="n">cds_introns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">intron</span><span class="p">)</span>
+
+        <span class="n">cintrons</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">cds_introns</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">cintrons</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">_selected_cds_introns</span> <span class="o">=</span> <span class="n">cintrons</span>
+
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">number_internal_orfs</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">cds_introns</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">position</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">former</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="n">position</span><span class="p">]</span>
+                <span class="n">latter</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="n">position</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="n">junc</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">former</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">latter</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="k">if</span> <span class="n">junc</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">introns</span><span class="p">:</span>
+                    <span class="n">cds_introns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">junc</span><span class="p">)</span>
+            <span class="n">cintrons</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">cds_introns</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">_combined_cds_introns</span> <span class="o">=</span> <span class="n">cintrons</span>
+            <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">_combined_cds_introns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+            <span class="c1"># for index, orf in enumerate(transcript.internal_orfs):</span>
+            <span class="c1">#     if index == transcript.selected_internal_orf_index:</span>
+            <span class="c1">#         continue</span>
+            <span class="c1">#     cds = sorted([_[1] for _ in orf if _[0] == &quot;CDS&quot;])</span>
+            <span class="c1">#     for first, second in zip(cds[:-1], cds[1:]):</span>
+            <span class="c1">#         assert first != second, transcript.selected_cds</span>
+            <span class="c1">#         assert first[1] &lt; second[0], (first, second)</span>
+            <span class="c1">#         # first, second = sorted([first, second])</span>
+            <span class="c1">#         intron = intervaltree.Interval(first[1] + 1, second[0] - 1)</span>
+            <span class="c1">#         assert intron in transcript.introns, (intron, first, second)</span>
+            <span class="c1">#         cds_introns.append(intron)</span>
+            <span class="c1"># cds_introns = set(cds_introns)</span>
+            <span class="c1"># transcript._combined_cds_introns = cds_introns</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">_combined_cds_introns</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">_selected_cds_introns</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">_combined_cds_introns</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">_combined_cds_introns</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">_selected_cds_introns</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">transcript</span>
+
+
+<span class="k">def</span> <span class="nf">__check_completeness</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;Private method that checks whether a transcript is complete</span>
+<span class="sd">    or not based solely on the presence of CDS/UTR information.&quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">has_start_codon</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="k">elif</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">has_stop_codon</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;+&quot;</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">has_stop_codon</span> <span class="o">=</span> <span class="bp">True</span>
+            <span class="k">elif</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">has_start_codon</span> <span class="o">=</span> <span class="bp">True</span>
+
+
+<span class="k">def</span> <span class="nf">__verify_boundaries</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to verify that the start/end of the transcripts are exactly where they should.</span>
+<span class="sd">    Called from finalise.</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="ow">or</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="sd">&quot;&quot;&quot;The transcript {id} has coordinates {tstart}:{tend},</span>
+<span class="sd">            but its first and last exons define it up until {estart}:{eend}!</span>
+<span class="sd">            Exons: {exons}. Shrinking it&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="nb">id</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                    <span class="n">tstart</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span>
+                    <span class="n">tend</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">,</span>
+                    <span class="n">estart</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+                    <span class="n">eend</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+                    <span class="n">exons</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">))</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">except</span> <span class="ne">IndexError</span> <span class="k">as</span> <span class="n">err</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">InvalidTranscript</span><span class="p">(</span>
+            <span class="n">err</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">__check_internal_orf</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">phases</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method that verifies that an internal ORF does not have any internal gap.</span>
+
+<span class="sd">    :param transcript: the transcript to analyse</span>
+<span class="sd">    :type transcript: Mikado.loci.Transcript</span>
+<span class="sd">    :param index: index of the internal orf to check</span>
+<span class="sd">    :type index: int</span>
+<span class="sd">    :param phases: dictionary of the phases derived from the GFF file</span>
+<span class="sd">    :type phases: dict</span>
+
+<span class="sd">    :return: the updated transcript</span>
+<span class="sd">    :rtype: Mikado.loci.Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">orf</span><span class="p">,</span> <span class="n">new_orf</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">[</span><span class="n">index</span><span class="p">],</span> <span class="p">[]</span>
+    <span class="n">previous_exon_index</span><span class="p">,</span> <span class="n">exon_found</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> <span class="bp">False</span>
+    <span class="n">total_cds_length</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">exons</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">,</span> <span class="n">reverse</span><span class="o">=</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">phases</span><span class="p">:</span>
+        <span class="n">phases_keys</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">phases</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span> <span class="n">reverse</span><span class="o">=</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">))</span>
+        <span class="n">phase_orf</span> <span class="o">=</span> <span class="p">[</span><span class="n">phases</span><span class="p">[</span><span class="n">_</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">phases_keys</span><span class="p">]</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="n">phases</span><span class="p">[</span><span class="n">phases_keys</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span> <span class="o">%</span> <span class="mi">3</span><span class="p">)</span> <span class="o">%</span> <span class="mi">3</span>
+        <span class="n">total_cds_length</span> <span class="o">+=</span> <span class="n">previous</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">phase_orf</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Phases, previous, phase_orf: </span><span class="si">%s</span><span class="s2">, </span><span class="si">%d</span><span class="s2">, </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                            <span class="n">phases</span><span class="p">,</span> <span class="n">previous</span><span class="p">,</span> <span class="n">phase_orf</span><span class="p">)</span>
+
+    <span class="n">orf</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">orf</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">reverse</span><span class="o">=</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">))</span>
+
+    <span class="n">first</span><span class="p">,</span> <span class="n">last</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;-inf&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">orf_segment</span> <span class="ow">in</span> <span class="n">orf</span><span class="p">:</span>
+        <span class="n">first</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">last</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">last</span><span class="p">,</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;CDS&quot;</span><span class="p">:</span>
+            <span class="n">new_orf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">orf_segment</span><span class="p">)</span>
+            <span class="k">continue</span>
+
+        <span class="k">for</span> <span class="n">exon_position</span><span class="p">,</span> <span class="n">exon</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">exons</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">exon</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="n">previous_exon_index</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="n">previous_exon_index</span> <span class="o">=</span> <span class="n">exon_position</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">previous_exon_index</span> <span class="o">+=</span> <span class="mi">1</span>
+
+                <span class="k">if</span> <span class="n">previous_exon_index</span> <span class="o">!=</span> <span class="n">exon_position</span><span class="p">:</span>
+                    <span class="n">exc</span> <span class="o">=</span> <span class="n">InvalidTranscript</span><span class="p">(</span>
+                        <span class="sd">&quot;&quot;&quot;Invalid ORF for {0}, invalid index: {1} (for {2}), expected {3} ({4})</span>
+<span class="sd">                        {4} CDS vs. {5} exons&quot;&quot;&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span>
+                            <span class="n">exon_position</span><span class="p">,</span>
+                            <span class="n">orf_segment</span><span class="p">,</span>
+                            <span class="n">previous_exon_index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>
+                            <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">exons</span><span class="p">)</span> <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span>
+                             <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]][</span><span class="mi">0</span><span class="p">],</span>
+                            <span class="n">orf</span><span class="p">,</span>
+                            <span class="n">exons</span><span class="p">))</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                    <span class="n">current</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">)</span>
+                    <span class="k">del</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+                    <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">)</span> <span class="o">==</span> <span class="n">current</span> <span class="o">-</span> <span class="mi">1</span>
+                    <span class="k">raise</span> <span class="n">exc</span>
+
+                <span class="n">exon_found</span> <span class="o">=</span> <span class="bp">True</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="n">exon_found</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+            <span class="n">exc</span> <span class="o">=</span> <span class="n">InvalidTranscript</span><span class="p">(</span>
+                <span class="s2">&quot;Invalid ORF for {0}, no exon found: {1} CDS vs. {2} exons&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">orf</span><span class="p">,</span> <span class="n">exons</span><span class="p">))</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">exc</span>
+
+        <span class="n">exon_found</span> <span class="o">=</span> <span class="bp">False</span>
+
+        <span class="n">phase</span> <span class="o">=</span> <span class="p">(</span><span class="mi">3</span> <span class="o">-</span> <span class="p">(</span><span class="n">total_cds_length</span> <span class="o">%</span> <span class="mi">3</span><span class="p">))</span> <span class="o">%</span> <span class="mi">3</span>
+        <span class="k">if</span> <span class="n">phases</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">phases</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Phase not found for </span><span class="si">%s</span><span class="s2"> key </span><span class="si">%s</span><span class="s2">, recalculating.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                    <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">key</span><span class="p">))</span>
+                <span class="n">phases</span> <span class="o">=</span> <span class="bp">None</span>
+            <span class="k">elif</span> <span class="n">phases</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">!=</span> <span class="n">phase</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;Wrong phase in </span><span class="si">% s</span><span class="s2">for key </span><span class="si">%s</span><span class="s2">, </span><span class="si">%d</span><span class="s2"> instead of </span><span class="si">%d</span><span class="s2">. recalculating.&quot;</span> <span class="o">%</span> <span class="p">(</span>
+                        <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">phases</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">phase</span><span class="p">))</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">phase</span> <span class="o">=</span> <span class="n">phases</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+
+        <span class="n">phase_orf</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">phase</span><span class="p">)</span>
+        <span class="n">new_orf</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">orf_segment</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">phase</span><span class="p">))</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">orf_segment</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">total_cds_length</span> <span class="o">+=</span> <span class="n">previous</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Total CDS length </span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">total_cds_length</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">first</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">first</span><span class="p">,</span> <span class="n">orf</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">new_orf</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="k">assert</span> <span class="n">last</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="n">last</span><span class="p">,</span> <span class="n">orf</span><span class="p">,</span> <span class="n">new_orf</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">total_cds_length</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># The transcript is truncated. Check it makes sense.</span>
+
+        <span class="n">cds</span><span class="p">,</span> <span class="n">utr</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">new_orf</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">:</span>
+                <span class="n">cds</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">elif</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;UTR&quot;</span><span class="p">:</span>
+                <span class="n">utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">cds</span><span class="p">)</span>
+        <span class="c1"># This is the amount of bases left over</span>
+        <span class="n">remainder</span> <span class="o">=</span> <span class="n">total</span> <span class="o">%</span> <span class="mi">3</span>
+
+        <span class="n">orf_start</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">cds</span><span class="p">)</span>
+        <span class="n">orf_end</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">cds</span><span class="p">)</span>
+
+        <span class="n">five_utr</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">utr</span> <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">orf_start</span><span class="p">]</span>
+        <span class="n">three_utr</span> <span class="o">=</span> <span class="p">[</span><span class="n">_</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">utr</span> <span class="k">if</span> <span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">orf_end</span><span class="p">]</span>
+        <span class="k">assert</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">five_utr</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">three_utr</span><span class="p">))</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">utr</span><span class="p">),</span> <span class="p">(</span><span class="n">utr</span><span class="p">,</span>
+                                                              <span class="n">five_utr</span><span class="p">,</span>
+                                                              <span class="n">three_utr</span><span class="p">,</span>
+                                                              <span class="n">cds</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+            <span class="n">orf_start</span><span class="p">,</span> <span class="n">orf_end</span> <span class="o">=</span> <span class="n">orf_end</span><span class="p">,</span> <span class="n">orf_start</span>
+            <span class="n">five_utr</span><span class="p">,</span> <span class="n">three_utr</span> <span class="o">=</span> <span class="n">three_utr</span><span class="p">,</span> <span class="n">five_utr</span>
+
+        <span class="k">if</span> <span class="n">phase_orf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">five_utr</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InvalidCDS</span><span class="p">(</span><span class="s2">&quot;Truncated ORF at 5&#39; with 5&#39; UTR for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+        <span class="n">remainder</span> <span class="o">=</span> <span class="n">total</span> <span class="o">%</span> <span class="mi">3</span> <span class="o">-</span> <span class="n">phase_orf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;In </span><span class="si">%s</span><span class="s2"> Remainder </span><span class="si">%d</span><span class="s2">, three_utr </span><span class="si">%s</span><span class="s2"> (UTR </span><span class="si">%s</span><span class="s2">)&quot;</span><span class="p">,</span>
+                                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">remainder</span><span class="p">,</span> <span class="n">three_utr</span><span class="p">,</span> <span class="n">utr</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">remainder</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">three_utr</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">InvalidCDS</span><span class="p">(</span><span class="s2">&quot;Truncated ORF at 3&#39; with 3&#39; UTR for {0}&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">strand</span> <span class="o">==</span> <span class="s2">&quot;-&quot;</span><span class="p">:</span>
+        <span class="n">new_orf</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="n">new_orf</span><span class="p">))</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_orf</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">_</span><span class="p">)</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">new_orf</span> <span class="k">if</span> <span class="n">new_orf</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">),</span> <span class="n">new_orf</span>
+    <span class="k">return</span> <span class="n">transcript</span>
+
+
+<span class="k">def</span> <span class="nf">__check_phase_correctness</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    This method verifies that the phases are assigned correctly in the case of a coding transcript.</span>
+<span class="sd">    :param transcript: the input transcript.</span>
+<span class="sd">    :type transcript: Mikado.loci.transcript.Transcript</span>
+<span class="sd">    :return: Mikado.loci.transcript.Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">segments</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="c1"># Define exons</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span> <span class="o">=</span> <span class="p">[(</span><span class="s2">&quot;exon&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+                               <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">]</span>
+        <span class="c1"># Define CDS</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span><span class="o">.</span><span class="n">extend</span><span class="p">([(</span><span class="s2">&quot;CDS&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">c</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">c</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+                                    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">])</span>
+        <span class="c1"># Define UTR segments</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span><span class="o">.</span><span class="n">extend</span><span class="p">([(</span><span class="s2">&quot;UTR&quot;</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]]))</span>
+                                    <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="p">])</span>
+        <span class="c1"># Mix and sort</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">segments</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="c1"># Add to the store as a single entity</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span><span class="p">):</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span> <span class="o">=</span> <span class="p">[</span><span class="n">transcript</span><span class="o">.</span><span class="n">segments</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_index</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+    <span class="k">for</span> <span class="n">orf_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">)):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;ORF #</span><span class="si">%d</span><span class="s2">: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">orf_index</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">phases</span><span class="p">)</span>
+            <span class="n">transcript</span> <span class="o">=</span> <span class="n">__check_internal_orf</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span>
+                                              <span class="n">orf_index</span><span class="p">,</span>
+                                              <span class="n">phases</span><span class="o">=</span><span class="n">transcript</span><span class="o">.</span><span class="n">phases</span><span class="p">)</span>
+        <span class="k">except</span> <span class="p">(</span><span class="n">InvalidTranscript</span><span class="p">,</span> <span class="n">InvalidCDS</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Stripping the CDS from </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">strip_cds</span><span class="p">(</span><span class="n">strand_specific</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+            <span class="k">break</span>
+
+    <span class="c1"># Necessary to set it to the default value</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_index</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">_</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf</span>
+
+
+<div class="viewcode-block" id="finalize"><a class="viewcode-back" href="../../../../Mikado.loci.transcript_methods.html#Mikado.loci.transcript_methods.finalizing.finalize">[docs]</a><span class="k">def</span> <span class="nf">finalize</span><span class="p">(</span><span class="n">transcript</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Function to calculate the internal introns from the exons.</span>
+<span class="sd">    In the first step, it will sort the exons by their internal coordinates.</span>
+
+<span class="sd">    :param transcript: the Transcript instance to finalize.</span>
+<span class="sd">    :type transcript: Mikado.loci.transcript.Transcript</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">finalized</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="k">return</span>
+
+    <span class="c1"># __previous = transcript.deepcopy()</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">__cdna_length</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="n">__basic_final_checks</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+    <span class="c1"># Sort the exons by start then stop</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">_check_cdna_vs_utr</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">InvalidCDS</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">:</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                <span class="s2">&quot;Possible faulty UTR annotation for </span><span class="si">%s</span><span class="s2">, trying to recalculate it.&quot;</span><span class="p">,</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">_check_cdna_vs_utr</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">InvalidCDS</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;CDS for </span><span class="si">%s</span><span class="s2"> completely invalid. Removing it.&quot;</span><span class="p">,</span>
+                                          <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">__basic_final_checks</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+                <span class="n">_check_cdna_vs_utr</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">,</span>
+                                     <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="p">,</span>
+                                     <span class="n">key</span><span class="o">=</span><span class="n">operator</span><span class="o">.</span><span class="n">itemgetter</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">__check_completeness</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+        <span class="n">__verify_boundaries</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="nb">all</span><span class="p">([</span><span class="n">segment</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span> <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span> <span class="k">if</span>
+                        <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;exon&quot;</span><span class="p">]),</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span><span class="p">)</span>
+        <span class="n">__check_phase_correctness</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+        <span class="n">__calculate_introns</span><span class="p">(</span><span class="n">transcript</span><span class="p">)</span>
+    <span class="k">except</span> <span class="p">(</span><span class="n">InvalidCDS</span><span class="p">,</span> <span class="n">InvalidTranscript</span><span class="p">):</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">finalized</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">unfinalize</span><span class="p">()</span>
+        <span class="k">return</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">feature</span> <span class="o">=</span> <span class="s2">&quot;mRNA&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">feature</span> <span class="o">=</span> <span class="s2">&quot;transcript&quot;</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">combined_cds</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_cds</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_index</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_cds</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span>
+            <span class="n">internal_cds</span> <span class="k">for</span> <span class="n">internal_cds</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span><span class="p">[</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">selected_internal_orf_index</span><span class="p">]</span> <span class="k">if</span>
+            <span class="n">internal_cds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;CDS&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Create the interval tree</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">cds_tree</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="c1"># intervaltree.IntervalTree([</span>
+        <span class="c1"># intervaltree.Interval(cds[0]-1, cds[1]+1) for cds in transcript.combined_cds])</span>
+
+    <span class="c1"># BUG somewhere ... I am not sorting this properly before (why?)</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span>
+    <span class="c1"># transcript = __calc_cds_introns(transcript)</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">finalized</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Finished finalising </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+
+    <span class="k">return</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -10,6 +10,7 @@ class ResultStorer:
 
     __slots__ = ["ref_id", "ref_gene", "ccode",
                  "tid", "gid",
+                 "tid_num_exons", "ref_num_exons",
                  "n_prec", "n_recall", "n_f1",
                  "j_prec", "j_recall", "j_f1",
                  "e_prec", "e_recall", "e_f1",
@@ -29,6 +30,7 @@ class ResultStorer:
             raise ValueError(err_msg)
 
         self.ref_id, self.ref_gene, self.ccode, self.tid, self.gid, \
+            self.tid_num_exons, self.ref_num_exons, \
             self.n_prec, self.n_recall, self.n_f1,\
             self.j_prec, self.j_recall, self.j_f1, \
             self.e_prec, self.e_recall, self.e_f1, \
@@ -38,9 +40,17 @@ class ResultStorer:
             if index < 3:
                 if isinstance(getattr(self, self.__slots__[index]), str):
                     setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
-            elif 4 < index < len(self.__slots__):
+            elif 6 <= index < len(self.__slots__):
                 if isinstance(getattr(self, self.__slots__[index]), (float, int)):
                     setattr(self, key, tuple([getattr(self, self.__slots__[index])]))
+                elif isinstance(getattr(self, self.__slots__[index]), str):
+                    __val = tuple(getattr(self, self.__slots__[index]).split(","))
+                    if str.isdecimal(__val[0]) or str.isdigit(__val[0]):
+                        __val = tuple([float(_) for _ in __val])
+                    setattr(self, key, __val)
+                elif not isinstance(getattr(self, self.__slots__[index]), tuple):
+                    setattr(self, self.__slots__[index], tuple(getattr(self,
+                                                                       self.__slots__[index])))
 
     def _asdict(self):
 
@@ -55,9 +65,11 @@ class ResultStorer:
                 result_dict[attr] = ",".join(list(getattr(self, attr)))
             except TypeError as exc:
                 raise TypeError("{0}; {1}".format(exc, getattr(self, attr)))
-        for attr in self.__slots__[3:5]:
+        for attr in self.__slots__[3:6]:
             result_dict[attr] = getattr(self, attr)
-        for attr in self.__slots__[5:-1]:
+        for attr in (self.__slots__[6],):  # prediction exons
+            result_dict[attr] = ",".join("{0}".format(x) for x in getattr(self, attr))
+        for attr in self.__slots__[7:-1]:
             result_dict[attr] = ",".join("{0:,.2f}".format(x) for x in getattr(self, attr))
         result_dict["distance"] = self.distance[0]  # Last attribute
         return result_dict

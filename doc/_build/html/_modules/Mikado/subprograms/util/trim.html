@@ -1,0 +1,427 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.subprograms.util.trim &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../../index.html" />
+    <link rel="up" title="Mikado.subprograms.util" href="../util.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.subprograms.util.trim</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="c1"># coding: utf-8</span>
+
+<span class="sd">&quot;&quot;&quot;Script to trim down the terminal exons of multiexonic transcripts&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">to_gff</span>
+<span class="kn">from</span> <span class="nn">...exceptions</span> <span class="kn">import</span> <span class="n">InvalidTranscript</span>
+<span class="kn">from</span> <span class="nn">...loci</span> <span class="kn">import</span> <span class="n">Transcript</span>
+<span class="kn">from</span> <span class="nn">...loci.reference_gene</span> <span class="kn">import</span> <span class="n">Gene</span>
+<span class="kn">from</span> <span class="nn">...utilities.log_utils</span> <span class="kn">import</span> <span class="n">create_default_logger</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="trim_noncoding"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.trim.trim_noncoding">[docs]</a><span class="k">def</span> <span class="nf">trim_noncoding</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to trim the terminal exons for non-coding transcripts,</span>
+<span class="sd">     i.e. the simplest case.</span>
+<span class="sd">    :param transcript: the transcript to be trimmed.</span>
+<span class="sd">    :type transcript: Transcript</span>
+
+<span class="sd">    :param max_length: maximum length of terminal exons.</span>
+<span class="sd">    :type max_length: int</span>
+
+<span class="sd">    :return: transcript</span>
+<span class="sd">    :rtype: Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Non-coding transcript: trim the terminal exons and the return</span>
+
+    <span class="n">exons</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span>
+    <span class="n">first</span><span class="p">,</span> <span class="n">last</span> <span class="o">=</span> <span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">exons</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">first</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_length</span><span class="p">:</span>
+        <span class="c1"># newfirst = list(first)</span>
+        <span class="c1"># newfirst[0] = first[1] - max_length</span>
+        <span class="n">newfirst</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">max_length</span><span class="p">,</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">newfirst</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">newfirst</span>
+    <span class="c1"># last = transcript.exons[-1]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">last</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">max_length</span><span class="p">:</span>
+        <span class="n">newlast</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">last</span><span class="p">[:])</span>
+        <span class="n">newlast</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">max_length</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">newlast</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">newlast</span><span class="p">)</span>
+        <span class="c1"># if transcript.selected_cds_length &gt; 0:</span>
+        <span class="c1">#     last_utr = [segment for segment in transcript.combined_utr if</span>
+        <span class="c1">#                 segment[1] == last[1]][0]</span>
+        <span class="c1">#     transcript.combined_utr.remove(last_utr)</span>
+        <span class="c1">#     transcript.combined_utr.append(tuple(newlast))</span>
+
+    <span class="k">return</span> <span class="n">transcript</span></div>
+
+
+<div class="viewcode-block" id="trim_start"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.trim.trim_start">[docs]</a><span class="k">def</span> <span class="nf">trim_start</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">cds_start</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to trim the beginning of a transcript, given both</span>
+<span class="sd">    the cds_start and the maximal allowed length after trimming.</span>
+<span class="sd">    :param transcript: the transcript to be trimmed</span>
+<span class="sd">    :type transcript: Transcript</span>
+
+<span class="sd">    :param cds_start: the position at which the CDS starts for this transcript.</span>
+<span class="sd">    :type cds_start: int</span>
+
+<span class="sd">    :param max_length: maximum length of terminal exons.</span>
+<span class="sd">    :type max_length: int</span>
+
+<span class="sd">    :rtype: Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">first</span> <span class="o">=</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">cds_start</span><span class="p">:</span>  <span class="c1"># first exon is only UTR</span>
+        <span class="k">if</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">first</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">max_length</span><span class="p">:</span>
+            <span class="c1"># First exon longer than max_length; trim it,</span>
+            <span class="c1"># remove from UTR and exons, substitute with trimmed exon</span>
+            <span class="n">newfirst</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">max_length</span><span class="p">,</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newfirst</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newfirst</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Leave as it is</span>
+            <span class="n">newfirst</span> <span class="o">=</span> <span class="n">first</span>
+    <span class="k">elif</span> <span class="n">first</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">cds_start</span> <span class="o">&lt;=</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="c1"># Partly UTR partly CDS</span>
+        <span class="k">if</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">first</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">max_length</span><span class="p">:</span>
+            <span class="n">newfirst</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="nb">min</span><span class="p">(</span><span class="n">cds_start</span><span class="p">,</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">max_length</span><span class="p">),</span> <span class="n">first</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+            <span class="c1"># Retrieve and remove offending UTR segment</span>
+            <span class="n">utr_segment</span> <span class="o">=</span> <span class="p">[</span><span class="n">segment</span> <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span>
+                           <span class="k">if</span> <span class="n">segment</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">first</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">utr_segment</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">first</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newfirst</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">newfirst</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">cds_start</span><span class="p">:</span>
+                <span class="c1"># Create new UTR segment</span>
+                <span class="n">newu</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">newfirst</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cds_start</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">newfirst</span> <span class="o">=</span> <span class="n">first</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># Beginning of first exon == beginning of CDS</span>
+        <span class="n">newfirst</span> <span class="o">=</span> <span class="n">first</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">newfirst</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">transcript</span></div>
+
+
+<div class="viewcode-block" id="trim_end"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.trim.trim_end">[docs]</a><span class="k">def</span> <span class="nf">trim_end</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">cds_end</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to trim the end of a transcript, given both</span>
+<span class="sd">    the cds_end and the maximal allowed length after trimming.</span>
+<span class="sd">    :param transcript: the transcript to analyse</span>
+<span class="sd">    :type transcript: Transcript</span>
+
+<span class="sd">    :param cds_end: position of CDS end</span>
+<span class="sd">    :type cds_end: int</span>
+
+<span class="sd">    :param max_length: maximum length of terminal exons.</span>
+<span class="sd">    :type max_length: int</span>
+
+<span class="sd">    :return: transcript</span>
+<span class="sd">    :rtype: mikado_lib.loci_objects.transcript.Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># We have to sort b/c we appended a new exon in trim_start</span>
+    <span class="n">last</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">cds_end</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">last</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">max_length</span><span class="p">:</span>
+            <span class="n">newlast</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">max_length</span><span class="p">])</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">last</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">last</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newlast</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newlast</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">newlast</span> <span class="o">=</span> <span class="n">last</span>
+    <span class="k">elif</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">cds_end</span> <span class="o">&lt;</span> <span class="n">last</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">last</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&gt;</span> <span class="n">max_length</span><span class="p">:</span>
+            <span class="n">newlast</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">max</span><span class="p">(</span><span class="n">cds_end</span><span class="p">,</span> <span class="n">last</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">max_length</span><span class="p">)])</span>
+            <span class="n">utr_segment</span> <span class="o">=</span> <span class="p">[</span><span class="n">segment</span> <span class="k">for</span> <span class="n">segment</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span> <span class="k">if</span>
+                           <span class="n">segment</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">last</span><span class="p">[</span><span class="mi">1</span><span class="p">]][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">utr_segment</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">last</span><span class="p">)</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newlast</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">newlast</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">cds_end</span><span class="p">:</span>
+                <span class="n">newu</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">cds_end</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">newlast</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">combined_utr</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newu</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">newlast</span> <span class="o">=</span> <span class="n">last</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">newlast</span> <span class="o">=</span> <span class="n">last</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">end</span> <span class="o">=</span> <span class="n">newlast</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="nb">all</span><span class="p">([(</span><span class="n">exon</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">newlast</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">exon</span> <span class="ow">in</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)])</span>
+    <span class="k">return</span> <span class="n">transcript</span></div>
+
+
+<div class="viewcode-block" id="trim_coding"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.trim.trim_coding">[docs]</a><span class="k">def</span> <span class="nf">trim_coding</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to trim the terminal exons for coding transcripts,</span>
+<span class="sd">     i.e. the more complex case as we have to account for CDS</span>
+<span class="sd">     as well.</span>
+<span class="sd">    :param transcript: the transcript to analyse.</span>
+<span class="sd">    :type transcript: Transcript</span>
+
+<span class="sd">    :param logger: a logger instance</span>
+<span class="sd">    :type logger: logging.Logger</span>
+
+<span class="sd">    :param max_length: maximum length of terminal exons.</span>
+<span class="sd">    :type max_length: int</span>
+
+<span class="sd">    :return: transcript</span>
+<span class="sd">    :rtype: Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Coding transcript</span>
+    <span class="c1"># Order cds_start and end irrespectively of strand</span>
+
+    <span class="c1"># Wrong CDS</span>
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_start</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Non-coding transcript </span><span class="si">%s</span><span class="s2"> submitted, calling the correct function.&quot;</span><span class="p">,</span>
+                       <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">trim_noncoding</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="n">max_length</span><span class="p">)</span>
+
+    <span class="n">cds_start</span><span class="p">,</span> <span class="n">cds_end</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_end</span><span class="p">,</span>
+                                 <span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_start</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">cds_start</span> <span class="o">&gt;=</span> <span class="n">cds_end</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;{0} has coincident CDS start and end coordinates. Stripping CDS&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">transcript</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">strip_cds</span><span class="p">()</span>
+        <span class="c1"># Now we have to re-deinitialise the transcript</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">internal_orfs</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">segments</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">transcript</span><span class="o">.</span><span class="n">finalized</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="n">transcript</span> <span class="o">=</span> <span class="n">trim_noncoding</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span>
+                                    <span class="n">max_length</span><span class="o">=</span><span class="n">max_length</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">transcript</span>
+
+    <span class="c1"># assert cds_start &lt; cds_end, &quot;\n&quot;.join([str(_) for _ in (cds_start, cds_end, transcript)])</span>
+    <span class="n">transcript</span> <span class="o">=</span> <span class="n">trim_start</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">cds_start</span><span class="p">,</span>
+                            <span class="n">max_length</span><span class="o">=</span><span class="n">max_length</span><span class="p">)</span>
+    <span class="n">transcript</span> <span class="o">=</span> <span class="n">trim_end</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">cds_end</span><span class="p">,</span>
+                          <span class="n">max_length</span><span class="o">=</span><span class="n">max_length</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">transcript</span></div>
+
+
+<div class="viewcode-block" id="strip_terminal"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.trim.strip_terminal">[docs]</a><span class="k">def</span> <span class="nf">strip_terminal</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Transcript</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;This function will take as input a transcript and then:</span>
+<span class="sd">    - return immediately if the transcript is monoexonic</span>
+<span class="sd">    - trim the terminal exons to a length of max(args.max_length (if longer), CDS boundary)</span>
+
+<span class="sd">    :param transcript: the input transcript</span>
+<span class="sd">    :type transcript: Transcript</span>
+
+<span class="sd">    :param args: argparse configuration namespace</span>
+<span class="sd">    :type args: argparse.Namespace</span>
+
+<span class="sd">    :rtype : Transcript</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+    <span class="c1"># Return immediately if the transcript is monoexonic</span>
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">monoexonic</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">transcript</span>
+
+    <span class="k">if</span> <span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_start</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">coding</span> <span class="o">=</span> <span class="bp">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">coding</span> <span class="o">=</span> <span class="bp">False</span>
+
+    <span class="n">transcript</span><span class="o">.</span><span class="n">finalized</span> <span class="o">=</span> <span class="bp">False</span>
+    <span class="c1"># transcript.segments = []</span>
+
+    <span class="c1"># noinspection PyUnresolvedReferences</span>
+    <span class="n">max_l</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">max_length</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">coding</span><span class="p">:</span>
+            <span class="k">assert</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_start</span><span class="p">,</span>
+                           <span class="n">transcript</span><span class="o">.</span><span class="n">selected_cds_end</span><span class="p">])</span>
+            <span class="n">transcript</span> <span class="o">=</span> <span class="n">trim_noncoding</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="n">max_l</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transcript</span> <span class="o">=</span> <span class="n">trim_coding</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="n">max_l</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">InvalidTranscript</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">None</span>
+
+    <span class="c1"># noinspection PyUnresolvedReferences</span>
+    <span class="n">transcript</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">transcript</span><span class="o">.</span><span class="n">start</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">transcript</span><span class="o">.</span><span class="n">end</span> <span class="o">==</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="p">(</span><span class="n">transcript</span><span class="o">.</span><span class="n">end</span><span class="p">,</span> <span class="n">transcript</span><span class="o">.</span><span class="n">exons</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">transcript</span></div>
+
+
+<div class="viewcode-block" id="launch"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.trim.launch">[docs]</a><span class="k">def</span> <span class="nf">launch</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Launcher of the program.</span>
+<span class="sd">    :param args: the argparse Namespace.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">args</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">create_default_logger</span><span class="p">(</span><span class="s2">&quot;trimmer&quot;</span><span class="p">)</span>
+    <span class="n">args</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="s2">&quot;WARN&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">as_gtf</span> <span class="ow">is</span> <span class="bp">False</span><span class="p">:</span>
+        <span class="k">print</span><span class="p">(</span><span class="s2">&quot;##gff-version 3&quot;</span><span class="p">,</span>
+              <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
+
+    <span class="n">transcript</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">as_gtf</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">format_name</span> <span class="o">=</span> <span class="s2">&quot;gtf&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">format_name</span> <span class="o">=</span> <span class="s2">&quot;gff3&quot;</span>
+
+    <span class="k">if</span> <span class="n">format_name</span> <span class="o">==</span> <span class="s2">&quot;gff3&quot;</span><span class="p">:</span>
+        <span class="c1"># print(&quot;WARNING: proper GFF3 format not implemented yet!&quot;,</span>
+        <span class="c1">#       file=sys.stderr)</span>
+        <span class="n">current_gene</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">ann</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">is_transcript</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">transcript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="n">trimmed</span> <span class="o">=</span> <span class="n">strip_terminal</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">trimmed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                        <span class="k">if</span> <span class="n">current_gene</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                            <span class="n">current_gene</span> <span class="o">=</span> <span class="n">Gene</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>
+                        <span class="k">elif</span> <span class="n">current_gene</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+                            <span class="k">print</span><span class="p">(</span><span class="n">current_gene</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">format_name</span><span class="p">),</span> <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
+                            <span class="n">current_gene</span> <span class="o">=</span> <span class="n">Gene</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">current_gene</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>
+                <span class="n">transcript</span> <span class="o">=</span> <span class="n">Transcript</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">record</span><span class="o">.</span><span class="n">is_exon</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">add_exon</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">transcript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">trimmed</span> <span class="o">=</span> <span class="n">strip_terminal</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">trimmed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">current_gene</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="n">current_gene</span> <span class="o">=</span> <span class="n">Gene</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="n">current_gene</span><span class="o">.</span><span class="n">id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="o">.</span><span class="n">parent</span><span class="p">:</span>
+                    <span class="k">print</span><span class="p">(</span><span class="n">current_gene</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">format_name</span><span class="p">),</span> <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
+                    <span class="n">current_gene</span> <span class="o">=</span> <span class="n">Gene</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">current_gene</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">current_gene</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">current_gene</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">format_name</span><span class="p">),</span> <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># When outputting a GTF, we can blissfully ignore everything</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">ann</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">record</span><span class="o">.</span><span class="n">is_transcript</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">transcript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="n">trimmed</span> <span class="o">=</span> <span class="n">strip_terminal</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">trimmed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+                        <span class="k">print</span><span class="p">(</span><span class="n">trimmed</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">format_name</span><span class="p">),</span> <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span>
+                <span class="n">transcript</span> <span class="o">=</span> <span class="n">Transcript</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">record</span><span class="o">.</span><span class="n">is_exon</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+                <span class="n">transcript</span><span class="o">.</span><span class="n">add_exon</span><span class="p">(</span><span class="n">record</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">transcript</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">trimmed</span> <span class="o">=</span> <span class="n">strip_terminal</span><span class="p">(</span><span class="n">transcript</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">trimmed</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">format_name</span><span class="p">),</span> <span class="nb">file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">out</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="trim_parser"><a class="viewcode-back" href="../../../../Mikado.subprograms.util.html#Mikado.subprograms.util.trim.trim_parser">[docs]</a><span class="k">def</span> <span class="nf">trim_parser</span><span class="p">():</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Command line parser for the utility.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="s2">&quot;Script to trim down the terminal exons of multiexonic transcripts&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-ml&quot;</span><span class="p">,</span> <span class="s2">&quot;--max_length&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Maximal length of trimmed terminal exons&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--as_gtf&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Flag. If set, the output will be in GTF rather than GFF3 format.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;ann&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">to_gff</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Reference GTF/GFF output file.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;out&quot;</span><span class="p">,</span> <span class="n">nargs</span><span class="o">=</span><span class="s2">&quot;?&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">FileType</span><span class="p">(</span><span class="s1">&#39;w&#39;</span><span class="p">))</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">launch</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../../index.html">Module code</a><ul>
+  <li><a href="../util.html">Mikado.subprograms.util</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

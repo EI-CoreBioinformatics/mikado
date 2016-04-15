@@ -1,0 +1,455 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Mikado.subprograms.serialise &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for Mikado.subprograms.serialise</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python3</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">This subprogram is the second step in the pipeline. Its purpose is to</span>
+<span class="sd">create the database that is needed by pick for fast access to the data</span>
+<span class="sd">necessary during the analysis.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+<span class="kn">import</span> <span class="nn">glob</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">logging.handlers</span>
+
+<span class="kn">import</span> <span class="nn">sqlalchemy</span>
+<span class="kn">from</span> <span class="nn">..configuration</span> <span class="kn">import</span> <span class="n">configurator</span>
+<span class="kn">from</span> <span class="nn">..utilities</span> <span class="kn">import</span> <span class="n">path_join</span>
+<span class="kn">from</span> <span class="nn">..utilities.log_utils</span> <span class="kn">import</span> <span class="n">create_default_logger</span><span class="p">,</span> <span class="n">formatter</span>
+<span class="kn">from</span> <span class="nn">..utilities</span> <span class="kn">import</span> <span class="n">dbutils</span>
+<span class="kn">from</span> <span class="nn">..serializers</span> <span class="kn">import</span> <span class="n">orf</span><span class="p">,</span> <span class="n">blast_serializer</span><span class="p">,</span> <span class="n">junction</span>
+<span class="kn">from</span> <span class="nn">..exceptions</span> <span class="kn">import</span> <span class="n">InvalidJson</span>
+
+<span class="n">__author__</span> <span class="o">=</span> <span class="s1">&#39;Luca Venturini&#39;</span>
+
+
+<div class="viewcode-block" id="xml_launcher"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.serialise.xml_launcher">[docs]</a><span class="k">def</span> <span class="nf">xml_launcher</span><span class="p">(</span><span class="n">xml_candidate</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">json_conf</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">logger</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Thin rapper around blast_utils.XmlSerializer. Its purpose is</span>
+<span class="sd">    to create a standard serializer object (use it with partial</span>
+<span class="sd">     from functools)</span>
+
+<span class="sd">    :param xml_candidate: An XML or ASN BLAST file name</span>
+
+<span class="sd">    :param json_conf: the configuration dictionary, if available</span>
+<span class="sd">    :type json_conf: (None | dict)</span>
+
+<span class="sd">    :param logger: the logger instance.</span>
+<span class="sd">    :type logger: (None | logging.Logger)</span>
+
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">xml_serializer</span> <span class="o">=</span> <span class="n">blast_serializer</span><span class="o">.</span><span class="n">XmlSerializer</span><span class="p">(</span>
+        <span class="n">xml_candidate</span><span class="p">,</span>
+        <span class="n">json_conf</span><span class="o">=</span><span class="n">json_conf</span><span class="p">,</span>
+        <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
+    <span class="n">xml_serializer</span><span class="p">()</span></div>
+
+
+<div class="viewcode-block" id="load_junctions"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.serialise.load_junctions">[docs]</a><span class="k">def</span> <span class="nf">load_junctions</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function that performs the loading of the junctions.</span>
+
+<span class="sd">    :param args: the Namespace with all the details from the command line.</span>
+
+<span class="sd">    :param logger: the logging instance.</span>
+<span class="sd">    :type logger: (None | logging.Logger)</span>
+
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;junctions&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;genome_fai&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">]</span> <span class="ow">or</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;genome_fai&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">):</span>
+
+            <span class="n">exc</span> <span class="o">=</span> <span class="n">InvalidJson</span><span class="p">(</span>
+                <span class="s2">&quot;Missing the genome FAI file for serialising the junctions. </span><span class="se">\</span>
+<span class="s2">I cannot proceed with this step!&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="n">exc</span>
+
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to load junctions: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;junctions&quot;</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">junction_file</span> <span class="ow">in</span> <span class="nb">iter</span><span class="p">(</span>
+                <span class="n">j_file</span> <span class="k">for</span> <span class="n">j_file</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;junctions&quot;</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">j_file</span> <span class="o">!=</span> <span class="s1">&#39;&#39;</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading junctions: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">junction_file</span><span class="p">)</span>
+            <span class="n">serializer</span> <span class="o">=</span> <span class="n">junction</span><span class="o">.</span><span class="n">JunctionSerializer</span><span class="p">(</span>
+                <span class="n">junction_file</span><span class="p">,</span>
+                <span class="n">json_conf</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">,</span>
+                <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
+            <span class="n">serializer</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loaded junctions&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_blast"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.serialise.load_blast">[docs]</a><span class="k">def</span> <span class="nf">load_blast</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to load the BLAST data into the chosen database.</span>
+
+<span class="sd">    :param args: the Namespace with all the details from the command line.</span>
+
+<span class="sd">    :param logger: the logging instance.</span>
+<span class="sd">    :type logger: (None | logging.Logger)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;xml&quot;</span><span class="p">]:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to load BLAST data&quot;</span><span class="p">)</span>
+        <span class="n">filenames</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="n">part_launcher</span> <span class="o">=</span> <span class="n">functools</span><span class="o">.</span><span class="n">partial</span><span class="p">(</span>
+            <span class="n">xml_launcher</span><span class="p">,</span>
+            <span class="o">**</span><span class="p">{</span><span class="s2">&quot;json_conf&quot;</span><span class="p">:</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">,</span> <span class="s2">&quot;logger&quot;</span><span class="p">:</span> <span class="n">logger</span><span class="p">})</span>
+
+        <span class="k">for</span> <span class="n">xml</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;xml&quot;</span><span class="p">]:</span>
+            <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">xml</span><span class="p">):</span>
+                <span class="n">filenames</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="p">[</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">xml</span><span class="p">,</span> <span class="n">_xml</span><span class="p">)</span> <span class="k">for</span> <span class="n">_xml</span> <span class="ow">in</span>
+                     <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">xml</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">_xml</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.xml&quot;</span><span class="p">)</span> <span class="ow">or</span>
+                                         <span class="n">_xml</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.xml.gz&quot;</span><span class="p">)</span> <span class="ow">or</span>
+                                         <span class="n">_xml</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.asn.gz&quot;</span><span class="p">))</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">filenames</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">glob</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="n">xml</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">filenames</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">part_launcher</span><span class="p">(</span><span class="n">filenames</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished to load BLAST data&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;No valid BLAST file specified, skipping this phase&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_orfs"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.serialise.load_orfs">[docs]</a><span class="k">def</span> <span class="nf">load_orfs</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to load the ORFs into the DB.</span>
+<span class="sd">    :param args:</span>
+<span class="sd">    :param logger:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;orfs&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting to load ORF data&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">orf_file</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;orfs&quot;</span><span class="p">]:</span>
+            <span class="n">serializer</span> <span class="o">=</span> <span class="n">orf</span><span class="o">.</span><span class="n">OrfSerializer</span><span class="p">(</span><span class="n">orf_file</span><span class="p">,</span>
+                                           <span class="n">json_conf</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">,</span>
+                                           <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">)</span>
+            <span class="n">serializer</span><span class="o">.</span><span class="n">serialize</span><span class="p">()</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished loading ORF data&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="setup"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.serialise.setup">[docs]</a><span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Function to set up everything for the serialisation.</span>
+<span class="sd">    :param args:</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">logger</span> <span class="o">=</span> <span class="n">create_default_logger</span><span class="p">(</span><span class="s2">&quot;serialiser&quot;</span><span class="p">)</span>
+    <span class="c1"># Get the log level from general settings</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">start_method</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;multiprocessing_method&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">start_method</span>
+
+    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;log_level&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s2">&quot;log_level&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Retrieve data from the argparse and put it into the configuration</span>
+    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">key</span> <span class="o">==</span> <span class="s2">&quot;files&quot;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">file_key</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">]:</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">file_key</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">file_key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;xml&quot;</span><span class="p">,</span> <span class="s2">&quot;junctions&quot;</span><span class="p">,</span> <span class="s2">&quot;orfs&quot;</span><span class="p">):</span>
+                        <span class="nb">setattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">file_key</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">file_key</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">))</span>
+                    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="n">file_key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">file_key</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">False</span> <span class="ow">or</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">key</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">])</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span><span class="n">PermissionError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Failed to create the output directory!&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+            <span class="k">raise</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">]):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span>
+            <span class="s2">&quot;The specified output directory </span><span class="si">%s</span><span class="s2"> exists and is not a file; aborting&quot;</span><span class="p">,</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">])</span>
+        <span class="k">raise</span> <span class="ne">OSError</span><span class="p">(</span><span class="s2">&quot;The specified output directory </span><span class="si">%s</span><span class="s2"> exists and is not a file; aborting&quot;</span> <span class="o">%</span>
+                      <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;prepare&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">db</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">path_join</span><span class="p">(</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">],</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">db</span><span class="p">)</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;dbtype&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;sqlite&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;dbtype&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;sqlite&quot;</span><span class="p">:</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;db&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">path_join</span><span class="p">(</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">],</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;db_settings&quot;</span><span class="p">][</span><span class="s2">&quot;db&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span>
+                <span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">name</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">]</span> <span class="o">=</span> \
+            <span class="n">path_join</span><span class="p">(</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;output_dir&quot;</span><span class="p">],</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">])</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span>
+            <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;log&quot;</span><span class="p">],</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span>
+        <span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">formatter</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">genome_fai</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;genome_fai&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">genome_fai</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;junctions&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span>
+                <span class="p">(</span><span class="s2">&quot;genome_fai&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">]</span> <span class="ow">or</span>
+                    <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;files&quot;</span><span class="p">][</span><span class="s2">&quot;genome_fai&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">)):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">critical</span><span class="p">(</span><span class="s2">&quot;Missing FAI file for junction loading!&quot;</span><span class="p">)</span>
+            <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">log_level</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Command line: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">))</span>
+
+    <span class="c1"># Add sqlalchemy logging</span>
+    <span class="n">sql_logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;sqlalchemy.engine&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">log_level</span> <span class="o">==</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">:</span>
+        <span class="n">level</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;log_level&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">level</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;log_settings&quot;</span><span class="p">][</span><span class="s2">&quot;sql_level&quot;</span><span class="p">]</span>
+
+    <span class="n">sql_logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">level</span><span class="p">)</span>
+    <span class="n">sql_logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Requested </span><span class="si">%d</span><span class="s2"> threads, forcing single thread: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;procs&quot;</span><span class="p">],</span>
+                <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;single_thread&quot;</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="n">args</span><span class="p">,</span> <span class="n">logger</span></div>
+
+
+<div class="viewcode-block" id="serialise"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.serialise.serialise">[docs]</a><span class="k">def</span> <span class="nf">serialise</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Wrapper around the serializers objects. It uses the configuration</span>
+<span class="sd">    supplied through the command line to launch the necessary tools.</span>
+
+<span class="sd">    :param args: namespace with the necessary information for the serialisation</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">args</span><span class="p">,</span> <span class="n">logger</span> <span class="o">=</span> <span class="n">setup</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">[</span><span class="s2">&quot;serialise&quot;</span><span class="p">][</span><span class="s2">&quot;force&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Removing old data because force option in place&quot;</span><span class="p">)</span>
+        <span class="n">engine</span> <span class="o">=</span> <span class="n">dbutils</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">json_conf</span><span class="p">)</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="n">sqlalchemy</span><span class="o">.</span><span class="n">MetaData</span><span class="p">(</span><span class="n">bind</span><span class="o">=</span><span class="n">engine</span><span class="p">)</span>
+        <span class="n">meta</span><span class="o">.</span><span class="n">reflect</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">tab</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">meta</span><span class="o">.</span><span class="n">sorted_tables</span><span class="p">):</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Dropping </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">tab</span><span class="p">)</span>
+            <span class="n">tab</span><span class="o">.</span><span class="n">drop</span><span class="p">()</span>
+        <span class="n">dbutils</span><span class="o">.</span><span class="n">DBBASE</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">create_all</span><span class="p">(</span><span class="n">engine</span><span class="p">)</span>
+
+    <span class="n">load_junctions</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="n">load_orfs</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="n">load_blast</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Finished&quot;</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">except</span> <span class="ne">KeyboardInterrupt</span><span class="p">:</span>
+        <span class="k">raise</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+<div class="viewcode-block" id="serialise_parser"><a class="viewcode-back" href="../../../Mikado.subprograms.html#Mikado.subprograms.serialise.serialise_parser">[docs]</a><span class="k">def</span> <span class="nf">serialise_parser</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Parser function for the serialisation step.</span>
+<span class="sd">    :return: argparse.Namespace</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span><span class="s2">&quot;Serialisation utility of the Mikado.py suite.&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--start-method&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;start_method&quot;</span><span class="p">,</span>
+                        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;fork&quot;</span><span class="p">,</span> <span class="s2">&quot;spawn&quot;</span><span class="p">,</span> <span class="s2">&quot;forkserver&quot;</span><span class="p">],</span>
+                        <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Multiprocessing start method.&quot;</span><span class="p">)</span>
+    <span class="n">orfs</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">()</span>
+    <span class="n">orfs</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--orfs&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                      <span class="n">help</span><span class="o">=</span><span class="s2">&quot;ORF BED file(s), separated by commas&quot;</span><span class="p">)</span>
+    <span class="n">orfs</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--transcripts&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                      <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Transcript FASTA file(s) used for ORF calling and BLAST queries,</span>
+<span class="s2">                      separated by commas.</span>
+<span class="s2">                      If multiple files are given, they must be in the same order of the</span>
+<span class="s2">                      ORF files.</span>
+<span class="s2">                      E.g. valid command lines are:</span>
+
+<span class="s2">                      --transcript_fasta all_seqs1.fasta --orfs all_orfs.bed</span>
+<span class="s2">                      --transcript_fasta seq1.fasta,seq2.fasta --orfs orfs1.bed,orf2.bed</span>
+<span class="s2">                      --transcript_fasta all_seqs.fasta --orfs orfs1.bed,orf2.bed</span>
+
+<span class="s2">                      These are invalid instead:</span>
+
+<span class="s2">                      # Inverted order</span>
+<span class="s2">                      --transcript_fasta seq1.fasta,seq2.fasta --orfs orfs2.bed,orf1.bed</span>
+<span class="s2">                      #Two transcript files, one ORF file</span>
+<span class="s2">                      --transcript_fasta seq1.fasta,seq2.fasta --orfs all_orfs.bed</span>
+<span class="s2">                      &quot;&quot;&quot;</span><span class="p">)</span>
+
+    <span class="n">blast</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">()</span>
+    <span class="n">blast</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--max_target_seqs&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                       <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Maximum number of target sequences.&quot;</span><span class="p">)</span>
+    <span class="n">blast</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--blast_targets&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">FileType</span><span class="p">(</span><span class="s2">&quot;r&quot;</span><span class="p">),</span>
+                       <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Target sequences&quot;</span><span class="p">)</span>
+    <span class="n">blast</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--discard-definition&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                       <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Flag. If set, the sequences IDs instead of their definition</span>
+<span class="s2">                       will be used for serialisation.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">blast</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--xml&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;XML file(s) to parse.</span>
+<span class="s2">    They can be provided in three ways:</span>
+<span class="s2">    - a comma-separated list</span>
+<span class="s2">    - as a base folder</span>
+<span class="s2">    - using bash-like name expansion (*,?, etc.). In this case, you have to</span>
+<span class="s2">    enclose the filename pattern in double quotes.</span>
+
+<span class="s2">    Multiple folders/file patterns can be given, separated by a comma.</span>
+<span class="s2">    &quot;&quot;&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="p">[])</span>
+    <span class="n">blast</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-p&quot;</span><span class="p">,</span> <span class="s2">&quot;--procs&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+                       <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Number of threads to use for</span>
+<span class="s2">    analysing the BLAST files. This number should not be higher than the total number of XML files.</span>
+<span class="s2">    &quot;&quot;&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">blast</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--single-thread&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+                       <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;single_thread&quot;</span><span class="p">,</span>
+                       <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Force serialise to run with a single thread, irrespective of</span>
+<span class="s2">                       other configuration options.&quot;&quot;&quot;</span><span class="p">)</span>
+
+    <span class="n">junctions</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">()</span>
+    <span class="n">junctions</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--genome_fai&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">junctions</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--junctions&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">)</span>
+    <span class="n">generic</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">()</span>
+    <span class="n">generic</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-mo&quot;</span><span class="p">,</span> <span class="s2">&quot;--max-objects&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;max_objects&quot;</span><span class="p">,</span>
+                         <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>  <span class="c1"># So it can actually be set through the JSON</span>
+                         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Maximum number of objects to cache in memory before</span>
+<span class="s2">                         committing to the database. Default: 100,000 i.e.</span>
+<span class="s2">                         approximately 450MB RAM usage for Drosophila.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="n">generic</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-f&quot;</span><span class="p">,</span> <span class="s2">&quot;--force&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Flag. If set, an existing databse will be deleted (sqlite)</span>
+<span class="s2">                         or dropped (MySQL/PostGreSQL) before beginning the serialisation.&quot;&quot;&quot;</span><span class="p">)</span>
+    <span class="c1"># If None, the default configuration will be used (from the blueprint)</span>
+    <span class="n">generic</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--json-conf&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                         <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;json_conf&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="n">configurator</span><span class="o">.</span><span class="n">to_json</span><span class="p">,</span>
+                         <span class="n">required</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">generic</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-l&quot;</span><span class="p">,</span> <span class="s2">&quot;--log&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                         <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;?&#39;</span><span class="p">,</span>
+                         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Optional log file. Default: stderr&quot;</span><span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-od&quot;</span><span class="p">,</span> <span class="s2">&quot;--output-dir&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;output_dir&quot;</span><span class="p">,</span>
+                        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output directory. Default: current working directory&quot;</span><span class="p">)</span>
+    <span class="n">generic</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;-lv&quot;</span><span class="p">,</span> <span class="s2">&quot;--log_level&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span>
+                         <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span> <span class="s2">&quot;INFO&quot;</span><span class="p">,</span> <span class="s2">&quot;WARN&quot;</span><span class="p">,</span> <span class="s2">&quot;ERROR&quot;</span><span class="p">],</span>
+                         <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;?&#39;</span><span class="p">,</span>
+                         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Log level. Default: </span><span class="si">%(default)s</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">generic</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;db&quot;</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                         <span class="n">nargs</span><span class="o">=</span><span class="s1">&#39;?&#39;</span><span class="p">,</span>
+                         <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Optional output database. Default: derived from json_conf&quot;</span><span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">serialise</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

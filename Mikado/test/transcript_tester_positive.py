@@ -443,7 +443,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         with self.assertLogs("test_at", level="DEBUG") as log_split:
             self.tr.strip_cds()
 
-        self.assertIn("WARNING:test_at:Stripping CDS from AT2G02380.1", log_split.output)
+        self.assertIn("DEBUG:test_at:Stripping CDS from AT2G02380.1", log_split.output)
 
         self.assertEqual(self.tr.selected_cds_length, 0)
         self.assertEqual(self.tr.three_utr, [])
@@ -532,7 +532,7 @@ Chr2    TAIR10    exon    629070    629176    .    +    .    Parent=AT2G02380.1"
 
         """Test for loading a single ORF. We strip the CDS and reload it."""
 
-        with self.assertLogs("test_at", level="WARNING") as cm_out:
+        with self.assertLogs("test_at", level="DEBUG") as cm_out:
             self.tr.strip_cds()
             self.assertIn("Stripping CDS", cm_out.output[0])
         self.tr.load_orfs([self.orf])
@@ -794,7 +794,6 @@ Triticum_aestivum_CS42_TGACv1_scaffold_000043_1AL	Triticum_aestivum_CS42_TGACv1_
 
         self.assertTrue(transcript.is_coding)
 
-    @unittest.skip
     def test_three_truncated(self):
         lines = """Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	mRNA	204336	224434	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1;Parent=TRIAE4565_1AL_Aug_0024630;Name=TRIAE4565_1AL_Aug_0024630.1
 Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_TRIAE4565_Augustus	exon	204336	205303	.	+	.	ID=TRIAE4565_1AL_Aug_0024630.1.exon1;Parent=TRIAE4565_1AL_Aug_0024630.1
@@ -840,6 +839,47 @@ Triticum_aestivum_CS42_TGACv1_scaffold_000112_1AL	Triticum_aestivum_CS42_TGACv1_
             # _ in cm_out.output))
 
         self.assertFalse(transcript.is_coding)
+
+    def test_valid_three_truncated(self):
+        
+        """
+        Picked from the EnsEMBL Human GTF (v. 70)
+        :return: 
+        """
+
+        lines = """11\tnonsense_mediated_decay\texon\t134177086\t134177102\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "1"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00002461794";
+11\tnonsense_mediated_decay\tCDS\t134177086\t134177102\t.\t+\t2\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "1"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; protein_id "ENSP00000397929";
+11\tnonsense_mediated_decay\texon\t134179522\t134179657\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "2"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00002147723";
+11\tnonsense_mediated_decay\tCDS\t134179522\t134179657\t.\t+\t0\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "2"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; protein_id "ENSP00000397929";
+11\tnonsense_mediated_decay\texon\t134180465\t134180545\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "3"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00001278318";
+11\tnonsense_mediated_decay\tCDS\t134180465\t134180545\t.\t+\t2\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "3"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; protein_id "ENSP00000397929";
+11\tnonsense_mediated_decay\texon\t134180958\t134181064\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "4"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00001140726";
+11\tnonsense_mediated_decay\tCDS\t134180958\t134181064\t.\t+\t2\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "4"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; protein_id "ENSP00000397929";
+11\tnonsense_mediated_decay\texon\t134182243\t134182383\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "5"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00003177017";
+11\tnonsense_mediated_decay\tCDS\t134182243\t134182383\t.\t+\t0\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "5"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; protein_id "ENSP00000397929";
+11\tnonsense_mediated_decay\texon\t134182710\t134182781\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "6"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00003096760";
+11\tnonsense_mediated_decay\tCDS\t134182710\t134182781\t.\t+\t0\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "6"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; protein_id "ENSP00000397929";
+11\tnonsense_mediated_decay\texon\t134183835\t134183922\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "7"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00003040614";
+11\tnonsense_mediated_decay\tCDS\t134183835\t134183837\t.\t+\t0\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "7"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; protein_id "ENSP00000397929";
+11\tnonsense_mediated_decay\tstop_codon\t134183838\t134183840\t.\t+\t0\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "7"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006";
+11\tnonsense_mediated_decay\texon\t134184224\t134184335\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "8"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00003002659";
+11\tnonsense_mediated_decay\texon\t134188525\t134188641\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "9"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00003191545";
+11\tnonsense_mediated_decay\texon\t134188771\t134189178\t.\t+\t.\tgene_id "ENSG00000166105"; transcript_id "ENST00000455971"; exon_number "10"; gene_name "GLB1L3"; gene_biotype "protein_coding"; transcript_name "GLB1L3-006"; exon_id "ENSE00001441085";"""
+
+        lines = [Mikado.parsers.GTF.GtfLine("\t".join(_.split("\t"))) for _ in lines.split("\n")]
+        assert all([line.header is False for line in lines])
+
+        transcript = Mikado.loci.Transcript(lines[0], logger=self.logger)
+
+        transcript.add_exons(lines[1:])
+        with self.assertLogs("augustus", level="DEBUG") as cm_out:
+            transcript.finalize()
+
+        self.assertTrue(transcript.is_coding)
+        self.assertEqual(557, transcript.selected_cds_length,
+                         sum(
+                             _[1][1] - _[1][0] + 1 for _ in transcript.selected_internal_orf if _[0] == "CDS")
+                         )
 
 if __name__ == '__main__':
     unittest.main()

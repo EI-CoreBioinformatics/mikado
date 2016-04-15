@@ -1,0 +1,607 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>sqlalchemy.ext.baked &mdash; Mikado 19 documentation</title>
+    
+    <link rel="stylesheet" href="../../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../../',
+        VERSION:     '19',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 19 documentation" href="../../../index.html" />
+    <link rel="up" title="Module code" href="../../index.html" />
+   
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body role="document">  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for sqlalchemy.ext.baked</h1><div class="highlight"><pre>
+<span></span><span class="c1"># sqlalchemy/ext/baked.py</span>
+<span class="c1"># Copyright (C) 2005-2016 the SQLAlchemy authors and contributors</span>
+<span class="c1"># &lt;see AUTHORS file&gt;</span>
+<span class="c1">#</span>
+<span class="c1"># This module is part of SQLAlchemy and is released under</span>
+<span class="c1"># the MIT License: http://www.opensource.org/licenses/mit-license.php</span>
+<span class="sd">&quot;&quot;&quot;Baked query extension.</span>
+
+<span class="sd">Provides a creational pattern for the :class:`.query.Query` object which</span>
+<span class="sd">allows the fully constructed object, Core select statement, and string</span>
+<span class="sd">compiled result to be fully cached.</span>
+
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">..orm.query</span> <span class="kn">import</span> <span class="n">Query</span>
+<span class="kn">from</span> <span class="nn">..orm</span> <span class="kn">import</span> <span class="n">strategies</span><span class="p">,</span> <span class="n">attributes</span><span class="p">,</span> <span class="n">properties</span><span class="p">,</span> \
+    <span class="n">strategy_options</span><span class="p">,</span> <span class="n">util</span> <span class="k">as</span> <span class="n">orm_util</span><span class="p">,</span> <span class="n">interfaces</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">log</span> <span class="k">as</span> <span class="n">sqla_log</span>
+<span class="kn">from</span> <span class="nn">..sql</span> <span class="kn">import</span> <span class="n">util</span> <span class="k">as</span> <span class="n">sql_util</span>
+<span class="kn">from</span> <span class="nn">..orm</span> <span class="kn">import</span> <span class="n">exc</span> <span class="k">as</span> <span class="n">orm_exc</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">exc</span> <span class="k">as</span> <span class="n">sa_exc</span>
+<span class="kn">from</span> <span class="nn">..</span> <span class="kn">import</span> <span class="n">util</span>
+
+<span class="kn">import</span> <span class="nn">copy</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">__name__</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">BakedQuery</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A builder object for :class:`.query.Query` objects.&quot;&quot;&quot;</span>
+
+    <span class="n">__slots__</span> <span class="o">=</span> <span class="s1">&#39;steps&#39;</span><span class="p">,</span> <span class="s1">&#39;_bakery&#39;</span><span class="p">,</span> <span class="s1">&#39;_cache_key&#39;</span><span class="p">,</span> <span class="s1">&#39;_spoiled&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bakery</span><span class="p">,</span> <span class="n">initial_fn</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">()):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">=</span> <span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_cache_key</span><span class="p">(</span><span class="n">initial_fn</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">steps</span> <span class="o">=</span> <span class="p">[</span><span class="n">initial_fn</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spoiled</span> <span class="o">=</span> <span class="bp">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span> <span class="o">=</span> <span class="n">bakery</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">bakery</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">200</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct a new bakery.&quot;&quot;&quot;</span>
+
+        <span class="n">_bakery</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">LRUCache</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="n">initial_fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">cls</span><span class="p">(</span><span class="n">_bakery</span><span class="p">,</span> <span class="n">initial_fn</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">call</span>
+
+    <span class="k">def</span> <span class="nf">_clone</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">b1</span> <span class="o">=</span> <span class="n">BakedQuery</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">BakedQuery</span><span class="p">)</span>
+        <span class="n">b1</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span>
+        <span class="n">b1</span><span class="o">.</span><span class="n">steps</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">steps</span><span class="p">)</span>
+        <span class="n">b1</span><span class="o">.</span><span class="n">_bakery</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span>
+        <span class="n">b1</span><span class="o">.</span><span class="n">_spoiled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_spoiled</span>
+        <span class="k">return</span> <span class="n">b1</span>
+
+    <span class="k">def</span> <span class="nf">_update_cache_key</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">()):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">+=</span> <span class="p">(</span><span class="n">fn</span><span class="o">.</span><span class="n">__code__</span><span class="p">,)</span> <span class="o">+</span> <span class="n">args</span>
+
+    <span class="k">def</span> <span class="nf">__iadd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span><span class="o">*</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_criteria</span><span class="p">(</span><span class="o">*</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">with_criteria</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">add_criteria</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add a criteria function to this :class:`.BakedQuery`.</span>
+
+<span class="sd">        This is equivalent to using the ``+=`` operator to</span>
+<span class="sd">        modify a :class:`.BakedQuery` in-place.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_cache_key</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="n">args</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">steps</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fn</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">with_criteria</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Add a criteria function to a :class:`.BakedQuery` cloned from this one.</span>
+
+<span class="sd">        This is equivalent to using the ``+`` operator to</span>
+<span class="sd">        produce a new :class:`.BakedQuery` with modifications.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clone</span><span class="p">()</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span><span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">for_session</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return a :class:`.Result` object for this :class:`.BakedQuery`.</span>
+
+<span class="sd">        This is equivalent to calling the :class:`.BakedQuery` as a</span>
+<span class="sd">        Python callable, e.g. ``result = my_baked_query(session)``.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">for_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">spoil</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">full</span><span class="o">=</span><span class="bp">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Cancel any query caching that will occur on this BakedQuery object.</span>
+
+<span class="sd">        The BakedQuery can continue to be used normally, however additional</span>
+<span class="sd">        creational functions will not be cached; they will be called</span>
+<span class="sd">        on every invocation.</span>
+
+<span class="sd">        This is to support the case where a particular step in constructing</span>
+<span class="sd">        a baked query disqualifies the query from being cacheable, such</span>
+<span class="sd">        as a variant that relies upon some uncacheable value.</span>
+
+<span class="sd">        :param full: if False, only functions added to this</span>
+<span class="sd">         :class:`.BakedQuery` object subsequent to the spoil step will be</span>
+<span class="sd">         non-cached; the state of the :class:`.BakedQuery` up until</span>
+<span class="sd">         this point will be pulled from the cache.   If True, then the</span>
+<span class="sd">         entire :class:`.Query` object is built from scratch each</span>
+<span class="sd">         time, with all creational functions being called on each</span>
+<span class="sd">         invocation.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">full</span><span class="p">:</span>
+            <span class="n">_spoil_point</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clone</span><span class="p">()</span>
+            <span class="n">_spoil_point</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">+=</span> <span class="p">(</span><span class="s1">&#39;_query_only&#39;</span><span class="p">,</span> <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">steps</span> <span class="o">=</span> <span class="p">[</span><span class="n">_spoil_point</span><span class="o">.</span><span class="n">_retrieve_baked_query</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_spoiled</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">_retrieve_baked_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">query</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_as_query</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">with_session</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">query</span><span class="o">.</span><span class="n">with_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_bake</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_as_query</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+
+        <span class="n">context</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">_compile_context</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bake_subquery_loaders</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">query</span> <span class="o">=</span> <span class="n">query</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">with_session</span><span class="p">(</span><span class="bp">None</span><span class="p">)</span>
+        <span class="n">query</span><span class="o">.</span><span class="n">_execution_options</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">_execution_options</span><span class="o">.</span><span class="n">union</span><span class="p">(</span>
+            <span class="p">{</span><span class="s2">&quot;compiled_cache&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="c1"># we&#39;ll be holding onto the query for some of its state,</span>
+        <span class="c1"># so delete some compilation-use-only attributes that can take up</span>
+        <span class="c1"># space</span>
+        <span class="k">for</span> <span class="n">attr</span> <span class="ow">in</span> <span class="p">(</span>
+                <span class="s1">&#39;_correlate&#39;</span><span class="p">,</span> <span class="s1">&#39;_from_obj&#39;</span><span class="p">,</span> <span class="s1">&#39;_mapper_adapter_map&#39;</span><span class="p">,</span>
+                <span class="s1">&#39;_joinpath&#39;</span><span class="p">,</span> <span class="s1">&#39;_joinpoint&#39;</span><span class="p">):</span>
+            <span class="n">query</span><span class="o">.</span><span class="n">__dict__</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">context</span>
+        <span class="k">return</span> <span class="n">context</span>
+
+    <span class="k">def</span> <span class="nf">_as_query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="n">session</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="mi">1</span><span class="p">:]:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">step</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">query</span>
+
+    <span class="k">def</span> <span class="nf">_bake_subquery_loaders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">context</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;convert subquery eager loaders in the cache into baked queries.</span>
+
+<span class="sd">        For subquery eager loading to work, all we need here is that the</span>
+<span class="sd">        Query point to the correct session when it is run.  However, since</span>
+<span class="sd">        we are &quot;baking&quot; anyway, we may as well also turn the query into</span>
+<span class="sd">        a &quot;baked&quot; query so that we save on performance too.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s1">&#39;baked_queries&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">baked_queries</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">context</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">Query</span><span class="p">):</span>
+                <span class="k">if</span> <span class="s1">&#39;subquery&#39;</span> <span class="ow">in</span> <span class="n">k</span><span class="p">:</span>
+                    <span class="n">bk</span> <span class="o">=</span> <span class="n">BakedQuery</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span><span class="p">,</span> <span class="k">lambda</span> <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">v</span><span class="p">)</span>
+                    <span class="n">bk</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">+</span> <span class="n">k</span>
+                    <span class="n">bk</span><span class="o">.</span><span class="n">_bake</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+                    <span class="n">baked_queries</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">k</span><span class="p">,</span> <span class="n">bk</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">,</span> <span class="n">v</span><span class="p">))</span>
+                <span class="k">del</span> <span class="n">context</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">_unbake_subquery_loaders</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve subquery eager loaders stored by _bake_subquery_loaders</span>
+<span class="sd">        and turn them back into Result objects that will iterate just</span>
+<span class="sd">        like a Query object.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">cache_key</span><span class="p">,</span> <span class="n">query</span> <span class="ow">in</span> <span class="n">context</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="s2">&quot;baked_queries&quot;</span><span class="p">]:</span>
+            <span class="n">bk</span> <span class="o">=</span> <span class="n">BakedQuery</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_bakery</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">sess</span><span class="p">:</span> <span class="n">query</span><span class="o">.</span><span class="n">with_session</span><span class="p">(</span><span class="n">sess</span><span class="p">))</span>
+            <span class="n">bk</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">=</span> <span class="n">cache_key</span>
+            <span class="n">context</span><span class="o">.</span><span class="n">attributes</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">bk</span><span class="o">.</span><span class="n">for_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">params</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">Result</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Invokes a :class:`.BakedQuery` against a :class:`.Session`.</span>
+
+<span class="sd">    The :class:`.Result` object is where the actual :class:`.query.Query`</span>
+<span class="sd">    object gets created, or retrieved from the cache,</span>
+<span class="sd">    against a target :class:`.Session`, and is then invoked for results.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">__slots__</span> <span class="o">=</span> <span class="s1">&#39;bq&#39;</span><span class="p">,</span> <span class="s1">&#39;session&#39;</span><span class="p">,</span> <span class="s1">&#39;_params&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bq</span><span class="p">,</span> <span class="n">session</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">bq</span> <span class="o">=</span> <span class="n">bq</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="n">session</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_params</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">def</span> <span class="nf">params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Specify parameters to be replaced into the string SQL statement.&quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">kw</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">args</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">sa_exc</span><span class="o">.</span><span class="n">ArgumentError</span><span class="p">(</span>
+                <span class="s2">&quot;params() takes zero or one positional argument, &quot;</span>
+                <span class="s2">&quot;which is a dictionary.&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">kw</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">_as_query</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bq</span><span class="o">.</span><span class="n">_as_query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_as_query</span><span class="p">())</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">bq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bq</span>
+        <span class="k">if</span> <span class="n">bq</span><span class="o">.</span><span class="n">_spoiled</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_as_query</span><span class="p">())</span>
+
+        <span class="n">baked_context</span> <span class="o">=</span> <span class="n">bq</span><span class="o">.</span><span class="n">_bakery</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">bq</span><span class="o">.</span><span class="n">_cache_key</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">baked_context</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">baked_context</span> <span class="o">=</span> <span class="n">bq</span><span class="o">.</span><span class="n">_bake</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span>
+
+        <span class="n">context</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">copy</span><span class="p">(</span><span class="n">baked_context</span><span class="p">)</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">session</span>
+        <span class="n">context</span><span class="o">.</span><span class="n">attributes</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="n">attributes</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">bq</span><span class="o">.</span><span class="n">_unbake_subquery_loaders</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">,</span> <span class="n">context</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">)</span>
+
+        <span class="n">context</span><span class="o">.</span><span class="n">statement</span><span class="o">.</span><span class="n">use_labels</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="n">context</span><span class="o">.</span><span class="n">autoflush</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">context</span><span class="o">.</span><span class="n">populate_existing</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="o">.</span><span class="n">_autoflush</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">context</span><span class="o">.</span><span class="n">query</span><span class="o">.</span><span class="n">params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">)</span><span class="o">.</span>\
+            <span class="n">with_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">_execute_and_instances</span><span class="p">(</span><span class="n">context</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">first</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return the first row.</span>
+
+<span class="sd">        Equivalent to :meth:`.Query.first`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">bq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bq</span><span class="o">.</span><span class="n">with_criteria</span><span class="p">(</span><span class="k">lambda</span> <span class="n">q</span><span class="p">:</span> <span class="n">q</span><span class="o">.</span><span class="n">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bq</span><span class="o">.</span><span class="n">for_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">params</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_params</span><span class="p">))</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">one</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return exactly one result or raise an exception.</span>
+
+<span class="sd">        Equivalent to :meth:`.Query.one`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">l</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">l</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">l</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">orm_exc</span><span class="o">.</span><span class="n">NoResultFound</span><span class="p">(</span><span class="s2">&quot;No row was found for one()&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">orm_exc</span><span class="o">.</span><span class="n">MultipleResultsFound</span><span class="p">(</span>
+                <span class="s2">&quot;Multiple rows were found for one()&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">one_or_none</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return one or zero results, or raise an exception for multiple</span>
+<span class="sd">        rows.</span>
+
+<span class="sd">        Equivalent to :meth:`.Query.one_or_none`.</span>
+
+<span class="sd">        .. versionadded:: 1.0.9</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="n">l</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">l</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ret</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">l</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">orm_exc</span><span class="o">.</span><span class="n">MultipleResultsFound</span><span class="p">(</span>
+                <span class="s2">&quot;Multiple rows were found for one_or_none()&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">all</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Return all rows.</span>
+
+<span class="sd">        Equivalent to :meth:`.Query.all`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ident</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Retrieve an object based on identity.</span>
+
+<span class="sd">        Equivalent to :meth:`.Query.get`.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">query</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bq</span><span class="o">.</span><span class="n">steps</span><span class="p">[</span><span class="mi">0</span><span class="p">](</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">query</span><span class="o">.</span><span class="n">_get_impl</span><span class="p">(</span><span class="n">ident</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_on_ident</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_load_on_ident</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Load the given identity key from the database.&quot;&quot;&quot;</span>
+
+        <span class="n">ident</span> <span class="o">=</span> <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="n">mapper</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">_mapper_zero</span><span class="p">()</span>
+
+        <span class="n">_get_clause</span><span class="p">,</span> <span class="n">_get_params</span> <span class="o">=</span> <span class="n">mapper</span><span class="o">.</span><span class="n">_get_clause</span>
+
+        <span class="k">def</span> <span class="nf">setup</span><span class="p">(</span><span class="n">query</span><span class="p">):</span>
+            <span class="n">_lcl_get_clause</span> <span class="o">=</span> <span class="n">_get_clause</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">_clone</span><span class="p">()</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">_get_condition</span><span class="p">()</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">_order_by</span> <span class="o">=</span> <span class="bp">None</span>
+
+            <span class="c1"># None present in ident - turn those comparisons</span>
+            <span class="c1"># into &quot;IS NULL&quot;</span>
+            <span class="k">if</span> <span class="bp">None</span> <span class="ow">in</span> <span class="n">ident</span><span class="p">:</span>
+                <span class="n">nones</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+                    <span class="n">_get_params</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">key</span> <span class="k">for</span> <span class="n">col</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span>
+                    <span class="nb">zip</span><span class="p">(</span><span class="n">mapper</span><span class="o">.</span><span class="n">primary_key</span><span class="p">,</span> <span class="n">ident</span><span class="p">)</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="bp">None</span>
+                <span class="p">])</span>
+                <span class="n">_lcl_get_clause</span> <span class="o">=</span> <span class="n">sql_util</span><span class="o">.</span><span class="n">adapt_criterion_to_null</span><span class="p">(</span>
+                    <span class="n">_lcl_get_clause</span><span class="p">,</span> <span class="n">nones</span><span class="p">)</span>
+
+            <span class="n">_lcl_get_clause</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">_adapt_clause</span><span class="p">(</span><span class="n">_lcl_get_clause</span><span class="p">,</span> <span class="bp">True</span><span class="p">,</span> <span class="bp">False</span><span class="p">)</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">_criterion</span> <span class="o">=</span> <span class="n">_lcl_get_clause</span>
+            <span class="k">return</span> <span class="n">q</span>
+
+        <span class="c1"># cache the query against a key that includes</span>
+        <span class="c1"># which positions in the primary key are NULL</span>
+        <span class="c1"># (remember, we can map to an OUTER JOIN)</span>
+        <span class="n">bq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">bq</span>
+
+        <span class="c1"># add the clause we got from mapper._get_clause to the cache</span>
+        <span class="c1"># key so that if a race causes multiple calls to _get_clause,</span>
+        <span class="c1"># we&#39;ve cached on ours</span>
+        <span class="n">bq</span> <span class="o">=</span> <span class="n">bq</span><span class="o">.</span><span class="n">_clone</span><span class="p">()</span>
+        <span class="n">bq</span><span class="o">.</span><span class="n">_cache_key</span> <span class="o">+=</span> <span class="p">(</span><span class="n">_get_clause</span><span class="p">,</span> <span class="p">)</span>
+
+        <span class="n">bq</span> <span class="o">=</span> <span class="n">bq</span><span class="o">.</span><span class="n">with_criteria</span><span class="p">(</span><span class="n">setup</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">elem</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">ident</span><span class="p">))</span>
+
+        <span class="n">params</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">([</span>
+            <span class="p">(</span><span class="n">_get_params</span><span class="p">[</span><span class="n">primary_key</span><span class="p">]</span><span class="o">.</span><span class="n">key</span><span class="p">,</span> <span class="n">id_val</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">id_val</span><span class="p">,</span> <span class="n">primary_key</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">ident</span><span class="p">,</span> <span class="n">mapper</span><span class="o">.</span><span class="n">primary_key</span><span class="p">)</span>
+        <span class="p">])</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">bq</span><span class="o">.</span><span class="n">for_session</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">params</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">))</span>
+        <span class="n">l</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">l</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">orm_exc</span><span class="o">.</span><span class="n">MultipleResultsFound</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">l</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">None</span>
+
+
+<span class="k">def</span> <span class="nf">bake_lazy_loaders</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Enable the use of baked queries for all lazyloaders systemwide.</span>
+
+<span class="sd">    This operation should be safe for all lazy loaders, and will reduce</span>
+<span class="sd">    Python overhead for these operations.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">BakedLazyLoader</span><span class="o">.</span><span class="n">_strategy_keys</span><span class="p">[:]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">properties</span><span class="o">.</span><span class="n">RelationshipProperty</span><span class="o">.</span><span class="n">strategy_for</span><span class="p">(</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;select&quot;</span><span class="p">)(</span><span class="n">BakedLazyLoader</span><span class="p">)</span>
+    <span class="n">properties</span><span class="o">.</span><span class="n">RelationshipProperty</span><span class="o">.</span><span class="n">strategy_for</span><span class="p">(</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="bp">True</span><span class="p">)(</span><span class="n">BakedLazyLoader</span><span class="p">)</span>
+    <span class="n">properties</span><span class="o">.</span><span class="n">RelationshipProperty</span><span class="o">.</span><span class="n">strategy_for</span><span class="p">(</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;baked_select&quot;</span><span class="p">)(</span><span class="n">BakedLazyLoader</span><span class="p">)</span>
+
+    <span class="n">strategies</span><span class="o">.</span><span class="n">LazyLoader</span><span class="o">.</span><span class="n">_strategy_keys</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">BakedLazyLoader</span><span class="o">.</span><span class="n">_strategy_keys</span><span class="p">[:]</span>
+
+
+<span class="k">def</span> <span class="nf">unbake_lazy_loaders</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Disable the use of baked queries for all lazyloaders systemwide.</span>
+
+<span class="sd">    This operation reverts the changes produced by :func:`.bake_lazy_loaders`.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">strategies</span><span class="o">.</span><span class="n">LazyLoader</span><span class="o">.</span><span class="n">_strategy_keys</span><span class="p">[:]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">BakedLazyLoader</span><span class="o">.</span><span class="n">_strategy_keys</span><span class="p">[:]</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">properties</span><span class="o">.</span><span class="n">RelationshipProperty</span><span class="o">.</span><span class="n">strategy_for</span><span class="p">(</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;select&quot;</span><span class="p">)(</span><span class="n">strategies</span><span class="o">.</span><span class="n">LazyLoader</span><span class="p">)</span>
+    <span class="n">properties</span><span class="o">.</span><span class="n">RelationshipProperty</span><span class="o">.</span><span class="n">strategy_for</span><span class="p">(</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="bp">True</span><span class="p">)(</span><span class="n">strategies</span><span class="o">.</span><span class="n">LazyLoader</span><span class="p">)</span>
+    <span class="n">properties</span><span class="o">.</span><span class="n">RelationshipProperty</span><span class="o">.</span><span class="n">strategy_for</span><span class="p">(</span>
+        <span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;baked_select&quot;</span><span class="p">)(</span><span class="n">BakedLazyLoader</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">strategies</span><span class="o">.</span><span class="n">LazyLoader</span><span class="o">.</span><span class="n">_strategy_keys</span>
+
+
+<span class="nd">@sqla_log.class_logger</span>
+<span class="nd">@properties.RelationshipProperty.strategy_for</span><span class="p">(</span><span class="n">lazy</span><span class="o">=</span><span class="s2">&quot;baked_select&quot;</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">BakedLazyLoader</span><span class="p">(</span><span class="n">strategies</span><span class="o">.</span><span class="n">LazyLoader</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">_emit_lazyload</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">ident_key</span><span class="p">,</span> <span class="n">passive</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">BakedQuery</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">mapper</span><span class="o">.</span><span class="n">_compiled_cache</span><span class="p">,</span>
+            <span class="k">lambda</span> <span class="n">session</span><span class="p">:</span> <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mapper</span><span class="p">))</span>
+        <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span>
+            <span class="k">lambda</span> <span class="n">q</span><span class="p">:</span> <span class="n">q</span><span class="o">.</span><span class="n">_adapt_all_clauses</span><span class="p">()</span><span class="o">.</span><span class="n">_with_invoke_all_eagers</span><span class="p">(</span><span class="bp">False</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="o">.</span><span class="n">bake_queries</span><span class="p">:</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">spoil</span><span class="p">(</span><span class="n">full</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="o">.</span><span class="n">secondary</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">q</span><span class="p">:</span>
+                <span class="n">q</span><span class="o">.</span><span class="n">select_from</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mapper</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="o">.</span><span class="n">secondary</span><span class="p">))</span>
+
+        <span class="n">pending</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">state</span><span class="o">.</span><span class="n">key</span>
+
+        <span class="c1"># don&#39;t autoflush on pending</span>
+        <span class="k">if</span> <span class="n">pending</span> <span class="ow">or</span> <span class="n">passive</span> <span class="o">&amp;</span> <span class="n">attributes</span><span class="o">.</span><span class="n">NO_AUTOFLUSH</span><span class="p">:</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span><span class="k">lambda</span> <span class="n">q</span><span class="p">:</span> <span class="n">q</span><span class="o">.</span><span class="n">autoflush</span><span class="p">(</span><span class="bp">False</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">load_path</span><span class="p">:</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">spoil</span><span class="p">()</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">q</span><span class="p">:</span>
+                <span class="n">q</span><span class="o">.</span><span class="n">_with_current_path</span><span class="p">(</span><span class="n">state</span><span class="o">.</span><span class="n">load_path</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="p">]))</span>
+
+        <span class="k">if</span> <span class="n">state</span><span class="o">.</span><span class="n">load_options</span><span class="p">:</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">spoil</span><span class="p">()</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">q</span><span class="p">:</span> <span class="n">q</span><span class="o">.</span><span class="n">_conditional_options</span><span class="p">(</span><span class="o">*</span><span class="n">state</span><span class="o">.</span><span class="n">load_options</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">use_get</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">q</span><span class="p">(</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">_load_on_ident</span><span class="p">(</span>
+                <span class="n">session</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mapper</span><span class="p">),</span> <span class="n">ident_key</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="o">.</span><span class="n">order_by</span><span class="p">:</span>
+            <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span>
+                <span class="k">lambda</span> <span class="n">q</span><span class="p">:</span>
+                <span class="n">q</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="o">*</span><span class="n">util</span><span class="o">.</span><span class="n">to_list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="o">.</span><span class="n">order_by</span><span class="p">)))</span>
+
+        <span class="k">for</span> <span class="n">rev</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="o">.</span><span class="n">_reverse_property</span><span class="p">:</span>
+            <span class="c1"># reverse props that are MANYTOONE are loading *this*</span>
+            <span class="c1"># object from get(), so don&#39;t need to eager out to those.</span>
+            <span class="k">if</span> <span class="n">rev</span><span class="o">.</span><span class="n">direction</span> <span class="ow">is</span> <span class="n">interfaces</span><span class="o">.</span><span class="n">MANYTOONE</span> <span class="ow">and</span> \
+                <span class="n">rev</span><span class="o">.</span><span class="n">_use_get</span> <span class="ow">and</span> \
+                    <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">rev</span><span class="o">.</span><span class="n">strategy</span><span class="p">,</span> <span class="n">strategies</span><span class="o">.</span><span class="n">LazyLoader</span><span class="p">):</span>
+                <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span>
+                    <span class="k">lambda</span> <span class="n">q</span><span class="p">:</span>
+                    <span class="n">q</span><span class="o">.</span><span class="n">options</span><span class="p">(</span>
+                        <span class="n">strategy_options</span><span class="o">.</span><span class="n">Load</span><span class="p">(</span>
+                            <span class="n">rev</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span><span class="o">.</span><span class="n">baked_lazyload</span><span class="p">(</span><span class="n">rev</span><span class="o">.</span><span class="n">key</span><span class="p">)))</span>
+
+        <span class="n">lazy_clause</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_lazy_clause</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">passive</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">pending</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">orm_util</span><span class="o">.</span><span class="n">_none_set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">params</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+                <span class="k">return</span> <span class="bp">None</span>
+
+        <span class="n">q</span><span class="o">.</span><span class="n">add_criteria</span><span class="p">(</span><span class="k">lambda</span> <span class="n">q</span><span class="p">:</span> <span class="n">q</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">lazy_clause</span><span class="p">))</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">q</span><span class="p">(</span><span class="n">session</span><span class="p">)</span><span class="o">.</span><span class="n">params</span><span class="p">(</span><span class="o">**</span><span class="n">params</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">uselist</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">l</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">l</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">l</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                    <span class="n">util</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                        <span class="s2">&quot;Multiple rows returned with &quot;</span>
+                        <span class="s2">&quot;uselist=False for lazily-loaded attribute &#39;</span><span class="si">%s</span><span class="s2">&#39; &quot;</span>
+                        <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent_property</span><span class="p">)</span>
+
+                <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">None</span>
+
+
+<span class="nd">@strategy_options.loader_option</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">baked_lazyload</span><span class="p">(</span><span class="n">loadopt</span><span class="p">,</span> <span class="n">attr</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Indicate that the given attribute should be loaded using &quot;lazy&quot;</span>
+<span class="sd">    loading with a &quot;baked&quot; query used in the load.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">loadopt</span><span class="o">.</span><span class="n">set_relationship_strategy</span><span class="p">(</span><span class="n">attr</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;lazy&quot;</span><span class="p">:</span> <span class="s2">&quot;baked_select&quot;</span><span class="p">})</span>
+
+
+<span class="nd">@baked_lazyload._add_unbound_fn</span>
+<span class="k">def</span> <span class="nf">baked_lazyload</span><span class="p">(</span><span class="o">*</span><span class="n">keys</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">strategy_options</span><span class="o">.</span><span class="n">_UnboundLoad</span><span class="o">.</span><span class="n">_from_keys</span><span class="p">(</span>
+        <span class="n">strategy_options</span><span class="o">.</span><span class="n">_UnboundLoad</span><span class="o">.</span><span class="n">baked_lazyload</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="bp">False</span><span class="p">,</span> <span class="p">{})</span>
+
+
+<span class="nd">@baked_lazyload._add_unbound_all_fn</span>
+<span class="k">def</span> <span class="nf">baked_lazyload_all</span><span class="p">(</span><span class="o">*</span><span class="n">keys</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">strategy_options</span><span class="o">.</span><span class="n">_UnboundLoad</span><span class="o">.</span><span class="n">_from_keys</span><span class="p">(</span>
+        <span class="n">strategy_options</span><span class="o">.</span><span class="n">_UnboundLoad</span><span class="o">.</span><span class="n">baked_lazyload</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="bp">True</span><span class="p">,</span> <span class="p">{})</span>
+
+<span class="n">baked_lazyload</span> <span class="o">=</span> <span class="n">baked_lazyload</span><span class="o">.</span><span class="n">_unbound_fn</span>
+<span class="n">baked_lazyload_all</span> <span class="o">=</span> <span class="n">baked_lazyload_all</span><span class="o">.</span><span class="n">_unbound_all_fn</span>
+
+<span class="n">bakery</span> <span class="o">=</span> <span class="n">BakedQuery</span><span class="o">.</span><span class="n">bakery</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2016, Luca Venturini, Shabhonam Caim.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.7</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

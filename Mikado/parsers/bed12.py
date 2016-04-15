@@ -11,7 +11,7 @@ import os
 from Bio import SeqIO
 import Bio.SeqRecord
 from . import Parser
-
+from sys import intern
 
 # These classes do contain lots of things, it is correct like it is
 # pylint: disable=too-many-instance-attributes
@@ -156,8 +156,8 @@ class BED12:
             self.thick_start, self.thick_end, self.rgb, \
             self.block_count, block_sizes, block_starts = self._fields
 
-        self.chrom = self._fields[0]
-
+        # Reduce memory usage
+        intern(self.chrom)
         self.start = int(self.start) + 1
         self.end = int(self.end)
         self.score = float(self.score)

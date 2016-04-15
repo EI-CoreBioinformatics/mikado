@@ -99,7 +99,8 @@ class Transcript:
     def __init__(self, *args,
                  source=None,
                  logger=None,
-                 intron_range=(0, sys.maxsize)):
+                 intron_range=(0, sys.maxsize),
+                 trust_orf=False):
 
         """Initialise the transcript object, using a mRNA/transcript line.
         Note: I am assuming that the input line is an object from my own "GFF" class.
@@ -108,7 +109,16 @@ class Transcript:
 
         :param intron_range: range of valid intron size. Any intron shorter
         or longer than this will be flagged.
-        :type intron_range: list(int,int)
+        :type intron_range: list[int, int]
+
+        :param source: optional source for the transcript
+        :type logger: (str|None)
+        :param logger: optional logger for the object. WARNING: creating a logger is
+        an expensive operation, it is better to do it once per program!
+        :type logger: logging.Logger
+
+        :param trust_orf: optional boolean flag. If set, the ORF won't be checked for consistency.
+        :type trust_orf: bool
 
         """
 
@@ -131,7 +141,7 @@ class Transcript:
         self.__cdna_length = None
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
-
+        self._trust_orf = trust_orf  # This is used inside finalizing.__check_internal_orf
         self.__combined_utr = []
         # pylint: enable=invalid-name
         self._selected_internal_orf_cds = []

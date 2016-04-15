@@ -322,43 +322,46 @@ def __check_internal_orf(transcript, index):
     if index == 0 and transcript.phases:
         phases_keys = sorted(transcript.phases.keys(), reverse=(transcript.strand == "-"))
         phase_orf = [transcript.phases[_] for _ in phases_keys]
-        # TODO: Why am I calculating the complement of the phase here?
+        # Calculating the complement of the phase so that
         previous = (3 - phase_orf[0]) % 3
         # transcript.logger.warning(previous)
     else:
         phase_orf = []
         previous = 0
 
-    total_cds_length, __calculated_phases = __calculate_phases(coding, previous)
+    if transcript._trust_orf is True and index == 0 and len(phase_orf) == len(coding):
+        total_cds_length = sum([_[1][1] - _[1][0] + 1 for _ in coding])
+        __calculated_phases = phase_orf[:]
+    else:
+        total_cds_length, __calculated_phases = __calculate_phases(coding, previous)
 
-    if len(__calculated_phases) != len(coding):
-        # This is a mistake which should crash the program
-        raise ValueError("Error in calculating the phases!")
+        if len(__calculated_phases) != len(coding):
+            # This is a mistake which should crash the program
+            raise ValueError("Error in calculating the phases!")
 
-    if phase_orf and __calculated_phases != phase_orf:
-        transcript.logger.debug("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
-                                transcript.id,
-                                phase_orf, __calculated_phases)
+        if phase_orf and __calculated_phases != phase_orf:
+            transcript.logger.debug("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
+                                    transcript.id,
+                                    phase_orf, __calculated_phases)
+        if total_cds_length % 3 != 0 and three_utr and five_utr:
+            # The transcript is truncated.
+            raise InvalidCDS("Both UTR presents with a truncated ORF in %s".format(
+                transcript.id))
+        elif total_cds_length % 3 != 0 and three_utr:
+            for num in (0, 1, 2):
+                total_cds_length, __calculated_phases = __calculate_phases(coding,
+                                                                           num)
+                if total_cds_length % 3 == 0:
+                    break
+
+            if total_cds_length % 3 != 0:
+                raise InvalidCDS("Persistently wrong ORF for %s at 5' end", transcript.id)
+
+        if __calculated_phases[0] != 0 and five_utr:
+            raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for %s",
+                             transcript.id)
 
     transcript.logger.debug("Total CDS length %d", total_cds_length)
-
-    if total_cds_length % 3 != 0 and three_utr and five_utr:
-        # The transcript is truncated.
-        raise InvalidCDS("Both UTR presents with a truncated ORF in %s".format(
-                         transcript.id))
-    elif total_cds_length % 3 != 0 and three_utr:
-        for num in (0, 1, 2):
-            total_cds_length, __calculated_phases = __calculate_phases(coding,
-                                                                       num)
-            if total_cds_length % 3 == 0:
-                break
-
-        if total_cds_length % 3 != 0:
-            raise InvalidCDS("Persistently wrong ORF for %s at 5' end", transcript.id)
-
-    if __calculated_phases[0] != 0 and five_utr:
-        raise InvalidCDS("5'UTR present with a truncated ORF at 5' end for %s",
-                         transcript.id)
 
     new_orf = five_utr[:]
     new_orf.extend([(_[0][0], _[0][1], _[1]) for _ in zip(coding, __calculated_phases)])
@@ -475,10 +478,11 @@ def finalize(transcript):
         transcript.unfinalize()
         return
 
-    if len(transcript.combined_cds) > 0:
-        transcript.feature = "mRNA"
-    else:
-        transcript.feature = "transcript"
+    if transcript.feature == "transcript":
+        if len(transcript.combined_cds) > 0:
+            transcript.feature = "mRNA"
+        else:
+            transcript.feature = "transcript"
 
     if len(transcript.combined_cds) == 0:
         transcript.selected_internal_orf_cds = tuple([])

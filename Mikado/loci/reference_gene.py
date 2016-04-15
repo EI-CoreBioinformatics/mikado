@@ -34,6 +34,8 @@ class Gene:
         self.only_coding = only_coding
         self.coding_transcripts = set()
         self.id = None
+        self.attributes = dict()
+        self.feature = "gene"
 
         if transcr is not None:
             if isinstance(transcr, Transcript):
@@ -43,6 +45,8 @@ class Gene:
             elif isinstance(transcr, GffLine):
                 assert transcr.is_gene is True
                 self.id = transcr.id
+                self.attributes = transcr.attributes.copy()
+                self.feature = transcr.feature
             elif isinstance(transcr, GtfLine):
                 self.id = transcr.gene
 
@@ -267,7 +271,8 @@ class Gene:
                          "strand"]:
                 setattr(line, attr, getattr(self, attr))
 
-            line.feature = "gene"
+            line.feature = self.feature
+            line.attributes = self.attributes.copy()
             line.id = self.id
             assert line.id is not None
             lines.append(str(line))

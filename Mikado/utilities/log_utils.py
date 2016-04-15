@@ -54,16 +54,18 @@ def check_logger(logger):
         ))
 
 
-def create_default_logger(name):
+def create_default_logger(name, level="WARN"):
     """Default logger
     :param name: string used to give a name to the logger.
     :type name: str
+
+    :param level: level of the logger. Default: WARN
     """
 
     logger = logging.getLogger(name)
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
-    logger.setLevel(logging.WARN)
+    logger.setLevel(level)
     logger.addHandler(handler)
     return logger
 

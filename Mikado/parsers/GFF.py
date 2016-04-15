@@ -90,7 +90,7 @@ class GffLine(GFAnnotation):
         attrs = []
         if self.id is not None:
             attrs.append("ID={0}".format(self.id))
-        if len(self.parent) > 0:
+        if self.parent is not None and len(self.parent) > 0:
             attrs.append("Parent={0}".format(",".join(self.parent)))
         if "Name" in self.attributes and self.attributes["Name"] is not None:
             if "name" in self.attributes:

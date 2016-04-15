@@ -6,7 +6,6 @@ This class is the main workhorse of the compare.py utility.
 
 import sys
 import csv
-# from intervaltree import IntervalTree
 from .intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue

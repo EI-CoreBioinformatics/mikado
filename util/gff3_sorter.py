@@ -26,6 +26,12 @@ def tset(t, path, value=None):
     t = t[path[-1]]
 
 
+def tdel(t, path):
+    for node in path:
+        t = t[node]
+    del t
+
+
 def tget(t, path):
     for node in path[:-1]:
         t = t[node]
@@ -33,6 +39,38 @@ def tget(t, path):
         return t[path[-1]]
     else:
         return None
+
+
+def print_tree(t, out):
+
+    print(t[b"lines"][0], file=out)
+    if len(t[b"lines"]) > 1:
+        print(sorted(t[b"lines"][1:]), file=out)
+
+    for node in t:
+        if node == b"lines":
+            continue
+        newt = t[node]
+        assert isinstance(t, defaultdict), (newt, node)
+        print(newt)
+        print_tree(newt, out)
+
+
+def tappend(t, path, value):
+
+    try:
+        while len(path) > 1:
+            node = path.popleft()
+            t = t[node]
+
+        node = path.popleft()
+
+        if node in t:
+            t[node].append(value)
+        else:
+            t[node] = [value]
+    except TypeError as exc:
+        raise TypeError("{} {} {}\n{}".format(exc, type(path), path, t))
 
 
 def main():
@@ -44,76 +82,48 @@ def main():
                         default=sys.stdout)
     args = parser.parse_args()
 
-    heads = dict()
+    index = 0
+
+    heads = tree()
     child2parent = dict()
-    positions = dict()
+    positions = tree()
+    lines = dict()
 
     logger = create_default_logger("sorter", level="ERROR")
 
     for row in args.gff3:
         if row.header is True:
             continue
-        elif row.is_parent is True:
-            if row.id in heads:
-                exc=KeyError("Duplicated parent ID: {}".format(row.id))
-                logger.error(exc)
-                raise exc
-            heads[row.id] = tree()
-            if row.chrom not in positions:
-                positions[row.chrom] = defaultdict(list)
-            positions[row.chrom][(row.start, row.end, row.strand)].append(row.id)
-            # Use bytes to decrease the memory footprint
-            heads[row.id][b"parent_line"] = row
-            heads[row.id][b"children"] = dict()
         else:
-            for parent in row.parent:
-                if row.id is not None:
-                    child2parent[row.id] = parent
-                parent_order = deque()
-                parent_order.appendleft(parent)
-                while parent not in heads:
-                    if parent not in child2parent:
-                        exc=KeyError("Parent of {} not found!".format(row))
-                        logger.error(exc)
-                        raise exc
-                    parent = child2parent[parent]
-                    parent_order.appendleft(parent)
-                node = None
-                while parent_order:
-                    if node is None:
-                        node = heads[parent_order.popleft()][b"children"]
-                    else:
-                        node = node[parent_order.popleft()][b"children"]
-                if row.id is not None:
-                    assert row.id not in node
-                    node[row.id] = dict()
-                    node[row.id][b"parent_line"] = row
-                    node[row.id][b"children"] = dict()
+            index += 1
+            if row.is_parent is True:
+                key = (row.start, row.end, row.strand)
+                tappend(positions, deque([row.chrom, key]), row.id)
+                tappend(heads, deque([row.id, b"lines"]), row)
+            else:
+                if isinstance(row.parent, (str, bytes)):
+                    parents = [row.parent]
                 else:
-                    if b"lines" not in node:
-                        node[b"lines"] = []
-                    node[b"lines"].append(row)
+                    parents = row.parent
 
-    print("#gff-version\t3", file=args.out)
-    chrom_keys = sorted(positions.keys())
-    for chrom in chrom_keys:
-        # positions[chrom] = sorted(positions[chrom])
-        pos_keys = sorted(positions[chrom])
-        new_dict = OrderedDict()
-        for key in pos_keys:
-            new_dict[key] = positions[chrom][key]
-        positions[chrom] = new_dict
-        start = pos_keys[0][0]
-        end = pos_keys[-1][1]
-        print("##sequence-region  {} {} {}".format(chrom, start, end), file=args.out)
+                for parent in parents:
+                    parent_path = deque()
+                    parent_path.append(b"lines")
+                    parent_path.append(parent)
+                    if row.id is not None:
+                        child2parent[row.id] = parent
+                    while parent not in heads:
+                        assert parent in child2parent, (parent, child2parent)
+                        parent = child2parent[parent]
+                        parent_path.appendleft(parent)
+                    tappend(heads, parent_path, row)
 
-    for chrom in chrom_keys:
-        for position in positions[chrom]:
-            # Now start to iterate over the parents ..
-            for pid in positions[chrom][position]:
-                pdict = heads[pid]
-                print_children(pdict, args.out)
-                print("###", file=args.out)
+    for chrom in sorted(positions.keys()):
+        for key in sorted(positions[chrom]):
+            for gid in positions[chrom][key]:
+                print_tree(heads[gid], args.out)
+
+                print("###")
 
     args.out.close()
     args.gff3.close()

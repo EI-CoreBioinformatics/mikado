@@ -100,3 +100,9 @@ class InvalidAssembly(ValueError):
 
 class RedundantNames(KeyError):
     pass
+
+
+class CorruptIndex(ValueError):
+    """
+    Exception to be raised when the index for Mikado compare is corrupt.
+    """

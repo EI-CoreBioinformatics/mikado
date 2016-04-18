@@ -17,7 +17,7 @@ from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
 from sqlalchemy.ext import baked
 from sqlalchemy import bindparam
-from ..exceptions import ModificationError, InvalidTranscript
+from ..exceptions import ModificationError, InvalidTranscript, CorruptIndex
 from ..serializers.blast_serializer import Query, Hit
 from ..serializers.orf import Orf
 from .clique_methods import find_communities, define_graph
@@ -720,6 +720,8 @@ class Transcript:
         for key in ["chrom", "source",
                     "start", "end", "strand", "score",
                     "parent", "id"]:
+            if key not in state:
+                raise CorruptIndex("Key not found for {}: {}".format(self.id, key))
             if isinstance(state[key], str):
                 state[key] = intern(state[key])
             setattr(self, key, state[key])
@@ -731,29 +733,29 @@ class Transcript:
         self.exons = []
         self.combined_cds = []
         for exon in state["exons"]:
-            assert len(exon) == 2
+            if len(exon) != 2:
+                raise CorruptIndex("Invalid exonic values of {}".format(self.id))
             self.exons.append(tuple(exon))
 
         self.internal_orfs = []
-        for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
-            neworf = []
-            for segment in orf:
-                if segment[0] == "CDS":
-                    new_segment = (segment[0],
-                                   tuple(segment[1]),
-                                   int(segment[2]))
-                    self.combined_cds.append(tuple(segment[1]))
-                else:
-                    new_segment = (segment[0],
-                                   tuple(segment[1]))
-                neworf.append(new_segment)
-
-            self.internal_orfs.append(neworf)
-
         try:
+            for orf in iter(state["orfs"][_] for _ in sorted(state["orfs"])):
+                neworf = []
+                for segment in orf:
+                    if segment[0] == "CDS":
+                        new_segment = (segment[0],
+                                       tuple(segment[1]),
+                                       int(segment[2]))
+                        self.combined_cds.append(tuple(segment[1]))
+                    else:
+                        new_segment = (segment[0],
+                                       tuple(segment[1]))
+                    neworf.append(new_segment)
+
+                self.internal_orfs.append(neworf)
             self.selected_internal_orf_index = state["selected_orf"]
-        except IndexError as exc:
-            raise IndexError("{0}\n{1}".format(exc, self.internal_orfs))
+        except (ValueError, IndexError):
+            raise CorruptIndex("Invalid values for ORFs of {}".format(self.id))
 
         self.finalize()
 

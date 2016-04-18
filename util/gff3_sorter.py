@@ -4,11 +4,35 @@ from Mikado.parsers.GFF import GFF3
 from Mikado.loci import Gene, Transcript
 import sys
 import argparse
-from collections import defaultdict
+from collections import defaultdict, deque
 from Mikado.utilities.log_utils import create_default_logger
+from collections import OrderedDict
 
 
 __doc__ = """Script that tries to emulate GenomeTools sort"""
+
+
+
+def tree():
+    return defaultdict(tree)
+
+
+def tset(t, path, value=None):
+  for node in path[:-1]:
+    t = t[node]
+  if value is not None:
+    t[path[-1]] = value
+  else:
+    t = t[path[-1]]
+
+
+def tget(t, path):
+    for node in path[:-1]:
+        t = t[node]
+    if path[-1] in t:
+        return t[path[-1]]
+    else:
+        return None
 
 
 def main():
@@ -20,61 +44,75 @@ def main():
                         default=sys.stdout)
     args = parser.parse_args()
 
-    genes = dict()
-    indices = defaultdict(dict)
-    tid2gid = dict()
+    heads = dict()
+    child2parent = dict()
+    positions = dict()
 
     logger = create_default_logger("sorter", level="ERROR")
-    previous = None
-
-    print("##gff-version\t3", file=args.out)
 
     for row in args.gff3:
-        if row.header:
+        if row.header is True:
             continue
-        elif not (row.is_exon or row.is_gene or row.is_transcript):
-            continue
-        elif row.is_gene:
-            gene = Gene(row, logger=logger)
-            assert gene.id not in indices[row.chrom]
-            genes[gene.id] = gene
-            if previous is not None:
-                genes[previous].finalize()
-                key = (genes[previous].start, genes[previous].end, genes[previous].strand)
-                if key not in indices[genes[previous].chrom]:
-                    indices[genes[previous].chrom][key] = []
-                indices[genes[previous].chrom][key].append(previous)
-            previous = gene.id
-
-        elif row.is_transcript:
-            transcript = Transcript(row, logger=logger, trust_orf=True)
-            if row.parent[0] not in genes:
-                gene = Gene(transcript, logger=logger)
-                genes[gene.id] = gene
-                previous = gene.id
-            tid2gid[transcript.id] = transcript.parent[0]
-            genes[row.parent[0]].add(transcript)
-        elif row.is_exon:
-            found = False
+        elif row.is_parent is True:
+            if row.id in heads:
+                exc=KeyError("Duplicated parent ID: {}".format(row.id))
+                logger.error(exc)
+                raise exc
+            heads[row.id] = tree()
+            if row.chrom not in positions:
+                positions[row.chrom] = defaultdict(list)
+            positions[row.chrom][(row.start, row.end, row.strand)].append(row.id)
+            # Use bytes to decrease the memory footprint
+            heads[row.id][b"parent_line"] = row
+            heads[row.id][b"children"] = dict()
+        else:
             for parent in row.parent:
-                if parent not in tid2gid:
-                    continue
-                genes[tid2gid[parent]][parent].add_exon(row)
-                found = True
-            if not found:
-                raise KeyError("I have not found the parent for\n\t{}".format(row))
+                if row.id is not None:
+                    child2parent[row.id] = parent
+                parent_order = deque()
+                parent_order.appendleft(parent)
+                while parent not in heads:
+                    if parent not in child2parent:
+                        exc=KeyError("Parent of {} not found!".format(row))
+                        logger.error(exc)
+                        raise exc
+                    parent = child2parent[parent]
+                    parent_order.appendleft(parent)
+                node = None
+                while parent_order:
+                    if node is None:
+                        node = heads[parent_order.popleft()][b"children"]
+                    else:
+                        node = node[parent_order.popleft()][b"children"]
+                if row.id is not None:
+                    assert row.id not in node
+                    node[row.id] = dict()
+                    node[row.id][b"parent_line"] = row
+                    node[row.id][b"children"] = dict()
+                else:
+                    if b"lines" not in node:
+                        node[b"lines"] = []
+                    node[b"lines"].append(row)
 
-    if previous is not None:
-        genes[previous].finalize()
-        key = (genes[previous].start, genes[previous].end, genes[previous].strand)
-        if key not in indices[genes[previous].chrom]:
-            indices[genes[previous].chrom][key] = []
-        indices[genes[previous].chrom][key].append(previous)
+    print("#gff-version\t3", file=args.out)
+    chrom_keys = sorted(positions.keys())
+    for chrom in chrom_keys:
+        # positions[chrom] = sorted(positions[chrom])
+        pos_keys = sorted(positions[chrom])
+        new_dict = OrderedDict()
+        for key in pos_keys:
+            new_dict[key] = positions[chrom][key]
+        positions[chrom] = new_dict
+        start = pos_keys[0][0]
+        end = pos_keys[-1][1]
+        print("##sequence-region  {} {} {}".format(chrom, start, end), file=args.out)
 
-    for chrom in iter(sorted(indices.keys())):
-        for pos in iter(sorted(indices[chrom].keys())):
-            for gene in indices[chrom][pos]:
-                print(genes[gene].format("gff3"), file=args.out)
+    for chrom in chrom_keys:
+        for position in positions[chrom]:
+            # Now start to iterate over the parents ..
+            for pid in positions[chrom][position]:
+                pdict = heads[pid]
+                print_children(pdict, args.out)
                 print("###", file=args.out)
 
     args.out.close()

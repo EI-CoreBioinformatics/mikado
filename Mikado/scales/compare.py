@@ -21,6 +21,7 @@ from .resultstorer import ResultStorer
 from ..loci.transcript import Transcript
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
+from ..exceptions import CorruptIndex
 import json
 import gzip
 import itertools
@@ -202,6 +203,7 @@ def parse_prediction(args, genes, positions, queue_logger):
 
     transcript = None
     ref_gff = isinstance(args.prediction, GFF3)
+    __found_with_orf = set()
     for row in args.prediction:
         if row.header is True:
             continue
@@ -209,9 +211,13 @@ def parse_prediction(args, genes, positions, queue_logger):
         if row.is_transcript is True:
             queue_logger.debug("Transcript row:\n%s", str(row))
             if transcript is not None:
-                if re.search(r"\.orf[0-9]+$", transcript.id) and \
-                        (not transcript.id.endswith("orf1")):
-                    pass
+                if re.search(r"\.orf[0-9]+$", transcript.id):
+                    __name = re.sub(r"\.orf[0-9]+$", "", transcript.id)
+                    if __name not in __found_with_orf:
+                        __found_with_orf.add(__name)
+                        assigner_instance.get_best(transcript)
+                    else:
+                        pass
                 else:
                     assigner_instance.get_best(transcript)
             transcript = Transcript(row, logger=queue_logger)
@@ -284,6 +290,7 @@ def load_index(args, queue_logger):
     :rtype: ((None|collections.defaultdict),(None|collections.defaultdict))
     """
 
+    genes, positions = None, None
     with gzip.open("{0}.midx".format(args.reference.name), "rt") as index:
         positions = collections.defaultdict(dict)
         try:
@@ -308,15 +315,12 @@ def load_index(args, queue_logger):
                     positions.default_factory is dict):
                 raise EOFError
         except (EOFError, json.decoder.JSONDecodeError) as exc:
-            genes, positions = None, None
-            queue_logger.error("Invalid index file; deleting and rebuilding. Error: %s", exc)
             queue_logger.exception(exc)
-            os.remove("{0}.midx".format(args.reference.name))
+            raise CorruptIndex("Invalid index file")
         except (TypeError, ValueError) as exc:
             genes, positions = None, None
-            queue_logger.error("Corrupted index file; deleting and rebuilding.")
             queue_logger.exception(exc)
-            os.remove("{0}.midx".format(args.reference.name))
+            raise CorruptIndex("Corrupted index file; deleting and rebuilding.")
 
     return genes, positions
 
@@ -381,7 +385,12 @@ def compare(args):
             os.remove("{0}.midx".format(args.reference.name))
         elif os.path.exists("{0}.midx".format(args.reference.name)):
             queue_logger.info("Starting loading the indexed reference")
-            genes, positions = load_index(args, queue_logger)
+            try:
+                genes, positions = load_index(args, queue_logger)
+            except CorruptIndex:
+                queue_logger.warning("Reference index corrupt, deleting and rebuilding.")
+                os.remove("{0}.midx".format(args.reference.name))
+                genes, positions = None, None
         if genes is None:
             queue_logger.info("Starting parsing the reference")
             exclude_utr, protein_coding = args.exclude_utr, args.protein_coding

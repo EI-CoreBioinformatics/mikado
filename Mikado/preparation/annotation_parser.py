@@ -69,12 +69,14 @@ class AnnotationParser(multiprocessing.Process):
                                                         gff_handle,
                                                         label,
                                                         found_ids,
+                                                        self.logger,
                                                         strip_cds=self.__strip_cds)
                 else:
                     exon_lines, new_ids = load_from_gtf(exon_lines,
                                                         gff_handle,
                                                         label,
                                                         found_ids,
+                                                        self.logger,
                                                         strip_cds=self.__strip_cds)
                 if len(new_ids) == 0:
                     raise exceptions.InvalidAssembly(
@@ -138,7 +140,12 @@ def __raise_invalid(row_id, name, label):
             "(label: {0})".format(label) if label != '' else ""))
 
 
-def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
+def load_from_gff(exon_lines,
+                  gff_handle,
+                  label,
+                  found_ids,
+                  logger,
+                  strip_cds=False):
     """
     Method to load the exon lines from GFF3 files.
     :param exon_lines: the defaultdict which stores the exon lines.
@@ -147,6 +154,8 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     :type label: str
     :param found_ids: set of IDs already found in other files.
     :type found_ids: set
+    :param logger: a logger to be used to pass messages
+    :type logger: logging.Logger
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
     :return:
@@ -158,6 +167,8 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     transcript2genes = dict()
     new_ids = set()
 
+    to_ignore = set()
+
     for row in gff_handle:
         if row.is_transcript is True:
             if label != '':
@@ -166,7 +177,13 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
             if row.id in found_ids:
                 __raise_redundant(row.id, gff_handle.name, label)
             elif row.id in exon_lines:
-                __raise_invalid(row.id, gff_handle.name, label)
+                # This might sometimes happen in GMAP
+                logger.warning(
+                    "Multiple instance of %s found, skipping any subsequent entry",
+                row.id)
+                to_ignore.add(row.id)
+                continue
+                # __raise_invalid(row.id, gff_handle.name, label)
 
             exon_lines[row.id]["attributes"] = row.attributes.copy()
             exon_lines[row.id]["chrom"] = row.chrom
@@ -185,6 +202,8 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
                 for tid in parents:
                     if tid in found_ids:
                         __raise_redundant(tid, gff_handle.name, label)
+                    elif tid in to_ignore:
+                        continue
                     if tid not in exon_lines:
                         exon_lines[tid]["attributes"] = row.attributes.copy()
                         exon_lines[tid]["chrom"] = row.chrom
@@ -210,7 +229,12 @@ def load_from_gff(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     return exon_lines, new_ids
 
 
-def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
+def load_from_gtf(exon_lines,
+                  gff_handle,
+                  label,
+                  found_ids,
+                  logger,
+                  strip_cds=False):
     """
     Method to load the exon lines from GTF files.
     :param exon_lines: the defaultdict which stores the exon lines.
@@ -220,6 +244,8 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     :type label: str
     :param found_ids: set of IDs already found in other files.
     :type found_ids: set
+    :param logger: a logger to be used to pass messages
+    :type logger: logging.Logger
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
     :return:
@@ -232,6 +258,7 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
     [intern(_) for _ in ["chrom", "features", "strand", "attributes", "tid", "parent", "attributes"]]
 
     new_ids = set()
+    to_ignore = set()
     for row in gff_handle:
         if row.is_transcript is True:
             if label != '':
@@ -239,7 +266,12 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
             if row.transcript in found_ids:
                 __raise_redundant(row.transcript, gff_handle.name, label)
             if row.transcript in exon_lines:
-                __raise_invalid(row.transcript, gff_handle.name, label)
+                logger.warning(
+                    "Multiple instance of %s found, skipping any subsequent entry",
+                row.id)
+                to_ignore.add(row.id)
+                continue
+                # __raise_invalid(row.transcript, gff_handle.name, label)
             exon_lines[row.transcript]["features"] = dict()
             exon_lines[row.transcript]["chrom"] = row.chrom
             exon_lines[row.transcript]["strand"] = row.strand
@@ -264,6 +296,8 @@ def load_from_gtf(exon_lines, gff_handle, label, found_ids, strip_cds=False):
             exon_lines[row.id]["tid"] = row.transcript
             exon_lines[row.id]["parent"] = row.gene
         else:
+            if row.transcript in to_ignore:
+                continue
             if "exon_number" in row.attributes:
                 del row.attributes["exon_number"]
             if ("chrom" not in exon_lines[row.transcript] or

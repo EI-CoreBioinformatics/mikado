@@ -470,7 +470,7 @@ class Assigner:
         """
         self.logger.info("Finished parsing, total: %d transcript%s.",
                          self.done, "s" if self.done > 1 else "")
-        self.refmap_printer()
+        self.print_refmap()
         self.stat_calculator.print_stats()
         self.tmap_out.close()
 
@@ -571,7 +571,7 @@ class Assigner:
                 self.tmap_rower.writerow(res.as_dict())
 
     @staticmethod
-    def __result_sorter(result):
+    def result_sorter(result):
 
         """
         Method to sort the results for the refmap. Order:
@@ -597,25 +597,28 @@ class Assigner:
 
         return orderer
 
-    @classmethod
-    def result_sorter(cls, result):
+    # @classmethod
+    # def result_sorter(cls, result):
+    #
+    #     """
+    #     Public interface of __result_sorter
+    #     :param result: a result
+    #     :return:
+    #     """
+    #
+    #     return cls.__result_sorter(result)
 
-        """
-        Public interface of __result_sorter
-        :param result: a result
-        :return:
-        """
-
-        return cls.__result_sorter(result)
-
-    def refmap_printer(self) -> None:
+    def print_refmap(self) -> None:
 
         """Function to print out the best match for each gene."""
         self.logger.info("Starting printing RefMap")
         # noinspection PyUnresolvedReferences
         with open("{0}.refmap".format(self.args.out), 'wt') as out:
             fields = ["ref_id", "ccode", "tid", "gid",
-                      "ref_gene", "best_ccode", "best_tid", "best_gid"]
+                      "nF1", "jF1", "eF1",
+                      "ref_gene",
+                      "best_ccode", "best_tid", "best_gid",
+                      "best_nF1", "best_jF1", "best_eF1"]
             out_tuple = namedtuple("refmap", fields)
 
             rower = csv.DictWriter(out, fields, delimiter="\t")
@@ -628,25 +631,29 @@ class Assigner:
                 assert len(self.gene_matches[gid].keys()) > 0
                 for tid in sorted(self.gene_matches[gid].keys()):
                     if len(self.gene_matches[gid][tid]) == 0:
-                        row = tuple([tid, gid, "NA", "NA", "NA"])
+                        # First part of the tuple
+                        row = tuple([tid, gid] + ["NA"] * 6)
                     else:
+                        # Choose the best hit for the transcript
                         if any(True if (x.j_f1[0] > 0 or x.n_f1[0] > 0) else False
                                for x in self.gene_matches[gid][tid]):
                             best = sorted(self.gene_matches[gid][tid],
-                                          key=self.__result_sorter, reverse=True)[0]
+                                          key=self.result_sorter, reverse=True)[0]
                         else:
                             best = sorted(self.gene_matches[gid][tid],
                                           key=operator.attrgetter("distance"),
                                           reverse=False)[0]
                         best_picks.append(best)
+                        # Store the result for the transcript
                         row = tuple([tid, gid, ",".join(best.ccode),
-                                     best.tid, best.gid])
+                                     best.tid, best.gid,
+                                     best.n_f1[0], best.j_f1[0], best.e_f1[0]])
 
                     rows.append(row)
 
                 if len(best_picks) > 0:
                     best_pick = sorted(best_picks,
-                                       key=self.__result_sorter,
+                                       key=self.result_sorter,
                                        reverse=True)[0]
                 else:
                     best_pick = None
@@ -654,12 +661,20 @@ class Assigner:
                 for row in rows:
                     if best_pick is not None:
                         assert row[2] != "NA", row
-                        row = out_tuple(row[0], row[2],
-                                        row[3], row[4],
-                                        row[1], ",".join(best_pick.ccode),
-                                        best_pick.tid, best_pick.gid)
+                        row = out_tuple(row[0],  # Ref TID
+                                        row[2],  # class code
+                                        row[3],  # Pred TID
+                                        row[4],  # Pred GID
+                                        row[5], row[6], row[7],  # Pred F1
+                                        row[1],
+                                        ",".join(best_pick.ccode),
+                                        best_pick.tid,
+                                        best_pick.gid,
+                                        best_pick.n_f1[0], best_pick.j_f1[0],
+                                        best_pick.e_f1[0])
                     else:
-                        row = out_tuple(row[0], "NA", "NA", "NA", row[1], "NA", "NA", "NA")
+                        row = out_tuple(row[0], "NA", "NA", "NA", "NA", "NA", "NA",
+                                        row[1], "NA", "NA", "NA", "NA", "NA", "NA")
                     # noinspection PyProtectedMember,PyProtectedMember
                     rower.writerow(row._asdict())
         self.logger.info("Finished printing RefMap")

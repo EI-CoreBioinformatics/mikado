@@ -49,8 +49,8 @@ class ResultStorer:
                         __val = tuple([float(_) for _ in __val])
                     setattr(self, key, __val)
                 elif not isinstance(getattr(self, self.__slots__[index]), tuple):
-                    setattr(self, self.__slots__[index], tuple(getattr(self,
-                                                                       self.__slots__[index])))
+                    setattr(self, self.__slots__[index],
+                            tuple([getattr(self, self.__slots__[index])]))
 
     def _asdict(self):
 

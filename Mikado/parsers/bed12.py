@@ -13,6 +13,7 @@ import Bio.SeqRecord
 from . import Parser
 from sys import intern
 
+
 # These classes do contain lots of things, it is correct like it is
 # pylint: disable=too-many-instance-attributes
 class BED12:
@@ -175,7 +176,8 @@ class BED12:
         self.fasta_length = len(self)
         return
 
-    def __check_validity(self, transcriptomic, fasta_index):
+    def __check_validity(self, transcriptomic, fasta_index,
+                         max_regression=0.3):
         """
         Private method that checks that the BED12 object has been instantiated correctly.
 
@@ -216,9 +218,10 @@ class BED12:
                 # We are assuming that if a methionine can be found it has to be
                 # internally, not externally, to the ORF
                 self.has_start_codon = False
+
                 for pos in range(3,
                                  # TODO: this has to be moved ABSOLUTELY to an external configuration
-                                 len(orf_sequence) - 3,
+                                 int(len(orf_sequence) * max_regression),
                                  3):
                     if orf_sequence[pos:pos+3] == "ATG":
                         # Now we have to shift the start accordingly
@@ -516,8 +519,6 @@ class BED12:
         elif self.transcriptomic is True and val not in (0, 1, 2):
             raise ValueError("A transcriptomic BED cannot have null frame.")
         self.__frame = val
-
-
 
 
 class Bed12Parser(Parser):

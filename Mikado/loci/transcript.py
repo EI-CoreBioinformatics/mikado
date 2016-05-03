@@ -124,6 +124,7 @@ class Transcript:
 
         # Mock setting of base hidden variables
         self.__id = ""
+        self._first_phase = None
         self.__logger = None
         self.__strand = self.__score = None
         self.__has_start_codon, self.__has_stop_codon = False, False

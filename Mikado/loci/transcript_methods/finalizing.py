@@ -331,8 +331,8 @@ def __check_internal_orf(transcript, index):
         # Calculating the complement of the phase so that
         previous = (3 - phase_orf[0]) % 3
         # transcript.logger.warning(previous)
-    elif index == 0 and transcript.first_phase is not None:
-        previous = transcript.first_phase
+    elif index == 0 and transcript._first_phase is not None:
+        previous = transcript._first_phase
         phase_orf = []
     else:
         phase_orf = []

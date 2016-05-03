@@ -37,6 +37,7 @@ class Gene:
         self.id = None
         self.attributes = dict()
         self.feature = "gene"
+        self.__from_gene = False
 
         if transcr is not None:
             if isinstance(transcr, Transcript):
@@ -45,6 +46,7 @@ class Gene:
                 self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
                 assert transcr.is_gene is True
+                self.__from_gene = True
                 self.id = transcr.id
                 self.attributes = transcr.attributes.copy()
                 self.feature = transcr.feature
@@ -156,14 +158,23 @@ class Gene:
             __new_start = min(_.start for _ in self)
 
             if __new_start != self.start:
-                self.logger.debug("Resetting the start for %s from %s to %d",
-                                    self.id, self.start, __new_start)
+                if self.__from_gene is True:
+                    self.logger.warning("Resetting the start for %s from %s to %d",
+                                        self.id, self.start, __new_start)
+                else:
+                    self.logger.debug("Resetting the start for %s from %s to %d",
+                                      self.id, self.start, __new_start)
+
                 self.start = __new_start
 
             __new_end = max(_.end for _ in self)
             if __new_end != self.end:
-                self.logger.debug("Resetting the end for %s from %s to %d",
-                                    self.id, self.end, __new_end)
+                if self.__from_gene is True:
+                    self.logger.warning("Resetting the end for %s from %s to %d",
+                                        self.id, self.end, __new_end)
+                else:
+                    self.logger.debug("Resetting the end for %s from %s to %d",
+                                      self.id, self.end, __new_end)
                 self.end = __new_end
 
     def as_dict(self, remove_attributes=True):

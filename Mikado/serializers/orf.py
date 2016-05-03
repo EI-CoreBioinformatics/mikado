@@ -19,6 +19,7 @@ from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
 # from Bio import SeqIO
 
+
 # This is a serialization class, it must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
 class Orf(DBBASE):
@@ -41,6 +42,7 @@ class Orf(DBBASE):
     has_start_codon = Column(Boolean, nullable=True)
     has_stop_codon = Column(Boolean, nullable=True)
     cds_len = Column(Integer)
+    frame = Column(Integer)
 
     __table_args__ = (Index("orf_index", "query_id", "thick_start", "thick_end"),
                       Index("query_index", "query_id"))

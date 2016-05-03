@@ -99,6 +99,7 @@ class BED12:
         """
 
         self._line = None
+        self.__frame = None  # Initialize to None for the non-transcriptomic objects
         self.__has_start = False
         self.__has_stop = False
         self.__transcriptomic = False
@@ -116,6 +117,7 @@ class BED12:
         self.block_starts = [0]
         self.block_count = 1
         self.invalid_reason = ''
+        self.frame = None
         self.fasta_length = None
         self.__in_index = True
 
@@ -209,8 +211,32 @@ class BED12:
 
             if self.start_codon == "ATG":
                 self.has_start_codon = True
+                self.frame = 0
             else:
+                # We are assuming that if a methionine can be found it has to be
+                # internally, not externally, to the ORF
                 self.has_start_codon = False
+                for pos in range(3,
+                                 # TODO: this has to be moved ABSOLUTELY to an external configuration
+                                 len(orf_sequence) - 3,
+                                 3):
+                    if orf_sequence[pos:pos+3] == "ATG":
+                        # Now we have to shift the start accordingly
+                        if self.strand == "+":
+                            self.thick_start += pos
+                            self.has_start_codon = True
+                        else:
+                            # TODO: check that this is right and we do not have to do some other thing
+                            self.thick_end -= pos
+                        break
+                    else:
+                        continue
+                if self.has_start_codon is False:
+                    # The validity will be automatically checked
+                    self.frame = self.thick_start - 1
+                else:
+                    self.frame = 0
+
             if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon = True
             else:
@@ -468,6 +494,30 @@ class BED12:
         if not isinstance(value, bool):
             raise ValueError("Invalid value: {0}".format(value))
         self.__transcriptomic = value
+
+    @property
+    def frame(self):
+        """This property is used for transcriptomic BED objects
+        and indicates what the frame of the transcript is.
+        So a BED object with an open 5'ORF whose first codon
+        starts at the 1st base would have frame 1, at the second
+        frame 2. In all other cases, the frame has to be 0.
+        If the BED object is not transcriptomic, its frame is null
+        (None).
+        """
+
+        return self.__frame
+
+    @frame.setter
+    def frame(self, val):
+
+        if val not in (None, 0, 1, 2):
+            raise ValueError("Invalid frame specified: {}. Must be None or 0, 1, 2")
+        elif self.transcriptomic is True and val not in (0, 1, 2):
+            raise ValueError("A transcriptomic BED cannot have null frame.")
+        self.__frame = val
+
+
 
 
 class Bed12Parser(Parser):

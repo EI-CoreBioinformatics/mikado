@@ -58,7 +58,7 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
             self.transcript2.add_exon(exon)
         # Test that a transcript cannot be finalized if
         # the exons do not define the external boundaries
-        with self.assertLogs("locus_tester", level="WARNING") as cm:
+        with self.assertLogs("null", level="WARNING") as cm:
         # with self.assertRaises(exceptions.InvalidTranscript):
             self.transcript2.finalize()
         with self.assertRaises(exceptions.ModificationError):

@@ -230,11 +230,26 @@ CAGA"""
         self.assertTrue(b1.has_stop_codon)
 
     def test_b2_seq(self):
-        b2 = bed12.BED12(self.bed2, transcriptomic=True, fasta_index=self.index)
+        b2 = bed12.BED12(self.bed2,
+                         transcriptomic=True,
+                         fasta_index=self.index,
+                         max_regression=0.3)
         self.assertNotIn(str(self.index[b2.chrom][766 + 3:766 + 6].seq), ("TAG", "TGA", "TAA"))
         self.assertEqual(b2.start, 1)
         self.assertEqual(len(b2), 809)
         self.assertTrue(b2.has_start_codon,
+                        (b2.thick_start, b2.thick_end, self.bed2.split("\t")[6:8],
+                        self.index[b2.chrom][b2.thick_start-1:b2.thick_end].seq.translate()))
+
+    def test_b2_seq_no_start(self):
+        b2 = bed12.BED12(self.bed2,
+                         transcriptomic=True,
+                         fasta_index=self.index,
+                         max_regression=0)
+        self.assertNotIn(str(self.index[b2.chrom][766 + 3:766 + 6].seq), ("TAG", "TGA", "TAA"))
+        self.assertEqual(b2.start, 1)
+        self.assertEqual(len(b2), 809)
+        self.assertFalse(b2.has_start_codon,
                         (b2.thick_start, b2.thick_end, self.bed2.split("\t")[6:8],
                         self.index[b2.chrom][b2.thick_start-1:b2.thick_end].seq.translate()))
 
@@ -319,11 +334,12 @@ CTAATAAATGCTGTTGTGTAAAAAAAAGGGGCTTTCTTT"""
     def test_relocation(self):
 
         bed = bed12.BED12(self.bed_row, fasta_index=self.index,
-                          transcriptomic=True)
-        print(self.seq[bed.thick_start-1:bed.thick_end].seq.translate())
+                          transcriptomic=True,
+                          max_regression=0.3)
+        # print(self.seq[bed.thick_start-1:bed.thick_end].seq.translate())
 
         self.assertEqual(bed.thick_start, 195)
-        self.assertEqual(bed.frame, 0)
+        self.assertEqual(bed.phase, 0)
 
 
 if __name__ == '__main__':

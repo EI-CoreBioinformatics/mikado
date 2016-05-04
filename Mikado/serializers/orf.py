@@ -42,7 +42,7 @@ class Orf(DBBASE):
     has_start_codon = Column(Boolean, nullable=True)
     has_stop_codon = Column(Boolean, nullable=True)
     cds_len = Column(Integer)
-    frame = Column(Integer)
+    phase = Column(Integer)
 
     __table_args__ = (Index("orf_index", "query_id", "thick_start", "thick_end"),
                       Index("query_index", "query_id"))
@@ -67,6 +67,7 @@ class Orf(DBBASE):
         self.has_start_codon = bed12_object.has_start_codon
         self.has_stop_codon = bed12_object.has_stop_codon
         self.cds_len = bed12_object.cds_len
+        self.phase = bed12_object.phase
 
     def __str__(self):
         return "{chrom}\t{start}\t{end}".format(

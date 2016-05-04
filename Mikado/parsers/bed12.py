@@ -22,7 +22,10 @@ class BED12:
     BED12 parsing class.
     """
 
-    def __init__(self, *args: str, fasta_index=None, transcriptomic=False):
+    def __init__(self, *args: str,
+                 fasta_index=None,
+                 transcriptomic=False,
+                 max_regression=0):
 
         """
         :param args: the BED12 line.
@@ -100,11 +103,12 @@ class BED12:
         """
 
         self._line = None
-        self.__frame = None  # Initialize to None for the non-transcriptomic objects
+        self.__phase = None  # Initialize to None for the non-transcriptomic objects
         self.__has_start = False
         self.__has_stop = False
         self.__transcriptomic = False
         self.__strand = None
+        self.__max_regression = 0
         # This value will be set when checking for the internal sequence
         # If >=1, i.e. at least one internal stop codon, the ORF is invalid
         self.__internal_stop_codons = 0
@@ -118,9 +122,10 @@ class BED12:
         self.block_starts = [0]
         self.block_count = 1
         self.invalid_reason = ''
-        self.frame = None
+        self.phase = None
         self.fasta_length = None
         self.__in_index = True
+        self.max_regression = max_regression
 
         if len(args) == 0:
             self.header = True
@@ -176,8 +181,7 @@ class BED12:
         self.fasta_length = len(self)
         return
 
-    def __check_validity(self, transcriptomic, fasta_index,
-                         max_regression=0.3):
+    def __check_validity(self, transcriptomic, fasta_index):
         """
         Private method that checks that the BED12 object has been instantiated correctly.
 
@@ -213,7 +217,7 @@ class BED12:
 
             if self.start_codon == "ATG":
                 self.has_start_codon = True
-                self.frame = 0
+                self.phase = 0
             else:
                 # We are assuming that if a methionine can be found it has to be
                 # internally, not externally, to the ORF
@@ -221,7 +225,7 @@ class BED12:
 
                 for pos in range(3,
                                  # TODO: this has to be moved ABSOLUTELY to an external configuration
-                                 int(len(orf_sequence) * max_regression),
+                                 int(len(orf_sequence) * self.max_regression),
                                  3):
                     if orf_sequence[pos:pos+3] == "ATG":
                         # Now we have to shift the start accordingly
@@ -236,9 +240,9 @@ class BED12:
                         continue
                 if self.has_start_codon is False:
                     # The validity will be automatically checked
-                    self.frame = self.thick_start - 1
+                    self.phase = self.thick_start - 1
                 else:
-                    self.frame = 0
+                    self.phase = 0
 
             if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon = True
@@ -499,9 +503,9 @@ class BED12:
         self.__transcriptomic = value
 
     @property
-    def frame(self):
+    def phase(self):
         """This property is used for transcriptomic BED objects
-        and indicates what the frame of the transcript is.
+        and indicates what the phase of the transcript is.
         So a BED object with an open 5'ORF whose first codon
         starts at the 1st base would have frame 1, at the second
         frame 2. In all other cases, the frame has to be 0.
@@ -509,16 +513,35 @@ class BED12:
         (None).
         """
 
-        return self.__frame
+        return self.__phase
 
-    @frame.setter
-    def frame(self, val):
+    @phase.setter
+    def phase(self, val):
 
         if val not in (None, 0, 1, 2):
             raise ValueError("Invalid frame specified: {}. Must be None or 0, 1, 2")
         elif self.transcriptomic is True and val not in (0, 1, 2):
             raise ValueError("A transcriptomic BED cannot have null frame.")
-        self.__frame = val
+        self.__phase = val
+
+    @property
+    def _max_regression(self):
+        """
+        This property is used to indicate how far downstream we should go in the
+          FASTA sequence to find a valid start codon, in terms of percentage
+          of the the cDNA sequence. So eg in a 300 nt cDNA a max_regression value
+          of 0.3 would instruct the class to look only for the first 90 bps for
+          a Met.
+        """
+
+        return self.__max_regression
+
+    @_max_regression.setter
+    def _max_regression(self, value):
+        if not (isinstance(value, (int, float)) and 0 <= value <= 1):
+            raise ValueError(
+                "Invalid value specified for _max_regression (must be between 0 and 1): {}".format(value))
+        self.__max_regression = value
 
 
 class Bed12Parser(Parser):

@@ -16,7 +16,14 @@ formatter = logging.Formatter(
         )
 
 
-def create_null_logger(instance):
+null_logger = logging.getLogger("null")
+null_handler = logging.NullHandler()
+null_handler.setFormatter(formatter)
+null_logger.setLevel(logging.CRITICAL)
+null_logger.addHandler(null_handler)
+
+
+def create_null_logger(*args):
     """Static method to create a default logging instance for the loci.
     The default is a null handler (no log)
 
@@ -24,16 +31,7 @@ def create_null_logger(instance):
     or a class instance with a __name__ attribute.
     """
 
-    if isinstance(instance, str):
-        name = instance
-    else:
-        name = instance.__name__
-    logger = logging.getLogger(name)
-    handler = logging.NullHandler()
-    handler.setFormatter(formatter)
-    logger.setLevel(logging.CRITICAL)
-    logger.addHandler(handler)
-    return logger
+    return null_logger
 
 
 def check_logger(logger):

@@ -317,7 +317,7 @@ def __add_frame(transcript, exon_lines, first_phase=0):
     for line in sorted(exon_lines, reverse=(transcript.strand == "-")):
         if line.feature == "CDS":
             frame = previous % 3
-            line.frame = frame
+            line.phase = frame
             previous += len(line)
         new_lines.append(line)
     return sorted(new_lines)

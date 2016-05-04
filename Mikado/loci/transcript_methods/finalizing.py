@@ -329,7 +329,8 @@ def __check_internal_orf(transcript, index):
         phases_keys = sorted(transcript.phases.keys(), reverse=(transcript.strand == "-"))
         phase_orf = [transcript.phases[_] for _ in phases_keys]
         # Calculating the complement of the phase so that
-        previous = (3 - phase_orf[0]) % 3
+        # previous = (3 - phase_orf[0]) % 3
+        previous = phase_orf[0]
         # transcript.logger.warning(previous)
     elif index == 0 and transcript._first_phase is not None:
         previous = transcript._first_phase

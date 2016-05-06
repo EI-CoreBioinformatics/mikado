@@ -66,6 +66,16 @@ class Gene:
          if _ is not None]
         self.logger = logger
 
+    def __contains__(self, item):
+
+        if isinstance(item, (str, bytes)):
+            return item in self.transcripts
+        elif isinstance(item, Transcript):
+            return item in self.transcripts.values()
+
+    def keys(self):
+        return self.transcripts.keys()
+
     @property
     def logger(self):
 

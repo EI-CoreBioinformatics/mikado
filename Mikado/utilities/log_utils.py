@@ -23,7 +23,7 @@ null_logger.setLevel(logging.CRITICAL)
 null_logger.addHandler(null_handler)
 
 
-def create_null_logger(*args):
+def create_null_logger(*args, **kwargs):
     """Static method to create a default logging instance for the loci.
     The default is a null handler (no log)
 
@@ -67,15 +67,35 @@ def create_default_logger(name, level="WARN"):
 
 
 def create_queue_logger(instance, prefix=""):
-    
-    instance.handler = logging.handlers.QueueHandler(instance.logging_queue)
-    instance.handler.setLevel(instance.log_level)
+    """
+    Create a queue logger for a specific class, which *must* have
+     a "logging_queue" property redirecting to a queue-like object.
+     If the instance possesses a "log_level" attribute, the log level
+     will be set to its value; otherwise, the logger will be configured
+     with a default level of "WARNING".
+
+    :param instance:
+    :param prefix:
+    :return:
+    """
+
+    if not hasattr(instance, "logging_queue"):
+        raise AttributeError(
+            "A queue logger can be built only using a class with the \"logging_queue\" property!")
+    instance._log_handler = logging.handlers.QueueHandler(instance.logging_queue)
+    if hasattr(instance, "log_level"):
+        instance._log_handler.setLevel(instance.log_level)
+    else:
+        instance._log_handler.setLevel("WARNING")
+
     if prefix:
         instance.logger = logging.getLogger("{0}.{1}".format(prefix,
-                                                             instance.name))
+                                                             instance.name if
+                                                             hasattr(instance, "name") else
+                                                             "default"))
     else:
         instance.logger = logging.getLogger(instance.name)
-    instance.logger.addHandler(instance.handler)
-    instance.logger.setLevel(instance.log_level)
+    instance.logger.addHandler(instance._log_handler)
+    instance.logger.setLevel(instance._log_handler.level)
     instance.logger.propagate = False
     return

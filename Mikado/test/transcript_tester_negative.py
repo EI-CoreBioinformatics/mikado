@@ -7,7 +7,7 @@ Unit test for a transcript on the negative strand.
 import unittest
 import operator
 import re
-import intervaltree
+# import intervaltree
 import logging
 import Mikado
 import Mikado.parsers

@@ -330,6 +330,7 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
         self.orf.block_starts = 0
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
+        self.orf.transcriptomic = True
 
     def test_basics(self):
 

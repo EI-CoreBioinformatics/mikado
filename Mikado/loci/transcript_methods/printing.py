@@ -186,6 +186,7 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
         lines = create_lines_no_cds(transcript, to_gtf=to_gtf)
     else:
         for index, cds_run in enumerate(transcript.internal_orfs):
+            transcript.logger.debug("CDS run for %s: %s", transcript.id, cds_run)
             if transcript.number_internal_orfs > 1:
                 transcript_counter += 1
                 tid = "{0}.orf{1}".format(transcript.id, transcript_counter)

@@ -122,7 +122,6 @@ class BED12:
         self.block_starts = [0]
         self.block_count = 1
         self.invalid_reason = ''
-        self.phase = None
         self.fasta_length = None
         self.__in_index = True
         self.max_regression = max_regression
@@ -195,9 +194,6 @@ class BED12:
             # if self.strand == "-":
             #     self.thick_end -= 3
 
-        if self.invalid is True:
-            return
-
         if transcriptomic is True and fasta_index is not None:
             if self.id not in fasta_index:
                 self.__in_index = False
@@ -224,7 +220,6 @@ class BED12:
                 self.has_start_codon = False
 
                 for pos in range(3,
-                                 # TODO: this has to be moved ABSOLUTELY to an external configuration
                                  int(len(orf_sequence) * self.max_regression),
                                  3):
                     if orf_sequence[pos:pos+3] == "ATG":
@@ -241,18 +236,23 @@ class BED12:
                 if self.has_start_codon is False:
                     # The validity will be automatically checked
                     self.phase = self.thick_start - 1
-                else:
-                    self.phase = 0
+                    self.thick_start = 1
 
             if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon = True
             else:
                 self.has_stop_codon = False
+                # Expand the ORF to include the end of the sequence
+                if self.end - self.thick_end <= 2:
+                    self.thick_end = self.end
 
             translated_seq = orf_sequence[:-3].translate()
             self.__internal_stop_codons = str(translated_seq).count("*")
 
-            # if self.has_stop_codon is False and \
+            if self.invalid is True:
+                return
+
+                # if self.has_stop_codon is False and \
             #         (self.strand != "-" and self.thick_end < len(self) - 2) or\
             #         (self.strand == "-" and self.thick_start > 2):
             #     self.__recheck_stop_codon(sequence)
@@ -473,7 +473,7 @@ class BED12:
             )
             return True
 
-        if self.transcriptomic is True and self.cds_len % 3 != 0:
+        if self.transcriptomic is True and (self.cds_len - self.phase) % 3 != 0:
             self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
                 self.cds_len,
                 self.cds_len % 3
@@ -501,6 +501,10 @@ class BED12:
         if not isinstance(value, bool):
             raise ValueError("Invalid value: {0}".format(value))
         self.__transcriptomic = value
+        if value and self.phase is None:
+            self.phase = 0
+        elif not value:
+            self.phase = None
 
     @property
     def phase(self):

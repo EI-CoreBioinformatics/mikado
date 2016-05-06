@@ -79,7 +79,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.orf.block_starts = 0
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
-        self.orf.transcriptomic = False
+        self.orf.transcriptomic = True
         self.assertFalse(self.orf.invalid)
         self.assertEqual(len(self.tr), self.tr.end - self.tr.start + 1)
 

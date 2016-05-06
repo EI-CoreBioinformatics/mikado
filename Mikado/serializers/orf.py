@@ -42,7 +42,7 @@ class Orf(DBBASE):
     has_start_codon = Column(Boolean, nullable=True)
     has_stop_codon = Column(Boolean, nullable=True)
     cds_len = Column(Integer)
-    phase = Column(Integer)
+    phase = Column(Integer, nullable=False)
 
     __table_args__ = (Index("orf_index", "query_id", "thick_start", "thick_end"),
                       Index("query_index", "query_id"))
@@ -100,6 +100,7 @@ class Orf(DBBASE):
         __bed12.block_count = 1
         __bed12.block_sizes = [state.end]
         __bed12.block_starts = [0]
+        __bed12.phase = state.phase
 
         # Verbose block, but it is necessary as raw extraction from SQL
         # yields 0/1 instead of True/False
@@ -283,7 +284,9 @@ class OrfSerializer:
             if row.header is True:
                 continue
             if row.invalid is True:
-                self.logger.warn("Invalid entry: %s", row)
+                self.logger.warn("Invalid entry, reason: %s\n%s",
+                                 row.invalid_reason,
+                                 row)
                 continue
             if row.id in cache:
                 current_query = cache[row.id]

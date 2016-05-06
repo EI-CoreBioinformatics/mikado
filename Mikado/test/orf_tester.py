@@ -251,7 +251,8 @@ CAGA"""
         self.assertEqual(len(b2), 809)
         self.assertFalse(b2.has_start_codon,
                         (b2.thick_start, b2.thick_end, self.bed2.split("\t")[6:8],
-                        self.index[b2.chrom][b2.thick_start-1:b2.thick_end].seq.translate()))
+                        self.index[b2.chrom][b2.thick_start + (3 - b2.phase - 1) % 3 - 1:
+                                             b2.thick_end].seq.translate()))
 
     def test_b3_seq(self):
         b3 = bed12.BED12(self.bed3, transcriptomic=True, fasta_index=self.index)

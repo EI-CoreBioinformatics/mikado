@@ -667,7 +667,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         self.tr.add_exon(trlines[1])
         self.tr.finalize()
 
-        self.bed1 = Mikado.parsers.bed12.BED12()
+        self.bed1 = Mikado.parsers.bed12.BED12(transcriptomic=True)
         self.bed1.header = False
         self.bed1.chrom = self.tr.id
         self.bed1.start = 1
@@ -681,7 +681,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         # self.bed1.has_stop_codon = False
         self.assertEqual(self.bed1.cds_len, 429)
         
-        self.bed2 = Mikado.parsers.bed12.BED12()
+        self.bed2 = Mikado.parsers.bed12.BED12(transcriptomic=True)
         self.bed2.header = False
         self.bed2.chrom = self.tr.id
         self.bed2.start = 1
@@ -695,7 +695,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_019715_1AS\tCufflinks\texon\t44187\t49369
         # self.bed2.has_start_codon = True
         self.assertEqual(self.bed2.cds_len, 1161)
         
-        self.bed3 = Mikado.parsers.bed12.BED12()
+        self.bed3 = Mikado.parsers.bed12.BED12(transcriptomic=True)
         self.bed3.header = False
         self.bed3.chrom = self.tr.id
         self.bed3.start = 1

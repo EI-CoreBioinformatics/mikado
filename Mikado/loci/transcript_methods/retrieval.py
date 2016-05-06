@@ -504,7 +504,7 @@ def __create_internal_orf(transcript, orf):
             cds_exons.append(("UTR", tuple([current_start + 1, transcript.end])))
         transcript.strand = "-"
     else:
-        previous = 0
+        previous = - orf.phase
         for exon in sorted(transcript.exons, key=operator.itemgetter(0, 1),
                            reverse=(transcript.strand == "-")):
             cds_exons.append(("exon", tuple([exon[0], exon[1]])))
@@ -531,6 +531,11 @@ def __create_internal_orf(transcript, orf):
                 if c_end < exon[1]:
                     cds_exons.append(("UTR", tuple([c_end + 1, exon[1]])))
             current_start = current_end
+        if orf.phase != 0:
+            transcript.logger.debug("Non-0 phase (%d) for %s [orf: %s]",
+                                    orf.phase,
+                                    transcript.id,
+                                    cds_exons)
 
     return cds_exons
 

@@ -703,6 +703,7 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
     for obj in bed12_objects:
         import copy
         obj = copy.deepcopy(obj)
+        obj.transcriptomic = True
         if obj.strand == "-":
             thick_start = obj.end - obj.thick_end + 1
             thick_end = obj.end - obj.thick_start + 1

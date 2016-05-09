@@ -49,6 +49,9 @@ pick:
     loci_out: mikado.loci.gff3
     subloci_out: mikado.subloci.gff3
     monoloci_out: mikado.monoloci.gff3
+  orf_loading:
+    minimal_orf_length: 50
+    minimal_secondary_orf_length: 50
   run_options:
     #  Generic run options.
     #  - purge: boolean flag. If set, all loci where all transcripts have a score

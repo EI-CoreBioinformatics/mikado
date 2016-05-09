@@ -270,8 +270,9 @@ def __calculate_phases(coding, previous):
     for cds_segment in coding:
         length = cds_segment[1][1] - cds_segment[1][0] + 1
         phase = (3 - (total_cds_length % 3)) % 3
-        total_cds_length += length
         __calculated_phases.append(phase)
+        total_cds_length += length
+
 
     return total_cds_length, __calculated_phases
 

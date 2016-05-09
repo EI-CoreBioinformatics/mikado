@@ -614,6 +614,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_018974_1AS\tCufflinks\texon\t72914\t76276
         self.bed2.thick_end = 2891
         self.bed2.has_stop_codon = True
         self.bed2.has_start_codon = True
+        self.bed2.transcriptomic = True
         self.assertEqual(self.bed2.cds_len, 411)
 
     def test_loading(self):

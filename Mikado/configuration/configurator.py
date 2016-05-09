@@ -381,6 +381,24 @@ def check_db(json_conf):
                 json_conf["db_settings"]["dbport"] = 3306
             else:
                 json_conf["db_settings"]["dbport"] = 5432
+    else:
+        if (json_conf["db_settings"]["db"] is not None and
+                not os.path.isabs(json_conf["db_settings"]["db"])):
+            if os.path.exists(os.path.join(os.getcwd(),
+                                           json_conf["db_settings"]["db"])):
+                json_conf["db_settings"]["db"] = os.path.join(
+                    os.getcwd(), json_conf["db_settings"]["db"])
+            elif os.path.exists(os.path.join(
+                os.path.dirname(json_conf["filename"]),
+                    json_conf["db_settings"]["db"]
+            )):
+                json_conf["db_settings"]["db"] = os.path.join(
+                    os.path.dirname(json_conf["filename"]),
+                    json_conf["db_settings"]["db"])
+            else:
+                json_conf["db_settings"]["db"] = os.path.join(
+                    os.path.dirname(json_conf["filename"]),
+                    json_conf["db_settings"]["db"])
 
     return json_conf
 

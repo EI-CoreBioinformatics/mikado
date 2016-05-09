@@ -25,7 +25,7 @@ from ..parsers.GTF import GtfLine
 from ..parsers.GFF import GffLine
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.printing import create_lines_cds
-from .transcript_methods.printing import create_lines_no_cds, create_lines_bed
+from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from .transcript_methods.finalizing import finalize
 import functools
 
@@ -464,7 +464,7 @@ class Transcript:
             if with_cds is True:
                 lines = create_lines_cds(self, to_gtf=to_gtf, with_introns=with_introns)
             else:
-                lines = create_lines_no_cds(self, to_gtf=to_gtf)
+                lines = create_lines_no_cds(self, to_gtf=to_gtf, with_introns=with_introns)
 
         return "\n".join(lines)
 
@@ -478,6 +478,17 @@ class Transcript:
             yield new_transcript
 
         return
+
+    def as_bed12(self):
+
+        """
+        Method to return a BED12 representation of the transcript object.
+
+        :return: bed12 representation of the instance
+         :rtype: Mikado.parsers.bed12.BED12
+        """
+
+        return as_bed12(self)
 
     def remove_exon(self, exon):
 
@@ -1452,7 +1463,17 @@ index {3}, internal ORFs: {4}".format(
         else:
             raise ValueError("Invalid value for parent: {0}, type {1}".format(
                 parent, type(parent)))
+
+        self.attributes["gene_id"] = self.__parent
         self.__parent = [intern(_) for _ in self.__parent]
+
+    @property
+    def gene(self):
+
+        if "gene_id" not in self.attributes:
+            self.attributes["gene_id"] = self.parent[0]
+
+        return self.attributes["gene_id"]
 
     @Metric
     def score(self):

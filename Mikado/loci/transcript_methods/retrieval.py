@@ -25,7 +25,7 @@ def load_orfs(transcript, candidate_orfs):
     :type transcript: Mikado.loci_objects.transcript.Transcript
 
     :param candidate_orfs: The ORFs to be inspected for loading.
-    :type candidate_orfs: list[Mikado.serializers.orf.Orf]
+    :type candidate_orfs: list[Mikado.serializers.orf.Orf|Mikado.parsers.bed12.BED12]
 
     This method replicates what is done internally by the
     "cdna_alignment_orf_to_genome_orf.pl"
@@ -57,6 +57,7 @@ def load_orfs(transcript, candidate_orfs):
 
     transcript.logger.debug("Finding the candidate ORFS out of %d .. ",
                             len(candidate_orfs))
+    # This will also exclude invalid ORFs
     candidate_orfs = find_overlapping_cds(transcript, candidate_orfs)
     transcript.logger.debug("Retained %d candidate ORFS",
                             len(candidate_orfs))
@@ -146,22 +147,6 @@ def check_loaded_orfs(transcript):
         cds_spans = []
         candidates = []
         for internal_cds in transcript.internal_orfs:
-            if sum([_[1][1] - _[1][0] + 1 for _ in internal_cds if _[0] == "CDS"]) % 3 != 0:
-                transcript.logger.error("Invalid internal:\n%s",
-                                        internal_cds)
-                transcript.logger.error("Invalid internals:\n%s",
-                                        "\n".join([str(_) for _ in transcript.internal_orfs]))
-
-                transcript.logger.error("Invalid ORFs:\n%s",
-                                        "\n".join([str(_) for _ in transcript.loaded_bed12]))
-
-                raise InvalidTranscript((transcript.id,
-                                         sum([_[1][1] - _[1][0] + 1 for _
-                                              in internal_cds if _[0] == "CDS"]),
-                                         sum([_[1][1] - _[1][0] + 1 for
-                                              _ in internal_cds if _[0] == "CDS"]) % 3,
-                                         internal_cds))
-
             candidates.extend(
                 [a[1] for a in iter(tup for tup in internal_cds
                                     if tup[0] == "CDS")])
@@ -257,7 +242,7 @@ def __load_blast(transcript):
                             counter, transcript.id)
 
 
-def __connect_to_db(transcript):
+def _connect_to_db(transcript):
 
     """This method will connect to the database using the information
     contained in the JSON configuration.
@@ -304,7 +289,7 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
         retrieve_from_dict(transcript, data_dict)
     else:
         if session is None:
-            __connect_to_db(transcript)
+            _connect_to_db(transcript)
         else:
             transcript.session = session
         candidate_orfs = []
@@ -430,9 +415,11 @@ def find_overlapping_cds(transcript, candidates: list) -> list:
             transcript.json_conf["pick"]["orf_loading"]["minimal_secondary_orf_length"]
     else:
         minimal_secondary_orf_length = 0
+    transcript.logger.debug("Minimal orf loading: %d", minimal_secondary_orf_length)
 
     transcript.logger.debug("{0} input ORFs for {1}".format(len(candidates), transcript.id))
-    candidates = list(corf for corf in candidates if corf.invalid is False)
+    candidates = list(corf for corf in candidates if (
+        corf.invalid is False and corf.transcriptomic is True))
     transcript.logger.debug("{0} filtered ORFs for {1}".format(len(candidates), transcript.id))
     if len(candidates) == 0:
         return []

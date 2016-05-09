@@ -65,7 +65,7 @@ class BlastOpener:
                     shell=False, stdout=subprocess.PIPE)
                 self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
             else:
-                raise ValueError("Unrecognized file format: %s", self.__filename)
+                raise ValueError("Unrecognized file format: {}".format(self.__filename))
 
         self.__opened = True
         assert self.__handle is not None, self.__filename
@@ -166,44 +166,9 @@ class BlastOpener:
 
         if exc is not None:
             valid = False
+        self.__handle.close()
 
         return valid, default_header, exc
-
-# def create_opener(filename):
-#
-#     """
-#     Function to create the appropriate opener for a BLAST file.
-#     If a handle is given instead of a filename, the function returns the input immediately.
-#
-#     :param filename: the name of the filename to use.
-#     :return:
-#     """
-#
-#     if isinstance(filename, (gzip.GzipFile, io.TextIOWrapper)):
-#         return filename
-#     elif not isinstance(filename, str) or not os.path.exists(filename):
-#         raise OSError("Non-existent file: {0}".format(filename))
-#
-#     if filename.endswith(".gz"):
-#         if filename.endswith(".xml.gz"):
-#             return gzip.open(filename, "rt")
-#         elif filename.endswith(".asn.gz"):
-#             # I cannot seem to make it work with gzip.open
-#             zcat = subprocess.Popen(["zcat", filename], shell=False,
-#                                     stdout=subprocess.PIPE)
-#             blast_formatter = subprocess.Popen(
-#                 ['blast_formatter', '-outfmt', '5', '-archive', '-'],
-#                 shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)
-#             return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
-#     elif filename.endswith(".xml"):
-#         return open(filename)
-#     elif filename.endswith(".asn"):
-#         blast_formatter = subprocess.Popen(
-#             ['blast_formatter', '-outfmt', '5', '-archive', filename],
-#             shell=False, stdout=subprocess.PIPE)
-#         return io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
-#     else:
-#         raise ValueError("Unrecognized file format: %s", filename)
 
 
 def check_beginning(handle, filename, previous_header):

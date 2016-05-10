@@ -49,7 +49,7 @@ Triticum_aestivum_CS42_TGACv1_scaffold_434051_5DL	TGACv1	five_prime_UTR	45894	46
                                (45726, 45726): 2,
                                (45875, 45893): 0}
 
-    # @unittest.skip
+    @unittest.skip
     def test_check_phases(self):
         self.transcript.finalize()
         phases = dict((_[1], _[2]) for _ in self.transcript.internal_orfs[0]

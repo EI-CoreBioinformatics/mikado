@@ -39,16 +39,16 @@ def trim_noncoding(transcript, max_length=0):
         newfirst = tuple([first[1] - max_length, first[1]])
         transcript.start = newfirst[0]
         transcript.exons[0] = newfirst
-        assert transcript.segments[0] == ("exon", first)
-        transcript.segments[0] = ("exon", newfirst)
+        transcript.segments.remove(("exon", first))
+        transcript.segments.append(("exon", newfirst))
 
     # last = transcript.exons[-1]
     if (last[1] - last[0] + 1) > max_length:
         newlast = tuple([last[0], last[0] + max_length])
         transcript.end = newlast[1]
         transcript.exons[-1] = newlast
-        assert transcript.segments[-1] == ("exon", last)
-        transcript.segments[-1] = ("exon", newlast)
+        transcript.segments.remove(("exon", last))
+        transcript.segments.append(("exon", newlast))
         # if transcript.selected_cds_length > 0:
         #     last_utr = [segment for segment in transcript.combined_utr if
         #                 segment[1] == last[1]][0]

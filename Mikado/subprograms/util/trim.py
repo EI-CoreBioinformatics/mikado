@@ -190,8 +190,8 @@ def trim_coding(transcript, logger, max_length=0):
 
     # Wrong CDS
     if transcript.selected_cds_start is None:
-        logger.warning("Non-coding transcript %s submitted, calling the correct function.",
-                       transcript.id)
+        logger.debug("Non-coding transcript %s submitted, calling the correct function.",
+                     transcript.id)
         return trim_noncoding(transcript, max_length=max_length)
 
     cds_start, cds_end = sorted([transcript.selected_cds_end,

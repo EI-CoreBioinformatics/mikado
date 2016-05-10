@@ -15,6 +15,7 @@ import subprocess
 from distutils import spawn
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..loci.transcript import Transcript
+from ..utilities import merge_dictionaries
 import json
 import jsonschema
 from multiprocessing import get_start_method
@@ -92,37 +93,6 @@ def extend_with_default(validator_class, simple=False):
     return jsonschema.validators.extend(
         validator_class, {"properties": set_defaults},
     )
-
-
-def merge_dictionaries(dict_a, dict_b, path=None):
-    """Recursive function to merge two dictionaries.
-
-    :param dict_a: first dictionary
-    :type dict_a: dict
-
-    :param dict_b: second dictionary
-    :type dict_b: dict
-
-    :param path: list to be updated during recursion to indicate
-                 that we are in a secondary node
-    :type path: list(str)
-
-    Source: http://stackoverflow.com/questions/7204805/dictionaries-of-dictionaries-merge
-    """
-
-    if path is None:
-        path = []
-    for key in dict_b:
-        if key in dict_a:
-            if isinstance(dict_a[key], dict) and isinstance(dict_b[key], dict):
-                merge_dictionaries(
-                    dict_a[key],
-                    dict_b[key], path + [str(key)])
-            else:
-                pass  # same leaf value
-        else:
-            dict_a[key] = dict_b[key]
-    return dict_a
 
 
 def check_scoring(json_conf):

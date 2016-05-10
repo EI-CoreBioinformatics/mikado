@@ -165,5 +165,24 @@ class LogUtilsTester(unittest.TestCase):
         Mikado.utilities.log_utils.create_queue_logger(instance, prefix="prefix_test")
         self.assertEqual(instance.logger.level, 30)
 
+    def test_check_logger(self):
+        logger = logging.getLogger("test_validity")
+        self.assertEqual(logger, Mikado.utilities.log_utils.check_logger(logger))
+        logger = "foo"
+        with self.assertRaises(ValueError):
+            Mikado.utilities.log_utils.check_logger(logger)
+
+    def test_merge_dictionaries(self):
+
+        a = {10: 20, 30: 50}
+        b = {20: 40, 30: 10}
+
+        merged = Mikado.utilities.merge_dictionaries(a, b)
+        self.assertEqual(merged,
+                         {10: 20, 20:40,
+                          30: 10},  # 30 is updated to the value of dictionary b
+                         merged)
+
+
 if __name__ == "__main__":
     unittest.main()

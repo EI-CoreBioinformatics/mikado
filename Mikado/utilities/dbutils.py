@@ -47,6 +47,7 @@ def create_connector(json_conf, logger=None):
 
     db_settings = json_conf["db_settings"]
 
+    func = None
     if db_settings["dbtype"] == "sqlite":
         if json_conf["pick"]["run_options"]['shm'] is False:
             logger.debug("Connecting to %s", db_settings["db"])
@@ -57,7 +58,7 @@ def create_connector(json_conf, logger=None):
             func = sqlite3.connect(
                 database=json_conf["pick"]["run_options"]["shm_db"],
                 check_same_thread=False)
-    else:
+    elif db_settings["dbtype"] in ("mysql", "postgresql"):
         if db_settings["dbpasswd"] != '':
             passwd = ":{0}".format(db_settings["dbpasswd"])
         else:
@@ -91,8 +92,8 @@ def create_connector(json_conf, logger=None):
                 database=db_settings["db"],
                 port=db_settings["dbport"]
             )
-        else:
-            raise ValueError("DB type not supported! {0}".format(db_settings["dbtype"]))
+    else:
+        raise ValueError("DB type not supported! {0}".format(db_settings["dbtype"]))
     return func
 
 
@@ -107,7 +108,7 @@ def connect(json_conf, logger=None):
     """
 
     if json_conf is None:
-        return create_engine("sqlite://:memory:")
+        return create_engine("sqlite:///:memory:")
 
     db_connection = functools.partial(create_connector, json_conf, logger=logger)
     engine = create_engine("{0}://".format(json_conf["db_settings"]["dbtype"]),

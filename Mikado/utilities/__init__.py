@@ -104,3 +104,31 @@ def grouper(iterable, n):
             temp = []
     if temp:
         yield temp
+
+
+def merge_dictionaries(dict_a, dict_b, path=None):
+    """Recursive function to merge two dictionaries.
+
+    :param dict_a: first dictionary
+    :type dict_a: dict
+
+    :param dict_b: second dictionary
+    :type dict_b: dict
+
+    :param path: list to be updated during recursion to indicate
+                 that we are in a secondary node
+    :type path: list(str)
+
+    Source: http://stackoverflow.com/questions/7204805/dictionaries-of-dictionaries-merge
+    """
+
+    if path is None:
+        path = []
+    for key in dict_b:
+        if key in dict_a and isinstance(dict_a[key], dict) and isinstance(dict_b[key], dict):
+            merge_dictionaries(
+                dict_a[key],
+                dict_b[key], path + [str(key)])
+        else:
+            dict_a[key] = dict_b[key]
+    return dict_a

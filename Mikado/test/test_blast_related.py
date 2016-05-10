@@ -8,6 +8,7 @@ import os
 import gzip
 import subprocess
 import shutil
+import time
 
 
 class BlastBasics(unittest.TestCase):
@@ -112,6 +113,8 @@ class BlastBasics(unittest.TestCase):
         valid, header, exc = blast_utils.BlastOpener("{0}.gz".format(valid_asn)).sniff()
         self.assertTrue(valid, (valid, exc))
         self.assertIsNone(exc, exc)
+        # This should fix the issue of blast_formatter crashing
+        time.sleep(1)
 
         for fname in os.listdir("."):
             if "uniprot_sprot_plants.fasta" in fname and not fname.endswith(".gz"):

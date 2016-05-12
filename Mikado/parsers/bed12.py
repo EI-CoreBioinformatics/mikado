@@ -433,7 +433,7 @@ class BED12:
             )
             return True
 
-        if self.transcriptomic is True and (self.cds_len - self.phase) % 3 != 0:
+        if self.transcriptomic is True and (self.cds_len - self.phase) % 3 != 0 and self.thick_end != self.end:
             self.invalid_reason = "Invalid CDS length: {0} % 3 = {1}".format(
                 self.cds_len,
                 self.cds_len % 3

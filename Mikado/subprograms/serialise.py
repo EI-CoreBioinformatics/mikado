@@ -221,6 +221,9 @@ def setup(args):
             logger.critical("Missing FAI file for junction loading!")
             sys.exit(1)
 
+    if args.max_regression is not None:
+        args.json_conf["serialise"]["max_regression"] = args.max_regression
+
     logger.setLevel(args.log_level)
     logger.info("Command line: %s",
                 " ".join(sys.argv))
@@ -309,6 +312,10 @@ def serialise_parser():
                       #Two transcript files, one ORF file
                       --transcript_fasta seq1.fasta,seq2.fasta --orfs all_orfs.bed
                       """)
+    orfs.add_argument("-mr", "--max-regression", dest="max_regression",
+                      type=float, default=None,
+                      help=""""Amount of sequence in the ORF (in %) to backtrack
+                      in order to find a valid START codon, if one is absent. Default: %(default)s""")
 
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=None,

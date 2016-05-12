@@ -82,7 +82,14 @@ class TranscriptChecker(Transcript):
         """
         return self.__translation_table
 
-    def rev_complement(self, string):
+    @classmethod
+    def get_translation_table(cls):
+        """Class method to access the translation table."""
+
+        return cls.__translation_table
+
+    @classmethod
+    def rev_complement(cls, string):
 
         """
         Quick method to perform the reverse complement of a given string,
@@ -93,7 +100,7 @@ class TranscriptChecker(Transcript):
         """
 
         return "".join(x for x in reversed(
-            string.translate(self.translation_table)
+            string.translate(cls.get_translation_table())
         ))
 
     @property
@@ -116,13 +123,21 @@ class TranscriptChecker(Transcript):
             raise TypeError("Invalid value for boolean property: {0}".format(value))
         self.__strand_specific = value
 
-    def __str__(self, print_cds=True, to_gtf=False, introns = False):
+    def __str__(self, print_cds=True, to_gtf=False, with_introns=False):
 
         self.check_strand()
         if self.mixed_splices is True:
             self.attributes["mixed_splices"] = self.mixed_attribute
 
         return super().__str__(print_cds=print_cds, to_gtf=to_gtf)
+
+    def format(self, format_name, with_introns=False, with_cds=True):
+
+        self.check_strand()
+        if self.mixed_splices is True:
+            self.attributes["mixed_splices"] = self.mixed_attribute
+
+        return super().format(format_name, with_cds=with_cds, with_introns=with_introns)
 
     def check_strand(self):
         """

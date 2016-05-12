@@ -25,7 +25,7 @@ from ..parsers.GTF import GtfLine
 from ..parsers.GFF import GffLine
 from .transcript_methods import splitting, retrieval
 from .transcript_methods.printing import create_lines_cds
-from .transcript_methods.printing import create_lines_no_cds, create_lines_bed
+from .transcript_methods.printing import create_lines_no_cds, create_lines_bed, as_bed12
 from .transcript_methods.finalizing import finalize
 import functools
 
@@ -124,6 +124,7 @@ class Transcript:
 
         # Mock setting of base hidden variables
         self.__id = ""
+        self._first_phase = None
         self.__logger = None
         self.__strand = self.__score = None
         self.__has_start_codon, self.__has_stop_codon = False, False
@@ -149,6 +150,7 @@ class Transcript:
         # This is used to set the phase if the CDS is loaded from the GFF
         self.__phases = dict()  # will contain (start, phase) for each CDS exon
         self.__blast_score = 0  # Homology score
+        self.__derived_children = set()
 
         # Starting settings for everything else
         self.chrom = None
@@ -349,7 +351,7 @@ class Transcript:
     def add_exon(self, gffline, feature=None):
         """This function will append an exon/CDS feature to the object.
         :param gffline: an annotation line
-        :type gffline: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine)
+        :type gffline: (Mikado.parsers.GFF.GffLine | Mikado.parsers.GTF.GtfLine | tuple | list)
         :type feature: flag to indicate what kind of feature we are adding
         """
 
@@ -406,6 +408,10 @@ class Transcript:
             raise InvalidTranscript("Unknown feature: {0}".format(gffline.feature))
 
         segment = tuple([start, end])
+        if segment in store:
+            raise InvalidTranscript(
+                "Attempt to add {} to {}, but it is already present!".format(
+                    segment, self.id))
         # assert isinstance(segment[0], int) and isinstance(segment[1], int)
         if self.__expandable is True:
             self.start = min([self.start, start])
@@ -463,7 +469,7 @@ class Transcript:
             if with_cds is True:
                 lines = create_lines_cds(self, to_gtf=to_gtf, with_introns=with_introns)
             else:
-                lines = create_lines_no_cds(self, to_gtf=to_gtf)
+                lines = create_lines_no_cds(self, to_gtf=to_gtf, with_introns=with_introns)
 
         return "\n".join(lines)
 
@@ -477,6 +483,17 @@ class Transcript:
             yield new_transcript
 
         return
+
+    def as_bed12(self):
+
+        """
+        Method to return a BED12 representation of the transcript object.
+
+        :return: bed12 representation of the instance
+         :rtype: Mikado.parsers.bed12.BED12
+        """
+
+        return as_bed12(self)
 
     def remove_exon(self, exon):
 
@@ -501,16 +518,22 @@ class Transcript:
             self.segments.remove(("exon", exon))
             tr = set()
             for segment in self.segments:
-                if self.overlap(segment[1], exon) > 0:
+                if self.overlap(segment[1], exon) >= 0:
                     tr.add(segment)
             for _ in tr:
                 self.segments.remove(_)
             tr = set()
             for segment in self.combined_cds:
-                if self.overlap(segment, exon) > 0:
+                if self.overlap(segment, exon) >= 0:
                     tr.add(segment)
             for _ in tr:
                 self.combined_cds.remove(_)
+            tr = set()
+            for segment in self.combined_utr:
+                if self.overlap(segment, exon) >= 0:
+                    tr.add(segment)
+            for _ in tr:
+                self.combined_utr.remove(_)
 
     def remove_exons(self, exons):
 
@@ -574,6 +597,8 @@ class Transcript:
         if self.monoexonic is True and strand_specific is False:
             self.strand = None
 
+        if self.feature == "mRNA":
+            self.feature = "transcript"
         self.combined_cds = []
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
@@ -759,6 +784,16 @@ class Transcript:
 
         self.finalize()
 
+    def add_derived_child(self, name):
+
+        """Method to add a derived child (eg TAIR protein) to a transcript"""
+
+        if not isinstance(name, (str, bytes)):
+            raise ValueError("Invalid child type: {} (value: {})".format(
+                type(name), name))
+
+        self.__derived_children.add(name)
+
     # ###################Class methods#####################################
 
     @classmethod
@@ -831,15 +866,15 @@ class Transcript:
     @functools.lru_cache(maxsize=None, typed=True)
     def get_available_metrics(cls) -> list:
         """This function retrieves all metrics available for the class."""
+
         metrics = [member[0] for member in inspect.getmembers(cls) if
                    "__" not in member[0] and isinstance(cls.__dict__[member[0]], Metric)]
 
         # metrics = list(x[0] for x in filter(
         #     lambda y: "__" not in y[0] and isinstance(cls.__dict__[y[0]], Metric),
         #     inspect.getmembers(cls)))
-        assert "tid" in metrics and "parent" in metrics and "score" in metrics
-        _metrics = sorted([metric for metric in metrics if
-                           metric not in ["tid", "parent", "score"]])
+        # assert "tid" in metrics and "parent" in metrics and "score" in metrics
+        _metrics = sorted([metric for metric in metrics])
         final_metrics = ["tid", "parent", "score"] + _metrics
         return final_metrics
 
@@ -944,6 +979,80 @@ class Transcript:
                 newid, type(newid)))
         self.__id = intern(newid)
     # pylint: enable=invalid-name
+
+    @property
+    def tid(self):
+        """ID of the transcript - cannot be an undefined value. Alias of id.
+        :rtype str
+        """
+        return self.id
+
+    @tid.setter
+    def tid(self, tid):
+        """
+        :param tid: ID of the transcript.
+        :type tid: str
+        """
+        self.id = tid
+
+    @property
+    def parent(self):
+        """Name of the parent feature of the transcript."""
+        return self.__parent
+
+    @parent.setter
+    def parent(self, parent):
+        """
+        :param parent: the parent of the transcript.
+        :type parent: list
+        :type parent: str
+        """
+        if isinstance(parent, (list, type(None))):
+            self.__parent = parent
+        elif isinstance(parent, str):
+            if "," in parent:
+                self.__parent = parent.split(",")
+            else:
+                self.__parent = [parent]
+        else:
+            raise ValueError("Invalid value for parent: {0}, type {1}".format(
+                parent, type(parent)))
+
+        self.attributes["gene_id"] = self.__parent
+        self.__parent = [intern(_) for _ in self.__parent]
+
+    @property
+    def gene(self):
+
+        if "gene_id" not in self.attributes:
+            self.attributes["gene_id"] = self.parent[0]
+
+        return self.attributes["gene_id"]
+
+    @property
+    def score(self):
+        """Numerical value which summarizes the reliability of the transcript."""
+        return self.__score
+
+    @score.setter
+    def score(self, score):
+
+        """Setter for the numerical value which summarizes the reliability
+        of the transcript.
+        :param score: the new score of the transcript
+        :type score: None
+        :type score: int
+        :type score: float
+        """
+
+        if score is not None:
+            if not isinstance(score, (float, int)):
+                try:
+                    score = float(score)
+                except:
+                    raise ValueError(
+                        "Invalid value for score: {0}, type {1}".format(score, type(score)))
+        self.__score = score
 
     @property
     @functools.lru_cache(maxsize=None, typed=True)
@@ -1409,74 +1518,21 @@ index {3}, internal ORFs: {4}".format(
 
         self.__cds_tree = segments
 
+    @property
+    def derived_children(self):
+        """
+        This property stores the names of children features (eg TAIR proteins)
+        that this transcript gives origin to.
+        :return:
+        """
+
+        return self.__derived_children
+
     # ################### Class metrics ##################################
 
     # Disable normal checks on names and hidden methods, as
     # checkers get confused by the Metric method
     # pylint: disable=method-hidden,invalid-name
-    @Metric
-    def tid(self):
-        """ID of the transcript - cannot be an undefined value. Alias of id.
-        :rtype str
-        """
-        return self.id
-
-    @tid.setter
-    def tid(self, tid):
-        """
-        :param tid: ID of the transcript.
-        :type tid: str
-        """
-        self.id = tid
-
-    @Metric
-    def parent(self):
-        """Name of the parent feature of the transcript."""
-        return self.__parent
-
-    @parent.setter
-    def parent(self, parent):
-        """
-        :param parent: the parent of the transcript.
-        :type parent: list
-        :type parent: str
-        """
-        if isinstance(parent, (list, type(None))):
-            self.__parent = parent
-        elif isinstance(parent, str):
-            if "," in parent:
-                self.__parent = parent.split(",")
-            else:
-                self.__parent = [parent]
-        else:
-            raise ValueError("Invalid value for parent: {0}, type {1}".format(
-                parent, type(parent)))
-        self.__parent = [intern(_) for _ in self.__parent]
-
-    @Metric
-    def score(self):
-        """Numerical value which summarizes the reliability of the transcript."""
-        return self.__score
-
-    @score.setter
-    def score(self, score):
-
-        """Setter for the numerical value which summarizes the reliability
-        of the transcript.
-        :param score: the new score of the transcript
-        :type score: None
-        :type score: int
-        :type score: float
-        """
-
-        if score is not None:
-            if not isinstance(score, (float, int)):
-                try:
-                    score = float(score)
-                except:
-                    raise ValueError(
-                        "Invalid value for score: {0}, type {1}".format(score, type(score)))
-        self.__score = score
 
     @Metric
     def combined_cds_length(self):
@@ -1519,11 +1575,10 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def cdna_length(self):
         """This property returns the length of the transcript."""
-        if self.__cdna_length is None:
-            try:
-                self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
-            except TypeError:
-                raise TypeError(self.exons)
+        try:
+            self.__cdna_length = sum([e[1] - e[0] + 1 for e in self.exons])
+        except TypeError:
+            raise TypeError(self.exons)
         return self.__cdna_length
 
     @Metric

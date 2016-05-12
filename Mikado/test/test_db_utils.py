@@ -14,6 +14,7 @@ import sqlite3
 import Mikado.serializers.junction
 import Mikado.serializers.blast_serializer
 import Mikado.serializers.orf
+import shutil
 
 
 __author__ = 'Luca Venturini'
@@ -24,10 +25,10 @@ class TestDbConnect(unittest.TestCase):
     def setUp(self):
         self.json = Mikado.configuration.configurator.to_json(
             os.path.join(os.path.dirname(__file__), "configuration.yaml"))
-        self.assertEqual(self.json["db_settings"]["db"], "mikado.db")
-        self.json["db_settings"]["db"] = os.path.join(os.path.dirname(__file__),
-                                                      self.json["db_settings"]["db"],)
-
+        self.assertEqual(self.json["db_settings"]["db"],
+                         os.path.join(
+                             os.path.dirname(__file__),
+                             self.json["db_settings"]["db"],))
 
     def test_connector(self):
         connector = Mikado.utilities.dbutils.create_connector(self.json)
@@ -91,6 +92,34 @@ class TestDbConnect(unittest.TestCase):
             _ = Mikado.serializers.blast_serializer.Target("foo", -10)
         with self.assertRaises(TypeError):
             _ = Mikado.serializers.blast_serializer.Target("foo", 1000.0)
+
+    def test_wrong_db(self):
+        self.json["db_settings"]["dbtype"] = "sqlite_foo"
+        with self.assertRaises(ValueError):
+            _ = Mikado.utilities.dbutils.create_connector(self.json)
+
+    @unittest.skipUnless(os.path.exists("/dev/shm"),
+                         "/dev/shm is not available on this system.")
+    def test_connect_to_shm(self):
+        self.json["pick"]["run_options"]['shm'] = True
+        shutil.copy(self.json["db_settings"]["db"], "/dev/shm/")
+        self.json["pick"]["run_options"]['shm_db'] = os.path.join(
+            "/dev/shm/",
+            self.json["db_settings"]["db"])
+        connector = Mikado.utilities.dbutils.connect(self.json)
+        self.assertEqual(str(connector.url), "sqlite://")
+        engine = Mikado.utilities.dbutils.connect(self.json)
+        sessionmaker = sqlalchemy.orm.sessionmaker(bind=engine)
+        session = sessionmaker()
+        first_target = session.query(
+            Mikado.serializers.blast_serializer.Target).limit(1).one()
+        astup = first_target.as_tuple()
+        self.assertTrue(astup._fields, ("target_id", "target_name", "target_length"))
+
+    def test_to_memory(self):
+        connector = Mikado.utilities.dbutils.connect(None)
+        self.assertEqual(str(connector.url), "sqlite:///:memory:")
+
 
 if __name__ == "__main__":
     unittest.main()

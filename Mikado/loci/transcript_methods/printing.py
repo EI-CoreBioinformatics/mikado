@@ -5,6 +5,7 @@ GFFs/GTFs starting from the transcript class.
 
 
 from collections import Counter
+from itertools import zip_longest
 import functools
 from ...parsers.GTF import GtfLine
 from ...parsers.GFF import GffLine
@@ -65,13 +66,6 @@ def __create_cds_lines(transcript,
             else:
                 exon_line.phase = (3 - segment[2]) % 3
         exon_lines.append(exon_line)
-
-    # if to_gtf is False:
-    #     exon_lines = [exon_line for exon_line in
-    #                   __add_phase(transcript, exon_lines, first_phase=first_phase)]
-    # else:
-    #     exon_lines = [exon_line for exon_line in
-    #                   __add_frame(transcript, exon_lines, first_phase=first_phase)]
 
     assert not any(True for x in exon_lines if x.feature == "CDS" and x.phase is None), [str(_) for _ in exon_lines]
 
@@ -183,9 +177,10 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
 
     parent_line = constructor(None)
     if transcript.is_coding is False:
-        lines = create_lines_no_cds(transcript, to_gtf=to_gtf)
+        lines = create_lines_no_cds(transcript, to_gtf=to_gtf, with_introns=with_introns)
     else:
         for index, cds_run in enumerate(transcript.internal_orfs):
+            transcript.logger.debug("CDS run for %s: %s", transcript.id, cds_run)
             if transcript.number_internal_orfs > 1:
                 transcript_counter += 1
                 tid = "{0}.orf{1}".format(transcript.id, transcript_counter)
@@ -218,8 +213,7 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
     return lines
 
 
-def create_lines_bed(transcript):
-
+def as_bed12(transcript):
     """
     Method to create a BED12 object for printing
     :param transcript: Mikado.loci.transcript.Transcript
@@ -243,88 +237,26 @@ def create_lines_bed(transcript):
     bed12.block_count = transcript.exon_num
     bed12.block_sizes = [exon[1] - exon[0] + 1 for exon in transcript.exons]
     bed12.block_starts = [0]
-    for pos, intron in enumerate(transcript.introns):
-        bed12.block_starts.append(bed12.block_sizes[pos] + intron[1] - intron[0] + 1)
-    return str(bed12)
+    for pos, intron in enumerate(sorted(transcript.introns)):
+        bed12.block_starts.append(
+            bed12.block_starts[pos] + bed12.block_sizes[pos] + intron[1] - intron[0] + 1)
+    return bed12
 
 
-def __add_phase(transcript, exon_lines, first_phase=0):
+def create_lines_bed(transcript):
 
     """
-    Private method to add the phase to a transcript. The phase is defined as
-    the reverse of the modulo 3 of the number of bases from the start.
-    Or:
-
-    (3 - (len(cds so far) % 3)) % 3
-
-    Or (more verbose):
-
-    modulo = len(cds so far) % 3
-    if modulo == 0:
-       phase = 0
-    elif modulo == 1:
-       phase = 2
-    else:
-       phase = 1
-
-    :param transcript: the transcript instance
-    :type transcript: Mikado.loci_objects.transcript.Transcript
-
-    :param exon_lines:
+    Method to return the BED12 format of the transcript.
+    :param transcript:
     :return:
     """
 
-    # We start by 0 if no CDS loaded, else
-    # we use the first phase
-
-    previous = (3 - (first_phase % 3)) % 3
-
-    new_lines = []
-    for line in sorted(exon_lines, reverse=(transcript.strand == "-")):
-        if line.feature == "CDS":
-            phase = (3 - (previous % 3)) % 3
-            line.phase = phase
-            previous += len(line)
-        new_lines.append(line)
-    return sorted(new_lines)
-
-
-def __add_frame(transcript, exon_lines, first_phase=0):
-
-    """
-    Private method to add the frame to a transcript. The frame is defined as
-    the modulo 3 of the number of bases from the start.
-    Or:
-
-    len(cds so far) % 3
-
-    In this library, the frame (correct definition for the field in GTF)
-    is aliased as "phase".
-
-    :param transcript: the transcript instance
-    :type transcript: Mikado.loci_objects.transcript.Transcript
-
-    :param exon_lines:
-    :return:
-    """
-
-    # We start by 0 if no CDS loaded, else
-    # we use the first phase
-
-    previous = first_phase % 3
-
-    new_lines = []
-    for line in sorted(exon_lines, reverse=(transcript.strand == "-")):
-        if line.feature == "CDS":
-            frame = previous % 3
-            line.frame = frame
-            previous += len(line)
-        new_lines.append(line)
-    return sorted(new_lines)
+    return str(as_bed12(transcript))
 
 
 def create_lines_no_cds(transcript,
-                        to_gtf=False):
+                        to_gtf=False,
+                        with_introns=False):
 
     """
     Method to create the GTF/GFF lines for printing in the absence of CDS information.
@@ -355,23 +287,27 @@ def create_lines_no_cds(transcript,
     lines = [str(parent_line)]
     exon_lines = []
 
-    exon_count = 0
-    for exon in transcript.exons:
-        exon_count += 1
-        exon_line = constructor(None)
-        for attr in ["chrom", "source", "strand", "attributes"]:
-            setattr(exon_line, attr, getattr(transcript, attr))
-        exon_line.feature = "exon"
-        exon_line.start, exon_line.end = exon[0], exon[1]
-        assert exon_line.start >= transcript.start
-        assert exon_line.end <= transcript.end
-        exon_line.score = None
-        exon_line.phase = None
+    if with_introns is False:
+        intron_list = [None] * len(transcript.exons)
+    else:
+        intron_list = sorted(transcript.introns)
+    counter = Counter()
 
-        exon_line.id = "{0}.{1}{2}".format(transcript.id, "exon", exon_count)
-        exon_line.parent = transcript.id
-        exon_line.name = transcript.name
+    line_creator = functools.partial(__create_exon_line,
+                                     transcript,
+                                     **{"to_gtf": to_gtf,
+                                        "tid": transcript.id,
+                                        "cds_begin": False})
+
+    for exon, intron in zip_longest(sorted(transcript.exons),
+                                    intron_list):
+        exon_line, counter, _ = line_creator(("exon", exon), counter)
+
         exon_lines.append(str(exon_line))
+        if intron is not None:
+            intron_line, counter, _ = line_creator(("intron", intron), counter)
+            exon_lines.append(str(intron_line))
 
     lines.extend(exon_lines)
+
     return lines

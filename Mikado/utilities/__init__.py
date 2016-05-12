@@ -88,44 +88,6 @@ def merge_partial(filenames, handle):
     return total
 
 
-# def overlap(first_interval: tuple([int, int]),
-#             second_interval: tuple([int, int]), flank=0,
-#             positive=False) -> int:
-#
-#     """
-#     :param first_interval: a tuple of integers
-#     :type first_interval: (int,int)
-#
-#     :param second_interval: a tuple of integers
-#     :type second_interval: (int,int | intervaltree.Interval)
-#
-#     :param flank: an optional extending parameter to check for neighbours
-#     :type flank: int
-#
-#     :param positive: boolean flag. If set to true, the max between overlap and 0 will be returned.
-#     :type positive: bool
-#
-#     This static method returns the overlap between two intervals.
-#
-#     Values<=0 indicate no overlap.
-#
-#     The optional "flank" argument (default 0) allows to expand a locus
-#     upstream and downstream.
-#     As a static method, it can be used also outside of any instance -
-#     "abstractlocus.overlap()" will function.
-#     Input: two 2-tuples of integers.
-#     """
-#
-#     if positive is False:
-#         return c_overlap(first_interval[0], first_interval[1],
-#                          second_interval[0], second_interval[1],
-#                          flank)
-#     else:
-#         return c_overlap_positive(first_interval[0], first_interval[1],
-#                                   second_interval[0], second_interval[1],
-#                                   flank)
-
-
 def grouper(iterable, n):
     """
     Function to chunk an iterable into slices of at most n elements.
@@ -140,5 +102,33 @@ def grouper(iterable, n):
         if len(temp) >= n:
             yield temp
             temp = []
+    if temp:
+        yield temp
 
-    yield temp
+
+def merge_dictionaries(dict_a, dict_b, path=None):
+    """Recursive function to merge two dictionaries.
+
+    :param dict_a: first dictionary
+    :type dict_a: dict
+
+    :param dict_b: second dictionary
+    :type dict_b: dict
+
+    :param path: list to be updated during recursion to indicate
+                 that we are in a secondary node
+    :type path: list(str)
+
+    Source: http://stackoverflow.com/questions/7204805/dictionaries-of-dictionaries-merge
+    """
+
+    if path is None:
+        path = []
+    for key in dict_b:
+        if key in dict_a and isinstance(dict_a[key], dict) and isinstance(dict_b[key], dict):
+            merge_dictionaries(
+                dict_a[key],
+                dict_b[key], path + [str(key)])
+        else:
+            dict_a[key] = dict_b[key]
+    return dict_a

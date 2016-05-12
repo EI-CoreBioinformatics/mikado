@@ -37,6 +37,7 @@ class Gene:
         self.id = None
         self.attributes = dict()
         self.feature = "gene"
+        self.__from_gene = False
 
         if transcr is not None:
             if isinstance(transcr, Transcript):
@@ -45,6 +46,7 @@ class Gene:
                 self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
                 assert transcr.is_gene is True
+                self.__from_gene = True
                 self.id = transcr.id
                 self.attributes = transcr.attributes.copy()
                 self.feature = transcr.feature
@@ -63,6 +65,16 @@ class Gene:
         [intern(_) for _ in [self.chrom, self.source, self.id]
          if _ is not None]
         self.logger = logger
+
+    def __contains__(self, item):
+
+        if isinstance(item, (str, bytes)):
+            return item in self.transcripts
+        elif isinstance(item, Transcript):
+            return item in self.transcripts.values()
+
+    def keys(self):
+        return self.transcripts.keys()
 
     @property
     def logger(self):
@@ -117,6 +129,30 @@ class Gene:
 
         transcr.logger = self.logger
 
+    def add_exon(self, row):
+        """
+
+        :param row:
+        :type row: (GtfLine | GffLine)
+        :return:
+        """
+
+        found_tids = set()
+        for parent in (_ for _ in row.parent if _ in self.transcripts):
+            found_tids.add(parent)
+            self.transcripts[parent].add_exon(row)
+
+        for parent in (_ for _ in row.parent if _ not in self.transcripts):
+            found = False
+            for tid in self.transcripts:
+                if parent in self.transcripts[tid].derived_children:
+                    found = True
+                    if tid not in found_tids:
+                        self.transcripts[tid].add_exon(row)
+                    break
+            if not found:
+                raise AssertionError("{}\n{}".format(parent, row))
+
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]
 
@@ -144,8 +180,8 @@ class Gene:
             except InvalidTranscript as err:
                 self.exception_message += "{0}\n".format(err)
                 to_remove.add(tid)
-            except Exception as err:
-                print(err)
+            except Exception as _:
+                # print(err)
                 raise
         for k in to_remove:
             del self.transcripts[k]
@@ -156,14 +192,23 @@ class Gene:
             __new_start = min(_.start for _ in self)
 
             if __new_start != self.start:
-                self.logger.debug("Resetting the start for %s from %s to %d",
-                                    self.id, self.start, __new_start)
+                if self.__from_gene is True:
+                    self.logger.warning("Resetting the start for %s from %s to %d",
+                                        self.id, self.start, __new_start)
+                else:
+                    self.logger.debug("Resetting the start for %s from %s to %d",
+                                      self.id, self.start, __new_start)
+
                 self.start = __new_start
 
             __new_end = max(_.end for _ in self)
             if __new_end != self.end:
-                self.logger.debug("Resetting the end for %s from %s to %d",
-                                    self.id, self.end, __new_end)
+                if self.__from_gene is True:
+                    self.logger.warning("Resetting the end for %s from %s to %d",
+                                        self.id, self.end, __new_end)
+                else:
+                    self.logger.debug("Resetting the end for %s from %s to %d",
+                                      self.id, self.end, __new_end)
                 self.end = __new_end
 
     def as_dict(self, remove_attributes=True):
@@ -233,8 +278,9 @@ class Gene:
             self.end = None
             self.start = None
             self.chrom = None
-        self.start = min(self.transcripts[tid].start for tid in self.transcripts)
-        self.end = max(self.transcripts[tid].end for tid in self.transcripts)
+        else:
+            self.start = min(self.transcripts[tid].start for tid in self.transcripts)
+            self.end = max(self.transcripts[tid].end for tid in self.transcripts)
 
     def __repr__(self):
         return " ".join(self.transcripts.keys())

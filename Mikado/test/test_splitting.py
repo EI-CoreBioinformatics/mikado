@@ -321,11 +321,11 @@ class TestSplitMonoexonic(unittest.TestCase):
         self.transcript.json_conf["pick"][
             "chimera_split"]["blast_params"]["leniency"] = "LENIENT"
         self.transcript.logger = self.logger
-        with self.assertLogs("test_mono", level="WARNING") as log_split:
+        with self.assertLogs("null", level="WARNING") as log_split:
             self.assertEqual(2,
                              len(list(splitting.split_by_cds(self.transcript))))
 
-        self.assertIn("WARNING:test_mono:BLAST hits store lost for transcript1! Creating a mock one to avoid a crash",
+        self.assertIn("WARNING:null:BLAST hits store lost for transcript1! Creating a mock one to avoid a crash",
                       log_split.output)
 
     def test_duplication(self):

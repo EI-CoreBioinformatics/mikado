@@ -233,10 +233,14 @@ def load_exon_lines(args, logger):
             found_ids = set.union(set(), *previous_file_ids.values())
             if gff_handle.__annot_type__ == "gff3":
                 exon_lines, new_ids = load_from_gff(exon_lines, gff_handle,
-                                                    label, found_ids, strip_cds=strip_cds)
+                                                    label, found_ids,
+                                                    logger,
+                                                    strip_cds=strip_cds)
             else:
                 exon_lines, new_ids = load_from_gtf(exon_lines, gff_handle,
-                                                    label, found_ids, strip_cds=strip_cds)
+                                                    label, found_ids,
+                                                    logger,
+                                                    strip_cds=strip_cds)
 
             previous_file_ids[gff_handle.name] = new_ids
     else:

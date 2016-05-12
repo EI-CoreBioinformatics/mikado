@@ -7,7 +7,7 @@ Unit test for a transcript on the negative strand.
 import unittest
 import operator
 import re
-import intervaltree
+# import intervaltree
 import logging
 import Mikado
 import Mikado.parsers
@@ -79,7 +79,7 @@ Chr1    TAIR10    exon    5928    6263    .    -    .    Parent=AT1G01020.1"""
         self.orf.block_starts = 0
         self.orf.has_start_codon = True
         self.orf.has_stop_codon = True
-        self.orf.transcriptomic = False
+        self.orf.transcriptomic = True
         self.assertFalse(self.orf.invalid)
         self.assertEqual(len(self.tr), self.tr.end - self.tr.start + 1)
 
@@ -344,30 +344,30 @@ Chr1\tTAIR10\tfive_prime_UTR\t8667\t8737\t.\t-\t.\tID=AT1G01020.1.five_prime_UTR
         # tr.finalize()
 
         real_printed = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tID=AT1G01020.1;Parent=AT1G01020;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9;Parent=AT1G01020.1;Name=AT1G01020.1
-Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1;Name=AT1G01020.1"""
+Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tID=AT1G01020.1.exon1;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tID=AT1G01020.1.exon2;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tID=AT1G01020.1.exon3;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tID=AT1G01020.1.exon4;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tID=AT1G01020.1.exon5;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tID=AT1G01020.1.exon6;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tID=AT1G01020.1.exon7;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tID=AT1G01020.1.exon8;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tID=AT1G01020.1.exon9;Parent=AT1G01020.1
+Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tID=AT1G01020.1.exon10;Parent=AT1G01020.1"""
 
         self.assertEqual(real_printed, self.tr.format("gff", with_cds=False))
 
         real_printed_gtf = """Chr1\tTAIR10\tmRNA\t5928\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";
-Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1"; Name "AT1G01020.1";"""
+Chr1\tTAIR10\texon\t5928\t6263\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t6437\t7069\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t7157\t7232\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t7384\t7450\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t7564\t7649\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t7762\t7835\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t7942\t7987\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t8236\t8325\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t8417\t8464\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";
+Chr1\tTAIR10\texon\t8571\t8737\t.\t-\t.\tgene_id "AT1G01020"; transcript_id "AT1G01020.1";"""
 
         self.assertEqual(real_printed_gtf, self.tr.__str__(print_cds=False, to_gtf=True))
 

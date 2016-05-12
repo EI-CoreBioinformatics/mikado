@@ -127,9 +127,20 @@ def _check_cdna_vs_utr(transcript):
         if not (equality_one or equality_two):
             # Something fishy going on
             raise InvalidCDS(
-                "Failed to create the UTR",
-                transcript.id, transcript.exons,
-                transcript.combined_cds, transcript.combined_utr)
+                """"Failed to create the UTR:
+ID: {}
+Exons: {}
+Combined CDS: {}
+Combined UTR: {}
+CDS == UTR == 0: {}
+CDNA == CDS + UTR: {}
+CDNA == {}
+CDS == {}
+UTR == {}""".format(transcript.id,
+                           transcript.exons,
+                           transcript.combined_cds,
+                           transcript.combined_utr, equality_one, equality_two,
+                    transcript.cdna_length, transcript.combined_cds_length, transcript.combined_utr_length))
 
 
 def __calculate_introns(transcript):
@@ -255,8 +266,14 @@ def __verify_boundaries(transcript):
         raise InvalidTranscript(
             err, transcript.id, str(transcript.exons))
 
+
 def __calculate_phases(coding, previous):
-    """"""
+    """
+
+    :param coding:
+    :param previous:
+    :return:
+    """
 
     total_cds_length = -previous
 
@@ -264,8 +281,9 @@ def __calculate_phases(coding, previous):
     for cds_segment in coding:
         length = cds_segment[1][1] - cds_segment[1][0] + 1
         phase = (3 - (total_cds_length % 3)) % 3
-        total_cds_length += length
         __calculated_phases.append(phase)
+        total_cds_length += length
+
 
     return total_cds_length, __calculated_phases
 
@@ -289,8 +307,9 @@ def __check_internal_orf(transcript, index):
 
     coding = sorted([(_[0], _[1]) for _ in orf if _[0] == "CDS"],
                     key=operator.itemgetter(1))
+
     if not coding:
-        raise InvalidCDS("No ORF for %s index %d!", transcript.id, index)
+        raise InvalidCDS("No ORF for {}, index {}!".format(transcript.id, index))
     before = sorted([_ for _ in orf
                      if _[0] == "UTR" and _[1][1] < coding[0][1][0]], key=operator.itemgetter(1))
     after = sorted([_ for _ in orf
@@ -300,13 +319,33 @@ def __check_internal_orf(transcript, index):
     last = max(coding[-1][1][1], float("-inf") if not after else after[-1][1][1])
 
     if first != transcript.start or last != transcript.end:
-        raise InvalidCDS("Invalid start and stop of the ORF for %s", transcript.id)
+        raise InvalidCDS("""Invalid start and stop of the ORF for {}
+First: {} Start: {}
+Last: {} End {}
+Coding: {}
+Before: {}
+After: {}
+
+
+
+dict: {}""".format(transcript.id,
+                          first, transcript.start,
+                          last, transcript.end,
+                     coding,
+                     before,
+                     after,
+                   transcript.__dict__))
 
     # Check that the number of exons with a coding section is correct and that they are in the correct order.
     coding_exons = [_ for _ in enumerate(exons) if
                     _[1][1] >= coding[0][1][1] and _[1][0] <= coding[-1][1][0]]
     if len(coding_exons) != len(coding) or coding_exons[-1][0] - coding_exons[0][0] + 1 != len(coding):
-        raise InvalidCDS("Invalid number of coding exons for %s", transcript.id)
+        raise InvalidCDS(""""Invalid number of coding exons for {} ({} vs {})
+Coding: {}
+Coding_exons (recalculated): {}""".format(
+            transcript.id,
+            len(coding), len(coding_exons),
+        coding, coding_exons))
 
     # Now it's time to check the phases
     if transcript.strand == "-":
@@ -323,11 +362,27 @@ def __check_internal_orf(transcript, index):
         phases_keys = sorted(transcript.phases.keys(), reverse=(transcript.strand == "-"))
         phase_orf = [transcript.phases[_] for _ in phases_keys]
         # Calculating the complement of the phase so that
-        previous = (3 - phase_orf[0]) % 3
+        # previous = (3 - phase_orf[0]) % 3
+        previous = phase_orf[0]
         # transcript.logger.warning(previous)
+    elif index == 0 and transcript._first_phase is not None:
+        previous = transcript._first_phase
+        phase_orf = []
     else:
         phase_orf = []
-        previous = 0
+        for segment in sorted(orf, key=operator.itemgetter(1), reverse=(transcript.strand == "-")):
+            if segment[0] != "CDS":
+                continue
+            else:
+                if len(segment) == 3:
+                    phase_orf.append(segment[2])
+                else:
+                    break
+        if phase_orf and len(phase_orf) == len(coding):
+            previous = phase_orf[0]
+        else:
+            previous = 0
+            phase_orf = []
 
     if transcript._trust_orf is True and index == 0 and len(phase_orf) == len(coding):
         total_cds_length = sum([_[1][1] - _[1][0] + 1 for _ in coding])
@@ -343,10 +398,14 @@ def __check_internal_orf(transcript, index):
             transcript.logger.debug("Wrong phases for %s, using recalculated ones (\n%s\nvs\n%s)",
                                     transcript.id,
                                     phase_orf, __calculated_phases)
+        else:
+            transcript.logger.debug("Correct phases for %s: %s",
+                                    transcript.id, __calculated_phases)
         if total_cds_length % 3 != 0 and three_utr and five_utr:
             # The transcript is truncated.
-            raise InvalidCDS("Both UTR presents with a truncated ORF in {}".format(
-                transcript.id))
+            raise InvalidCDS(""""Both UTR presents with a truncated ORF in {}
+5'UTR: {}
+3' UTR: {}""".format(transcript.id, five_utr, three_utr))
         elif total_cds_length % 3 != 0 and three_utr:
             for num in (0, 1, 2):
                 total_cds_length, __calculated_phases = __calculate_phases(coding,
@@ -384,6 +443,7 @@ def __check_phase_correctness(transcript):
     """
 
     if min(len(transcript.segments), len(transcript.internal_orfs)) == 0:
+        transcript.logger.debug("Redefining segments for %s", transcript.id)
         # Define exons
         transcript.segments = [("exon", tuple([e[0], e[1]]))
                                for e in transcript.exons]
@@ -400,12 +460,18 @@ def __check_phase_correctness(transcript):
             transcript.internal_orfs = [transcript.segments]
         else:
             transcript.selected_internal_orf_index = None
-    else:
-        assert len(transcript.internal_orfs) > 0
+    elif len(transcript.internal_orfs) == 0:
+        exception = AssertionError("No internal ORF for {}".format(transcript.id))
+        transcript.logger.exception(exception)
+        raise exception
 
+    transcript.logger.debug("{} has {} internal ORF{}".format(
+        transcript.id, len(transcript.internal_orfs),
+        "s" if len(transcript.internal_orfs) > 1 else ""))
     for orf_index in range(len(transcript.internal_orfs)):
+        transcript.logger.debug("ORF #%d for %s: %s",
+                                orf_index, transcript.id, transcript.phases)
         try:
-            transcript.logger.debug("ORF #%d: %s", orf_index, transcript.phases)
             transcript = __check_internal_orf(transcript,
                                               orf_index)
         except (InvalidTranscript, InvalidCDS) as exc:
@@ -471,7 +537,9 @@ def finalize(transcript):
         __verify_boundaries(transcript)
         assert all([segment[1] in transcript.exons for segment in transcript.segments if
                     segment[0] == "exon"]), (transcript.exons, transcript.segments)
+        transcript.logger.debug("Verifying phase correctness for %s", transcript.id)
         __check_phase_correctness(transcript)
+        transcript.logger.debug("Calculating intron correctness for %s", transcript.id)
         __calculate_introns(transcript)
     except (InvalidCDS, InvalidTranscript):
         transcript.finalized = True

@@ -14,10 +14,13 @@ from sqlalchemy.orm import relationship, backref, column_property
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
-from ..parsers import bed12, GFF, GTF
+from ..parsers import bed12  # , GFF
 from .blast_serializer import Query
 from ..utilities.log_utils import create_null_logger, check_logger
+from ..utilities import to_gff
+# from ..loci import Transcript
 # from Bio import SeqIO
+
 
 # This is a serialization class, it must have a ton of attributes ...
 # pylint: disable=too-many-instance-attributes
@@ -41,6 +44,7 @@ class Orf(DBBASE):
     has_start_codon = Column(Boolean, nullable=True)
     has_stop_codon = Column(Boolean, nullable=True)
     cds_len = Column(Integer)
+    phase = Column(Integer, nullable=False)
 
     __table_args__ = (Index("orf_index", "query_id", "thick_start", "thick_end"),
                       Index("query_index", "query_id"))
@@ -65,6 +69,7 @@ class Orf(DBBASE):
         self.has_start_codon = bed12_object.has_start_codon
         self.has_stop_codon = bed12_object.has_stop_codon
         self.cds_len = bed12_object.cds_len
+        self.phase = bed12_object.phase
 
     def __str__(self):
         return "{chrom}\t{start}\t{end}".format(
@@ -97,6 +102,8 @@ class Orf(DBBASE):
         __bed12.block_count = 1
         __bed12.block_sizes = [state.end]
         __bed12.block_starts = [0]
+        __bed12.transcriptomic = True
+        __bed12.phase = state.phase
 
         # Verbose block, but it is necessary as raw extraction from SQL
         # yields 0/1 instead of True/False
@@ -136,7 +143,10 @@ class OrfSerializer:
 
     logger = create_null_logger("__orf_serializer__")
 
-    def __init__(self, handle, json_conf=None, logger=None):
+    def __init__(self,
+                 handle,
+                 json_conf=None,
+                 logger=None):
 
         """Constructor function. Arguments:
         - handle         the BED12 file
@@ -161,6 +171,7 @@ class OrfSerializer:
             self.logger = check_logger(logger)
 
         fasta_index = json_conf["serialise"]["files"]["transcripts"]
+        self._max_regression = json_conf["serialise"]["max_regression"]
 
         if isinstance(fasta_index, str):
             assert os.path.exists(fasta_index)
@@ -182,9 +193,10 @@ class OrfSerializer:
         if self.is_bed12:
             self.bed12_parser = bed12.Bed12Parser(handle,
                                                   fasta_index=fasta_index,
-                                                  transcriptomic=True)
+                                                  transcriptomic=True,
+                                                  max_regression=self._max_regression)
         else:
-            self.bed12_parser = GFF.GFF3(handle)
+            self.bed12_parser = to_gff(handle)
 
         self.engine = connect(json_conf, logger)
 
@@ -197,21 +209,23 @@ class OrfSerializer:
         self.session = session()
         self.maxobjects = json_conf["serialise"]["max_objects"]
 
+
     def parse_gf_as_bed12(self, handle, fasta_index):
 
         # TODO: work on a functioning parser for TD long orfs GFF3 files
-        raise NotImplementedError("I am still working on this!")
 
-        if isinstance(handle, str):
-            if handle.endswith("gtf"):
-                parser = GTF.GTF(handle)
-            else:
-                parser = GFF.GFF3(handle)
-        else:
-            if handle.name.endswith("gtf"):
-                parser = GTF.GTF(handle)
-            else:
-                parser = GFF.GFF3(handle)
+        raise NotImplementedError("I am still working on this!")
+        # cur_transcript = None
+        # for row in to_gff(handle):
+        #     if row.is_transcript:
+        #         if cur_transcript is not None:
+        #             cur_transcript.finalize()
+        #             orf = cur_transcript.as_bed12()
+        #         cur_transcript = Transcript(row)
+        #     elif row.is_exon:
+        #         cur_transcript.add_exon(row)
+        #     else:
+        #         continue
 
     def load_fasta(self, cache):
 
@@ -280,7 +294,9 @@ class OrfSerializer:
             if row.header is True:
                 continue
             if row.invalid is True:
-                self.logger.warn("Invalid entry: %s", row)
+                self.logger.warn("Invalid entry, reason: %s\n%s",
+                                 row.invalid_reason,
+                                 row)
                 continue
             if row.id in cache:
                 current_query = cache[row.id]

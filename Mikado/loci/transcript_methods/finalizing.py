@@ -137,9 +137,9 @@ CDNA == CDS + UTR: {}
 CDNA == {}
 CDS == {}
 UTR == {}""".format(transcript.id,
-                           transcript.exons,
-                           transcript.combined_cds,
-                           transcript.combined_utr, equality_one, equality_two,
+                    transcript.exons,
+                    transcript.combined_cds,
+                    transcript.combined_utr, equality_one, equality_two,
                     transcript.cdna_length, transcript.combined_cds_length, transcript.combined_utr_length))
 
 
@@ -284,8 +284,8 @@ def __calculate_phases(coding, previous):
         __calculated_phases.append(phase)
         total_cds_length += length
 
-
     return total_cds_length, __calculated_phases
+
 
 def __check_internal_orf(transcript, index):
 
@@ -329,11 +329,11 @@ After: {}
 
 
 dict: {}""".format(transcript.id,
-                          first, transcript.start,
-                          last, transcript.end,
-                     coding,
-                     before,
-                     after,
+                   first, transcript.start,
+                   last, transcript.end,
+                   coding,
+                   before,
+                   after,
                    transcript.__dict__))
 
     # Check that the number of exons with a coding section is correct and that they are in the correct order.
@@ -345,7 +345,7 @@ Coding: {}
 Coding_exons (recalculated): {}""".format(
             transcript.id,
             len(coding), len(coding_exons),
-        coding, coding_exons))
+            coding, coding_exons))
 
     # Now it's time to check the phases
     if transcript.strand == "-":

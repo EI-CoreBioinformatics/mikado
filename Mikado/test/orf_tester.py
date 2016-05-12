@@ -6,7 +6,9 @@ Test for the BED12 module.
 
 import unittest
 from Bio import Seq, SeqRecord
-from Mikado.parsers import bed12
+from Mikado.parsers import bed12, GTF
+from Mikado.loci import Transcript
+from re import sub
 
 
 class OrfTester(unittest.TestCase):
@@ -341,6 +343,144 @@ CTAATAAATGCTGTTGTGTAAAAAAAAGGGGCTTTCTTT"""
 
         self.assertEqual(bed.thick_start, 195)
         self.assertEqual(bed.phase, 0)
+
+
+class TestPartial(unittest.TestCase):
+
+    def test_3_partial(self):
+
+        line = "\t".join(
+            ['class_Chr1.1004.0',
+             '0',
+             '1060',
+             'ID=class_Chr1.1004.0|m.22214;class_Chr1.1004.0|g.22214;ORF_class_Chr1.1004.0|g.22214_class_Chr1.1004.0|m.22214_type:3prime_partial_len:300_(+)',
+             '0',
+             '+',
+             '162',
+             '1060',
+             '0',
+             '1',
+             '1060',
+             '0'])
+        bed_line = bed12.BED12(line, transcriptomic=True)
+        self.assertFalse(bed_line.invalid, bed_line.invalid_reason)
+
+    def test_internal(self):
+
+        sequence = """TCCTCACAGTTACTATAAGCTCGTCTATGGCCAGAGACGGTGGTGTTTCTTGTTTACGAA
+GGTCGGAGATGATGAGCGTCGGTGGTATCGGAGGAATTGAATCTGCGCCGTTGGATTTAG
+ATGAAGTTCATGTCTTAGCCGTTGATGACAGTCTCGTTGATCGTATTGTCATCGAGAGAT
+TGCTTCGTATTACTTCCTGCAAAGTTACGGCGGTAGATAGTGGATGGCGTGCTCTGGAAT
+TTCTAGGGTTAGATAATGAGAAAGCTTCTGCTGAATTCGATAGATTGAAAGTTGATTTGA
+TCATCACTGATTACTGTATGCCTGGAATGACTGGTTATGAGCTTCTCAAGAAGATTAAGG
+AATCGTCCAATTTCAGAGAAGTTCCGGTTGTAATCATGTCGTCGGAGAATGTATTGACCA
+GAATCGACAGATGCCTTGAGGAAGGTGCTCAAGATTTCTTATTGAAACCGGTGAAACTCG
+CCGACGTGAAACGTCTGAGAAGTCATTTAACTAAAGACGTTAAACTTTCCAACGGAAACA
+AACGGAAGCTTCCGGAAGATTCTAGTTCCGTTAACTCTTCGCTTCCTCCACCGTCACCTC
+CGTTGACTATCTCGCCTGA"""
+
+        record = SeqRecord.SeqRecord(Seq.Seq(sub("\n", "", sequence)), id="class_Chr1.1006.0")
+        index = {record.id: record}
+
+        line = "\t".join(
+            ['class_Chr1.1006.0',
+             '0',
+             '619',
+             'ID=class_Chr1.1006.0|m.22308;class_Chr1.1006.0|g.22308;ORF_class_Chr1.1006.0|g.22308_class_Chr1.1006.0|m.22308_type:internal_len:206_(+)',
+             '0',
+             '+',
+             '2',
+             '617',
+             '0',
+             '1',
+             '619',
+             '0'])
+
+        bed_line = bed12.BED12(line, transcriptomic=True, fasta_index=index)
+        self.assertFalse(bed_line.invalid, bed_line.invalid_reason)
+        self.assertEqual(bed_line.phase, 2)
+        self.assertFalse(bed_line.has_start_codon)
+        self.assertFalse(bed_line.has_stop_codon)
+
+        lines = """Chr1	CLASS	transcript	3442811	3443785	1000	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0"; exon_number "1"; Abundance "22.601495"; canonical_proportion "1.0";
+    Chr1	CLASS	exon	3442811	3442999	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+    Chr1	CLASS	exon	3443099	3443169	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+    Chr1	CLASS	exon	3443252	3443329	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+    Chr1	CLASS	exon	3443417	3443493	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+    Chr1	CLASS	exon	3443582	3443785	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";"""
+
+        lines = [GTF.GtfLine(_) for _ in lines.split("\n") if _]
+
+        transcript = Transcript(lines[0])
+        transcript.add_exons(lines[1:])
+        transcript.finalize()
+        transcript.load_orfs([bed_line])
+        self.assertTrue(transcript.is_coding)
+        self.assertFalse(transcript.has_start_codon)
+        self.assertFalse(transcript.has_stop_codon)
+        self.assertEqual(transcript.selected_cds_end, transcript.start)
+        self.assertEqual(transcript.selected_cds_start, transcript.end)
+
+    def test_regression(self):
+
+        sequence = """TC
+CTCACAGTTACTATAAGCTCGTCT
+ATGGCCAGAGACGGTGGTGTTTCTTGTTTACGAA
+GGTCGGAGATGATGAGCGTCGGTGGTATCGGAGGAATTGAATCTGCGCCGTTGGATTTAG
+ATGAAGTTCATGTCTTAGCCGTTGATGACAGTCTCGTTGATCGTATTGTCATCGAGAGAT
+TGCTTCGTATTACTTCCTGCAAAGTTACGGCGGTAGATAGTGGATGGCGTGCTCTGGAAT
+TTCTAGGGTTAGATAATGAGAAAGCTTCTGCTGAATTCGATAGATTGAAAGTTGATTTGA
+TCATCACTGATTACTGTATGCCTGGAATGACTGGTTATGAGCTTCTCAAGAAGATTAAGG
+AATCGTCCAATTTCAGAGAAGTTCCGGTTGTAATCATGTCGTCGGAGAATGTATTGACCA
+GAATCGACAGATGCCTTGAGGAAGGTGCTCAAGATTTCTTATTGAAACCGGTGAAACTCG
+CCGACGTGAAACGTCTGAGAAGTCATTTAACTAAAGACGTTAAACTTTCCAACGGAAACA
+AACGGAAGCTTCCGGAAGATTCTAGTTCCGTTAACTCTTCGCTTCCTCCACCGTCACCTC
+CGTTGACTATCTCGCCTGA"""
+
+        record = SeqRecord.SeqRecord(Seq.Seq(sub("\n", "", sequence)), id="class_Chr1.1006.0")
+        index = {record.id: record}
+
+        line = "\t".join(
+            ['class_Chr1.1006.0',
+             '0',
+             '619',
+             'ID=class_Chr1.1006.0|m.22308;class_Chr1.1006.0|g.22308;ORF_class_Chr1.1006.0|g.22308_class_Chr1.1006.0|m.22308_type:internal_len:206_(+)',
+             '0',
+             '+',
+             '2',
+             '617',
+             '0',
+             '1',
+             '619',
+             '0'])
+
+        # Now we are going back to find the start codon
+        bed_line = bed12.BED12(line, transcriptomic=True, fasta_index=index, max_regression=0.2)
+        self.assertFalse(bed_line.invalid, bed_line.invalid_reason)
+        self.assertEqual(bed_line.phase, 0)
+        # Start codon in frame found at location 27
+        self.assertEqual(bed_line.thick_start, 27)
+        self.assertTrue(bed_line.has_start_codon)
+        self.assertFalse(bed_line.has_stop_codon)
+
+        lines = """Chr1	CLASS	transcript	3442811	3443785	1000	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0"; exon_number "1"; Abundance "22.601495"; canonical_proportion "1.0";
+Chr1	CLASS	exon	3442811	3442999	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+Chr1	CLASS	exon	3443099	3443169	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+Chr1	CLASS	exon	3443252	3443329	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+Chr1	CLASS	exon	3443417	3443493	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";
+Chr1	CLASS	exon	3443582	3443785	.	-	.	gene_id "Chr1.1006.gene"; transcript_id "class_Chr1.1006.0";"""
+
+        lines = [GTF.GtfLine(_) for _ in lines.split("\n") if _]
+
+        transcript = Transcript(lines[0])
+        transcript.add_exons(lines[1:])
+        transcript.finalize()
+        transcript.load_orfs([bed_line])
+        self.assertTrue(transcript.is_coding)
+        self.assertTrue(transcript.has_start_codon)
+        self.assertFalse(transcript.has_stop_codon)
+        self.assertEqual(transcript.selected_cds_end, transcript.start)
+        self.assertEqual(transcript.selected_cds_start, transcript.end - 26)
 
 
 if __name__ == '__main__':

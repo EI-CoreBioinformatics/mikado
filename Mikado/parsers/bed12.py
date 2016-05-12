@@ -226,9 +226,9 @@ class BED12:
                                  3):
                     if orf_sequence[pos:pos+3] == "ATG":
                         # Now we have to shift the start accordingly
+                        self.has_start_codon = True
                         if self.strand == "+":
                             self.thick_start += pos
-                            self.has_start_codon = True
                         else:
                             # TODO: check that this is right and we do not have to do some other thing
                             self.thick_end -= pos
@@ -237,8 +237,12 @@ class BED12:
                         continue
                 if self.has_start_codon is False:
                     # The validity will be automatically checked
-                    self.phase = self.thick_start - 1
-                    self.thick_start = 1
+                    if self.strand == "+":
+                        self.phase = self.thick_start - 1
+                        self.thick_start = 1
+                    else:
+                        self.phase = self.end - self.thick_end
+                        self.thick_end = self.end
 
             if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon = True
@@ -483,7 +487,8 @@ class BED12:
     def phase(self, val):
 
         if val not in (None, 0, 1, 2):
-            raise ValueError("Invalid frame specified: {}. Must be None or 0, 1, 2")
+            raise ValueError("Invalid frame specified for {}: {}. Must be None or 0, 1, 2".format(
+                self.name, val))
         elif self.transcriptomic is True and val not in (0, 1, 2):
             raise ValueError("A transcriptomic BED cannot have null frame.")
         self.__phase = val

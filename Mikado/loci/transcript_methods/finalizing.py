@@ -127,9 +127,20 @@ def _check_cdna_vs_utr(transcript):
         if not (equality_one or equality_two):
             # Something fishy going on
             raise InvalidCDS(
-                "Failed to create the UTR",
-                transcript.id, transcript.exons,
-                transcript.combined_cds, transcript.combined_utr)
+                """"Failed to create the UTR:
+ID: {}
+Exons: {}
+Combined CDS: {}
+Combined UTR: {}
+CDS == UTR == 0: {}
+CDNA == CDS + UTR: {}
+CDNA == {}
+CDS == {}
+UTR == {}""".format(transcript.id,
+                           transcript.exons,
+                           transcript.combined_cds,
+                           transcript.combined_utr, equality_one, equality_two,
+                    transcript.cdna_length, transcript.combined_cds_length, transcript.combined_utr_length))
 
 
 def __calculate_introns(transcript):
@@ -298,7 +309,7 @@ def __check_internal_orf(transcript, index):
                     key=operator.itemgetter(1))
 
     if not coding:
-        raise InvalidCDS("No ORF for %s index %d!", transcript.id, index)
+        raise InvalidCDS("No ORF for {}, index {}!".format(transcript.id, index))
     before = sorted([_ for _ in orf
                      if _[0] == "UTR" and _[1][1] < coding[0][1][0]], key=operator.itemgetter(1))
     after = sorted([_ for _ in orf
@@ -308,13 +319,33 @@ def __check_internal_orf(transcript, index):
     last = max(coding[-1][1][1], float("-inf") if not after else after[-1][1][1])
 
     if first != transcript.start or last != transcript.end:
-        raise InvalidCDS("Invalid start and stop of the ORF for %s", transcript.id)
+        raise InvalidCDS("""Invalid start and stop of the ORF for {}
+First: {} Start: {}
+Last: {} End {}
+Coding: {}
+Before: {}
+After: {}
+
+
+
+dict: {}""".format(transcript.id,
+                          first, transcript.start,
+                          last, transcript.end,
+                     coding,
+                     before,
+                     after,
+                   transcript.__dict__))
 
     # Check that the number of exons with a coding section is correct and that they are in the correct order.
     coding_exons = [_ for _ in enumerate(exons) if
                     _[1][1] >= coding[0][1][1] and _[1][0] <= coding[-1][1][0]]
     if len(coding_exons) != len(coding) or coding_exons[-1][0] - coding_exons[0][0] + 1 != len(coding):
-        raise InvalidCDS("Invalid number of coding exons for %s", transcript.id)
+        raise InvalidCDS(""""Invalid number of coding exons for {} ({} vs {})
+Coding: {}
+Coding_exons (recalculated): {}""".format(
+            transcript.id,
+            len(coding), len(coding_exons),
+        coding, coding_exons))
 
     # Now it's time to check the phases
     if transcript.strand == "-":
@@ -372,8 +403,9 @@ def __check_internal_orf(transcript, index):
                                     transcript.id, __calculated_phases)
         if total_cds_length % 3 != 0 and three_utr and five_utr:
             # The transcript is truncated.
-            raise InvalidCDS("Both UTR presents with a truncated ORF in {}".format(
-                transcript.id))
+            raise InvalidCDS(""""Both UTR presents with a truncated ORF in {}
+5'UTR: {}
+3' UTR: {}""".format(transcript.id, five_utr, three_utr))
         elif total_cds_length % 3 != 0 and three_utr:
             for num in (0, 1, 2):
                 total_cds_length, __calculated_phases = __calculate_phases(coding,

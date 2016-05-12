@@ -6,7 +6,6 @@ Generic parser for GTF files.
 
 from . import Parser
 from .gfannotation import GFAnnotation
-import sys
 
 
 # This class has exactly how many attributes I need it to have
@@ -51,7 +50,8 @@ class GtfLine(GFAnnotation):
 
     def __init__(self, line, my_line='', header=False):
 
-        self.frame = None
+        self.__frame = None
+        self.__phase = None
         GFAnnotation.__init__(self, line, my_line, header=header)
         self.frame = self.__phase  # Reset the phase
 
@@ -360,7 +360,6 @@ class GtfLine(GFAnnotation):
             else:
                 if value not in (".", "?"):
                     raise ValueError(value)
-                value = None
                 self.__phase = self.__frame = None
         elif value is None:
             self.__frame = self.__phase = None
@@ -390,3 +389,7 @@ class GTF(Parser):
         if line == '':
             raise StopIteration
         return GtfLine(line)
+
+    @property
+    def file_format(self):
+        return self.__annot_type__

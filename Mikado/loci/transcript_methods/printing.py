@@ -287,44 +287,25 @@ def create_lines_no_cds(transcript,
     lines = [str(parent_line)]
     exon_lines = []
 
-    exon_count = 0
-    intron_count = 0
-
     if with_introns is False:
         intron_list = [None] * len(transcript.exons)
     else:
         intron_list = sorted(transcript.introns)
+    counter = Counter()
+
+    line_creator = functools.partial(__create_exon_line,
+                                     transcript,
+                                     **{"to_gtf": to_gtf,
+                                        "tid": transcript.id,
+                                        "cds_begin": False})
 
     for exon, intron in zip_longest(sorted(transcript.exons),
                                     intron_list):
-        exon_count += 1
-        exon_line = constructor(None)
-        for attr in ["chrom", "source", "strand", "attributes"]:
-            setattr(exon_line, attr, getattr(transcript, attr))
-        exon_line.feature = "exon"
-        exon_line.start, exon_line.end = exon[0], exon[1]
-        assert exon_line.start >= transcript.start
-        assert exon_line.end <= transcript.end
-        exon_line.score = None
-        exon_line.phase = None
+        exon_line, counter, _ = line_creator(("exon", exon), counter)
 
-        exon_line.id = "{0}.{1}{2}".format(transcript.id, "exon", exon_count)
-        exon_line.parent = transcript.id
-        exon_line.name = transcript.name
         exon_lines.append(str(exon_line))
         if intron is not None:
-            intron_count += 1
-            intron_line = constructor(None)
-            for attr in ["chrom", "source", "strand", "attributes"]:
-                setattr(intron_line, attr, getattr(transcript, attr))
-            intron_line.feature = "intron"
-            intron_line.start, intron_line.end = intron[0], intron[1]
-            assert intron_line.start >= transcript.start
-            assert intron_line.end <= transcript.end
-            intron_line.score = None
-            intron_line.phase = None
-            intron_line.id = "{0}.{1}{2}".format(transcript.id, "intron", intron_count)
-            intron_line.parent = transcript.id
+            intron_line, counter, _ = line_creator(("intron", intron), counter)
             exon_lines.append(str(intron_line))
 
     lines.extend(exon_lines)

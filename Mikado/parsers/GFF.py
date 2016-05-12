@@ -307,3 +307,7 @@ class GFF3(Parser):
 
         line = GffLine(line)
         return line
+
+    @property
+    def file_format(self):
+        return self.__annot_type__

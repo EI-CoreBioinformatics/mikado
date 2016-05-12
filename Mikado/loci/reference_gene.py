@@ -129,6 +129,30 @@ class Gene:
 
         transcr.logger = self.logger
 
+    def add_exon(self, row):
+        """
+
+        :param row:
+        :type row: (GtfLine | GffLine)
+        :return:
+        """
+
+        found_tids = set()
+        for parent in (_ for _ in row.parent if _ in self.transcripts):
+            found_tids.add(parent)
+            self.transcripts[parent].add_exon(row)
+
+        for parent in (_ for _ in row.parent if _ not in self.transcripts):
+            found = False
+            for tid in self.transcripts:
+                if parent in self.transcripts[tid].derived_children:
+                    found = True
+                    if tid not in found_tids:
+                        self.transcripts[tid].add_exon(row)
+                    break
+            if not found:
+                raise AssertionError("{}\n{}".format(parent, row))
+
     def __getitem__(self, tid: str) -> Transcript:
         return self.transcripts[tid]
 
@@ -156,8 +180,8 @@ class Gene:
             except InvalidTranscript as err:
                 self.exception_message += "{0}\n".format(err)
                 to_remove.add(tid)
-            except Exception as err:
-                print(err)
+            except Exception as _:
+                # print(err)
                 raise
         for k in to_remove:
             del self.transcripts[k]
@@ -254,8 +278,9 @@ class Gene:
             self.end = None
             self.start = None
             self.chrom = None
-        self.start = min(self.transcripts[tid].start for tid in self.transcripts)
-        self.end = max(self.transcripts[tid].end for tid in self.transcripts)
+        else:
+            self.start = min(self.transcripts[tid].start for tid in self.transcripts)
+            self.end = max(self.transcripts[tid].end for tid in self.transcripts)
 
     def __repr__(self):
         return " ".join(self.transcripts.keys())

@@ -5,8 +5,9 @@ Module that implements the Reid/Daid/Hurley algorithm for community finding.
 """
 
 import networkx
-from ..utilities.log_utils import create_null_logger, create_default_logger
+from ..utilities.log_utils import create_null_logger
 from collections import defaultdict
+from itertools import chain
 
 __all__ = ["reid_daid_hurley"]
 
@@ -28,35 +29,17 @@ def find_communities(graph: networkx.Graph, logger=None) -> list:
         - communities
     """
     if logger is None:
-        logger = create_default_logger("comms")
-
-    # graph = deepcopy(graph)
-    # logger.debug("Creating the cliques for %s", logger.name)
-    # # cliques = []
-    # # counter = 0
-    # # communities = []
-
-    # nx_comms = [frozenset(x) for x in networkx.k_clique_communities(graph, 2, cliques)]
-    # rdh_comms = reid_daid_hurley(graph, 2, cliques)
-    #
-    # for comm in rdh_comms:
-    #     if len(comm) == 1:
-    #         continue
-    #     if not any([comm == _ for _ in nx_comms]):
-    #         logger.error("Discrepant communities for %s;\n%s\n%s",
-    #                      logger.name, nx_comms, rdh_comms)
-    #         raise AssertionError
+        logger = create_null_logger()
 
     logger.debug("Creating the communities for %s", logger.name)
-    communities = set(frozenset(comm) for comm in networkx.connected_components(graph))
-
-    # communities = set(frozenset(x) for x in cliques if len(x) == 1)
-    # for comm in reid_daid_hurley(graph, 2, cliques=cliques, logger=logger):
-    #     communities.add(comm)
+    communities = [frozenset(comm) for comm in networkx.connected_components(graph)]
 
     logger.debug("Communities for %s:\n\t\t%s", logger.name, "\n\t\t".join(
         [str(_) for _ in communities]))
-    return communities
+    # result = [frozenset(x) for x in communities.values()]
+    for element in set.difference(set(graph.nodes()), set(chain(*communities[:]))):
+        communities.append(frozenset([element]))
+    return set(communities)
 
 
 def define_graph(objects: dict, inters, **kwargs) -> networkx.Graph:
@@ -111,7 +94,7 @@ def find_cliques(graph: networkx.Graph, logger=None) -> (networkx.Graph, list):
     """
 
     if logger is None:
-        logger = create_default_logger("cliques")
+        logger = create_null_logger()
 
     logger.debug("Creating cliques for %s", logger.name)
     cliques = [frozenset(x) for x in networkx.find_cliques_recursive(graph)]
@@ -127,6 +110,7 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
     published in http://arxiv.org/pdf/1205.0038.pdf
 
     :param graph:
+    :type graph: networkx.Graph
     :param k:
     :param cliques:
     :param logger: optional logger for the function
@@ -196,7 +180,12 @@ def reid_daid_hurley(graph, k, cliques=None, logger=None):
         communities[cliques_to_components_dict[clique]].update(set(clique))
 
     logger.debug("Reporting the results")
-    return [frozenset(x) for x in communities.values()]
+
+    result = [frozenset(x) for x in communities.values()]
+    for element in set.difference(set(graph.nodes()), set(chain(*result[:]))):
+        result.append(frozenset([element]))
+
+    return set(result)
 
 
 def _get_unvisited_neighbours(current_clique, nodes_to_clique_dict):

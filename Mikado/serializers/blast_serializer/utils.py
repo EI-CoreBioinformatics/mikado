@@ -108,7 +108,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     global_identity: the identity rate for the global hit *using the query perspective*
 
     :param hit: the hit to parse.
-    :type hit: Bio.Blast.Record.Alignment
+    :type hit: Bio.SearchIO._model.hit.Hit
 
     :param query_id: the numeric ID of the query in the database. Necessary for serialisation.
     :type query_id: int
@@ -176,7 +176,7 @@ def prepare_hit(hit, query_id, target_id, **kwargs):
     if hit_dict["evalue"] != best_hsp[0] or hit_dict["bits"] != best_hsp[1]:
         raise InvalidHit("Discrepant evalue/bits for hsps and hit for {0} vs. {1}; \
         best: {2}, reported {3}".format(
-            hit.hit_def,
+            hit.id,
             query_id,
             best_hsp,
             (hit_dict["evalue"], hit_dict["bits"])

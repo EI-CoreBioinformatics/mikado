@@ -31,7 +31,7 @@ __author__ = 'Luca Venturini'
 class _XmlPickler(multiprocessing.Process):
 
     def __init__(self,
-                 filequeue,
+                 filequeue: multiprocessing.Queue,
                  returnqueue,
                  default_header,
                  maxobjects,
@@ -39,7 +39,7 @@ class _XmlPickler(multiprocessing.Process):
                  logging_queue,
                  level="WARN"):
 
-        super(_XmlPickler,  self).__init__()
+        super().__init__()
         self.handler = logging_handlers.QueueHandler(logging_queue)
         self.__identifier = identifier
         self.name = self._name = "_XmlPickler-{0}".format(self.identifier)
@@ -90,12 +90,23 @@ class _XmlPickler(multiprocessing.Process):
         """
 
         while True:
-            filename = self.filequeue.get()
+            try:
+                number, filename = self.filequeue.get(timeout=10)
+            except multiprocessing.TimeoutError:
+                self.logger.error(
+                    "Something has gone awry in %s, no data received from the queue after waiting 10s. Aborting.",
+                    self._name)
+                # self.filequeue.put("EXIT")
+                # return 0
+                raise
+
             if filename == "EXIT":
-                self.filequeue.put(filename)
+                self.logger.info("Process %s received EXIT signal, terminating",
+                                 self._name)
+                self.filequeue.put((number, filename))
                 return 0
             pfiles = self._pickler(filename)
-            self.returnqueue.put(pfiles)
+            self.returnqueue.put((number, pfiles))
 
     @property
     def identifier(self):
@@ -155,7 +166,7 @@ def _pickle_xml(filename,
                              filename)
     except xml.etree.ElementTree.ParseError:
         logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                 filename)
+                     filename)
 
     pickle_temp = tempfile.mkstemp(suffix=".pickle",
                                    dir=os.path.dirname(filename))
@@ -182,7 +193,7 @@ class XmlSerializer:
                           [chr(x) for x in range(97, 123)] +
                           ["|", "*"])
 
-    def __init__(self, xml,
+    def __init__(self, xml_name,
                  logger=None,
                  json_conf=None):
         """Initializing method. Arguments:
@@ -228,7 +239,7 @@ class XmlSerializer:
         query_seqs = json_conf["serialise"]["files"]["transcripts"]
 
         self.header = None
-        if xml is None:
+        if xml_name is None:
             self.logger.warning("No BLAST XML provided. Exiting.")
             return
 
@@ -241,7 +252,7 @@ class XmlSerializer:
         self.logger.debug("Created the session")
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
-        self.xml = xml
+        self.xml = xml_name
         # Just a mock definition
         self.get_query = functools.partial(self.__get_query_for_blast)
         self.not_pickable = ["manager", "printer_process",
@@ -633,16 +644,16 @@ class XmlSerializer:
 
             self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
             [_.start() for _ in procs]  # Start processes
-            for xml in self.xml:
-                filequeue.put(xml)
+            for number, xml_name in enumerate(self.xml):
+                filequeue.put((number, xml_name))
 
-            filequeue.put("EXIT")
-            [_.join() for _ in procs]  # Wait for processes to join
-            del procs
-            returnqueue.put("EXIT")
-            result = None
-            while result != "EXIT":
-                result = returnqueue.get()
+            self.logger.info("Finished sending off the data for serialisation")
+
+            filequeue.put((None, "EXIT"))
+            returned = []
+            while len(returned) != len(self.xml):
+                number, result = returnqueue.get()
+                returned.append(number)
                 if result == "EXIT":
                     continue
                 for pickle_file in result:
@@ -664,6 +675,10 @@ class XmlSerializer:
                             if hit_counter > 0 and hit_counter % 10000 == 0:
                                 self.logger.info("Serialized %d alignments", hit_counter)
                     os.remove(pickle_file)
+            [_.join() for _ in procs]  # Wait for processes to join
+            self.logger.info("All %d children finished, starting to retrieve the data",
+                             len(procs))
+            del procs
 
             _, _ = self.__load_into_db(hits, hsps, force=True)
             returnqueue.close()

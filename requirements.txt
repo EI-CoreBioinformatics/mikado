@@ -7,7 +7,7 @@ numpy
 networkx>=1.10
 sqlalchemy>=1
 sqlalchemy_utils
-biopython>=1.6
+biopython>=1.66
 intervaltree
 nose
 pyfaidx

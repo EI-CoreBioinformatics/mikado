@@ -18,6 +18,7 @@ from ...parsers.blast_utils import BlastOpener  # , XMLMerger
 from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
+import xml
 import multiprocessing
 
 
@@ -136,21 +137,25 @@ def _pickle_xml(filename,
 
     logger.debug("Starting to pickle %s", filename)
 
-    with BlastOpener(filename) as opened:
-        try:
-            for record in opened:
-                if len(record.descriptions) > 0:
-                    records.append(record)
-                if len(records) > maxobjects:
-                    pickle_temp = tempfile.mkstemp(suffix=".pickle",
-                                                   dir=os.path.dirname(filename))
-                    with open(pickle_temp[1], "wb") as pickled:
-                        pickle.dump(records, pickled)
-                    pfiles.append(pickle_temp[1])
-                    records = []
-        except ExpatError:
-            logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                         filename)
+    try:
+        with BlastOpener(filename) as opened:
+            try:
+                for record in opened:
+                    if len(record.hits) > 0:
+                        records.append(record)
+                    if len(records) > maxobjects:
+                        pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                                                       dir=os.path.dirname(filename))
+                        with open(pickle_temp[1], "wb") as pickled:
+                            pickle.dump(records, pickled)
+                        pfiles.append(pickle_temp[1])
+                        records = []
+            except ExpatError:
+                logger.error("%s is an invalid BLAST file, sending back anything salvageable",
+                             filename)
+    except xml.etree.ElementTree.ParseError:
+        logger.error("%s is an invalid BLAST file, sending back anything salvageable",
+                 filename)
 
     pickle_temp = tempfile.mkstemp(suffix=".pickle",
                                    dir=os.path.dirname(filename))
@@ -483,7 +488,7 @@ class XmlSerializer:
 
         hit_counter = 0
 
-        if len(record.descriptions) == 0:
+        if len(record.hits) == 0:
             return hits, hsps, hit_counter, targets
 
         current_query, name = self.get_query(record)
@@ -491,12 +496,14 @@ class XmlSerializer:
         current_evalue = -1
         current_counter = 0
 
-        for ccc, alignment in enumerate(record.alignments):
+        # for ccc, alignment in enumerate(record.alignments):
+        for ccc, alignment in enumerate(record.hits):
             if ccc + 1 > self.__max_target_seqs:
                 break
 
             self.logger.debug("Started the hit %s vs. %s",
-                              name, record.alignments[ccc].accession)
+                              # name, record.alignments[ccc].accession)
+                              name, record.hits[ccc].id)
             try:
                 current_target, targets = self.__get_target_for_blast(alignment,
                                                                       targets)
@@ -510,13 +517,15 @@ class XmlSerializer:
             hit_dict_params = dict()
             (hit_dict_params["query_multiplier"],
              hit_dict_params["target_multiplier"]) = self.__get_multipliers(record)
-            if current_evalue < record.descriptions[ccc].e:
+            hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
+            hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
+            if current_evalue < hit_evalue:
                 current_counter += 1
-                current_evalue = record.descriptions[ccc].e
+                current_evalue = hit_evalue
 
             hit_dict_params["hit_number"] = current_counter
-            hit_dict_params["evalue"] = record.descriptions[ccc].e
-            hit_dict_params["bits"] = record.descriptions[ccc].bits
+            hit_dict_params["evalue"] = hit_evalue
+            hit_dict_params["bits"] = hit_bs
 
             # Prepare for bulk load
             try:
@@ -686,13 +695,16 @@ class XmlSerializer:
 
         q_mult, h_mult = 1, 1
 
-        if record.application in ("BLASTN", "TBLASTX", "BLASTP"):
+        # application = record.application.upper()
+        application = record.program.upper()
+
+        if application in ("BLASTN", "TBLASTX", "BLASTP"):
             q_mult = 1
             h_mult = 1
-        elif record.application == "BLASTX":
+        elif application == "BLASTX":
             q_mult = 3
             h_mult = 1
-        elif record.application == "TBLASTN":
+        elif application == "TBLASTN":
             q_mult = 1
             h_mult = 3
 
@@ -710,9 +722,9 @@ class XmlSerializer:
         """
 
         if self.discard_definition is False:
-            name = record.query.split()[0]
+            name = record.id.split()[0]
         else:
-            name = record.query_id
+            name = record.id
         self.logger.debug("Started with %s", name)
 
         if name in queries:

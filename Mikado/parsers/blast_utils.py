@@ -17,7 +17,8 @@ import queue
 import logging
 from . import HeaderError
 from ..utilities.log_utils import create_null_logger
-from Bio.Blast.NCBIXML import parse as xparser
+# from Bio.Blast.NCBIXML import parse as xparser
+from .blast_xml import BlastXmlParser as xparser
 
 __author__ = 'Luca Venturini'
 
@@ -30,6 +31,7 @@ class BlastOpener:
         self.__handle = None
         self.__closed = False
         self.__opened = False
+        self.__parser_created = False
         self.__enter__()
 
     def __create_handle(self):
@@ -56,6 +58,8 @@ class BlastOpener:
                         ['blast_formatter', '-outfmt', '5', '-archive', '-'],
                         shell=False, stdin=zcat.stdout, stdout=subprocess.PIPE)
                     self.__handle = io.TextIOWrapper(blast_formatter.stdout, encoding="UTF-8")
+                else:
+                    raise ValueError("Unrecognized file format for {}".format(self.__filename))
             elif self.__filename.endswith(".xml"):
                 self.__handle = open(self.__filename)
                 assert self.__handle is not None
@@ -73,7 +77,9 @@ class BlastOpener:
     def __enter__(self):
 
         self.__create_handle()
-        self.parser = xparser(self.__handle)
+        if self.__parser_created is False:
+            self.parser = xparser(self.__handle)
+            self.__parser_created = True
         return self
 
     def open(self):

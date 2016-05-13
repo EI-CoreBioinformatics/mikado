@@ -206,9 +206,12 @@ class BED12:
                 return
             sequence = fasta_index[self.id].seq
 
-            orf_sequence = sequence[self.thick_start - 1:self.thick_end]
-            if self.strand == "-":
-                orf_sequence = orf_sequence.reverse_complement()
+            if self.strand == "+":
+                orf_sequence = sequence[(self.thick_start - 1):self.thick_end]
+            elif self.strand == "-":
+                orf_sequence = sequence[(self.thick_start - 1):self.thick_end].reverse_complement()
+            else:
+                pass
 
             self.start_codon = str(orf_sequence)[:3]
             self.stop_codon = str(orf_sequence[-3:])
@@ -241,8 +244,11 @@ class BED12:
                         self.phase = self.thick_start - 1
                         self.thick_start = 1
                     else:
-                        self.phase = self.end - self.thick_end
-                        self.thick_end = self.end
+                        if self.end - self.thick_end <= 2:
+                            self.phase = self.end - self.thick_end
+                            self.thick_end = self.end
+                        else:
+                            self.phase = 0
 
             if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon = True
@@ -412,6 +418,7 @@ class BED12:
         """
 
         if self.__internal_stop_codons >= 1:
+            self.invalid_reason = "{} internal stop codons found".format(self.__internal_stop_codons)
             return True
 
         if self.transcriptomic is True and self.__in_index is False:

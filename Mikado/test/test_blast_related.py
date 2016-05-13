@@ -24,7 +24,7 @@ class BlastBasics(unittest.TestCase):
         self.assertTrue(valid, (valid, exc))
         self.assertIsNone(exc, exc)
 
-        with gzip.open(valid_xml, mode="rt") as new_handle:
+        with open(valid_xml, mode="rt") as new_handle:
             valid, header, exc = blast_utils.BlastOpener(new_handle).sniff()
             self.assertTrue(valid, (valid, exc))
             self.assertIsNone(exc, exc)
@@ -59,7 +59,7 @@ class BlastBasics(unittest.TestCase):
                 new.write(line)
         new.flush()
 
-        valid, header, exc = blast_utils.BlastOpener(new).sniff()
+        valid, header, exc = blast_utils.BlastOpener(new.name).sniff()
         self.assertTrue(valid, (valid, exc))
         self.assertIsNone(exc, exc)
 

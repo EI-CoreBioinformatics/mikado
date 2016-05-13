@@ -258,12 +258,12 @@ CAGA"""
 
     def test_b3_seq(self):
         b3 = bed12.BED12(self.bed3, transcriptomic=True, fasta_index=self.index)
-        self.assertFalse(b3.invalid, (len(b3), len(self.index[b3.id]),
+        self.assertFalse(b3.invalid, (len(b3), len(self.index[b3.id]), b3.invalid_reason,
                                       (b3.thick_end, b3.thick_start), (b3.thick_end - b3.thick_start + 1) % 3))
 
     def test_b4_seq(self):
         b4 = bed12.BED12(self.bed4, transcriptomic=True, fasta_index=self.index)
-        self.assertFalse(b4.invalid, (len(b4), len(self.index[b4.id])))
+        self.assertFalse(b4.invalid, (len(b4), b4.invalid_reason, len(self.index[b4.id])))
         self.assertTrue(b4.has_start_codon)
         self.assertTrue(b4.has_stop_codon)
         self.assertTrue(b4.thick_start, 641)

@@ -206,9 +206,12 @@ class BED12:
                 return
             sequence = fasta_index[self.id].seq
 
-            orf_sequence = sequence[self.thick_start - 1:self.thick_end]
-            if self.strand == "-":
-                orf_sequence = orf_sequence.reverse_complement()
+            if self.strand == "+":
+                orf_sequence = sequence[(self.thick_start - 1):self.thick_end]
+            elif self.strand == "-":
+                orf_sequence = sequence[(self.thick_start - 1):self.thick_end].reverse_complement()
+            else:
+                pass
 
             self.start_codon = str(orf_sequence)[:3]
             self.stop_codon = str(orf_sequence[-3:])
@@ -226,9 +229,9 @@ class BED12:
                                  3):
                     if orf_sequence[pos:pos+3] == "ATG":
                         # Now we have to shift the start accordingly
+                        self.has_start_codon = True
                         if self.strand == "+":
                             self.thick_start += pos
-                            self.has_start_codon = True
                         else:
                             # TODO: check that this is right and we do not have to do some other thing
                             self.thick_end -= pos
@@ -237,8 +240,15 @@ class BED12:
                         continue
                 if self.has_start_codon is False:
                     # The validity will be automatically checked
-                    self.phase = self.thick_start - 1
-                    self.thick_start = 1
+                    if self.strand == "+":
+                        self.phase = self.thick_start - 1
+                        self.thick_start = 1
+                    else:
+                        if self.end - self.thick_end <= 2:
+                            self.phase = self.end - self.thick_end
+                            self.thick_end = self.end
+                        else:
+                            self.phase = 0
 
             if self.stop_codon in ("TAA", "TGA", "TAG"):
                 self.has_stop_codon = True
@@ -408,6 +418,7 @@ class BED12:
         """
 
         if self.__internal_stop_codons >= 1:
+            self.invalid_reason = "{} internal stop codons found".format(self.__internal_stop_codons)
             return True
 
         if self.transcriptomic is True and self.__in_index is False:
@@ -483,7 +494,8 @@ class BED12:
     def phase(self, val):
 
         if val not in (None, 0, 1, 2):
-            raise ValueError("Invalid frame specified: {}. Must be None or 0, 1, 2")
+            raise ValueError("Invalid frame specified for {}: {}. Must be None or 0, 1, 2".format(
+                self.name, val))
         elif self.transcriptomic is True and val not in (0, 1, 2):
             raise ValueError("A transcriptomic BED cannot have null frame.")
         self.__phase = val

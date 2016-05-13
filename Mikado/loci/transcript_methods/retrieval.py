@@ -479,10 +479,11 @@ def __create_internal_orf(transcript, orf):
         assert transcript.start <= current_end < current_start <= transcript.end, (
             transcript.start, current_end, current_start, transcript.end
         )
-        assert (current_start - current_end + 1) % 3 == 0, (
-            current_end, current_start,
-            current_start - current_end + 1
-        )
+        # This is not true in the case of truncated ORFs!
+        # assert (current_start - current_end + 1) % 3 == 0, (
+        #     current_end, current_start,
+        #     current_start - current_end + 1
+        # )
         cds_exons.append(("exon", transcript.exons[0]))
         if current_end > transcript.start:
             cds_exons.append(("UTR", tuple([transcript.start, current_end - 1])))

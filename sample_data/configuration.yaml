@@ -117,4 +117,7 @@ serialise:
     orfs: [mikado.bed]
     junctions: [junctions.bed]
     blast_targets: uniprot_sprot_plants.fasta
-    xml: [mikado.blast.xml]
+    xml: # [mikado.blast.xml]
+      - TestBlast/
+  single_thread: false
+  procs: 2

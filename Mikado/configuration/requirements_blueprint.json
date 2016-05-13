@@ -1,16 +1,52 @@
 {
   "definitions":
-  {"parameter":
-    {"type": "object",
-      "properties":{
-      "operator": {"type": "string", "enum": ["gt", "ge", "eq", "lt", "le", "ne", "in", "not in"]},
-      "value": {"type": "number"}
-      }
+  {"parameter": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "operator": {
+                  "type": "string",
+                  "enum": ["gt", "ge", "lt", "le"]
+                },
+                "value": {
+                  "type": "number"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "operator": {
+                  "type": "string",
+                  "enum": ["eq", "ne"]
+                },
+                "value": {
+                  "type": ["number", "boolean", "string"]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "properties": {
+                "operator": {
+                  "type": "string",
+                  "enum": [
+                    "in",
+                    "not in"
+                  ]
+                },
+                "value": {
+                  "type": ["array"]
+                }
+              }
+            }
+          ]
   },
-    "expression":
-    {"type": "array", "items": {"type": "string"} }
+    "expression": {
+      "type": "array",
+      "items": {"type": "string"} }
   },
-  "required": ["parameters"],
   "properties":
   {"type": "object",
   "properties":{

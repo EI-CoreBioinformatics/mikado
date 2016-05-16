@@ -1871,8 +1871,8 @@ index {3}, internal ORFs: {4}".format(
         """This metric returns a score that is assigned to the transcript
         in virtue of its origin."""
 
-        if ("pick" in self.json_conf and
-                    self.source in self.json_conf["pick"]["source_score"]):
+        if (self.json_conf and "pick" in self.json_conf and
+                self.source in self.json_conf["pick"]["source_score"]):
             return self.json_conf["pick"]["source_score"][self.source]
         else:
             return 0

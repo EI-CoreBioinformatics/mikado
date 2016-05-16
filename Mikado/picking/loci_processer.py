@@ -595,13 +595,13 @@ class LociProcesser(Process):
         locus_metrics_file = open(locus_metrics_file, "w")
         locus_scores_file = open(locus_scores_file, "w")
 
-        score_keys = ["tid", "parent", "score"]
         if self.regressor is None:
-            score_keys += sorted(list(self.json_conf["scoring"].keys()))
+            score_keys = sorted(list(self.json_conf["scoring"].keys()))
         else:
-            score_keys += self.regressor.metrics
+            score_keys = self.regressor.metrics
         # Define mandatory output files
 
+        score_keys = ["tid", "parent", "score"] + sorted(score_keys + ["source_score"])
         self.locus_metrics = csv.DictWriter(
             locus_metrics_file,
             Superlocus.available_metrics,

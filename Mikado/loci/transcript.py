@@ -1866,6 +1866,18 @@ index {3}, internal ORFs: {4}".format(
         return distance
 
     @Metric
+    def source_score(self):
+
+        """This metric returns a score that is assigned to the transcript
+        in virtue of its origin."""
+
+        if ("pick" in self.json_conf and
+                    self.source in self.json_conf["pick"]["source_score"]):
+            return self.json_conf["pick"]["source_score"][self.source]
+        else:
+            return 0
+
+    @Metric
     def selected_end_distance_from_tes(self):
         """This property returns the distance of the end of the best CDS
         from the transcript end site.

@@ -8,7 +8,6 @@ import operator
 import collections
 import io
 from .. import exceptions
-# import logging
 import pickle
 import logging.handlers
 import random
@@ -45,6 +44,8 @@ def store_transcripts(exon_lines, logger, min_length=0):
     logger.info("Starting to organise %d transcripts", len(exon_lines))
     transcripts = collections.defaultdict(dict)
     for tid in exon_lines:
+        if "features" not in exon_lines[tid]:
+            raise KeyError("{0}: {1}\n{2}".format(tid, "features", exon_lines[tid]))
 
         if ("exon" not in exon_lines[tid]["features"] or
                 len(exon_lines[tid]["features"]["exon"]) == 0):

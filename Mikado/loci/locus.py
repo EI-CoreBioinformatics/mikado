@@ -6,6 +6,7 @@ i.e. the locus.
 """
 
 import itertools
+import operator
 from .transcript import Transcript
 from ..scales.assigner import Assigner
 from .sublocus import Sublocus
@@ -17,7 +18,7 @@ if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
     from collections import OrderedDict as SortedDict
-import operator
+
 
 class Locus(Sublocus, Abstractlocus):
     """Class that defines the final loci.
@@ -378,6 +379,9 @@ class Locus(Sublocus, Abstractlocus):
         self.scores = dict()
         for tid in self.transcripts:
             self.scores[tid] = dict()
+            # Add the score for the transcript source
+            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
+
         if self.regressor is None:
             for param in self.json_conf["scoring"]:
                 self._calculate_score(param)
@@ -436,9 +440,9 @@ class Locus(Sublocus, Abstractlocus):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.calculate_scores()
         if self.regressor is None:
-            score_keys = sorted(list(self.json_conf["scoring"].keys()))
+            score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
         else:
-            score_keys = self.regressor.metrics
+            score_keys = sorted(self.regressor.metrics + ["source_score"])
         keys = ["tid", "parent", "score"] + score_keys
 
         for tid in self.scores:

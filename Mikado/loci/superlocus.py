@@ -874,8 +874,8 @@ class Superlocus(Abstractlocus):
             return
 
         # Reset the source with the correct value
-        for tid in self.transcripts:
-            self.transcripts[tid].source = self.source
+        # for tid in self.transcripts:
+        #     self.transcripts[tid].source = self.source
 
         self.logger.debug("Calculated the transcript graph")
         self.logger.debug("Calculating the transcript communities")

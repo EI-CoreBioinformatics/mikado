@@ -419,11 +419,13 @@ memory intensive, proceed with caution!")
                 all of these are file handles
         """
 
-        score_keys = ["tid", "parent", "score"]
+        score_keys = ["source_score"]
         if self.regressor is None:
             score_keys += sorted(list(self.json_conf["scoring"].keys()))
         else:
             score_keys += self.regressor.metrics
+
+        score_keys = ["tid", "parent", "score"] + sorted(score_keys)
         # Define mandatory output files
         locus_metrics_file = open(re.sub("$", ".metrics.tsv", re.sub(
             ".gff.?$", "", self.locus_out)), "w")

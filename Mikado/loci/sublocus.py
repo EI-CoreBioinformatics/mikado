@@ -113,7 +113,8 @@ class Sublocus(Abstractlocus):
         for tid in sorted(self.transcripts, key=lambda ttid: self.transcripts[ttid]):
             self.transcripts[tid].source = self.source
             self.transcripts[tid].parent = self_line.id
-            lines.append(self.transcripts[tid].__str__(print_cds=print_cds).rstrip())
+            lines.append(self.transcripts[tid].format("gff3",
+                                                      with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
     # pylint: enable=arguments-differ
@@ -382,6 +383,8 @@ class Sublocus(Abstractlocus):
 
         for tid in self.transcripts:
             self.scores[tid] = dict()
+            # Add the score for the transcript source
+            self.scores[tid]["source_score"] = self.transcripts[tid].source_score
 
         if self.regressor is None:
             for param in self.json_conf["scoring"]:
@@ -506,10 +509,10 @@ class Sublocus(Abstractlocus):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
         self.calculate_scores()
         if self.regressor is None:
-            score_keys = sorted(list(self.json_conf["scoring"].keys()))
+            score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])
         else:
-            score_keys = self.regressor.metrics
-        keys = ["tid", "parent", "score"] + score_keys
+            score_keys = sorted(self.regressor.metrics + ["source_score"])
+        keys = ["tid", "parent", "score"] + sorted(score_keys)
 
         for tid in self.scores:
             row = dict().fromkeys(keys)
@@ -525,9 +528,15 @@ class Sublocus(Abstractlocus):
                 score_sum = sum(row[key] for key in score_keys)
                 #
                 assert round(score_sum, 2) == round(self.scores[tid]["score"], 2), (
-                    score_sum,
-                    self.transcripts[tid].score,
-                    tid)
+                    "Tid: {}; Sum: {}; Calculated: {}\nScores: {}\nRecalculated: {}".format(
+                        tid,
+                        score_sum,
+                        self.transcripts[tid].score,
+                        dict(_ for _ in self.scores[tid].items() if
+                             self.scores[tid][_[0]] != row[_[0]]),
+                        dict(_ for _ in row.items() if
+                             self.scores[tid][_[0]] != row[_[0]])
+                    ))
             yield row
 
     def get_metrics(self):

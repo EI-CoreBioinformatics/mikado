@@ -51,6 +51,8 @@ def create_transcript(lines,
     try:
         transcript_line = Transcript()
         transcript_line.chrom = lines["chrom"]
+        if "source" in lines:
+            transcript_line.source = lines["source"]
         transcript_line.strand = lines["strand"]
         transcript_line.attributes.update(lines["attributes"])
         transcript_line.feature = "transcript"

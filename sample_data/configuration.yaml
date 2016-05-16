@@ -81,6 +81,11 @@ pick:
     single_thread: true
     intron_range: [60, 900]
   scoring_file: plants.yaml # test.model
+  source_score:
+     st: 3
+     tr: -1
+     cuff: 0
+     cl: 2
 prepare:
   #  Options related to the input data preparation.
   #  - gff: array of GFF3/GTF files containing the predictions. Required.

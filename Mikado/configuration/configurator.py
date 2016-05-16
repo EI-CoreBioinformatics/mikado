@@ -473,8 +473,8 @@ def check_json(json_conf, simple=False):
     json_conf = check_db(json_conf)
     # json_conf = check_blast(json_conf, json_file)
     validator.validate(json_conf)
-    json_conf["prepare"]["canonical"] = tuple([tuple(_) for _
-                                               in json_conf["prepare"]["canonical"]])
+    # json_conf["prepare"]["canonical"] = tuple([tuple(_) for _
+    #                                            in json_conf["prepare"]["canonical"]])
     if not json_conf["multiprocessing_method"]:
         json_conf["multiprocessing_method"] = get_start_method()
 

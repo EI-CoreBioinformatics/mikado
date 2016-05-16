@@ -174,6 +174,8 @@ def load_from_gff(exon_lines,
             if label != '':
                 row.id = "{0}_{1}".format(label, row.id)
                 exon_lines[row.id]["source"] = label
+            else:
+                exon_lines[row.id]["source"] = row.source
             transcript2genes[row.id] = row.parent[0]
             if row.id in found_ids:
                 __raise_redundant(row.id, gff_handle.name, label)
@@ -209,6 +211,8 @@ def load_from_gff(exon_lines,
                         exon_lines[tid]["attributes"] = row.attributes.copy()
                         if label:
                             exon_lines[tid]["source"] = label
+                        else:
+                            exon_lines[tid]["source"] = row.source
                         exon_lines[tid]["chrom"] = row.chrom
                         exon_lines[tid]["strand"] = row.strand
                         exon_lines[tid]["features"] = dict()
@@ -277,6 +281,8 @@ def load_from_gtf(exon_lines,
                 # __raise_invalid(row.transcript, gff_handle.name, label)
             if label:
                 exon_lines[row.transcript]["source"] = label
+            else:
+                exon_lines[row.transcript]["source"] = row.source
             exon_lines[row.transcript]["features"] = dict()
             exon_lines[row.transcript]["chrom"] = row.chrom
             exon_lines[row.transcript]["strand"] = row.strand
@@ -294,7 +300,10 @@ def load_from_gtf(exon_lines,
             __raise_redundant(row.transcript, gff_handle.name, label)
         assert row.transcript is not None
         if row.transcript not in exon_lines:
-            exon_lines[row.transcript]["source"] = label
+            if label:
+                exon_lines[row.transcript]["source"] = label
+            else:
+                exon_lines[row.transcript]["source"] = row.source
             exon_lines[row.transcript]["chrom"] = row.chrom
             exon_lines[row.transcript]["strand"] = row.strand
             exon_lines[row.transcript]["exon"] = []

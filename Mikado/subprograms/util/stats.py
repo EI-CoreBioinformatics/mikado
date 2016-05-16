@@ -6,7 +6,6 @@ It can take both GTF and GFF files as input."""
 
 import sys
 import argparse
-# import re
 import csv
 from ...exceptions import InvalidCDS
 from .. import to_gff
@@ -295,7 +294,6 @@ class Calculator:
         if array is None or len(array) == 0:
             return row
 
-        # array, weights = array
         array, weights = array
 
         row["Average"] = "{0:,.2f}".format(round(
@@ -548,7 +546,11 @@ class Calculator:
         if total is False:
             total = "NA"
         elif total is True:
-            total = len(self.__arrays[stat])
+            if len(self.__arrays[stat]) == 2 and isinstance(
+                        self.__arrays[stat], numpy.ndarray):
+                total = len(self.__arrays[stat][0])
+            else:
+                total = len(self.__arrays[stat])
         else:
             if total is sum:
                 try:
@@ -558,7 +560,14 @@ class Calculator:
                     total = "NA"
             elif not isinstance(total, int):
                 assert total in self.__arrays
-                total = len(self.__arrays[total])
+                if len(self.__arrays[total]) == 2 and isinstance(
+                        self.__arrays[total], numpy.ndarray):
+
+                    total = len(self.__arrays[total][0])
+                else:
+                    total = len(self.__arrays[total])
+            else:
+                pass  # Just keep the total that was passed from the external
 
         row["Total"] = total
         if stat in self.__arrays:

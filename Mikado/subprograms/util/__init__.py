@@ -13,6 +13,7 @@ from . import stats
 from . import trim
 from . import grep
 from . import merge_blast
+from . import convert
 import argparse
 
 __author__ = 'Luca Venturini'
@@ -33,6 +34,11 @@ def util_parser():
                      help="Script to retrieve specific feature slices from a GTF file.")
     utils.choices["awk_gtf"] = awk_gtf.awk_parser()
     utils.choices["awk_gtf"].prog = "mikado.py util awk_gtf"
+
+    utils.add_parser("convert",
+                     help="Script to do GTF <-> GFF3 > BED12 conversions.")
+    utils.choices["convert"] = convert.convert_parser()
+    utils.choices["convert"].prog = "mikado.py util convert"
 
     utils.add_parser("grep",
                      help="Script to extract specific models from GFF/GTF files.")

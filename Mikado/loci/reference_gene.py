@@ -330,14 +330,14 @@ class Gene:
 
     def format(self, format_name):
 
-        if format_name not in ("gff", "gtf", "gff3"):
+        if format_name not in ("gff", "gtf", "gff3", "bed12", "bed"):
             raise ValueError(
-                "Invalid format: {0}. Accepted formats: gff/gff3 (equivalent), gtf".format(
+                "Invalid format: {0}. Accepted formats: bed/bed12 (equivalent), gff/gff3 (equivalent), gtf".format(
                     format_name))
 
         self.finalize()  # Necessary to sort the exons
         lines = []
-        if format_name != "gtf":
+        if format_name in ("gff", "gff3"):
             line = GffLine(None)
             for attr in ["chrom",
                          "source",
@@ -355,6 +355,8 @@ class Gene:
         for tid, transcript in sorted(self.transcripts.items(), key=operator.itemgetter(1)):
             lines.append(transcript.format(format_name))
 
+        if format_name in ("gff", "gff3"):
+            lines.append("###")
         return "\n".join(lines)
 
     @property

@@ -221,6 +221,8 @@ class GffLine(GFAnnotation):
 
         if self.is_transcript is True:
             return self.parent[0]
+        elif self.is_gene:
+            return self.id
         else:
             return None
 

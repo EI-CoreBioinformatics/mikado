@@ -96,6 +96,7 @@ def to_gff(string):
     Function to recognize the input file type (GFF or GTF).
     :param string:
     :type string: str
+    :rtype: (Mikado.parsers.GTF.GTF | Mikado.parsers.GFF.GFF3)
     """
     handle = open(string)
     if string.endswith("gtf"):

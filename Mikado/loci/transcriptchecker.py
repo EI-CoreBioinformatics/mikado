@@ -8,7 +8,6 @@ to verify that e.g. the assigned strand is correct.
 from .transcript import Transcript
 from ..exceptions import IncorrectStrandError
 from collections import Counter
-from functools import partial
 from itertools import zip_longest
 
 
@@ -233,7 +232,6 @@ Aborting.""".format(self.id,
         Private method that checks whether an intron has canonical splice sites
         or not.
         :param intron: the intron tuple (int,int) in 1-base offset
-        :param canonical_splices: list of acceptable splice tuples, e.g.
         [("AG","GT")]
         :return: strand of the intron (None | "+" | "-")
         """

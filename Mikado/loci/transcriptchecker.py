@@ -70,7 +70,14 @@ class TranscriptChecker(Transcript):
         self.lenient = lenient
         self.mixed_splices = False
         self.reversed = False
-        self.canonical_splices = canonical_splices
+        self.canonical_splices = []
+        if not isinstance(canonical_splices, (tuple, list)):
+            raise ValueError("Canonical splices should be provided as lists or tuples")
+
+        for canonical_splice in canonical_splices:
+            self.canonical_splices.append((str(canonical_splice[0]),
+                                           str(canonical_splice[1])))
+
         self.canonical_junctions = []
         self.logger = logger
     # pylint: enable=too-many-arguments

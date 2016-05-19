@@ -314,7 +314,7 @@ def serialise_parser():
                       """)
     orfs.add_argument("-mr", "--max-regression", dest="max_regression",
                       type=float, default=None,
-                      help=""""Amount of sequence in the ORF (in %) to backtrack
+                      help=""""Amount of sequence in the ORF (in %%) to backtrack
                       in order to find a valid START codon, if one is absent. Default: %(default)s""")
 
     blast = parser.add_argument_group()

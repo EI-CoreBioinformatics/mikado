@@ -17,8 +17,9 @@ import queue
 import logging
 from . import HeaderError
 from ..utilities.log_utils import create_null_logger
-# from Bio.Blast.NCBIXML import parse as xparser
 from .blast_xml import BlastXmlParser as xparser
+import xml.etree.ElementTree
+
 
 __author__ = 'Luca Venturini'
 
@@ -76,11 +77,14 @@ class BlastOpener:
 
     def __enter__(self):
 
-        self.__create_handle()
-        if self.__parser_created is False:
-            self.parser = xparser(self.__handle)
-            self.__parser_created = True
-        return self
+        try:
+            self.__create_handle()
+            if self.__parser_created is False:
+                self.parser = xparser(self.__handle)
+                self.__parser_created = True
+            return self
+        except xml.etree.ElementTree.ParseError:
+            self.__closed = True
 
     def open(self):
         self.__enter__()
@@ -120,7 +124,11 @@ class BlastOpener:
             self.close()
             self.__closed = False
             self.__opened = False
-        self.__create_handle()
+        try:
+            self.__create_handle()
+        except xml.etree.ElementTree.ParseError as exc:
+            return False, None, xml.etree.ElementTree.ParseError("{0} ({1})".format(exc,
+                                                                                    self.__filename))
 
         header = []
         exc = None

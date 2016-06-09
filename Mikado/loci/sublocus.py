@@ -113,8 +113,10 @@ class Sublocus(Abstractlocus):
         for tid in sorted(self.transcripts, key=lambda ttid: self.transcripts[ttid]):
             self.transcripts[tid].source = self.source
             self.transcripts[tid].parent = self_line.id
-            lines.append(self.transcripts[tid].format("gff3",
-                                                      with_cds=print_cds).rstrip())
+            lines.append(self.transcripts[tid].format(
+                "gff3",
+                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
     # pylint: enable=arguments-differ
@@ -221,6 +223,7 @@ class Sublocus(Abstractlocus):
                         to_remove.update(clique)
                 if purge is False or selected_transcript.score > 0:
                     new_locus = Monosublocus(selected_transcript, logger=self.logger)
+                    new_locus.json_conf = self.json_conf
                     self.monosubloci.append(new_locus)
             if len(to_remove) < 1:
                 message = "No transcripts to remove from the pool for {0}\n".format(self.id)
@@ -344,6 +347,7 @@ class Sublocus(Abstractlocus):
                     self.metrics_calculated = False
                     if self.excluded is None:
                         excluded = Monosublocus(self.transcripts[tid], logger=self.logger)
+                        excluded.json_conf = self.json_conf
                         self.excluded = Excluded(excluded)
                     else:
                         self.excluded.add_transcript_to_locus(self.transcripts[tid])

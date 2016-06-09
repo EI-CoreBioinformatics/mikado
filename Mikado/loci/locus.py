@@ -102,7 +102,10 @@ class Locus(Sublocus, Abstractlocus):
                         continue
                     transcript_instance.attributes[attribute] = self.attributes[attribute]
 
-            lines.append(transcript_instance.__str__(print_cds=print_cds).rstrip())
+            lines.append(transcript_instance.format(
+                "gff", with_cds=print_cds,
+                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"]
+            ).rstrip())
 
         return "\n".join(lines)
 
@@ -334,7 +337,8 @@ class Locus(Sublocus, Abstractlocus):
 
         self.logger.debug("Calculating metrics for %s", tid)
         self.transcripts[tid].finalize()
-        if self.transcripts[tid].number_internal_orfs <= 1:
+        if (self.transcripts[tid].number_internal_orfs <= 1 or
+                    self.json_conf["pick"]["output_format"]["report_all_orfs"] is False):
             super().calculate_metrics(tid)
         else:
             transcript = self.transcripts[tid]

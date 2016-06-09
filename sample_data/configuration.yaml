@@ -49,6 +49,7 @@ pick:
     execute: true
   output_format:
     source: test
+    report_all_orfs: true
   files:
     #  Input and output files for Mikado pick.
     #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf

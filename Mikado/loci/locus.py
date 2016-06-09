@@ -284,7 +284,8 @@ class Locus(Sublocus, Abstractlocus):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True
-        elif other.strand is None and result.ccode[0] in ("_", "o", "e", "m", "mo", "rI"):
+        # Adding c's because fragments might very well be contained!
+        elif other.strand is None and result.ccode[0] in ("_", "o", "e", "m", "mo", "rI", "c", "C"):
             self.logger.debug("Unstranded {0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True

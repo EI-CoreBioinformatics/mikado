@@ -45,7 +45,7 @@ class Gene:
                 self.id = transcr.parent[0]
                 self.transcripts[transcr.id] = transcr
             elif isinstance(transcr, GffLine):
-                assert transcr.is_gene is True
+                assert transcr.is_gene is True, str(transcr)
                 self.__from_gene = True
                 self.id = transcr.id
                 self.attributes = transcr.attributes.copy()
@@ -413,6 +413,15 @@ class Gene:
         :rtype : int
         """
         return len(self.transcripts)
+
+    @property
+    def num_coding_transcripts(self):
+        """
+        Number of coding transcripts
+        :return:
+        """
+
+        return len([_ for _ in self.transcripts if self.transcripts[_].is_coding is True])
 
     @property
     def is_coding(self):

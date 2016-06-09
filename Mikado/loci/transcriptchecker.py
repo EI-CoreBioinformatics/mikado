@@ -8,7 +8,6 @@ to verify that e.g. the assigned strand is correct.
 from .transcript import Transcript
 from ..exceptions import IncorrectStrandError
 from collections import Counter
-from functools import partial
 from itertools import zip_longest
 
 
@@ -70,7 +69,14 @@ class TranscriptChecker(Transcript):
         self.lenient = lenient
         self.mixed_splices = False
         self.reversed = False
-        self.canonical_splices = canonical_splices
+        self.canonical_splices = []
+        if not isinstance(canonical_splices, (tuple, list)):
+            raise ValueError("Canonical splices should be provided as lists or tuples")
+
+        for canonical_splice in canonical_splices:
+            self.canonical_splices.append((str(canonical_splice[0]),
+                                           str(canonical_splice[1])))
+
         self.canonical_junctions = []
         self.logger = logger
     # pylint: enable=too-many-arguments
@@ -226,7 +232,6 @@ Aborting.""".format(self.id,
         Private method that checks whether an intron has canonical splice sites
         or not.
         :param intron: the intron tuple (int,int) in 1-base offset
-        :param canonical_splices: list of acceptable splice tuples, e.g.
         [("AG","GT")]
         :return: strand of the intron (None | "+" | "-")
         """

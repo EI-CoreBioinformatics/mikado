@@ -153,13 +153,16 @@ def __create_exon_line(transcript, segment, counter, cds_begin,
 # pylint: enable=too-many-arguments
 
 
-def create_lines_cds(transcript, to_gtf=False, with_introns=False):
+def create_lines_cds(transcript,
+                     to_gtf=False,
+                     with_introns=False,
+                     all_orfs=False):
 
     """
     Method to create the GTF/GFF lines for printing in the presence of CDS information.
     WARNING: at the moment, the phase support is disabled.
     :param transcript: the transcript instance
-    :type transcript: Mikado.loci_objects.transcript.Transcript
+    :type transcript: Mikado.loci.transcript.Transcript
 
     :param to_gtf: boolean, it indicates whether the output is GTF (True) or GFF3 (False)
 
@@ -179,7 +182,12 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
     if transcript.is_coding is False:
         lines = create_lines_no_cds(transcript, to_gtf=to_gtf, with_introns=with_introns)
     else:
-        for index, cds_run in enumerate(transcript.internal_orfs):
+        if all_orfs is True:
+            iterable = transcript.internal_orfs
+        else:
+            iterable = [transcript.selected_internal_orf]
+
+        for index, cds_run in enumerate(iterable):
             transcript.logger.debug("CDS run for %s: %s", transcript.id, cds_run)
             if transcript.number_internal_orfs > 1:
                 transcript_counter += 1
@@ -210,6 +218,7 @@ def create_lines_cds(transcript, to_gtf=False, with_introns=False):
 
             lines.append(str(parent_line))
             lines.extend(exon_lines)
+
     return lines
 
 

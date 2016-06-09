@@ -440,7 +440,10 @@ class Transcript:
             self.add_exon(exon, feature)
         return
 
-    def format(self, format_name, with_introns=False, with_cds=True):
+    def format(self, format_name,
+               with_introns=False,
+               with_cds=True,
+               all_orfs=False):
 
         """
         Method to format the string representation of the object. Available formats:
@@ -452,6 +455,9 @@ class Transcript:
         :type with_introns: bool
         :param with_cds: if set to False, CDS lines will be omitted from the output
         :type with_cds: bool
+        :param all_orfs: boolean flags that indicates whether all ORFs of a transcript
+        should be printed, or only the primary one (default).
+        :type: all_orfs: bool
         :return: the formatted string
         :rtype: str
         """
@@ -467,7 +473,11 @@ class Transcript:
         else:
             to_gtf = (format_name == "gtf")
             if with_cds is True:
-                lines = create_lines_cds(self, to_gtf=to_gtf, with_introns=with_introns)
+                lines = create_lines_cds(self,
+                                         to_gtf=to_gtf,
+                                         with_introns=with_introns,
+                                         all_orfs=all_orfs
+                                         )
             else:
                 lines = create_lines_no_cds(self, to_gtf=to_gtf, with_introns=with_introns)
 

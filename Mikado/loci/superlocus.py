@@ -225,6 +225,18 @@ class Superlocus(Abstractlocus):
 
     # This discrepancy with the base class is necessary
     # pylint: disable=arguments-differ
+
+    def format(self, print_cds=True, level=None):
+
+        """
+        Alias for __str__.
+        :param print_cds: Boolean. It indicates whether to print the CDS features or not.
+        :param level: level which we wish to print for. Can be "loci", "subloci", "monosubloci"
+        :return: formatted GFF strings
+        """
+        return self.__str__(print_cds=print_cds,
+                            level=level)
+
     def __str__(self, level=None, print_cds=True):
 
         """

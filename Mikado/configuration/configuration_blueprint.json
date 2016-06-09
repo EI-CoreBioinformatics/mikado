@@ -387,6 +387,10 @@
             "id_prefix": {
               "type": "string",
               "default": "mikado"
+            },
+            "report_all_orfs": {
+              "type": "boolean",
+              "default": false
             }
           }
         },

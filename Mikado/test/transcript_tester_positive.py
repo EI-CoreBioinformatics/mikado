@@ -187,7 +187,7 @@ Chr5\tStringTie\tCDS\t22602039\t22602517\t.\t+\t2\tID=StringTie_DN.70115.4.orf2.
 Chr5\tStringTie\texon\t22602039\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.exon3;Parent=StringTie_DN.70115.4.orf2
 Chr5\tStringTie\tthree_prime_UTR\t22602518\t22602701\t.\t+\t.\tID=StringTie_DN.70115.4.orf2.three_prime_UTR1;Parent=StringTie_DN.70115.4.orf2"""
 
-        self.assertEqual(str(self.tr),
+        self.assertEqual(self.tr.format("gff", all_orfs=True),
                          real_printed)
 
     def test_print_without_cds(self):

@@ -65,7 +65,10 @@ class Monosublocus(Abstractlocus):
                         continue
                     transcript_instance.attributes[attribute] = self.attributes[attribute]
 
-            lines.append(transcript_instance.__str__(print_cds=print_cds).rstrip())
+            lines.append(transcript_instance.format(
+                "gff",
+                all_orfs=self.json_conf["pick"]["output_format"]["report_all_orfs"],
+                with_cds=print_cds).rstrip())
 
         return "\n".join(lines)
     # pylint: enable=arguments-differ

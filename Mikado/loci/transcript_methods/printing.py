@@ -189,7 +189,7 @@ def create_lines_cds(transcript,
 
         for index, cds_run in enumerate(iterable):
             transcript.logger.debug("CDS run for %s: %s", transcript.id, cds_run)
-            if transcript.number_internal_orfs > 1:
+            if transcript.number_internal_orfs > 1 and all_orfs is True:
                 transcript_counter += 1
                 tid = "{0}.orf{1}".format(transcript.id, transcript_counter)
 

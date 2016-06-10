@@ -375,7 +375,7 @@ class Calculator:
         if self.only_coding is True and gene.is_coding is False:
             return
 
-        self.__positions[gene.chrom].append((gene.start, gene.end, gene.strand))
+        self.__positions[gene.chrom].append((gene.start, gene.end, str(gene.strand)))
         self.__stores["genes"].add(gene.id)
         if gene.is_coding is True:
             self.__coding_positions[gene.chrom].append((gene.start, gene.end, gene.strand))
@@ -383,6 +383,9 @@ class Calculator:
 
         self.__stores["transcripts_per_gene"].update([gene.num_transcripts])
         self.__stores["coding_transcripts_per_gene"].update([gene.num_coding_transcripts])
+
+        if gene.monoexonic is True:
+            self.__stores["monoexonic_genes"].add(gene.id)
 
         for tid in gene.transcripts:
             self.__stores["exons"].update(
@@ -525,16 +528,16 @@ class Calculator:
         #                      total=sum(len(x.coding_transcripts) for x in self.coding_genes))
         self.__write_statrow("Coding transcripts per gene", total=numpy.dot)
 
-        self.__write_statrow('CDNA lengths', total=False)
-        self.__write_statrow("CDNA lengths (mRNAs)", total=False)
-        self.__write_statrow('CDS lengths', total=False)
+        self.__write_statrow('CDNA lengths', total=numpy.dot)
+        self.__write_statrow("CDNA lengths (mRNAs)", total=numpy.dot)
+        self.__write_statrow('CDS lengths', total=numpy.dot)
         if self.only_coding is False:
             self.__write_statrow("CDS lengths (mRNAs)", total=False)
 
         self.__write_statrow("CDS/cDNA ratio", total=False)
 
-        self.__write_statrow('Monoexonic transcripts')
-        self.__write_statrow('MonoCDS transcripts')
+        self.__write_statrow('Monoexonic transcripts', total=sum)
+        self.__write_statrow('MonoCDS transcripts', total=sum)
         self.__write_statrow('Exons per transcript', total=numpy.dot)
 
         if self.only_coding is False:
@@ -554,12 +557,12 @@ class Calculator:
             self.__write_statrow("CDS exons per transcript (mRNAs)",
                                  total="CDS exon lengths")
 
-        self.__write_statrow("CDS exon lengths", total=sum)
-        self.__write_statrow("CDS Intron lengths", total=sum)
+        self.__write_statrow("CDS exon lengths", total=numpy.dot)
+        self.__write_statrow("CDS Intron lengths", total=numpy.dot)
         self.__write_statrow("5'UTR exon number", total=sum)
         self.__write_statrow("3'UTR exon number", total=sum)
-        self.__write_statrow("5'UTR length", total=sum, )
-        self.__write_statrow("3'UTR length", total=sum)
+        self.__write_statrow("5'UTR length", total=numpy.dot)
+        self.__write_statrow("3'UTR length", total=numpy.dot)
         self.__write_statrow("Stop distance from junction",
                              total=False)
         self.__write_statrow("Intergenic distances", total=False)

@@ -368,7 +368,7 @@ class Gene:
         :rtype: bool
         """
 
-        return any(transcript.monoexonic is False for transcript in self.transcripts.values())
+        return all(transcript.monoexonic is True for transcript in self.transcripts.values())
 
     @property
     def introns(self):
@@ -402,9 +402,9 @@ class Gene:
         """
         return any(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
 
-    @property
-    def monoexonic(self):
-        return all(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
+    # @property
+    # def monoexonic(self):
+    #     return all(len(self.transcripts[tid].introns) == 0 for tid in self.transcripts.keys())
 
     @property
     def num_transcripts(self):

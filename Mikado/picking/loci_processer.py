@@ -44,7 +44,7 @@ def print_gene(current_gene, gene_counter, handle, prefix):
     transcripts = sorted(transcripts,
                          key=lambda _:
                          (current_gene["transcripts"][_]["transcript"].start,
-                         current_gene["transcripts"][_]["transcript"].end))
+                          current_gene["transcripts"][_]["transcript"].end))
     # transcript_counter = 1
 
     for transcript in transcripts:
@@ -511,7 +511,7 @@ class LociProcesser(Process):
                 self.regressor = pickle.load(forest)
             from sklearn.ensemble import RandomForestRegressor
             if not isinstance(self.regressor, RandomForestRegressor):
-                exc=TypeError("Invalid regressor provided, type: %s", type(self.regressor))
+                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor))
                 self.logger.critical(exc)
                 self.exitcode = 9
                 self.join()

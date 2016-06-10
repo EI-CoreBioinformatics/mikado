@@ -81,6 +81,7 @@ pick:
     procs: 5
     single_thread: true
     intron_range: [60, 900]
+    flank: 1000
   scoring_file: plants.yaml # test.model
   source_score:
      st: 3

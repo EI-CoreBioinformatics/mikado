@@ -854,12 +854,14 @@ memory intensive, proceed with caution!")
                 if current_transcript is not None and invalid is False:
                     self.__test_sortedness(row, current_transcript)
                     if Superlocus.in_locus(
-                            current_locus, current_transcript) is True:
+                            current_locus, current_transcript,
+                            flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
                         current_locus.add_transcript_to_locus(current_transcript,
                                                               check_in_locus=False)
                     else:
                         counter += 1
-                        self.logger.debug("Submitting locus # %d", counter)
+                        self.logger.debug("Submitting locus # %d (%s)", counter,
+                                          None if not current_locus else current_locus.id)
                         locus_queue.put((current_locus, counter))
                         current_locus = Superlocus(
                             current_transcript,
@@ -880,12 +882,14 @@ memory intensive, proceed with caution!")
 
         if current_transcript is not None and invalid is False:
             if Superlocus.in_locus(
-                    current_locus, current_transcript) is True:
+                    current_locus, current_transcript,
+                    flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
             else:
                 counter += 1
-                self.logger.debug("Submitting locus # %d", counter)
+                self.logger.debug("Submitting locus #%d (%s)", counter,
+                                  None if not current_locus else current_locus.id)
                 locus_queue.put((current_locus, counter))
 
                 current_locus = Superlocus(
@@ -897,7 +901,8 @@ memory intensive, proceed with caution!")
                                   current_locus)
         elif invalid is True and current_locus is not None:
             counter += 1
-            self.logger.debug("Submitting locus # %d", counter)
+            self.logger.debug("Submitting locus #%d (%s)", counter,
+                              None if not current_locus else current_locus.id)
             locus_queue.put((current_locus, counter))
 
         self.logger.info("Finished chromosome %s", current_locus.chrom)
@@ -1008,7 +1013,8 @@ memory intensive, proceed with caution!")
                 if current_transcript is not None and invalid is False:
                     self.__test_sortedness(row, current_transcript)
                     if Superlocus.in_locus(
-                            current_locus, current_transcript) is True:
+                            current_locus, current_transcript,
+                            flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
                         current_locus.add_transcript_to_locus(current_transcript,
                                                               check_in_locus=False)
                     else:
@@ -1048,7 +1054,8 @@ memory intensive, proceed with caution!")
 
         if current_transcript is not None and invalid is False:
             if Superlocus.in_locus(
-                    current_locus, current_transcript) is True:
+                    current_locus, current_transcript,
+                    flank=self.json_conf["pick"]["run_options"]["flank"]) is True:
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
             else:

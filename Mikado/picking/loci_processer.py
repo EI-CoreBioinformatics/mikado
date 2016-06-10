@@ -286,8 +286,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
         for _, locus_instance in stranded_locus.loci.items():
             locus_instance.logger = logger
             total += 1
-            to_check = (locus_instance.monoexonic is True and
-                        locus_instance.primary_transcript.combined_cds_length < mcdl)
+            to_check = (locus_instance.primary_transcript.combined_cds_length < mcdl)
             loci_to_check[to_check].add(locus_instance)
 
     if len(loci_to_check[True]) == total:

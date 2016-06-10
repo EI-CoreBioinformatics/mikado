@@ -461,7 +461,7 @@ class Calculator:
 
         self.__arrays['CDNA lengths'] = numpy.array(list(
             zip(*self.__stores["cdna_lengths"].items())))
-        self.__arrays["cDNA lengths (mRNAs)"] = numpy.array(list(
+        self.__arrays["CDNA lengths (mRNAs)"] = numpy.array(list(
             zip(*self.__stores["cdna_lengths_coding"].items())))
         self.__arrays['CDS lengths'] = numpy.array(list(
             zip(*self.__stores["cds_lengths"].items())))

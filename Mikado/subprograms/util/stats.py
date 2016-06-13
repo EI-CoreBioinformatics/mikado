@@ -460,11 +460,9 @@ class Calculator:
 
     def __finalize_arrays(self):
 
-        self.__arrays["Transcripts per gene"] = itemize(self.__stores["transcripts_per_gene"].items())
+        self.__arrays["Transcripts per gene"] = itemize(self.__stores["transcripts_per_gene"])
 
-        self.__arrays["Coding transcripts per gene"] = itemize(
-            self.__stores["coding_transcripts_per_gene"].items()
-        )
+        self.__arrays["Coding transcripts per gene"] = itemize(self.__stores["coding_transcripts_per_gene"])
         self.__arrays["Intergenic distances"] = itemize(Counter(self.__distances))
         self.__arrays["Intergenic distances (coding)"] = itemize(Counter(self.__coding_distances))
 

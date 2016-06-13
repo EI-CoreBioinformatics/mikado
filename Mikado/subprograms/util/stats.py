@@ -25,6 +25,21 @@ numpy.warnings.filterwarnings("ignore")
 # pylint: enable=E1101
 
 
+def itemize(counter):
+    """
+    Private static method to convert a counter into a 2-dimensional numpy array.
+    :param counter: the counter to transform
+    :type counter: Counter
+    :return: Numpy array of the counter
+    :rtype: array
+    """
+
+    if len(counter) == 0:
+        return numpy.array([[], []])  # Empty 2dimensional array
+    else:
+        return numpy.array(list(zip(*counter.items())))
+
+
 def weighted_percentile(a, percentile=numpy.array([75, 25]), weights=None):
     """
     O(nlgn) implementation for weighted_percentile.
@@ -42,7 +57,7 @@ def weighted_percentile(a, percentile=numpy.array([75, 25]), weights=None):
     percentile = numpy.array(percentile)/100.0
 
     if isinstance(a, Counter):
-        a, weigths = numpy.array(list(zip(*a.items())))
+        a, weigths = itemize(a)
     else:
         assert isinstance(a, (list, set, tuple, numpy.ndarray)), (a, type(a))
         if not isinstance(a, type(numpy.array)):
@@ -445,67 +460,42 @@ class Calculator:
 
     def __finalize_arrays(self):
 
-        self.__arrays["Transcripts per gene"] = numpy.array(
-            list(zip(
-                *self.__stores["transcripts_per_gene"].items()
-            )))
+        self.__arrays["Transcripts per gene"] = itemize(self.__stores["transcripts_per_gene"].items())
 
-        self.__arrays["Coding transcripts per gene"] = numpy.array(
-            list(zip(
-                *self.__stores["coding_transcripts_per_gene"].items()
-            )))
-        self.__arrays["Intergenic distances"] = numpy.array(
-            list(zip(*Counter(self.__distances).items())))
-        self.__arrays["Intergenic distances (coding)"] = numpy.array(
-            list(zip(*Counter(self.__coding_distances).items())))
+        self.__arrays["Coding transcripts per gene"] = itemize(
+            self.__stores["coding_transcripts_per_gene"].items()
+        )
+        self.__arrays["Intergenic distances"] = itemize(Counter(self.__distances))
+        self.__arrays["Intergenic distances (coding)"] = itemize(Counter(self.__coding_distances))
 
-        self.__arrays['CDNA lengths'] = numpy.array(list(
-            zip(*self.__stores["cdna_lengths"].items())))
-        self.__arrays["CDNA lengths (mRNAs)"] = numpy.array(list(
-            zip(*self.__stores["cdna_lengths_coding"].items())))
-        self.__arrays['CDS lengths'] = numpy.array(list(
-            zip(*self.__stores["cds_lengths"].items())))
+        self.__arrays['CDNA lengths'] = itemize(self.__stores["cdna_lengths"])
+        self.__arrays["CDNA lengths (mRNAs)"] = itemize(self.__stores["cdna_lengths_coding"])
+        self.__arrays['CDS lengths'] = itemize(self.__stores["cds_lengths"])
         if self.only_coding is False:
             __lengths = self.__stores["cds_lengths"].copy()
             # del __lengths[0]  # Why?
-            self.__arrays["CDS lengths (mRNAs)"] = numpy.array(list(zip(*__lengths.items())))
-            self.__arrays['Exons per transcript (mRNAs)'] = numpy.array(
-                list(zip(*self.__stores["exon_num_coding"].items())))
-            self.__arrays['Exon lengths (mRNAs)'] = numpy.array(
-                list(zip(*self.__stores["exons_coding"].items())))
-            self.__arrays["CDS exons per transcript (mRNAs)"] = numpy.array(
-                list(zip(*self.__stores["cds_exon_num_coding"].items())))
+            self.__arrays["CDS lengths (mRNAs)"] = itemize(__lengths)
+            self.__arrays['Exons per transcript (mRNAs)'] = itemize(self.__stores["exon_num_coding"])
+            self.__arrays['Exon lengths (mRNAs)'] = itemize(self.__stores["exons_coding"])
+            self.__arrays["CDS exons per transcript (mRNAs)"] = itemize(
+                self.__stores["cds_exon_num_coding"])
 
-        self.__arrays['Monoexonic transcripts'] = numpy.array(
-            list(zip(*self.__stores["monoexonic_lengths"].items())))
-        self.__arrays['MonoCDS transcripts'] = numpy.array(
-            list(zip(*self.__stores["monocds_lengths"].items())))
-        self.__arrays['Exons per transcript'] = numpy.array(
-            list(zip(*self.__stores["exon_num"].items())))
-        self.__arrays['Exon lengths'] = numpy.array(
-            list(zip(*self.__stores["exons"].items())))
-        self.__arrays["Intron lengths"] = numpy.array(
-            list(zip(*self.__stores["introns"].items())))
-        self.__arrays["Intron lengths (mRNAs)"] = numpy.array(
-            list(zip(*self.__stores["introns_coding"].items())))
-        self.__arrays["CDS exons per transcript"] = numpy.array(
-            list(zip(*self.__stores["cds_exon_num"].items())))
-        self.__arrays["CDS exon lengths"] = numpy.array(
-            list(zip(*self.__stores["cds_exons"].items())))
-        self.__arrays["CDS Intron lengths"] = numpy.array(
-            list(zip(*self.__stores["cds_introns"].items())))
-        self.__arrays["5'UTR exon number"] = numpy.array(
-            list(zip(*self.__stores["five_utr_nums"].items())))
-        self.__arrays["3'UTR exon number"] = numpy.array(
-            list(zip(*self.__stores["three_utr_nums"].items())))
-        self.__arrays["5'UTR length"] = numpy.array(
-            list(zip(*self.__stores["five_utr_lengths"].items())))
-        self.__arrays["3'UTR length"] = numpy.array(
-            list(zip(*self.__stores["three_utr_lengths"].items())))
-        self.__arrays["Stop distance from junction"] = numpy.array(
-            list(zip(*self.__stores["end_distance_from_junction"].items())))
-        self.__arrays["CDS/cDNA ratio"] = numpy.array(
-            list(zip(*self.__stores["cds_ratio"].items())))
+        self.__arrays['Monoexonic transcripts'] = itemize(self.__stores["monoexonic_lengths"])
+        self.__arrays['MonoCDS transcripts'] = itemize(self.__stores["monocds_lengths"])
+        self.__arrays['Exons per transcript'] = itemize(self.__stores["exon_num"])
+        self.__arrays['Exon lengths'] = itemize(self.__stores["exons"])
+        self.__arrays["Intron lengths"] = itemize(self.__stores["introns"])
+        self.__arrays["Intron lengths (mRNAs)"] = itemize(self.__stores["introns_coding"])
+        self.__arrays["CDS exons per transcript"] = itemize(self.__stores["cds_exon_num"])
+        self.__arrays["CDS exon lengths"] = itemize(self.__stores["cds_exons"])
+        self.__arrays["CDS Intron lengths"] = itemize(self.__stores["cds_introns"])
+        self.__arrays["5'UTR exon number"] = itemize(self.__stores["five_utr_nums"])
+        self.__arrays["3'UTR exon number"] = itemize(self.__stores["three_utr_nums"])
+        self.__arrays["5'UTR length"] = itemize(self.__stores["five_utr_lengths"])
+        self.__arrays["3'UTR length"] = itemize(self.__stores["three_utr_lengths"])
+        self.__arrays["Stop distance from junction"] = itemize(
+            self.__stores["end_distance_from_junction"])
+        self.__arrays["CDS/cDNA ratio"] = itemize(self.__stores["cds_ratio"])
     # pylint: enable=too-many-locals,too-many-statements
 
     def writer(self):
@@ -520,12 +510,8 @@ class Calculator:
         self.__write_statrow("Number of monoexonic genes",
                              len(self.__stores["monoexonic_genes"])
                              )
-        # self.__write_statrow('Number of transcripts',
-        #                      total=sum)
         self.__write_statrow('Transcripts per gene',
                              total=numpy.dot)
-        # self.__write_statrow("Number of coding transcripts",
-        #                      total=sum(len(x.coding_transcripts) for x in self.coding_genes))
         self.__write_statrow("Coding transcripts per gene", total=numpy.dot)
 
         self.__write_statrow('CDNA lengths', total=numpy.dot)

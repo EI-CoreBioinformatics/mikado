@@ -316,16 +316,19 @@ class Calculator:
 
         array, weights = array
 
-        row["Average"] = "{0:,.2f}".format(round(
-            sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
+        if len(weights) > 0 and sum(weights) != 0:
+            row["Average"] = "{0:,.2f}".format(round(
+                sum(_[0] * _[1] for _ in zip(array, weights)) / sum(weights), 2))
+            sorter = numpy.argsort(weights)
+            try:
+                moder = array[sorter][weights[sorter].searchsorted(weights.max()):]
+            except TypeError as exc:
+                raise TypeError((exc, array, weights, sorter))
+            row["Mode"] = ";".join(str(x) for x in moder)
+        else:
+            row["Average"] = "NA"
+            row["Mode"] = "NA"
 
-        sorter = numpy.argsort(weights)
-
-        try:
-            moder = array[sorter][weights[sorter].searchsorted(weights.max()):]
-        except TypeError as exc:
-            raise TypeError((exc, array, weights, sorter))
-        row["Mode"] = ";".join(str(x) for x in moder)
         keys = ['Min', '1%', '5%', '10%', '25%', 'Median', '75%', '90%', '95%', '99%', 'Max']
         if len(array) == 0:
             quantiles = ["NA"]*len(keys)

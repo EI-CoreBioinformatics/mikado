@@ -131,8 +131,8 @@ def check_scoring(json_conf):
 
         if not jsonschema.Draft4Validator(scoring_schema).is_valid(
                 json_conf["scoring"][parameter]):
-            errors = list(jsonschema.Draft4Validator(scoring_schema).iter_errors(
-                json_conf["scoring"][parameter]))
+            errors = [str(_) for _ in list(jsonschema.Draft4Validator(scoring_schema).iter_errors(
+                json_conf["scoring"][parameter]))]
             raise InvalidJson("Invalid scoring for {}:\n{}".format(
                 parameter, "\n".join(errors)))
 

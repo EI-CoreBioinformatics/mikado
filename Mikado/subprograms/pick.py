@@ -6,9 +6,8 @@
 import argparse
 import sys
 from ..picking import Picker
-from ..configuration.configurator import to_json
-# from . import to_gff
-from ..exceptions import UnsortedInput
+from ..configuration.configurator import to_json, check_json
+from ..exceptions import UnsortedInput, InvalidJson
 
 
 def check_log_settings(args):
@@ -65,6 +64,9 @@ def check_run_options(args):
     if args.purge is not None:
         args.json_conf["pick"]["run_options"]["purge"] = True
 
+    if args.flank is not None:
+        args.json_conf["pick"]["run_options"]["flank"] = args.flank
+
     if args.output_dir is not None:
         args.json_conf["pick"]["files"]["output_dir"] = args.output_dir
 
@@ -91,6 +93,8 @@ def check_run_options(args):
                         val = "{0}.gff3".format(val)
 
                 args.json_conf["pick"]["files"][key] = val
+
+    args.json_conf = check_json(args.json_conf)
 
     return args
 
@@ -141,6 +145,9 @@ def pick_parser():
                         will be printed out in the GFF output files.""")
     parser.add_argument('--source', type=str, default=None,
                         help='Source field to use for the output files.')
+    parser.add_argument("--flank", default=None, type=int,
+                        help="""Flanking distance (in bps) to group non-overlapping transcripts
+                        into a single superlocus. Default: determined by the configuration file.""")
     parser.add_argument('--purge', action='store_true', default=False,
                         help='''Flag. If set, the pipeline will suppress any loci
                         whose transcripts do not pass the requirements set in the JSON file.''')

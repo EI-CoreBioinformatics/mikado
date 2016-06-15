@@ -859,10 +859,11 @@ memory intensive, proceed with caution!")
                         current_locus.add_transcript_to_locus(current_transcript,
                                                               check_in_locus=False)
                     else:
-                        counter += 1
-                        self.logger.debug("Submitting locus # %d (%s)", counter,
-                                          None if not current_locus else current_locus.id)
-                        locus_queue.put((current_locus, counter))
+                        if current_locus is not None:
+                            counter += 1
+                            self.logger.debug("Submitting locus # %d (%s)", counter,
+                                              None if not current_locus else current_locus.id)
+                            locus_queue.put((current_locus, counter))
                         current_locus = Superlocus(
                             current_transcript,
                             stranded=False,
@@ -887,10 +888,11 @@ memory intensive, proceed with caution!")
                 current_locus.add_transcript_to_locus(
                     current_transcript, check_in_locus=False)
             else:
-                counter += 1
-                self.logger.debug("Submitting locus #%d (%s)", counter,
-                                  None if not current_locus else current_locus.id)
-                locus_queue.put((current_locus, counter))
+                if current_locus is not None:
+                    counter += 1
+                    self.logger.debug("Submitting locus #%d (%s)", counter,
+                                      None if not current_locus else current_locus.id)
+                    locus_queue.put((current_locus, counter))
 
                 current_locus = Superlocus(
                     current_transcript,

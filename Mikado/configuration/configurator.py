@@ -259,6 +259,13 @@ def check_requirements(json_conf, require_schema):
 
     for key in keys:  # Create the final expression
         newexpr = re.sub(key, "evaluated[\"{0}\"]".format(key), newexpr)
+
+    # Test the expression
+    try:
+        compile(newexpr, "<json>", "eval")
+    except SyntaxError:
+        raise InvalidJson("Invalid requirements expression:\n{}".format(newexpr))
+
     json_conf["requirements"]["expression"] = newexpr
     return json_conf
 

@@ -42,6 +42,11 @@ def compare_parser():
                          help="""Flag. If set, the reference will be compared with itself.
                          Useful for understanding how the reference transcripts interact
                          with each other.""")
+    targets.add_argument("--internal", default=False,
+                         action="store_true",
+                         help="""Flag. If set, for each gene with more than one transcript isoform
+                         each will be compared to the others. Useful for understanding the structural
+                         relationships between the transcripts in each gene.""")
     targets.add_argument("--index", default=False,
                          action="store_true",
                          help="""Flag. If set, compare will stop after

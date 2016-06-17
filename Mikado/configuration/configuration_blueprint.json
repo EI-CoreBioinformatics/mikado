@@ -170,6 +170,8 @@
         "- out_fasta: output transcript FASTA file",
         "- lenient: if set to True, invalid transcripts will be only flagged and not removed. EXPERIMENTAL.",
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
+        "- strand_specific_assemblies: array of input predictions which are to be considered as strand-specific.",
+        "  Predictions not in this list will be considered as non-strand-specific.",
         "- canonical: canonical splice sites, to infer the correct orientation."
       ],
       "SimpleComment": ["Options related to the input data preparation.",
@@ -197,6 +199,8 @@
         "single": {"type": "boolean", "default": false},
         "lenient": {"type": "boolean", "default": false},
         "strand_specific": {"type": "boolean", "default": false},
+        "strand_specific_assemblies": {"type": "array",
+                                       "default": []},
         "canonical": {"type": "array", "default": [
             ["GT", "AG"],
             ["GC", "AG"],

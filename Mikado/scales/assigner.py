@@ -120,6 +120,7 @@ class Assigner:
         self.tmap_rower.writeheader()
         self.done = 0
         self.stat_calculator = stat_calculator
+        self.self_analysis = self.stat_calculator.self_analysis
 
     def add_to_refmap(self, result: ResultStorer) -> None:
         """
@@ -368,7 +369,6 @@ class Assigner:
                               prediction.id,
                               matches)
             results, best_result = self.__check_for_fusions(prediction, matches)
-
         else:
             matches = [self.genes[_] for _
                        in self.positions[prediction.chrom][matches[0][0]]]
@@ -378,9 +378,136 @@ class Assigner:
                 results.extend([self.calc_and_store_compare(prediction, tra) for tra in match])
 
             results = sorted(results, reverse=True,
-                             key=operator.attrgetter("j_f1", "n_f1"))
+                             key=self.get_f1)
 
             best_result = results[0]
+
+        return results, best_result
+
+    def self_analyse_prediction(self, prediction: Transcript, distances):
+
+        assert len(distances) >= 1 and distances[0][1] == 0
+
+        genes = []
+        __gene_removed = False
+        __gene_found = False
+        for distance in distances:
+            for posis in self.positions[prediction.chrom][distance[0]]:
+                gene = self.genes[posis]
+                if prediction.id in gene.transcripts.keys():
+                    __gene_found = True
+                    if len(gene.transcripts) == 1:
+                        # self.logger.warning("Ignoring {} for transcript {}".format(gene.id,
+                        #                                                            prediction.id))
+                        __gene_removed = True
+                        continue
+                genes.append((self.genes[posis], distance[1]))
+
+        if __gene_found is False:
+            raise AssertionError("Parent for {} not found in the index!".format(prediction.id))
+
+        genes = sorted(genes, key=operator.itemgetter(1))
+
+        # noinspection PyUnresolvedReferences
+        if len(genes) == 0 or genes[0][1] > self.args.distance:
+            # noinspection PyTypeChecker,PyUnresolvedReferences
+            best_result = ResultStorer("-", "-",
+                                       "u",
+                                       prediction.id,
+                                       prediction.parent[0],
+                                       prediction.exon_num,
+                                       "-",
+                                       *[0] * 9 + ["-"])
+            self.stat_calculator.store(prediction, best_result, None)
+            results = [best_result]
+        elif genes[0][1] > 0:
+            results = [self.calc_and_store_compare(prediction, reference)
+                       for reference in genes[0][0]]
+            best_result = sorted(results,
+                                 key=operator.attrgetter("distance"))[0]
+        else:
+            # All other cases
+            genes = [_[0] for _ in genes if _[1] == 0]
+            same_strand = False
+            if prediction.strand is not None:
+                same_strand_genes = [_ for _ in genes if _.strand == prediction.strand]
+                if len(same_strand_genes) >= 1:
+                    genes = same_strand_genes
+                    same_strand = True
+
+            if len(genes) == 1:
+                results = [self.calc_and_store_compare(prediction, reference)
+                           for reference in genes[0] if reference.id != prediction.id]
+                assert len(results) > 0, (genes[0].transcripts.keys(), prediction.id)
+                best_result = sorted(results,
+                                     key=operator.attrgetter("distance"))[0]
+
+            else:
+                result_dict = dict()
+                results = []
+
+                for gene in genes:
+                    if gene.id in prediction.parent:
+                        if prediction.id not in gene.transcripts:
+                            raise AssertionError("{} not found in {}!".format(prediction.id, gene.id))
+                        elif len(gene.transcripts) == 1:
+                            raise AssertionError(
+                                "We should have ignored {}! Gene removed: {}".format(
+                                    gene.id, __gene_removed))
+
+                    result_dict[gene.id] = sorted(
+                        [self.calc_and_store_compare(prediction, reference)
+                         for reference in gene if reference.id != prediction.id],
+                        key=self.get_f1,
+                        reverse=True)
+                    if len(result_dict[gene.id]) == 0:
+                        raise AssertionError(
+                            "Nothing found for {} vs. {} (transcripts: {})".format(
+                                gene.id, prediction.id, ", ".join(list(gene.transcripts.keys()))
+                            ))
+
+                    # best.append(result_dict[gene.id][0])
+
+                if same_strand is True:
+                    # This is a fusion, period
+                    results = []
+                    best_results = []
+                    for gene in result_dict:
+
+
+                        if result_dict[gene][0].n_recall[0] > 10 or result_dict[gene][0].j_f1[0] > 0:
+                            results.extend(result_dict[gene])
+                            best_results.append(result_dict[gene][0])
+                    if len(best_results) == 1:
+                        best_result = best_results[0]
+                    elif len(best_results) > 1:
+                        values = []
+                        for key in ResultStorer.__slots__:
+                            if key in ["gid", "tid", "distance", "tid_num_exons"]:
+                                values.append(getattr(best_results[0], key))
+                            elif key == "ccode":
+                                values.append(tuple(["f"] + [_.ccode[0] for _ in best_results]))
+                            else:
+                                val = tuple([getattr(result, key)[0] for result in best_results])
+                                values.append(val)
+                        best_result = ResultStorer(*values)
+                        for result in results:
+                            if result.j_f1[0] > 0 or result.n_recall[0] > 10:
+                                result.ccode = ("f", result.ccode[0])
+
+                # Check how many
+                if not results:
+                    # This is not a fusion. Let us just select the best match.
+                    best = None
+                    for gene in result_dict:
+                        if best is None:
+                            best = [gene, result_dict[gene][0]]
+                        else:
+                            if sorted([best[1], result_dict[gene][0]],
+                                      key=self.get_f1, reverse=True)[0] == result_dict[gene][0]:
+                                best = [gene, result_dict[gene][0]]
+                    results = result_dict[best[0]]
+                    best_result = best[1]
 
         return results, best_result
 
@@ -423,36 +550,39 @@ class Assigner:
             keys = IntervalTree()
 
         # noinspection PyUnresolvedReferences
+        # Here I am getting all the hits within striking distance for my hit
         distances = self.find_neighbours(keys,
                                          (prediction.start, prediction.end),
                                          distance=self.args.distance)
-        self.logger.debug("Distances for %s: %s",
-                          prediction.id,
-                          distances)
-
-        # Unknown transcript
-        # noinspection PyUnresolvedReferences
-        if len(distances) == 0 or distances[0][1] > self.args.distance:
-            ccode = "u"
-            # noinspection PyTypeChecker,PyUnresolvedReferences
-            best_result = ResultStorer("-", "-",
-                                       ccode,
-                                       prediction.id,
-                                       prediction.parent[0],
-                                       prediction.exon_num,
-                                       "-",
-                                       *[0] * 9 + ["-"])
-            self.stat_calculator.store(prediction, best_result, None)
-            results = [best_result]
-        elif distances[0][1] > 0:
-            # Polymerase run-on
-            match = self.genes[self.positions[prediction.chrom][distances[0][0]][0]]
-            results = [self.calc_and_store_compare(prediction, reference) for reference in match]
-            best_result = sorted(results,
-                                 key=operator.attrgetter("distance"))[0]
+        if self.self_analysis is True:
+            results, best_result = self.self_analyse_prediction(prediction, distances)
         else:
-            # All other cases
-            results, best_result = self.__prepare_result(prediction, distances)
+            self.logger.debug("Distances for %s: %s",
+                              prediction.id,
+                              distances)
+            # Unknown transcript
+            # noinspection PyUnresolvedReferences
+            if len(distances) == 0 or distances[0][1] > self.args.distance:
+                ccode = "u"
+                # noinspection PyTypeChecker,PyUnresolvedReferences
+                best_result = ResultStorer("-", "-",
+                                           ccode,
+                                           prediction.id,
+                                           prediction.parent[0],
+                                           prediction.exon_num,
+                                           "-",
+                                           *[0] * 9 + ["-"])
+                self.stat_calculator.store(prediction, best_result, None)
+                results = [best_result]
+            elif distances[0][1] > 0:
+                # Polymerase run-on
+                match = self.genes[self.positions[prediction.chrom][distances[0][0]][0]]
+                results = [self.calc_and_store_compare(prediction, reference) for reference in match]
+                best_result = sorted(results,
+                                     key=operator.attrgetter("distance"))[0]
+            else:
+                # All other cases
+                results, best_result = self.__prepare_result(prediction, distances)
 
         for result in results:
             self.add_to_refmap(result)
@@ -660,7 +790,8 @@ class Assigner:
 
                 for row in rows:
                     if best_pick is not None:
-                        assert row[2] != "NA", row
+                        if self.self_analysis is False:
+                            assert row[2] != "NA", row
                         row = out_tuple(row[0],  # Ref TID
                                         row[2],  # class code
                                         row[3],  # Pred TID

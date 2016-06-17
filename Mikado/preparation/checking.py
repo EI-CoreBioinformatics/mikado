@@ -104,7 +104,7 @@ class CheckingProcess(multiprocessing.Process):
                  gtf_out,
                  tmpdir,
                  lenient=False,
-                 strand_specific=False,
+                 # strand_specific=False,
                  canonical_splices=(("GT", "AG"),
                                     ("GC", "AG"),
                                     ("AT", "AC")),
@@ -113,7 +113,7 @@ class CheckingProcess(multiprocessing.Process):
 
         super().__init__()
         self.__identifier = identifier
-        self.strand_specific = strand_specific
+        # self.strand_specific = strand_specific
         self.canonical = canonical_splices
         self.log_level = log_level
         self.logger = None
@@ -136,10 +136,9 @@ class CheckingProcess(multiprocessing.Process):
 
         checker = functools.partial(create_transcript,
                                     lenient=self.lenient,
-                                    strand_specific=self.strand_specific,
+                                    # strand_specific=self.strand_specific,
                                     canonical_splices=self.canonical,
-                                    logger=self.logger
-                      )
+                                    logger=self.logger)
 
         fasta_out = open(self.fasta_out, "w")
         gtf_out = open(self.gtf_out, "w")
@@ -157,7 +156,8 @@ class CheckingProcess(multiprocessing.Process):
             transcript = checker(lines,
                                  str(self.fasta[lines["chrom"]][start-1:end]),
                                  start,
-                                 end)
+                                 end,
+                                 strand_specific=lines["strand_specific"])
 
             if transcript is None:
                 self.logger.debug("%s failed the check", lines["tid"])

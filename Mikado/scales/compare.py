@@ -22,6 +22,7 @@ from ..loci.transcript import Transcript
 from ..parsers.GFF import GFF3
 from ..utilities.log_utils import create_default_logger
 from ..exceptions import CorruptIndex
+from ..utilities import to_gff
 import json
 import gzip
 import itertools
@@ -202,8 +203,11 @@ def parse_prediction(args, genes, positions, queue_logger):
     assigner_instance = Assigner(genes, positions, args, accountant_instance)
 
     transcript = None
+    if hasattr(args, "self") and args.self is True:
+        args.prediction = to_gff(args.reference.name)
     ref_gff = isinstance(args.prediction, GFF3)
     __found_with_orf = set()
+
     for row in args.prediction:
         if row.header is True:
             continue
@@ -419,7 +423,7 @@ def compare(args):
                            "\n\t".join(list(genes.keys())[:20]))
 
         try:
-            if hasattr(args, "self") and args.self is True:
+            if hasattr(args, "internal") and args.internal is True:
                 parse_self(args, genes, queue_logger)
             else:
                 parse_prediction(args, genes, positions, queue_logger)

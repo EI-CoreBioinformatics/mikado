@@ -57,11 +57,11 @@ class AnnotationParser(multiprocessing.Process):
         found_ids = set()
         self.logger.debug("Starting to listen to the queue")
         while True:
-            label, handle = self.submission_queue.get()
+            label, handle, strand_specific = self.submission_queue.get()
             if handle == "EXIT":
                 self.submission_queue.put(("EXIT", label))
                 break
-            self.logger.debug("Received %s (label: %s)", handle, label)
+            self.logger.debug("Received %s (label: %s; SS: %s)", handle, label, strand_specific)
             try:
                 gff_handle = to_gff(handle)
                 if gff_handle.__annot_type__ == "gff3":
@@ -70,14 +70,16 @@ class AnnotationParser(multiprocessing.Process):
                                                         label,
                                                         found_ids,
                                                         self.logger,
-                                                        strip_cds=self.__strip_cds)
+                                                        strip_cds=self.__strip_cds,
+                                                        strand_specific=strand_specific)
                 else:
                     exon_lines, new_ids = load_from_gtf(exon_lines,
                                                         gff_handle,
                                                         label,
                                                         found_ids,
                                                         self.logger,
-                                                        strip_cds=self.__strip_cds)
+                                                        strip_cds=self.__strip_cds,
+                                                        strand_specific=strand_specific)
                 if len(new_ids) == 0:
                     raise exceptions.InvalidAssembly(
                         "No valid transcripts found in {0}{1}!".format(
@@ -145,7 +147,8 @@ def load_from_gff(exon_lines,
                   label,
                   found_ids,
                   logger,
-                  strip_cds=False):
+                  strip_cds=False,
+                  strand_specific=False):
     """
     Method to load the exon lines from GFF3 files.
     :param exon_lines: the defaultdict which stores the exon lines.
@@ -158,6 +161,8 @@ def load_from_gff(exon_lines,
     :type logger: logging.Logger
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
+    :param strand_specific: whether the assembly is strand-specific or not.
+    :type strand_specific: bool
     :return:
     """
 
@@ -183,7 +188,7 @@ def load_from_gff(exon_lines,
                 # This might sometimes happen in GMAP
                 logger.warning(
                     "Multiple instance of %s found, skipping any subsequent entry",
-                row.id)
+                    row.id)
                 to_ignore.add(row.id)
                 continue
                 # __raise_invalid(row.id, gff_handle.name, label)
@@ -194,6 +199,7 @@ def load_from_gff(exon_lines,
             exon_lines[row.id]["tid"] = row.transcript
             exon_lines[row.id]["parent"] = row.parent
             exon_lines[row.id]["features"] = dict()
+            exon_lines[row.id]["strand_specific"] = strand_specific
             continue
         elif not row.is_exon:
             continue
@@ -218,6 +224,7 @@ def load_from_gff(exon_lines,
                         exon_lines[tid]["features"] = dict()
                         exon_lines[row.id]["tid"] = tid
                         exon_lines[row.id]["parent"] = transcript2genes[tid]
+                        exon_lines[row.id]["strand_specific"] = strand_specific
                     else:
                         if "exon_number" in row.attributes:
                             del row.attributes["exon_number"]
@@ -241,7 +248,8 @@ def load_from_gtf(exon_lines,
                   label,
                   found_ids,
                   logger,
-                  strip_cds=False):
+                  strip_cds=False,
+                  strand_specific=False):
     """
     Method to load the exon lines from GTF files.
     :param exon_lines: the defaultdict which stores the exon lines.
@@ -255,6 +263,8 @@ def load_from_gtf(exon_lines,
     :type logger: logging.Logger
     :param strip_cds: boolean flag. If true, all CDS lines will be ignored.
     :type strip_cds: bool
+    :param strand_specific: whether the assembly is strand-specific or not.
+    :type strand_specific: bool
     :return:
     """
 
@@ -274,8 +284,7 @@ def load_from_gtf(exon_lines,
                 __raise_redundant(row.transcript, gff_handle.name, label)
             if row.transcript in exon_lines:
                 logger.warning(
-                    "Multiple instance of %s found, skipping any subsequent entry",
-                row.id)
+                    "Multiple instance of %s found, skipping any subsequent entry", row.id)
                 to_ignore.add(row.id)
                 continue
                 # __raise_invalid(row.transcript, gff_handle.name, label)
@@ -289,8 +298,10 @@ def load_from_gtf(exon_lines,
             exon_lines[row.transcript]["attributes"] = row.attributes.copy()
             exon_lines[row.transcript]["tid"] = row.id
             exon_lines[row.transcript]["parent"] = row.gene
+            exon_lines[row.id]["strand_specific"] = strand_specific
             if "exon_number" in exon_lines[row.id]["attributes"]:
                 del exon_lines[row.id]["attributes"]["exon_number"]
+
             continue
         if row.is_exon is False or (row.is_cds is True and strip_cds is True):
             continue
@@ -310,6 +321,7 @@ def load_from_gtf(exon_lines,
             exon_lines[row.transcript]["attributes"] = row.attributes.copy()
             exon_lines[row.id]["tid"] = row.transcript
             exon_lines[row.id]["parent"] = row.gene
+            exon_lines[row.id]["strand_specific"] = strand_specific
         else:
             if row.transcript in to_ignore:
                 continue

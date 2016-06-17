@@ -45,6 +45,9 @@ class Accountant:
         self.ref_genes = dict()
         self.pred_genes = dict()
         self.__setup_reference_data(genes)
+        self.self_analysis = False
+        if hasattr(args, "self") and args.self is True:
+            self.self_analysis = True
 
     def __setup_reference_data(self, genes):
 

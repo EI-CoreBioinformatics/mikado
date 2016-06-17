@@ -7,6 +7,7 @@ Minimal checks.
 
 import logging
 import operator
+import copy
 from .transcript import Transcript
 from ..exceptions import InvalidTranscript, InvalidCDS
 from ..parsers.GFF import GffLine
@@ -89,7 +90,7 @@ class Gene:
     def logger(self, logger):
         """Set a logger for the instance.
         :param logger
-        :type logger: logging.Logger | Nonell
+        :type logger: logging.Logger | None
         """
         if isinstance(logger, logging.Logger):
             self.__logger = logger
@@ -102,6 +103,13 @@ class Gene:
 
         for tid in self.transcripts:
             self.transcripts[tid].logger = logger
+
+    @logger.deleter
+    def logger(self):
+        """
+        Destroyer for the logger. It sets the internal __logger attribute to None.
+        """
+        self.__logger = None
 
     def add(self, transcr: Transcript):
         """
@@ -296,8 +304,11 @@ class Gene:
         return len(self.transcripts)
 
     def __getstate__(self):
-        state = self.__dict__
-        state["logger"] = None
+
+        logger = self.logger
+        del self.logger
+        state = self.__dict__.copy()
+        self.logger = logger
         return state
 
     def __setstate__(self, state):
@@ -358,6 +369,16 @@ class Gene:
         if format_name in ("gff", "gff3"):
             lines.append("###")
         return "\n".join(lines)
+
+    def copy(self):
+
+        """Method to return a deep copy of the gene."""
+
+        logger = self.logger
+        del self.logger
+        state = copy.deepcopy(self)
+        self.logger = logger
+        return state
 
     @property
     def monoexonic(self):

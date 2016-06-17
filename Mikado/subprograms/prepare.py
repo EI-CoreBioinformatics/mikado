@@ -108,6 +108,15 @@ def setup(args):
     if args.strand_specific is True:
         args.json_conf["prepare"]["strand_specific"] = True
 
+    elif args.strand_specific_assemblies is not None:
+        args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
+        if len(args.strand_specific_assemblies) > len(args.json_conf["prepare"]["gff"]):
+            raise ValueError("Incorrect number of strand-specific assemblies specified!")
+        for member in args.strand_specific_assemblies:
+            if member not in args.json_conf["prepare"]["gff"]:
+                raise ValueError("Incorrect assembly file specified as strand-specific")
+        args.json_conf["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
+
     if args.strip_cds is True:
         args.json_conf["prepare"]["strip_cds"] = True
 
@@ -161,11 +170,20 @@ def prepare_parser():
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
-    parser.add_argument("-s", "--strand-specific", dest="strand_specific",
+    strand = parser.add_mutually_exclusive_group()
+    strand.add_argument("-s", "--strand-specific", dest="strand_specific",
                         action="store_true", default=False,
                         help="""Flag. If set, monoexonic transcripts
                         will be left on their strand rather than being
                         moved to the unknown strand.""")
+    strand.add_argument("-sa", "--strand-specific-assemblies",
+                        default=None,
+                        type=str,
+                        dest="strand_specific_assemblies",
+                        help="Comma-delimited list of strand specific assemblies.")
+    parser.add_argument("--list", type=argparse.FileType("r"),
+                        help="""Tab-delimited file containing rows with the following format
+                        <file>  <label> <strandedness>""")
     parser.add_argument("-l", "--log", type=argparse.FileType("w"), default=None,
                         help="Log file. Optional.")
     parser.add_argument("--lenient", action="store_true", default=None,

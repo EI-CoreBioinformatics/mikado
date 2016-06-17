@@ -137,7 +137,7 @@ def perform_check(keys, exon_lines, args, logger):
         partial_checker = functools.partial(
             create_transcript,
             lenient=args.json_conf["prepare"]["lenient"],
-            strand_specific=args.json_conf["prepare"]["strand_specific"],
+            # strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
             logger=logger)
 
@@ -145,7 +145,8 @@ def perform_check(keys, exon_lines, args, logger):
             transcript_object = partial_checker(
                 exon_lines[tid],
                 str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]),
-                key[0], key[1],)
+                key[0], key[1],
+                strand_specific=exon_lines[tid]["strand_specific"])
             if transcript_object is None:
                 continue
             counter += 1
@@ -171,7 +172,7 @@ def perform_check(keys, exon_lines, args, logger):
             os.path.basename(args.json_conf["prepare"]["out"].name),
             args.tempdir.name,
             lenient=args.json_conf["prepare"]["lenient"],
-            strand_specific=args.json_conf["prepare"]["strand_specific"],
+            # strand_specific=args.json_conf["prepare"]["strand_specific"],
             canonical_splices=args.json_conf["prepare"]["canonical"],
             log_level=args.level) for _ in range(args.procs)]
 
@@ -227,8 +228,10 @@ def load_exon_lines(args, logger):
         logger.info("Starting to load lines from %d files (single-threaded)",
                     len(args.json_conf["prepare"]["gff"]))
         previous_file_ids = collections.defaultdict(set)
-        for label, gff_name in zip(args.json_conf["prepare"]["labels"],
-                                   args.json_conf["prepare"]["gff"]):
+        for label, strand_specific, gff_name in zip(
+                args.json_conf["prepare"]["labels"],
+                args.json_conf["prepare"]["strand_specific_assemblies"],
+                args.json_conf["prepare"]["gff"]):
             logger.info("Starting with %s", gff_name)
             gff_handle = to_gff(gff_name)
             found_ids = set.union(set(), *previous_file_ids.values())
@@ -236,12 +239,14 @@ def load_exon_lines(args, logger):
                 exon_lines, new_ids = load_from_gff(exon_lines, gff_handle,
                                                     label, found_ids,
                                                     logger,
-                                                    strip_cds=strip_cds)
+                                                    strip_cds=strip_cds,
+                                                    strand_specific=strand_specific)
             else:
                 exon_lines, new_ids = load_from_gtf(exon_lines, gff_handle,
                                                     label, found_ids,
                                                     logger,
-                                                    strip_cds=strip_cds)
+                                                    strip_cds=strip_cds,
+                                                    strand_specific=strand_specific)
 
             previous_file_ids[gff_handle.name] = new_ids
     else:
@@ -259,9 +264,11 @@ def load_exon_lines(args, logger):
             log_level=args.level,
             strip_cds=strip_cds) for _ in range(threads)]
         [_.start() for _ in working_processes]
-        for label, gff_name in zip(args.json_conf["prepare"]["labels"],
-                                   args.json_conf["prepare"]["gff"]):
-            submission_queue.put((label, gff_name))
+        for label, strand_specific, gff_name in zip(
+                args.json_conf["prepare"]["labels"],
+                args.json_conf["prepare"]["strand_specific_assemblies"],
+                args.json_conf["prepare"]["gff"]):
+            submission_queue.put((label, gff_name, strand_specific))
 
         submission_queue.put(("EXIT", "EXIT"))
 
@@ -333,6 +340,13 @@ def prepare(args, logger):
 
     assert len(args.json_conf["prepare"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
+
+    if args.json_conf["prepare"]["strand_specific"] is True:
+        args.json_conf["prepare"]["strand_specific_assemblies"] = [True] * len(args.json_conf["prepare"]["gff"])
+    else:
+        args.json_conf["prepare"]["strand_specific_assemblies"] = [
+            (member in args.json_conf["prepare"]["strand_specific_assemblies"])
+            for member in args.json_conf["prepare"]["gff"]]
 
     logger.propagate = False
     if args.json_conf["prepare"]["single"] is False and args.procs > 1:

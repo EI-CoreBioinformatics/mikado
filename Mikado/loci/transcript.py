@@ -409,14 +409,16 @@ class Transcript:
 
         segment = tuple([start, end])
         if segment in store:
-            raise InvalidTranscript(
-                "Attempt to add {} to {}, but it is already present!".format(
-                    segment, self.id))
+            # raise InvalidTranscript(
+            #     "Attempt to add {} to {}, but it is already present!".format(
+            #         segment, self.id))
+            return
         # assert isinstance(segment[0], int) and isinstance(segment[1], int)
         if self.__expandable is True:
             self.start = min([self.start, start])
             self.end = max([self.end, end])
         store.append(segment)
+        return
 
     def add_exons(self, exons, features=None):
 

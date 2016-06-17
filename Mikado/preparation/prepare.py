@@ -144,7 +144,7 @@ def perform_check(keys, exon_lines, args, logger):
         for tid, chrom, key in keys:
             transcript_object = partial_checker(
                 exon_lines[tid],
-                str(args.json_conf["prepare"]["fasta"][chrom][key[0]-1:key[1]]),
+                str(args.json_conf["reference"]["fasta"][chrom][key[0]-1:key[1]]),
                 key[0], key[1],
                 strand_specific=exon_lines[tid]["strand_specific"])
             if transcript_object is None:
@@ -166,7 +166,7 @@ def perform_check(keys, exon_lines, args, logger):
         working_processes = [CheckingProcess(
             submission_queue,
             args.logging_queue,
-            args.json_conf["prepare"]["fasta"].filename,
+            args.json_conf["reference"]["fasta"].filename,
             _ + 1,
             os.path.basename(args.json_conf["prepare"]["out_fasta"].name),
             os.path.basename(args.json_conf["prepare"]["out"].name),
@@ -326,17 +326,17 @@ def prepare(args, logger):
     :type logger: logging.Logger
     """
 
-    if not isinstance(args.json_conf["prepare"]["fasta"], io.TextIOWrapper):
-        if not (isinstance(args.json_conf["prepare"]["fasta"], str) and
-                os.path.exists(args.json_conf["prepare"]["fasta"])):
+    if not isinstance(args.json_conf["reference"]["fasta"], io.TextIOWrapper):
+        if not (isinstance(args.json_conf["reference"]["fasta"], str) and
+                os.path.exists(args.json_conf["reference"]["fasta"])):
             logger.critical("Invalid FASTA file: %s",
-                            args.json_conf["prepare"]["fasta"])
+                            args.json_conf["reference"]["fasta"])
             sys.exit(1)
         else:
             pass
     else:
-        args.json_conf["prepare"]["fasta"].close()
-        args.json_conf["prepare"]["fasta"] = args.json_conf["prepare"]["fasta"].name
+        args.json_conf["reference"]["fasta"].close()
+        args.json_conf["reference"]["fasta"] = args.json_conf["reference"]["fasta"].name
 
     assert len(args.json_conf["prepare"]["gff"]) > 0
     assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
@@ -371,7 +371,7 @@ def prepare(args, logger):
         args.json_conf["prepare"]["out"]), 'w')
 
     logger.info("Loading reference file")
-    args.json_conf["prepare"]["fasta"] = pyfaidx.Fasta(args.json_conf["prepare"]["fasta"])
+    args.json_conf["reference"]["fasta"] = pyfaidx.Fasta(args.json_conf["reference"]["fasta"])
 
     logger.info("Finished loading genome file")
     logger.info("Started loading exon lines")

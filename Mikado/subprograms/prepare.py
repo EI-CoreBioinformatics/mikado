@@ -127,11 +127,15 @@ def setup(args):
                 args.labels = [""] * len(args.json_conf["prepare"]["gff"])
                 args.json_conf["prepare"]["labels"] = args.labels
 
-    for option in ["out", "out_fasta", "fasta",
+    for option in ["out", "out_fasta",
                    "minimum_length", "procs", "single"]:
         if ((getattr(args, option) or getattr(args, option) == 0) and
                 getattr(args, option) is not False):
             args.json_conf["prepare"][option] = getattr(args, option)
+
+    if ((getattr(args, "fasta") or getattr(args, "fasta") == 0) and
+            getattr(args, "fasta") is not False):
+        args.json_conf["reference"]["fasta"] = args.fasta
 
     if args.lenient is not None:
         args.json_conf["prepare"]["lenient"] = True

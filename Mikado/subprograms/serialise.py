@@ -13,7 +13,6 @@ import os
 import sys
 import logging
 import logging.handlers
-
 import sqlalchemy
 from ..configuration import configurator
 from ..utilities import path_join
@@ -21,6 +20,7 @@ from ..utilities.log_utils import create_default_logger, formatter
 from ..utilities import dbutils
 from ..serializers import orf, blast_serializer, junction
 from ..exceptions import InvalidJson
+import pyfaidx
 
 __author__ = 'Luca Venturini'
 
@@ -63,9 +63,7 @@ def load_junctions(args, logger):
     """
 
     if args.json_conf["serialise"]["files"]["junctions"] is not None:
-        if ("genome_fai" not in args.json_conf["serialise"]["files"] or
-                args.json_conf["serialise"]["files"]["genome_fai"] is None):
-
+        if args.json_conf["reference"]["genome_fai"] is None:
             exc = InvalidJson(
                 "Missing the genome FAI file for serialising the junctions. \
 I cannot proceed with this step!")
@@ -212,14 +210,16 @@ def setup(args):
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
-    if args.genome_fai is not None:
-        args.json_conf["serialise"]["files"]["genome_fai"] = args.genome_fai
-    else:
-        if (args.json_conf["serialise"]["files"]["junctions"] is not None and
-                ("genome_fai" not in args.json_conf["serialise"]["files"] or
-                    args.json_conf["serialise"]["files"]["genome_fai"] is None)):
-            logger.critical("Missing FAI file for junction loading!")
-            sys.exit(1)
+    if args.json_conf["serialise"]["files"]["junctions"] is not None:
+        if args.genome_fai is not None:
+            args.json_conf["reference"]["genome_fai"] = args.genome_fai
+        elif args.json_conf["reference"]["genome_fai"] is None:
+            if args.json_conf["reference"]["fasta"] is not None:
+                _ = pyfaidx.Fasta(args.json_conf["reference"]["fasta"])
+                args.json_conf["reference"]["genome_fai"] = _.faidx.filename
+            else:
+                logger.critical("Missing FAI file for junction loading!")
+                sys.exit(1)
 
     if args.max_regression is not None:
         args.json_conf["serialise"]["max_regression"] = args.max_regression

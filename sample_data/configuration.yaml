@@ -98,7 +98,6 @@ prepare:
   #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
   #  orientation, no strand flipping or removal
   #  - cache: whether to load the whole genome in memory or not.
-  fasta: chr5.fas
   gff:
   - class.gtf
   - cufflinks.gtf
@@ -113,6 +112,9 @@ prepare:
   out_fasta: mikado_prepared.fasta
   procs: 5
   single: false
+reference:
+  fasta: chr5.fas
+  genome_fai: chr5.fas.fai
 serialise:
   #  Options related to serialisation
   #  - force: whether to drop and reload everything into the DB
@@ -120,7 +122,6 @@ serialise:
   #  - fai: genome 
   force: true
   files:
-#    genome_fai: genome.fai
     orfs: [mikado.bed]
     junctions: [junctions.bed]
     blast_targets: uniprot_sprot_plants.fasta

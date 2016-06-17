@@ -6,6 +6,8 @@
 import yaml
 import itertools
 import re
+import os
+from pkg_resources import resource_listdir
 import argparse
 import sys
 from ..configuration import configurator
@@ -170,7 +172,7 @@ def create_config(args):
 
     if args.gff:
         args.gff = args.gff.split(",")
-        config["prepare"]["gff"] = args.gff
+        config["prepare"]["files"]["gff"] = args.gff
 
         if args.labels != '':
             args.labels = args.labels.split(",")
@@ -181,6 +183,11 @@ def create_config(args):
                     args.gff, len(args.gff),
                     args.labels, len(args.labels)))
             config["prepare"]["labels"] = args.labels
+
+
+
+    if args.scoring is not None:
+        config["pick"]["scoring_file"] = args.scoring
 
     output = yaml.dump(config, default_flow_style=False)
 
@@ -199,6 +206,16 @@ def configure_parser():
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
                         separated by comma.""")
+    parser.add_argument("--strand-specific-assemblies", type=str, default="",
+                        dest="strand_specific_assemblies",
+                        help=""""List of strand-specific assemblies among the inputs.""")
+    parser.add_argument("--strand-specific", default=False,
+                        action="store_true",
+                        help=""""Boolean flag indicating whether all the assemblies are strand-specific.""")
+    parser.add_argument("--scoring", type=str, default=None,
+                        choices=resource_listdir(
+                            "Mikado", os.path.join("configuration", "scoring_files")),
+                        help="Available scoring files.")
     parser.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)

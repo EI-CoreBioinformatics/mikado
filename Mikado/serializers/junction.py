@@ -171,7 +171,7 @@ class JunctionSerializer:
         else:
             self.maxobjects = 10000
 
-        self.fai = json_conf["serialise"]["files"]["genome_fai"]
+        self.fai = json_conf["reference"]["genome_fai"]
         if isinstance(self.fai, str):
             assert os.path.exists(self.fai)
             # noinspection PyTypeChecker

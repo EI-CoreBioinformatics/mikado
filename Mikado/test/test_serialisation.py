@@ -21,7 +21,7 @@ class TestLoadJunction(unittest.TestCase):
         self.json_conf = Mikado.configuration.configurator.to_json(None)
         self.json_conf["db_settings"]["dbtype"] = "sqlite"
         self.json_conf["db_settings"]["db"] = self.dbfile
-        self.json_conf["serialise"]["files"]["genome_fai"] = os.path.join(
+        self.json_conf["reference"]["genome_fai"] = os.path.join(
             os.path.dirname(__file__),
             "genome.fai")
         self.session = Mikado.utilities.dbutils.connect(self.json_conf)
@@ -174,7 +174,7 @@ class TestLoadJunction(unittest.TestCase):
         db = tempfile.mktemp(suffix=".db")
         jconf = self.json_conf.copy()
         jconf["db_settings"]["db"] = db
-        jconf["serialise"]["files"]["genome_fai"] = None
+        jconf["reference"]["genome_fai"] = None
 
         seri = Mikado.serializers.junction.JunctionSerializer(
                 self.junction_file,

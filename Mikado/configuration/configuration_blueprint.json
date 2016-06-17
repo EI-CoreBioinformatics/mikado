@@ -135,9 +135,6 @@
               "type": "string",
               "default": "serialise.log"
             },
-            "genome_fai": {
-              "type": "string"
-            },
             "blast_targets": {
               "type": "string",
               "default": ""
@@ -182,25 +179,30 @@
         "- out_fasta: output transcript FASTA file",
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal"
       ],
-      "required": ["out_fasta", "gff", "fasta", "out"],
+      "required": ["files"],
       "properties":
-      {"gff": { "type": "array", "default": []},
-        "fasta": {"type": "string", "default": ""},
+      {
         "minimum_length": {
           "type": "integer", "default": 200, "minimum": 1
         },
-        "log": {"type": "string", "default": "prepare.log"},
         "procs": {"type": "integer", "default": 1},
-        "labels": {"type": "array", "default": []},
-        "output_dir": {"type": "string", "default": "."},
-        "out": {"type": "string", "default": "mikado_prepared.gtf"},
-        "out_fasta": {"type": "string", "default": "mikado_prepared.fasta"},
+        "files": {
+          "type": "object",
+          "required": ["out", "out_fasta", "gff"],
+          "properties": {
+            "output_dir": {"type": "string", "default": "."},
+            "out": {"type": "string", "default": "mikado_prepared.gtf"},
+            "out_fasta": {"type": "string", "default": "mikado_prepared.fasta"},
+            "log": {"type": "string", "default": "prepare.log"},
+            "gff": { "type": "array", "default": []},
+            "labels": {"type": "array", "default": []},
+            "strand_specific_assemblies": {"type": "array", "default": []}
+          }
+        },
         "strip_cds": {"type": "boolean", "default": false},
         "single": {"type": "boolean", "default": false},
         "lenient": {"type": "boolean", "default": false},
         "strand_specific": {"type": "boolean", "default": false},
-        "strand_specific_assemblies": {"type": "array",
-                                       "default": []},
         "canonical": {"type": "array", "default": [
             ["GT", "AG"],
             ["GC", "AG"],
@@ -659,6 +661,22 @@
           }
         }
       }
+    },
+    "reference": {
+    "type": "object",
+    "Comment": ["Options related to the reference genome."],
+    "SimpleComment": ["Options related to the reference genome."],
+    "required": ["fasta"],
+    "properties": {
+      "fasta": {
+        "type": "string",
+        "default": ""
+      },
+      "genome_fai": {
+        "type": ["string", "null"],
+        "default": null
+      }
+    }
     }
   },
   "blast": {

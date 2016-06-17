@@ -450,10 +450,11 @@ def check_json(json_conf, simple=False):
                 os.path.dirname(json_conf["filename"]),
                 json_conf["pick"]["scoring_file"])
         elif os.path.exists(
-                resource_filename(__name__, json_conf["pick"]["scoring_file"])):
+                resource_filename(__name__, os.path.join("scoring_files",
+                                                         json_conf["pick"]["scoring_file"]))):
             json_conf["pick"]["scoring_file"] = resource_filename(
                 __name__,
-                json_conf["pick"]["scoring_file"])
+                os.path.join("scoring_files", json_conf["pick"]["scoring_file"]))
         else:
             raise InvalidJson(
                 "Scoring file not found: {0}".format(

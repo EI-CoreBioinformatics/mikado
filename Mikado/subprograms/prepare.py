@@ -75,26 +75,57 @@ def setup(args):
     args.level = args.json_conf["log_settings"]["log_level"]
     logger.setLevel(args.level)
 
-    if args.gff:
-        args.json_conf["prepare"]["gff"] = args.gff
-    else:
-        if not args.json_conf["prepare"]["gff"]:
-            parser = prepare_parser()
-            print(parser.format_help())
-            sys.exit(0)
+    if args.list:
 
-    if args.labels != '':
-        args.labels = args.labels.split(",")
-        # Checks labels are unique
-        assert len(set(args.labels)) == len(args.labels)
-        assert not any([True for _ in args.labels if _.strip() == ''])
-        if len(args.labels) != len(args.json_conf["prepare"]["gff"]):
-            raise ValueError("Incorrect number of labels specified")
-        args.json_conf["prepare"]["labels"] = args.labels
+        args.json_conf["prepare"]["gff"] = []
+        args.json_conf["prepare"]["labels"] = []
+        args.json_conf["prepare"]["strand_specific_assemblies"] = []
+
+        for line in args.list:
+            gff_name, label, stranded = line.rstrip().split("\t")
+            if stranded not in ("True", "False"):
+                raise ValueError("Malformed line for the list: {}".format(line))
+            if gff_name in args.json_conf["prepare"]["gff"]:
+                raise ValueError("Repeated prediction file: {}".format(line))
+            elif label != '' and label in args.json_conf["prepare"]["labels"]:
+                raise ValueError("Repeated label: {}".format(line))
+            elif stranded not in ["False", "True"]:
+                raise ValueError("Invalid strandedness value (must be False or True): {}".format(line))
+            args.json_conf["prepare"]["gff"].append(gff_name)
+            args.json_conf["prepare"]["labels"].append(label)
+            if stranded == "True":
+                args.json_conf["prepare"]["strand_specific_assemblies"].append(gff_name)
+
     else:
-        if not args.json_conf["prepare"]["labels"]:
-            args.labels = [""] * len(args.json_conf["prepare"]["gff"])
+        if args.gff:
+            args.json_conf["prepare"]["gff"] = args.gff
+        else:
+            if not args.json_conf["prepare"]["gff"]:
+                parser = prepare_parser()
+                print(parser.format_help())
+                sys.exit(0)
+        if args.strand_specific is True:
+            args.json_conf["prepare"]["strand_specific"] = True
+        elif args.strand_specific_assemblies is not None:
+            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
+            if len(args.strand_specific_assemblies) > len(args.json_conf["prepare"]["gff"]):
+                raise ValueError("Incorrect number of strand-specific assemblies specified!")
+            for member in args.strand_specific_assemblies:
+                if member not in args.json_conf["prepare"]["gff"]:
+                    raise ValueError("Incorrect assembly file specified as strand-specific")
+            args.json_conf["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
+        if args.labels != '':
+            args.labels = args.labels.split(",")
+            # Checks labels are unique
+            assert len(set(args.labels)) == len(args.labels)
+            assert not any([True for _ in args.labels if _.strip() == ''])
+            if len(args.labels) != len(args.json_conf["prepare"]["gff"]):
+                raise ValueError("Incorrect number of labels specified")
             args.json_conf["prepare"]["labels"] = args.labels
+        else:
+            if not args.json_conf["prepare"]["labels"]:
+                args.labels = [""] * len(args.json_conf["prepare"]["gff"])
+                args.json_conf["prepare"]["labels"] = args.labels
 
     for option in ["out", "out_fasta", "fasta",
                    "minimum_length", "procs", "single"]:
@@ -104,18 +135,6 @@ def setup(args):
 
     if args.lenient is not None:
         args.json_conf["prepare"]["lenient"] = True
-
-    if args.strand_specific is True:
-        args.json_conf["prepare"]["strand_specific"] = True
-
-    elif args.strand_specific_assemblies is not None:
-        args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
-        if len(args.strand_specific_assemblies) > len(args.json_conf["prepare"]["gff"]):
-            raise ValueError("Incorrect number of strand-specific assemblies specified!")
-        for member in args.strand_specific_assemblies:
-            if member not in args.json_conf["prepare"]["gff"]:
-                raise ValueError("Incorrect assembly file specified as strand-specific")
-        args.json_conf["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
 
     if args.strip_cds is True:
         args.json_conf["prepare"]["strip_cds"] = True

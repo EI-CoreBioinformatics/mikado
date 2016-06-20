@@ -20,6 +20,7 @@ import json
 import jsonschema
 from multiprocessing import get_start_method
 from pkg_resources import resource_stream, resource_filename
+# from frozendict import frozendict
 
 __author__ = "Luca Venturini"
 
@@ -494,14 +495,14 @@ def to_json(string, simple=False):
     Function to serialise the JSON for configuration and check its consistency.
 
     :param string: the configuration file name.
-    :type string: (str | None)
+    :type string: (str | None | dict)
 
     :param simple: boolean flag indicating whether we desire
                    the simplified version of the configuration, or not.
     :type simple: bool
     """
 
-    if string is None or string == '':
+    if string is None or string == '' or string == dict():
         json_dict = dict()
         string = os.path.join(os.path.abspath(os.getcwd()), "mikado.json")
     else:
@@ -514,5 +515,6 @@ def to_json(string, simple=False):
             else:
                 json_dict = json.load(json_file)
     json_dict["filename"] = string
+    # json_dict = frozendict(check_json(json_dict, simple=simple))
     json_dict = check_json(json_dict, simple=simple)
     return json_dict

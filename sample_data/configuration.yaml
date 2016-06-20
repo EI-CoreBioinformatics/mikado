@@ -98,18 +98,19 @@ prepare:
   #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
   #  orientation, no strand flipping or removal
   #  - cache: whether to load the whole genome in memory or not.
-  gff:
-  - class.gtf
-  - cufflinks.gtf
-  - stringtie.gtf
-  - trinity.gtf
+  files:
+    gff:
+    - class.gtf
+    - cufflinks.gtf
+    - stringtie.gtf
+    - trinity.gtf
+    out: mikado_prepared.gtf
+    out_fasta: mikado_prepared.fasta
   labels:
   - cl
   - cuff
   - st
   - tr
-  out: mikado_prepared.gtf
-  out_fasta: mikado_prepared.fasta
   procs: 5
   single: false
 reference:

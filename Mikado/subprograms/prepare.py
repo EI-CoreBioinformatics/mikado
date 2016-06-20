@@ -51,13 +51,13 @@ def setup(args):
 
     if args.log is not None:
         args.log.close()
-        args.json_conf["prepare"]["log"] = args.log.name
+        args.json_conf["prepare"]["files"]["log"] = args.log.name
 
-    if args.json_conf["prepare"]["log"]:
+    if args.json_conf["prepare"]["files"]["log"]:
         handler = logging.FileHandler(
             path_join(
-                args.json_conf["prepare"]["output_dir"],
-                args.json_conf["prepare"]["log"]),
+                args.json_conf["prepare"]["files"]["output_dir"],
+                args.json_conf["prepare"]["files"]["log"]),
             "w")
     else:
         handler = logging.StreamHandler()
@@ -77,30 +77,30 @@ def setup(args):
 
     if args.list:
 
-        args.json_conf["prepare"]["gff"] = []
-        args.json_conf["prepare"]["labels"] = []
+        args.json_conf["prepare"]["files"]["gff"] = []
+        args.json_conf["prepare"]["files"]["labels"] = []
         args.json_conf["prepare"]["strand_specific_assemblies"] = []
 
         for line in args.list:
             gff_name, label, stranded = line.rstrip().split("\t")
             if stranded not in ("True", "False"):
                 raise ValueError("Malformed line for the list: {}".format(line))
-            if gff_name in args.json_conf["prepare"]["gff"]:
+            if gff_name in args.json_conf["prepare"]["files"]["gff"]:
                 raise ValueError("Repeated prediction file: {}".format(line))
-            elif label != '' and label in args.json_conf["prepare"]["labels"]:
+            elif label != '' and label in args.json_conf["prepare"]["files"]["labels"]:
                 raise ValueError("Repeated label: {}".format(line))
             elif stranded not in ["False", "True"]:
                 raise ValueError("Invalid strandedness value (must be False or True): {}".format(line))
-            args.json_conf["prepare"]["gff"].append(gff_name)
-            args.json_conf["prepare"]["labels"].append(label)
+            args.json_conf["prepare"]["files"]["gff"].append(gff_name)
+            args.json_conf["prepare"]["files"]["labels"].append(label)
             if stranded == "True":
                 args.json_conf["prepare"]["strand_specific_assemblies"].append(gff_name)
 
     else:
         if args.gff:
-            args.json_conf["prepare"]["gff"] = args.gff
+            args.json_conf["prepare"]["files"]["gff"] = args.gff
         else:
-            if not args.json_conf["prepare"]["gff"]:
+            if not args.json_conf["prepare"]["files"]["gff"]:
                 parser = prepare_parser()
                 print(parser.format_help())
                 sys.exit(0)
@@ -108,10 +108,10 @@ def setup(args):
             args.json_conf["prepare"]["strand_specific"] = True
         elif args.strand_specific_assemblies is not None:
             args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
-            if len(args.strand_specific_assemblies) > len(args.json_conf["prepare"]["gff"]):
+            if len(args.strand_specific_assemblies) > len(args.json_conf["prepare"]["files"]["gff"]):
                 raise ValueError("Incorrect number of strand-specific assemblies specified!")
             for member in args.strand_specific_assemblies:
-                if member not in args.json_conf["prepare"]["gff"]:
+                if member not in args.json_conf["prepare"]["files"]["gff"]:
                     raise ValueError("Incorrect assembly file specified as strand-specific")
             args.json_conf["prepare"]["strand_specific_assemblies"] = args.strand_specific_assemblies
         if args.labels != '':
@@ -119,13 +119,13 @@ def setup(args):
             # Checks labels are unique
             assert len(set(args.labels)) == len(args.labels)
             assert not any([True for _ in args.labels if _.strip() == ''])
-            if len(args.labels) != len(args.json_conf["prepare"]["gff"]):
+            if len(args.labels) != len(args.json_conf["prepare"]["files"]["gff"]):
                 raise ValueError("Incorrect number of labels specified")
-            args.json_conf["prepare"]["labels"] = args.labels
+            args.json_conf["prepare"]["files"]["labels"] = args.labels
         else:
-            if not args.json_conf["prepare"]["labels"]:
-                args.labels = [""] * len(args.json_conf["prepare"]["gff"])
-                args.json_conf["prepare"]["labels"] = args.labels
+            if not args.json_conf["prepare"]["files"]["labels"]:
+                args.labels = [""] * len(args.json_conf["prepare"]["files"]["gff"])
+                args.json_conf["prepare"]["files"]["labels"] = args.labels
 
     for option in ["out", "out_fasta",
                    "minimum_length", "procs", "single"]:

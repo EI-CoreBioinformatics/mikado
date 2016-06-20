@@ -43,7 +43,7 @@ rule test_json:
 
 rule prepare:
     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gtf", "mikado.bed", "chr5.fas"
-    log: config["prepare"]["log"]
+    log: config["prepare"]["files"]["log"]
     output: "mikado_prepared.gtf", "mikado_prepared.fasta"
     shell: "mikado.py prepare --json-conf configuration.yaml"
 

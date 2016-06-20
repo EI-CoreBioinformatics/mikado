@@ -105,12 +105,30 @@
     },
     "serialise":{
       "type": "object",
-      "Comment": ["Options related to serialisation"],
+      "Comment": ["Options related to serialisation",
+              "- force: whether to drop and reload everything into the DB",
+              "- files: options related to input files",
+              "- max_objects: Maximum number of objects to keep in memory while loading data into the database",
+              "- max_regression: if the ORF lacks a valid start site, this percentage indicates how far",
+              "  along the sequence Mikado should look for a good start site. Eg. with a value of 0.1,",
+              "  on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame start codon",
+              "  in the first 30 bps (10% of the cDNA).",
+              "- max_target_seqs: equivalently to BLAST, it indicates the maximum number of targets to keep",
+              "  per blasted sequence.",
+              "- discard_definition: Boolean. Used to indicate whether Mikado should use the definition",
+              "  rather than the ID for BLAST sequences. Necessary as in some instances BLAST XMLs will have",
+              "  a mock identifier rather than the original sequence ID (eg lcl|1). Default: false.",
+              "- procs: Number of processors to use. Default: 1.",
+              "- single_thread: if true, Mikado prepare will force the usage of a single thread in this step."],
       "SimpleComment": ["Options related to serialisation",
         "- force: whether to drop and reload everything into the DB",
-        "- orfs: BED12 file(s) with the ORFs.",
-        "- genome_fai: genome FAI file"
+        "- max_regression: if the ORF lacks a valid start site, this percentage indicates how far",
+        "  along the sequence Mikado should look for a good start site. Eg. with a value of 0.1,",
+        "  on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame start codon",
+        "  in the first 30 bps (10% of the cDNA).",
+        "- procs: Number of processors to use. Default: 1."
       ],
+      "required": ["max_regression", "procs"],
       "properties": {
         "files": {
           "type": "object",
@@ -159,12 +177,9 @@
     "prepare":{
       "type": "object",
       "Comment": ["Options related to the input data preparation.",
-        "- predictions: array of GFF3/GTF files containing the predictions. Required.",
-        "- fasta: genomic FASTA file. Required.",
+        "- files: options relative to the input/output files.",
         "- procs: Number of processes to use.",
         "- strip_cds: whether to remove the CDS from the predictions during preparation.",
-        "- out: output GTF file",
-        "- out_fasta: output transcript FASTA file",
         "- lenient: if set to True, invalid transcripts will be only flagged and not removed. EXPERIMENTAL.",
         "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
         "- strand_specific_assemblies: array of input predictions which are to be considered as strand-specific.",
@@ -172,14 +187,11 @@
         "- canonical: canonical splice sites, to infer the correct orientation."
       ],
       "SimpleComment": ["Options related to the input data preparation.",
-        "- gff: array of GFF3/GTF files containing the predictions. Required.",
-        "- fasta: genomic FASTA file. Required.",
         "- procs: Number of processes to use.",
-        "- out: output GTF file",
-        "- out_fasta: output transcript FASTA file",
-        "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal"
+        "- strand_specific: if set to True, transcripts will be assumed to be in the correct orientation, no strand flipping or removal",
+        "- strip_cds: Boolean. It indicates whether to remove the CDS from the predictions during preparation."
       ],
-      "required": ["files"],
+      "required": ["files", "strand_specific", "procs"],
       "properties":
       {
         "minimum_length": {
@@ -187,6 +199,13 @@
         },
         "procs": {"type": "integer", "default": 1},
         "files": {
+          "Comment": ["Options related to the input and output files.",
+            "- out: output GTF file",
+            "- out_fasta: output transcript FASTA file",
+            "- gff: array of input predictions for this step.",
+            "- log: output log. Default: prepare.log",
+            "- labels: labels to be associated with the input GFFs. Default: None."
+          ],
           "type": "object",
           "required": ["out", "out_fasta", "gff"],
           "properties": {

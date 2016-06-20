@@ -155,9 +155,9 @@ def perform_check(keys, exon_lines, args, logger):
             elif counter >= 10**3 and counter % (10**3) == 0:
                 logger.debug("Retrieved %d transcript positions", counter)
             print(transcript_object.format("gtf"),
-                  file=args.json_conf["prepare"]["out"])
+                  file=args.json_conf["prepare"]["files"]["out"])
             print(transcript_object.fasta,
-                  file=args.json_conf["prepare"]["out_fasta"])
+                  file=args.json_conf["prepare"]["files"]["out_fasta"])
     else:
         # pylint: disable=no-member
 
@@ -168,8 +168,8 @@ def perform_check(keys, exon_lines, args, logger):
             args.logging_queue,
             args.json_conf["reference"]["fasta"].filename,
             _ + 1,
-            os.path.basename(args.json_conf["prepare"]["out_fasta"].name),
-            os.path.basename(args.json_conf["prepare"]["out"].name),
+            os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name),
+            os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
             args.tempdir.name,
             lenient=args.json_conf["prepare"]["lenient"],
             # strand_specific=args.json_conf["prepare"]["strand_specific"],
@@ -188,18 +188,18 @@ def perform_check(keys, exon_lines, args, logger):
 
         partial_gtf = [os.path.join(args.tempdir.name,
                                     "{0}-{1}".format(
-                                        os.path.basename(args.json_conf["prepare"]["out"].name),
+                                        os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
                                         _ + 1)) for _ in range(args.procs)]
-        counter = merge_partial(partial_gtf, args.json_conf["prepare"]["out"])
+        counter = merge_partial(partial_gtf, args.json_conf["prepare"]["files"]["out"])
 
         partial_fasta = [os.path.join(
             args.tempdir.name,
-            "{0}-{1}".format(os.path.basename(args.json_conf["prepare"]["out_fasta"].name), _ + 1))
+            "{0}-{1}".format(os.path.basename(args.json_conf["prepare"]["files"]["out_fasta"].name), _ + 1))
                          for _ in range(args.procs)]
-        merge_partial(partial_fasta, args.json_conf["prepare"]["out_fasta"])
+        merge_partial(partial_fasta, args.json_conf["prepare"]["files"]["out_fasta"])
 
-    args.json_conf["prepare"]["out_fasta"].close()
-    args.json_conf["prepare"]["out"].close()
+    args.json_conf["prepare"]["files"]["out_fasta"].close()
+    args.json_conf["prepare"]["files"]["out"].close()
 
     logger.setLevel(logging.INFO)
     logger.info("Finished to analyse %d transcripts (%d retained)",
@@ -219,19 +219,19 @@ def load_exon_lines(args, logger):
     :rtype: collections.defaultdict[list]
     """
 
-    threads = min([len(args.json_conf["prepare"]["gff"]), args.procs])
+    threads = min([len(args.json_conf["prepare"]["files"]["gff"]), args.procs])
     strip_cds = args.json_conf["prepare"]["strip_cds"]
     exon_lines = collections.defaultdict(dict)
 
     if args.json_conf["prepare"]["single"] is True or threads == 1:
 
         logger.info("Starting to load lines from %d files (single-threaded)",
-                    len(args.json_conf["prepare"]["gff"]))
+                    len(args.json_conf["prepare"]["files"]["gff"]))
         previous_file_ids = collections.defaultdict(set)
         for label, strand_specific, gff_name in zip(
-                args.json_conf["prepare"]["labels"],
-                args.json_conf["prepare"]["strand_specific_assemblies"],
-                args.json_conf["prepare"]["gff"]):
+                args.json_conf["prepare"]["files"]["labels"],
+                args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
+                args.json_conf["prepare"]["files"]["gff"]):
             logger.info("Starting with %s", gff_name)
             gff_handle = to_gff(gff_name)
             found_ids = set.union(set(), *previous_file_ids.values())
@@ -251,7 +251,7 @@ def load_exon_lines(args, logger):
             previous_file_ids[gff_handle.name] = new_ids
     else:
         logger.info("Starting to load lines from %d files (using %d processes)",
-                    len(args.json_conf["prepare"]["gff"]), threads)
+                    len(args.json_conf["prepare"]["files"]["gff"]), threads)
         submission_queue = multiprocessing.Queue(-1)
         return_queue = multiprocessing.Queue(-1)
 
@@ -265,9 +265,9 @@ def load_exon_lines(args, logger):
             strip_cds=strip_cds) for _ in range(threads)]
         [_.start() for _ in working_processes]
         for label, strand_specific, gff_name in zip(
-                args.json_conf["prepare"]["labels"],
+                args.json_conf["prepare"]["files"]["labels"],
                 args.json_conf["prepare"]["strand_specific_assemblies"],
-                args.json_conf["prepare"]["gff"]):
+                args.json_conf["prepare"]["files"]["gff"]):
             submission_queue.put((label, gff_name, strand_specific))
 
         submission_queue.put(("EXIT", "EXIT"))
@@ -295,7 +295,7 @@ def load_exon_lines(args, logger):
                 logger.exception(exception)
                 raise exception
             if len(set.intersection(set(result.keys()), set(exon_lines.keys()))) > 0:
-                if set(args.json_conf["prepare"]["labels"]) == {""}:
+                if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
                     exception = exceptions.RedundantNames(
                         """Found redundant names during multiprocessed file analysis.
                         Please repeat using distinct labels for your input files. Aborting.""")
@@ -313,7 +313,7 @@ def load_exon_lines(args, logger):
         gc.collect()
 
     logger.info("Finished loading lines from %d files",
-                len(args.json_conf["prepare"]["gff"]))
+                len(args.json_conf["prepare"]["files"]["gff"]))
 
     return exon_lines
 
@@ -338,15 +338,16 @@ def prepare(args, logger):
         args.json_conf["reference"]["fasta"].close()
         args.json_conf["reference"]["fasta"] = args.json_conf["reference"]["fasta"].name
 
-    assert len(args.json_conf["prepare"]["gff"]) > 0
-    assert len(args.json_conf["prepare"]["gff"]) == len(args.json_conf["prepare"]["labels"])
+    assert len(args.json_conf["prepare"]["files"]["gff"]) > 0
+    assert len(args.json_conf["prepare"]["files"]["gff"]) == len(args.json_conf["prepare"]["files"]["labels"])
 
     if args.json_conf["prepare"]["strand_specific"] is True:
-        args.json_conf["prepare"]["strand_specific_assemblies"] = [True] * len(args.json_conf["prepare"]["gff"])
+        args.json_conf["prepare"]["files"]["strand_specific_assemblies"] = [True] * len(
+            args.json_conf["prepare"]["files"]["gff"])
     else:
-        args.json_conf["prepare"]["strand_specific_assemblies"] = [
-            (member in args.json_conf["prepare"]["strand_specific_assemblies"])
-            for member in args.json_conf["prepare"]["gff"]]
+        args.json_conf["prepare"]["files"]["strand_specific_assemblies"] = [
+            (member in args.json_conf["prepare"]["files"]["strand_specific_assemblies"])
+            for member in args.json_conf["prepare"]["files"]["gff"]]
 
     logger.propagate = False
     if args.json_conf["prepare"]["single"] is False and args.procs > 1:
@@ -354,7 +355,7 @@ def prepare(args, logger):
                                          force=True)
         args.logging_queue = multiprocessing.Queue(-1)
         args.tempdir = tempfile.TemporaryDirectory(prefix="mikado_prepare_tmp",
-                                                   dir=args.json_conf["prepare"]["output_dir"])
+                                                   dir=args.json_conf["prepare"]["files"]["output_dir"])
 
         log_queue_handler = logging.handlers.QueueHandler(args.logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
@@ -363,12 +364,12 @@ def prepare(args, logger):
         args.listener.propagate = False
         args.listener.start()
 
-    args.json_conf["prepare"]["out_fasta"] = open(
-        path_join(args.json_conf["prepare"]["output_dir"],
-                  args.json_conf["prepare"]["out_fasta"]), 'w')
-    args.json_conf["prepare"]["out"] = open(path_join(
-        args.json_conf["prepare"]["output_dir"],
-        args.json_conf["prepare"]["out"]), 'w')
+    args.json_conf["prepare"]["files"]["out_fasta"] = open(
+        path_join(args.json_conf["prepare"]["files"]["output_dir"],
+                  args.json_conf["prepare"]["files"]["out_fasta"]), 'w')
+    args.json_conf["prepare"]["files"]["out"] = open(path_join(
+        args.json_conf["prepare"]["files"]["output_dir"],
+        args.json_conf["prepare"]["files"]["out"]), 'w')
 
     logger.info("Loading reference file")
     args.json_conf["reference"]["fasta"] = pyfaidx.Fasta(args.json_conf["reference"]["fasta"])
@@ -389,8 +390,8 @@ def prepare(args, logger):
 
     perform_check(sorter(exon_lines), exon_lines, args, logger)
 
-    # args.json_conf["prepare"]["out"].close()
-    # args.json_conf["prepare"]["out_fasta"].close()
+    # args.json_conf["prepare"]["files"]["out"].close()
+    # args.json_conf["prepare"]["files"]["out_fasta"].close()
 
     if args.json_conf["prepare"]["single"] is False and args.procs > 1:
         try:

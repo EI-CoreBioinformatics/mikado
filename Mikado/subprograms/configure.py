@@ -7,10 +7,11 @@ import yaml
 import itertools
 import re
 import os
-from pkg_resources import resource_listdir
+from pkg_resources import resource_listdir, resource_stream
 import argparse
 import sys
 from ..configuration import configurator
+from ..exceptions import InvalidJson
 
 
 __author__ = 'Luca Venturini'
@@ -172,6 +173,8 @@ def create_config(args):
 
     if args.gff:
         args.gff = args.gff.split(",")
+
+
         config["prepare"]["files"]["gff"] = args.gff
 
         if args.labels != '':
@@ -182,11 +185,34 @@ def create_config(args):
                 Labels: {2} (length {3})""".format(
                     args.gff, len(args.gff),
                     args.labels, len(args.labels)))
-            config["prepare"]["labels"] = args.labels
+            config["prepare"]["files"]["labels"] = args.labels
 
+        if args.strand_specific_assemblies != "":
+            args.strand_specific_assemblies = args.strand_specific_assemblies.split(",")
+            if (len(args.strand_specific_assemblies) > len(args.gff) or
+                    any([(_ not in args.gff) for _ in args.strand_specific_assemblies])):
+                raise InvalidJson("Invalid strand-specific assemblies specified")
+            config["prepare"]["files"]["strand_specific_assemblies"] = args.strand_specific_assemblies
 
+    if args.no_files is True:
+        for stage in ["pick", "prepare", "serialise"]:
+            if "files" in config[stage]:
+                del config[stage]["files"]
+            # except KeyError:
+            #     raise KeyError(stage)
+        del config["reference"]
+        del config["db_settings"]
 
     if args.scoring is not None:
+        if args.copy_scoring is not False:
+            with open(args.copy_scoring, "wt") as out:
+                with resource_stream("Mikado", os.path.join("configuration",
+                                                            "scoring_files",
+                                                            args.scoring)) as original:
+                    for line in original:
+                        print(line.decode().rstrip(), file=out)
+            args.scoring = args.copy_scoring
+
         config["pick"]["scoring_file"] = args.scoring
 
     output = yaml.dump(config, default_flow_style=False)
@@ -216,6 +242,12 @@ def configure_parser():
                         choices=resource_listdir(
                             "Mikado", os.path.join("configuration", "scoring_files")),
                         help="Available scoring files.")
+    parser.add_argument("--copy-scoring", default=False,
+                        type=str, dest="copy_scoring",
+                        help="File into which to copy the selected scoring file, for modification.")
+    parser.add_argument("--no-files", dest="no_files",
+                        help="Remove all files-specific options from the printed configuration file.",
+                        default=False, action="store_true")
     parser.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)

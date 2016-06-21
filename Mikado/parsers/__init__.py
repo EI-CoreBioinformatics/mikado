@@ -7,6 +7,10 @@
 
 import io
 import abc
+import gzip
+import bz2
+from functools import partial
+import magic
 
 
 class HeaderError(Exception):
@@ -19,11 +23,19 @@ class HeaderError(Exception):
 class Parser(metaclass=abc.ABCMeta):
     """Generic parser iterator. Base parser class."""
 
+    wizard = magic.Magic(mime=True)
+
     def __init__(self, handle):
         self.__closed = False
         if not isinstance(handle, io.IOBase):
+            if handle.endswith(".gz") or self.wizard.from_file(handle) == b"application/gzip":
+                opener = gzip.open
+            elif handle.endswith(".bz2") or self.wizard.from_file(handle) == b"application/x-bzip2":
+                opener = bz2.open
+            else:
+                opener = partial(open, keywords={"buffering": 1})
             try:
-                handle = open(handle, "rt", buffering=1)
+                handle = opener(handle, "rt")
             except FileNotFoundError:
                 raise FileNotFoundError("File not found: {0}".format(handle))
 
@@ -98,10 +110,13 @@ def to_gff(string):
     :type string: str
     :rtype: (Mikado.parsers.GTF.GTF | Mikado.parsers.GFF.GFF3)
     """
-    handle = open(string)
-    if string.endswith("gtf"):
-        return GTF.GTF(handle)
-    elif string.endswith('gff') or string.endswith('gff3'):
-        return GFF.GFF3(handle)
+
+    # handle = open(string)
+    if ".gtf" in string:
+        print("GTF")
+        return GTF.GTF(string)
+    elif ".gff" in string or ".gff3" in string:
+    # elif string.endswith('gff') or string.endswith('gff3'):
+        return GFF.GFF3(string)
     else:
         raise ValueError('Unrecognized format')

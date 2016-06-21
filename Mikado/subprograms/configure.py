@@ -174,7 +174,6 @@ def create_config(args):
     if args.gff:
         args.gff = args.gff.split(",")
 
-
         config["prepare"]["files"]["gff"] = args.gff
 
         if args.labels != '':

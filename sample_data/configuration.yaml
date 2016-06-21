@@ -104,15 +104,16 @@ prepare:
     - cufflinks.gtf
     - stringtie.gtf
     - trinity.gtf
+    labels:
+      - cl
+      - cuff
+      - st
+      - tr
     out: mikado_prepared.gtf
     out_fasta: mikado_prepared.fasta
-  labels:
-  - cl
-  - cuff
-  - st
-  - tr
   procs: 5
   single: false
+  strand_specific: false
 reference:
   fasta: chr5.fas
   genome_fai: chr5.fas.fai
@@ -127,5 +128,6 @@ serialise:
     junctions: [junctions.bed]
     blast_targets: uniprot_sprot_plants.fasta
     xml: [mikado.blast.xml]
+  max_regression: 0
   single_thread: false
   procs: 2

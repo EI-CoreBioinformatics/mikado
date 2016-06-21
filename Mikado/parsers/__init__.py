@@ -33,7 +33,7 @@ class Parser(metaclass=abc.ABCMeta):
             elif handle.endswith(".bz2") or self.wizard.from_file(handle) == b"application/x-bzip2":
                 opener = bz2.open
             else:
-                opener = partial(open, keywords={"buffering": 1})
+                opener = partial(open, **{"buffering": 1})
             try:
                 handle = opener(handle, "rt")
             except FileNotFoundError:
@@ -113,7 +113,6 @@ def to_gff(string):
 
     # handle = open(string)
     if ".gtf" in string:
-        print("GTF")
         return GTF.GTF(string)
     elif ".gff" in string or ".gff3" in string:
     # elif string.endswith('gff') or string.endswith('gff3'):

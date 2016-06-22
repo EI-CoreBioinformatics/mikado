@@ -422,6 +422,7 @@ class BED12:
             return True
 
         if self.transcriptomic is True and self.__in_index is False:
+            self.invalid_reason = "{} not found in the index!".format(self.chrom)
             return True
 
         if self.thick_start < self.start or self.thick_end > self.end:

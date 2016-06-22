@@ -874,6 +874,8 @@ class Accountant:
                 gene_precision_lenient * 100,
                 gene_f1_lenient * 100), file=out)
             print(file=out)
+            print("#   Matching: in prediction; matched: in reference.", file=out)
+            print("", file=out)
             print("{0} {1}".format(
                 self.__format_rowname("Matching intron chains"),
                 intron_results["intron_chains"]["redundant"][0]), file=out)

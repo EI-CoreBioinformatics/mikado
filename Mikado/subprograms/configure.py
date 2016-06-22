@@ -172,7 +172,7 @@ def create_config(args):
         config = create_simple_config()
 
     if args.reference is not None:
-        config["reference"]["fasta"] = "chr5.fas"
+        config["reference"]["fasta"] = args.reference
 
     if args.junctions is not None:
         config["serialise"]["files"]["junctions"] = args.junctions.split(",")

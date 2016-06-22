@@ -10,7 +10,6 @@ import os
 from pkg_resources import resource_listdir, resource_stream
 import argparse
 import sys
-from ..utilities.log_utils import create_default_logger
 from ..configuration import configurator
 from ..exceptions import InvalidJson
 from collections import Counter
@@ -164,8 +163,6 @@ def create_config(args):
     :return:
     """
 
-    logger = create_default_logger("configurator")
-
     if args.full is True:
         default = configurator.to_json("")
         del default["scoring"]
@@ -174,11 +171,13 @@ def create_config(args):
     else:
         config = create_simple_config()
 
-    if args.gff:
-        if args.no_files is True:
-            logger.warning("""Disabling the --no-files option as GFF inputs have been specified.""")
-        args.no_files = False
+    if args.reference is not None:
+        config["reference"]["fasta"] = "chr5.fas"
 
+    if args.junctions is not None:
+        config["serialise"]["files"]["junctions"] = args.junctions.split(",")
+
+    if args.gff:
         args.gff = args.gff.split(",")
         __gff_counter = Counter()
         __gff_counter.update(args.gff)
@@ -208,7 +207,28 @@ def create_config(args):
                 raise InvalidJson("Invalid strand-specific assemblies specified")
             config["prepare"]["files"]["strand_specific_assemblies"] = args.strand_specific_assemblies
 
-    if args.no_files is True:
+    elif args.list:
+        with open(args.list) as list_file:
+            try:
+                files, labels, strandedness = zip(*[_.strip().split("\t") for _ in list_file])
+            except ValueError:
+                raise ValueError("Malformed inputs file.")
+            files_counter = Counter()
+            files_counter.update(files)
+            if files_counter.most_common()[0][1] > 1:
+                raise InvalidJson(
+                    "Repeated elements among the input GFFs! Duplicated files: {}".format(
+                        ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)
+                ))
+            if any([_ not in ("True", "False") for _ in strandedness]):
+                raise InvalidJson("Invalid values for strandedness in the list file.")
+            config["prepare"]["files"]["labels"] = list(labels)
+            config["prepare"]["files"]["gff"] = list(files)
+
+            config["prepare"]["files"]["strand_specific_assemblies"] = [files[_[0]] for _ in enumerate(strandedness)
+                                                                        if _[1] == "True"]
+
+    elif args.no_files is True:
         for stage in ["pick", "prepare", "serialise"]:
             if "files" in config[stage]:
                 del config[stage]["files"]
@@ -229,6 +249,17 @@ def create_config(args):
 
         config["pick"]["scoring_file"] = args.scoring
 
+    if args.mode is not None:
+        if args.mode == "nosplit":
+            config["pick"]["chimera_split"]["execute"] = False
+        else:
+            config["pick"]["chimera_split"]["execute"] = True
+            if args.mode == "split":
+                config["pick"]["chimera_split"]["blast_check"] = False
+            else:
+                config["pick"]["chimera_split"]["blast_check"] = True
+                config["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
+
     output = yaml.dump(config, default_flow_style=False)
 
     print_config(output, args.out)
@@ -241,31 +272,46 @@ def configure_parser():
     :rtype: argparse.ArgumentParser
     """
 
-    parser = argparse.ArgumentParser("Configuration utility")
+    parser = argparse.ArgumentParser("Configuration utility for Mikado",
+                                     formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
-    parser.add_argument("--scoring", type=str, default=None,
+    scoring = parser.add_argument_group("Options related to the scoring system")
+    scoring.add_argument("--scoring", type=str, default=None,
                         choices=resource_listdir(
                             "Mikado", os.path.join("configuration", "scoring_files")),
                         help="Available scoring files.")
-    parser.add_argument("--copy-scoring", default=False,
+    scoring.add_argument("--copy-scoring", default=False,
                         type=str, dest="copy_scoring",
                         help="File into which to copy the selected scoring file, for modification.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
-                        help=""""Boolean flag indicating whether all the assemblies are strand-specific.""")
+                        help="""Boolean flag indicating whether all the assemblies are strand-specific.""")
     files = parser.add_mutually_exclusive_group()
     files.add_argument("--no-files", dest="no_files",
                        help="""Remove all files-specific options from the printed configuration file.
                        Invoking the "--gff" option will disable this flag.""",
                        default=False, action="store_true")
-    file_inputs = files.add_argument_group()
-    file_inputs.add_argument("--strand-specific-assemblies", type=str, default="",
+    files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
+    files.add_argument("--list", help="""List of the inputs, one by line, in the form:
+<file1>  <label>  <strandedness (true/false)>""")
+    parser.add_argument("--reference", help="Fasta genomic reference.", default=None)
+    parser.add_argument("--junctions", type=str, default=None)
+    parser.add_argument("--strand-specific-assemblies", type=str, default="",
                         dest="strand_specific_assemblies",
-                        help=""""List of strand-specific assemblies among the inputs.""")
-    file_inputs.add_argument("--labels", type=str, default="",
+                        help="""List of strand-specific assemblies among the inputs.""")
+    parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
         separated by comma.""")
-    files.add_argument("--gff", help="Input GFF/GTF file(s), separated by comma", type=str)
+    parser.add_argument("--mode", default=None,
+                        choices=["nosplit", "stringent", "lenient", "permissive", "split"],
+                        help="""Mode in which Mikado will treat transcripts with multiple ORFs.
+- nosplit: keep the transcripts whole.
+- stringent: split multi-orf transcripts if two consecutive ORFs have both BLAST hits
+             and none of those hits is against the same target.
+- lenient: split multi-orf transcripts as in stringent, and additionally, also when
+           either of the ORFs lacks a BLAST hit (but not both).
+- permissive: like lenient, but also split when both ORFs lack BLAST hits
+- split: split multi-orf transcripts regardless of what BLAST data is available.""")
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)
     return parser

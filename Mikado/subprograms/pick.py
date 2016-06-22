@@ -79,6 +79,17 @@ def check_run_options(args):
         args.json_conf["db_settings"]["db"] = args.sqlite_db
         args.json_conf["db_settings"]["dbtype"] = "sqlite"
 
+    if args.mode is not None:
+        if args.mode == "nosplit":
+            args.json_conf["pick"]["chimera_split"]["execute"] = False
+        else:
+            args.json_conf["pick"]["chimera_split"]["execute"] = True
+            if args.mode == "split":
+                args.json_conf["pick"]["chimera_split"]["blast_check"] = False
+            else:
+                args.json_conf["pick"]["chimera_split"]["blast_check"] = True
+                args.json_conf["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
+
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
@@ -122,7 +133,8 @@ def pick_parser():
     """
     Parser for the picking step.
     """
-    parser = argparse.ArgumentParser("Launcher of the Mikado pipeline.")
+    parser = argparse.ArgumentParser("Launcher of the Mikado pipeline.",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--start-method", dest="start_method",
                         choices=["fork", "spawn", "forkserver"],
                         default=None, help="Multiprocessing start method.")
@@ -183,6 +195,19 @@ def pick_parser():
     log_options.add_argument("-lv", "--log-level", dest="log_level",
                              choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,
                              help="Logging level. Default: retrieved by the configuration file.")
+    # parser.formatter_class = argparse.RawTextHelpFormatter
+    parser.add_argument("--mode", default=None,
+
+                        choices=["nosplit", "stringent", "lenient", "permissive", "split"],
+                        help="""Mode in which Mikado will treat transcripts with multiple ORFs.
+                        - nosplit: keep the transcripts whole.
+                        - stringent: split multi-orf transcripts if two consecutive ORFs have both BLAST hits
+                        and none of those hits is against the same target.
+                        - lenient: split multi-orf transcripts as in stringent, and additionally, also when
+                         either of the ORFs lacks a BLAST hit (but not both).
+                        - permissive: like lenient, but also split when both ORFs lack BLAST hits
+                        - split: split multi-orf transcripts regardless of what BLAST data is available.""")
+    # parser.formatter_class = argparse.HelpFormatter
     parser.add_argument("gff", nargs="?", default=None)
     parser.set_defaults(func=pick)
     return parser

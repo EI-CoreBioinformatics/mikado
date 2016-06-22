@@ -128,14 +128,15 @@
         "  in the first 30 bps (10% of the cDNA).",
         "- procs: Number of processors to use. Default: 1."
       ],
-      "required": ["max_regression", "procs"],
+      "required": ["max_regression", "procs", "files"],
       "properties": {
         "files": {
           "type": "object",
           "properties": {
             "junctions": {
               "type": "array",
-              "default": [""]
+              "default": [""],
+              "optional": false
             },
             "xml": {
               "type": "array",
@@ -466,11 +467,11 @@
           "properties": {
             "blast_check": {
               "type": "boolean",
-              "default": false
+              "default": true
             },
             "execute": {
               "type": "boolean",
-              "default": false
+              "default": true
             },
             "blast_params": {
               "type": "object",

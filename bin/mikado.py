@@ -40,7 +40,6 @@ def main(call_args=None):
     subparsers.choices["configure"] = Mikado.subprograms.configure.configure_parser()
     subparsers.choices["configure"].prog = "Mikado configure"
 
-
     subparsers.add_parser("prepare", description="GTF preparation script",
                           help="""Mikado prepare analyses an input GTF file and
                           prepares it for the picking analysis by sorting its transcripts

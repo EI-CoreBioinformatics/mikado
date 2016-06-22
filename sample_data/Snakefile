@@ -12,17 +12,24 @@ swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
 DBs=[swissprot]
 zipDBs=["{0}.gz".format(db) for db in DBs]
 
-configfile: "configuration.yaml"
 configname = "configuration.yaml"
+subprocess.call(
+  "mikado.py configure --list list.txt --reference chr5.fas --mode lenient \
+  --scoring plants.yaml {configname} --junctions junctions.bed".format(
+                   configname=configname),
+                 shell=True)
 config = Mikado.configuration.configurator.to_json(configname)
+configfile: "configuration.yaml"
 
 rule clean:
     run:
         for filename in itertools.chain(glob.glob("*.ok"), glob.glob("uniprot*.fasta.p*"),
+                                    glob.glob("*midx"),
                                     glob.glob("uniprot*fasta"), glob.glob("*loci*"),
                                     ["mikado_prepared.gtf", "mikado_prepared.fasta", "chr5.fas"],
                                     glob.glob("compare*"), glob.glob(config["db_settings"]["db"]),
-                                    glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"]):
+                                    glob.glob("*.log"), glob.glob("*xml"), ["chr5.fas"],
+                                    ["configuration.yaml"]):
             if os.path.exists(filename):
                 os.remove(filename)
 
@@ -32,6 +39,7 @@ rule clean_crumbs:
                                         glob.glob("compare*")):
             if os.path.exists(filename):
                 os.remove(filename)
+
 
 rule test_json:
     input: db=zipDBs, config=configname
@@ -61,16 +69,16 @@ rule blast_complete:
                         shell=True)
         subprocess.call("makeblastdb -in {0} -dbtype prot -parse_seqids".format(swissprot),
                         shell=True)
-        subprocess.call(" ".join(["blastx", "-num_threads", "5",
+        subprocess.call(" ".join(["blastx", "-num_threads", "1",
          "-query", "mikado_prepared.fasta", "-outfmt", "5", "-db", "uniprot_sprot_plants.fasta", "-out",
-         "mikado.blast.xml", "-evalue", "0.000000001", "-max_target_seqs", "10"]),
+         "mikado.blast.xml", "-evalue", "0.000000001", "-max_target_seqs", "5"]),
           shell=True)
         # command = ""
         # shell(command)
 
 rule serialise:
     input:
-        [value for (key, value) in config["serialise"]["files"].items() if key not in ("log", "output_dir")]
+        rules.blast_complete.output.xml
 #        junctions="junctions.bed",  # Portcullis
 #        fai="genome.fai", # Samtools faidx
 #        transcripts="mikado_prepared.fasta", # Prepare
@@ -80,7 +88,9 @@ rule serialise:
     log: config["serialise"]["files"]["log"]
     output: "serialised.ok"  #, config["db_settings"]["db"]
     run:
-        command = "mikado.py serialise -p 2 --json-conf configuration.yaml --genome_fai genome.fai"
+        command = "mikado.py serialise -p 2 --json-conf configuration.yaml --xml {xml} \
+        --orfs mikado.bed --blast_targets {db} --force".format(
+          xml=rules.blast_complete.output.xml, db=swissprot)
         retcode = subprocess.call(command, shell=True)
         if retcode == 0:
              subprocess.call("touch serialised.ok", shell=True)
@@ -90,7 +100,7 @@ rule pick:
     input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
     log: config["pick"]["files"]["log"]
     output: "mikado.loci.gff3", "mikado.subloci.gff3"
-    shell: "mikado.py pick --json-conf configuration.yaml -lv INFO --preload"
+    shell: "mikado.py pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3"
 
 rule compare:
     input: reference="reference.gff3", prediction="mikado.loci.gff3"

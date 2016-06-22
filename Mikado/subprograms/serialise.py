@@ -172,7 +172,7 @@ def setup(args):
     if not os.path.exists(args.json_conf["serialise"]["files"]["output_dir"]):
         try:
             os.makedirs(args.json_conf["serialise"]["files"]["output_dir"])
-        except (OSError,PermissionError) as exc:
+        except (OSError, PermissionError) as exc:
             logger.error("Failed to create the output directory!")
             logger.exception(exc)
             raise
@@ -216,7 +216,7 @@ def setup(args):
         elif args.json_conf["reference"]["genome_fai"] is None:
             if args.json_conf["reference"]["fasta"] is not None:
                 _ = pyfaidx.Fasta(args.json_conf["reference"]["fasta"])
-                args.json_conf["reference"]["genome_fai"] = _.faidx.filename
+                args.json_conf["reference"]["genome_fai"] = _.faidx.indexname
             else:
                 logger.critical("Missing FAI file for junction loading!")
                 sys.exit(1)
@@ -320,7 +320,7 @@ def serialise_parser():
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=None,
                        help="Maximum number of target sequences.")
-    blast.add_argument("--blast_targets", default=None, type=argparse.FileType("r"),
+    blast.add_argument("--blast_targets", default=None, type=str,
                        help="Target sequences")
     blast.add_argument("--discard-definition", action="store_true", default=False,
                        help="""Flag. If set, the sequences IDs instead of their definition

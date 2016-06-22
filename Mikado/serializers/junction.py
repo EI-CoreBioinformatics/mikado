@@ -193,7 +193,10 @@ class JunctionSerializer:
         if self.fai is not None:
             for line in self.fai:
                 name, length = line.rstrip().split()[:2]
-                current_chrom = Chrom(name, length=int(length))
+                try:
+                    current_chrom = Chrom(name, length=int(length))
+                except ValueError:
+                    raise ValueError(line)
                 self.session.add(current_chrom)
                 sequences[current_chrom.name] = current_chrom.chrom_id
             self.session.commit()

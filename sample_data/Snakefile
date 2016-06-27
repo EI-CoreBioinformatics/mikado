@@ -18,8 +18,88 @@ subprocess.call(
   --scoring plants.yaml {configname} --junctions junctions.bed".format(
                    configname=configname),
                  shell=True)
+
 config = Mikado.configuration.configurator.to_json(configname)
 configfile: "configuration.yaml"
+
+rule complete:
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats"
+    output: touch("finished.ok")
+
+rule test_json:
+    input: db=zipDBs, config=configname
+    output: touch("{}.ok".format(configname)), "chr5.fas"
+    run:
+        __= Mikado.configuration.configurator.to_json(configname)
+        subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
+        # shell("touch {output}")
+
+rule prepare:
+    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gtf", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
+    log: config["prepare"]["files"]["log"]
+    output: gtf="mikado_prepared.gtf", fasta="mikado_prepared.fasta"
+    shell: "mikado.py prepare --json-conf configuration.yaml"
+
+rule uncompress_blast:
+    input: "{0}.gz".format(swissprot)
+    output: swissprot
+    shell:
+      "gzip -dc {input} > {output}"
+
+rule prepare_blast:
+    input: rules.uncompress_blast.output
+    output: "{}.pog".format(swissprot)
+    log: "blast_prepare.log"
+    shell:
+       "makeblastdb -in {input} -dbtype prot -parse_seqids > {log}"
+
+rule blast_complete:
+    params:	prefix="mikado"
+    input: rules.prepare.output, rules.prepare_blast.output
+    output: xml="mikado.blast.xml"
+    threads: 10
+    log: "blast.log"
+    shell:
+        """blastx -num_threads {threads} -query {rules.prepare.output.fasta} \
+        -outfmt 5 -db {rules.uncompress_blast.output} -out {output} -evalue 0.000001 \
+        -max_target_seqs 5 > {log}"""
+
+rule serialise:
+    input:
+        xml=rules.blast_complete.output.xml,
+        orfs="mikado.bed"
+    log: config["serialise"]["files"]["log"]
+    output: touch("serialised.ok")  #, config["db_settings"]["db"]
+    threads: 10
+    shell:
+        """mikado.py serialise -p {threads} --json-conf {configname} --xml {input.xml} \
+        --orfs {input.orfs} --blast_targets {swissprot} --force"""
+
+rule pick:
+    params: prefix="all"
+    input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
+    log: config["pick"]["files"]["log"]
+    threads: 10
+    output: "mikado.loci.gff3", "mikado.subloci.gff3"
+    shell: "mikado.py pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p {threads}"
+
+rule compare:
+    input: reference="reference.gff3", prediction="mikado.loci.gff3"
+    output: "compare.stats", "compare.tmap", "compare.refmap"
+    log: "compare.log"
+    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare -l {log}"""
+    
+rule compare_input:
+    input: reference="reference.gff3", prediction="mikado_prepared.gtf"
+    output: "compare_input.stats", "compare_input.tmap", "compare_input.refmap"
+    log: "compare_input.log"
+    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
+
+rule compare_subloci:
+    input: reference="reference.gff3", prediction="mikado.subloci.gff3"
+    output: "compare_subloci.stats", "compare_subloci.tmap", "compare_subloci.refmap"
+    log: "compare_subloci.log"
+    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
 
 rule clean:
     run:
@@ -39,88 +119,3 @@ rule clean_crumbs:
                                         glob.glob("compare*")):
             if os.path.exists(filename):
                 os.remove(filename)
-
-
-rule test_json:
-    input: db=zipDBs, config=configname
-    output: "{0}.ok".format(configname), "chr5.fas"
-    run:
-        __= Mikado.configuration.configurator.to_json(configname)
-        subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
-        shell("touch {output}")
-
-rule prepare:
-    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gtf", "mikado.bed", "chr5.fas"
-    log: config["prepare"]["files"]["log"]
-    output: "mikado_prepared.gtf", "mikado_prepared.fasta"
-    shell: "mikado.py prepare --json-conf configuration.yaml"
-
-#rule makeblast:
-#    input: "{0}.gz".format(swissprot)
-#    output: pog="{0}.pog".format(swissprot), fasta=swissprot
-#    run:
-
-rule blast_complete:
-    params:	prefix="mikado"
-    input: query="mikado_prepared.fasta", db="{0}.gz".format(swissprot), check="{0}.ok".format(configname)
-    output: xml="mikado.blast.xml", db="uniprot_sprot_plants.fasta", pog="{0}.pog".format(swissprot)
-    run:
-        subprocess.call("gzip -dc {0} > {1}".format("{0}.gz".format(swissprot), swissprot),
-                        shell=True)
-        subprocess.call("makeblastdb -in {0} -dbtype prot -parse_seqids".format(swissprot),
-                        shell=True)
-        subprocess.call(" ".join(["blastx", "-num_threads", "1",
-         "-query", "mikado_prepared.fasta", "-outfmt", "5", "-db", "uniprot_sprot_plants.fasta", "-out",
-         "mikado.blast.xml", "-evalue", "0.000000001", "-max_target_seqs", "5"]),
-          shell=True)
-        # command = ""
-        # shell(command)
-
-rule serialise:
-    input:
-        rules.blast_complete.output.xml
-#        junctions="junctions.bed",  # Portcullis
-#        fai="genome.fai", # Samtools faidx
-#        transcripts="mikado_prepared.fasta", # Prepare
-#        targets="uniprot_sprot_plants.fasta", # BLAST DB
-#        xml="mikado.blast.xml", # BLAST
-#        orfs="mikado.bed" # TransDecoder
-    log: config["serialise"]["files"]["log"]
-    output: "serialised.ok"  #, config["db_settings"]["db"]
-    run:
-        command = "mikado.py serialise -p 2 --json-conf configuration.yaml --xml {xml} \
-        --orfs mikado.bed --blast_targets {db} --force".format(
-          xml=rules.blast_complete.output.xml, db=swissprot)
-        retcode = subprocess.call(command, shell=True)
-        if retcode == 0:
-             subprocess.call("touch serialised.ok", shell=True)
-
-rule pick:
-    params: prefix="all"
-    input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
-    log: config["pick"]["files"]["log"]
-    output: "mikado.loci.gff3", "mikado.subloci.gff3"
-    shell: "mikado.py pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3"
-
-rule compare:
-    input: reference="reference.gff3", prediction="mikado.loci.gff3"
-    output: "compare.stats", "compare.tmap", "compare.refmap", "compare.log"
-    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare -l compare.log"""
-    
-rule compare_input:
-    input: reference="reference.gff3", prediction="mikado_prepared.gtf"
-    output: "compare_input.stats", "compare_input.tmap", "compare_input.refmap", "compare_input.log"
-    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare_input -l compare_input.log"""
-
-rule compare_subloci:
-    input: reference="reference.gff3", prediction="mikado.subloci.gff3"
-    output: "compare_subloci.stats", "compare_subloci.tmap", "compare_subloci.refmap", "compare_subloci.log"
-    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l compare_subloci.log"""
-
-
-rule complete:
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats"
-    output: "finished.ok"
-    run:
-        with open(output[0],"w") as out:
-            pass

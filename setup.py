@@ -56,7 +56,9 @@ setup(
     zip_safe=False,
     keywords="rna-seq annotation genomics transcriptomics",
     packages=find_packages(),
-    scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),
+    # scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),
+    scripts=glob.glob("util/*.py"),
+    entry_points={"console_scripts": ["mikado = Mikado:main"]},
     install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],
     extras_require={
         "postgresql": ["psycopg2"],

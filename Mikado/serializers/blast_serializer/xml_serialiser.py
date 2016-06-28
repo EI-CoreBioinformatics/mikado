@@ -218,19 +218,19 @@ class XmlSerializer:
         self.procs = json_conf["serialise"]["procs"]
         self.single_thread = json_conf["serialise"]["single_thread"]
         self.json_conf = json_conf
-        if self.procs > 1 and self.single_thread is False:
+        # if self.procs > 1 and self.single_thread is False:
             # pylint: disable=unexpected-argument
-            multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
-                                             force=True)
-            # pylint: enable=unexpected-argument
-            self.logging_queue = multiprocessing.Queue(-1)
-            self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
-            self.queue_logger = logging.getLogger("parser")
-            self.queue_logger.addHandler(self.logger_queue_handler)
-            self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
-            self.queue_logger.propagate = False
-            self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
-            self.log_writer.start()
+        multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
+                                         force=True)
+        # pylint: enable=unexpected-argument
+        self.logging_queue = multiprocessing.Queue(-1)
+        self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.queue_logger = logging.getLogger("parser")
+        self.queue_logger.addHandler(self.logger_queue_handler)
+        self.queue_logger.setLevel(self.json_conf["log_settings"]["log_level"])
+        self.queue_logger.propagate = False
+        self.log_writer = logging_handlers.QueueListener(self.logging_queue, self.logger)
+        self.log_writer.start()
 
         self.discard_definition = json_conf["serialise"]["discard_definition"]
         self.__max_target_seqs = json_conf["serialise"]["max_target_seqs"]
@@ -290,17 +290,22 @@ class XmlSerializer:
             # assert "SeqIO.index" in repr(query_seqs)
             self.query_seqs = query_seqs
 
-        if isinstance(target_seqs, str):
-            assert os.path.exists(target_seqs)
-            self.target_seqs = pyfaidx.Fasta(target_seqs)
-        elif target_seqs is None:
-            self.target_seqs = None
-        else:
-            self.logger.warn("Target (%s) type: %s",
-                             target_seqs,
-                             type(target_seqs))
-            # assert "SeqIO.index" in repr(target_seqs)
-            self.target_seqs = target_seqs
+        self.target_seqs = []
+        for target in target_seqs:
+            assert os.path.exists(target)
+            self.target_seqs.append(pyfaidx.Fasta(target))
+
+        # if isinstance(target_seqs, str):
+        #     assert os.path.exists(target_seqs)
+        #     self.target_seqs = pyfaidx.Fasta(target_seqs)
+        # elif target_seqs is None:
+        #     self.target_seqs = None
+        # else:
+        #     self.logger.warn("Target (%s) type: %s",
+        #                      target_seqs,
+        #                      type(target_seqs))
+        #     # assert "SeqIO.index" in repr(target_seqs)
+        #     self.target_seqs = target_seqs
         return
 
     def __serialize_queries(self, queries):
@@ -373,35 +378,36 @@ class XmlSerializer:
         counter = 0
         objects = []
         self.logger.info("Started to serialise the targets")
-        for record in self.target_seqs.records:
-            if record in targets and targets[record][1] is True:
-                continue
-            elif record in targets:
-                self.session.query(Target).filter(Target.target_name == record).update(
-                    {"target_length": len(self.target_seqs[record])})
-                targets[record] = (targets[record][0], True)
-                continue
+        for target in self.target_seqs:
+            for record in target.records:
+                if record in targets and targets[record][1] is True:
+                    continue
+                elif record in targets:
+                    self.session.query(Target).filter(Target.target_name == record).update(
+                        {"target_length": len(self.target_seqs[record])})
+                    targets[record] = (targets[record][0], True)
+                    continue
 
-            objects.append({
-                "target_name": record,
-                "target_length": len(self.target_seqs[record])
-            })
-            counter += 1
-            #
-            # objects.append(Target(record, len(self.target_seqs[record])))
-            if len(objects) >= self.maxobjects:
-                # counter += len(objects)
-                self.logger.info("Loading %d objects into the \"target\" table",
-                                 counter)
-                # self.session.bulk_insert_mappings(Target, objects)
-                self.engine.execute(Target.__table__.insert(), objects)
-                self.session.commit()
-                objects = []
-                # pylint: disable=no-member
-                # pylint: enable=no-member
-                # self.logger.info("Loaded %d objects into the \"target\" table",
-                #                  len(objects))
-                # objects = []
+                objects.append({
+                    "target_name": record,
+                    "target_length": len(target[record])
+                })
+                counter += 1
+                #
+                # objects.append(Target(record, len(self.target_seqs[record])))
+                if len(objects) >= self.maxobjects:
+                    # counter += len(objects)
+                    self.logger.info("Loading %d objects into the \"target\" table",
+                                     counter)
+                    # self.session.bulk_insert_mappings(Target, objects)
+                    self.engine.execute(Target.__table__.insert(), objects)
+                    self.session.commit()
+                    objects = []
+                    # pylint: disable=no-member
+                    # pylint: enable=no-member
+                    # self.logger.info("Loaded %d objects into the \"target\" table",
+                    #                  len(objects))
+                    # objects = []
         self.logger.info("Loading %d objects into the \"target\" table, (total %d)",
                          len(objects), counter)
         # pylint: disable=no-member
@@ -432,7 +438,7 @@ class XmlSerializer:
                          len(queries), len(targets))
 
         self.logger.info("Started the sequence serialisation")
-        if self.target_seqs is not None:
+        if self.target_seqs:
             targets = self.__serialize_targets(targets)
             assert len(targets) > 0
         if self.query_seqs is not None:

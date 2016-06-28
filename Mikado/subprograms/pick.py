@@ -7,7 +7,7 @@ import argparse
 import sys
 from ..picking import Picker
 from ..configuration.configurator import to_json, check_json
-from ..exceptions import UnsortedInput, InvalidJson
+from ..exceptions import UnsortedInput  # , InvalidJson
 
 
 def check_log_settings(args):
@@ -90,6 +90,9 @@ def check_run_options(args):
                 args.json_conf["pick"]["chimera_split"]["blast_check"] = True
                 args.json_conf["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
 
+    if args.intron_range is not None:
+        args.json_conf["pick"]["run_options"]["intron_range"] = tuple(sorted(args.intron_range))
+
     for key in ["loci_out", "gff", "monoloci_out", "subloci_out", "log"]:
         if getattr(args, key):
             if key == "gff":
@@ -144,6 +147,12 @@ def pick_parser():
     parser.add_argument("--json-conf", dest="json_conf",
                         type=to_json, required=True,
                         help="JSON/YAML configuration file for scoring transcripts.")
+    parser.add_argument("-i", "--intron-range",
+                        dest="intron_range", type=int, nargs=2,
+                        default=None,
+                        help="""Range into which intron lengths should fall, as a couple of integers.
+                        Transcripts with intron lengths outside of this range will be penalised.
+                        Default: (60, 900)""")
     parser.add_argument("--subloci_out", type=str, default=None)
     parser.add_argument("--monoloci_out", type=str, default=None)
     parser.add_argument("--loci_out", type=str, default=None,

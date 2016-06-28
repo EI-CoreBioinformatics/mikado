@@ -15,7 +15,7 @@ import logging
 import logging.handlers
 import sqlalchemy
 from ..configuration import configurator
-from ..utilities import path_join
+from ..utilities import path_join, comma_split
 from ..utilities.log_utils import create_default_logger, formatter
 from ..utilities import dbutils
 from ..serializers import orf, blast_serializer, junction
@@ -169,6 +169,16 @@ def setup(args):
                 else:
                     args.json_conf["serialise"][key] = getattr(args, key)
 
+    if args.db is not None:
+        args.json_conf["db_settings"]["db"] = args.db
+        args.json_conf["dbtype"] = "sqlite"
+
+    if args.output_dir is not None:
+        args.json_conf["serialise"]["files"]["output_dir"] = args.output_dir
+        if args.json_conf["db_settings"]["dbtype"] == "sqlite":
+            args.json_conf["db_settings"]["db"] = os.path.basename(
+                args.json_conf["db_settings"]["db"])
+
     if not os.path.exists(args.json_conf["serialise"]["files"]["output_dir"]):
         try:
             os.makedirs(args.json_conf["serialise"]["files"]["output_dir"])
@@ -179,21 +189,14 @@ def setup(args):
     elif not os.path.isdir(args.json_conf["serialise"]["files"]["output_dir"]):
         logger.error(
             "The specified output directory %s exists and is not a file; aborting",
-            args.json_conf["serialise"]["output_dir"])
+            args.json_conf["serialise"]["files"]["output_dir"])
         raise OSError("The specified output directory %s exists and is not a file; aborting" %
-                      args.json_conf["prepare"]["output_dir"])
+                      args.json_conf["prepare"]["files"]["output_dir"])
 
-    if args.db is not None:
+    if args.json_conf["db_settings"]["dbtype"] == "sqlite":
         args.json_conf["db_settings"]["db"] = path_join(
             args.json_conf["serialise"]["files"]["output_dir"],
-            args.db)
-        args.json_conf["dbtype"] = "sqlite"
-    else:
-        if args.json_conf["db_settings"]["dbtype"] == "sqlite":
-            args.json_conf["db_settings"]["db"] = path_join(
-                args.json_conf["serialise"]["files"]["output_dir"],
-                args.json_conf["db_settings"]["db"]
-            )
+            args.json_conf["db_settings"]["db"])
 
     if args.json_conf["serialise"]["files"]["log"] is not None:
         if not isinstance(args.json_conf["serialise"]["files"]["log"], str):
@@ -320,7 +323,7 @@ def serialise_parser():
     blast = parser.add_argument_group()
     blast.add_argument("--max_target_seqs", type=int, default=None,
                        help="Maximum number of target sequences.")
-    blast.add_argument("--blast_targets", default=None, type=str,
+    blast.add_argument("--blast_targets", default=[], type=comma_split,
                        help="Target sequences")
     blast.add_argument("--discard-definition", action="store_true", default=False,
                        help="""Flag. If set, the sequences IDs instead of their definition

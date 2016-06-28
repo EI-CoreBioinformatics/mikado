@@ -155,8 +155,8 @@
               "default": "serialise.log"
             },
             "blast_targets": {
-              "type": "string",
-              "default": ""
+              "type": "array",
+              "default": [""]
             },
             "output_dir": {
               "type": "string",

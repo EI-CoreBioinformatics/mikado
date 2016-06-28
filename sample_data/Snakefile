@@ -2,6 +2,7 @@ import os
 import sys
 import glob
 import itertools
+import yaml
 from Mikado.utilities import path_join
 import Mikado.configuration.configurator
 import subprocess
@@ -14,10 +15,20 @@ zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
 subprocess.call(
-  "mikado.py configure --list list.txt --reference chr5.fas --mode lenient \
-  --scoring plants.yaml {configname} --junctions junctions.bed".format(
-                   configname=configname),
+  "mikado configure --list list.txt --reference chr5.fas --mode permissive \
+  --scoring plants.yaml {configname} --junctions junctions.bed -bt {swiss}".format(
+                   configname=configname, swiss=swissprot),
                  shell=True)
+
+loads = {"load": {}}
+for program in ["tophat", "gmap", "star",
+            "hisat", "samtools", "cufflinks",
+            "trinity", "stringtie",
+            "class", "transdecoder",
+            "portcullis", "mikado", "blast"]:
+            loads["load"][program] = "echo"
+with open(configname, "at") as _:
+     print(yaml.dump(loads), file=_)
 
 config = Mikado.configuration.configurator.to_json(configname)
 configfile: "configuration.yaml"
@@ -38,7 +49,7 @@ rule prepare:
     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gtf", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
     log: config["prepare"]["files"]["log"]
     output: gtf="mikado_prepared.gtf", fasta="mikado_prepared.fasta"
-    shell: "mikado.py prepare --json-conf configuration.yaml"
+    shell: "mikado prepare --json-conf configuration.yaml"
 
 rule uncompress_blast:
     input: "{0}.gz".format(swissprot)
@@ -72,7 +83,7 @@ rule serialise:
     output: touch("serialised.ok")  #, config["db_settings"]["db"]
     threads: 10
     shell:
-        """mikado.py serialise -p {threads} --json-conf {configname} --xml {input.xml} \
+        """mikado serialise -p {threads} --json-conf {configname} --xml {input.xml} \
         --orfs {input.orfs} --blast_targets {swissprot} --force"""
 
 rule pick:
@@ -81,25 +92,25 @@ rule pick:
     log: config["pick"]["files"]["log"]
     threads: 10
     output: "mikado.loci.gff3", "mikado.subloci.gff3"
-    shell: "mikado.py pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p {threads}"
+    shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p {threads}"
 
 rule compare:
     input: reference="reference.gff3", prediction="mikado.loci.gff3"
     output: "compare.stats", "compare.tmap", "compare.refmap"
     log: "compare.log"
-    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare -l {log}"""
+    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare -l {log}"""
     
 rule compare_input:
     input: reference="reference.gff3", prediction="mikado_prepared.gtf"
     output: "compare_input.stats", "compare_input.tmap", "compare_input.refmap"
     log: "compare_input.log"
-    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
+    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
 
 rule compare_subloci:
     input: reference="reference.gff3", prediction="mikado.subloci.gff3"
     output: "compare_subloci.stats", "compare_subloci.tmap", "compare_subloci.refmap"
     log: "compare_subloci.log"
-    shell: """mikado.py compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
+    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
 
 rule clean:
     run:

@@ -266,7 +266,7 @@ def load_exon_lines(args, logger):
         [_.start() for _ in working_processes]
         for label, strand_specific, gff_name in zip(
                 args.json_conf["prepare"]["files"]["labels"],
-                args.json_conf["prepare"]["strand_specific_assemblies"],
+                args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
                 args.json_conf["prepare"]["files"]["gff"]):
             submission_queue.put((label, gff_name, strand_specific))
 

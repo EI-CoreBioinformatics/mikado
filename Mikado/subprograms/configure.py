@@ -12,6 +12,7 @@ import argparse
 import sys
 from ..configuration import configurator
 from ..exceptions import InvalidJson
+from ..utilities import comma_split
 from collections import Counter
 
 __author__ = 'Luca Venturini'
@@ -175,7 +176,10 @@ def create_config(args):
         config["reference"]["fasta"] = args.reference
 
     if args.junctions is not None:
-        config["serialise"]["files"]["junctions"] = args.junctions.split(",")
+        config["serialise"]["files"]["junctions"] = args.junctions
+
+    if args.blast_targets is not None:
+        config["serialise"]["files"]["blast_targets"] = args.blast_targets
 
     if args.gff:
         args.gff = args.gff.split(",")
@@ -295,7 +299,10 @@ def configure_parser():
     files.add_argument("--list", help="""List of the inputs, one by line, in the form:
 <file1>  <label>  <strandedness (true/false)>""")
     parser.add_argument("--reference", help="Fasta genomic reference.", default=None)
-    parser.add_argument("--junctions", type=str, default=None)
+    serialisers = parser.add_argument_group(
+        "Options related to the serialisation step")
+    serialisers.add_argument("--junctions", type=comma_split, default=[])
+    serialisers.add_argument("-bt", "--blast_targets", type=comma_split, default=None)
     parser.add_argument("--strand-specific-assemblies", type=str, default="",
                         dest="strand_specific_assemblies",
                         help="""List of strand-specific assemblies among the inputs.""")
@@ -312,6 +319,7 @@ def configure_parser():
            either of the ORFs lacks a BLAST hit (but not both).
 - permissive: like lenient, but also split when both ORFs lack BLAST hits
 - split: split multi-orf transcripts regardless of what BLAST data is available.""")
+
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)
     return parser

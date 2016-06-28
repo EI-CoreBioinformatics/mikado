@@ -15,6 +15,12 @@ from .overlap import overlap
 __author__ = 'Luca Venturini'
 
 
+def comma_split(string):
+    """Small utility to split a string based on comma. Useful for parsers."""
+
+    return string.split(",")
+
+
 def path_join(output_dir, output_file):
 
     """Small utility to join together a directory path and

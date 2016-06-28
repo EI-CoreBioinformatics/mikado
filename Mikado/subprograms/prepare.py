@@ -33,16 +33,16 @@ def setup(args):
         args.json_conf["multiprocessing_method"] = args.start_method
 
     if args.output_dir is not None:
-        args.json_conf["prepare"]["output_dir"] = getattr(args,
+        args.json_conf["prepare"]["files"]["output_dir"] = getattr(args,
                                                           "output_dir")
-    if not os.path.exists(args.json_conf["prepare"]["output_dir"]):
+    if not os.path.exists(args.json_conf["prepare"]["files"]["output_dir"]):
         try:
-            os.makedirs(args.json_conf["prepare"]["output_dir"])
+            os.makedirs(args.json_conf["prepare"]["files"]["output_dir"])
         except (OSError, PermissionError) as exc:
             logger.error("Failed to create the output directory!")
             logger.exception(exc)
             raise
-    elif not os.path.isdir(args.json_conf["prepare"]["output_dir"]):
+    elif not os.path.isdir(args.json_conf["prepare"]["files"]["output_dir"]):
         logger.error(
             "The specified output directory %s exists and is not a file; aborting",
             args.json_conf["prepare"]["output_dir"])

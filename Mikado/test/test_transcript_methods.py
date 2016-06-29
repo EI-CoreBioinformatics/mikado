@@ -326,9 +326,7 @@ class TestRetrieval(unittest.TestCase):
         self.assertEqual(conf["pick"]["chimera_split"]["blast_params"]["leniency"],
                          "LENIENT")
 
-        self.assertEqual(conf["pick"]["orf_loading"]["minimal_secondary_orf_length"],
-                         50,
-                         conf["pick"]["orf_loading"])
+        conf["pick"]["orf_loading"]["minimal_secondary_orf_length"] = 50
 
         self.tr.json_conf = conf
 

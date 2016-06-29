@@ -59,7 +59,7 @@ class AnnotationParser(multiprocessing.Process):
         while True:
             label, handle, strand_specific = self.submission_queue.get()
             if handle == "EXIT":
-                self.submission_queue.put(("EXIT", label))
+                self.submission_queue.put(("EXIT", "EXIT", "EXIT"))
                 break
             self.logger.debug("Received %s (label: %s; SS: %s)", handle, label, strand_specific)
             try:

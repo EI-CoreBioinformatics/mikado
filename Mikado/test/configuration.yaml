@@ -9,17 +9,28 @@ db_settings:
   db: mikado.db
   dbtype: sqlite
 pick:
-  scoring_file: plants.yaml
+  #  scoring_file: a scoring file for the analysis. Default: plants.yaml.
   alternative_splicing:
     #  Parameters related to alternative splicing reporting.
     #  - report: whether to report at all or not the AS events.
     #  - min_cds_overlap: minimum overlap between the CDS of the primary transcript
     #  and any AS event. Default: 60%.
+    #  - min_cdna_overlap: minimum overlap between the CDNA of the primary transcript
+    #  and any AS event.
+    #  Default: 0% i.e. disabled, we check for the CDS overlap.
+    #  - valid_ccodes: Valid class codes for AS events. See documentation for details.
+    #  Choices:
+    #  j, n, O, e, o, h, J, C, mo. Default: j, J, O, mo
     #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
     #  Default: 3
+    #  - min_score_perc: Minimum score threshold for subsequent AS events.
+    #   Only transcripts with a score at least (best) * value are retained. Default:
+    #  50% (0.5)
+    #  - only_confirmed_introns: bring back AS events only when their introns are
+    #  either
+    #   present in the primary transcript or in the set of confirmed introns.
     max_isoforms: 3
     report: true
-    min_score_perc: 0.1
   chimera_split:
     #  Parameters related to the splitting of transcripts in the presence of
     #  two or more ORFs. Parameters:
@@ -34,7 +45,6 @@ pick:
       #  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT
       #  - max_target_seqs: maximum number of hits to consider. Default: 3
       leniency: LENIENT
-      min_overlap_duplication: 0.8
     execute: true
   files:
     #  Input and output files for Mikado pick.
@@ -46,12 +56,6 @@ pick:
     #  no output
     #  - log: log file for this step.
     input: mikado_prepared.gtf
-    loci_out: mikado.loci.gff3
-    subloci_out: mikado.subloci.gff3
-    monoloci_out: mikado.monoloci.gff3
-  orf_loading:
-    minimal_orf_length: 50
-    minimal_secondary_orf_length: 50
   run_options:
     #  Generic run options.
     #  - purge: boolean flag. If set, all loci where all transcripts have a score
@@ -61,47 +65,79 @@ pick:
     #  monoexonic loci
     #    classified as P,x,i or p compared to another locus, will be removed from
     #  the output.
-    #  - procs: number of threads to use. Default: 1
+    #  - procs: number of processes to use. Default: 1
+    #  - intron_range: A range where most of the introns (99%) should fall into. Transcripts
+    #  with too many
+    #   introns larger or smaller than what is defined in this range will be penalised
+    #   in the scoring. Default: [60, 900]
     #  - preload: boolean flag. If set, the whole database will be preloaded into
-    #  memory for faster access. Useful when
-    #    using SQLite databases.
+    #  memory for potentially faster access.
+    #  - single_thread: boolean flag. If set, multithreading will be disabled - useful
+    #  for profiling and debugging.
+    #  - flank: integer, maximum flank to group transcripts together for analysis.
+    #  Default: 0.
     preload: false
     procs: 1
     single_thread: false
   scoring_file: plants.yaml
 prepare:
   #  Options related to the input data preparation.
-  #  - gff: array of GFF3/GTF files containing the predictions. Required.
-  #  - fasta: genomic FASTA file. Required.
-  #  - procs: Number of threads to use.
-  #  - out: output GTF file
-  #  - out_fasta: output transcript FASTA file
+  #  - procs: Number of processes to use.
   #  - strand_specific: if set to True, transcripts will be assumed to be in the correct
   #  orientation, no strand flipping or removal
-  #  - cache: whether to load the whole genome in memory or not.
+  #  - strip_cds: Boolean. It indicates whether to remove the CDS from the predictions
+  #  during preparation.
+  files:
+    gff:
+    - class.gtf
+    - cufflinks.gtf
+    - stringtie.gtf
+    - trinity.gtf
+    labels:
+    - cl
+    - cuff
+    - st
+    - tr
+    log: prepare.log
+    out: mikado_prepared.gtf
+    out_fasta: mikado_prepared.fasta
+    output_dir: .
+    strand_specific_assemblies:
+    - class.gtf
+    - cufflinks.gtf
+    - stringtie.gtf
+  procs: 1
+  strand_specific: false
+reference:
+  #  Options related to the reference genome.
   fasta: chr5.fas
-  gff:
-  - class.gtf
-  - cufflinks.gtf
-  - stringtie.gtf
-  - trinity.gtf
-  labels:
-  - cl
-  - cuff
-  - st
-  - tr
-  out: mikado_prepared.gtf
-  out_fasta: mikado_prepared.fasta
-  cache: true
 serialise:
   #  Options related to serialisation
   #  - force: whether to drop and reload everything into the DB
-  #  - orfs: BED12 file(s) with the ORFs.
-  #  - fai: genome 
-  force: true
+  #  - max_regression: if the ORF lacks a valid start site, this percentage indicates
+  #  how far
+  #    along the sequence Mikado should look for a good start site. Eg. with a value
+  #  of 0.1,
+  #    on a 300bp sequence with an open ORF Mikado would look for an alternative in-frame
+  #  start codon
+  #    in the first 30 bps (10% of the cDNA).
+  #  - procs: Number of processors to use. Default: 1.
   files:
-    genome_fai: genome.fai
-    orfs: [mikado.bed]
-    junctions: [junctions.bed]
-    blast_targets: uniprot_sprot_plants.fasta
-    xml: [mikado.blast.xml]
+    blast_targets:
+    - uniprot_sprot_plants.fasta
+    junctions:
+    - junctions.bed
+    log: serialise.log
+    orfs:
+    - ''
+    output_dir: .
+    transcripts: mikado_prepared.fasta
+    xml:
+    - ''
+  max_regression: 0
+  procs: 1
+
+load: {blast: echo, class: echo, cufflinks: echo, gmap: echo, hisat: echo, mikado: echo,
+  portcullis: echo, samtools: echo, star: echo, stringtie: echo, tophat: echo, transdecoder: echo,
+  trinity: echo}
+

@@ -213,8 +213,8 @@ class BED12:
             else:
                 pass
 
-            self.start_codon = str(orf_sequence)[:3]
-            self.stop_codon = str(orf_sequence[-3:])
+            self.start_codon = str(orf_sequence)[:3].upper()
+            self.stop_codon = str(orf_sequence[-3:]).upper()
 
             if self.start_codon == "ATG":
                 self.has_start_codon = True

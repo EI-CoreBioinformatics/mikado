@@ -176,7 +176,7 @@ class CheckingProcess(multiprocessing.Process):
     def __getstate__(self):
         state = self.__dict__.copy()
         del state["fasta"]
-        del state["handler"]
+        # del state["handler"]
         del state["logger"]
         return state
 

@@ -270,7 +270,7 @@ def load_exon_lines(args, logger):
                 args.json_conf["prepare"]["files"]["gff"]):
             submission_queue.put((label, gff_name, strand_specific))
 
-        submission_queue.put(("EXIT", "EXIT"))
+        submission_queue.put(("EXIT", "EXIT", "EXIT"))
 
         [_.join() for _ in working_processes]
         return_queue.put("EXIT")

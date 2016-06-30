@@ -47,7 +47,7 @@ rule test_json:
         # shell("touch {output}")
 
 rule prepare:
-    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gtf", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
+    input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
     # log: config["prepare"]["files"]["log"]
     output: gtf="mikado_prepared.gtf", fasta="mikado_prepared.fasta"
     shell: "mikado prepare --json-conf configuration.yaml"

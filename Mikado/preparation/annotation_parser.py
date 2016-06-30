@@ -178,12 +178,9 @@ def load_from_gff(exon_lines,
         if row.is_transcript is True:
             if label != '':
                 row.id = "{0}_{1}".format(label, row.id)
-                exon_lines[row.id]["source"] = label
-            else:
-                exon_lines[row.id]["source"] = row.source
-            transcript2genes[row.id] = row.parent[0]
+                row.source = label
             if row.id in found_ids:
-                __raise_redundant(row.id, gff_handle.name, label)
+                    __raise_redundant(row.id, gff_handle.name, label)
             elif row.id in exon_lines:
                 # This might sometimes happen in GMAP
                 logger.warning(
@@ -191,6 +188,17 @@ def load_from_gff(exon_lines,
                     row.id)
                 to_ignore.add(row.id)
                 continue
+            exon_lines[row.id]["source"] = row.source
+            transcript2genes[row.id] = row.parent[0]
+            if row.id in found_ids:
+                __raise_redundant(row.id, gff_handle.name, label)
+            # elif row.id in exon_lines:
+            #     # This might sometimes happen in GMAP
+            #     logger.warning(
+            #         "Multiple instance of %s found, skipping any subsequent entry",
+            #         row.id)
+            #     to_ignore.add(row.id)
+            #     continue
                 # __raise_invalid(row.id, gff_handle.name, label)
 
             exon_lines[row.id]["attributes"] = row.attributes.copy()

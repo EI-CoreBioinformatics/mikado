@@ -13,6 +13,7 @@ import sys
 from ..configuration import configurator
 from ..exceptions import InvalidJson
 from ..utilities import comma_split
+import json
 from collections import Counter
 
 __author__ = 'Luca Venturini'
@@ -222,8 +223,7 @@ def create_config(args):
             if files_counter.most_common()[0][1] > 1:
                 raise InvalidJson(
                     "Repeated elements among the input GFFs! Duplicated files: {}".format(
-                        ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)
-                ))
+                        ", ".join(_[0] for _ in files_counter.most_common() if _[1] > 1)))
             if any([_ not in ("True", "False") for _ in strandedness]):
                 raise InvalidJson("Invalid values for strandedness in the list file.")
             config["prepare"]["files"]["labels"] = list(labels)
@@ -264,9 +264,11 @@ def create_config(args):
                 config["pick"]["chimera_split"]["blast_check"] = True
                 config["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
 
-    output = yaml.dump(config, default_flow_style=False)
-
-    print_config(output, args.out)
+    if args.json is True or args.out.name.endswith("json"):
+        json.dump(config, args.out, sort_keys=True, indent=4)
+    else:
+        output = yaml.dump(config, default_flow_style=False)
+        print_config(output, args.out)
 
 
 def configure_parser():
@@ -281,12 +283,12 @@ def configure_parser():
     parser.add_argument("--full", action="store_true", default=False)
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
-                        choices=resource_listdir(
-                            "Mikado", os.path.join("configuration", "scoring_files")),
-                        help="Available scoring files.")
+                         choices=resource_listdir(
+                             "Mikado", os.path.join("configuration", "scoring_files")),
+                         help="Available scoring files.")
     scoring.add_argument("--copy-scoring", default=False,
-                        type=str, dest="copy_scoring",
-                        help="File into which to copy the selected scoring file, for modification.")
+                         type=str, dest="copy_scoring",
+                         help="File into which to copy the selected scoring file, for modification.")
     parser.add_argument("--strand-specific", default=False,
                         action="store_true",
                         help="""Boolean flag indicating whether all the assemblies are strand-specific.""")
@@ -319,7 +321,8 @@ def configure_parser():
            either of the ORFs lacks a BLAST hit (but not both).
 - permissive: like lenient, but also split when both ORFs lack BLAST hits
 - split: split multi-orf transcripts regardless of what BLAST data is available.""")
-
+    parser.add_argument("-j", "--json", action="store_true", default=False,
+                        help="Output will be in JSON instead of YAML format.")
     parser.add_argument("out", nargs='?', default=sys.stdout, type=argparse.FileType('w'))
     parser.set_defaults(func=create_config)
     return parser

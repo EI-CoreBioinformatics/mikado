@@ -6,6 +6,7 @@ import yaml
 from Mikado.utilities import path_join
 import Mikado.configuration.configurator
 import subprocess
+from snakemake import logger as snake_logger
 
 swissprot = "uniprot_sprot_plants.fasta"
 swissprot_noat = "uniprot_sprot_plants.not_at.fasta"
@@ -14,11 +15,11 @@ DBs=[swissprot]
 zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
-subprocess.call(
-  "mikado configure --list list.txt --reference chr5.fas --mode permissive \
-  --scoring plants.yaml {configname} --junctions junctions.bed -bt {swiss}".format(
-                   configname=configname, swiss=swissprot),
-                 shell=True)
+command = "mikado configure --list list.txt --reference chr5.fas --mode permissive \
+  --scoring plants.yaml --junctions junctions.bed -bt {swiss} {configname}".format(configname=configname, swiss=swissprot)
+snake_logger.warning("Printing the configuration file")
+snake_logger.info(command)
+subprocess.call(command, shell=True)
 
 loads = {"load": {}}
 for program in ["tophat", "gmap", "star",
@@ -47,7 +48,7 @@ rule test_json:
 
 rule prepare:
     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gtf", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
-    log: config["prepare"]["files"]["log"]
+    # log: config["prepare"]["files"]["log"]
     output: gtf="mikado_prepared.gtf", fasta="mikado_prepared.fasta"
     shell: "mikado prepare --json-conf configuration.yaml"
 

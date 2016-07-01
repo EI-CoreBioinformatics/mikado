@@ -27,7 +27,8 @@ TIME_START = time.time()
 NOW = datetime.datetime.fromtimestamp(TIME_START).strftime('%Y-%m-%d_%H:%M:%S')
 
 # DAGGER_DIR = os.path.dirname(os.path.realpath(__file__))
-DAGGER_DIR = pkg_resources.resource_string("Mikado", "dagger")
+DAGGER_DIR = pkg_resources.resource_filename("Mikado", "dagger")
+assert pkg_resources.resource_exists("Mikado", "dagger")
 
 
 # noinspection PyPep8Naming
@@ -121,8 +122,12 @@ def assemble_transcripts_pipeline(args):
             os.symlink(os.path.abspath(read2), r2out)
 
     # Launch using SnakeMake
+    assert pkg_resources.resource_exists("Mikado",
+                                         os.path.join("dagger", "tr.snakefile"))
+
     snakemake.snakemake(
-        os.path.join(DAGGER_DIR, "tr.snakefile"),
+        pkg_resources.resource_filename("Mikado",
+                                        os.path.join("dagger", "tr.snakefile")),
         cores=args.max_cores,
         nodes=args.max_nodes,
         configfile=args.config,
@@ -173,8 +178,12 @@ def mikado_pipeline(args):
         res_cmd = " -N 1 -n 1 -c {threads} -p {cluster.queue} --mem={cluster.memory}"
 
     # Launch using SnakeMake
+    assert pkg_resources.resource_exists("Mikado",
+                                         os.path.join("dagger", "mikado.snakefile"))
+
     snakemake.snakemake(
-        os.path.join(DAGGER_DIR, "mikado.snakefile"),
+        pkg_resources.resource_filename("Mikado",
+                                        os.path.join("dagger", "mikado.snakefile")),
         cores=args.max_cores,
         nodes=args.max_nodes,
         configfile=args.config,
@@ -257,7 +266,7 @@ def main(call_args=None):
         pass
     except Exception as exc:
         logger = create_default_logger("main")
-        logger.error("Dagger crashed, cause:")
+        logger.error("dagger crashed, cause:")
         logger.exception(exc)
         sys.exit(2)
     # pylint: enable=broad-except

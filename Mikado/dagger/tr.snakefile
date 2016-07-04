@@ -301,7 +301,7 @@ rule align_star:
 		indexdir=ALIGN_DIR_FULL+"/star/index",
 		load=config["load"]["star"],
 		extra=lambda wildcards: config["align_methods"]["star"][int(wildcards.run)],
-		link_src="../star/{sample}/Aligned.out.bam",
+		link_src="../star/{sample}-{run}/Aligned.out.bam",
 		rfc=lambda wildcards: starCompressionOption(wildcards.sample)
 	log: ALIGN_DIR_FULL+"/star-{sample}-{run}.log"
 	threads: int(THREADS)
@@ -337,7 +337,7 @@ rule align_hisat:
 		indexdir=ALIGN_DIR+"/hisat/index/"+NAME,
 		load=config["load"]["hisat"],
 		load_samtools=config["load"]["samtools"],
-		link_src="../hisat/{sample}/hisat.bam",
+		link_src="../hisat/{sample}-{run}/hisat.bam",
 		extra=lambda wildcards: config["align_methods"]["hisat"][int(wildcards.run)],
 		strand=lambda wildcards: hisatStrandOption(wildcards.sample)
 	log: ALIGN_DIR+"/hisat-{sample}-{run}.log"

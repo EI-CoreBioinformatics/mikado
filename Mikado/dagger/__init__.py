@@ -52,8 +52,9 @@ def create_parser():
     parser.add_argument("-n", "--max_cores", type=int, default="1000",
                         help="Maximum number of cores to use concurrently")
     #TODO: Implement this.
-    parser.add_argument("-t", "--threads", type=int, default=4,
-                        help="""Maximum number of threads per job. Default: %(default)d""")
+    parser.add_argument("-t", "--threads", type=int, default=None,
+                        help="""Maximum number of threads per job.
+                        Default: None (set in the configuration file)""")
     parser.add_argument("-d", "--no_drmaa", action='store_true', default=False,
                         help="Use this flag if running on a HPC and DRMAA is not available")
     parser.add_argument("--force_incomplete", action='store_true', default=False,
@@ -128,12 +129,17 @@ def assemble_transcripts_pipeline(args):
     assert pkg_resources.resource_exists("Mikado",
                                          os.path.join("dagger", "tr.snakefile"))
 
+    additional_config = {}
+    if args.threads is not None:
+        additional_config["threads"] = args.threads
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("dagger", "tr.snakefile")),
         cores=args.max_cores,
         nodes=args.max_nodes,
         configfile=args.config,
+        config=additional_config,
         workdir=CWD,
         cluster_config=args.hpc_conf,
         cluster=sub_cmd + res_cmd if args.no_drmaa else None,
@@ -184,12 +190,17 @@ def mikado_pipeline(args):
     assert pkg_resources.resource_exists("Mikado",
                                          os.path.join("dagger", "mikado.snakefile"))
 
+    additional_config = {}
+    if args.threads is not None:
+        additional_config["threads"] = args.threads
+
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("dagger", "mikado.snakefile")),
         cores=args.max_cores,
         nodes=args.max_nodes,
         configfile=args.config,
+        config=additional_config,
         workdir=CWD,
         cluster_config=args.hpc_conf,
         cluster=sub_cmd + res_cmd if args.no_drmaa else None,

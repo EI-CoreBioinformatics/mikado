@@ -5,7 +5,6 @@ import itertools
 import subprocess
 from os import listdir
 from os.path import isfile, join
-import gzip
 from snakemake import logger as snake_logger
 
 CFG=workflow.overwrite_configfile
@@ -94,12 +93,20 @@ rule blastx:
 	threads: THREADS
 	message: "Running BLASTX for mikado transcripts against: {input.tr}"
 	run:
-	    command="{load} && blastx -num_threads {threads} -query {query} -outfmt 5 -db {db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS}".format(load=params.load, threads=threads, query=input.tr, db=params.db, BLASTX_MAX_TARGET_SEQS=BLASTX_MAX_TARGET_SEQS, BLASTX_EVALUE=BLASTX_EVALUE)
-	    outfile=gzip.open("{}".format(output), "w")
+	    blast_command="{load}; blastx -num_threads {threads} \
+	                   -query {query} -outfmt 5 -db {db} -evalue {BLASTX_EVALUE} \
+	                   -max_target_seqs {BLASTX_MAX_TARGET_SEQS}".format(
+                           load=params.load,
+	                       threads=threads,
+	                       query=input.tr,
+	                       db=params.db,
+	                       BLASTX_MAX_TARGET_SEQS=BLASTX_MAX_TARGET_SEQS,
+	                       BLASTX_EVALUE=BLASTX_EVALUE)
+	    snake_logger.info(blast_command)
 	    error = open(BLAST_DIR+"/blast-{bdb}.err".format(bdb=bdb), "w")
-	    snake_logger.info(command)
-	    outfile.writelines(subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=error).stdout)
-	    outfile.close()
+	    blastx=subprocess.Popen(blast_command, shell=True, stdout=subprocess.PIPE, stderr=error)
+	    #TODO: this is a hack to remove an empty line at the beginning of the output. Is it possible to improve?
+	    subprocess.call("sed '/^$/d' | gzip -c - > {}".format(output), shell=True, stdin=blastx.stdout)
 	    error.close()
 
 rule blast_all:

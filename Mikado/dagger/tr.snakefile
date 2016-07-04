@@ -22,7 +22,11 @@ NAME = config["name"]
 OUT_DIR = config["out_dir"]
 MIN_INTRON = config["min_intron"]
 MAX_INTRON = config["max_intron"]
-THREADS = int(config["threads"])
+if "threads" in config:
+    THREADS = int(config["threads"])
+else:
+    THREADS = 1
+# THREADS = int(config["threads"])
 TGG_MAX_MEM = config["tgg_max_mem"]
 MIKADO_MODE = config["mikado_mode"]
 

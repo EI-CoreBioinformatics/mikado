@@ -6,6 +6,7 @@ import yaml
 from Mikado.utilities import path_join
 import Mikado.configuration.configurator
 import subprocess
+import gzip
 from snakemake import logger as snake_logger
 
 swissprot = "uniprot_sprot_plants.fasta"
@@ -15,11 +16,12 @@ DBs=[swissprot]
 zipDBs=["{0}.gz".format(db) for db in DBs]
 
 configname = "configuration.yaml"
-command = "mikado configure --list list.txt --reference chr5.fas --mode permissive \
-  --scoring plants.yaml --junctions junctions.bed -bt {swiss} {configname}".format(configname=configname, swiss=swissprot)
-snake_logger.info("Creating the configuration file")
-snake_logger.info(command)
-subprocess.call(command, shell=True)
+if not os.path.exists(configname):
+    command = "mikado configure --list list.txt --reference chr5.fas --mode permissive \
+        --scoring plants.yaml --junctions junctions.bed -bt {swiss} {configname}".format(configname=configname, swiss=swissprot)
+    snake_logger.info("Creating the configuration file")
+    snake_logger.info(command)
+    subprocess.call(command, shell=True)
 
 loads = {"load": {}}
 for program in ["tophat", "gmap", "star",
@@ -68,13 +70,19 @@ rule prepare_blast:
 rule blast_complete:
     params:	prefix="mikado"
     input: rules.prepare.output, rules.prepare_blast.output
-    output: xml="mikado.blast.xml"
+    output: xml="mikado.blast.xml.gz"
     threads: 10
     log: "blast.log"
-    shell:
-        """blastx -num_threads {threads} -query {rules.prepare.output.fasta} \
-        -outfmt 5 -db {rules.uncompress_blast.output} -out {output} -evalue 0.000001 \
-        -max_target_seqs 5 > {log}"""
+    run:
+        command = """blastx -num_threads {threads} -query {query} \
+        -outfmt 5 -db {db} -evalue 0.000001 \
+        -max_target_seqs 5""".format(threads=threads, query=rules.prepare.output.fasta,
+                                             db=rules.uncompress_blast.output)
+        gzip_command = "sed '/^$/d' | gzip -c - > {}".format(output.xml)
+        log = open("{}".format(log), "wt")
+        blastx = subprocess.Popen(command, shell=True, stderr=log, stdout=subprocess.PIPE)
+        subprocess.call(gzip_command, shell=True, stdin=blastx.stdout)
+        log.close()
 
 rule serialise:
     input:

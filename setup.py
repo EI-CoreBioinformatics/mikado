@@ -68,7 +68,14 @@ setup(
     test_suite="Mikado.test",
     package_data={
         "Mikado.configuration":
-            glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml")},
+            glob.glob("Mikado/configuration/*json") + glob.glob("Mikado/configuration/*yaml"),
+        "Mikado.configuration.scoring_files":
+            glob.glob("Mikado/configuration/scoring_files/*"),
+        "Mikado":
+            glob.glob(path.join("Mikado", "dagger", "*yaml")) +
+            glob.glob("Mikado/dagger/*json") + \
+            glob.glob("Mikado/dagger/*snakefile")
+        },
     include_package_data=True
     # data_files=[
     #     ("Mikado/configuration",

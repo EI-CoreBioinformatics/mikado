@@ -200,7 +200,7 @@ def pick_parser():
     verbosity.add_argument("-v", "--verbose", action="store_true",
                            default=False, help="Flag. If set, the debug mode will be activated.")
     verbosity.add_argument("-nv", "--noverbose", action="store_true",
-                           default=False, help="Flag. If set, the debug mode will be activated.")
+                           default=False, help="Flag. If set, the log will report only errors and critical events.")
     log_options.add_argument("-lv", "--log-level", dest="log_level",
                              choices=["DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"], default=None,
                              help="Logging level. Default: retrieved by the configuration file.")

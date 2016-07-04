@@ -373,7 +373,6 @@ def serialise_parser():
                         help="Output directory. Default: current working directory")
     generic.add_argument("-lv", "--log_level", default="INFO",
                          choices=["DEBUG", "INFO", "WARN", "ERROR"],
-                         nargs='?',
                          help="Log level. Default: %(default)s")
 
     generic.add_argument("db", type=str, default=None,

@@ -71,7 +71,7 @@ rule mikado_prepare:
 		load=config["load"]["mikado"]
 	threads: THREADS
 	message: "Preparing transcripts using mikado"
-	shell: "{params.load} && mikado.py prepare --start-method=spawn --procs={threads} --fasta={input.ref} --json-conf={input.cfg} -od {MIKADO_DIR} 2>&1"
+	shell: "{params.load} && mikado prepare --start-method=spawn --procs={threads} --fasta={input.ref} --json-conf={input.cfg} -od {MIKADO_DIR} 2>&1"
 
 rule make_blast:
 	input: fa="{bdb}.fasta"

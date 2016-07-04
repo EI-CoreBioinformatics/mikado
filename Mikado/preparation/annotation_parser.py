@@ -57,7 +57,12 @@ class AnnotationParser(multiprocessing.Process):
         found_ids = set()
         self.logger.debug("Starting to listen to the queue")
         while True:
-            label, handle, strand_specific = self.submission_queue.get()
+
+            results = self.submission_queue.get()
+            try:
+                label, handle, strand_specific = results
+            except ValueError as exc:
+                raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
             if handle == "EXIT":
                 self.submission_queue.put(("EXIT", "EXIT", "EXIT"))
                 break

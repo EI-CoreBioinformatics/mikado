@@ -51,6 +51,9 @@ def create_parser():
                         help="Maximum number of nodes to use concurrently")
     parser.add_argument("-n", "--max_cores", type=int, default="1000",
                         help="Maximum number of cores to use concurrently")
+    #TODO: Implement this.
+    parser.add_argument("-t", "--threads", type=int, default=4,
+                        help="""Maximum number of threads per job. Default: %(default)d""")
     parser.add_argument("-d", "--no_drmaa", action='store_true', default=False,
                         help="Use this flag if running on a HPC and DRMAA is not available")
     parser.add_argument("--force_incomplete", action='store_true', default=False,

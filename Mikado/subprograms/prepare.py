@@ -228,7 +228,7 @@ def prepare_parser():
                         type=str, default=".",
                         help="Output directory. Default: current working directory")
     parser.add_argument("-o", "--out", default=None,
-                        help="Output file. Default: mikado_prepared.fasta.")
+                        help="Output file. Default: mikado_prepared.gtf.")
     parser.add_argument("-of", "--out_fasta", default=None,
                         help="Output file. Default: mikado_prepared.fasta.")
     parser.add_argument("--json-conf", dest="json_conf",

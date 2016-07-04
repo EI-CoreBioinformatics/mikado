@@ -206,7 +206,6 @@ def pick_parser():
                              help="Logging level. Default: retrieved by the configuration file.")
     # parser.formatter_class = argparse.RawTextHelpFormatter
     parser.add_argument("--mode", default=None,
-
                         choices=["nosplit", "stringent", "lenient", "permissive", "split"],
                         help="""Mode in which Mikado will treat transcripts with multiple ORFs.
                         - nosplit: keep the transcripts whole.

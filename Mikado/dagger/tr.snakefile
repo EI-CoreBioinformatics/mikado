@@ -6,6 +6,7 @@ import subprocess
 import yaml
 from os import listdir
 from os.path import isfile, join
+from shutil import which
  
 
 CFG=workflow.overwrite_configfile
@@ -42,9 +43,9 @@ PORTCULLIS_DIR = OUT_DIR + "/4-portcullis"
 PORTCULLIS_DIR_FULL = os.path.abspath(PORTCULLIS_DIR)
 
 CWD = os.getcwd()
-ALIGN_COLLECT = os.path.dirname(os.path.abspath(workflow.snakefile)) + "/align_collect.py"
-ASM_COLLECT = os.path.dirname(os.path.abspath(workflow.snakefile)) + "/asm_collect.py"
-CLASS = os.path.dirname(os.path.abspath(workflow.snakefile)) + "/class_run.py"
+ALIGN_COLLECT = which("align_collect.py")
+ASM_COLLECT = which("asm_collect.py")
+CLASS = which("class_run.py")
 
 
 
@@ -609,9 +610,9 @@ rule mikado_cfg:
 		load=config["load"]["mikado"],
 		mikado=OUT_DIR + "/mikado.cfg",
 		scoring=config["mikado_scoring"],
-		junctions="--junctions={input.portcullis}"
+		junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} && mikado.py configure --full --mode={MIKADO_MODE} --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
+	shell: "{params.load} && mikado configure --full --mode={MIKADO_MODE} --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
 

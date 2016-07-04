@@ -27,11 +27,17 @@ tgg_max_mem: "20G"
 # Scheduler: LSF,PBS,SLURM
 scheduler: "SLURM"
 
-# Methods to use
-#align_methods: ["tophat","gsnap","star", "hisat"]
-align_methods: ["hisat"]
-#asm_methods: ["cufflinks","stringtie","trinity"]
-asm_methods: ["cufflinks","stringtie","class"]
+# Alignment methods to use. Supported tools: "tophat", "gsnap", "star", "hisat"
+align_methods:
+        tophat: ["", "--microexon-search"]
+        star: ["","--alignSJoverhangMin 12"]
+        hisat: [""]
+
+# Assembly_methods to use:  Supported tools: "cufflinks", "stringtie", "class", "trinity"
+asm_methods:
+        stringtie: [""]
+        class: [""]
+
 
 # Choose program version
 load:

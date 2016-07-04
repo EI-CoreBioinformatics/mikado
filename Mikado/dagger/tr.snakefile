@@ -46,7 +46,6 @@ ALIGN_COLLECT = os.path.dirname(os.path.abspath(workflow.snakefile)) + "/align_c
 ASM_COLLECT = os.path.dirname(os.path.abspath(workflow.snakefile)) + "/asm_collect.py"
 CLASS = os.path.dirname(os.path.abspath(workflow.snakefile)) + "/class_run.py"
 
-PORTCULLIS_STRAND = "firststrand" if STRANDEDNESS == "fr-firststrand" else "secondstrand" if STRANDEDNESS == "fr-secondstrand" else "unstranded"
 
 
 SAMPLE_MAP = {}
@@ -178,6 +177,17 @@ def trinityStrandOption(sample):
 		return "--SS_lib_type=FR"
 	else:
 		return ""
+
+def portcullisStrandOption(run):
+	parts=run.split("-")
+	sample=parts[1]
+	if SAMPLE_MAP[sample] == "fr-firststrand":
+		return "--strandedness=firststrand"
+	elif SAMPLE_MAP[sample] == "fr-secondstrand":
+		return "--strandedness=secondstrand"
+	else:
+		return "--strandedness=unstranded"
+
 
 #########################
 Rules
@@ -534,11 +544,12 @@ rule portcullis_prep:
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
 		load=config["load"]["portcullis"],
-		files=lambda wildcards: PORTCULLIS_IN[wildcards.aln_method]
+		files=lambda wildcards: PORTCULLIS_IN[wildcards.aln_method],
+		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method)
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-prep.log"
 	threads: THREADS
 	message: "Using portcullis to prepare: {wildcards.aln_method}"
-	shell: "{params.load} && portcullis prep -o {params.outdir} --strandedness={PORTCULLIS_STRAND} -t {threads} {input.ref} {params.files} > {log} 2>&1"
+	shell: "{params.load} && portcullis prep -o {params.outdir} {params.strand} -t {threads} {input.ref} {params.files} > {log} 2>&1"
 
 
 rule portcullis_junc:
@@ -548,11 +559,12 @@ rule portcullis_junc:
 	params: 
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/2-junc",
-		load=config["load"]["portcullis"]
+		load=config["load"]["portcullis"],
+		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method)
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-junc.log"
 	threads: THREADS
 	message: "Using portcullis to analyse potential junctions: {wildcards.aln_method}"
-	shell: "{params.load} && portcullis junc -o {params.outdir}/{wildcards.aln_method} --strandedness={PORTCULLIS_STRAND} -t {threads} {params.prepdir} > {log} 2>&1"
+	shell: "{params.load} && portcullis junc -o {params.outdir}/{wildcards.aln_method} {params.strand} -t {threads} {params.prepdir} > {log} 2>&1"
 
 rule portcullis_filter:
 	input: rules.portcullis_junc.output
@@ -563,13 +575,12 @@ rule portcullis_filter:
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/",
 		load=config["load"]["portcullis"],
 		bed=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
-		link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed"
+		link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
+		link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed"
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-filter.log"
-	threads: 1
+	threads: THREADS
 	message: "Using portcullis to filter invalid junctions: {wildcards.aln_method}"
-	shell: "{params.load} && portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
-
-
+	shell: "{params.load} && portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
 
 rule portcullis_merge:
 	input: expand(PORTCULLIS_DIR + "/output/portcullis_{aln_method}.pass.junctions.bed", aln_method=ALIGN_RUNS)
@@ -602,5 +613,5 @@ rule mikado_cfg:
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} && mikado.py configure --full --mode={MIKADO_MODE} --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.portcullis} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
+	shell: "{params.load} && mikado.py configure --full --mode={MIKADO_MODE} --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
 

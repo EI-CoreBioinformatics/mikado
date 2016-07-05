@@ -95,7 +95,7 @@ rule blastx:
 	run:
 	    blast_command="{load}; blastx -num_threads {threads} \
 	                   -query {query} -outfmt 5 -db {db} -evalue {BLASTX_EVALUE} \
-	                   -max_target_seqs {BLASTX_MAX_TARGET_SEQS}".format(
+	                   -max_target_seqs {BLASTX_MAX_TARGET_SEQS} |  gzip -fc - ".format(
                            load=params.load,
 	                       threads=threads,
 	                       query=input.tr,
@@ -106,7 +106,7 @@ rule blastx:
 	    error = open(BLAST_DIR+"/blast-{bdb}.err".format(bdb=bdb), "w")
 	    blastx=subprocess.Popen(blast_command, shell=True, stdout=subprocess.PIPE, stderr=error)
 	    #TODO: this is a hack to remove an empty line at the beginning of the output. Is it possible to improve?
-	    subprocess.call("sed '/^$/d' | gzip -c - > {}".format(output), shell=True, stdin=blastx.stdout)
+	    subprocess.call("sed '/^$/d' | ".format(output), shell=True, stdin=blastx.stdout)
 	    error.close()
 
 rule blast_all:

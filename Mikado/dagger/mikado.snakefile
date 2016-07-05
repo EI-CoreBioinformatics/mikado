@@ -112,7 +112,7 @@ rule blastx:
 	log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
 	threads: THREADS
 	message: "Running BLASTX for mikado transcripts against: {params.tr}"
-	shell: "{params.load} (blastx -num_threads {threads} -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log} || touch {params.uncompressed}) && gzip {params.uncompressed}"
+	shell: "{params.load} (blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log} || touch {params.uncompressed}) && gzip {params.uncompressed}"
 
 
 rule blast_all:
@@ -173,9 +173,9 @@ rule mikado_serialise:
 		blast="--xml=" + BLAST_DIR+"/xmls" if len(BLASTX_TARGET) > 0 else "",
 		load=loadPre(config["load"]["mikado"]),
 		blast_target="--blast_targets=" + BLASTX_TARGET if len(BLASTX_TARGET) > 0 else ""
-	threads: 1
+	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
-	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={input.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --max-objects=200000 > {log} 2>&1"
+	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={input.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --max-objects=20000 --procs={threads} > {log} 2>&1"
 
 rule mikado_pick:
 	input:

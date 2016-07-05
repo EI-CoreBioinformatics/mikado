@@ -193,6 +193,13 @@ def portcullisStrandOption(run):
 	else:
 		return "--strandedness=unstranded"
 
+def loadPre(command):
+        cc = command.strip()
+        if not cc:
+                return ""
+        else:
+                return cc + " && "
+
 
 #########################
 Rules
@@ -214,11 +221,11 @@ rule align_tophat_index:
 	output: ALIGN_DIR + "/tophat/index/" + NAME + ".4.bt2"
 	params: 
 		idxdir=ALIGN_DIR + "/tophat/index/" + NAME,
-		load=config["load"]["tophat"]
+		load=loadPre(config["load"]["tophat"])
 	log: ALIGN_DIR + "/tophat.index.log"
 	threads: 1
 	message: "Indexing genome with tophat"
-	shell: "{params.load} && bowtie2-build {input.ref} {params.idxdir} > {log} 2>&1"
+	shell: "{params.load} bowtie2-build {input.ref} {params.idxdir} > {log} 2>&1"
 
 
 rule align_tophat:
@@ -232,14 +239,14 @@ rule align_tophat:
 		outdir=ALIGN_DIR+"/tophat/{sample}-{run}",
 		bam=ALIGN_DIR+"/tophat/{sample}-{run}/accepted_hits.bam",
 		indexdir=ALIGN_DIR+"/tophat/index/"+NAME,
-		load=config["load"]["tophat"],
+		load=loadPre(config["load"]["tophat"]),
 		extra=lambda wildcards: config["align_methods"]["tophat"][int(wildcards.run)],
 		link_src="../tophat/{sample}-{run}/accepted_hits.bam",
 		strand=lambda wildcards: tophatStrandOption(wildcards.sample)
 	log: ALIGN_DIR + "/tophat-{sample}-{run}.log"
 	threads: THREADS
 	message: "Aligning RNAseq data with tophat (run {wildcards.run}): {input.r1}; {input.r2}"
-	shell: "{params.load} && tophat2 --output-dir={params.outdir} --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.extra} {params.indexdir} {input.r1} {input.r2} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} tophat2 --output-dir={params.outdir} --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.extra} {params.indexdir} {input.r1} {input.r2} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule tophat_all:
 	input: expand(ALIGN_DIR+"/output/tophat-{sample}-{run}.bam", sample=SAMPLES, run=TOPHAT_RUNS)
@@ -249,11 +256,11 @@ rule tophat_all:
 rule align_gsnap_index:
 	input: REF
 	output: ALIGN_DIR + "/gsnap/index/" + NAME + "/" + NAME + ".sachildguide1024"
-	params: load=config["load"]["gmap"]
+	params: load=loadPre(config["load"]["gmap"])
 	log: ALIGN_DIR +"/gsnap.index.log"
 	threads: 1
 	message: "Indexing genome with gsnap"
-	shell: "{params.load} && gmap_build --dir={ALIGN_DIR}/gsnap/index --db={NAME} {input} > {log} 2>&1"
+	shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gsnap/index --db={NAME} {input} > {log} 2>&1"
 
 
 rule align_gsnap:
@@ -265,14 +272,14 @@ rule align_gsnap:
 		bam=ALIGN_DIR+"/gsnap/{sample}-{run,\d+}/gsnap.bam",
 		link=ALIGN_DIR+"/output/gsnap-{sample}-{run,\d+}.bam"
 	params: 
-		load=config["load"]["gmap"],
-		load_sam=config["load"]["samtools"],
+		load=loadPre(config["load"]["gmap"]),
+		load_sam=loadPre(config["load"]["samtools"]),
 		extra=lambda wildcards: config["align_methods"]["gsnap"][int(wildcards.run)],
 		link_src="../gsnap/{sample}-{run}/gsnap.bam"
 	log: ALIGN_DIR+"/gsnap-{sample}-{run}.log"
 	threads: THREADS
 	message: "Aligning RNAseq with gsnap (run {wildcards.run}): {input.r1}; {input.r2}"
-	shell: "{params.load} && {params.load_sam} && gsnap --dir={ALIGN_DIR}/gsnap/index --db={NAME} {params.extra} --novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {input.r1} {input.r2} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} {params.load_sam} gsnap --dir={ALIGN_DIR}/gsnap/index --db={NAME} {params.extra} --novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {input.r1} {input.r2} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule gsnap_all:
 	input: expand(ALIGN_DIR+"/output/gsnap-{sample}-{run}.bam", sample=SAMPLES, run=GSNAP_RUNS)
@@ -285,12 +292,12 @@ rule align_star_index:
 	output: ALIGN_DIR +"/star/index/SAindex"
 	params: 
 		indexdir=ALIGN_DIR_FULL+"/star/index",
-		load=config["load"]["star"],
+		load=loadPre(config["load"]["star"]),
 		extra=config["extra"]["star_index"]
 	log: ALIGN_DIR_FULL+"/star.index.log"
 	threads: THREADS
 	message: "Indexing genome with star"
-	shell: "{params.load} && cd {ALIGN_DIR_FULL}/star && STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {params.indexdir} --genomeFastaFiles {input} {params.extra} > {log} 2>&1 && cd {CWD}"
+	shell: "{params.load} cd {ALIGN_DIR_FULL}/star && STAR --runThreadN {threads} --runMode genomeGenerate --genomeDir {params.indexdir} --genomeFastaFiles {input} {params.extra} > {log} 2>&1 && cd {CWD}"
 
 
 rule align_star:
@@ -304,14 +311,14 @@ rule align_star:
 	params:
 		outdir=ALIGN_DIR_FULL+"/star/{sample}-{run}",
 		indexdir=ALIGN_DIR_FULL+"/star/index",
-		load=config["load"]["star"],
+		load=loadPre(config["load"]["star"]),
 		extra=lambda wildcards: config["align_methods"]["star"][int(wildcards.run)],
 		link_src="../star/{sample}-{run}/Aligned.out.bam",
 		rfc=lambda wildcards: starCompressionOption(wildcards.sample)
 	log: ALIGN_DIR_FULL+"/star-{sample}-{run}.log"
 	threads: int(THREADS)
 	message: "Aligning input with star (run {wildcards.run}): {input.r1}; {input.r2}"
-	shell: "{params.load} && cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} --readFilesIn {input.r1} {input.r2} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} --alignMatesGapMax 20000 --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} --readFilesIn {input.r1} {input.r2} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} --alignMatesGapMax 20000 --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule star_all:
 	input: expand(ALIGN_DIR+"/output/star-{sample}-{run}.bam", sample=SAMPLES, run=STAR_RUNS)
@@ -322,11 +329,11 @@ rule star_all:
 rule align_hisat_index:
 	input: REF
 	output: ALIGN_DIR+"/hisat/index/"+NAME+".4.ht2"
-	params: load=config["load"]["hisat"]
+	params: load=loadPre(config["load"]["hisat"])
 	log: ALIGN_DIR+"/hisat.index.log"
 	threads: 1
 	message: "Indexing genome with hisat"
-	shell: "{params.load} && hisat2-build {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1"
+	shell: "{params.load} hisat2-build {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1"
 
 
 
@@ -340,15 +347,15 @@ rule align_hisat:
 		link=ALIGN_DIR+"/output/hisat-{sample}-{run,\d+}.bam"
 	params:
 		indexdir=ALIGN_DIR+"/hisat/index/"+NAME,
-		load=config["load"]["hisat"],
-		load_samtools=config["load"]["samtools"],
+		load=loadPre(config["load"]["hisat"]),
+		load_samtools=loadPre(config["load"]["samtools"]),
 		link_src="../hisat/{sample}-{run}/hisat.bam",
 		extra=lambda wildcards: config["align_methods"]["hisat"][int(wildcards.run)],
 		strand=lambda wildcards: hisatStrandOption(wildcards.sample)
 	log: ALIGN_DIR+"/hisat-{sample}-{run}.log"
 	threads: THREADS
 	message: "Aligning input with hisat (run {wildcards.run}): {input.r1}; {input.r2}"
-    	shell: "{params.load} && {params.load_samtools} && hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.strand} {params.extra} -x {params.indexdir} -1 {input.r1} -2 {input.r2} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    	shell: "{params.load} {params.load_samtools} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.strand} {params.extra} -x {params.indexdir} -1 {input.r1} -2 {input.r2} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule hisat_all:
 	input: expand(ALIGN_DIR+"/output/hisat-{sample}-{run}.bam", sample=SAMPLES, run=HISAT_RUNS)
@@ -360,19 +367,19 @@ rule bam_sort:
 	input: bam=ALIGN_DIR+"/output/{align_run}.bam"
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam"
 	params:
-		load=config["load"]["samtools"],
+		load=loadPre(config["load"]["samtools"]),
 	threads: int(THREADS)
 	message: "Using samtools to sort {input.bam}"
-	shell: "{params.load} && samtools sort -o {output} -O bam -m 1G -T sort_{wildcards.align_run} -@ {threads} {input.bam}"
+	shell: "{params.load} samtools sort -o {output} -O bam -m 1G -T sort_{wildcards.align_run} -@ {threads} {input.bam}"
 
 
 rule bam_index:
 	input: rules.bam_sort.output
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam.bai"
-	params: load=config["load"]["samtools"]
+	params: load=loadPre(config["load"]["samtools"])
 	threads: 1
 	message: "Using samtools to index: {input}"
-	shell: "{params.load} && samtools index {input}"
+	shell: "{params.load} samtools index {input}"
 
 
 rule bam_stats:
@@ -381,11 +388,11 @@ rule bam_stats:
 		idx=rules.bam_index.output
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam.stats"
 	params: 
-		load=config["load"]["samtools"],
+		load=loadPre(config["load"]["samtools"]),
 		plot_out=ALIGN_DIR+"/output/plots/{align_run}/{align_run}"
 	threads: 1
 	message: "Using samtools to collected stats for: {input}"
-	shell: "{params.load} && samtools stats {input.bam} > {output} && plot-bamstats -p {params.plot_out} {output}"
+	shell: "{params.load} samtools stats {input.bam} > {output} && plot-bamstats -p {params.plot_out} {output}"
 
 
 rule align_all:
@@ -414,13 +421,13 @@ rule asm_cufflinks:
 		outdir=ASM_DIR+"/cufflinks-{run2}-{alrun}",
 		gtf=ASM_DIR+"/cufflinks-{run2}-{alrun}/transcripts.gtf",
 		link_src="../cufflinks-{run2}-{alrun}/transcripts.gtf",
-		load=config["load"]["cufflinks"],
+		load=loadPre(config["load"]["cufflinks"]),
 		extra=lambda wildcards: config["asm_methods"]["cufflinks"][int(wildcards.run2)],
 		strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
 	log: ASM_DIR+"/cufflinks-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using cufflinks to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} && cufflinks --output-dir={params.outdir} --num-threads={threads} {params.strand} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} --no-update-check {params.extra} {input.bam} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"
+	shell: "{params.load} cufflinks --output-dir={params.outdir} --num-threads={threads} {params.strand} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} --no-update-check {params.extra} {input.bam} > {log} 2>&1 && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"
 
 
 rule cufflinks_all:
@@ -436,13 +443,13 @@ rule asm_trinitygg:
 	output: ASM_DIR+"/trinity-{run2,\d+}-{alrun}/Trinity-GG.fasta"
 	params: 
 		outdir=ASM_DIR+"/trinity-{run2}-{alrun}",
-		load=config["load"]["trinity"],
+		load=loadPre(config["load"]["trinity"]),
 		extra=lambda wildcards: config["asm_methods"]["trinity"][int(wildcards.run2)],
 		strand=lambda wildcards: trinityStrandOption(extractSample(wildcards.alrun))
 	log: ASM_DIR+"/trinity-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} && Trinity --seqType=fq {params.strand} --output={params.outdir} --genome_guided_bam={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} --max_memory={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
+	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} --genome_guided_bam={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} --max_memory={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
 
 
 rule asm_map_trinitygg:
@@ -452,12 +459,12 @@ rule asm_map_trinitygg:
 	output: 
 		gff=ASM_DIR+"/output/trinity-{run2,\d+}-{alrun}.gff"
 	params: 
-		load=config["load"]["gmap"],
+		load=loadPre(config["load"]["gmap"]),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} && gmap --dir={ASM_DIR}/gmap_index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ASM_DIR}/gmap_index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 rule trinity_all:
 	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
@@ -467,11 +474,11 @@ rule trinity_all:
 rule asm_gmap_index:
         input: REF
         output: ASM_DIR +"/gmap_index/"+NAME+"/"+NAME+".sachildguide1024"
-	params:	load=config["load"]["gmap"]
+	params:	load=loadPre(config["load"]["gmap"])
 	threads: 1
         log: ASM_DIR+"/trinity_gmap_index.log"
         message: "Indexing genome with gmap"
-        shell: "{params.load} && gmap_build --dir={ASM_DIR}/gmap_index --db={NAME} {input} > {log} 2>&1"
+        shell: "{params.load} gmap_build --dir={ASM_DIR}/gmap_index --db={NAME} {input} > {log} 2>&1"
 
 
 rule asm_stringtie:
@@ -482,14 +489,14 @@ rule asm_stringtie:
 		link=ASM_DIR+"/output/stringtie-{run2,\d+}-{alrun}.gtf",
 		gtf=ASM_DIR+"/stringtie-{run2,\d+}-{alrun}/stringtie-{run2}-{alrun}.gtf"
 	params:
-		load=config["load"]["stringtie"],
+		load=loadPre(config["load"]["stringtie"]),
 		extra=lambda wildcards: config["asm_methods"]["stringtie"][int(wildcards.run2)],
 		gtf=ASM_DIR+"/stringtie-{run2}-{alrun}/stringtie-{run2}-{alrun}.gtf",
 		link_src="../stringtie-{run2}-{alrun}/stringtie-{run2}-{alrun}.gtf"
 	log: ASM_DIR+"/stringtie-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using stringtie to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} && stringtie {input.bam} -l Stringtie_{wildcards.run2}_{wildcards.alrun} -f 0.05 -m 200 {params.extra} -o {params.gtf} -p {threads} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} stringtie {input.bam} -l Stringtie_{wildcards.run2}_{wildcards.alrun} -f 0.05 -m 200 {params.extra} -o {params.gtf} -p {threads} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule stringtie_all:
 	input: expand(ASM_DIR+"/output/stringtie-{run2}-{alrun}.gtf", run2=STRINGTIE_RUNS, alrun=ALIGN_RUNS)
@@ -506,13 +513,13 @@ rule asm_class:
 		gtf=ASM_DIR+"/class-{run2,\d+}-{alrun}/class-{run2}-{alrun}.gtf"
 	params: 
 		outdir=ASM_DIR+"/class-{run2}-{alrun}",
-		load=config["load"]["class"],
+		load=loadPre(config["load"]["class"]),
 		extra=lambda wildcards: config["asm_methods"]["class"][int(wildcards.run2)],
 		link_src="../class-{run2}-{alrun}/class-{run2}-{alrun}.gtf"
 	log: ASM_DIR+"/class-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Using class to assemble (run {wildcards.run2}): {input.bam}"
-	shell: "{params.load} && {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} {CLASS} --clean --force -c \"{params.extra}\" -p {threads} {input.bam} > {output.gtf} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule class_all:
 	input: expand(ASM_DIR+"/output/class-{run2}-{alrun}.gtf", run2=CLASS_RUNS, alrun=ALIGN_RUNS)
@@ -522,10 +529,10 @@ rule class_all:
 rule asm_gff_stats:
 	input: ASM_DIR + "/output/{asm_run}"
 	output: ASM_DIR + "/output/{asm_run}.stats"
-	params: load=config["load"]["mikado"]
+	params: load=loadPre(config["load"]["mikado"])
 	threads: 1
 	message: "Computing assembly stats for: {input}"
-	shell: "{params.load} && mikado util stats {input} > {output}"
+	shell: "{params.load} mikado util stats {input} > {output}"
 
 
 rule asm_all:
@@ -548,13 +555,13 @@ rule portcullis_prep:
 	output: PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/portcullis.sorted.alignments.bam.bai"
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
-		load=config["load"]["portcullis"],
+		load=loadPre(config["load"]["portcullis"]),
 		files=lambda wildcards: PORTCULLIS_IN[wildcards.aln_method],
 		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method)
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-prep.log"
 	threads: THREADS
 	message: "Using portcullis to prepare: {wildcards.aln_method}"
-	shell: "{params.load} && portcullis prep -o {params.outdir} {params.strand} -t {threads} {input.ref} {params.files} > {log} 2>&1"
+	shell: "{params.load} portcullis prep -o {params.outdir} {params.strand} -t {threads} {input.ref} {params.files} > {log} 2>&1"
 
 
 rule portcullis_junc:
@@ -564,12 +571,12 @@ rule portcullis_junc:
 	params: 
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep",
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/2-junc",
-		load=config["load"]["portcullis"],
+		load=loadPre(config["load"]["portcullis"]),
 		strand=lambda wildcards: portcullisStrandOption(wildcards.aln_method)
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-junc.log"
 	threads: THREADS
 	message: "Using portcullis to analyse potential junctions: {wildcards.aln_method}"
-	shell: "{params.load} && portcullis junc -o {params.outdir}/{wildcards.aln_method} {params.strand} -t {threads} {params.prepdir} > {log} 2>&1"
+	shell: "{params.load} portcullis junc -o {params.outdir}/{wildcards.aln_method} {params.strand} -t {threads} {params.prepdir} > {log} 2>&1"
 
 rule portcullis_filter:
 	input: rules.portcullis_junc.output
@@ -578,25 +585,25 @@ rule portcullis_filter:
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt",
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/",
-		load=config["load"]["portcullis"],
+		load=loadPre(config["load"]["portcullis"]),
 		bed=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
 		link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
 		link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed"
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-filter.log"
 	threads: THREADS
 	message: "Using portcullis to filter invalid junctions: {wildcards.aln_method}"
-	shell: "{params.load} && portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
+	shell: "{params.load} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
 
 rule portcullis_merge:
 	input: expand(PORTCULLIS_DIR + "/output/portcullis_{aln_method}.pass.junctions.bed", aln_method=ALIGN_RUNS)
 	output: bed=PORTCULLIS_DIR + "/output/portcullis.merged.bed"
-	params: load=config["load"]["portcullis"]
+	params: load=loadPre(config["load"]["portcullis"])
 	log: PORTCULLIS_DIR + "/output/portcullis.merged.log"
 	threads: 1
 	message: "Taking intersection of portcullis results"
 	run:
 		if RUN_PORTCULLIS:
-			shell("{params.load} && bed_merge.py --prefix=portcullis_merged --output={output.bed} {input} > {log} || touch {output.bed}")
+			shell("{params.load} bed_merge.py --prefix=portcullis_merged --output={output.bed} {input} > {log} || touch {output.bed}")
 		else:
 			shell("touch {output}")
 
@@ -611,12 +618,12 @@ rule mikado_cfg:
 	output:
 		mikado=OUT_DIR + "/mikado.yaml"
 	params: 
-		load=config["load"]["mikado"],
+		load=loadPre(config["load"]["mikado"]),
 		mikado=OUT_DIR + "/mikado.cfg",
 		scoring=config["mikado_scoring"],
 		junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} && mikado configure --full --mode={MIKADO_MODE} --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
+	shell: "{params.load} mikado configure --full --mode={MIKADO_MODE} --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
 

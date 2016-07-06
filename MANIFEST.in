@@ -1,5 +1,5 @@
 include DESCRIPTION.md
 include *py
-recursirve-include bin *py
+recursive-include bin *py
 recursive-include util *py
 recursive-include Mikado *snakefile *json *yaml

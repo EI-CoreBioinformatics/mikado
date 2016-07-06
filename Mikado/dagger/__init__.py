@@ -32,6 +32,24 @@ assert pkg_resources.resource_exists("Mikado", "dagger")
 
 
 # noinspection PyPep8Naming
+def get_sub_commands(SCHEDULER):
+    res_cmd = ""
+    sub_cmd = ""
+
+    if SCHEDULER == "LSF":
+        sub_cmd = "bsub"
+        res_cmd = " ".join([" -R rusage[mem={cluster.memory}]span[ptile={threads}] -n {threads}",
+                            "-q {cluster.queue} -oo /dev/null",
+                            "-J {rule} -oo dagger_logs/{rule}_%j.out"])
+    elif SCHEDULER == "PBS":
+        sub_cmd = "qsub"
+        res_cmd = " -lselect=1:mem={cluster.memory}MB:ncpus={threads} -q {cluster.queue}"
+    elif SCHEDULER == "SLURM":
+        sub_cmd = "sbatch"
+        res_cmd = " ".join(["-N 1 -n 1 -c {threads} -p {cluster.queue} --mem={cluster.memory}",
+                            "-J {rule} -o dagger_logs/{rule}_%j.out -e dagger_logs/{rule}_%j.err"])
+    return res_cmd, sub_cmd
+
 
 def create_parser():
 
@@ -51,7 +69,6 @@ def create_parser():
                         help="Maximum number of nodes to use concurrently")
     parser.add_argument("-n", "--max_cores", type=int, default="1000",
                         help="Maximum number of cores to use concurrently")
-    #TODO: Implement this.
     parser.add_argument("-t", "--threads", type=int, default=None,
                         help="""Maximum number of threads per job.
                         Default: None (set in the configuration file)""")
@@ -89,19 +106,13 @@ def assemble_transcripts_pipeline(args):
     CWD = os.path.abspath(".")
     # pylint: enable=invalid-name
 
-    res_cmd = ""
-    sub_cmd = ""
+    res_cmd, sub_cmd = get_sub_commands(SCHEDULER)
 
-    if SCHEDULER == "LSF":
-        sub_cmd = "bsub"
-        res_cmd = " ".join(["-R rusage[mem={cluster.memory}]span[ptile={threads}]",
-                            "-n {threads} -q {cluster.queue} -oo /dev/null"])
-    elif SCHEDULER == "PBS":
-        sub_cmd = "qsub"
-        res_cmd = " -lselect=1:mem={cluster.memory}MB:ncpus={threads} -q {cluster.queue}"
-    elif SCHEDULER == "SLURM":
-        sub_cmd = "sbatch"
-        res_cmd = " -N 1 -n 1 -c {threads} -p {cluster.queue} --mem={cluster.memory}"
+    # Create log folder
+    if not os.path.exists("dagger_logs"):
+        os.makedirs("dagger_logs")
+    elif not os.path.isdir("dagger_logs"):
+        raise OSError("{} is not a directory!".format("dagger_logs"))
 
     if (len(R1) != len(R2)) and (len(R1) != len(LABELS)):
         print("R1, R2 and LABELS lists are not the same length.  Please check and try again")
@@ -172,19 +183,13 @@ def mikado_pipeline(args):
     CWD = os.path.abspath(".")
     # pylint: enable=invalid-name
 
-    res_cmd = ""
-    sub_cmd = ""
+    res_cmd, sub_cmd = get_sub_commands(SCHEDULER)
 
-    if SCHEDULER == "LSF":
-        sub_cmd = "bsub"
-        res_cmd = " ".join([" -R rusage[mem={cluster.memory}]span[ptile={threads}] -n {threads}",
-                            "-q {cluster.queue} -oo /dev/null"])
-    elif SCHEDULER == "PBS":
-        sub_cmd = "qsub"
-        res_cmd = " -lselect=1:mem={cluster.memory}MB:ncpus={threads} -q {cluster.queue}"
-    elif SCHEDULER == "SLURM":
-        sub_cmd = "sbatch"
-        res_cmd = " -N 1 -n 1 -c {threads} -p {cluster.queue} --mem={cluster.memory}"
+    if not os.path.exists("dagger_logs"):
+        os.makedirs("dagger_logs")
+    elif not os.path.isdir("dagger_logs"):
+        raise OSError("{} is not a directory!".format("dagger_logs"))
+
 
     # Launch using SnakeMake
     assert pkg_resources.resource_exists("Mikado",

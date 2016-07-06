@@ -620,7 +620,7 @@ rule mikado_cfg:
 	params: 
 		load=loadPre(config["load"]["mikado"]),
 		mikado=OUT_DIR + "/mikado.cfg",
-		scoring=config["mikado_scoring"],
+		scoring=config["mikado"]["scoring"],
 		junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1

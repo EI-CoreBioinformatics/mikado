@@ -77,9 +77,12 @@ blastx:
         max_target_seqs: "10"
         chunks: 10
 
+mikado:
+        # Can run multiple mikado modes in parallel.  Available mikado modes: {"nosplit,"split","stringent","lenient","permissive"}
+        modes: ["nosplit"]
 
-mikado_mode: "nosplit"
-mikado_scoring: "plants.yaml"
+        # Available scoring models: {worm.yaml,insects.yaml,plants.yaml,human.yaml}
+        scoring: "plants.yaml"
 
 # Mikado configuration
 # ##################

@@ -3,6 +3,7 @@ import os,sys
 import glob
 import itertools
 import subprocess
+from math import log, ceil
 from os import listdir
 from os.path import isfile, join
 from snakemake import logger as snake_logger
@@ -21,6 +22,7 @@ if "threads" in config:
 else:
     THREADS = 1
 
+MIKADO_MODES=config["mikado"]["modes"]
 
 # Directory shortcuts
 OUT_DIR_FULL = os.path.abspath(OUT_DIR)
@@ -60,7 +62,7 @@ def loadPre(command):
 
 rule all:
 	input: 
-		mikado=MIKADO_DIR+"/mikado.loci.gff3"
+		mikado=expand(MIKADO_DIR+"/pick/{mode}/mikado-{mode}.loci.gff3", mode=MIKADO_MODES)
 
 rule clean:
 	shell: "rm -rf {OUT_DIR}"
@@ -183,13 +185,14 @@ rule mikado_pick:
 		gtf=rules.mikado_prepare.output.gtf,
 		db=rules.mikado_serialise.output
 	output:
-		loci=MIKADO_DIR+"/mikado.loci.gff3"
-	log: MIKADO_DIR+"/mikado_pick.err"
+		loci=MIKADO_DIR+"/pick/{mode}/mikado-{mode}.loci.gff3"
+	log: MIKADO_DIR+"/pick/{mode}/mikado-{mode}.pick.err"
 	params:
-		load=loadPre(config["load"]["mikado"])
+		load=loadPre(config["load"]["mikado"]),
+		outdir= MIKADO_DIR+"/pick/{mode}"
 	threads: THREADS
 	message: "Running mikado picking stage"
-	shell: "{params.load} mikado pick --procs={threads} --start-method=spawn --json-conf={input.cfg} -od {MIKADO_DIR} -lv INFO {input.gtf} -db {input.db} > {log} 2>&1"
+	shell: "{params.load} mikado pick --mode={mode} --procs={threads} --start-method=spawn --json-conf={input.cfg} -od {params.outdir} --loci_out mikado-{mode}.loci.gff3 -lv INFO {input.gtf} -db {input.db} > {log} 2>&1"
 
 rule complete:
   input: rules.mikado_pick.output.loci

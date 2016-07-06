@@ -110,7 +110,7 @@ rule blastx:
 		tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta",
 		db=BLAST_DIR + "/index/blastdb-proteins",
 		load=loadPre(config["load"]["blast"]),
-		uncompressed=BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml"
+		uncompressed=BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml",
 	log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
 	threads: THREADS
 	message: "Running BLASTX for mikado transcripts against: {params.tr}"
@@ -132,7 +132,7 @@ rule transdecoder_lo:
 		load=loadPre(config["load"]["transdecoder"])
 	log: TDC_DIR_FULL+"/transdecoder.longorf.log",
 		# ss="-S" if MIKADO_STRAND else ""
-	threads: THREADS
+	threads: 1
 	message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
 	shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -t {params.tr} > {log} 2>&1"
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys
+from itertools import chain, repeat
 import argparse
 import os
 import textwrap
@@ -14,6 +14,10 @@ def positive(string):
     if string < 1:
         raise ValueError("Only positive values are acceptable!")
     return string
+
+
+def fixed_grouper(number, iterable, padvalue=None):
+    return zip(*[chain(iterable, repeat(padvalue, number - 1))] * number)
 
 
 def main():
@@ -37,31 +41,19 @@ def main():
         raise OSError("Invalid directory selected for output: {}".format(
             os.path.dirname(args.out)))
 
-    max_sequences = max(int(len(args.fasta.keys()) / args.num_files), 1)
     zfiller = max(ceil(log(args.num_files, 10)), 3)
 
-    outfile = None
-    counter = 0
+    for number, group in enumerate(fixed_grouper(
+            ceil(len(args.fasta.keys())/args.num_files),
+            args.fasta.keys())):
+        with open("{}_{}.fasta".format(args.out, str(number + 1).zfill(zfiller)),
+                           "wt") as outfile:
+            for sequence in group:
+                if sequence is not None:
+                    print(">{}".format(args.fasta[sequence].long_name),
+                          *textwrap.wrap(str(args.fasta[sequence]), width=60),
+                          sep="\n", file=outfile)
 
-    for number, seq in enumerate(args.fasta):
-        if number % max_sequences == 0:
-            counter += 1
-            if outfile:
-                outfile.close()
-            outfile = open("{}_{}.fasta".format(args.out, str(counter).zfill(zfiller)),
-                           "wt")
-        print(">{}".format(seq.long_name),
-              *textwrap.wrap(str(seq), width=60),
-              sep="\n",
-              file=outfile)
-    if outfile:
-        outfile.close()
-
-    while counter < args.num_files:
-        counter += 1
-        with open("{}_{}.fasta".format(args.out, str(counter).zfill(zfiller)),
-                           "wt"):
-            pass
     return
 
 if __name__ == "__main__":

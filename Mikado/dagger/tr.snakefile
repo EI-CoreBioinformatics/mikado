@@ -28,7 +28,6 @@ else:
     THREADS = 1
 # THREADS = int(config["threads"])
 TGG_MAX_MEM = config["tgg_max_mem"]
-MIKADO_MODE = config["mikado_mode"]
 
 # List of alignment and assembly methods to test
 ALIGNMENT_METHODS = config["align_methods"]
@@ -625,5 +624,5 @@ rule mikado_cfg:
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} mikado configure --full --mode={MIKADO_MODE} --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
+	shell: "{params.load} mikado configure --full --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
 

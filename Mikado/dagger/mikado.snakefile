@@ -7,6 +7,7 @@ from math import log, ceil
 from os import listdir
 from os.path import isfile, join
 from snakemake import logger as snake_logger
+from shutil import which
 
 CFG=workflow.overwrite_configfile
 
@@ -40,6 +41,7 @@ BLASTX_TARGET = config["blastx"]["prot_db"]
 BLASTX_MAX_TARGET_SEQS = config["blastx"]["max_target_seqs"]
 BLASTX_EVALUE = config["blastx"]["evalue"]
 BLASTX_CHUNKS = int(config["blastx"]["chunks"])
+ASM_COLLECT = which("asm_collect.py")
 
 CHUNK_ARRAY = []
 if len(BLASTX_TARGET) > 0:
@@ -56,13 +58,13 @@ def loadPre(command):
 		return cc + " && "
 
 
-
 #########################
 # Rules
 
 rule all:
-	input: 
-		mikado=expand(MIKADO_DIR+"/pick/{mode}/mikado-{mode}.loci.gff3", mode=MIKADO_MODES)
+	input:
+		MIKADO_DIR+"/pick/comparison.stats"
+	output: touch(os.path.join(MIKADO_DIR, "all.done"))
 
 rule clean:
 	shell: "rm -rf {OUT_DIR}"
@@ -185,14 +187,34 @@ rule mikado_pick:
 		gtf=rules.mikado_prepare.output.gtf,
 		db=rules.mikado_serialise.output
 	output:
-		loci=MIKADO_DIR+"/pick/{mode}/mikado-{mode}.loci.gff3"
-	log: MIKADO_DIR+"/pick/{mode}/mikado-{mode}.pick.err"
+		loci=os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.loci.gff3")
+	log: os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.pick.err")
 	params:
 		load=loadPre(config["load"]["mikado"]),
-		outdir= MIKADO_DIR+"/pick/{mode}"
+		outdir=os.path.join(MIKADO_DIR, "pick", "{mode}")
 	threads: THREADS
 	message: "Running mikado picking stage"
-	shell: "{params.load} mikado pick --mode={mode} --procs={threads} --start-method=spawn --json-conf={input.cfg} -od {params.outdir} --loci_out mikado-{mode}.loci.gff3 -lv INFO {input.gtf} -db {input.db} > {log} 2>&1"
+	shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} --procs={threads} --start-method=spawn --json-conf={input.cfg} -od {params.outdir} --loci_out mikado-{wildcards.mode}.loci.gff3 -lv INFO {input.gtf} -db {input.db} > {log} 2>&1"
+
+rule mikado_stats:
+    input:
+        rules.mikado_pick.output.loci
+    output:
+        stats=os.path.join(MIKADO_DIR,
+                           "pick", "{mode}",
+                           "mikado-{mode}.loci.stats")
+    params: load=loadPre(config["load"]["mikado"])
+    shell: "{params.load} mikado util stats {input} > {output}"
+
+rule mikado_collect_stats:
+	input:
+	    mikado=expand(MIKADO_DIR+"/pick/{mode}/mikado-{mode}.loci.stats", mode=MIKADO_MODES)
+	output: MIKADO_DIR+"/pick/comparison.stats"
+	params:
+	    load=loadPre(config["load"]["mikado"])
+	threads: 1
+	message: "Collecting mikado statistics"
+	shell: "{params.load} {ASM_COLLECT} {input.mikado} > {output}"
 
 rule complete:
-  input: rules.mikado_pick.output.loci
+  input: rules.mikado_collect_stats.output

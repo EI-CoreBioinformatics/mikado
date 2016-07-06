@@ -56,9 +56,9 @@ def main():
             s = AsmStats()
             s.file = os.path.split(stats_file)[1]
             f.readline()
-            f.readline()
-            f.readline()
-            f.readline()
+            # f.readline()
+            # f.readline()
+            # f.readline()
             for line in f:
                 parts = line.split("\t")
                 col2 = float(parts[1].replace(',','').replace("NA","0"))

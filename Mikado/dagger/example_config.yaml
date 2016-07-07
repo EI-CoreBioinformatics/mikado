@@ -13,8 +13,14 @@ name: "spombe"
 min_intron: "20"
 max_intron: "10000"
 
-# Reference genome
-ref: "Spombe.genome.fa"
+# Reference
+ref:
+        # Required.  Fasta format genome
+        genome: "Spombe.genome.fa"
+
+        # Optional.  GTF format transcriptome
+        transcriptome: ""
+
 
 # Run options
 #

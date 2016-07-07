@@ -430,7 +430,7 @@ rule asm_cufflinks:
 		link_src="../cufflinks-{run2}-{alrun}/transcripts.gtf",
 		load=loadPre(config["load"]["cufflinks"]),
 		extra=lambda wildcards: config["asm_methods"]["cufflinks"][int(wildcards.run2)],
-		trans="--GTF-guide={REF_TRANS}" if REF_TRANS else "",
+		trans="--GTF-guide=" + REF_TRANS if REF_TRANS else "",
 		strand=lambda wildcards: tophatStrandOption(extractSample(wildcards.alrun))
 	log: ASM_DIR+"/cufflinks-{run2}-{alrun}.log"
 	threads: THREADS
@@ -439,7 +439,7 @@ rule asm_cufflinks:
 
 
 rule cufflinks_all:
-	input: expand(ASM_DIR+"/output/cufflinks-{run2,\d+}-{alrun}.gtf", run2=CUFFLINKS_RUNS, alrun=ALIGN_RUNS)
+	input: expand(ASM_DIR+"/output/cufflinks-{run2}-{alrun}.gtf", run2=CUFFLINKS_RUNS, alrun=ALIGN_RUNS)
 	output: ASM_DIR+"/cufflinks.done"
 	shell: "touch {output}"	
 
@@ -603,7 +603,7 @@ rule portcullis_filter:
 	log: PORTCULLIS_DIR+"/portcullis_{aln_method}-filter.log"
 	threads: THREADS
 	message: "Using portcullis to filter invalid junctions: {wildcards.aln_method}"
-	shell: "{params.load} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
+	shell: "{params.load} {params.ss_gen} portcullis filter -o {params.outdir}/{wildcards.aln_method} --canonical={CANONICAL_JUNCS} --max_length={MAX_INTRON} {params.trans} --threads={threads} {params.prepdir} {input} > {log} 2>&1 && ln -sf {params.link_src} {output.link} || ln -sf {params.link_unfilt} {output.link} && touch -h {output.link}"
 
 rule portcullis_merge:
 	input: expand(PORTCULLIS_DIR + "/output/portcullis_{aln_method}.pass.junctions.bed", aln_method=ALIGN_RUNS)

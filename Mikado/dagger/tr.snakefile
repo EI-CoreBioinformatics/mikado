@@ -589,14 +589,14 @@ rule portcullis_junc:
 
 rule portcullis_filter:
 	input: rules.portcullis_junc.output
-	output:
+	output:		
 		link=PORTCULLIS_DIR+"/output/portcullis_{aln_method}.pass.junctions.bed"
 	params: 
 		outdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt",
 		prepdir=PORTCULLIS_DIR+"/portcullis_{aln_method}/1-prep/",
 		load=loadPre(config["load"]["portcullis"]),
 		bed=PORTCULLIS_DIR+"/portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
-		ss_gen="gtf2bed.py " + REF_TRANS + " > " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed &&" if REF_TRANS else "",
+		ss_gen="mkdir -p " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt && gtf2bed.py " + REF_TRANS + " > " + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed &&" if REF_TRANS else "",
 		trans="--reference=" + PORTCULLIS_DIR + "/portcullis_{aln_method}/3-filt/ref_juncs.bed" if REF_TRANS else "",
 		link_src="../portcullis_{aln_method}/3-filt/{aln_method}.pass.junctions.bed",
 		link_unfilt="../portcullis_{aln_method}/2-junc/{aln_method}.junctions.bed"

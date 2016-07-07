@@ -190,7 +190,6 @@ def mikado_pipeline(args):
     elif not os.path.isdir("dagger_logs"):
         raise OSError("{} is not a directory!".format("dagger_logs"))
 
-
     # Launch using SnakeMake
     assert pkg_resources.resource_exists("Mikado",
                                          os.path.join("dagger", "mikado.snakefile"))

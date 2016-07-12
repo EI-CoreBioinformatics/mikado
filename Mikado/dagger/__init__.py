@@ -85,6 +85,36 @@ def create_parser():
     return parser
 
 
+def create_config_parser():
+
+    """
+    Function to create the configuration file for DAGGER.
+    :return:
+    """
+
+    parser = argparse.ArgumentParser("""Configure the pipeline""")
+    parser.add_argument("-c", "--cluster_config",
+                        type=str, default=None,
+                        help="Cluster configuration file to write to.")
+    parser.add_argument("config", type=str,
+                        help="Configuration file to write to.")
+    parser.set_defaults(func=dagger_config)
+    return parser
+
+
+def dagger_config(args):
+
+    with open(args.config, "wb") as out:
+        for line in pkg_resources.resource_stream("Mikado",
+                                                  os.path.join("dagger", "example_config.yaml")):
+            out.write(line)
+
+    if args.cluster_config is not None:
+        with open(args.cluster_config, "wb") as out:
+            for line in pkg_resources.resource_stream("Mikado",
+                                                      os.path.join("dagger", "hpc.yaml")):
+                out.write(line)
+
 # pylint: disable=too-many-locals
 def assemble_transcripts_pipeline(args):
 
@@ -243,6 +273,11 @@ def main(call_args=None):
         title="Pipelines",
         help="""These are the pipelines that can be executed via dagger.""")
 
+    subparsers.add_parser("configure",
+                          description="Creates the configuration files for the DAGGER execution.")
+    subparsers.choices["configure"] = create_config_parser()
+    subparsers.choices["configure"].prog = "dagger configure"
+
     subparsers.add_parser("assemble",
                           description="Creates transcript assemblies from RNAseq data.",
                           help="""A pipeline that generates a variety of transcript assemblies
@@ -277,6 +312,10 @@ def main(call_args=None):
             assemble_transcripts_pipeline(args)
         elif call_args[0] == "mikado":
             mikado_pipeline(args)
+        elif call_args[0] == "configure":
+            dagger_config(args)
+        else:
+            raise ValueError("Invalid subprogram specified!")
 
     except KeyboardInterrupt:
         raise KeyboardInterrupt

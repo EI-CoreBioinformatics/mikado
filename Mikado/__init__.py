@@ -63,45 +63,44 @@ def main(call_args=None):
     subparsers = parser.add_subparsers(
         title="Components",
         help="These are the various components of Mikado.")
-    subparsers.add_parser("configure", description="Command to create the necessary configuration files.",
-                          help="""This utility guides the user throught the process of creating
-                           a configuration file for Mikado.""")
+    subparsers.add_parser("configure",
+                          description="Command to create the necessary configuration files.")
     subparsers.choices["configure"] = subprograms.configure.configure_parser()
     subparsers.choices["configure"].prog = "Mikado configure"
+    subparsers.choices["configure"].description = "This utility guides the user through \
+the process of creating a configuration file for Mikado."
 
-    subparsers.add_parser("prepare", description="GTF preparation script",
-                          help="""Mikado prepare analyses an input GTF file and
-                          prepares it for the picking analysis by sorting its transcripts
-                          and performing some simple consistency checks.""")
+    subparsers.add_parser("prepare", description="GTF preparation script")
     subparsers.choices["prepare"] = subprograms.prepare.prepare_parser()
     subparsers.choices["prepare"].prog = "Mikado prepare"
+    subparsers.choices["prepare"].description = "Mikado prepare analyses an input GTF file and \
+prepares it for the picking analysis by sorting its transcripts \
+and performing some simple consistency checks."
 
-    subparsers.add_parser("serialise", description="Data serialisation script",
-                          help="""Mikado serialise creates the database used
-                          by the pick program. It handles Junction and ORF BED12
-                          files as well as BLAST XML results.""")
+    subparsers.add_parser("serialise", description="Data serialisation script")
     subparsers.choices["serialise"] = subprograms.serialise.serialise_parser()
     subparsers.choices["serialise"].prog = "Mikado serialise"
+    subparsers.choices["serialise"].description = "Mikado serialise creates the database used \
+by the pick program. It handles Junction and ORF BED12 files as well as BLAST XML results."
 
-    subparsers.add_parser("pick", description="Comparison script",
-                          help="""Mikado pick analyses a sorted GTF/GFF files in order
-                          to identify its loci and choose the best transcripts according
-                          to user-specified criteria. It is dependent on files produced
-                          by the "prepare" and "serialise" components.""")
+    subparsers.add_parser("pick", description="Comparison script")
     subparsers.choices["pick"] = subprograms.pick.pick_parser()
     subparsers.choices["pick"].prog = "Mikado pick"
+    subparsers.choices["pick"].description = "Mikado pick analyses a sorted GTF/GFF files in order \
+to identify its loci and choose the best transcripts according to user-specified criteria. \
+It is dependent on files produced by the \"prepare\" and \"serialise\" components."
 
-    subparsers.add_parser("compare", description="Comparison between reference and prediction",
-                          help="""Mikado compare produces a detailed comparison of
-                          reference and prediction files. It has been directly inspired
-                          by Cufflinks's cuffcompare and ParsEval.""")
+    subparsers.add_parser("compare", description="Comparison between reference and prediction")
     subparsers.choices["compare"] = subprograms.compare.compare_parser()
     subparsers.choices["compare"].prog = "Mikado compare"
+    subparsers.choices["compare"].description = "Mikado compare produces a detailed comparison of \
+reference and prediction files. It has been directly inspired \
+by Cufflinks's cuffcompare and ParsEval."
 
-    subparsers.add_parser("util", description="Miscellaneous utilities",
-                          help="Subparser holding various utilities of the suite.")
+    subparsers.add_parser("util", description="Miscellaneous utilities")
     subparsers.choices["util"] = subprograms.util.util_parser()
     subparsers.choices["util"].prog = "Mikado util"
+    subparsers.choices["util"].description = "Subparser holding various utilities of the suite."
 
     try:
         args = parser.parse_args(call_args)

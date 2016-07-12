@@ -116,7 +116,7 @@ rule blastx:
 	log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
 	threads: THREADS
 	message: "Running BLASTX for mikado transcripts against: {params.tr}"
-	shell: "{params.load} (blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log} || touch {params.uncompressed}) && gzip {params.uncompressed}"
+	shell: "{params.load} if [ -s {params.tr} ]; then blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
 
 
 rule blast_all:

@@ -71,16 +71,16 @@ rule clean:
 
 rule mikado_prepare:
 	input: 
-		ref=REF,
-		cfg=CFG
+		ref=REF
 	output:
 		gtf=MIKADO_DIR+"/mikado_prepared.gtf",
 		fa=MIKADO_DIR+"/mikado_prepared.fasta"
 	params:
-		load=loadPre(config["load"]["mikado"])
+		load=loadPre(config["load"]["mikado"]),
+		cfg=CFG
 	threads: THREADS
 	message: "Preparing transcripts using mikado"
-	shell: "{params.load} mikado prepare --start-method=spawn --procs={threads} --fasta={input.ref} --json-conf={input.cfg} -od {MIKADO_DIR} 2>&1"
+	shell: "{params.load} mikado prepare --start-method=spawn --procs={threads} --fasta={input.ref} --json-conf={params.cfg} -od {MIKADO_DIR} 2>&1"
 
 rule make_blast:
 	input: fa=BLASTX_TARGET
@@ -116,7 +116,7 @@ rule blastx:
 	log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
 	threads: THREADS
 	message: "Running BLASTX for mikado transcripts against: {params.tr}"
-	shell: "{params.load} (blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log} || touch {params.uncompressed}) && gzip {params.uncompressed}"
+	shell: "{params.load} if [ -s {params.tr} ]; then blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
 
 
 rule blast_all:
@@ -166,7 +166,6 @@ rule genome_index:
 
 rule mikado_serialise:
 	input: 
-		cfg=CFG,
 		blast=rules.blast_all.output,
 		orfs=rules.transdecoder_pred.output,
 		fai=rules.genome_index.output,
@@ -174,27 +173,28 @@ rule mikado_serialise:
 	output: db=MIKADO_DIR+"/mikado.db"
 	log: MIKADO_DIR+"/mikado_serialise.err"
 	params:
+	    cfg=CFG,
 		blast="--xml=" + BLAST_DIR+"/xmls" if len(BLASTX_TARGET) > 0 else "",
 		load=loadPre(config["load"]["mikado"]),
 		blast_target="--blast_targets=" + BLASTX_TARGET if len(BLASTX_TARGET) > 0 else ""
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
-	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={input.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --max-objects=20000 --procs={threads} > {log} 2>&1"
+	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --max-objects=20000 --procs={threads} > {log} 2>&1"
 
 rule mikado_pick:
 	input:
-		cfg=CFG,
 		gtf=rules.mikado_prepare.output.gtf,
 		db=rules.mikado_serialise.output
 	output:
 		loci=os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.loci.gff3")
 	log: os.path.join(MIKADO_DIR, "pick", "{mode}", "mikado-{mode}.pick.err")
 	params:
+		cfg=CFG,
 		load=loadPre(config["load"]["mikado"]),
 		outdir=os.path.join(MIKADO_DIR, "pick", "{mode}")
 	threads: THREADS
 	message: "Running mikado picking stage"
-	shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} --procs={threads} --start-method=spawn --json-conf={input.cfg} -od {params.outdir} --loci_out mikado-{wildcards.mode}.loci.gff3 -lv INFO {input.gtf} -db {input.db} > {log} 2>&1"
+	shell: "{params.load} mikado pick --source Mikado_{wildcards.mode} --mode={wildcards.mode} --procs={threads} --start-method=spawn --json-conf={params.cfg} -od {params.outdir} --loci_out mikado-{wildcards.mode}.loci.gff3 -lv INFO {input.gtf} -db {input.db} > {log} 2>&1"
 
 rule mikado_stats:
     input:

@@ -65,9 +65,9 @@ def create_parser():
                         help="""Configuration file that allows the user to override
                         resource requests for each rule when running under a scheduler
                         in a HPC environment.""")
-    parser.add_argument("--nodes", "-N", nargs="?", metavar="N", type=int, default="10",
-                        help="Maximum number of cluster nodes to use concurrently.")
-    parser.add_argument("--cores", "--jobs", "-j", action="store", nargs="?", metavar="N", type=int, default="1000",
+    parser.add_argument("--jobs", "-J", action="store", nargs="?", metavar="N", type=int, default="10",
+                        help="Maximum number of cluster jobs to execute concurrently.")
+    parser.add_argument("--cores", "-C", action="store", nargs="?", metavar="N", type=int, default="1000",
             help="Use at most N cores in parallel (default: 1000).")
     parser.add_argument("--threads", "-t", type=int, default=None,
                         help="""Maximum number of threads per job.
@@ -179,7 +179,7 @@ def assemble_transcripts_pipeline(args):
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("dagger", "tr.snakefile")),
         cores=args.cores,
-        nodes=args.nodes,
+        nodes=args.jobs,
         configfile=args.config,
         config=additional_config,
         workdir=CWD,
@@ -234,7 +234,7 @@ def mikado_pipeline(args):
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("dagger", "mikado.snakefile")),
         cores=args.cores,
-        nodes=args.nodes,
+        nodes=args.jobs,
         configfile=args.config,
         config=additional_config,
         workdir=CWD,

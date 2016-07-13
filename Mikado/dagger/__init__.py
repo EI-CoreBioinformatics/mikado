@@ -76,6 +76,7 @@ def create_parser():
                         help="Use this flag if running on a HPC and DRMAA is not available")
     parser.add_argument("--force_incomplete", action='store_true', default=False,
                         help="Force snakemake to rerun incomplete steps")
+    parser.add_argument("--forcerun", "-R", nargs="+", metavar="TARGET", help="Force the re-execution or creation of the given rules or files. Use this option if you changed a rule and want to have all its output in your workflow updated.")
     parser.add_argument("--detailed_summary", action='store_true', default=False,
                         help="Print detailed summary of all input and output files")
     parser.add_argument("--list_resources", action='store_true', default=False,
@@ -193,7 +194,8 @@ def assemble_transcripts_pipeline(args):
         list_resources=args.list_resources,
         latency_wait=60 if SCHEDULER else 1,
         printdag=args.make_dag,
-        forceall=args.make_dag)
+        forceall=args.make_dag,
+        forcerun=args.forcerun)
 # pylint: enable=too-many-locals
 
 
@@ -247,7 +249,8 @@ def mikado_pipeline(args):
         list_resources=args.list_resources,
         latency_wait=60 if not SCHEDULER == "" else 1,
         printdag=args.make_dag,
-        forceall=args.make_dag)
+        forceall=args.make_dag,
+        forcerun=args.forcerun)
 
 
 def main(call_args=None):

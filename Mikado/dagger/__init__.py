@@ -65,24 +65,24 @@ def create_parser():
                         help="""Configuration file that allows the user to override
                         resource requests for each rule when running under a scheduler
                         in a HPC environment.""")
-    parser.add_argument("-N", "--max_nodes", type=int, default="10",
-                        help="Maximum number of nodes to use concurrently")
-    parser.add_argument("-n", "--max_cores", type=int, default="1000",
-                        help="Maximum number of cores to use concurrently")
-    parser.add_argument("-t", "--threads", type=int, default=None,
+    parser.add_argument("--nodes", "-N", nargs="?", metavar="N", type=int, default="10",
+                        help="Maximum number of cluster nodes to use concurrently.")
+    parser.add_argument("--cores", "--jobs", "-j", action="store", nargs="?", metavar="N", type=int, default="1000",
+            help="Use at most N cores in parallel (default: 1000).")
+    parser.add_argument("--threads", "-t", type=int, default=None,
                         help="""Maximum number of threads per job.
                         Default: None (set in the configuration file)""")
-    parser.add_argument("-d", "--no_drmaa", action='store_true', default=False,
+    parser.add_argument("--no_drmaa", "-nd", action='store_true', default=False,
                         help="Use this flag if running on a HPC and DRMAA is not available")
-    parser.add_argument("--force_incomplete", action='store_true', default=False,
-                        help="Force snakemake to rerun incomplete steps")
+    parser.add_argument("--rerun-incomplete", "--ri", action='store_true', default=False,
+                        help="Re-run all jobs the output of which is recognized as incomplete.")
     parser.add_argument("--forcerun", "-R", nargs="+", metavar="TARGET", help="Force the re-execution or creation of the given rules or files. Use this option if you changed a rule and want to have all its output in your workflow updated.")
-    parser.add_argument("--detailed_summary", action='store_true', default=False,
+    parser.add_argument("--detailed-summary", "-D", action='store_true', default=False,
                         help="Print detailed summary of all input and output files")
-    parser.add_argument("--list_resources", action='store_true', default=False,
+    parser.add_argument("--list", "-l", action='store_true', default=False,
                         help="List resources used in the workflow")
-    parser.add_argument("--make_dag", action='store_true', default=False,
-                        help="Produce a DAG rather than execute the workflow")
+    parser.add_argument("--dag", action='store_true', default=False,
+                        help="Do not execute anything and print the redirected acylic graph of jobs in the dot language.")
     return parser
 
 
@@ -178,8 +178,8 @@ def assemble_transcripts_pipeline(args):
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("dagger", "tr.snakefile")),
-        cores=args.max_cores,
-        nodes=args.max_nodes,
+        cores=args.cores,
+        nodes=args.nodes,
         configfile=args.config,
         config=additional_config,
         workdir=CWD,
@@ -189,9 +189,9 @@ def assemble_transcripts_pipeline(args):
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
         stats="dagger_tr_" + NOW + ".stats",
-        force_incomplete=args.force_incomplete,
-        detailed_summary=args.detailed_summary,
-        list_resources=args.list_resources,
+        force_incomplete=args.rerun-incomplete,
+        detailed_summary=args.detailed-summary,
+        list_resources=args.list,
         latency_wait=60 if SCHEDULER else 1,
         printdag=args.make_dag,
         forceall=args.make_dag,
@@ -233,8 +233,8 @@ def mikado_pipeline(args):
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("dagger", "mikado.snakefile")),
-        cores=args.max_cores,
-        nodes=args.max_nodes,
+        cores=args.cores,
+        nodes=args.nodes,
         configfile=args.config,
         config=additional_config,
         workdir=CWD,
@@ -244,12 +244,12 @@ def mikado_pipeline(args):
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
         stats="dagger_tr_" + NOW + ".stats",
-        force_incomplete=args.force_incomplete,
-        detailed_summary=args.detailed_summary,
-        list_resources=args.list_resources,
+        force_incomplete=args.rerun-incomplete,
+        detailed_summary=args.detailed-summary,
+        list_resources=args.list,
         latency_wait=60 if not SCHEDULER == "" else 1,
-        printdag=args.make_dag,
-        forceall=args.make_dag,
+        printdag=args.dag,
+        forceall=args.dag,
         forcerun=args.forcerun)
 
 

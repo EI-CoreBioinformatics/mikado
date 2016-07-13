@@ -73,7 +73,7 @@ def create_parser():
                         help="""Maximum number of threads per job.
                         Default: None (set in the configuration file)""")
     parser.add_argument("--no_drmaa", "-nd", action='store_true', default=False,
-                        help="Use this flag if running on a HPC and DRMAA is not available")
+                        help="Use this flag if you wish to run without DRMAA, for example, if running on a HPC and DRMAA is not available, or if running locally on your own machine or server.")
     parser.add_argument("--rerun-incomplete", "--ri", action='store_true', default=False,
                         help="Re-run all jobs the output of which is recognized as incomplete.")
     parser.add_argument("--forcerun", "-R", nargs="+", metavar="TARGET", help="Force the re-execution or creation of the given rules or files. Use this option if you changed a rule and want to have all its output in your workflow updated.")

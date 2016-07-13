@@ -274,9 +274,10 @@ def main(call_args=None):
         help="""These are the pipelines that can be executed via dagger.""")
 
     subparsers.add_parser("configure",
-                          description="Creates the configuration files for the DAGGER execution.")
+                          help="Creates the configuration files for the DAGGER execution.")
     subparsers.choices["configure"] = create_config_parser()
     subparsers.choices["configure"].prog = "dagger configure"
+    subparsers.choices["configure"].set_defaults(func=dagger_config)
 
     subparsers.add_parser("assemble",
                           description="Creates transcript assemblies from RNAseq data.",
@@ -288,6 +289,7 @@ def main(call_args=None):
         "config",
         help="Configuration file to use for running the transcript assembly pipeline.")
     subparsers.choices["assemble"].prog = "dagger assemble"
+    subparsers.choices["assemble"].set_defaults(func=assemble_transcripts_pipeline)
 
     subparsers.add_parser("mikado",
                           description="Run full mikado pipeline",
@@ -299,33 +301,51 @@ def main(call_args=None):
         "config",
         help="Configuration file to use for running the Mikado step of the pipeline.")
     subparsers.choices["mikado"].prog = "dagger mikado"
+    subparsers.choices["mikado"].set_defaults(func=mikado_pipeline)
 
-    # pylint: disable=broad-except
     try:
-
         args = parser.parse_args(call_args)
-        if len(call_args) == 0:
-            parser.print_help()
-            sys.exit(1)
-
-        if call_args[0] == "assemble":
-            assemble_transcripts_pipeline(args)
-        elif call_args[0] == "mikado":
-            mikado_pipeline(args)
-        elif call_args[0] == "configure":
-            dagger_config(args)
+        if hasattr(args, "func"):
+            args.func(args)
         else:
-            raise ValueError("Invalid subprogram specified!")
-
+            parser.print_help()
     except KeyboardInterrupt:
         raise KeyboardInterrupt
     except BrokenPipeError:
         pass
     except Exception as exc:
         logger = create_default_logger("main")
-        logger.error("dagger crashed, cause:")
+        logger.error("DAGGER crashed, cause:")
         logger.exception(exc)
-        sys.exit(2)
+        sys.exit(1)
+
+    # args = parser.parse_args(call_args)
+    # pylint: disable=broad-except
+    # try:
+    #
+    #     args = parser.parse_args(call_args)
+    #     if len(call_args) == 0:
+    #         parser.print_help()
+    #         sys.exit(1)
+    #
+    #     if call_args[0] == "assemble":
+    #         assemble_transcripts_pipeline(args)
+    #     elif call_args[0] == "mikado":
+    #         mikado_pipeline(args)
+    #     elif call_args[0] == "configure":
+    #         dagger_config(args)
+    #     else:
+    #         raise ValueError("Invalid subprogram specified!")
+    #
+    # except KeyboardInterrupt:
+    #     raise KeyboardInterrupt
+    # except BrokenPipeError:
+    #     pass
+    # except Exception as exc:
+    #     logger = create_default_logger("main")
+    #     logger.error("dagger crashed, cause:")
+    #     logger.exception(exc)
+    #     sys.exit(2)
     # pylint: enable=broad-except
 
 if __name__ == '__main__':

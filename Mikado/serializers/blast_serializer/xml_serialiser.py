@@ -645,8 +645,8 @@ class XmlSerializer:
                                  _,
                                  self.logging_queue,
                                  self.json_conf["log_settings"]["log_level"])
-                     for _ in range(min([self.procs, len(self.xml)])
-            )]
+                     for _ in range(min([self.procs, len(self.xml)]))
+                     ]
 
             self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
             [_.start() for _ in procs]  # Start processes

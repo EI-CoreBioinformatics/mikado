@@ -278,11 +278,11 @@ class Locus(Sublocus, Abstractlocus):
                               other.primary_transcript_id,
                               other.primary_transcript.combined_cds_length)
             return False
-        elif other.primary_transcript.cdna_length > minimal_cdna_length:
-            self.logger.debug("%s has a cDNA of %d, not a fragment by definition",
-                              other.primary_transcript_id,
-                              other.primary_transcript.combined_cds_length)
-            return False
+        # elif other.primary_transcript.cdna_length > minimal_cdna_length:
+        #     self.logger.debug("%s has a cDNA of %d, not a fragment by definition",
+        #                       other.primary_transcript_id,
+        #                       other.primary_transcript.combined_cds_length)
+        #     return False
         elif other.primary_transcript.exon_num > minimal_exons:
             self.logger.debug("%s has %d exons, not a fragment by definition",
                               other.primary_transcript_id,

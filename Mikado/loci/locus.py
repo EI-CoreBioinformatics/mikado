@@ -163,7 +163,7 @@ class Locus(Sublocus, Abstractlocus):
             to_be_added = False
 
         if to_be_added:
-            is_alternative, ccode = self.is_alternative_splicing(transcript)
+            is_alternative, ccode, comparison = self.is_alternative_splicing(transcript)
             if is_alternative is False:
                 self.logger.debug("%s not added because it is not a \
                 valid splicing isoform. Ccode: %s",
@@ -171,6 +171,15 @@ class Locus(Sublocus, Abstractlocus):
                 to_be_added = False
             else:
                 transcript.attributes["ccode"] = ccode
+            if self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] > 0:
+                overlap = comparison.n_recall[0]
+                if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]:
+                    self.logger.debug(
+                        "%s not added because its CDNA overlap is too low (%f%%).",
+                        transcript.id,
+                        round(overlap * 100, 2))
+                    to_be_added = False
+
         if to_be_added and transcript.combined_utr_length > max_utr_lenghts["total"]:
             self.logger.debug("%s not added because it has too much UTR (%d).",
                               transcript.id,
@@ -194,18 +203,6 @@ class Locus(Sublocus, Abstractlocus):
                 self.logger.debug("%s not added because it has %d retained introns.",
                                   transcript.id,
                                   transcript.retained_intron_num)
-                to_be_added = False
-        if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"] > 0:
-            tr_nucls = set(itertools.chain(*[range(x[0], x[1] + 1) for x in transcript.exons]))
-            primary_nucls = set(itertools.chain(*[range(x[0], x[1] + 1)
-                                                  for x in self.primary_transcript.exons]))
-            nucl_overlap = len(set.intersection(primary_nucls, tr_nucls))
-            overlap = nucl_overlap / len(self.primary_transcript)
-            if overlap < self.json_conf["pick"]["alternative_splicing"]["min_cdna_overlap"]:
-                self.logger.debug(
-                    "%s not added because its CDNA overlap is too low (%f%%).",
-                    transcript.id,
-                    round(overlap * 100, 2))
                 to_be_added = False
 
         if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] > 0:
@@ -525,7 +522,7 @@ class Locus(Sublocus, Abstractlocus):
                     is_valid = False
                     break
 
-        return is_valid, main_ccode
+        return is_valid, main_ccode, main_result
 
     @property
     def __name__(self):

@@ -177,7 +177,7 @@ class ASeventsTester(unittest.TestCase):
                      "CDS")
         t2.finalize()
 
-        self.assertEqual(self.locus.is_alternative_splicing(t2), (False, "c"))
+        self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (False, "c"))
 
     def test_valid_as(self):
 
@@ -196,7 +196,7 @@ class ASeventsTester(unittest.TestCase):
                      "CDS")
         t2.finalize()        
 
-        self.assertEqual(self.locus.is_alternative_splicing(t2), (True, "J"))
+        self.assertEqual(self.locus.is_alternative_splicing(t2)[:2], (True, "J"))
 
         self.locus.add_transcript_to_locus(t2)
         self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
@@ -237,7 +237,7 @@ class ASeventsTester(unittest.TestCase):
                      "CDS")
         t3.finalize()
 
-        self.assertEqual(self.locus.is_alternative_splicing(t3), (False, "J"))
+        self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (False, "J"))
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
 
@@ -277,7 +277,7 @@ class ASeventsTester(unittest.TestCase):
         t3.logger = self.logger
         t3.finalize()
 
-        self.assertEqual(self.locus.is_alternative_splicing(t3), (True, "j"))
+        self.assertEqual(self.locus.is_alternative_splicing(t3)[:2], (True, "j"))
         self.locus.add_transcript_to_locus(t3)
         self.assertEqual(len(self.locus.transcripts), 3, self.locus.transcripts)
 

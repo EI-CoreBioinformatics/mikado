@@ -66,15 +66,16 @@ def create_parser():
                         help="""Configuration file that allows the user to override
                         resource requests for each rule when running under a scheduler
                         in a HPC environment.""")
-    parser.add_argument("--jobs", "-J", action="store", nargs="?", metavar="N", type=int, default="10",
+    parser.add_argument("--jobs", "-J", action="store", metavar="N", type=int, default="10",
                         help="Maximum number of cluster jobs to execute concurrently.")
     parser.add_argument("--cores", "-C", action="store", nargs="?", metavar="N", type=int, default="1000",
                         help="Use at most N cores in parallel (default: 1000).")
-    parser.add_argument("--threads", "-t", type=int, default=None,
+    parser.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=None,
                         help="""Maximum number of threads per job.
                         Default: None (set in the configuration file)""")
     parser.add_argument("--no_drmaa", "-nd", action='store_true', default=False,
-                        help="Use this flag if running on a HPC and DRMAA is not available")
+                        help="Use this flag if you wish to run without DRMAA, for example, \
+if running on a HPC and DRMAA is not available, or if running locally on your own machine or server.")
     parser.add_argument("--rerun-incomplete", "--ri", action='store_true', default=False,
                         dest="rerun_incomplete",
                         help="Re-run all jobs the output of which is recognized as incomplete.")

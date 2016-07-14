@@ -59,7 +59,7 @@ setup(
     # scripts=glob.glob("bin/*.py") + glob.glob("util/*.py"),
     scripts=glob.glob("util/*.py"),
     entry_points={"console_scripts": ["mikado = Mikado:main",
-                                      "dagger = Mikado.dagger:main"]},
+                                      "daijin = Mikado.daijin:main"]},
     install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],
     extras_require={
         "postgresql": ["psycopg2"],
@@ -72,9 +72,9 @@ setup(
         "Mikado.configuration.scoring_files":
             glob.glob("Mikado/configuration/scoring_files/*"),
         "Mikado":
-            glob.glob(path.join("Mikado", "dagger", "*yaml")) +
-            glob.glob("Mikado/dagger/*json") + \
-            glob.glob("Mikado/dagger/*snakefile")
+            glob.glob(path.join("Mikado", "daijin", "*yaml")) +
+            glob.glob("Mikado/daijin/*json") + \
+            glob.glob("Mikado/daijin/*snakefile")
         },
     include_package_data=True
     # data_files=[

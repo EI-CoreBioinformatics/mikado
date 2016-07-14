@@ -241,7 +241,11 @@ class Locus(Sublocus, Abstractlocus):
         raise NotImplementedError("""Loci do not use this method, but rather
         assess whether a transcript is a splicing isoform or not.""")
 
-    def other_is_fragment(self, other, minimal_cds_length=0):
+    def other_is_fragment(self,
+                          other,
+                          minimal_cds_length=0,
+                          minimal_cdna_length=0,
+                          minimal_exons=2):
         """
         :param other: another Locus to compare against
         :type other: Locus
@@ -250,6 +254,9 @@ class Locus(Sublocus, Abstractlocus):
         a Locus as non-fragment, no matter the ccode.
         :type minimal_cds_length: int
 
+        :param minimal_cds_length: Minimal cDNA length to consider
+        a Locus as non-fragment, no matter the ccode.
+        :type minimal_cds_length: int
 
         This function checks whether another *monoexonic* Locus
         *on the opposite strand* is a fragment,by checking its classification
@@ -271,6 +278,16 @@ class Locus(Sublocus, Abstractlocus):
 
         if other.primary_transcript.combined_cds_length > minimal_cds_length:
             self.logger.debug("%s has a CDS of %d, not a fragment by definition",
+                              other.primary_transcript_id,
+                              other.primary_transcript.combined_cds_length)
+            return False
+        elif other.primary_transcript.cdna_length > minimal_cdna_length:
+            self.logger.debug("%s has a cDNA of %d, not a fragment by definition",
+                              other.primary_transcript_id,
+                              other.primary_transcript.combined_cds_length)
+            return False
+        elif other.primary_transcript.exon_num > minimal_exons:
+            self.logger.debug("%s has %d exons, not a fragment by definition",
                               other.primary_transcript_id,
                               other.primary_transcript.combined_cds_length)
             return False

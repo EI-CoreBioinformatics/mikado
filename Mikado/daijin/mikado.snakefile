@@ -23,7 +23,10 @@ if "threads" in config:
 else:
     THREADS = 1
 
-MIKADO_MODES=config["mikado"]["modes"]
+if "mikado" in config:
+    MIKADO_MODES=config["mikado"]["modes"]
+else:
+    MIKADO_MODES = ["split", "nosplit", "permissive", "lenient", "stringent"]
 
 # Directory shortcuts
 OUT_DIR_FULL = os.path.abspath(OUT_DIR)

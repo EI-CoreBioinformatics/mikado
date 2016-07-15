@@ -9,10 +9,8 @@ from sqlalchemy.orm.session import sessionmaker
 from ...utilities import dbutils
 from ..clique_methods import define_graph, find_cliques, find_communities
 from ...serializers.junction import Junction
-from ...exceptions import InvalidTranscript
 from sqlalchemy import and_
 import operator
-import intervaltree
 
 __author__ = 'Luca Venturini'
 

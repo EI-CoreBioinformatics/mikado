@@ -17,8 +17,8 @@ R2 = config["r2"]
 SAMPLES = config["samples"]
 STRANDEDNESS = config["strandedness"]
 
-REF = config["ref"]["genome"]
-REF_TRANS = config["ref"]["transcriptome"]
+REF = config["reference"]["genome"]
+REF_TRANS = config["reference"]["transcriptome"]
 
 NAME = config["name"]
 OUT_DIR = config["out_dir"]

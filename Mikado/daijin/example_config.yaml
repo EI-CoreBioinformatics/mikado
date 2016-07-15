@@ -14,7 +14,7 @@ min_intron: "20"
 max_intron: "10000"
 
 # Reference
-ref:
+reference:
         # Required.  Fasta format genome
         genome: "Spombe.genome.fa"
 
@@ -75,6 +75,9 @@ portcullis:
         #
         canonical_juncs: "C,S"
         
+transdecoder:
+        min_protein_len: 100
+
 
 # If not empty then run BLASTX using transcripts against this protein database                
 blastx:

@@ -12,7 +12,7 @@ from shutil import which
 CFG=workflow.overwrite_configfile
 
 
-REF = config["reference"]["fasta"]
+REF = config["reference"]["genome"]
 # TODO: this is hack that should be solved more neatly
 if "out_dir" in config:
     OUT_DIR = config["out_dir"]
@@ -134,12 +134,13 @@ rule transdecoder_lo:
 	params: outdir=TDC_DIR_FULL,
 		tr="transcripts.fasta",
 		tr_in=MIKADO_DIR_FULL+"/mikado_prepared.fasta",
-		load=loadPre(config["load"]["transdecoder"])
+		load=loadPre(config["load"]["transdecoder"]),
+		minprot=config["transdecoder"]["min_protein_len"]
 	log: TDC_DIR_FULL+"/transdecoder.longorf.log",
 		# ss="-S" if MIKADO_STRAND else ""
 	threads: 1
 	message: "Running transdecoder longorf on Mikado prepared transcripts: {input}"
-	shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -t {params.tr} > {log} 2>&1"
+	shell: "{params.load} cd {params.outdir} && ln -sf {params.tr_in} {params.tr} && TransDecoder.LongOrfs -m {params.minprot} -t {params.tr} > {log} 2>&1"
 
 rule transdecoder_pred:
 	input: 

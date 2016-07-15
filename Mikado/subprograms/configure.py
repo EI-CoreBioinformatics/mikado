@@ -174,7 +174,7 @@ def create_config(args):
         config = create_simple_config()
 
     if args.reference is not None:
-        config["reference"]["fasta"] = args.reference
+        config["reference"]["genome"] = args.reference
 
     if args.junctions is not None:
         config["serialise"]["files"]["junctions"] = args.junctions

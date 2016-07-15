@@ -220,8 +220,8 @@ def setup(args):
         if args.genome_fai is not None:
             args.json_conf["reference"]["genome_fai"] = args.genome_fai
         elif args.json_conf["reference"]["genome_fai"] is None:
-            if args.json_conf["reference"]["fasta"] is not None:
-                _ = pyfaidx.Fasta(args.json_conf["reference"]["fasta"])
+            if args.json_conf["reference"]["genome"] is not None:
+                _ = pyfaidx.Fasta(args.json_conf["reference"]["genome"])
                 args.json_conf["reference"]["genome_fai"] = _.faidx.indexname
             else:
                 logger.critical("Missing FAI file for junction loading!")

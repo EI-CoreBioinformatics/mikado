@@ -700,7 +700,7 @@
     "SimpleComment": ["Options related to the reference genome."],
     "required": ["fasta"],
     "properties": {
-      "fasta": {
+      "genome": {
         "type": "string",
         "default": ""
       },

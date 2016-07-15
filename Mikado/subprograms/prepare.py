@@ -135,7 +135,7 @@ def setup(args):
 
     if ((getattr(args, "fasta") or getattr(args, "fasta") == 0) and
             getattr(args, "fasta") is not False):
-        args.json_conf["reference"]["fasta"] = args.fasta
+        args.json_conf["reference"]["genome"] = args.fasta
 
     if args.lenient is not None:
         args.json_conf["prepare"]["lenient"] = True

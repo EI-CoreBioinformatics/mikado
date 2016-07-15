@@ -698,7 +698,7 @@
     "type": "object",
     "Comment": ["Options related to the reference genome."],
     "SimpleComment": ["Options related to the reference genome."],
-    "required": ["fasta"],
+    "required": ["genome"],
     "properties": {
       "genome": {
         "type": "string",

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-The DAGGER module is built to manage multiple alignments and assemblies of
+The Daijin module is built to manage multiple alignments and assemblies of
 RNA-Seq data, and subsequently merge them with Mikado.
 """
 
@@ -26,7 +26,6 @@ min_version("3.5")
 TIME_START = time.time()
 NOW = datetime.datetime.fromtimestamp(TIME_START).strftime('%Y-%m-%d_%H:%M:%S')
 
-# DAGGER_DIR = os.path.dirname(os.path.realpath(__file__))
 DAIJIN_DIR = pkg_resources.resource_filename("Mikado", "daijin")
 assert pkg_resources.resource_exists("Mikado", "daijin")
 
@@ -40,21 +39,21 @@ def get_sub_commands(SCHEDULER):
         sub_cmd = "bsub"
         res_cmd = " ".join([" -R rusage[mem={cluster.memory}]span[ptile={threads}] -n {threads}",
                             "-q {cluster.queue} -oo /dev/null",
-                            "-J {rule} -oo dagger_logs/{rule}_%j.out"])
+                            "-J {rule} -oo daijin_logs/{rule}_%j.out"])
     elif SCHEDULER == "PBS":
         sub_cmd = "qsub"
         res_cmd = " -lselect=1:mem={cluster.memory}MB:ncpus={threads} -q {cluster.queue}"
     elif SCHEDULER == "SLURM":
         sub_cmd = "sbatch"
         res_cmd = " ".join(["-N 1 -n 1 -c {threads} -p {cluster.queue} --mem={cluster.memory}",
-                            "-J {rule} -o dagger_logs/{rule}_%j.out -e dagger_logs/{rule}_%j.err"])
+                            "-J {rule} -o daijin_logs/{rule}_%j.out -e daijin_logs/{rule}_%j.err"])
     return res_cmd, sub_cmd
 
 
 def create_parser():
 
     """
-    Function to create the command-line parser for DAGGER.
+    Function to create the command-line parser for Daijin.
     :return:
     """
 
@@ -62,7 +61,7 @@ def create_parser():
     # parser.add_argument("config",
     #                     help="Configuration file to use for running daijin.")
     parser.add_argument("-c", "--hpc_conf", default=pkg_resources.resource_filename(
-        "Mikado",os.path.join("daijin", "hpc.yaml")),
+        "Mikado", os.path.join("daijin", "hpc.yaml")),
                         help="""Configuration file that allows the user to override
                         resource requests for each rule when running under a scheduler
                         in a HPC environment.""")
@@ -97,7 +96,7 @@ if running on a HPC and DRMAA is not available, or if running locally on your ow
 def create_config_parser():
 
     """
-    Function to create the configuration file for DAGGER.
+    Function to create the configuration file for Daijin.
     :return:
     """
 
@@ -107,11 +106,11 @@ def create_config_parser():
                         help="Cluster configuration file to write to.")
     parser.add_argument("config", type=str,
                         help="Configuration file to write to.")
-    parser.set_defaults(func=dagger_config)
+    parser.set_defaults(func=daijin_config)
     return parser
 
 
-def dagger_config(args):
+def daijin_config(args):
 
     with open(args.config, "wb") as out:
         for line in pkg_resources.resource_stream("Mikado",
@@ -129,7 +128,8 @@ def dagger_config(args):
 def assemble_transcripts_pipeline(args):
 
     """
-    This section of DAGGER is focused on creating the necessary configuration for
+    This section of Daijin is focused on creating the necessary configuration for
+    driving the pipeline.
     :param args:
     :return:
     """
@@ -149,10 +149,10 @@ def assemble_transcripts_pipeline(args):
     res_cmd, sub_cmd = get_sub_commands(SCHEDULER)
 
     # Create log folder
-    if not os.path.exists("dagger_logs"):
-        os.makedirs("dagger_logs")
-    elif not os.path.isdir("dagger_logs"):
-        raise OSError("{} is not a directory!".format("dagger_logs"))
+    if not os.path.exists("daijin_logs"):
+        os.makedirs("daijin_logs")
+    elif not os.path.isdir("daijin_logs"):
+        raise OSError("{} is not a directory!".format("daijin_logs"))
 
     if (len(R1) != len(R2)) and (len(R1) != len(LABELS)):
         print("R1, R2 and LABELS lists are not the same length.  Please check and try again")
@@ -197,7 +197,7 @@ def assemble_transcripts_pipeline(args):
         drmaa=res_cmd if not args.no_drmaa else None,
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
-        stats="dagger_tr_" + NOW + ".stats",
+        stats="daijin_tr_" + NOW + ".stats",
         force_incomplete=args.rerun_incomplete,
         detailed_summary=args.detailed_summary,
         list_resources=args.list,
@@ -226,10 +226,10 @@ def mikado_pipeline(args):
 
     res_cmd, sub_cmd = get_sub_commands(SCHEDULER)
 
-    if not os.path.exists("dagger_logs"):
-        os.makedirs("dagger_logs")
-    elif not os.path.isdir("dagger_logs"):
-        raise OSError("{} is not a directory!".format("dagger_logs"))
+    if not os.path.exists("daijin_logs"):
+        os.makedirs("daijin_logs")
+    elif not os.path.isdir("daijin_logs"):
+        raise OSError("{} is not a directory!".format("daijin_logs"))
 
     # Launch using SnakeMake
     assert pkg_resources.resource_exists("Mikado",
@@ -252,7 +252,7 @@ def mikado_pipeline(args):
         drmaa=res_cmd if not args.no_drmaa else None,
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
-        stats="dagger_tr_" + NOW + ".stats",
+        stats="daijin_tr_" + NOW + ".stats",
         force_incomplete=args.rerun_incomplete,
         detailed_summary=args.detailed_summary,
         list_resources=args.list,
@@ -275,10 +275,10 @@ def main(call_args=None):
         call_args = sys.argv[1:]
 
     parser = argparse.ArgumentParser(
-        """A Directed Acyclic Graph pipeline for GEne model Reconstruction from RNA seq data.
+        """A Directed Acyclic pipeline for gene model reconstruction from RNA seq data.
         Basically, a pipeline for driving Mikado. It will first align RNAseq reads against
         a genome using multiple tools, then creates transcript assemblies using multiple tools,
-        and find junctions in the alignments using portcullis.
+        and find junctions in the alignments using Portcullis.
         This input is then passed into Mikado.""")
 
     subparsers = parser.add_subparsers(
@@ -286,10 +286,10 @@ def main(call_args=None):
         help="""These are the pipelines that can be executed via daijin.""")
 
     subparsers.add_parser("configure",
-                          help="Creates the configuration files for the DAGGER execution.")
+                          help="Creates the configuration files for Daijin execution.")
     subparsers.choices["configure"] = create_config_parser()
     subparsers.choices["configure"].prog = "daijin configure"
-    subparsers.choices["configure"].set_defaults(func=dagger_config)
+    subparsers.choices["configure"].set_defaults(func=daijin_config)
 
     subparsers.add_parser("assemble",
                           description="Creates transcript assemblies from RNAseq data.",
@@ -327,7 +327,7 @@ def main(call_args=None):
         pass
     except Exception as exc:
         logger = create_default_logger("main")
-        logger.error("DAGGER crashed, cause:")
+        logger.error("Daijin crashed, cause:")
         logger.exception(exc)
         sys.exit(1)
 
@@ -345,7 +345,7 @@ def main(call_args=None):
     #     elif call_args[0] == "mikado":
     #         mikado_pipeline(args)
     #     elif call_args[0] == "configure":
-    #         dagger_config(args)
+    #         daijin_config(args)
     #     else:
     #         raise ValueError("Invalid subprogram specified!")
     #

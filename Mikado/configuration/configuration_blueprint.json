@@ -556,8 +556,6 @@
             "  classified as P,x,i or p compared to another locus, will be removed from the output.",
             "- fragments_maximal_cds: a locus will never be considered a fragment if its longest CDS is over",
             "  this length. Default: 100 bps.",
-            "- fragments_maximal_cdna: a locus will never be considered a fragment if its longest cDNA is over",
-            "  this length. Default: 400 bps.",
             "- fragments_maximal_exons: a locus will never be considered a fragment if its representative transcript",
             "  has more than this number of exons. Default: 2",
             "- procs: number of processes to use. Default: 1",
@@ -608,10 +606,6 @@
             "fragments_maximal_cds": {
               "type": "integer",
               "default": 100
-            },
-            "fragments_maximal_cdna": {
-              "type": "integer",
-              "default": 400
             },
             "fragments_maximal_exons": {
               "type": "integer",

@@ -355,8 +355,8 @@ def retrieve_from_dict(transcript, data_dict):
         candidate_orfs = []
 
     # They must already be as ORFs
-    if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True
-                                            and transcript.strand is not None):
+    if (transcript.monoexonic is False) or (transcript.monoexonic is True and trust_strand is True and
+                                            transcript.strand is not None):
         # Remove negative strand ORFs for multiexonic transcripts,
         # or monoexonic strand-specific transcripts
         candidate_orfs = list(orf for orf in candidate_orfs if orf.strand != "-")

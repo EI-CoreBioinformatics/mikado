@@ -81,3 +81,4 @@ doc/build/sample_data/configuration.yaml
 sample_data/5-mikado/
 sample_data/configuration.yaml
 sample_data/mikado.blast.xml.gz
+docs/_build

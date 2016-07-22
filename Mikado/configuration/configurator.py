@@ -405,7 +405,7 @@ def create_validator(simple=False):
     return validator
 
 
-def check_json(json_conf, simple=False):
+def check_json(json_conf, simple=False, external_dict=None):
 
     """
     Wrapper for the various checks performed on the configuration file.
@@ -416,6 +416,9 @@ def check_json(json_conf, simple=False):
     :param simple: boolean flag indicating whether we desire
                    the simplified version of the configuration, or not.
     :type simple: bool
+
+    :param external_dict: optional external dictionary with values to pass to the configuration.
+    :type external_dict: (dict|None)
 
     :return json_conf
     :rtype: dict
@@ -478,6 +481,12 @@ def check_json(json_conf, simple=False):
             raise InvalidJson(
                 "Invalid scoring file: {0}".format(
                     json_conf["pick"]["scoring_file"]))
+
+    if external_dict is not None:
+        if not isinstance(external_dict, dict):
+            raise TypeError("Passed an invalid external dictionary, type {}".format(
+                type(external_dict)))
+        json_conf = merge_dictionaries(json_conf, external_dict)
 
     json_conf = check_db(json_conf)
     # json_conf = check_blast(json_conf, json_file)

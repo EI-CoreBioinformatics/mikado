@@ -93,9 +93,6 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, dou
         elif (nucl_recall == 0 and r_start < p_start < r_end):
             ccode = "i"  # Monoexonic fragment inside an intron
     elif p_exon_num > 1 and r_exon_num == 1:
-        # if nucl_recall == 1:
-        #     ccode = "h"  # Extension
-        # else:
         if nucl_overlap > 0:
             ccode = "O"  # Reverse generic overlap
         elif c_overlap(p_start, p_end, r_start, r_end, 0, 1) > 0:

@@ -48,6 +48,14 @@ def util_parser():
     utils.choices["grep"].prog = "mikado.py util grep"
     utils.choices["grep"].description = "Script to extract specific models from GFF/GTF files."
 
+    utils.add_parser("merge_blast",
+                     description="""Script to merge together multiple BLAST XML files.
+                         It also converts them on the fly if they are in ASN/compressed XML.""")
+    utils.choices["merge_blast"] = merge_blast.merger_parser()
+    utils.choices["merge_blast"].prog = "mikado.py util merge_blast"
+    utils.choices["merge_blast"].description = "Script to merge together multiple BLAST XML files. \
+        It also converts them on the fly if they are in ASN/compressed XML."
+
     utils.add_parser("metrics",
                      description="Simple script to obtain the documentation on the transcript metrics.")
     utils.choices["metrics"] = metrics.metric_parser()
@@ -68,14 +76,6 @@ It will compute median/average length of RNAs, exons, CDS features, etc."
     utils.choices["trim"].prog = "mikado.py util trim"
     utils.choices["trim"].description = "Script to remove up to N bps from terminal\
 exons in an annotation file."
-
-    utils.add_parser("merge_blast",
-                     description="""Script to merge together multiple BLAST XML files.
-                     It also converts them on the fly if they are in ASN/compressed XML.""")
-    utils.choices["merge_blast"] = merge_blast.merger_parser()
-    utils.choices["merge_blast"].prog = "mikado.py util merge_blast"
-    utils.choices["merge_blast"].description = "Script to merge together multiple BLAST XML files. \
-It also converts them on the fly if they are in ASN/compressed XML."
 
     parser.add_help = True
 

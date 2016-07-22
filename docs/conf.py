@@ -56,7 +56,7 @@ master_doc = 'index'
 # General information about the project.
 project = 'Mikado'
 copyright = '2016, Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David'
-author = 'Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David'
+author = 'Venturini Luca\nCaim Shabhonam\nMapleson Daniel\nKaithakottil Gemy George\nSwarbreck David'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -234,7 +234,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Mikado.tex', 'Mikado Documentation',
-     'Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David', 'manual'),
+     'Venturini Luca\nCaim Shabhonam\nMapleson Daniel\nKaithakottil Gemy George\nSwarbreck David', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

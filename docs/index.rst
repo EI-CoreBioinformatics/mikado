@@ -27,12 +27,14 @@ Contents:
    Installation
    Tutorial
    Usage
+   Compare
+   References
 
 Citing
 ~~~~~~
 
 We are currently working on our paper, and we will be releasing a pre-print shortly.
-In the meantime, if you use Mikado please reference our github page `https://github.com/lucventurini/mikado <https://github.com/lucventurini/mikado>`_
+In the meantime, if you use Mikado please reference our github page: `https://github.com/lucventurini/mikado <https://github.com/lucventurini/mikado>`_
 
 
 Availability and License
@@ -42,7 +44,7 @@ Open source code available on github: `https://github.com/lucventurini/mikado <h
 
 This documentation is hosted publicly on read the docs: `https://mikado.readthedocs.org/en/latest/ <https://mikado.readthedocs.org/en/latest/>`_
 
-Mikado is available under `GNU GLP V3 <http://www.gnu.org/licenses/gpl.txt>`_
+Mikado is available under `GNU GLP V3 <http://www.gnu.org/licenses/gpl.txt>`_.
 
 
 Credits

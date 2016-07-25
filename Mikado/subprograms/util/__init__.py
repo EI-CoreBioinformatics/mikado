@@ -33,47 +33,47 @@ def util_parser():
     utils.add_parser("awk_gtf",
                      description="Script to retrieve specific feature slices from a GTF file.")
     utils.choices["awk_gtf"] = awk_gtf.awk_parser()
-    utils.choices["awk_gtf"].prog = "mikado.py util awk_gtf"
+    utils.choices["awk_gtf"].prog = "mikado util awk_gtf"
     utils.choices["awk_gtf"].description = "Script to retrieve specific feature slices from a GTF file."
 
     utils.add_parser("convert",
                      description="Script to do GTF <-> GFF3 > BED12 conversions.")
     utils.choices["convert"] = convert.convert_parser()
-    utils.choices["convert"].prog = "mikado.py util convert"
+    utils.choices["convert"].prog = "mikado util convert"
     utils.choices["convert"].description = "Script to do GTF <-> GFF3 > BED12 conversions."
 
     utils.add_parser("grep",
                      description="Script to extract specific models from GFF/GTF files.")
     utils.choices["grep"] = grep.grep_parser()
-    utils.choices["grep"].prog = "mikado.py util grep"
+    utils.choices["grep"].prog = "mikado util grep"
     utils.choices["grep"].description = "Script to extract specific models from GFF/GTF files."
 
     utils.add_parser("merge_blast",
                      description="""Script to merge together multiple BLAST XML files.
                          It also converts them on the fly if they are in ASN/compressed XML.""")
     utils.choices["merge_blast"] = merge_blast.merger_parser()
-    utils.choices["merge_blast"].prog = "mikado.py util merge_blast"
+    utils.choices["merge_blast"].prog = "mikado util merge_blast"
     utils.choices["merge_blast"].description = "Script to merge together multiple BLAST XML files. \
         It also converts them on the fly if they are in ASN/compressed XML."
 
     utils.add_parser("metrics",
                      description="Simple script to obtain the documentation on the transcript metrics.")
     utils.choices["metrics"] = metrics.metric_parser()
-    utils.choices["metrics"].prog = "mikado.py util metrics"
+    utils.choices["metrics"].prog = "mikado util metrics"
     utils.choices["metrics"].description = "Simple script to obtain the documentation on \
 the transcript metrics."
 
     utils.add_parser("stats", description="""GFF/GTF statistics script.
     It will compute median/average length of RNAs, exons, CDS features, etc.""")
     utils.choices["stats"] = stats.stats_parser()
-    utils.choices["stats"].prog = "mikado.py util stats"
+    utils.choices["stats"].prog = "mikado util stats"
     utils.choices["stats"].description = "GFF/GTF statistics script. \
 It will compute median/average length of RNAs, exons, CDS features, etc."
 
     utils.add_parser("trim",
                      description="Script to remove up to N bps from terminal exons in an annotation file.")
     utils.choices["trim"] = trim.trim_parser()
-    utils.choices["trim"].prog = "mikado.py util trim"
+    utils.choices["trim"].prog = "mikado util trim"
     utils.choices["trim"].description = "Script to remove up to N bps from terminal\
 exons in an annotation file."
 

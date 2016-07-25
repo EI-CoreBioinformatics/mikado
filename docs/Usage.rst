@@ -2,7 +2,7 @@ Usage
 =====
 
 
-Mikado is composed of four different programs (*configure, prepare, serialise, pick*) which have to be executed serially to go from an ensemble of different assemblies to the final dataset. In addition to these core programs, Mikado provides a utility to compare annotations, similarly to CuffCompare and ParsEval (*compare*) and various other minor utilities to perform operations such as extracting regions from a GFF, convert between different gene annotation formats, etc.
+Mikado is composed of four different programs (*configure, prepare, serialise, pick*) which have to be executed serially to go from an ensemble of different assemblies to the final dataset. In addition to these core programs, Mikado provides a utility to compare annotations, similarly to CuffCompare and ParsEval (*compare*), and various other minor utilities to perform operations such as extracting regions from a GFF, convert between different gene annotation formats, etc.
 
 Mikado pipeline
 ---------------
@@ -10,6 +10,8 @@ Mikado pipeline
 
 Compare
 -------
+
+Mikado provides a utility to compare two different annotations. Please see the :ref:`relevant page <compare>` for details.
 
 
 Utilities
@@ -173,3 +175,4 @@ Usage::
                             Maximal length of trimmed terminal exons
       --as-gtf              Flag. If set, the output will be in GTF rather than
                             GFF3 format.
+

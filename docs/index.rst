@@ -27,7 +27,6 @@ Contents:
    Installation
    Tutorial
    Usage
-   Compare
    References
 
 Citing

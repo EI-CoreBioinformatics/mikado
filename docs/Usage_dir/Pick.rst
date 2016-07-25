@@ -1,0 +1,4 @@
+.. _pick:
+
+Mikado pick
+===========

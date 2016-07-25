@@ -42,7 +42,7 @@ We advise to test whether the distribution has been built successfully by execut
 
 ``python3 setup.py test``
 
-Although code coverage is not perfect yet, it is over 50% for the whole package and considerably higher for the core components of the package.
+Although code coverage is not perfect yet, it is over 50% for the whole package and considerably higher for the core components.
 
 Python Dependencies
 -------------------
@@ -70,7 +70,7 @@ Mikado has been written for Python 3.4 and 3.5. It is dependent on the following
 * snakemake
 * docutils
 
-These dependencies will be installed automatically.
+These dependencies will be installed automatically by PIP.
 
 .. _GitHub: https://github.com/lucventurini/mikado
 
@@ -78,4 +78,4 @@ Additional dependencies
 -----------------------
 
 Mikado relies on relational databases for its functioning, so one of SQLite, PosGRESql or MySQL have to present for if to function properly.
-Additionally, the Daijin pipeline, which drives Mikado, requires BLAST+ and TransDecoder for the Mikado stage, and at least one RNA-Seq aligner and assembler, to be installed. If you are planning to execute it on a cluster, we do support job submission using DRMAA.
+Additionally, the Daijin pipeline, which drives Mikado, requires BLAST+ and TransDecoder for the Mikado stage, and at least one RNA-Seq aligner and one assembler, to be installed. If you are planning to execute it on a cluster, we do support job submission either with DRMAA or without on SLURM, LSF and PBS clusters.

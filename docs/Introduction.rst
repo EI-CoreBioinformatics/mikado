@@ -13,6 +13,16 @@ Metrics
 
 These are all the metrics available to quantify transcripts. The documentation for this section has been generated using the :ref:`metrics utility <metrics-command>`.
 
+Metrics belong to one of the following categories:
+
+* **Descriptive**: these metrics merely provide a description of the transcript (eg its ID) and are not used for scoring.
+* **cDNA**: these metrics refer to basic features of any transcript such as its number of exons, its cDNA length, etc.
+* **Intron**: these metrics refer to features related to the number of introns and their lengths.
+* **CDS**: these metrics refer to features related to the CDS assigned to the transcript.
+* **UTR**: these metrics refer to features related to the UTR of the transcript. In the case in which a transcript has been assigned multiple ORFs, unless otherwise stated the UTR metrics will be derived only considering the *selected* ORF, not the combination of all of them.
+* **Locus**: these metrics refer to features of the transcript in relationship to all other transcripts in its locus, eg how many of the introns present in the locus are present in the transcript. These metrics are calculated by Mikado during the picking phase, and as such their value can vary during the different stages as the transcripts are shifted to different groups.
+* **External**: these metrics are derived from accessory data that is recovered for the transcript during the run time. Examples include data regarding the number of introns confirmed by external programs such as PortCullis, or the BLAST score of the best hits.
+
 
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | Metric name                                    | Description                                               | Data type    | Category        |
@@ -34,7 +44,9 @@ These are all the metrics available to quantify transcripts. The documentation f
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | *cdna_length*                                  | This property returns the length of the transcript.       | Int          | **cDNA**        |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
-| *cds_not_maximal*                              | This property returns the length of the CDS excluded from | Int          | **CDS**         |
+| *cds_not_maximal*                              | This property returns the length of the CDS excluding     | Int          | **CDS**         |
+|                                                | that contained in the selected ORF. If the transcript only|              |                 |
+|                                                | has one ORF, this metric returns a value of 0.            |              |                 |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | *cds_not_maximal_fraction*                     | This property returns the fraction of bases not in the    | Float        | **CDS**         |
 |                                                | selected ORF compared to the total number of CDS bases    |              |                 |

@@ -191,12 +191,12 @@ Metrics belong to one of the following categories:
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | *snowy_blast_score*                            | Metric that indicates how good a hit is compared to the   | Float        | **External**    |
 |                                                | competition, in terms of BLAST similarities. As in        |              |                 |
-|                                                | SnowyOwl [R4]_, the score for each hit is calculated by   |              |                 |
-|                                                | taking the percentage of positive matches and dividing it |              |                 |
-|                                                | by (2 * len(self.blast_hits)). IMPORTANT: when splitting  |              |                 |
-|                                                | transcripts by ORF, a blast hit is added to the new       |              |                 |
-|                                                | transcript only if it is contained within the new         |              |                 |
-|                                                | transcript.                                               |              |                 |
+|                                                | SnowyOwl [SnowyOwl]_, the score for each hit is calculated|              |                 |
+|                                                | by taking the percentage of positive matches and dividing |              |                 |
+|                                                | it by (2 * len(self.blast_hits)). IMPORTANT: when         |              |                 |
+|                                                | splitting transcripts by ORF, a blast hit is added to the |              |                 |
+|                                                | new transcript only if it is contained within it. This    |              |                 |
+|                                                | will influnce directly this metric.                       |              |                 |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | *source_score*                                 | This metric returns a score that is assigned to the       | Float        | **External**    |
 |                                                | transcript solely in virtue of its origin.                |              |                 |

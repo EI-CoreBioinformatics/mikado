@@ -1,7 +1,7 @@
 .. _utils:
 
-Mikado Utilities
-================
+Mikado miscellaneous scripts
+============================
 
 All these utilities can be accessed with the ``mikado util`` CLI. They perform relatively minor tasks.
 
@@ -166,12 +166,12 @@ Usage::
 Included scripts
 ================
 
-All the following scripts are included in the "util" folder in the source code, and will be included on the PATH after installation.
+All the following scripts are included in the "util" folder in the source code, and will be included on the PATH after installation. Some of this scripts are used by the :ref:`Daijin` pipeline to produce statistics or perform other intermediate steps.
 
 add_transcript_feature_to_gtf.py
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This script is needed to add a top-level transcript feature to GTFs that lack it, eg. those produced by CuffMerge [R5]_.
+This script is needed to add a top-level transcript feature to GTFs that lack it, eg. those produced by CuffMerge [CuffMerge]_.
 
 Usage::
 
@@ -202,4 +202,151 @@ Usage::
     optional arguments:
       -h, --help  show this help message and exit
 
+asm_collect.py
+~~~~~~~~~~~~~~
 
+This script is used to collect statistics obtained with from the :ref:`mikado util stats <stat-command>` utility. Output is printed directly to the screen. Usage::
+
+    $ asm_collect.py -h
+    usage: Script to collect info from multiple mikado util stats files
+           [-h] input [input ...]
+
+    positional arguments:
+      input       The list of mikado util stats file to process
+
+    optional arguments:
+      -h, --help  show this help message and exit
+
+class_run.py
+~~~~~~~~~~~~
+
+Python3 wrapper for the CLASS [Class2]_ assembler. It will perform the necessary operations for the assembler (depth and call of the splicing junctions), and launch the program itself. Usage::
+
+    $ class_run.py --help
+    usage: Quick utility to rewrite the wrapper for CLASS. [-h] [--clean]
+                                                           [--force]
+                                                           [-c CLASS_OPTIONS]
+                                                           [-p PROCESSORS]
+                                                           [--class_help] [-v]
+                                                           [bam] [out]
+
+    positional arguments:
+      bam                   Input BAM file.
+      out                   Optional output file.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --clean               Flag. If set, remove tepmorary files.
+      --force               Flag. If set, it forces recalculation of all
+                            intermediate files.
+      -c CLASS_OPTIONS, --class_options CLASS_OPTIONS
+                            Additional options to be passed to CLASS. Default: no
+                            additional options.
+      -p PROCESSORS, --processors PROCESSORS
+                            Number of processors to use with class.
+      --class_help          If called, the wrapper will ask class to display its
+                            help and exit.
+      -v, --verbose
+
+getFastaFromIds.py
+~~~~~~~~~~~~~~~~~~
+
+Script to extract a list of sequences from a FASTA file, using the `pyfaidx <https://pypi.python.org/pypi/pyfaidx>`_ [PyFaidx]_ module. Usage::
+
+    $ getFastaFromIds.py -h
+    usage: getFastaFromIds.py [-h] [-v] list fasta [out]
+
+    A simple script that retrieves the FASTA sequences from a file given a list of
+    ids.
+
+    positional arguments:
+      list           File with the list of the ids to recover, one by line.
+                     Alternatively, names separated by commas.
+      fasta          FASTA file.
+      out            Optional output file.
+
+    optional arguments:
+      -h, --help     show this help message and exit
+      -v, --reverse  Retrieve entries which are not in the list, as in grep -v (a
+                     homage).
+
+grep.py
+~~~~~~~
+
+A script to extract data from *column* files, using a list of targets. More efficient than a standard "grep -f" for this niche case. Usage::
+
+    $ util/grep.py -h
+    usage: grep.py [-h] [-v] [-s SEPARATOR] [-f FIELD] [-q] ids target [out]
+
+    This script is basically an efficient version of the GNU "grep -f" utility for
+    table-like files, and functions with a similar sintax.
+
+    positional arguments:
+      ids                   The file of patterns to extract
+      target                The file to filter
+      out                   The output file
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -v, --reverse         Equivalent to the "-v" grep option
+      -s SEPARATOR, --separator SEPARATOR
+                            The field separator. Default: consecutive
+                            whitespace(s)
+      -f FIELD, --field FIELD
+                            The field to look in the target file.
+      -q, --quiet           No logging.
+
+remove_from_embl.py
+~~~~~~~~~~~~~~~~~~~
+
+Quick script to remove sequences from a given organism from SwissProt files, and print them out in FASTA format. Used to produce the BLAST datasets for the Mikado paper. Usage::
+
+    $ remove_from_embl.py -h
+    usage: Script to remove sequences specific of a given organism from a SwissProt file.
+           [-h] -o ORGANISM [--format {fasta}] input [out]
+
+    positional arguments:
+      input
+      out
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -o ORGANISM, --organism ORGANISM
+                            Organism to be excluded
+      --format {fasta}      Output format. Choices: fasta. Default: fasta.
+
+split_fasta.py
+~~~~~~~~~~~~~~
+
+This script is used to split a FASTA file in a fixed number of files, with an approximate equal number of sequences in each. If the number of sequences in the input file is lower than the number of requested splits, the script will create the necessary number of empty files. Used in :ref:`Daijin` for preparing the input data for the BLAST analysis. Usage::
+
+    $ split_fasta.py --help
+    usage: Script to split FASTA sequences in a fixed number of multiple files.
+           [-h] [-m NUM_FILES] fasta [out]
+
+    positional arguments:
+      fasta                 Input FASTA file.
+      out                   Output prefix. Default: filename+split
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -m NUM_FILES, --num-files NUM_FILES
+                            Number of files to create. Default: 1000
+
+trim_long_introns.py
+~~~~~~~~~~~~~~~~~~~~
+
+This script parses an annotation file and truncates any transcript which has *UTR* introns over the provided threshold. In such cases, the UTR section after the long intron is simply removed. Usage::
+
+    $ trim_long_introns.py --help
+    usage: This script truncates transcript with UTR exons separated by long introns.
+           [-h] [-mi MAX_INTRON] gff [out]
+
+    positional arguments:
+      gff
+      out
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -mi MAX_INTRON, --max-intron MAX_INTRON
+                            Maximum intron length for UTR introns.

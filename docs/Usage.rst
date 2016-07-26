@@ -25,8 +25,8 @@ Utilities
 Mikado provides :ref:`some utilities <utils>` directly accessible from the command line, to perform standard operations such as obtaining basic statistics from a GTF/GFF file.
 
 
-Subcommand guide
-================
+Mikado stages
+=============
 
 .. toctree::
    :maxdepth: 1
@@ -36,5 +36,14 @@ Subcommand guide
    Usage_dir/Prepare
    Usage_dir/Serialise
    Usage_dir/Pick
+
+Mikado utilities
+================
+
+.. toctree::
+   :maxdepth: 1
+   :numbered:
+
    Usage_dir/Compare
+   Usage_dir/Daijin
    Usage_dir/Utilities

@@ -202,8 +202,8 @@ def assemble_transcripts_pipeline(args):
         detailed_summary=args.detailed_summary,
         list_resources=args.list,
         latency_wait=60 if SCHEDULER else 1,
-        printdag=args.make_dag,
-        forceall=args.make_dag,
+        printdag=args.dag,
+        forceall=args.dag,
         forcerun=args.forcerun)
 # pylint: enable=too-many-locals
 

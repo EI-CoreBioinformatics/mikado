@@ -1,6 +1,6 @@
-.. _F1: <https://en.wikipedia.org/wiki/F1_score>
-.. _Cuffcompare: <http://cole-trapnell-lab.github.io/cufflinks/cuffcompare/index.html>
-.. _ParsEval: <https://aegean.readthedocs.io/en/v0.16.0/parseval.html>
+.. _F1: https://en.wikipedia.org/wiki/F1_score
+.. _Cuffcompare: http://cole-trapnell-lab.github.io/cufflinks/cuffcompare/index.html
+.. _ParsEval: https://aegean.readthedocs.io/en/v0.16.0/parseval.html
 
 .. _Compare:
 
@@ -312,7 +312,7 @@ All class codes fall within one of the following categories:
 |              | can bridge multiple exons    |              |               |                   |                   |                   |                   |
 |              | of the reference model.      |              |               |                   |                   |                   |                   |
 +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-| **G**        | Generic match of a           | True         | False         | > 0%, > 0%, > 0%  | 0%                | **g**             | **Alternative     |
+| **G**        | Generic match of a           | False        | True          | > 0%, > 0%, > 0%  | 0%                | **g**             | **Alternative     |
 | ("O" before  | multiexonic prediction       |              |               |                   |                   |                   | splicing**        |
 | release 1)   | transcript versus a          |              |               |                   |                   |                   |                   |
 |              | monoexonic reference.        |              |               |                   |                   |                   |                   |
@@ -358,10 +358,10 @@ All class codes fall within one of the following categories:
 |              | reference intron, indicating |              |               |                   |                   |                   |                   |
 |              | a possible pre-mRNA fragment.|              |               |                   |                   |                   |                   |
 +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-| **x**        | Monoexonic match on the      | NA           | False         | > 0%              | 0%                | **x** or **X**    | **Fragment**      |
+| **x**        | Monoexonic match on the      | NA           | False         | >= 0%             | 0%                | **x** or **X**    | **Fragment**      |
 |              | *opposite* strand.           |              |               |                   |                   |                   |                   |
 +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-| **X**        | Multiexonic match on the     | NA           | True          | > 0%              | 0%                | **x** or **X**    | **Fragment**      |
+| **X**        | Multiexonic match on the     | NA           | True          | >= 0%             | 0%                | **x** or **X**    | **Fragment**      |
 |              | *opposite* strand.           |              |               |                   |                   |                   |                   |
 +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
 | **p**        | The prediction is on the same| NA           | NA            | 0%                | 0%                | **p**             | **No overlap**    |

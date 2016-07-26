@@ -58,3 +58,8 @@ sample_data/5-mikado/
 sample_data/configuration.yaml
 sample_data/mikado.blast.xml.gz
 docs/_build
+scripts-3.5/
+sample_data/.Rhistory
+sample_data/.ipynb_checkpoints/
+sample_data/Untitled1.ipynb
+sample_data/Untitled.ipynb

@@ -3,9 +3,16 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+.. |python_badge| image:: https://img.shields.io/pypi/pyversions/snakemake.svg?style=flat-square
+   :target: https://www.python.org/
+.. |snake_badge| image:: https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)]
+   :target: http://snakemake.bitbucket.org
+
 ============================
 Mikado: pick your transcript
 ============================
+
+|python_badge| |snake_badge|
 
 :Authors:
     Venturini Luca,

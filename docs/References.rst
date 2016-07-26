@@ -8,3 +8,4 @@ References
 .. [CuffMerge] **Identification of novel transcripts in annotated genomes using RNA-Seq** Adam Roberts, Harold Pimentel, Cole Trapnell and Lior Pachter. *Bioinformatics*, 2011, doi:10.1093/bioinformatics/btr355
 .. [Class2] **CLASS2: accurate and efficient splice variant annotation from RNA-seq reads** Li Song, Sarven Sabunciyan and Liliana Florea. *Bioinformatics*, 2016, doi:10.1093/nar/gkw158
 .. [PyFaidx] **Efficient "pythonic" access to FASTA files using pyfaidx** Matthew D Shirley​, Zhaorong Ma, Brent S Pedersen and Sarah J Wheelan. *PeerJ PrePrints* 3:e1196, 2015. doi:10.7287/peerj.preprints.970v1
+.. [Snake] **Snakemake—a scalable bioinformatics workflow engine** Johannes Köster and Sven Rahmann1. *Bioinformatics*, 2012, doi:10.1093/bioinformatics/bts480

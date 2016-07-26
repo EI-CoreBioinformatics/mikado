@@ -19,10 +19,6 @@
       ],
       "type": "object",
       "properties": {
-        "log": {
-          "type": "string",
-          "default": "mikado.log"
-        },
         "log_level": {
           "type": "string",
           "enum": [

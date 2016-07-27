@@ -1,6 +1,7 @@
 .. _Snakemake: https://bitbucket.org/snakemake/snakemake/wiki/Home
 .. _YAML: http://www.yaml.org/spec/1.2/spec.html
 .. _TransDecoder: https://github.com/TransDecoder/TransDecoder
+.. _Portcullis: https://github.com/maplesond/portcullis
 
 .. _assemble_pipeline:
 
@@ -37,7 +38,7 @@ In the first step of the pipeline, Daijin will perform the following operations 
 #. Align the read dataset using all the different tools requested, in all the possible combinations of parameters requested.
    * For example, it is possible to ask each dataset to be aligned twice with TopHat2 - once with the "micro-exon" mode activated, the second time without. Both alignments will be run independently.
    * It is possible to specify which datasets are strand-specific and which are not, and moreover, it is possible to specify the kind of strand-specificity (fr-secondstrand, fr-firststrand).
-#. Call all the reliable junctions across the alignments using `PortCullis <https://github.com/maplesond/portcullis>`_
+#. Call all the reliable junctions across the alignments using Portcullis_.
 #. Create the statistics for the assembly using ``samtools stat``, and merge them together in a single file.
 #. Assemble each alignment with all the tools requested, in all the parameter combinations desired.
 #. Call the statistics on each assembly using :ref:`mikado util stats <stat-command>`, and merge them together in a single file.
@@ -53,7 +54,7 @@ So during this first step Daijin will go from raw reads files to multiple assemb
         :figwidth: 100%
 
 
-        Example of a pipeline to assemble a single paired-end read dataset using three aligners (STAR [STAR]_, Hisat [Hisat]_, TopHat2 [TopHat2]_ ) and two different RNA-Seq assemblers (StringTie [StringTie]_, CLASS2 [Class2]_ ).
+        Example of a pipeline to assemble a single paired-end read dataset using three aligners (STAR [STAR]_, Hisat [Hisat]_, TopHat2 [TopHat2]_ ) and two different RNA-Seq assemblers (StringTie [StringTie]_, CLASS2 [Class2]_ ). Reliable junctions from the three alignments are called and merged together using Portcullis_.
 
 Usage::
 

@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "Comment": [
+    ""
+  ],
+  "properties": {
+    "Short reads": {
+      "r1": {
+        "type": "array",
+        "required": true,
+        "default": [],
+        "Comment": "Reads to be used for assembly, first in pair."
+      },
+      "r2": {
+        "type": "array",
+        "required": true,
+        "default": [],
+        "Comment": "Reads to be used for assembly, second in pair."
+      },
+      "samples": {
+        "Comment": "Array of names to assign each sample",
+        "type": "array",
+        "default": []
+      },
+      "strandedness": {
+        "type": "array",
+        "required": true,
+        "default": [],
+        "Comment": "Strandedness of the reads."
+      }
+    },
+    "name": {
+      "type": "string",
+      "default": "Daijin",
+      "Comment": "Name to be used for the project."
+    },
+    "out_dir": {
+      "type": "string",
+      "default": "daijin",
+      "Comment": "Output directory for the project"
+    },
+    "threads": {
+      "type": "integer",
+      "default": 4,
+      "Comment": "Threads to be used per process."
+    },
+    "scheduler": {
+      "type": ["string", null],
+      "default": null,
+      "enum": ["LSF", "SLURM", "PBS", null],
+      "Comment": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine."
+    },
+    
+  }
+}

@@ -694,19 +694,25 @@
     },
     "reference": {
     "type": "object",
-    "Comment": ["Options related to the reference genome."],
+    "Comment": ["Options related to the reference genome.",
+    "- genome: the genome FASTA file. Required",],
     "SimpleComment": ["Options related to the reference genome."],
     "required": ["genome"],
     "properties": {
       "genome": {
         "type": "string",
-        "default": ""
+        "default": "",
+        "required": true
       },
       "genome_fai": {
-        "type": ["string", "null"],
+        "type": ["string", null],
         "default": null
+      },
+      "transcriptome": {
+        "type": ["string", null],
+        "default": null,
       }
-    }
+     }
     }
   },
   "blast": {

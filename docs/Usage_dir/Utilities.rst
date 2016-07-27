@@ -118,8 +118,6 @@ stat
 
 This command generates a statistics file for GFF3/GTF files. The output is a table including Average, Mode, and various quantiles for different features present in a typical GFF file (genes, introns, exons, cDNAs, etc.). The operation can be quite time consuming for large files, in which case it is advisable to ask for multiple processors.
 
-.. warning:: GTF files have to have valid "transcript" features as top-level for CDS/exons.
-
 Usage::
 
     $ mikado util stats --help
@@ -137,7 +135,7 @@ Usage::
       --only-coding
       -p PROCS, --processors PROCS
 
-A typical example statistics file can be found :download:`here, for the TAIR10 annotation <../TAIR10.stats>`.
+A typical example statistics file can be found :download:`here, for the TAIR10 annotation <./TAIR10.stats>`.
 
 .. _trim-command:
 

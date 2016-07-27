@@ -30,7 +30,7 @@ out_dir: "spombe_slurm"
 threads: "4"
 # Trinity max memory
 tgg_max_mem: "20G"
-# Scheduler: LSF,PBS,SLURM
+# Scheduler: LSF,PBS,SLURM, none
 scheduler: "SLURM"
 
 # Alignment methods to use. Supported tools: "tophat", "gsnap", "star", "hisat"

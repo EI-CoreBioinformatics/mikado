@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>2. The Daijin pipeline for driving Mikado &mdash; Mikado 1.0.0b3 documentation</title>
+    <title>6.2. The Daijin pipeline for driving Mikado &mdash; Mikado 1.0.0b3 documentation</title>
     
     <link rel="stylesheet" href="../_static/sphinxdoc.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -26,8 +26,8 @@
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Mikado 1.0.0b3 documentation" href="../index.html" />
     <link rel="up" title="4. Usage" href="../Usage.html" />
-    <link rel="next" title="3. Mikado miscellaneous scripts" href="Utilities.html" />
-    <link rel="prev" title="1. Compare" href="Compare.html" /> 
+    <link rel="next" title="6.3. Mikado miscellaneous scripts" href="Utilities.html" />
+    <link rel="prev" title="6.1. Compare" href="Compare.html" /> 
   </head>
   <body role="document">
     <div class="related" role="navigation" aria-label="related navigation">
@@ -37,10 +37,10 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="Utilities.html" title="3. Mikado miscellaneous scripts"
+          <a href="Utilities.html" title="6.3. Mikado miscellaneous scripts"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="Compare.html" title="1. Compare"
+          <a href="Compare.html" title="6.1. Compare"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
           <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">4. Usage</a> &raquo;</li> 
@@ -50,20 +50,20 @@
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">2. The Daijin pipeline for driving Mikado</a><ul>
-<li><a class="reference internal" href="#configure">2.1. Configure</a></li>
-<li><a class="reference internal" href="#assemble">2.2. Assemble</a></li>
-<li><a class="reference internal" href="#mikado">2.3. Mikado</a></li>
+<li><a class="reference internal" href="#">6.2. The Daijin pipeline for driving Mikado</a><ul>
+<li><a class="reference internal" href="#configure">6.2.1. Configure</a></li>
+<li><a class="reference internal" href="#assemble">6.2.2. Assemble</a></li>
+<li><a class="reference internal" href="#mikado">6.2.3. Mikado</a></li>
 </ul>
 </li>
 </ul>
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="Compare.html"
-                        title="previous chapter">1. Compare</a></p>
+                        title="previous chapter">6.1. Compare</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="Utilities.html"
-                        title="next chapter">3. Mikado miscellaneous scripts</a></p>
+                        title="next chapter">6.3. Mikado miscellaneous scripts</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -90,7 +90,7 @@
           <div class="body" role="main">
             
   <span class="target" id="assemble-pipeline"></span><div class="section" id="the-daijin-pipeline-for-driving-mikado">
-<span id="daijin"></span><h1>2. The Daijin pipeline for driving Mikado<a class="headerlink" href="#the-daijin-pipeline-for-driving-mikado" title="Permalink to this headline">¶</a></h1>
+<span id="daijin"></span><h1>6.2. The Daijin pipeline for driving Mikado<a class="headerlink" href="#the-daijin-pipeline-for-driving-mikado" title="Permalink to this headline">¶</a></h1>
 <p><a class="reference external" href="http://snakemake.bitbucket.org"><img alt="snake_badge" src="https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)]" /></a></p>
 <p>No emperor or empress can lead its nation without a trusty chancellor to help him or her in organising the bureaucracy. Daijin, the Japanese minister, has the same role in Mikado - it smooths the path to go from a collection of read inputs (both RNA-Seq or long reads) to a polished transcriptome assembly. The pipeline is based on <a class="reference external" href="https://bitbucket.org/snakemake/snakemake/wiki/Home">Snakemake</a> <a class="reference internal" href="../References.html#snake" id="id1">[Snake]</a>; while Snakemake can support any scheduling system, our pipeline manager currently supports only three (SLURM, PBS and LSF), plus any DRMAA-compliant batch submission system. Other schedulers can be added upon request.</p>
 <div class="admonition hint">
@@ -98,11 +98,11 @@
 <p class="last">It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in Mikado.daijin: <a class="reference download internal" href="../_downloads/tr.snakefile" download=""><code class="xref download docutils literal"><span class="pre">tr.snakefile</span></code></a> for the first step, and <a class="reference download internal" href="../_downloads/mikado.snakefile" download=""><code class="xref download docutils literal"><span class="pre">mikado.snakefile</span></code></a> for the second.</p>
 </div>
 <div class="section" id="configure">
-<span id="daijin-configure"></span><h2>2.1. Configure<a class="headerlink" href="#configure" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-configure"></span><h2>6.2.1. Configure<a class="headerlink" href="#configure" title="Permalink to this headline">¶</a></h2>
 <p>This utility creates the configuration file that will drive Daijin, in <a class="reference external" href="http://www.yaml.org/spec/1.2/spec.html">YAML</a> format. The file will need to be edited to</p>
 </div>
 <div class="section" id="assemble">
-<span id="daijin-assemble"></span><h2>2.2. Assemble<a class="headerlink" href="#assemble" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-assemble"></span><h2>6.2.2. Assemble<a class="headerlink" href="#assemble" title="Permalink to this headline">¶</a></h2>
 <p>In the first step of the pipeline, Daijin will perform the following operations for each of the read datasets provided:</p>
 <ol class="arabic simple">
 <li>Create the necessary indices for each of the aligner programs requested.</li>
@@ -166,7 +166,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="mikado">
-<span id="daijin-mikado"></span><h2>2.3. Mikado<a class="headerlink" href="#mikado" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-mikado"></span><h2>6.2.3. Mikado<a class="headerlink" href="#mikado" title="Permalink to this headline">¶</a></h2>
 <p>In this step, the Daijin manager will execute all the steps necessary to perform Mikado on the desired inputs. The manager will execute the following steps:</p>
 <ol class="arabic simple">
 <li>Merge all the input assemblies together using <a class="reference internal" href="Prepare.html#prepare"><span class="std std-ref">Mikado prepare</span></a></li>
@@ -245,10 +245,10 @@ optional arguments:
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="Utilities.html" title="3. Mikado miscellaneous scripts"
+          <a href="Utilities.html" title="6.3. Mikado miscellaneous scripts"
              >next</a> |</li>
         <li class="right" >
-          <a href="Compare.html" title="1. Compare"
+          <a href="Compare.html" title="6.1. Compare"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
           <li class="nav-item nav-item-1"><a href="../Usage.html" >4. Usage</a> &raquo;</li> 

@@ -1,4 +1,5 @@
 {
+  "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
   "Comment": [
     ""
@@ -695,9 +696,12 @@
     "reference": {
     "type": "object",
     "Comment": ["Options related to the reference genome.",
-    "- genome: the genome FASTA file. Required",],
+    "- genome: the genome FASTA file. Required",
+    "- genome_fai: the corresponding FAI for the genome. Inferred if absent.",
+    "- transcriptome: a GTF/GFF reference transcriptome. Currently ignored."],
     "SimpleComment": ["Options related to the reference genome."],
     "required": ["genome"],
+    "anyOf": [{"required": ["genome"]}, "genome_fai", "transcriptome", "Comment", "SimpleComment"],
     "properties": {
       "genome": {
         "type": "string",
@@ -705,27 +709,14 @@
         "required": true
       },
       "genome_fai": {
-        "type": ["string", null],
-        "default": null
+        "type": ["string"],
+        "default": ""
       },
       "transcriptome": {
-        "type": ["string", null],
-        "default": null,
+        "type": ["string"],
+        "default": ""
       }
      }
-    }
-  },
-  "blast": {
-    "type": "object",
-    "Comment": ["Options related to the BLAST output"],
-    "SimpleComment": ["Options related to the BLAST output"],
-    "properties":{
-      "program": {"type": "string", "default": "blastx",
-        "enum": ["blastx", "tblastn", "blastp"]},
-      "execute": {"type": "boolean", "default": false},
-      "max_target_seqs": {"type": "integer", "default": 1000000},
-      "evalue": {"type": "number", "default": 10, "minimum": 0},
-      "database": {"type": "string", "default": ""}
     }
   }
 }

@@ -23,6 +23,7 @@ from sqlalchemy.ext.hybrid import hybrid_method
 from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12
 from ..utilities.log_utils import check_logger, create_default_logger
+import pyfaidx
 
 
 # pylint: disable=too-few-public-methods
@@ -171,7 +172,8 @@ class JunctionSerializer:
         else:
             self.maxobjects = 10000
 
-        self.fai = json_conf["reference"]["genome_fai"]
+        self.fai = pyfaidx.Fasta(json_conf["reference"]["genome"]).faidx.indexname
+
         if isinstance(self.fai, str):
             assert os.path.exists(self.fai)
             # noinspection PyTypeChecker

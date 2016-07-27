@@ -1,0 +1,163 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>4. Usage &mdash; Mikado 1.0.0b3 documentation</title>
+    
+    <link rel="stylesheet" href="_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0.0b3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 1.0.0b3 documentation" href="index.html" />
+    <link rel="next" title="1. Mikado configure" href="Usage_dir/Configure.html" />
+    <link rel="prev" title="3. Tutorial" href="Tutorial.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Usage_dir/Configure.html" title="1. Mikado configure"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Tutorial.html" title="3. Tutorial"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">4. Usage</a><ul>
+<li><a class="reference internal" href="#mikado-pipeline">4.1. Mikado pipeline</a></li>
+<li><a class="reference internal" href="#compare">4.2. Compare</a></li>
+<li><a class="reference internal" href="#utilities">4.3. Utilities</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#mikado-stages">5. Mikado stages</a></li>
+<li><a class="reference internal" href="#mikado-utilities">6. Mikado utilities</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="Tutorial.html"
+                        title="previous chapter">3. Tutorial</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="Usage_dir/Configure.html"
+                        title="next chapter">1. Mikado configure</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/Usage.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="usage">
+<h1>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h1>
+<p>Mikado is composed of four different programs (<em>configure, prepare, serialise, pick</em>) which have to be executed serially to go from an ensemble of different assemblies to the final dataset. In addition to these core programs, Mikado provides a utility to compare annotations, similarly to CuffCompare and ParsEval (<em>compare</em>), and various other minor utilities to perform operations such as extracting regions from a GFF, convert between different gene annotation formats, etc.</p>
+<div class="section" id="mikado-pipeline">
+<h2>Mikado pipeline<a class="headerlink" href="#mikado-pipeline" title="Permalink to this headline">¶</a></h2>
+<p>The Mikado pipeline is composed of four different stages, that have to be executed serially:</p>
+<ol class="arabic simple">
+<li><a class="reference internal" href="Usage_dir/Configure.html#configure"><span class="std std-ref">Mikado configure</span></a>, for creating the configuration file that will be used throughout the run.</li>
+<li><a class="reference internal" href="Usage_dir/Prepare.html#prepare"><span class="std std-ref">Mikado prepare</span></a>, for collapsing the input assemblies into a single file. After this step, it is possible to perform additional analyses on the data such as TransDecoder (highly recommended), Portcullis, or BLAST.</li>
+<li><a class="reference internal" href="Usage_dir/Serialise.html#serialise"><span class="std std-ref">Mikado serialise</span></a>, to gather all external data into a single database.</li>
+<li><a class="reference internal" href="Usage_dir/Pick.html#pick"><span class="std std-ref">Mikado pick</span></a>, to perform the actual selection of the best transcripts in each locus.</li>
+</ol>
+</div>
+<div class="section" id="compare">
+<h2>Compare<a class="headerlink" href="#compare" title="Permalink to this headline">¶</a></h2>
+<p>Mikado provides a <a class="reference internal" href="Usage_dir/Compare.html#compare"><span class="std std-ref">dedicated utility</span></a> to compare two different annotations.</p>
+</div>
+<div class="section" id="utilities">
+<h2>Utilities<a class="headerlink" href="#utilities" title="Permalink to this headline">¶</a></h2>
+<p>Mikado provides <a class="reference internal" href="Usage_dir/Utilities.html#utils"><span class="std std-ref">some utilities</span></a> directly accessible from the command line, to perform standard operations such as obtaining basic statistics from a GTF/GFF file.</p>
+</div>
+</div>
+<div class="section" id="mikado-stages">
+<h1>Mikado stages<a class="headerlink" href="#mikado-stages" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Configure.html">1. Mikado configure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Prepare.html">2. Mikado prepare</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Serialise.html">3. Mikado serialise</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Pick.html">4. Mikado pick</a></li>
+</ul>
+</div>
+</div>
+<div class="section" id="mikado-utilities">
+<h1>Mikado utilities<a class="headerlink" href="#mikado-utilities" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Compare.html">1. Compare</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Daijin.html">2. The Daijin pipeline for driving Mikado</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Utilities.html">3. Mikado miscellaneous scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Utilities.html#included-scripts">4. Included scripts</a></li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Usage_dir/Configure.html" title="1. Mikado configure"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Tutorial.html" title="3. Tutorial"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &copy; Copyright 2016, Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.5.
+    </div>
+  </body>
+</html>

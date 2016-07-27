@@ -1,0 +1,775 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>1. Compare &mdash; Mikado 1.0.0b3 documentation</title>
+    
+    <link rel="stylesheet" href="../_static/sphinxdoc.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '1.0.0b3',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="top" title="Mikado 1.0.0b3 documentation" href="../index.html" />
+    <link rel="up" title="4. Usage" href="../Usage.html" />
+    <link rel="next" title="2. The Daijin pipeline for driving Mikado" href="Daijin.html" />
+    <link rel="prev" title="4. Mikado pick" href="Pick.html" /> 
+  </head>
+  <body role="document">
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="Daijin.html" title="2. The Daijin pipeline for driving Mikado"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Pick.html" title="4. Mikado pick"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">4. Usage</a> &raquo;</li> 
+      </ul>
+    </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1. Compare</a><ul>
+<li><a class="reference internal" href="#overview">1.1. Overview</a></li>
+<li><a class="reference internal" href="#usage">1.2. Usage</a><ul>
+<li><a class="reference internal" href="#command-line">1.2.1. Command line</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#output-files">1.3. Output files</a><ul>
+<li><a class="reference internal" href="#tmap-files">1.3.1. TMAP files</a></li>
+<li><a class="reference internal" href="#refmap-files">1.3.2. RefMap files</a></li>
+<li><a class="reference internal" href="#stats-files">1.3.3. Stats files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#class-codes">1.4. Class codes</a></li>
+<li><a class="reference internal" href="#technical-details">1.5. Technical details</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="Pick.html"
+                        title="previous chapter">4. Mikado pick</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="Daijin.html"
+                        title="next chapter">2. The Daijin pipeline for driving Mikado</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/Usage_dir/Compare.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="compare">
+<span id="id1"></span><h1>1. Compare<a class="headerlink" href="#compare" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="overview">
+<h2>1.1. Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<dl class="docutils">
+<dt>This Mikado utility allows the user to compare the transcripts from any two annotations. Its output allows:</dt>
+<dd><ul class="first last simple">
+<li>To understand which reference transcript each prediction is most similar to</li>
+<li>To understand which prediction transcript best represent each reference model</li>
+<li>To have a summary information about the similarity between the two annotations.</li>
+</ul>
+</dd>
+</dl>
+<p>Mikado compare has been directly inspired by the popular <a class="reference external" href="http://cole-trapnell-lab.github.io/cufflinks/cuffcompare/index.html">Cuffcompare</a> <a class="reference internal" href="../References.html#cufflinks" id="id2">[Cufflinks]</a> utility and by <a class="reference external" href="https://aegean.readthedocs.io/en/v0.16.0/parseval.html">ParsEval</a> <a class="reference internal" href="../References.html#parseval" id="id3">[ParsEval]</a>. Please note that while superficially similar to Cuffcompare in the style of the output files, Mikado compare is more philosophically similar to ParsEval, as it will not try to aggregate transcripts in loci but will perform a pure comparison between the two annotation files. Both GTF and GFF files are accepted, in any combination.</p>
+</div>
+<div class="section" id="usage">
+<h2>1.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p>Mikado compare is invoked by specifying the <em>reference</em> annotation and the desired mode of analysis. There are three possible options:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>In its default mode, compare will ask for a <em>prediction</em> annotation to compare the reference against.</li>
+<li>In the <em>&#8220;self&#8221;</em> mode, compare will do a self-comparison of the reference against itself, excluding as possible results the matches between a transcript and itself. It can be useful to glean the relationships between transcripts and genes in an annotation.</li>
+<li>In the <em>&#8220;internal&#8221;</em> mode of operations, compare will again perform a self-comparison, focussed on multi-isoform genes. For those, compare will perform and report all possible comparisons. It is useful to understand the relationships between the transcripts in a single locus.</li>
+</ol>
+</div></blockquote>
+<p>Mikado stores the information of the reference in a specialised index, with a &#8221;.midx&#8221; suffix, which will be created by the program upon its first execution with a new reference. If the index file is already present, Mikado will try to use it rather than read again the annotation.</p>
+<div class="section" id="command-line">
+<h3>1.2.1. Command line<a class="headerlink" href="#command-line" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>$ mikado compare --help
+usage: Mikado compare <span class="o">[</span>-h<span class="o">]</span> -r REFERENCE
+                      <span class="o">(</span>-p PREDICTION <span class="p">|</span> --self <span class="p">|</span> --internal <span class="p">|</span> --index<span class="o">)</span>
+                      <span class="o">[</span>--distance DISTANCE<span class="o">]</span> <span class="o">[</span>-pc<span class="o">]</span> <span class="o">[</span>-o OUT<span class="o">]</span> <span class="o">[</span>--lenient<span class="o">]</span> <span class="o">[</span>-eu<span class="o">]</span>
+                      <span class="o">[</span>-n<span class="o">]</span> <span class="o">[</span>-l LOG<span class="o">]</span> <span class="o">[</span>-v<span class="o">]</span>
+
+optional arguments:
+  -h, --help            show this <span class="nb">help</span> message and <span class="nb">exit</span>
+  --distance DISTANCE   Maximum distance <span class="k">for</span> a transcript to be considered a
+                        polymerase run-on. Default: 2000
+  -pc, --protein-coding
+                        Flag. If set, only transcripts with a CDS <span class="o">(</span>both in
+                        reference and prediction<span class="o">)</span> will be considered.
+  -o OUT, --out OUT     Prefix <span class="k">for</span> the output files. Default: mikado_compare
+  --lenient             If set, exonic statistics will be calculated leniently
+                        in the TMAP as well - ie they will consider an exon as
+                        match even <span class="k">if</span> only the internal junction has been
+                        recovered.
+  -eu, --exclude-utr    Flag. If set, reference and prediction transcripts
+                        will be stripped of their UTRs <span class="o">(</span><span class="k">if</span> they are coding<span class="o">)</span>.
+  -n, --no-index, --no-save-index
+                        Unless this flag is set, compare will save an index of
+                        the reference to quicken multiple calls.
+  -l LOG, --log LOG
+  -v, --verbose
+
+Prediction and annotation files.:
+  -r REFERENCE, --reference REFERENCE
+                        Reference annotation file. By default, an index will
+                        be crated and saved with the suffix <span class="s2">&quot;.midx&quot;</span>.
+  -p PREDICTION, --prediction PREDICTION
+                        Prediction annotation file.
+  --self                Flag. If set, the reference will be compared with
+                        itself. Useful <span class="k">for</span> understanding how the reference
+                        transcripts interact with each other.
+  --internal            Flag. If set, <span class="k">for</span> each gene with more than one
+                        transcript isoform each will be compared to the
+                        others. Useful <span class="k">for</span> understanding the structural
+                        relationships between the transcripts in each gene.
+  --index               Flag. If set, compare will stop after having generated
+                        the GFF index <span class="k">for</span> the reference.
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="output-files">
+<h2>1.3. Output files<a class="headerlink" href="#output-files" title="Permalink to this headline">¶</a></h2>
+<p>Mikado compare produces two tabular files, <a class="reference internal" href="#tmap">tmap</a> and <a class="reference internal" href="#refmap">refmap</a>, and one <a class="reference internal" href="#stats"><span class="std std-ref">statistics</span></a> file.</p>
+<div class="section" id="tmap-files">
+<span id="tmap"></span><h3>1.3.1. TMAP files<a class="headerlink" href="#tmap-files" title="Permalink to this headline">¶</a></h3>
+<p>TMAP are tabular files that store the information regarding the best match for each prediction in the reference. The columns are as follows:</p>
+<ol class="arabic simple">
+<li><strong>ref_id</strong>: Transcript ID of the matched reference model(s).</li>
+<li><strong>ref_gene</strong>: Gene ID of the matched reference model(s).</li>
+<li><strong>ccode</strong>: class code of the match. See <a class="reference internal" href="#ccodes"><span class="std std-ref">the relevant section on Class codes</span></a>.</li>
+<li><strong>tid</strong>: Transcript ID of the prediction model.</li>
+<li><strong>gid</strong>: Gene ID of the prediction model.</li>
+<li><strong>tid_num_exons</strong>: Number of exons of the prediction model.</li>
+<li><strong>ref_num_exons</strong>: Number of exons of the reference model.</li>
+<li><strong>n_prec</strong>: Nucleotide precision of the prediction ( TP / (length of the prediction))</li>
+<li><strong>n_recall</strong>: Nucleotide recall of the reference (TP / (length of the reference))</li>
+<li><strong>n_f1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the nucleotide level.</li>
+<li><strong>j_prec</strong>: Splice junction precision of the prediction model ( TP / (number of splice sites in the prediction))</li>
+<li><strong>j_recall</strong>: Splice junction recall of the reference model ( TP / (number of splice sites in the reference))</li>
+<li><strong>j_f1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the splice junction level.</li>
+<li><strong>e_prec</strong>: Exon precision of the prediction model ( TP / (number of exons in the prediction)). <strong>NB</strong>: this value is calculated &#8220;leniently&#8221;, ie terminal exons count as a match if the <em>internal</em> border is called correctly and the exon is terminal in both prediction and reference.</li>
+<li><strong>e_recall</strong>: Exon recall of the reference model ( TP / (number of exons in the reference))</li>
+<li><strong>e_f1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the exon level.</li>
+<li><strong>distance</strong>: Distance of the model from its putative match.</li>
+</ol>
+<p>An example of TMAP file is as follows:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">ref_id</span>      <span class="n">ref_gene</span>        <span class="n">ccode</span>   <span class="n">tid</span>     <span class="n">gid</span>     <span class="n">tid_num_exons</span>   <span class="n">ref_num_exons</span>   <span class="n">n_prec</span>  <span class="n">n_recall</span>        <span class="n">n_f1</span>    <span class="n">j_prec</span>  <span class="n">j_recall</span>        <span class="n">j_f1</span>    <span class="n">e_prec</span>  <span class="n">e_recall</span>        <span class="n">e_f1</span>    <span class="n">distance</span>
+<span class="n">AT5G66610</span><span class="o">.</span><span class="mi">1</span> <span class="n">AT5G66610</span>       <span class="o">=</span>       <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span><span class="o">.</span><span class="mi">2</span> <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span>   <span class="mi">11</span>      <span class="mi">11</span>      <span class="mf">97.77</span>   <span class="mf">99.16</span>   <span class="mf">98.46</span>   <span class="mf">100.00</span>  <span class="mf">100.00</span>  <span class="mf">100.00</span>  <span class="mf">81.82</span>   <span class="mf">81.82</span>   <span class="mf">81.82</span>   <span class="mi">0</span>
+<span class="n">AT5G66610</span><span class="o">.</span><span class="mi">1</span> <span class="n">AT5G66610</span>       <span class="n">j</span>       <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span><span class="o">.</span><span class="mi">1</span> <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span>   <span class="mi">11</span>      <span class="mi">11</span>      <span class="mf">92.93</span>   <span class="mf">94.74</span>   <span class="mf">93.82</span>   <span class="mf">95.00</span>   <span class="mf">95.00</span>   <span class="mf">95.00</span>   <span class="mf">81.82</span>   <span class="mf">81.82</span>   <span class="mf">81.82</span>   <span class="mi">0</span>
+<span class="n">AT5G66620</span><span class="o">.</span><span class="mi">1</span><span class="p">,</span><span class="n">AT5G66630</span><span class="o">.</span><span class="mi">1</span><span class="p">,</span><span class="n">AT5G66631</span><span class="o">.</span><span class="mi">1</span> <span class="n">AT5G66620</span><span class="p">,</span><span class="n">AT5G66630</span><span class="p">,</span><span class="n">AT5G66631</span>   <span class="n">f</span><span class="p">,</span><span class="n">j</span><span class="p">,</span><span class="n">J</span><span class="p">,</span><span class="n">O</span> <span class="n">st_Stringtie_STAR</span><span class="o">.</span><span class="mf">21710.6</span>       <span class="n">Stringtie_STAR</span><span class="o">.</span><span class="mi">21710</span>    <span class="mi">22</span>      <span class="mi">11</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">1</span> <span class="mf">27.84</span><span class="p">,</span><span class="mf">34.47</span><span class="p">,</span><span class="mf">28.63</span>       <span class="mf">99.79</span><span class="p">,</span><span class="mf">99.13</span><span class="p">,</span><span class="mf">100.00</span>      <span class="mf">43.54</span><span class="p">,</span><span class="mf">51.16</span><span class="p">,</span><span class="mf">44.52</span>       <span class="mf">45.24</span><span class="p">,</span><span class="mf">42.86</span><span class="p">,</span><span class="mf">0.00</span>        <span class="mf">95.00</span><span class="p">,</span><span class="mf">100.00</span><span class="p">,</span><span class="mf">0.00</span>       <span class="mf">61.29</span><span class="p">,</span><span class="mf">60.00</span><span class="p">,</span><span class="mf">0.00</span>        <span class="mf">36.36</span><span class="p">,</span><span class="mf">36.36</span><span class="p">,</span><span class="mf">0.00</span>        <span class="mf">72.73</span><span class="p">,</span><span class="mf">80.00</span><span class="p">,</span><span class="mf">0.00</span>        <span class="mf">48.48</span><span class="p">,</span><span class="mf">50.00</span><span class="p">,</span><span class="mf">0.00</span>        <span class="mi">0</span>
+</pre></div>
+</div>
+<p>You can notice that the third example is particular as the prediction transcript matches not one but multiple reference transcripts. This is a <a class="reference internal" href="#fusion">fusion</a> event.</p>
+</div>
+<div class="section" id="refmap-files">
+<span id="refmap"></span><h3>1.3.2. RefMap files<a class="headerlink" href="#refmap-files" title="Permalink to this headline">¶</a></h3>
+<p>RefMap files are tabular files which store the information regarding the best match for each reference transcript, among all possible prediction models. The columns of the file are as follows:</p>
+<ol class="arabic simple">
+<li><strong>ref_id</strong>: Transcript ID of the reference model.</li>
+<li><strong>ccode</strong>: class code of the match. See <a class="reference internal" href="#ccodes"><span class="std std-ref">the relevant section on Class codes</span></a>.</li>
+<li><strong>tid</strong>: Transcript ID of the prediction model.</li>
+<li><strong>gid</strong>: Gene ID of the prediction model.</li>
+<li><strong>nF1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the nucleotide level.</li>
+<li><strong>jF1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the splice junction level.</li>
+<li><strong>eF1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the exon level. <strong>NB</strong>: this value is calculated &#8220;leniently&#8221;, ie terminal exons count as a match if the <em>internal</em> border is called correctly and the exon is terminal in both prediction and reference.</li>
+<li><strong>ref_gene</strong>: Gene ID of the reference model.</li>
+<li><strong>best_ccode</strong>: Best possible class code found for any of the transcripts of the gene.</li>
+<li><strong>best_tid</strong>: Transcript ID of the prediction model which fit best one of the transcript models of the reference gene.</li>
+<li><strong>best_gid</strong>: Gene ID of the prediction model which fit best one of the transcript models of the reference gene.</li>
+<li><strong>best_nF1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the nucleotide level, for the best possible comparison.</li>
+<li><strong>best_jF1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the splice junction level, for the best possible comparison.</li>
+<li><strong>best_eF1</strong>: <a class="reference external" href="https://en.wikipedia.org/wiki/F1_score">F1</a> of recall and precision at the exon level, for the best possible comparison.</li>
+</ol>
+<p>An example of a RefMap file is as follows:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">ref_id</span>      <span class="n">ccode</span>   <span class="n">tid</span>     <span class="n">gid</span>     <span class="n">nF1</span>     <span class="n">jF1</span>     <span class="n">eF1</span>     <span class="n">ref_gene</span>        <span class="n">best_ccode</span>      <span class="n">best_tid</span>        <span class="n">best_gid</span>        <span class="n">best_nF1</span>        <span class="n">best_jF1</span>        <span class="n">best_eF1</span>
+<span class="n">AT5G66610</span><span class="o">.</span><span class="mi">1</span> <span class="o">=</span>       <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span><span class="o">.</span><span class="mi">2</span> <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span>   <span class="mf">98.46</span>   <span class="mf">100.0</span>   <span class="mf">81.82</span>   <span class="n">AT5G66610</span>       <span class="o">=</span>       <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span><span class="o">.</span><span class="mi">2</span> <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span>   <span class="mf">98.46</span>   <span class="mf">100.0</span>   <span class="mf">81.82</span>
+<span class="n">AT5G66610</span><span class="o">.</span><span class="mi">2</span> <span class="n">J</span>       <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span><span class="o">.</span><span class="mi">2</span> <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span>   <span class="mf">93.91</span>   <span class="mf">94.74</span>   <span class="mf">76.19</span>   <span class="n">AT5G66610</span>       <span class="o">=</span>       <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span><span class="o">.</span><span class="mi">2</span> <span class="n">mikado</span><span class="o">.</span><span class="n">Chr5G1</span>   <span class="mf">98.46</span>   <span class="mf">100.0</span>   <span class="mf">81.82</span>
+<span class="n">AT5G66630</span><span class="o">.</span><span class="mi">1</span> <span class="n">f</span><span class="p">,</span><span class="n">n</span>     <span class="n">tr_c58_g1_i4</span><span class="o">.</span><span class="n">mrna1</span><span class="o">.</span><span class="mi">6</span>    <span class="n">c58_g1_i4</span><span class="o">.</span><span class="n">path1</span><span class="o">.</span><span class="mi">6</span>       <span class="mf">66.32</span>   <span class="mf">94.74</span>   <span class="mf">76.19</span>   <span class="n">AT5G66630</span>       <span class="n">f</span><span class="p">,</span><span class="n">n</span>     <span class="n">tr_c58_g1_i4</span><span class="o">.</span><span class="n">mrna1</span><span class="o">.</span><span class="mi">6</span>    <span class="n">c58_g1_i4</span><span class="o">.</span><span class="n">path1</span><span class="o">.</span><span class="mi">6</span>       <span class="mf">66.32</span>   <span class="mf">94.74</span>   <span class="mf">76.19</span>
+</pre></div>
+</div>
+<p>Please note that the third example (AT5G66630.1) has as best possible match a <a class="reference internal" href="#fusion">fusion</a> event.</p>
+</div>
+<div class="section" id="stats-files">
+<span id="stats"></span><h3>1.3.3. Stats files<a class="headerlink" href="#stats-files" title="Permalink to this headline">¶</a></h3>
+<p>These files provide a summary of the comparison between the reference and the annotation. An example is as follows:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Command</span> <span class="n">line</span><span class="p">:</span>
+<span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">users</span><span class="o">/</span><span class="n">ga002</span><span class="o">/</span><span class="n">venturil</span><span class="o">/</span><span class="n">py351</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">mikado</span> <span class="n">compare</span> <span class="o">-</span><span class="n">r</span> <span class="n">reference</span><span class="o">.</span><span class="n">gff3</span> <span class="o">-</span><span class="n">p</span> <span class="n">mikado</span><span class="o">.</span><span class="n">loci</span><span class="o">.</span><span class="n">gff3</span> <span class="o">-</span><span class="n">o</span> <span class="n">compare</span> <span class="o">-</span><span class="n">l</span> <span class="n">compare</span><span class="o">.</span><span class="n">log</span>
+<span class="mi">7</span> <span class="n">reference</span> <span class="n">RNAs</span> <span class="ow">in</span> <span class="mi">5</span> <span class="n">genes</span>
+<span class="mi">15</span> <span class="n">predicted</span> <span class="n">RNAs</span> <span class="ow">in</span>  <span class="mi">8</span> <span class="n">genes</span>
+<span class="o">---------------------------------</span> <span class="o">|</span>   <span class="n">Sn</span> <span class="o">|</span>   <span class="n">Pr</span> <span class="o">|</span>   <span class="n">F1</span> <span class="o">|</span>
+                        <span class="n">Base</span> <span class="n">level</span><span class="p">:</span> <span class="mf">85.74</span>  <span class="mf">64.73</span>  <span class="mf">73.77</span>
+            <span class="n">Exon</span> <span class="n">level</span> <span class="p">(</span><span class="n">stringent</span><span class="p">):</span> <span class="mf">63.83</span>  <span class="mf">42.86</span>  <span class="mf">51.28</span>
+              <span class="n">Exon</span> <span class="n">level</span> <span class="p">(</span><span class="n">lenient</span><span class="p">):</span> <span class="mf">80.00</span>  <span class="mf">52.94</span>  <span class="mf">63.72</span>
+                      <span class="n">Intron</span> <span class="n">level</span><span class="p">:</span> <span class="mf">89.47</span>  <span class="mf">59.65</span>  <span class="mf">71.58</span>
+                <span class="n">Intron</span> <span class="n">chain</span> <span class="n">level</span><span class="p">:</span> <span class="mf">33.33</span>  <span class="mf">14.29</span>  <span class="mf">20.00</span>
+      <span class="n">Transcript</span> <span class="n">level</span> <span class="p">(</span><span class="n">stringent</span><span class="p">):</span> <span class="mf">0.00</span>  <span class="mf">0.00</span>  <span class="mf">0.00</span>
+  <span class="n">Transcript</span> <span class="n">level</span> <span class="p">(</span><span class="o">&gt;=</span><span class="mi">95</span><span class="o">%</span> <span class="n">base</span> <span class="n">F1</span><span class="p">):</span> <span class="mf">28.57</span>  <span class="mf">13.33</span>  <span class="mf">18.18</span>
+  <span class="n">Transcript</span> <span class="n">level</span> <span class="p">(</span><span class="o">&gt;=</span><span class="mi">80</span><span class="o">%</span> <span class="n">base</span> <span class="n">F1</span><span class="p">):</span> <span class="mf">42.86</span>  <span class="mf">20.00</span>  <span class="mf">27.27</span>
+         <span class="n">Gene</span> <span class="n">level</span> <span class="p">(</span><span class="mi">100</span><span class="o">%</span> <span class="n">base</span> <span class="n">F1</span><span class="p">):</span> <span class="mf">0.00</span>  <span class="mf">0.00</span>  <span class="mf">0.00</span>
+        <span class="n">Gene</span> <span class="n">level</span> <span class="p">(</span><span class="o">&gt;=</span><span class="mi">95</span><span class="o">%</span> <span class="n">base</span> <span class="n">F1</span><span class="p">):</span> <span class="mf">40.00</span>  <span class="mf">25.00</span>  <span class="mf">30.77</span>
+        <span class="n">Gene</span> <span class="n">level</span> <span class="p">(</span><span class="o">&gt;=</span><span class="mi">80</span><span class="o">%</span> <span class="n">base</span> <span class="n">F1</span><span class="p">):</span> <span class="mf">60.00</span>  <span class="mf">37.50</span>  <span class="mf">46.15</span>
+
+<span class="c1">#   Matching: in prediction; matched: in reference.</span>
+
+            <span class="n">Matching</span> <span class="n">intron</span> <span class="n">chains</span><span class="p">:</span> <span class="mi">2</span>
+             <span class="n">Matched</span> <span class="n">intron</span> <span class="n">chains</span><span class="p">:</span> <span class="mi">2</span>
+   <span class="n">Matching</span> <span class="n">monoexonic</span> <span class="n">transcripts</span><span class="p">:</span> <span class="mi">1</span>
+    <span class="n">Matched</span> <span class="n">monoexonic</span> <span class="n">transcripts</span><span class="p">:</span> <span class="mi">1</span>
+        <span class="n">Total</span> <span class="n">matching</span> <span class="n">transcripts</span><span class="p">:</span> <span class="mi">3</span>
+         <span class="n">Total</span> <span class="n">matched</span> <span class="n">transcripts</span><span class="p">:</span> <span class="mi">3</span>
+
+          <span class="n">Missed</span> <span class="n">exons</span> <span class="p">(</span><span class="n">stringent</span><span class="p">):</span> <span class="mi">17</span><span class="o">/</span><span class="mi">47</span>  <span class="p">(</span><span class="mf">36.17</span><span class="o">%</span><span class="p">)</span>
+           <span class="n">Novel</span> <span class="n">exons</span> <span class="p">(</span><span class="n">stringent</span><span class="p">):</span> <span class="mi">40</span><span class="o">/</span><span class="mi">70</span>  <span class="p">(</span><span class="mf">57.14</span><span class="o">%</span><span class="p">)</span>
+            <span class="n">Missed</span> <span class="n">exons</span> <span class="p">(</span><span class="n">lenient</span><span class="p">):</span> <span class="mi">9</span><span class="o">/</span><span class="mi">45</span>  <span class="p">(</span><span class="mf">20.00</span><span class="o">%</span><span class="p">)</span>
+             <span class="n">Novel</span> <span class="n">exons</span> <span class="p">(</span><span class="n">lenient</span><span class="p">):</span> <span class="mi">32</span><span class="o">/</span><span class="mi">68</span>  <span class="p">(</span><span class="mf">47.06</span><span class="o">%</span><span class="p">)</span>
+                    <span class="n">Missed</span> <span class="n">introns</span><span class="p">:</span> <span class="mi">4</span><span class="o">/</span><span class="mi">38</span>  <span class="p">(</span><span class="mf">10.53</span><span class="o">%</span><span class="p">)</span>
+                     <span class="n">Novel</span> <span class="n">introns</span><span class="p">:</span> <span class="mi">23</span><span class="o">/</span><span class="mi">57</span>  <span class="p">(</span><span class="mf">40.35</span><span class="o">%</span><span class="p">)</span>
+
+                <span class="n">Missed</span> <span class="n">transcripts</span><span class="p">:</span> <span class="mi">0</span><span class="o">/</span><span class="mi">7</span>  <span class="p">(</span><span class="mf">0.00</span><span class="o">%</span><span class="p">)</span>
+                 <span class="n">Novel</span> <span class="n">transcripts</span><span class="p">:</span> <span class="mi">6</span><span class="o">/</span><span class="mi">15</span>  <span class="p">(</span><span class="mf">40.00</span><span class="o">%</span><span class="p">)</span>
+                      <span class="n">Missed</span> <span class="n">genes</span><span class="p">:</span> <span class="mi">0</span><span class="o">/</span><span class="mi">5</span>  <span class="p">(</span><span class="mf">0.00</span><span class="o">%</span><span class="p">)</span>
+                       <span class="n">Novel</span> <span class="n">genes</span><span class="p">:</span> <span class="mi">2</span><span class="o">/</span><span class="mi">8</span>  <span class="p">(</span><span class="mf">25.00</span><span class="o">%</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The first section of the file describes:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li>Concordance of the two annotations at the base level (recall, precision, and F1)</li>
+<li>Concordance of the two annotation at the exonic level (recall, precision, and F1), in two ways:<ul>
+<li><em>&#8220;stringent&#8221;</em>: only perfect exonic matches are considered.</li>
+<li><em>&#8220;lenient&#8221;</em>: in this mode, terminal exons are counted as a match if the <strong>internal</strong> border is matched. See the RGASP paper <a class="reference internal" href="../References.html#rgasp" id="id4">[RGASP]</a> for details on the rationale.</li>
+</ul>
+</li>
+<li>Concordance of the two annotations at the intron level.</li>
+<li>Concordance of the two annotations at the intron chain level - how many intron chains of the reference are found identical in the prediction. Only multiexonic models are considered for this level.</li>
+<li>Concordance of the two annotations at the transcript level, in three different modes:<ul>
+<li><em>&#8220;stringent&#8221;</em>: in this mode, only perfect matches are considered.</li>
+<li><em>&#8220;95% base F1&#8221;</em>: in this mode, we only count instances where the nucleotide F1 is greater than <em>95%</em> and, for multiexonic transcripts, the intron chain is reconstructed perfectly.</li>
+<li><em>&#8220;80% base F1&#8221;</em>: in this mode, we only count instances where the nucleotide F1 is greater than <em>80%</em> and, for multiexonic transcripts, the intron chain is reconstructed perfectly.</li>
+</ul>
+</li>
+<li>Concordance of the two annotations at the gene level, in three different modes:<ul>
+<li><em>&#8220;stringent&#8221;</em>: in this mode, we consider reference genes for which it was possible to find at least one perfect match for one of its transcripts.</li>
+<li><em>&#8220;95% base F1&#8221;</em>: in this mode, we only count instances where the nucleotide F1 is greater than <em>95%</em> and, for multiexonic transcripts, the intron chain is reconstructed perfectly.</li>
+<li><em>&#8220;80% base F1&#8221;</em>: in this mode, we only count instances where the nucleotide F1 is greater than <em>80%</em> and, for multiexonic transcripts, the intron chain is reconstructed perfectly.</li>
+</ul>
+</li>
+</ol>
+</div></blockquote>
+<p>In the second section, the file reports how many of the intron chains, monoexonic transcripts and total transcripts in the <strong>reference</strong> were <em>matched</em> by at least one <em>matching</em> <strong>prediction</strong> transcript. Finally, in the third section the file reports the number of missed (present in the reference but not in the prediction) or novel (viceversa - present in the prediction but not in the reference) features.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">Please note that a gene might be considered as &#8220;found&#8221; even if its best match is intronic, on the opposite strand, or not directly overlapping it, or is in the opposite strand (see <a class="reference internal" href="#ccodes"><span class="std std-ref">next section</span></a>, in particular the <em>Intronic</em>, <em>Fragment</em> and <em>No overlap</em> categories).</p>
+</div>
+</div>
+</div>
+<div class="section" id="class-codes">
+<span id="ccodes"></span><h2>1.4. Class codes<a class="headerlink" href="#class-codes" title="Permalink to this headline">¶</a></h2>
+<p>In addition to recall, precision and F1 values, Mikado assign each comparison between two transcripts a <em>class code</em>, which summarises the relationship between the two transcripts. The idea is lifted from the popular tool <a class="reference external" href="http://cole-trapnell-lab.github.io/cufflinks/cuffcompare/index.html">Cuffcompare</a>, although Mikado greatly extends the catalogue of possible class codes.
+All class codes fall within one of the following categories:</p>
+<blockquote>
+<div><ul class="simple">
+<li><strong>Match</strong>: class codes of this type indicate concordance between the two transcript models.</li>
+<li><strong>Extension</strong>: class codes of this type indicate that one of the two models extends the intron chain of the other, without internal interruptions. The extension can be from either perspective - either the prediction extends the reference, or it is instead <em>contained</em> within the reference (so that switching perspectives, the reference would &#8220;extend&#8221; the prediction).</li>
+<li><strong>Alternative splicing</strong>: the two exon chains overlap but differ in significant ways.</li>
+<li><strong>Intronic</strong>: either the prediction is completely contained within the introns of the reference, or viceversa.</li>
+<li><strong>Fragment</strong>: the prediction is a fragment of the reference, in most cases because they are on opposite strands.</li>
+<li><strong>No overlap</strong>: the prediction and the reference are near but do not directly overlap.</li>
+</ul>
+<ul class="simple" id="fusion">
+<li><strong>Fusion</strong>: this special class code is a qualifier and it never appears on its own. When a transcript is defined as a fusion,  its class code in the <em>tmap</em> file will be an &#8220;f&#8221; followed by the class codes of the individual transcript matches, sperated by comma. So a prediction which matches two reference models, one with a &#8220;j&#8221; and another with a &#8220;o&#8221;, will have a class code of <strong>&#8220;f,j,o&#8221;</strong>. In the <em>refmap</em> file, if the fusion is the best match, the class code will be &#8220;f&#8221; followed by the class code for the individual reference transcript; e.g., <strong>&#8220;f,j&#8221;</strong></li>
+</ul>
+</div></blockquote>
+<div class="topic">
+<p class="topic-title first">Available class codes</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="9%" />
+<col width="20%" />
+<col width="9%" />
+<col width="10%" />
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+<col width="13%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head">Class code</th>
+<th class="head">Definition</th>
+<th class="head">Is the
+reference
+transcript
+multiexonic?</th>
+<th class="head">Is the
+prediction
+transcript
+multiexonic?</th>
+<th class="head">Nucleotide:
+Recall,
+Precision,
+F1</th>
+<th class="head">Junction:
+Recall,
+Precision,
+F1</th>
+<th class="head">Reverse
+class code</th>
+<th class="head">Category</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td><strong>=</strong></td>
+<td>Complete intron chain match.</td>
+<td>True</td>
+<td>True</td>
+<td>NA</td>
+<td>100%, 100%, 100%</td>
+<td><strong>=</strong></td>
+<td><strong>Match</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>_</strong>
+(underscore)</td>
+<td>Complete match between two
+monoexonic transcripts.</td>
+<td>False</td>
+<td>False</td>
+<td>NA, NA, <strong>&gt;=80%</strong></td>
+<td>NA</td>
+<td><strong>_</strong></td>
+<td><strong>Match</strong></td>
+</tr>
+<tr class="row-even"><td><strong>m</strong></td>
+<td>Generic match between two
+monoexonic transcripts.</td>
+<td>False</td>
+<td>False</td>
+<td>NA, NA, <strong>&lt; 80%</strong></td>
+<td>NA</td>
+<td><strong>m</strong></td>
+<td><strong>Match</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>n</strong></td>
+<td>Intron chain extension, ie.
+both transcripts are
+multiexonic and the
+prediction has novel
+splice sites <em>outside</em> of
+the reference transcript
+boundaries.</td>
+<td>True</td>
+<td>True</td>
+<td><strong>100%</strong>, &lt; 100%,
+&lt; 100%</td>
+<td>100%, &lt; 100%,
+&lt; 100%</td>
+<td><strong>c</strong></td>
+<td><strong>Extension</strong></td>
+</tr>
+<tr class="row-even"><td><strong>J</strong></td>
+<td>Intron chain extension,
+both transcripts are
+multiexonic and the
+prediction has novel
+splice sites <em>inside</em> of the
+reference transcript
+boundaries.</td>
+<td>True</td>
+<td>True</td>
+<td>&lt; 100%, &lt;= 100%,
+&lt; 100%</td>
+<td><strong>100%</strong>, &lt; 100%,
+&lt; 100%</td>
+<td><strong>C</strong></td>
+<td><strong>Extension</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>c</strong></td>
+<td>The prediction
+is either multiexonic and
+with its intron chain
+completely contained within
+that of the reference, or
+monoexonic and contained
+within one of the reference
+exons.</td>
+<td>True</td>
+<td>NA</td>
+<td>&lt; 100%, <strong>100%</strong>
+NA</td>
+<td>&lt; 100%, <strong>100%</strong>
+NA</td>
+<td><strong>n</strong></td>
+<td><strong>Extension</strong></td>
+</tr>
+<tr class="row-even"><td><strong>C</strong></td>
+<td>The prediction intron chain
+is completely contained
+within that of the
+reference transcript, but
+it partially debords either
+into its introns or outside
+of the reference boundaries.</td>
+<td>True</td>
+<td>True</td>
+<td>&lt;= 100%, &lt; 100%,
+&lt; 100%</td>
+<td>&lt; 100%, <strong>100%</strong>,
+&lt; 100%</td>
+<td><strong>J</strong></td>
+<td><strong>Extension</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>j</strong></td>
+<td>Alternative splicing event.</td>
+<td>True</td>
+<td>True</td>
+<td>NA</td>
+<td>&lt;= 100%, &lt; 100%,
+&lt; 100%</td>
+<td><strong>j</strong></td>
+<td><strong>Alternative
+splicing</strong></td>
+</tr>
+<tr class="row-even"><td><strong>h</strong></td>
+<td>Structural match between two
+models where no splice site
+is conserved but <strong>at least</strong>
+one intron of the reference
+and one intron of the
+prediction partially overlap.</td>
+<td>True</td>
+<td>True</td>
+<td>&gt; 0%, &gt; 0%, &gt; 0%</td>
+<td>0%, 0%, 0%</td>
+<td><strong>h</strong></td>
+<td><strong>Alternative
+splicing</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>o</strong></td>
+<td>Generic overlap between two
+multiexonic transcripts,
+which do not share <strong>any</strong>
+overlap among their introns.</td>
+<td>True</td>
+<td>True</td>
+<td>&gt; 0%, &gt; 0%, &gt; 0%</td>
+<td>0%, 0%, 0%</td>
+<td><strong>o</strong></td>
+<td><strong>Alternative
+splicing</strong></td>
+</tr>
+<tr class="row-even"><td><strong>g</strong>
+(&#8220;mo&#8221; before
+release 1)</td>
+<td>The monoexonic prediction
+overlaps one or more exons of
+the reference transcript; the
+borders of the prediction
+cannot fall inside the
+introns of the reference.
+The prediction transcript
+can bridge multiple exons
+of the reference model.</td>
+<td>True</td>
+<td>False</td>
+<td>&gt; 0%, &gt; 0%,
+between 0 and 100%</td>
+<td>0%</td>
+<td><strong>G</strong></td>
+<td><strong>Alternative
+splicing</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>G</strong>
+(&#8220;O&#8221; before
+release 1)</td>
+<td>Generic match of a
+multiexonic prediction
+transcript versus a
+monoexonic reference.</td>
+<td>False</td>
+<td>True</td>
+<td>&gt; 0%, &gt; 0%, &gt; 0%</td>
+<td>0%</td>
+<td><strong>g</strong></td>
+<td><strong>Alternative
+splicing</strong></td>
+</tr>
+<tr class="row-even"><td><strong>i</strong></td>
+<td>Monoexonic prediction
+completely contained within
+one intron of the reference
+transcript.</td>
+<td>True</td>
+<td>False</td>
+<td>0%</td>
+<td>0%</td>
+<td><strong>ri</strong></td>
+<td><strong>Intronic</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>I</strong></td>
+<td>Prediction completely
+contained within the introns
+of the reference transcript.</td>
+<td>True</td>
+<td>True</td>
+<td>0%</td>
+<td>0%</td>
+<td><strong>rI</strong></td>
+<td><strong>Intronic</strong></td>
+</tr>
+<tr class="row-even"><td><strong>rI</strong></td>
+<td>Reference completely
+contained within the introns
+of the prediction transcript.</td>
+<td>True</td>
+<td>True</td>
+<td>0%</td>
+<td>0%</td>
+<td><strong>I</strong></td>
+<td><strong>Intronic</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>ri</strong></td>
+<td>Reverse intron transcript -
+the monoexonic reference is
+completely contained within
+one intron of the prediction
+transcript.</td>
+<td>False</td>
+<td>True</td>
+<td>0%</td>
+<td>0%</td>
+<td><strong>i</strong></td>
+<td><strong>Intronic</strong></td>
+</tr>
+<tr class="row-even"><td><strong>f</strong></td>
+<td>Fusion - this special code
+is applied when a prediction
+intersects more than one
+reference transcript. To be
+considered for fusions,
+candidate references must
+<strong>either</strong> share at least one
+splice junction with the
+prediction, <strong>or</strong> have at
+least 10% of its bases
+recalled. If two or more
+reference transcripts fit
+these constraints, then the
+prediction model is
+classified as a <strong>fusion</strong>.</td>
+<td>NA</td>
+<td>NA</td>
+<td><strong>&gt; 10%</strong>, NA, NA</td>
+<td><strong>&gt; 0%</strong>, NA, NA</td>
+<td>NA</td>
+<td><strong>Fusion</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>e</strong></td>
+<td>Single exon transcript
+overlapping <em>one</em> reference
+exon and at least 10 bps of a
+reference intron, indicating
+a possible pre-mRNA fragment.</td>
+<td>True</td>
+<td>False</td>
+<td>&gt; 0%, &gt; 0%,
+between 0 and 100%</td>
+<td>0%</td>
+<td><strong>G</strong></td>
+<td><strong>Fragment</strong></td>
+</tr>
+<tr class="row-even"><td><strong>x</strong></td>
+<td>Monoexonic match on the
+<em>opposite</em> strand.</td>
+<td>NA</td>
+<td>False</td>
+<td>&gt;= 0%</td>
+<td>0%</td>
+<td><strong>x</strong> or <strong>X</strong></td>
+<td><strong>Fragment</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>X</strong></td>
+<td>Multiexonic match on the
+<em>opposite</em> strand.</td>
+<td>NA</td>
+<td>True</td>
+<td>&gt;= 0%</td>
+<td>0%</td>
+<td><strong>x</strong> or <strong>X</strong></td>
+<td><strong>Fragment</strong></td>
+</tr>
+<tr class="row-even"><td><strong>p</strong></td>
+<td>The prediction is on the same
+strand of a neighbouring but
+non-overlapping transcript.
+Probable polymerase run-on.</td>
+<td>NA</td>
+<td>NA</td>
+<td>0%</td>
+<td>0%</td>
+<td><strong>p</strong></td>
+<td><strong>No overlap</strong></td>
+</tr>
+<tr class="row-odd"><td><strong>P</strong></td>
+<td>The prediction is on the
+<em>opposite</em> strand of a
+neighbouring but
+non-overlapping transcript.
+Probable polymerase run-on.</td>
+<td>NA</td>
+<td>NA</td>
+<td>0%</td>
+<td>0%</td>
+<td><strong>P</strong></td>
+<td><strong>No overlap</strong></td>
+</tr>
+<tr class="row-even"><td><strong>u</strong></td>
+<td>Unknown - no suitable model
+has been found near enough
+the prediction to perform a
+comparison.</td>
+<td>NA</td>
+<td>NA</td>
+<td>0%</td>
+<td>0%</td>
+<td>NA</td>
+<td><strong>No overlap</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="technical-details">
+<h2>1.5. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<p>Mikado compare conceptualizes the reference annotation as a collection of interval trees, one per chromosome or scaffold, where each node corresponds to an array of genes at the location. The gene and transcript objects are stored separately. The location of each transcript model in the prediction is queried against the tree, with a padding (default 2kbps) to allow for neighouring but non-overlapping genes, and the transcript itself is subsequently compared with each reference transcript contained in the hits. Each comparison will yield precision, recall and F1 values for the nucleotide, splice junction and exonic levels, together with an associated class code. The best match for the prediction is selected for by choosing the comparison yielding the best splice junction F1 and the best nucleotide F1, in this order. If the prediction transcript overlaps two or more genes on the same strand, and for at least two it has one match each with either 10% nucleotide recall or junction recall over 0%, it is deemed as a <a class="reference internal" href="#fusion">fusion</a> event, and its line in the <a class="reference internal" href="#tmap">tmap</a> file will report the best match against each of the fused genes, separated by comma.</p>
+<p>Each calculated match against a reference transcript is stored as a potential <em>best match</em> for the reference transcript. At the end of the run, the hits for each reference transcript will be ordered using the following function:</p>
+<div class="highlight-python"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="nd">@staticmethod</span>
+<span class="k">def</span> <span class="nf">result_sorter</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Method to sort the results for the refmap. Order:</span>
+<span class="sd">    - CCode does not contain &quot;x&quot;, &quot;P&quot;, &quot;p&quot; (i.e. fragments on opposite strand or</span>
+<span class="sd">    polymerase run-on fragments)</span>
+<span class="sd">    - Exonic F1 (e_f1)</span>
+<span class="sd">    - Junction F1 (j_f1)</span>
+<span class="sd">    - &quot;f&quot; in ccode (i.e. transcript is a fusion)</span>
+<span class="sd">    - Nucleotide F1 (n_f1)</span>
+
+<span class="sd">    :param result: a resultStorer object</span>
+<span class="sd">    :type result: ResultStorer</span>
+<span class="sd">    :return: (int, float, float, float)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">bad_ccodes</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;X&quot;</span><span class="p">,</span> <span class="s2">&quot;P&quot;</span><span class="p">,</span> <span class="s2">&quot;p&quot;</span><span class="p">]</span>
+    <span class="n">bad_ccodes</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">bad_ccodes</span><span class="p">)</span>
+
+    <span class="n">orderer</span> <span class="o">=</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">bad_ccodes</span><span class="p">,</span> <span class="nb">set</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">)))</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span>
+               <span class="n">result</span><span class="o">.</span><span class="n">j_f1</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">e_f1</span><span class="p">,</span>
+               <span class="n">result</span><span class="o">.</span><span class="n">n_f1</span><span class="p">,</span>
+               <span class="s2">&quot;f&quot;</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">ccode</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">orderer</span>
+</pre></div>
+</td></tr></table></div>
+<p>This function is used to select both for the best match <em>for the transcript</em>, as well as to select among these matches for the best match <em>for the gene</em>.</p>
+<p>The interval tree data structure is created using Cython code originally part of the <a class="reference external" href="https://bitbucket.org/james_taylor/bx-python/overview">bx-python</a>, kindly provided by <a class="reference external" href="mailto:james&#37;&#52;&#48;taylorlab&#46;org">Dr<span>&#46;</span> Taylor</a> for modification and inclusion in Mikado. The code has been slightly modified for making it Python3 compliant.</p>
+<p>The comparison code is written in Cython and is crucial during the <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">picking phase of Mikado</span></a>, not just for the functioning of the comparison utility.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="Daijin.html" title="2. The Daijin pipeline for driving Mikado"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Pick.html" title="4. Mikado pick"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
+          <li class="nav-item nav-item-1"><a href="../Usage.html" >4. Usage</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &copy; Copyright 2016, Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.5.
+    </div>
+  </body>
+</html>

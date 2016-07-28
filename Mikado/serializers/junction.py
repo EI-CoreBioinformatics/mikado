@@ -172,13 +172,13 @@ class JunctionSerializer:
         else:
             self.maxobjects = 10000
 
-        if "genome_fai" not in json_conf["reference"]:
+        if "genome_fai" not in json_conf["reference"] or not json_conf["reference"]["genome_fai"]:
             self.fai = pyfaidx.Fasta(json_conf["reference"]["genome"]).faidx.indexname
         else:
             self.fai = json_conf["reference"]["genome_fai"]
 
         if isinstance(self.fai, str):
-            assert os.path.exists(self.fai)
+            assert os.path.exists(self.fai), self.fai
             # noinspection PyTypeChecker
             self.fai = open(self.fai)
         else:

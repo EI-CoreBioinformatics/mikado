@@ -15,6 +15,7 @@ import yaml
 import snakemake
 from snakemake.utils import min_version
 from ..utilities.log_utils import create_default_logger
+from ..configuration.daijin_configurator import create_daijin_config
 import shutil
 import pkg_resources
 
@@ -104,24 +105,52 @@ def create_config_parser():
     parser.add_argument("-c", "--cluster_config",
                         type=str, default=None,
                         help="Cluster configuration file to write to.")
-    parser.add_argument("config", type=str,
-                        help="Configuration file to write to.")
-    parser.set_defaults(func=daijin_config)
+    parser.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
+    parser.add_argument("--genome", "-g", required=True,
+                        help="Reference genome for the analysis, in FASTA format. Required.")
+    parser.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.")
+    parser.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
+                        help="""Maximum number of threads per job. Default: %(default)s""")
+    parser.add_argument("-r1", "--left_reads", dest="r1",
+                        nargs="+",
+                        default=[], required=True,
+                        help="Left reads for the analysis. Required.")
+    parser.add_argument("-r2", "--right_reads", dest="r2",
+                        nargs="+",
+                        default=[], required=True,
+                        help="Right reads for the analysis. Required.")
+    parser.add_argument("-s", "--samples",
+                        nargs="+",
+                        default=[], required=True,
+                        help="Sample names for the analysis. Required.")
+    parser.add_argument(
+        "-st", "--strandedness", nargs="+",
+        default=[], required=False, choices=["fr-unstranded", "fr-secondstrand", "fr-firststrand"],
+        help="Strandedness of the reads. Specify it 0, 1, or number of samples times. Choices: %(choices)s.")
+    parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat2"], required=True,
+                        default=[], nargs="+", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
+    parser.add_argument("-as", "--assemblers", dest="asm_methods", required=True,
+                        choices=["class", "cufflinks", "stringtie", "trinity"],
+                        default=[], nargs="+", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
+    parser.add_argument("-od", "--out-dir", dest="out_dir", default=None, required=False,
+                        help="Output directory. Default if unspecified: chosen name.")
+    parser.add_argument("-o", "--out", default=sys.stdout, type=argparse.FileType("w"),
+                        help="Output file. If the file name ends in \"json\", the file will be in JSON format; \
+                        otherwise, Daijin will print out a YAML file. Default: STDOUT.")
+    scoring = parser.add_argument_group("Options related to the scoring system")
+    scoring.add_argument("--scoring", type=str, default=None,
+                         choices=pkg_resources.resource_listdir(
+                             "Mikado", os.path.join("configuration", "scoring_files")),
+                         help="Available scoring files.")
+    scoring.add_argument("--copy-scoring", default=False,
+                         type=str, dest="copy_scoring",
+                         help="File into which to copy the selected scoring file, for modification.")
+    parser.add_argument("-m", "--modes", default=["permissive"], nargs="+",
+                        choices=["nosplit", "split", "permissive", "stringent", "lenient"],
+                        required=False,
+                        help="Mikado pick modes to run. Choices: %(choices)s")
+    parser.set_defaults(func=create_daijin_config)
     return parser
-
-
-def daijin_config(args):
-
-    with open(args.config, "wb") as out:
-        for line in pkg_resources.resource_stream("Mikado",
-                                                  os.path.join("daijin", "example_config.yaml")):
-            out.write(line)
-
-    if args.cluster_config is not None:
-        with open(args.cluster_config, "wb") as out:
-            for line in pkg_resources.resource_stream("Mikado",
-                                                      os.path.join("daijin", "hpc.yaml")):
-                out.write(line)
 
 
 # pylint: disable=too-many-locals
@@ -289,7 +318,7 @@ def main(call_args=None):
                           help="Creates the configuration files for Daijin execution.")
     subparsers.choices["configure"] = create_config_parser()
     subparsers.choices["configure"].prog = "daijin configure"
-    subparsers.choices["configure"].set_defaults(func=daijin_config)
+    subparsers.choices["configure"].set_defaults(func=create_daijin_config)
 
     subparsers.add_parser("assemble",
                           description="Creates transcript assemblies from RNAseq data.",

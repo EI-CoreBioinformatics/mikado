@@ -12,7 +12,7 @@ import argparse
 import sys
 from ..configuration import configurator
 from ..exceptions import InvalidJson
-from ..utilities import comma_split
+from ..utilities import comma_split, merge_dictionaries
 import json
 from collections import Counter
 
@@ -185,6 +185,27 @@ def create_config(args):
     else:
         config = create_simple_config()
 
+    if args.external is not None:
+        if args.external.endswith("json"):
+            loader = json.load
+        else:
+            loader = yaml.load
+        with open(args.external) as external:
+            external_conf = loader(external)
+        # Overwrite values specific to Mikado
+        if "mikado" in external_conf:
+            mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
+            config = configurator.merge_dictionaries(config, mikado_conf)
+        # Leave all other values, including those in a "mikado" section that are not also present in the default config
+        for key in config:
+            if key in external_conf:
+                del external_conf[key]
+            if "mikado" in external_conf and isinstance(external_conf["mikado"], dict):
+                __mikado_keys = [key for key in external_conf["mikado"] if key in config]
+                for key in __mikado_keys:
+                    del external_conf["mikado"][key]
+        config = configurator.merge_dictionaries(config, external_conf)
+
     if args.reference is not None:
         config["reference"]["genome"] = args.reference
 
@@ -323,6 +344,8 @@ def configure_parser():
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
         separated by comma.""")
+    parser.add_argument("--external", help="""External configuration file to overwrite/add values from.
+    Parameters specified on the command line will take precedence over those present in the configuration file.""")
     parser.add_argument("--mode", default=None,
                         choices=["nosplit", "stringent", "lenient", "permissive", "split"],
                         help="""Mode in which Mikado will treat transcripts with multiple ORFs.

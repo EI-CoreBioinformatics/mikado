@@ -10,6 +10,28 @@
     "- name: name of the species under analysis.",
     "- reference: reference data to use. A reference genome is required."],
     "properties": {}},
+    "load":{
+      "SimpleComment": ["Commands to use to load/select the versions of the programs to use. Leave an empty string if no loading is necessary."],
+      "type": "object",
+      "required": ["tophat", "gmap", "star", "hisat", "samtools", "cufflinks", "trinity",
+        "stringtie", "class", "transdecoder", "portcullis", "mikado", "blast"],
+      "properties": {
+       "tophat": {"type": "string", "default": ""},
+        "gmap": {"type": "string", "default": ""},
+        "star": {"type": "string", "default": ""},
+        "hisat": {"type": "string", "default": ""},
+        "samtools": {"type": "string", "default": ""},
+        "cufflinks": {"type": "string", "default": ""},
+        "trinity": {"type": "string", "default": ""},
+        "stringtie": {"type": "string", "default": ""},
+        "class": {"type": "string", "default": ""},
+        "transdecoder": {"type": "string", "default": ""},
+        "portcullis": {"type": "string", "default": ""},
+        "mikado": {"type": "string", "default": ""},
+        "blast": {"type": "string", "default": ""}
+      }
+    },
+
     "short_reads": {
       "SimpleComment": ["Parameters related to the reads to use for the assemblies. Voices:",
           "- r1: array of left read files.",
@@ -77,14 +99,14 @@
       "type": "object",
       "anyOf": [
         {"required":["tophat2"]},
-        {"required":["hisat2"]},
+        {"required":["hisat"]},
         {"required":["star"]},
         {"required":["gsnap"]}
       ],
        "additionalProperties": false,
       "properties": {
           "tophat2": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-          "hisat2": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "hisat": {"type": "array", "items": {"type": "string"}, "minItems": 1},
           "star": {"type": "array", "items": {"type": "string"}, "minItems": 1}},
           "gsnap": {"type": "array", "items": {"type": "string"}, "minItems": 1}
         },

@@ -29,7 +29,7 @@ def create_daijin_validator():
     return validator
 
 
-def create_daijin_config():
+def create_daijin_base_config():
 
     validator = create_daijin_validator()
     conf = dict()
@@ -65,55 +65,73 @@ def create_daijin_config():
     return new_dict
 
 
-def create_config(args):
+def create_daijin_config(args):
 
     logger = create_default_logger("daijin_config")
 
-    config = create_daijin_config()
+    config = create_daijin_base_config()
     assert "reference" in config, config.keys()
     # print(config)
     # config["reference"]["genome"] = args.genome
     # config["reference"]["transcriptome"] = args.transcriptome
 
     config["name"] = args.name
+    if args.out_dir is None:
+        args.out_dir = args.name
+    config["out_dir"] = args.out_dir
 
     if len(args.r1) != len(args.r2):
-        exc=InvalidJson(
+        exc = InvalidJson(
             """An invalid number of reads has been specified; there are {} left reads and {} right reads.
             Please correct the issue.""".format(len(args.r1), len(args.r2)))
         logger.exception(exc)
         sys.exit(1)
 
     elif len(args.r1) != len(args.samples):
-        exc=InvalidJson(
+        exc = InvalidJson(
             """An invalid number of samples has been specified; there are {} left reads and {} samples.
             Please correct the issue.""".format(len(args.r1), len(args.samples)))
         logger.exception(exc)
         sys.exit(1)
-    if len(args.strand_specific) == 1 and len(args.r1) > 1:
+    if len(args.strandedness) == 1 and len(args.r1) > 1:
         logger.warning(
-            "Only one strand-specific setting has been specified even if there are multiple samples. I will assume that all the samples have this strand-specificity.")
-        args.strand_specific *= len(args.r1)
-    elif len(args.strand_specific) == 0:
+            "Only one strand-specific setting has been specified even if there are multiple samples. \
+            I will assume that all the samples have this strand-specificity.")
+        args.strandedness *= len(args.r1)
+    elif len(args.strandedness) == 0:
         logger.warning("No strand specific option specified, so I will assume all the samples are non-strand specific.")
-        args.strand_specific = ["fr-unstranded"] * len(args.r1)
-    elif len(args.strand_specific) != len(args.r1):
-        exc=InvalidJson(
+        args.strandedness = ["fr-unstranded"] * len(args.r1)
+    elif len(args.strandedness) != len(args.r1):
+        exc = InvalidJson(
             """An invalid number of strand-specific options has been specified; there are {} left reads and {} samples.
-            Please correct the issue.""".format(len(args.r1), len(args.strand_specific)))
+            Please correct the issue.""".format(len(args.r1), len(args.strandedness)))
         logger.exception(exc)
         sys.exit(1)
 
     config["short_reads"]["r1"] = args.r1
     config["short_reads"]["r2"] = args.r2
     config["short_reads"]["samples"] = args.samples
-    config["short_reads"]["strandedness"] = args.strand_specific
+    config["short_reads"]["strandedness"] = args.strandedness
+    config["threads"] = args.threads
 
+    config["mikado"]["modes"] = args.modes
 
     for method in args.asm_methods:
         config["asm_methods"][method] = [""]
     for method in args.aligners:
         config["aligners"][method] = [""]
+
+    # Set and eventually copy the scoring file.
+    if args.scoring is not None:
+        if args.copy_scoring is not False:
+            with open(args.copy_scoring, "wb") as out:
+                with resource_stream("Mikado", os.path.join("configuration",
+                                                            "scoring_files",
+                                                            args.scoring)) as original:
+                    for line in original:
+                        print(line, file=out, end="")
+            args.scoring = args.copy_scoring
+        config["pick"]["scoring_file"] = args.scoring
 
     final_config = config.copy()
     try:
@@ -127,6 +145,17 @@ def create_config(args):
         validator.validate(config)
     except Exception as exc:
         logger.exception(exc)
-        # sys.exit(1)
+        sys.exit(1)
 
-    print_config(yaml.dump(final_config, default_flow_style=False), sys.stdout)
+    if args.cluster_config is not None:
+        with open(args.cluster_config, "wb") as out:
+            for line in resource_stream("Mikado", os.path.join("daijin", "hpc.yaml")):
+                out.write(line)
+
+    if args.out != sys.stdout and args.out.name.endswith("json"):
+        json.dump(final_config, args.out)
+    else:
+        print_config(yaml.dump(final_config, default_flow_style=False), args.out)
+
+    args.out.close()
+    return

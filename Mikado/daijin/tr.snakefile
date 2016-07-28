@@ -630,11 +630,10 @@ rule mikado_cfg:
 		mikado=OUT_DIR + "/mikado.yaml"
 	params: 
 		load=loadPre(config["load"]["mikado"]),
-		mikado=OUT_DIR + "/mikado.cfg",
 		scoring=config["pick"]["scoring"],
 		junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} mikado configure --full --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
+	shell: "{params.load} mikado configure --full --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"
 

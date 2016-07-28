@@ -65,7 +65,6 @@ def extend_with_default(validator_class, resolver=None, simple=False):
                 properties[prop] = resolver.resolve(subschema["$ref"])[1]
                 # subschema = resolver.resolve(subschema["$ref"])[1]
                 subschema = properties[prop]
-                print("Ref found", prop)
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:

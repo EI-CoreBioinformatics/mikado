@@ -72,8 +72,8 @@ def create_daijin_config(args):
     config = create_daijin_base_config()
     assert "reference" in config, config.keys()
     # print(config)
-    # config["reference"]["genome"] = args.genome
-    # config["reference"]["transcriptome"] = args.transcriptome
+    config["reference"]["genome"] = args.genome
+    config["reference"]["transcriptome"] = args.transcriptome
 
     config["name"] = args.name
     if args.out_dir is None:
@@ -119,7 +119,7 @@ def create_daijin_config(args):
     for method in args.asm_methods:
         config["asm_methods"][method] = [""]
     for method in args.aligners:
-        config["aligners"][method] = [""]
+        config["align_methods"][method] = [""]
 
     # Set and eventually copy the scoring file.
     if args.scoring is not None:
@@ -132,6 +132,9 @@ def create_daijin_config(args):
                         print(line, file=out, end="")
             args.scoring = args.copy_scoring
         config["mikado"]["pick"]["scoring_file"] = args.scoring
+
+    if args.prot_db:
+        config["blastx"]["prot_db"] = args.prot_db
 
     final_config = config.copy()
     try:

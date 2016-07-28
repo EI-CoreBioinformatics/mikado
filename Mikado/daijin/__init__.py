@@ -11,6 +11,7 @@ import os
 import argparse
 import datetime
 import time
+import json
 import yaml
 import snakemake
 from snakemake.utils import min_version
@@ -108,7 +109,8 @@ def create_config_parser():
     parser.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
     parser.add_argument("--genome", "-g", required=True,
                         help="Reference genome for the analysis, in FASTA format. Required.")
-    parser.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.")
+    parser.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.",
+                        default="")
     parser.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
                         help="""Maximum number of threads per job. Default: %(default)s""")
     parser.add_argument("-r1", "--left_reads", dest="r1",
@@ -149,6 +151,8 @@ def create_config_parser():
                         choices=["nosplit", "split", "permissive", "stringent", "lenient"],
                         required=False,
                         help="Mikado pick modes to run. Choices: %(choices)s")
+    parser.add_argument("--prot-db", dest="prot_db", default="",
+                        help="Protein database to compare against, for Mikado.")
     parser.set_defaults(func=create_daijin_config)
     return parser
 
@@ -163,13 +167,18 @@ def assemble_transcripts_pipeline(args):
     :return:
     """
 
+    if args.config.endswith("json"):
+        loader = json.load
+    else:
+        loader = yaml.load
+
     with open(args.config, 'r') as _:
-        doc = yaml.load(_)
+        doc = loader(_)
 
     # pylint: disable=invalid-name
-    LABELS = doc["samples"]
-    R1 = doc["r1"]
-    R2 = doc["r2"]
+    LABELS = doc["short_reads"]["samples"]
+    R1 = doc["short_reads"]["r1"]
+    R2 = doc["short_reads"]["r2"]
     READS_DIR = doc["out_dir"] + "/1-reads"
     SCHEDULER = doc["scheduler"] if doc["scheduler"] else ""
     CWD = os.path.abspath(".")

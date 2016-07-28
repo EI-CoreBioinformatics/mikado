@@ -31,7 +31,21 @@
         "blast": {"type": "string", "default": ""}
       }
     },
-
+    "portcullis": {
+      "SimpleComment": ["Options related to portcullis"],
+      "type": "object",
+      "properties": {
+       "do": {"type": "boolean", "default": true, "required": true},
+        "canonical_juncs": {"type": "string", "default": "C,S", "required": true}
+      }
+    },
+    "extra": {
+      "SimpleComment": ["Options related to indexing."],
+      "type": "object",
+      "properties": {
+        "star_index": {"type": "string", "default": "", "required": true}
+      }
+    },
     "short_reads": {
       "SimpleComment": ["Parameters related to the reads to use for the assemblies. Voices:",
           "- r1: array of left read files.",
@@ -67,6 +81,14 @@
           "required": true,
           "default": [],
           "items": {"type": "string", "enum": ["fr-firststrand", "fr-secondstrand", "fr-unstranded"]}
+        },
+        "min_intron": {
+          "type": "integer", "required": true,
+          "default": 20, "minimum": 1
+        },
+        "max_intron": {
+          "type": "integer", "required": true,
+          "default": 10000, "minimum": 1
         }
       }
     },
@@ -95,7 +117,7 @@
       "Comment": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine.",
       "required": true
     },
-    "aligners": {
+    "align_methods": {
       "type": "object",
       "anyOf": [
         {"required":["tophat2"]},
@@ -225,6 +247,7 @@
           }
         }
       }
-    }
+    },
+    "tgg_max_mem": {"type": "integer", "default": 6000, "minimum": 1000, "required": true}
   }
 }

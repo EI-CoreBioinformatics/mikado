@@ -131,7 +131,7 @@ def create_daijin_config(args):
                     for line in original:
                         print(line, file=out, end="")
             args.scoring = args.copy_scoring
-        config["pick"]["scoring_file"] = args.scoring
+        config["mikado"]["pick"]["scoring_file"] = args.scoring
 
     final_config = config.copy()
     try:

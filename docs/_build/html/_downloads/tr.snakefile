@@ -12,18 +12,18 @@ from shutil import which
 CFG=workflow.overwrite_configfile
 
 # Get shortcuts from configuration file
-R1 = config["r1"]
-R2 = config["r2"]
-SAMPLES = config["samples"]
-STRANDEDNESS = config["strandedness"]
+R1 = config["short_reads"]["r1"]
+R2 = config["short_reads"]["r2"]
+SAMPLES = config["short_reads"]["samples"]
+STRANDEDNESS = config["short_reads"]["strandedness"]
 
 REF = config["reference"]["genome"]
 REF_TRANS = config["reference"]["transcriptome"]
 
 NAME = config["name"]
 OUT_DIR = config["out_dir"]
-MIN_INTRON = config["min_intron"]
-MAX_INTRON = config["max_intron"]
+MIN_INTRON = config["short_reads"]["min_intron"]
+MAX_INTRON = config["short_reads"]["max_intron"]
 if "threads" in config:
     THREADS = int(config["threads"])
 else:
@@ -330,7 +330,6 @@ rule star_all:
 	output: ALIGN_DIR+"/star.done"
 	shell: "touch {output}"	
 
-
 rule align_hisat_index:
 	input: REF
 	output: ALIGN_DIR+"/hisat/index/"+NAME+".4.ht2"
@@ -339,8 +338,6 @@ rule align_hisat_index:
 	threads: 1
 	message: "Indexing genome with hisat"
 	shell: "{params.load} hisat2-build {input} {ALIGN_DIR}/hisat/index/{NAME} > {log} 2>&1"
-
-
 
 rule align_hisat:
 	input:
@@ -630,11 +627,10 @@ rule mikado_cfg:
 		mikado=OUT_DIR + "/mikado.yaml"
 	params: 
 		load=loadPre(config["load"]["mikado"]),
-		mikado=OUT_DIR + "/mikado.cfg",
-		scoring=config["pick"]["scoring"],
+		scoring=config["mikado"]["pick"]["scoring_file"],
 		junctions="--junctions={}".format(rules.portcullis_merge.output.bed)
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} mikado configure --full --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} > {params.mikado} 2> {log} && cat {input.cfg} {params.mikado} > {output} && rm {params.mikado}"
+	shell: "{params.load} mikado configure --full --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"
 

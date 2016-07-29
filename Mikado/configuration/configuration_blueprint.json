@@ -1,10 +1,25 @@
 {
   "$schema": "http://json-schema.org/draft-04/schema#",
   "type": "object",
-  "Comment": [
-    ""
-  ],
   "properties": {
+    "SimpleComment": {"type": "object", "properties": {},
+      "SimpleComment": ["Configuration file for Mikado. Sections:",
+      "- log_settings: settings related to the verbosity of logs.",
+      "- db_settings: Database settings, for Mikado serialise and pick.",
+      "- reference: Settings related to the genome reference.",
+      "- prepare: settings related to the Mikado prepare stage",
+      "- serialise: settings related to the Mikado serialise stage",
+      "- pick: settings related to the Mikado pick stage",
+    "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."],
+    "Comment": ["Configuration file for Mikado. Sections:",
+      "- log_settings: settings related to the verbosity of logs.",
+      "- db_settings: Database settings, for Mikado serialise and pick.",
+      "- reference: Settings related to the genome reference.",
+      "- prepare: settings related to the Mikado prepare stage",
+      "- serialise: settings related to the Mikado serialise stage",
+      "- pick: settings related to the Mikado pick stage",
+    "- multiprocessing_method: which method (fork, spawn, forkserver) Mikado should use for multiprocessing."]
+    },
     "multiprocessing_method": {
       "type": "string",
       "default": "",
@@ -231,10 +246,13 @@
       "type": "object",
       "required": ["scoring_file"],
       "Comment": ["- scoring_file: a scoring file for the analysis. Default: plants.yaml.",
-      "- source_score: a dictionary with pre-defined scores to assign to the transcripts according",
-      "to their souce. Eg all Cufflinks transcripts from the seed (label: \"cuff_seed\") could",
-      "be assigned a default additional score of 1."],
-      "SimpleComment": ["scoring_file: a scoring file for the analysis. Default: plants.yaml."],
+      "- source_score: a dictionary with pre-defined scores to assign to the transcripts according to their source. Eg all Cufflinks transcripts from the seed (label: \"cuff_seed\") could be assigned a default additional score of 1."],
+      "SimpleComment": ["Parameters related to the Mikado pick stage.",
+        "- alternative_splicing: Parameters related to which AS events to consider as valid during picking.",
+        "- chimera_split: parameters related to splitting of transcripts in the presence of multiple ORFs",
+        "- files: input and output files",
+        "- run_options: generic options related to the run, eg number of processors to use.",
+        "- scoring_file: a scoring file for the analysis. Default: plants.yaml."],
       "properties": {
         "scoring_file": {
           "type": "string",
@@ -271,18 +289,11 @@
           "SimpleComment": [
             "Parameters related to alternative splicing reporting.",
             "- report: whether to report at all or not the AS events.",
-            "- min_cds_overlap: minimum overlap between the CDS of the primary transcript and any AS event. Default: 60%.",
-            "- min_cdna_overlap: minimum overlap between the CDNA of the primary transcript and any AS event.",
-            "Default: 0% i.e. disabled, we check for the CDS overlap.",
-            "- valid_ccodes: Valid class codes for AS events. See documentation for details. Choices:",
-            "j, n, O, e, o, h, J, C, mo. Default: j, J, O, mo",
             "- max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported. Default: 3",
-            "- min_score_perc: Minimum score threshold for subsequent AS events.",
-            " Only transcripts with a score at least (best) * value are retained. Default: 50% (0.5)",
             "- only_confirmed_introns: bring back AS events only when their introns are either",
             " present in the primary transcript or in the set of confirmed introns."
           ],
-          "required": ["report", "max_isoforms"],
+          "required": ["report", "max_isoforms", "only_confirmed_introns"],
           "type": "object",
           "properties": {
             "report": {
@@ -555,8 +566,6 @@
             "  classified as P,x,i or p compared to another locus, will be removed from the output.",
             "- fragments_maximal_cds: a locus will never be considered a fragment if its longest CDS is over",
             "  this length. Default: 100 bps.",
-            "- fragments_maximal_cdna: a locus will never be considered a fragment if its longest cDNA is over",
-            "  this length. Default: 400 bps.",
             "- fragments_maximal_exons: a locus will never be considered a fragment if its representative transcript",
             "  has more than this number of exons. Default: 2",
             "- procs: number of processes to use. Default: 1",
@@ -607,10 +616,6 @@
             "fragments_maximal_cds": {
               "type": "integer",
               "default": 100
-            },
-            "fragments_maximal_cdna": {
-              "type": "integer",
-              "default": 400
             },
             "fragments_maximal_exons": {
               "type": "integer",

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>5.1. Mikado configure &mdash; Mikado 1.0.0b3 documentation</title>
+    <title>1. Mikado configure &mdash; Mikado 1.0.0b3 documentation</title>
     
     <link rel="stylesheet" href="../_static/sphinxdoc.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -26,7 +26,7 @@
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Mikado 1.0.0b3 documentation" href="../index.html" />
     <link rel="up" title="4. Usage" href="../Usage.html" />
-    <link rel="next" title="5.2. Mikado prepare" href="Prepare.html" />
+    <link rel="next" title="2. Mikado prepare" href="Prepare.html" />
     <link rel="prev" title="4. Usage" href="../Usage.html" /> 
   </head>
   <body role="document">
@@ -37,7 +37,7 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="Prepare.html" title="5.2. Mikado prepare"
+          <a href="Prepare.html" title="2. Mikado prepare"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="../Usage.html" title="4. Usage"
@@ -50,16 +50,20 @@
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">5.1. Mikado configure</a><ul>
-<li><a class="reference internal" href="#anatomy-of-the-configuration-file">5.1.1. Anatomy of the configuration file</a><ul>
-<li><a class="reference internal" href="#database-settings">5.1.1.1. Database settings</a></li>
-<li><a class="reference internal" href="#reference-settings">5.1.1.2. Reference settings</a></li>
-<li><a class="reference internal" href="#settings-for-the-prepare-stage">5.1.1.3. Settings for the prepare stage</a></li>
-<li><a class="reference internal" href="#settings-for-the-serialisation-stage">5.1.1.4. Settings for the serialisation stage</a></li>
-<li><a class="reference internal" href="#miscellanea">5.1.1.5. Miscellanea</a></li>
+<li><a class="reference internal" href="#">1. Mikado configure</a><ul>
+<li><a class="reference internal" href="#anatomy-of-the-configuration-file">1.1. Anatomy of the configuration file</a><ul>
+<li><a class="reference internal" href="#database-settings">1.1.1. Database settings</a></li>
+<li><a class="reference internal" href="#reference-settings">1.1.2. Reference settings</a></li>
+<li><a class="reference internal" href="#settings-for-the-prepare-stage">1.1.3. Settings for the prepare stage</a></li>
+<li><a class="reference internal" href="#settings-for-the-serialisation-stage">1.1.4. Settings for the serialisation stage</a></li>
+<li><a class="reference internal" href="#settings-for-the-pick-stage">1.1.5. Settings for the pick stage</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#technical-details">5.1.2. Technical details</a></li>
+<li><a class="reference internal" href="#parameters-regarding-the-alternative-splicing">1.2. Parameters regarding the alternative splicing</a><ul>
+<li><a class="reference internal" href="#miscellanea">1.2.1. Miscellanea</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#technical-details">1.3. Technical details</a></li>
 </ul>
 </li>
 </ul>
@@ -69,7 +73,7 @@
                         title="previous chapter">4. Usage</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="Prepare.html"
-                        title="next chapter">5.2. Mikado prepare</a></p>
+                        title="next chapter">2. Mikado prepare</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -96,13 +100,13 @@
           <div class="body" role="main">
             
   <div class="section" id="mikado-configure">
-<span id="configure"></span><h1>5.1. Mikado configure<a class="headerlink" href="#mikado-configure" title="Permalink to this headline">¶</a></h1>
+<span id="configure"></span><h1>1. Mikado configure<a class="headerlink" href="#mikado-configure" title="Permalink to this headline">¶</a></h1>
 <p>This utility prepares the configuration file that will be used</p>
 <div class="section" id="anatomy-of-the-configuration-file">
-<span id="conf-anatomy"></span><h2>5.1.1. Anatomy of the configuration file<a class="headerlink" href="#anatomy-of-the-configuration-file" title="Permalink to this headline">¶</a></h2>
+<span id="conf-anatomy"></span><h2>1.1. Anatomy of the configuration file<a class="headerlink" href="#anatomy-of-the-configuration-file" title="Permalink to this headline">¶</a></h2>
 <p>The guide here describes all voices of the configuration file. However, the configuration created by default by <code class="docutils literal"><span class="pre">mikado</span> <span class="pre">configure</span></code> is much simpler</p>
 <div class="section" id="database-settings">
-<span id="db-settings"></span><h3>5.1.1.1. Database settings<a class="headerlink" href="#database-settings" title="Permalink to this headline">¶</a></h3>
+<span id="db-settings"></span><h3>1.1.1. Database settings<a class="headerlink" href="#database-settings" title="Permalink to this headline">¶</a></h3>
 <p>This section deals with the database settings that will be necessary for the <a class="reference internal" href="Serialise.html#serialise"><span class="std std-ref">serialisation</span></a> and <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">picking</span></a> phases of the pipeline. By default, Mikado will use a <a class="reference external" href="https://www.sqlite.org/">SQLite database</a>, but it currently also supports <a class="reference external" href="http://www.mysql.com/">MySQL</a> and <a class="reference external" href="https://www.postgresql.org/">PostgreSQL</a> through <a class="reference external" href="http://www.sqlalchemy.org/">SQLAlchemy</a>. Fields:</p>
 <ul class="simple">
 <li>db: name of the database to use. In case the database is SQLite, this will be the database file, otherwise it will be the database <em>name</em>.</li>
@@ -133,7 +137,7 @@
 </div>
 </div>
 <div class="section" id="reference-settings">
-<span id="ref-settings"></span><h3>5.1.1.2. Reference settings<a class="headerlink" href="#reference-settings" title="Permalink to this headline">¶</a></h3>
+<span id="ref-settings"></span><h3>1.1.2. Reference settings<a class="headerlink" href="#reference-settings" title="Permalink to this headline">¶</a></h3>
 <p>This section of the configuration file deals with the reference genome. It specifies two fields:</p>
 <ul class="simple">
 <li>genome: the genome FASTA file. <strong>Required</strong>.</li>
@@ -149,7 +153,7 @@
 </div>
 </div>
 <div class="section" id="settings-for-the-prepare-stage">
-<span id="prep-settings"></span><h3>5.1.1.3. Settings for the prepare stage<a class="headerlink" href="#settings-for-the-prepare-stage" title="Permalink to this headline">¶</a></h3>
+<span id="prep-settings"></span><h3>1.1.3. Settings for the prepare stage<a class="headerlink" href="#settings-for-the-prepare-stage" title="Permalink to this headline">¶</a></h3>
 <p>This section of the configuration file deals with the <a class="reference internal" href="Prepare.html#prepare"><span class="std std-ref">prepare stage of Mikado</span></a>. It specifies the input files, their labels, and which of them are strand specific. The available fields are the following:</p>
 <ul>
 <li><p class="first">canonical: this voice specifies the splice site donors and acceptors that are considered canonical for the species. By default, Mikado uses the canonical splice site (GT/AG) and the two semi-canonical pairs (GC/AG and AT/AC). Type: Array of two-element arrays, composed by two-letter strings.</p>
@@ -168,7 +172,9 @@
 <dt>files: this sub-section is the most important, as it contains among other things the locations and labels for the input files. Voices:</dt>
 <dd><ul class="first last simple">
 <li>gff: array of the input files, in GFF or GTF format. Please note that only CDS/exon/UTR features will be considered from these files.</li>
-<li>labels: optional array of the labels to be assigned to the input files. If non-empty, <em>it must be of the same order and length of the gff array</em>, and be composed of unique elements.</li>
+<li>labels: optional array of the labels to be assigned to the input files. If non-empty, <em>it must be of the same order and length of the gff array</em>, and be composed of unique elements. The labels will be used in two ways:
+* as a prefix of the transcripts coming from the corresponding GFF
+* as the <em>source field</em> assigned to the transcript. This might be of relevance <a class="reference internal" href="#source-score"><span class="std std-ref">during the picking stage</span></a>.</li>
 <li>log: name of the log file.</li>
 <li>out: name of the GTF output file.</li>
 <li>out_fasta: name of the corresponding output FASTA file.</li>
@@ -223,7 +229,7 @@
 </div>
 </div>
 <div class="section" id="settings-for-the-serialisation-stage">
-<span id="serialise-settings"></span><h3>5.1.1.4. Settings for the serialisation stage<a class="headerlink" href="#settings-for-the-serialisation-stage" title="Permalink to this headline">¶</a></h3>
+<span id="serialise-settings"></span><h3>1.1.4. Settings for the serialisation stage<a class="headerlink" href="#settings-for-the-serialisation-stage" title="Permalink to this headline">¶</a></h3>
 <p>This section of the configuration file deals with the <a class="reference internal" href="Serialise.html#serialise"><span class="std std-ref">serialisation stage of Mikado</span></a>. It specifies the location of the ORF BED12 files from TransDecoder, the location of the XML files from BLAST, the location of portcullis junctions, and other details important at run time. It has the following voices:</p>
 <ul>
 <li><p class="first">discard_definition: boolean. This is used to specify whether we will use the ID or the definition of the sequences when parsing BLAST results. This is important when BLAST data might have a mock, local identifier for the sequence (&#8220;lcl|1&#8221;) rather than its original ID.</p>
@@ -318,8 +324,230 @@
 <p class="last">The most expensive operation in a &#8220;Mikado serialise&#8221; run is by far the serialisation of the BLAST files. Splitting the input files in multiple chunks, and analysing them separately, allows Mikado to parallelise the analysis of the BLAST results. If a single monolythic XML/ASN file is produced, by contrast, Mikado will be quite slow as it will have to parse it all.</p>
 </div>
 </div>
+<div class="section" id="settings-for-the-pick-stage">
+<span id="misc-settings"></span><h3>1.1.5. Settings for the pick stage<a class="headerlink" href="#settings-for-the-pick-stage" title="Permalink to this headline">¶</a></h3>
+<p>This section of the configuration file deals with the <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">picking stage of Mikado</span></a>. It specifies details on how to handle BLAST and ORF data, which alternative splicing events are considered as valid during the final stages of the picking, and other important algorithmic details. The section comprises the following subsections:</p>
+<ul class="simple">
+<li>alternative_splicing: Options related to which AS events are considered as valid for the primary transcript in a locus.</li>
+<li>chimera_split: Options related to how to handle transcripts with multiple valid ORFs.</li>
+<li>files: Input and output files.</li>
+<li>orf_loading: Options related to how to decide which ORFs to load onto each transcript.</li>
+<li>output_format: options related to how to format the names of the transcripts, the source field of the GFFs, etc.</li>
+<li>run_options: Generic options related either to the general algorithm or to the number of resources requested.</li>
+</ul>
+<ul class="simple">
+<li>scoring_file: This value specifies the <span class="xref std std-ref">scoring file</span> to be used for Mikado. These can be found in Mikado.configuration.scoring_files.</li>
+</ul>
+<div class="admonition hint">
+<p class="first admonition-title">Hint</p>
+<p class="last">It is possible to ask for the configuration file to be copied in-place for customisation when calling <code class="docutils literal"><span class="pre">mikado</span> <span class="pre">configure</span></code>.</p>
+</div>
+<ul class="simple">
+<li>source_score: in this section, it is possible to specify boni/mali to be assigned to specific labels. Eg, it might be possible to assign a bonus of 1 to any transcript coming from PacBio reads, or a malus to any transcript coming from a given assembler. Example of such a configuration:</li>
+</ul>
+<div class="highlight-yaml"><div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">pick</span><span class="p p-Indicator">:</span>
+    <span class="l l-Scalar l-Scalar-Plain">source_score</span><span class="p p-Indicator">:</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">Cufflinks</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">0</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">Trinity</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">0</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">PacBio</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+        <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">Stringtie</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+</pre></div>
+</div>
+<p>In this example, we asked Mikado to consider Stringtie transcripts as more trustworthy than the rest (1 additional point), and PacBio transcripts even more so (2 additional points).</p>
+<p>Each subsection of the pick configuration will be explained in its own right.</p>
+</div>
+</div>
+<div class="section" id="parameters-regarding-the-alternative-splicing">
+<h2>1.2. Parameters regarding the alternative splicing<a class="headerlink" href="#parameters-regarding-the-alternative-splicing" title="Permalink to this headline">¶</a></h2>
+<p>After selecting the best model for each locus, Mikado will backtrack and try to select valid alternative splicing events. This section deals with how Mikado will operate the selection. There are the following available parameters:</p>
+<ul class="simple">
+<li>report: boolean. Whether to calculate and report possible alternative splicing events at all. By default this is set to true; <em>setting this parameter to false will inactivate all the options in this section</em>.</li>
+<li>keep_retained_introns: boolean. It specifies whether transcripts with retained introns will be retained. A retained intron is defined as an exon at least partly non-coding, whose non-coding part falls within the intron of another transcript (so, retained intron events which yield a valid ORF will not be excluded). By default, such transcripts will be excluded.</li>
+<li>max_fiveutr_length: maximum 5&#8217; UTR length of any alternative splicing transcript. By default, this is set to 1Mbps, <em>de facto</em> inactivating this filter.</li>
+<li>max_threeutr_length: maximum 3&#8217; UTR length of any alternative splicing transcript. By default, this is set to 1Mbps, <em>de facto</em> inactivating this filter.</li>
+<li>max_utr_length: maximum total UTR length of any alternative splicing transcript. By default, this is set to 1Mbps, <em>de facto</em> inactivating this filter.</li>
+<li>min_cdna_overlap: minimum cDNA overlap between the primary transcript and the AS candidate. By default, this is set to 0 and we rely only on the class code and the CDS overlap. It must be a number between 0 and 1.</li>
+<li>min_cds_overlap: minimum CDS overlap between the primary transcript and the AS candidate. By default this is set to 0.6, ie 60%. It must be a number between 0 and 1.</li>
+<li>min_score_perc: Minimum percentage of the score of the primary transcript that any candidate AS must have to be considered. By default, this is set to 0.6 (60%). It must be a number between 0 and 1.</li>
+<li>only_confirmed_introns: boolean. This parameter determines whether to consider only transcripts whose introns are confirmed <a class="reference internal" href="#reliable-junctions"><span class="std std-ref">in the dataset of reliable junctions</span></a>, or whether to consider all possible candidate transcripts.</li>
+<li>redundant_ccodes: any candidate AS will be <a class="reference internal" href="Compare.html#compare"><span class="std std-ref">compared</span></a> against all the transcripts already retained in the locus. If any of these comparisons returns one of the <a class="reference internal" href="Compare.html#ccodes"><span class="std std-ref">class codes</span></a> specified in this array, <strong>the transcript will be ignored</strong>. Default class codes: =, _, m, c, n, C</li>
+<li>valid_ccodes: any candidate AS will be <a class="reference internal" href="Compare.html#compare"><span class="std std-ref">compared</span></a> against <em>the primary transcript</em> to determine the type of AS event. If the <a class="reference internal" href="Compare.html#ccodes"><span class="std std-ref">class code</span></a> is one of those specified in this array, the transcript will be considered further. Default class codes: j, J, g, G, h.</li>
+</ul>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">the AS transcript event does not need to be a valid AS event for <em>all</em> transcripts in the locus, only against the <em>primary</em> transcript.</p>
+</div>
+<div class="highlight-yaml"><div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">pick</span><span class="p p-Indicator">:</span>
+  <span class="c1">#  - scoring_file: a scoring file for the analysis. Default: plants.yaml.</span>
+  <span class="c1">#  - source_score: a dictionary with pre-defined scores to assign to the transcripts</span>
+  <span class="c1">#  according to their source. Eg all Cufflinks transcripts from the seed (label:</span>
+  <span class="c1">#  &quot;cuff_seed&quot;) could be assigned a default additional score of 1.</span>
+  <span class="l l-Scalar l-Scalar-Plain">alternative_splicing</span><span class="p p-Indicator">:</span>
+    <span class="c1">#  Parameters related to alternative splicing reporting.</span>
+    <span class="c1">#  - report: whether to report at all or not the AS events.</span>
+    <span class="c1">#  - min_cds_overlap: minimum overlap between the CDS of the primary transcript</span>
+    <span class="c1">#  and any AS event. Default: 60%.</span>
+    <span class="c1">#  - min_cdna_overlap: minimum overlap between the CDNA of the primary transcript</span>
+    <span class="c1">#  and any AS event.</span>
+    <span class="c1">#  Default: 0% i.e. disabled, we check for the CDS overlap.</span>
+    <span class="c1">#  - keep_retained_introns: Whether to consider as valid AS events where one intron</span>
+    <span class="c1">#  is retained compared to the primary or any other valid AS. Default: false.</span>
+    <span class="c1">#  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.</span>
+    <span class="c1">#  Default: 3</span>
+    <span class="c1">#  - valid_ccodes: Valid class codes for AS events. See documentation for details.</span>
+    <span class="c1">#  Choices:</span>
+    <span class="c1">#  j, n, O, e, o, h, J, C, mo. Default: j, J, O, mo</span>
+    <span class="c1">#  - max_utr_length: Maximum length of the UTR for AS events. Default: 10e6 (i.e.</span>
+    <span class="c1">#  no limit)</span>
+    <span class="c1">#  - max_fiveutr_length: Maximum length of the 5UTR for AS events. Default:</span>
+    <span class="c1">#  10e6 (i.e. no limit)</span>
+    <span class="c1">#  - max_threeutr_length: Maximum length of the 5UTR for AS events. Default:</span>
+    <span class="c1">#  10e6 (i.e. no limit)</span>
+    <span class="c1">#  - min_score_perc: Minimum score threshold for subsequent AS events.</span>
+    <span class="c1">#   Only transcripts with a score at least (best) * value are retained.</span>
+    <span class="c1">#  - only_confirmed_introns: bring back AS events only when their introns are</span>
+    <span class="c1">#  either</span>
+    <span class="c1">#   present in the primary transcript or in the set of confirmed introns.</span>
+    <span class="l l-Scalar l-Scalar-Plain">keep_retained_introns</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">max_fiveutr_length</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1000000</span>
+    <span class="l l-Scalar l-Scalar-Plain">max_isoforms</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">3</span>
+    <span class="l l-Scalar l-Scalar-Plain">max_threeutr_length</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1000000</span>
+    <span class="l l-Scalar l-Scalar-Plain">max_utr_length</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1000000</span>
+    <span class="l l-Scalar l-Scalar-Plain">min_cdna_overlap</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">0</span>
+    <span class="l l-Scalar l-Scalar-Plain">min_cds_overlap</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">0.6</span>
+    <span class="l l-Scalar l-Scalar-Plain">min_score_perc</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">0.6</span>
+    <span class="l l-Scalar l-Scalar-Plain">only_confirmed_introns</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">redundant_ccodes</span><span class="p p-Indicator">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">c</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">m</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">_</span>
+    <span class="p p-Indicator">-</span> <span class="s">&#39;=&#39;</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">n</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">C</span>
+    <span class="l l-Scalar l-Scalar-Plain">report</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">true</span>
+    <span class="l l-Scalar l-Scalar-Plain">valid_ccodes</span><span class="p p-Indicator">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">j</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">J</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">G</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">g</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">h</span>
+  <span class="l l-Scalar l-Scalar-Plain">chimera_split</span><span class="p p-Indicator">:</span>
+    <span class="c1">#  Parameters related to the splitting of transcripts in the presence of</span>
+    <span class="c1">#  two or more ORFs. Parameters:</span>
+    <span class="c1">#  - execute: whether to split multi-ORF transcripts at all. Boolean.</span>
+    <span class="c1">#  - blast_check: whether to use BLAST information to take a decision. See blast_params</span>
+    <span class="c1">#  for details.</span>
+    <span class="c1">#  - blast_params: Parameters related to which BLAST data we want to analyse.</span>
+    <span class="l l-Scalar l-Scalar-Plain">blast_check</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">true</span>
+    <span class="l l-Scalar l-Scalar-Plain">blast_params</span><span class="p p-Indicator">:</span>
+      <span class="c1">#  Parameters for the BLAST check prior to splitting.</span>
+      <span class="c1">#  - evalue: Minimum evalue for the whole hit. Default: 1e-6</span>
+      <span class="c1">#  - hsp_evalue: Minimum evalue for any HSP hit (some might be discarded even</span>
+      <span class="c1">#  if the whole hit is valid). Default: 1e-6</span>
+      <span class="c1">#  - leniency: One of STRINGENT, LENIENT, PERMISSIVE. Default: LENIENT</span>
+      <span class="c1">#  - max_target_seqs: maximum number of hits to consider. Default: 3</span>
+      <span class="c1">#  - minimal_hsp_overlap: minimum overlap of the ORF with the HSP (*not* reciprocal).</span>
+      <span class="c1">#  Default: 0.8, i.e. 80%</span>
+      <span class="c1">#  - min_overlap_duplication: minimum overlap (in %) for two ORFs to consider</span>
+      <span class="c1">#  them as target duplications.</span>
+      <span class="c1">#    This means that if two ORFs have no HSPs in common, but the coverage of</span>
+      <span class="c1">#  their disjoint HSPs covers more</span>
+      <span class="c1">#    Than this % of the length of the *target*, they represent most probably</span>
+      <span class="c1">#  a duplicated gene.</span>
+      <span class="l l-Scalar l-Scalar-Plain">evalue</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1.0e-06</span>
+      <span class="l l-Scalar l-Scalar-Plain">hsp_evalue</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1.0e-06</span>
+      <span class="l l-Scalar l-Scalar-Plain">leniency</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">LENIENT</span>
+      <span class="l l-Scalar l-Scalar-Plain">max_target_seqs</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">3</span>
+      <span class="l l-Scalar l-Scalar-Plain">min_overlap_duplication</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">0.8</span>
+      <span class="l l-Scalar l-Scalar-Plain">minimal_hsp_overlap</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">0.9</span>
+    <span class="l l-Scalar l-Scalar-Plain">execute</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">true</span>
+  <span class="l l-Scalar l-Scalar-Plain">files</span><span class="p p-Indicator">:</span>
+    <span class="c1">#  Input and output files for Mikado pick.</span>
+    <span class="c1">#  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf</span>
+    <span class="c1">#  - loci_out: output GFF3 file from Mikado pick. Default: mikado.loci.gff3</span>
+    <span class="c1">#  - subloci_out: optional GFF file with the intermediate subloci. Default: no</span>
+    <span class="c1">#  output</span>
+    <span class="c1">#  - monoloci_out: optional GFF file with the intermediate monoloci. Default:</span>
+    <span class="c1">#  no output</span>
+    <span class="c1">#  - log: log file for this step.</span>
+    <span class="l l-Scalar l-Scalar-Plain">input</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">mikado_prepared.gtf</span>
+    <span class="l l-Scalar l-Scalar-Plain">loci_out</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">mikado.loci.gff3</span>
+    <span class="l l-Scalar l-Scalar-Plain">log</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">mikado_pick.log</span>
+    <span class="l l-Scalar l-Scalar-Plain">monoloci_out</span><span class="p p-Indicator">:</span> <span class="s">&#39;&#39;</span>
+    <span class="l l-Scalar l-Scalar-Plain">output_dir</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">.</span>
+    <span class="l l-Scalar l-Scalar-Plain">subloci_out</span><span class="p p-Indicator">:</span> <span class="s">&#39;&#39;</span>
+  <span class="l l-Scalar l-Scalar-Plain">orf_loading</span><span class="p p-Indicator">:</span>
+    <span class="c1">#  Parameters related to ORF loading.</span>
+    <span class="c1">#  - minimal_secondary_orf_length: Minimum length of a *secondary* ORF</span>
+    <span class="c1">#    to be loaded after the first, in bp. Default: 200 bps</span>
+    <span class="c1">#  - minimal_orf_length: Minimum length in bps of an ORF to be loaded,</span>
+    <span class="c1">#    as the primary ORF, onto a transcript. Default: 50 bps</span>
+    <span class="c1">#  - strand_specific: Boolean flag. If set to true, monoexonic transcripts</span>
+    <span class="c1">#    will not have their ORF reversed even if they would have an ORF on the opposite</span>
+    <span class="c1">#  strand.</span>
+    <span class="l l-Scalar l-Scalar-Plain">minimal_orf_length</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">50</span>
+    <span class="l l-Scalar l-Scalar-Plain">minimal_secondary_orf_length</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">200</span>
+    <span class="l l-Scalar l-Scalar-Plain">strand_specific</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">true</span>
+  <span class="l l-Scalar l-Scalar-Plain">output_format</span><span class="p p-Indicator">:</span>
+    <span class="c1">#  Parameters related to the output format.</span>
+    <span class="c1">#    - source: prefix for the source field in the mikado output.</span>
+    <span class="c1">#    - id_prefix: prefix for the ID of the genes/transcripts in the output</span>
+    <span class="l l-Scalar l-Scalar-Plain">id_prefix</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">mikado</span>
+    <span class="l l-Scalar l-Scalar-Plain">report_all_orfs</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">source</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Mikado</span>
+  <span class="l l-Scalar l-Scalar-Plain">run_options</span><span class="p p-Indicator">:</span>
+    <span class="c1">#  Generic run options.</span>
+    <span class="c1">#  - shm: boolean flag. If set and the DB is sqlite, it will be copied onto the</span>
+    <span class="c1">#  /dev/shm faux partition</span>
+    <span class="c1">#  - shm_db: String. It indicates a DB that has to be copied onto SHM and left</span>
+    <span class="c1">#  there for</span>
+    <span class="c1">#    concurrent Mikado runs.</span>
+    <span class="c1">#  - shm_shared: boolean flag. If set, the database loaded onto SHM will be shared</span>
+    <span class="c1">#  and should not be</span>
+    <span class="c1">#    deleted at the end of the run (see shm_db).</span>
+    <span class="c1">#    for faster access. Default: false</span>
+    <span class="c1">#  - exclude_cds: boolean flag. If set, the CDS information will not be printed</span>
+    <span class="c1">#  in Mikado output. Default: false</span>
+    <span class="c1">#  - purge: boolean flag. If set, all loci where all transcripts have a score</span>
+    <span class="c1">#  of 0 will be excluded</span>
+    <span class="c1">#    from the output. Default: false</span>
+    <span class="c1">#  - remove_overlapping_fragments: boolean flag. If set, fragments (defined as</span>
+    <span class="c1">#  monoexonic loci</span>
+    <span class="c1">#    classified as P,x,i or p compared to another locus, will be removed from</span>
+    <span class="c1">#  the output.</span>
+    <span class="c1">#  - fragments_maximal_cds: a locus will never be considered a fragment if its</span>
+    <span class="c1">#  longest CDS is over</span>
+    <span class="c1">#    this length. Default: 100 bps.</span>
+    <span class="c1">#  - fragments_maximal_exons: a locus will never be considered a fragment if its</span>
+    <span class="c1">#  representative transcript</span>
+    <span class="c1">#    has more than this number of exons. Default: 2</span>
+    <span class="c1">#  - procs: number of processes to use. Default: 1</span>
+    <span class="c1">#  - preload: boolean flag. If set, the whole database will be preloaded into</span>
+    <span class="c1">#  memory for faster access. Useful when</span>
+    <span class="c1">#    using SQLite databases.</span>
+    <span class="c1">#  - single_thread: boolean flag. If set, multithreading will be disabled - useful</span>
+    <span class="c1">#  for profiling and debugging.</span>
+    <span class="l l-Scalar l-Scalar-Plain">exclude_cds</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">flank</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1000</span>
+    <span class="l l-Scalar l-Scalar-Plain">fragments_maximal_cds</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">100</span>
+    <span class="l l-Scalar l-Scalar-Plain">fragments_maximal_exons</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">2</span>
+    <span class="l l-Scalar l-Scalar-Plain">intron_range</span><span class="p p-Indicator">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">60</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">900</span>
+    <span class="l l-Scalar l-Scalar-Plain">preload</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">procs</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">1</span>
+    <span class="l l-Scalar l-Scalar-Plain">purge</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">remove_overlapping_fragments</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">true</span>
+    <span class="l l-Scalar l-Scalar-Plain">shm</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">shm_db</span><span class="p p-Indicator">:</span> <span class="s">&#39;&#39;</span>
+    <span class="l l-Scalar l-Scalar-Plain">single_thread</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+    <span class="l l-Scalar l-Scalar-Plain">subloci_from_cds_only</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+  <span class="l l-Scalar l-Scalar-Plain">scoring_file</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">/usr/users/ga002/venturil/workspace/mikado/Mikado/configuration/scoring_files/plants.yaml</span>
+  <span class="l l-Scalar l-Scalar-Plain">source_score</span><span class="p p-Indicator">:</span> <span class="p p-Indicator">{}</span>
+</pre></div>
+</div>
 <div class="section" id="miscellanea">
-<span id="misc-settings"></span><h3>5.1.1.5. Miscellanea<a class="headerlink" href="#miscellanea" title="Permalink to this headline">¶</a></h3>
+<h3>1.2.1. Miscellanea<a class="headerlink" href="#miscellanea" title="Permalink to this headline">¶</a></h3>
 <p>It is possible to set high-level settings for the logs in the <code class="docutils literal"><span class="pre">log_settings</span></code> section:</p>
 <ul class="simple">
 <li>log_level: level of the logging for Mikado. Options: <em>DEBUG, INFO, WARNING, ERROR, CRITICAL</em>. By default, Mikado will be quiet and output log messages of severity <em>WARNING</em> or greater.</li>
@@ -350,7 +578,7 @@
 </div>
 </div>
 <div class="section" id="technical-details">
-<h2>5.1.2. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<h2>1.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
 <p>The configuration file obeys a specific JSON schema which can be found at <a class="reference download internal" href="../_downloads/configuration_blueprint.json" download=""><code class="xref download docutils literal"><span class="pre">Mikado/configuration/configuration_blueprint.json</span></code></a>. Every time a Mikado utility is launched, it checks the configuration file against the schema to validate it. The schema contains non-standard &#8220;Comment&#8221; and &#8220;SimpleComment&#8221; string arrays which are used at runtime to generate the comment strings in the YAML output.</p>
 </div>
 </div>
@@ -368,7 +596,7 @@
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="Prepare.html" title="5.2. Mikado prepare"
+          <a href="Prepare.html" title="2. Mikado prepare"
              >next</a> |</li>
         <li class="right" >
           <a href="../Usage.html" title="4. Usage"

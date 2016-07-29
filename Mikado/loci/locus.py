@@ -241,7 +241,6 @@ class Locus(Sublocus, Abstractlocus):
     def other_is_fragment(self,
                           other,
                           minimal_cds_length=0,
-                          minimal_cdna_length=0,
                           minimal_exons=2):
         """
         :param other: another Locus to compare against
@@ -251,7 +250,7 @@ class Locus(Sublocus, Abstractlocus):
         a Locus as non-fragment, no matter the ccode.
         :type minimal_cds_length: int
 
-        :param minimal_cds_length: Minimal cDNA length to consider
+        :param minimal_exons: Maximum number of exons to consider a
         a Locus as non-fragment, no matter the ccode.
         :type minimal_cds_length: int
 

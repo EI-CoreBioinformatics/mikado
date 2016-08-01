@@ -13,8 +13,7 @@ def main():
     """Main script class."""
 
     parser = argparse.ArgumentParser(
-        description='''This script is basically an efficient version of the GNU "grep -f" utility,
-        and functions with a similar sintax.''')
+        description='''This script is basically an efficient version of the GNU "grep -f" utility for table-like files, and functions with a similar sintax.''')
     parser.add_argument('-v', '--reverse', action='store_true', default=False,
                         help='Equivalent to the "-v" grep option')
     parser.add_argument('-s', '--separator', type=str, default=None,

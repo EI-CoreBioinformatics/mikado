@@ -62,26 +62,29 @@ def load_junctions(args, logger):
     :return:
     """
 
-    if args.json_conf["serialise"]["files"]["junctions"] is not None:
-        if args.json_conf["reference"]["genome_fai"] is None:
-            exc = InvalidJson(
-                "Missing the genome FAI file for serialising the junctions. \
-I cannot proceed with this step!")
-            logger.exception(exc)
-            raise exc
+    if args.json_conf["serialise"]["files"]["junctions"] is None:
+        logger.info("Skipping junction loading as no junctions have been provided.")
+        return
 
-        logger.info("Starting to load junctions: %s",
-                    args.json_conf["serialise"]["files"]["junctions"])
-        for junction_file in iter(
-                j_file for j_file in args.json_conf["serialise"]["files"]["junctions"]
-                if j_file != ''):
-            logger.info("Loading junctions: %s", junction_file)
-            serializer = junction.JunctionSerializer(
-                junction_file,
-                json_conf=args.json_conf,
-                logger=logger)
-            serializer()
-        logger.info("Loaded junctions")
+    if not args.json_conf["reference"]["genome"]:
+        exc = InvalidJson(
+            "Missing the genome FAI file for serialising the junctions. \
+I cannot proceed with this step!")
+        logger.exception(exc)
+        raise exc
+
+    logger.info("Starting to load junctions: %s",
+                args.json_conf["serialise"]["files"]["junctions"])
+    for junction_file in iter(
+            j_file for j_file in args.json_conf["serialise"]["files"]["junctions"]
+            if j_file != ''):
+        logger.info("Loading junctions: %s", junction_file)
+        serializer = junction.JunctionSerializer(
+            junction_file,
+            json_conf=args.json_conf,
+            logger=logger)
+        serializer()
+    logger.info("Loaded junctions")
 
 
 def load_blast(args, logger):

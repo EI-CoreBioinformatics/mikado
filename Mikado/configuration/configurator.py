@@ -11,8 +11,7 @@ import os.path
 import io
 import re
 import yaml
-import subprocess
-from distutils import spawn
+import pkg_resources
 from ..exceptions import InvalidJson, UnrecognizedRescaler
 from ..loci.transcript import Transcript
 from ..utilities import merge_dictionaries
@@ -25,7 +24,7 @@ from pkg_resources import resource_stream, resource_filename
 __author__ = "Luca Venturini"
 
 
-def extend_with_default(validator_class, simple=False):
+def extend_with_default(validator_class, resolver=None, simple=False):
     """
     Function to extend the normal validation classes for jsonschema
     so that they also set the default values provided inside the schema
@@ -60,6 +59,12 @@ def extend_with_default(validator_class, simple=False):
         for prop, subschema in properties.items():
             if instance is None:
                 instance = dict()
+            if "$ref" in subschema:
+                # Automatically resolve and load the reference
+                assert resolver is not None
+                properties[prop] = resolver.resolve(subschema["$ref"])[1]
+                # subschema = resolver.resolve(subschema["$ref"])[1]
+                subschema = properties[prop]
             if "default" in subschema:
                 instance.setdefault(prop, subschema["default"])
             elif prop not in instance:
@@ -75,6 +80,7 @@ def extend_with_default(validator_class, simple=False):
                     instance[prop] = set_default(instance[prop],
                                                  subschema["properties"],
                                                  simple_comment=simple_comment)
+
         return instance
 
     def set_defaults(validator, properties, instance, schema):
@@ -271,72 +277,6 @@ def check_requirements(json_conf, require_schema):
     return json_conf
 
 
-def check_blast(json_conf, json_file):
-    """
-    :param json_conf: configuration dictionary to check.
-    :type json_conf: dict
-
-    :param json_file: the original JSON file name (necessary to derive its parent folder)
-    :type json_file: str
-
-    Function to check the optional "blast" section of the configuration.
-    It will be created (with "execute" set to False) if it is missing.
-
-    :return: json_conf
-    :rtype dict
-    """
-
-    if json_conf["blast"]["execute"] is False:
-        return json_conf
-
-    json_conf["blast"]["program"] = spawn.find_executable(
-        json_conf["blast"]["program"])
-
-    if "database" not in json_conf["blast"]:
-        raise InvalidJson("No BLAST database provided!")
-    json_conf["blast"]["database"] = os.path.abspath(json_conf["blast"]["database"])
-    if not os.path.exists(json_conf["blast"]["database"]):
-        database = os.path.join(
-            os.path.dirname(json_file),
-            os.path.basename(json_conf["blast"]["database"])
-        )
-        if not os.path.exists(database):
-            if os.path.exists("{0}.gz".format(database)):
-                retcode = subprocess.call("gzip -dc {0}.gz > {0}".format(database), shell=True)
-                if retcode != 0:
-                    raise InvalidJson(
-                        "Failed to decompress the BLAST database!")
-            else:
-                raise InvalidJson(
-                    """I need a valid BLAST database! This file does not exist:
-                    {0}""".format(json_conf["blast"]["database"]))
-        else:
-            json_conf["blast"]["database"] = os.path.abspath(database)
-    else:
-        json_conf["blast"]["database"] = os.path.abspath(
-            json_conf["blast"]["database"])
-
-    makeblastdb_cmd = os.path.join(
-        os.path.dirname(json_conf["blast"]["program"]), "makeblastdb")
-    assert os.path.exists(makeblastdb_cmd)
-    retcode = 0
-    program = os.path.basename(json_conf["blast"]["program"])
-    if program == "blastx" and not os.path.exists("{0}.pog".format(
-            json_conf["blast"]["database"])):
-        retcode = subprocess.call(
-            "{0} -in {1} -dbtype prot -parse_seqids".format(
-                makeblastdb_cmd, json_conf["blast"]["database"]), shell=True)
-    elif program in ("blastn", "tblastx") and not os.path.exists("{0}.nog".format(
-            json_conf["blast"]["database"])):
-        retcode = subprocess.call(
-            "{0} -in {1} -dbtype nucl -parse_seqids".format(
-                makeblastdb_cmd, json_conf["blast"]["database"]), shell=True)
-    if retcode != 0:
-        raise OSError("BLAST indexing failed.")
-
-    return json_conf
-
-
 def check_db(json_conf):
 
     """
@@ -396,16 +336,20 @@ def create_validator(simple=False):
     validator = extend_with_default(jsonschema.Draft4Validator,
                                     simple=simple)
 
+    resolver = jsonschema.RefResolver("file:///{}".format(os.path.abspath(
+        os.path.dirname(pkg_resources.resource_filename(__name__, __file__))
+    )), None)
+
     with io.TextIOWrapper(resource_stream(__name__,
                                           "configuration_blueprint.json")) as blue:
         blue_print = json.load(blue)
 
-    validator = validator(blue_print)
+    validator = validator(blue_print, resolver=resolver)
 
     return validator
 
 
-def check_json(json_conf, simple=False):
+def check_json(json_conf, simple=False, external_dict=None):
 
     """
     Wrapper for the various checks performed on the configuration file.
@@ -416,6 +360,9 @@ def check_json(json_conf, simple=False):
     :param simple: boolean flag indicating whether we desire
                    the simplified version of the configuration, or not.
     :type simple: bool
+
+    :param external_dict: optional external dictionary with values to pass to the configuration.
+    :type external_dict: (dict|None)
 
     :return json_conf
     :rtype: dict
@@ -478,6 +425,12 @@ def check_json(json_conf, simple=False):
             raise InvalidJson(
                 "Invalid scoring file: {0}".format(
                     json_conf["pick"]["scoring_file"]))
+
+    if external_dict is not None:
+        if not isinstance(external_dict, dict):
+            raise TypeError("Passed an invalid external dictionary, type {}".format(
+                type(external_dict)))
+        json_conf = merge_dictionaries(json_conf, external_dict)
 
     json_conf = check_db(json_conf)
     # json_conf = check_blast(json_conf, json_file)

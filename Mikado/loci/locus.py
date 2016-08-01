@@ -250,7 +250,7 @@ class Locus(Sublocus, Abstractlocus):
         a Locus as non-fragment, no matter the ccode.
         :type minimal_cds_length: int
 
-        :param minimal_cds_length: Minimal cDNA length to consider
+        :param minimal_exons: Maximum number of exons to consider a
         a Locus as non-fragment, no matter the ccode.
         :type minimal_cds_length: int
 

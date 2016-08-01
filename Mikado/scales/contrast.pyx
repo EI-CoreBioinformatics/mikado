@@ -70,7 +70,7 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, dou
 
             if index == -1:
                 # Completely contained inside
-                ccode = "mo"
+                ccode = "g"
             elif index == 0:
                 over = overlaps[0]
                 i_length = introns[0]
@@ -79,25 +79,22 @@ cdef str __assign_monoexonic_ccode(prediction, reference, long nucl_overlap, dou
                 if (10 < over < i_length) and (r_start < p_start < p_end < r_end):
                     ccode = "e"
                 else:
-                    ccode = "mo"
+                    ccode = "g"
             elif index > 1:
-                ccode = "mo"
+                ccode = "g"
             elif index == 1:
                 over_left, over_right = overlaps[0], overlaps[1]
                 if over_left < 10 and over_right < 10:
-                    ccode = "mo"
+                    ccode = "g"
                 else:
                     ccode = "e"
         elif nucl_overlap > 0:
-            ccode = "mo"
+            ccode = "g"
         elif (nucl_recall == 0 and r_start < p_start < r_end):
             ccode = "i"  # Monoexonic fragment inside an intron
     elif p_exon_num > 1 and r_exon_num == 1:
-        # if nucl_recall == 1:
-        #     ccode = "h"  # Extension
-        # else:
         if nucl_overlap > 0:
-            ccode = "O"  # Reverse generic overlap
+            ccode = "G"  # Reverse generic overlap
         elif c_overlap(p_start, p_end, r_start, r_end, 0, 1) > 0:
             ccode = "ri"
         else:
@@ -284,7 +281,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
            junction in common.
     - O    Reverse generic overlap - the reference is monoexonic while the prediction isn't
     - P    Possible polymerase run-on fragment
-    - mo   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic
+    - g   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic
     (within 2K bases of a reference transcript), on the opposite strand
 
     This is a class method, and can therefore be used outside of a class instance.
@@ -438,7 +435,7 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
     if (p_strand != r_strand):
 
         if (p_strand != "" and r_strand != ""):
-            if ccode in ("e", "mo", "c", "m", "_", "C"):
+            if ccode in ("e", "g", "c", "m", "_", "C"):
                 ccode = "x"  # "x{0}".format(ccode)
             elif ccode not in ("u", "i", "I", "p", "P", "x"):
                 ccode = "X"  # "X{0}".format(ccode)

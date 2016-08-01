@@ -11,10 +11,12 @@ import os
 import argparse
 import datetime
 import time
+import json
 import yaml
 import snakemake
 from snakemake.utils import min_version
 from ..utilities.log_utils import create_default_logger
+from ..configuration.daijin_configurator import create_daijin_config
 import shutil
 import pkg_resources
 
@@ -101,27 +103,64 @@ def create_config_parser():
     """
 
     parser = argparse.ArgumentParser("""Configure the pipeline""")
-    parser.add_argument("-c", "--cluster_config",
+    runtime = parser.add_argument_group("Options related to how to run Daijin - threads, cluster configuration, etc.")
+    runtime.add_argument("-c", "--cluster_config",
                         type=str, default=None,
                         help="Cluster configuration file to write to.")
-    parser.add_argument("config", type=str,
-                        help="Configuration file to write to.")
-    parser.set_defaults(func=daijin_config)
+    runtime.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
+                        help="""Maximum number of threads per job. Default: %(default)s""")
+    runtime.add_argument("-od", "--out-dir", dest="out_dir", default=None, required=False,
+                        help="Output directory. Default if unspecified: chosen name.")
+    runtime.add_argument("-o", "--out", default=sys.stdout, type=argparse.FileType("w"),
+                    help="Output file. If the file name ends in \"json\", the file will be in JSON format; \
+                        otherwise, Daijin will print out a YAML file. Default: STDOUT.")
+    runtime.add_argument("--scheduler", default="", choices=["", "SLURM", "LSF", "PBS"],
+                        help="Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).")
+    reference = parser.add_argument_group("Arguments related to the reference species.")
+    reference.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
+    reference.add_argument("--genome", "-g", required=True,
+                        help="Reference genome for the analysis, in FASTA format. Required.")
+    reference.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.",
+                        default="")
+    paired_reads = parser.add_argument_group("Arguments related to the input paired reads.")
+    paired_reads.add_argument("-r1", "--left_reads", dest="r1",
+                        nargs="+",
+                        default=[], required=False,
+                        help="Left reads for the analysis. Required.")
+    paired_reads.add_argument("-r2", "--right_reads", dest="r2",
+                        nargs="+",
+                        default=[], required=False,
+                        help="Right reads for the analysis. Required.")
+    paired_reads.add_argument("-s", "--samples",
+                        nargs="+",
+                        default=[], required=False,
+                        help="Sample names for the analysis. Required.")
+    paired_reads.add_argument(
+        "-st", "--strandedness", nargs="+",
+        default=[], required=False, choices=["fr-unstranded", "fr-secondstrand", "fr-firststrand"],
+        help="Strandedness of the reads. Specify it 0, 1, or number of samples times. Choices: %(choices)s.")
+    parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat2"], required=True,
+                        default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
+    parser.add_argument("-as", "--assemblers", dest="asm_methods", required=True,
+                        choices=["class", "cufflinks", "stringtie", "trinity"],
+                        default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
+    mikado = parser.add_argument_group("Options related to the Mikado phase of the pipeline.")
+    # scoring = parser.add_argument_group("Options related to the scoring system")
+    mikado.add_argument("--scoring", type=str, default=None,
+                         choices=pkg_resources.resource_listdir(
+                             "Mikado", os.path.join("configuration", "scoring_files")),
+                         help="Available scoring files.")
+    mikado.add_argument("--copy-scoring", default=False,
+                         type=str, dest="copy_scoring",
+                         help="File into which to copy the selected scoring file, for modification.")
+    mikado.add_argument("-m", "--modes", default=["permissive"], nargs="+",
+                        choices=["nosplit", "split", "permissive", "stringent", "lenient"],
+                        required=False,
+                        help="Mikado pick modes to run. Choices: %(choices)s")
+    mikado.add_argument("--prot-db", dest="prot_db", default="",
+                        help="Protein database to compare against, for Mikado.")
+    parser.set_defaults(func=create_daijin_config)
     return parser
-
-
-def daijin_config(args):
-
-    with open(args.config, "wb") as out:
-        for line in pkg_resources.resource_stream("Mikado",
-                                                  os.path.join("daijin", "example_config.yaml")):
-            out.write(line)
-
-    if args.cluster_config is not None:
-        with open(args.cluster_config, "wb") as out:
-            for line in pkg_resources.resource_stream("Mikado",
-                                                      os.path.join("daijin", "hpc.yaml")):
-                out.write(line)
 
 
 # pylint: disable=too-many-locals
@@ -134,13 +173,18 @@ def assemble_transcripts_pipeline(args):
     :return:
     """
 
+    if args.config.endswith("json"):
+        loader = json.load
+    else:
+        loader = yaml.load
+
     with open(args.config, 'r') as _:
-        doc = yaml.load(_)
+        doc = loader(_)
 
     # pylint: disable=invalid-name
-    LABELS = doc["samples"]
-    R1 = doc["r1"]
-    R2 = doc["r2"]
+    LABELS = doc["short_reads"]["samples"]
+    R1 = doc["short_reads"]["r1"]
+    R2 = doc["short_reads"]["r2"]
     READS_DIR = doc["out_dir"] + "/1-reads"
     SCHEDULER = doc["scheduler"] if doc["scheduler"] else ""
     CWD = os.path.abspath(".")
@@ -202,8 +246,8 @@ def assemble_transcripts_pipeline(args):
         detailed_summary=args.detailed_summary,
         list_resources=args.list,
         latency_wait=60 if SCHEDULER else 1,
-        printdag=args.make_dag,
-        forceall=args.make_dag,
+        printdag=args.dag,
+        forceall=args.dag,
         forcerun=args.forcerun)
 # pylint: enable=too-many-locals
 
@@ -289,7 +333,7 @@ def main(call_args=None):
                           help="Creates the configuration files for Daijin execution.")
     subparsers.choices["configure"] = create_config_parser()
     subparsers.choices["configure"].prog = "daijin configure"
-    subparsers.choices["configure"].set_defaults(func=daijin_config)
+    subparsers.choices["configure"].set_defaults(func=create_daijin_config)
 
     subparsers.add_parser("assemble",
                           description="Creates transcript assemblies from RNAseq data.",

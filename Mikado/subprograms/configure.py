@@ -12,41 +12,52 @@ import argparse
 import sys
 from ..configuration import configurator
 from ..exceptions import InvalidJson
-from ..utilities import comma_split
+from ..utilities import comma_split, merge_dictionaries
 import json
 from collections import Counter
 
 __author__ = 'Luca Venturini'
 
 
-def check_has_requirements(dictionary, schema, key=None):
+def check_has_requirements(dictionary, schema, key=None, first_level=True):
 
     """
     Method to find all keys that
-:param dictionary:
-:param schema:
-:param key:
-:return:
-"""
+    :param dictionary:
+    :param schema:
+    :param key:
+    :return:
+    """
 
     required = []
 
     for new_key, value in dictionary.items():
         if isinstance(value, dict):
-            assert "properties" in schema[new_key]
+            assert "properties" in schema[new_key], new_key
             if "SimpleComment" in schema[new_key]:
                 required.append((key, new_key, "SimpleComment"))
             if "required" in schema[new_key]:
                 for req in schema[new_key]["required"]:
                     required.append((key, new_key, req))
 
-            for k in check_has_requirements(value, schema[new_key]["properties"], key=new_key):
+            for k in check_has_requirements(value, schema[new_key]["properties"],
+                                            key=new_key,
+                                            first_level=False):
                 if k is None:
                     continue
                 nkey = [key]
                 nkey.extend(k)
                 nkey = tuple(nkey)
                 required.append(nkey)
+        elif first_level is True:
+            if new_key in ("Comment", "SimpleComment"):
+                continue
+            elif new_key in schema:
+                # if "SimpleComment" in schema[new_key]:
+                #     required.append((key, new_key, "SimpleComment"))
+
+                if "required" in schema[new_key] and schema[new_key]["required"] is True:
+                    required.append([new_key])
         else:
             continue
 
@@ -130,6 +141,7 @@ def print_config(output, out):
         # comment found
         if line.lstrip().startswith(("Comment", "SimpleComment")) or comment:
             level = sum(1 for _ in itertools.takewhile(str.isspace, line))
+            line = re.sub("Comment:", "", re.sub("SimpleComment:", "", line))
             if comment:
                 if level > comment_level or line.lstrip().startswith("-"):
                     comment.append(line.strip())
@@ -172,6 +184,27 @@ def create_config(args):
         config = default
     else:
         config = create_simple_config()
+
+    if args.external is not None:
+        if args.external.endswith("json"):
+            loader = json.load
+        else:
+            loader = yaml.load
+        with open(args.external) as external:
+            external_conf = loader(external)
+        # Overwrite values specific to Mikado
+        if "mikado" in external_conf:
+            mikado_conf = dict((key, val) for key, val in external_conf["mikado"].items() if key in config)
+            config = configurator.merge_dictionaries(config, mikado_conf)
+        # Leave all other values, including those in a "mikado" section that are not also present in the default config
+        for key in config:
+            if key in external_conf:
+                del external_conf[key]
+            if "mikado" in external_conf and isinstance(external_conf["mikado"], dict):
+                __mikado_keys = [key for key in external_conf["mikado"] if key in config]
+                for key in __mikado_keys:
+                    del external_conf["mikado"][key]
+        config = configurator.merge_dictionaries(config, external_conf)
 
     if args.reference is not None:
         config["reference"]["genome"] = args.reference
@@ -311,6 +344,8 @@ def configure_parser():
     parser.add_argument("--labels", type=str, default="",
                         help="""Labels to attach to the IDs of the transcripts of the input files,
         separated by comma.""")
+    parser.add_argument("--external", help="""External configuration file to overwrite/add values from.
+    Parameters specified on the command line will take precedence over those present in the configuration file.""")
     parser.add_argument("--mode", default=None,
                         choices=["nosplit", "stringent", "lenient", "permissive", "split"],
                         help="""Mode in which Mikado will treat transcripts with multiple ORFs.

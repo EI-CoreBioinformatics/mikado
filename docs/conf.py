@@ -117,7 +117,7 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'nature'
+html_theme = 'sphinxdoc'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -234,8 +234,8 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (master_doc, 'Mikado.tex', 'Mikado Documentation',
-     'Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David', 'manual'),
-]
+     'Venturini Luca Caim Shabhonam Mapleson Daniel Kaithakottil Gemy George Swarbreck David',
+     'manual', False)]
 
 # The name of an image file (relative to this directory) to place at the top of
 # the title page.

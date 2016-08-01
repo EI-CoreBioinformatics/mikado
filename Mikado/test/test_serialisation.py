@@ -7,6 +7,8 @@ import Mikado
 import tempfile
 import sqlalchemy.orm
 from sqlalchemy import and_  # , or_
+from pkg_resources import resource_stream
+import gzip
 
 __author__ = 'Luca Venturini'
 
@@ -172,9 +174,16 @@ class TestLoadJunction(unittest.TestCase):
     def test_no_fai(self):
 
         db = tempfile.mktemp(suffix=".db")
+        genome_file = tempfile.NamedTemporaryFile("wb", suffix=".fa", prefix="Chr5", dir=".")
         jconf = self.json_conf.copy()
         jconf["db_settings"]["db"] = db
         jconf["reference"]["genome_fai"] = None
+        with resource_stream("Mikado.test", "chr5.fas.gz") as _:
+            genome_file.write(gzip.decompress(_.read()))
+        genome_file.flush()
+
+        jconf["reference"]["genome"] = genome_file.name
+
 
         seri = Mikado.serializers.junction.JunctionSerializer(
                 self.junction_file,
@@ -182,6 +191,7 @@ class TestLoadJunction(unittest.TestCase):
                 logger=self.logger
                 )
         seri()
+        genome_file.close()
 
     def test_invalid_bed12(self):
 

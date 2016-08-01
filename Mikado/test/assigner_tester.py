@@ -502,7 +502,7 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("mo",))
+        self.assertEqual(result.ccode, ("g",))
         self.assertEqual(result.j_f1, (0,))
         self.assertEqual(result.j_prec, (0,))
         self.assertEqual(result.j_recall, (0,))
@@ -916,10 +916,10 @@ class AssignerTester(unittest.TestCase):
         prediction.finalize()
 
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
-        self.assertEqual(result.ccode, ("mo",))
+        self.assertEqual(result.ccode, ("g",))
 
         result, _ = Mikado.scales.assigner.Assigner.compare(reference, prediction)
-        self.assertEqual(result.ccode, ("O",))
+        self.assertEqual(result.ccode, ("G",))
 
     def test_neighbors(self):
 

@@ -30,7 +30,7 @@ out_dir: "spombe_slurm"
 threads: "4"
 # Trinity max memory
 tgg_max_mem: "20G"
-# Scheduler: LSF,PBS,SLURM
+# Scheduler: LSF,PBS,SLURM, none
 scheduler: "SLURM"
 
 # Alignment methods to use. Supported tools: "tophat", "gsnap", "star", "hisat"
@@ -90,8 +90,7 @@ mikado:
         # Can run multiple mikado modes in parallel.  Available mikado modes: {"nosplit,"split","stringent","lenient","permissive"}
         modes: ["nosplit"]
 
-        # Available scoring models: {worm.yaml,insects.yaml,plants.yaml,human.yaml}
-        scoring: "plants.yaml"
+
 
 # Mikado configuration
 # ##################
@@ -110,6 +109,8 @@ db_settings:
 
 #Mikado picking
 pick:
+        # Available scoring models: {worm.yaml,insects.yaml,plants.yaml,human.yaml}
+        scoring: "plants.yaml"
         alternative_splicing:
                 #  Parameters related to alternative splicing reporting.
                 #  - report: whether to report at all or not the AS events.

@@ -169,6 +169,7 @@ Settings for the prepare stage
 
 This section of the configuration file deals with the :ref:`prepare stage of Mikado <prepare>`. It specifies the input files, their labels, and which of them are strand specific. The available fields are the following:
 
+.. _canonical-configuration:
 * canonical: this voice specifies the splice site donors and acceptors that are considered canonical for the species. By default, Mikado uses the canonical splice site (GT/AG) and the two semi-canonical pairs (GC/AG and AT/AC). Type: Array of two-element arrays, composed by two-letter strings.
 * lenient: boolean value. If set to *false*, transcripts that only have non-canonical splice sites will be **removed** from the output.
 * minimum_length: minimum length of the transcripts to be kept.

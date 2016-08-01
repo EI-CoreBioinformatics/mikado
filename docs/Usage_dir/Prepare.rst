@@ -30,6 +30,10 @@ During its run, Mikado prepare will also check the correctness of the transcript
 * If a transcript contains canonical splice junctions on **both** strands, it will be completely removed
 * If a transcript contains only non-canonical splice junctions, it will be removed *unless* the "lenient" option is specified either at the command line or in the configuration file.
 
+The couples of splice acceptors and donors which are considered as canonical :ref:`can be specified in the configuration file <canonical-configuration>`. By default, Mikado will consider as canonical both properly canonical splicing event (GT-AG) as well as the semi-canonical events (GC-AG, AT-AC). Any other couple will be considered as non-canonical.
+
+.. warning:: Mikado will check the strand of each junction inside a transcript *independently*. Therefore, if a transcript with 9 junctions on the plus strand is found to have a non-canonical splicing junction **which happens to be the reverse of a canonical one** (eg. CT-AC), it will deem this junction as misassigned to the wrong strand and flip it to the minus strand. In this example, the transcript will therefore be **considered as an error** as it contains both + and - junctions, and discarded.
+
 Output files
 ------------
 

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>6.1. Compare &mdash; Mikado 1.0.0b3 documentation</title>
+    <title>1. Compare &mdash; Mikado 1.0.0b3 documentation</title>
     
     <link rel="stylesheet" href="../_static/sphinxdoc.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -25,9 +25,9 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Mikado 1.0.0b3 documentation" href="../index.html" />
-    <link rel="up" title="4. Usage" href="../Usage.html" />
-    <link rel="next" title="6.2. The Daijin pipeline for driving Mikado" href="Daijin.html" />
-    <link rel="prev" title="5.4. Mikado pick" href="Pick.html" /> 
+    <link rel="up" title="Usage" href="../Usage.html" />
+    <link rel="next" title="2. The Daijin pipeline for driving Mikado" href="Daijin.html" />
+    <link rel="prev" title="4. Mikado pick" href="Pick.html" /> 
   </head>
   <body role="document">
     <div class="related" role="navigation" aria-label="related navigation">
@@ -37,43 +37,43 @@
           <a href="../genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="Daijin.html" title="6.2. The Daijin pipeline for driving Mikado"
+          <a href="Daijin.html" title="2. The Daijin pipeline for driving Mikado"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="Pick.html" title="5.4. Mikado pick"
+          <a href="Pick.html" title="4. Mikado pick"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">Usage</a> &raquo;</li> 
       </ul>
     </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">6.1. Compare</a><ul>
-<li><a class="reference internal" href="#overview">6.1.1. Overview</a></li>
-<li><a class="reference internal" href="#usage">6.1.2. Usage</a><ul>
-<li><a class="reference internal" href="#command-line">6.1.2.1. Command line</a></li>
+<li><a class="reference internal" href="#">1. Compare</a><ul>
+<li><a class="reference internal" href="#overview">1.1. Overview</a></li>
+<li><a class="reference internal" href="#usage">1.2. Usage</a><ul>
+<li><a class="reference internal" href="#command-line">1.2.1. Command line</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#output-files">6.1.3. Output files</a><ul>
-<li><a class="reference internal" href="#tmap-files">6.1.3.1. TMAP files</a></li>
-<li><a class="reference internal" href="#refmap-files">6.1.3.2. RefMap files</a></li>
-<li><a class="reference internal" href="#stats-files">6.1.3.3. Stats files</a></li>
+<li><a class="reference internal" href="#output-files">1.3. Output files</a><ul>
+<li><a class="reference internal" href="#tmap-files">1.3.1. TMAP files</a></li>
+<li><a class="reference internal" href="#refmap-files">1.3.2. RefMap files</a></li>
+<li><a class="reference internal" href="#stats-files">1.3.3. Stats files</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#class-codes">6.1.4. Class codes</a></li>
-<li><a class="reference internal" href="#technical-details">6.1.5. Technical details</a></li>
+<li><a class="reference internal" href="#class-codes">1.4. Class codes</a></li>
+<li><a class="reference internal" href="#technical-details">1.5. Technical details</a></li>
 </ul>
 </li>
 </ul>
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="Pick.html"
-                        title="previous chapter">5.4. Mikado pick</a></p>
+                        title="previous chapter">4. Mikado pick</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="Daijin.html"
-                        title="next chapter">6.2. The Daijin pipeline for driving Mikado</a></p>
+                        title="next chapter">2. The Daijin pipeline for driving Mikado</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -100,9 +100,9 @@
           <div class="body" role="main">
             
   <div class="section" id="compare">
-<span id="id1"></span><h1>6.1. Compare<a class="headerlink" href="#compare" title="Permalink to this headline">¶</a></h1>
+<span id="id1"></span><h1>1. Compare<a class="headerlink" href="#compare" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="overview">
-<h2>6.1.1. Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<h2>1.1. Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
 <dl class="docutils">
 <dt>This Mikado utility allows the user to compare the transcripts from any two annotations. Its output allows:</dt>
 <dd><ul class="first last simple">
@@ -115,7 +115,7 @@
 <p>Mikado compare has been directly inspired by the popular <a class="reference external" href="http://cole-trapnell-lab.github.io/cufflinks/cuffcompare/index.html">Cuffcompare</a> <a class="reference internal" href="../References.html#cufflinks" id="id2">[Cufflinks]</a> utility and by <a class="reference external" href="https://aegean.readthedocs.io/en/v0.16.0/parseval.html">ParsEval</a> <a class="reference internal" href="../References.html#parseval" id="id3">[ParsEval]</a>. Please note that while superficially similar to Cuffcompare in the style of the output files, Mikado compare is more philosophically similar to ParsEval, as it will not try to aggregate transcripts in loci but will perform a pure comparison between the two annotation files. Both GTF and GFF files are accepted, in any combination.</p>
 </div>
 <div class="section" id="usage">
-<h2>6.1.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<h2>1.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <p>Mikado compare is invoked by specifying the <em>reference</em> annotation and the desired mode of analysis. There are three possible options:</p>
 <blockquote>
 <div><ol class="arabic simple">
@@ -126,7 +126,7 @@
 </div></blockquote>
 <p>Mikado stores the information of the reference in a specialised index, with a &#8221;.midx&#8221; suffix, which will be created by the program upon its first execution with a new reference. If the index file is already present, Mikado will try to use it rather than read again the annotation.</p>
 <div class="section" id="command-line">
-<h3>6.1.2.1. Command line<a class="headerlink" href="#command-line" title="Permalink to this headline">¶</a></h3>
+<h3>1.2.1. Command line<a class="headerlink" href="#command-line" title="Permalink to this headline">¶</a></h3>
 <div class="highlight-bash"><div class="highlight"><pre><span></span>$ mikado compare --help
 usage: Mikado compare <span class="o">[</span>-h<span class="o">]</span> -r REFERENCE
                       <span class="o">(</span>-p PREDICTION <span class="p">|</span> --self <span class="p">|</span> --internal <span class="p">|</span> --index<span class="o">)</span>
@@ -173,10 +173,10 @@ Prediction and annotation files.:
 </div>
 </div>
 <div class="section" id="output-files">
-<h2>6.1.3. Output files<a class="headerlink" href="#output-files" title="Permalink to this headline">¶</a></h2>
+<h2>1.3. Output files<a class="headerlink" href="#output-files" title="Permalink to this headline">¶</a></h2>
 <p>Mikado compare produces two tabular files, <a class="reference internal" href="#tmap">tmap</a> and <a class="reference internal" href="#refmap">refmap</a>, and one <a class="reference internal" href="#stats"><span class="std std-ref">statistics</span></a> file.</p>
 <div class="section" id="tmap-files">
-<span id="tmap"></span><h3>6.1.3.1. TMAP files<a class="headerlink" href="#tmap-files" title="Permalink to this headline">¶</a></h3>
+<span id="tmap"></span><h3>1.3.1. TMAP files<a class="headerlink" href="#tmap-files" title="Permalink to this headline">¶</a></h3>
 <p>TMAP are tabular files that store the information regarding the best match for each prediction in the reference. The columns are as follows:</p>
 <ol class="arabic simple">
 <li><strong>ref_id</strong>: Transcript ID of the matched reference model(s).</li>
@@ -207,7 +207,7 @@ Prediction and annotation files.:
 <p>You can notice that the third example is particular as the prediction transcript matches not one but multiple reference transcripts. This is a <a class="reference internal" href="#fusion">fusion</a> event.</p>
 </div>
 <div class="section" id="refmap-files">
-<span id="refmap"></span><h3>6.1.3.2. RefMap files<a class="headerlink" href="#refmap-files" title="Permalink to this headline">¶</a></h3>
+<span id="refmap"></span><h3>1.3.2. RefMap files<a class="headerlink" href="#refmap-files" title="Permalink to this headline">¶</a></h3>
 <p>RefMap files are tabular files which store the information regarding the best match for each reference transcript, among all possible prediction models. The columns of the file are as follows:</p>
 <ol class="arabic simple">
 <li><strong>ref_id</strong>: Transcript ID of the reference model.</li>
@@ -235,7 +235,7 @@ Prediction and annotation files.:
 <p>Please note that the third example (AT5G66630.1) has as best possible match a <a class="reference internal" href="#fusion">fusion</a> event.</p>
 </div>
 <div class="section" id="stats-files">
-<span id="stats"></span><h3>6.1.3.3. Stats files<a class="headerlink" href="#stats-files" title="Permalink to this headline">¶</a></h3>
+<span id="stats"></span><h3>1.3.3. Stats files<a class="headerlink" href="#stats-files" title="Permalink to this headline">¶</a></h3>
 <p>These files provide a summary of the comparison between the reference and the annotation. An example is as follows:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">Command</span> <span class="n">line</span><span class="p">:</span>
 <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">users</span><span class="o">/</span><span class="n">ga002</span><span class="o">/</span><span class="n">venturil</span><span class="o">/</span><span class="n">py351</span><span class="o">/</span><span class="nb">bin</span><span class="o">/</span><span class="n">mikado</span> <span class="n">compare</span> <span class="o">-</span><span class="n">r</span> <span class="n">reference</span><span class="o">.</span><span class="n">gff3</span> <span class="o">-</span><span class="n">p</span> <span class="n">mikado</span><span class="o">.</span><span class="n">loci</span><span class="o">.</span><span class="n">gff3</span> <span class="o">-</span><span class="n">o</span> <span class="n">compare</span> <span class="o">-</span><span class="n">l</span> <span class="n">compare</span><span class="o">.</span><span class="n">log</span>
@@ -309,7 +309,7 @@ Prediction and annotation files.:
 </div>
 </div>
 <div class="section" id="class-codes">
-<span id="ccodes"></span><h2>6.1.4. Class codes<a class="headerlink" href="#class-codes" title="Permalink to this headline">¶</a></h2>
+<span id="ccodes"></span><h2>1.4. Class codes<a class="headerlink" href="#class-codes" title="Permalink to this headline">¶</a></h2>
 <p>In addition to recall, precision and F1 values, Mikado assign each comparison between two transcripts a <em>class code</em>, which summarises the relationship between the two transcripts. The idea is lifted from the popular tool <a class="reference external" href="http://cole-trapnell-lab.github.io/cufflinks/cuffcompare/index.html">Cuffcompare</a>, although Mikado greatly extends the catalogue of possible class codes.
 All class codes fall within one of the following categories:</p>
 <blockquote>
@@ -683,7 +683,7 @@ comparison.</td>
 </div>
 </div>
 <div class="section" id="technical-details">
-<h2>6.1.5. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<h2>1.5. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
 <p>Mikado compare conceptualizes the reference annotation as a collection of interval trees, one per chromosome or scaffold, where each node corresponds to an array of genes at the location. The gene and transcript objects are stored separately. The location of each transcript model in the prediction is queried against the tree, with a padding (default 2kbps) to allow for neighouring but non-overlapping genes, and the transcript itself is subsequently compared with each reference transcript contained in the hits. Each comparison will yield precision, recall and F1 values for the nucleotide, splice junction and exonic levels, together with an associated class code. The best match for the prediction is selected for by choosing the comparison yielding the best splice junction F1 and the best nucleotide F1, in this order. If the prediction transcript overlaps two or more genes on the same strand, and for at least two it has one match each with either 10% nucleotide recall or junction recall over 0%, it is deemed as a <a class="reference internal" href="#fusion">fusion</a> event, and its line in the <a class="reference internal" href="#tmap">tmap</a> file will report the best match against each of the fused genes, separated by comma.</p>
 <p>Each calculated match against a reference transcript is stored as a potential <em>best match</em> for the reference transcript. At the end of the run, the hits for each reference transcript will be ordered using the following function:</p>
 <div class="highlight-python"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
@@ -758,13 +758,13 @@ comparison.</td>
           <a href="../genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="Daijin.html" title="6.2. The Daijin pipeline for driving Mikado"
+          <a href="Daijin.html" title="2. The Daijin pipeline for driving Mikado"
              >next</a> |</li>
         <li class="right" >
-          <a href="Pick.html" title="5.4. Mikado pick"
+          <a href="Pick.html" title="4. Mikado pick"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" >4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" >Usage</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

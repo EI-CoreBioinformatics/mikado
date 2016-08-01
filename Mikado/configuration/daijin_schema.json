@@ -111,7 +111,7 @@
       "required": true
     },
     "scheduler": {
-      "type": ["string", null],
+      "type": ["string"],
       "default": "",
       "enum": ["LSF", "SLURM", "PBS", ""],
       "Comment": "Scheduler to be used for the project. Set to null if you plan to use DRMAA or are using a local machine.",

@@ -112,6 +112,7 @@ def create_daijin_config(args):
     config["short_reads"]["r2"] = args.r2
     config["short_reads"]["samples"] = args.samples
     config["short_reads"]["strandedness"] = args.strandedness
+    config["scheduler"] = args.scheduler
     config["threads"] = args.threads
 
     config["mikado"]["modes"] = args.modes

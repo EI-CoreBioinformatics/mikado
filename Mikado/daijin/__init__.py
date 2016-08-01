@@ -103,55 +103,61 @@ def create_config_parser():
     """
 
     parser = argparse.ArgumentParser("""Configure the pipeline""")
-    parser.add_argument("-c", "--cluster_config",
+    runtime = parser.add_argument_group("Options related to how to run Daijin - threads, cluster configuration, etc.")
+    runtime.add_argument("-c", "--cluster_config",
                         type=str, default=None,
                         help="Cluster configuration file to write to.")
-    parser.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
-    parser.add_argument("--genome", "-g", required=True,
-                        help="Reference genome for the analysis, in FASTA format. Required.")
-    parser.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.",
-                        default="")
-    parser.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
+    runtime.add_argument("--threads", "-t", action="store", metavar="N", type=int, default=4,
                         help="""Maximum number of threads per job. Default: %(default)s""")
-    parser.add_argument("-r1", "--left_reads", dest="r1",
+    runtime.add_argument("-od", "--out-dir", dest="out_dir", default=None, required=False,
+                        help="Output directory. Default if unspecified: chosen name.")
+    runtime.add_argument("-o", "--out", default=sys.stdout, type=argparse.FileType("w"),
+                    help="Output file. If the file name ends in \"json\", the file will be in JSON format; \
+                        otherwise, Daijin will print out a YAML file. Default: STDOUT.")
+    runtime.add_argument("--scheduler", default="", choices=["", "SLURM", "LSF", "PBS"],
+                        help="Scheduler to use. Default: None - ie, either execute everything on the local machine or use DRMAA to submit and control jobs (recommended).")
+    reference = parser.add_argument_group("Arguments related to the reference species.")
+    reference.add_argument("--name", default="Daijin", help="Name of the species under analysis.")
+    reference.add_argument("--genome", "-g", required=True,
+                        help="Reference genome for the analysis, in FASTA format. Required.")
+    reference.add_argument("--transcriptome", help="Reference annotation, in GFF3 or GTF format.",
+                        default="")
+    paired_reads = parser.add_argument_group("Arguments related to the input paired reads.")
+    paired_reads.add_argument("-r1", "--left_reads", dest="r1",
                         nargs="+",
-                        default=[], required=True,
+                        default=[], required=False,
                         help="Left reads for the analysis. Required.")
-    parser.add_argument("-r2", "--right_reads", dest="r2",
+    paired_reads.add_argument("-r2", "--right_reads", dest="r2",
                         nargs="+",
-                        default=[], required=True,
+                        default=[], required=False,
                         help="Right reads for the analysis. Required.")
-    parser.add_argument("-s", "--samples",
+    paired_reads.add_argument("-s", "--samples",
                         nargs="+",
-                        default=[], required=True,
+                        default=[], required=False,
                         help="Sample names for the analysis. Required.")
-    parser.add_argument(
+    paired_reads.add_argument(
         "-st", "--strandedness", nargs="+",
         default=[], required=False, choices=["fr-unstranded", "fr-secondstrand", "fr-firststrand"],
         help="Strandedness of the reads. Specify it 0, 1, or number of samples times. Choices: %(choices)s.")
     parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat2"], required=True,
-                        default=[], nargs="+", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
+                        default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
     parser.add_argument("-as", "--assemblers", dest="asm_methods", required=True,
                         choices=["class", "cufflinks", "stringtie", "trinity"],
-                        default=[], nargs="+", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
-    parser.add_argument("-od", "--out-dir", dest="out_dir", default=None, required=False,
-                        help="Output directory. Default if unspecified: chosen name.")
-    parser.add_argument("-o", "--out", default=sys.stdout, type=argparse.FileType("w"),
-                        help="Output file. If the file name ends in \"json\", the file will be in JSON format; \
-                        otherwise, Daijin will print out a YAML file. Default: STDOUT.")
-    scoring = parser.add_argument_group("Options related to the scoring system")
-    scoring.add_argument("--scoring", type=str, default=None,
+                        default=[], nargs="*", help="Assembler(s) to use for the analysis. Choices: %(choices)s")
+    mikado = parser.add_argument_group("Options related to the Mikado phase of the pipeline.")
+    # scoring = parser.add_argument_group("Options related to the scoring system")
+    mikado.add_argument("--scoring", type=str, default=None,
                          choices=pkg_resources.resource_listdir(
                              "Mikado", os.path.join("configuration", "scoring_files")),
                          help="Available scoring files.")
-    scoring.add_argument("--copy-scoring", default=False,
+    mikado.add_argument("--copy-scoring", default=False,
                          type=str, dest="copy_scoring",
                          help="File into which to copy the selected scoring file, for modification.")
-    parser.add_argument("-m", "--modes", default=["permissive"], nargs="+",
+    mikado.add_argument("-m", "--modes", default=["permissive"], nargs="+",
                         choices=["nosplit", "split", "permissive", "stringent", "lenient"],
                         required=False,
                         help="Mikado pick modes to run. Choices: %(choices)s")
-    parser.add_argument("--prot-db", dest="prot_db", default="",
+    mikado.add_argument("--prot-db", dest="prot_db", default="",
                         help="Protein database to compare against, for Mikado.")
     parser.set_defaults(func=create_daijin_config)
     return parser

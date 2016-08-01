@@ -50,24 +50,24 @@ Python Dependencies
 Mikado has been written for Python 3.4 and 3.5. It is dependent on the following Python3 modules:
 
 * wheel>=0.28.0
-* pyyaml
+* pyyaml [PyYaml]_
 * jsonschema
-* Cython
-* cython
-* numpy
-* networkx>=1.10
+* Cython [Cython]_
+* cython [Cython]_
+* numpy [Numpy]_
+* networkx>=1.10 [NetworkX]_
 * sqlalchemy>=1
 * sqlalchemy_utils
-* biopython>=1.66
+* biopython>=1.66 [BioPython]_
 * intervaltree
 * nose
 * pyfaidx
-* scikit-learn>=0.17.0
-* scipy>=0.15.0
+* scikit-learn>=0.17.0 [SciKit]_
+* scipy>=0.15.0 [Scipy]_
 * frozendict
 * python-magic
-* drmaa
-* snakemake
+* drmaa [DRMAA]_
+* snakemake [Snake]_
 * docutils
 
 These dependencies will be installed automatically by PIP.

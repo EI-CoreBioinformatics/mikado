@@ -1,12 +1,106 @@
 .. _SQLAlchemy: http://www.sqlalchemy.org/
+.. _Portcullis: https://github.com/maplesond/portcullis
+.. _BED12: https://genome.ucsc.edu/FAQ/FAQformat.html#format1
 
 .. _configure:
 
 Mikado configure
 ================
 
-This utility prepares the configuration file that will be used
+This utility prepares the configuration file that will be used throughout the pipeline stages. While the most important options can be set at runtime through the command line, many algorithmic details can be accessed and intervened upon only through the file produced through this command.
 
+Usage
+~~~~~
+
+This command will generate a configuration file (in either JSON or YAML format), with the correct configuration for the parameters set on the command line. See :ref:`the in-depth section on the structure of the configuration file <conf_anatomy>` for details.
+
+Command line parameters:
+
+* *full*: By default, Mikado configure will output a stripped-down configuration file, with only some of the fields explicitly present. Use this flag to show all the available fields.
+
+.. hint:: If a parameter is not explicitly present, its value will be set to the available default.
+
+* *external*: an external JSON/YAML file from which Mikado should recover parameters. If something is specified both on the command line and in the external configuration file, **command line options take precedence**.
+* *reference*: Reference genome FASTA file. Required for the correct functioning of Mikado.
+* *gff*: list of GFFs/GTFs of the assemblies to use for Mikado, comma separated.
+* *labels*: optional list of labels to be assigned to each assembly. The label will be also the "source" field in the output of :ref:`Mikado prepare <prepare>`.
+* *strand-specific-assemblies*: list of strand specific assemblies among those specified with the *gff* flag.
+* *strand-specific*: flag. If set, all assemblies will be treated as strand-specific.
+* *list*: in alternative to specifying all the information on the command line, it is possible to give to Mikado a *tab-separated* file with the following contents:
+   #. Location of the file
+   #. label for the file
+   #. whether that assembly is strand-specific or not (write True/False)
+   #. Optionally, a bonus/malus to be associated to transcripts coming from that assembly.
+* *-j*, *json*: flag. If present, the output file will be in JSON rather that YAML format.
+* *mode*: in which mode :ref:`Mikado pick <pick>` will run. See the :ref:`relative section <chimera_splitting>` for further details.
+* *scoring*: scoring file to be used for selection. At the moment, four configuration files are present:
+   * plants
+   * human
+   * worm
+   * insects
+* *copy-scoring*: this flag specifies a file the scoring file will be copied to. Useful for customisation on new species. The configuration file will account for this and list the location of the *copied* file as the scoring file to be used for the run.
+* *junctions*: Reliable junctions derived from the RNA-Seq alignments. Usually obtained through Portcullis_, but we also support eg junctions from Tophat2. This file must be in BED12_ format.
+* *blast_targets*: FASTA database of blast targets, for the serialisation stage.
+
+Usage:
+
+.. code-block:: bash
+
+    $ mikado configure --help
+    usage: Mikado configure [-h] [--full]
+                            [--scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml}]
+                            [--copy-scoring COPY_SCORING] [--strand-specific]
+                            [--no-files | --gff GFF | --list LIST]
+                            [--reference REFERENCE] [--junctions JUNCTIONS]
+                            [-bt BLAST_TARGETS]
+                            [--strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES]
+                            [--labels LABELS] [--external EXTERNAL]
+                            [--mode {nosplit,stringent,lenient,permissive,split}]
+                            [-j]
+                            [out]
+
+    This utility guides the user through the process of creating a configuration file for Mikado.
+
+    positional arguments:
+      out
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --full
+      --strand-specific     Boolean flag indicating whether all the assemblies are strand-specific.
+      --no-files            Remove all files-specific options from the printed configuration file.
+                                                   Invoking the "--gff" option will disable this flag.
+      --gff GFF             Input GFF/GTF file(s), separated by comma
+      --list LIST           List of the inputs, one by line, in the form:
+                            <file1>  <label>  <strandedness (true/false)>
+      --reference REFERENCE
+                            Fasta genomic reference.
+      --strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES
+                            List of strand-specific assemblies among the inputs.
+      --labels LABELS       Labels to attach to the IDs of the transcripts of the input files,
+                                    separated by comma.
+      --external EXTERNAL   External configuration file to overwrite/add values from.
+                                Parameters specified on the command line will take precedence over those present in the configuration file.
+      --mode {nosplit,stringent,lenient,permissive,split}
+                            Mode in which Mikado will treat transcripts with multiple ORFs.
+                            - nosplit: keep the transcripts whole.
+                            - stringent: split multi-orf transcripts if two consecutive ORFs have both BLAST hits
+                                         and none of those hits is against the same target.
+                            - lenient: split multi-orf transcripts as in stringent, and additionally, also when
+                                       either of the ORFs lacks a BLAST hit (but not both).
+                            - permissive: like lenient, but also split when both ORFs lack BLAST hits
+                            - split: split multi-orf transcripts regardless of what BLAST data is available.
+      -j, --json            Output will be in JSON instead of YAML format.
+
+    Options related to the scoring system:
+      --scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml}
+                            Available scoring files.
+      --copy-scoring COPY_SCORING
+                            File into which to copy the selected scoring file, for modification.
+
+    Options related to the serialisation step:
+      --junctions JUNCTIONS
+      -bt BLAST_TARGETS, --blast_targets BLAST_TARGETS
 
 .. _conf_anatomy:
 
@@ -243,7 +337,7 @@ In this example, we asked Mikado to consider Stringtie transcripts as more trust
 Each subsection of the pick configuration will be explained in its own right.
 
 Parameters regarding the alternative splicing
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 After selecting the best model for each locus, Mikado will backtrack and try to select valid alternative splicing events. This section deals with how Mikado will operate the selection. There are the following available parameters:
 
@@ -316,6 +410,72 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
         - G
         - g
         - h
+
+.. _orf_loading:
+
+Parameters regarding assignment of ORFs to transcripts
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section of the configuration file deals with how to determine valid ORFs for a transcript from those present in the database. The parameters to control the behaviour of Mikado are the following:
+
+* *minimal_orf_length*: minimal length of the *primary* ORF to be loaded onto the transcript. By default, this is set at 50 **bps** (not aminoacids)
+* *minimal_secondary_orf_length*: minimal length of any ORF that can be assigned to the transcript after the first. This value should be set at a **higher setting** than minimal_orf_length, in order to avoid loading uORFs [uORFs]_ into the transcript, leading to :ref:`spurious break downs of the UTRs <chimera_splitting>`. Default: 200 bps.
+* *strand_specific*: boolean. If set to *true*, only ORFs on the plus strand (ie the same of the cDNA) will be considered. If set to *false*, monoexonic transcripts mihgt have their strand flipped.
+
+
+.. code-block:: yaml
+
+  pick:
+      orf_loading:
+        #  Parameters related to ORF loading.
+        #  - minimal_secondary_orf_length: Minimum length of a *secondary* ORF
+        #    to be loaded after the first, in bp. Default: 200 bps
+        #  - minimal_orf_length: Minimum length in bps of an ORF to be loaded,
+        #    as the primary ORF, onto a transcript. Default: 50 bps
+        #  - strand_specific: Boolean flag. If set to true, monoexonic transcripts
+        #    will not have their ORF reversed even if they would have an ORF on the opposite
+        #  strand.
+        minimal_orf_length: 50
+        minimal_secondary_orf_length: 200
+        strand_specific: true
+
+.. _chimera_splitting:
+
+Parameters regarding splitting of chimeras
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section of the configuration file specifies how to deal with transcripts presenting multiple ORFs, ie **putative chimeras** (see the section above for parameters related to :ref:`which ORFs can be loaded <orf_loading>`). Those are identified as transcripts with more than one ORF, where:
+
+ * all the ORFs share the same strand
+ * all the ORFs are non-overlapping, ie they do not share any bp
+
+In these situations, Mikado can try to deal with the chimeras in five different ways:
+
+* *nosplit*: leave the transcript unchanged. The presence of multiple ORFs will affect the scoring.
+* *stringent*: leave the transcript unchanged, unless the two ORFs both have hits in the protein database and none of the hits is in common.
+* *lenient*: leave the transcript unchanged, unless *either* the two ORFs both have hits in the protein database, none of which is in common, *or* both have no hits in the protein database.
+* *permissive*: presume the transcript is a chimera, and split it, *unless* two ORFs share a hit in the protein database.
+* *split*: presume that every transcript with more than one ORF is incorrect, and split them.
+
+These modes can be controlled directly from the :ref:`pick command line <pick>`. If any BLAST hit *spans* the two ORFs, then
+
+The behaviour, and when to trigger the check, is controlled by the following parameters:
+
+* *execute*: boolean. If set to *false*, Mikado will operate in the *nosplit* mode. If set to *true*, the choice of the mode will be determined by the other parameters.
+* *blast_check*: boolean. Whether to execute the check on the BLAST hits. If set to *false*, Mikado will operate in the *split* mode, unless *execute* is set to *false* (execute takes precedence over the other parameters).
+* *blast_params*: this section contains the settings relative to the *permissive*, *lenient* and *stringent* mode.
+   * *evalue*: maximum evalue of a hit to be assigned to the transcript and therefore be considered.
+   * *hsp_evalue*: maximum evalue of a hsp inside a hit to be considered for the analysis.
+   * *leniency*: one of **LENIENT, PERMISSIVE, STRINGENT**. See above for definitions.
+   * *max_target_seqs*: integer. when loading BLAST hits from the database, only the first N will be considered for analysis.
+   * *minimal_hsp_overlap*: number between 0 and 1. This indicates the overlap that must exist between the HSP and the ORF for the former to be considered for the split.
+   .. code section: splitting.py, lines ~152-170
+
+   * *min_overlap_duplication*: in the case of tandem duplicated genes, a chimera will have two ORFs that share the same hits, but possibly in a peculiar way - the HSPs will insist on the same region of the *target* sequence. This parameter controls how much overlap counts as a duplication. The default value is of 0.9 (90%).
+
+.. code-block:: yaml
+
+  pick:
       chimera_split:
         #  Parameters related to the splitting of transcripts in the presence of
         #  two or more ORFs. Parameters:
@@ -346,6 +506,17 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
           min_overlap_duplication: 0.8
           minimal_hsp_overlap: 0.9
         execute: true
+
+Parameters regarding input and output files
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The "files" and "output_format" sections deal respectively with input files for the pick stage and with some basic settings for the GFF output. Options:
+
+ * *input*:
+
+.. code-block:: yaml
+
+   pick:
       files:
         #  Input and output files for Mikado pick.
         #  - gff: input GTF/GFF3 file. Default: mikado_prepared.gtf
@@ -361,18 +532,6 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
         monoloci_out: ''
         output_dir: .
         subloci_out: ''
-      orf_loading:
-        #  Parameters related to ORF loading.
-        #  - minimal_secondary_orf_length: Minimum length of a *secondary* ORF
-        #    to be loaded after the first, in bp. Default: 200 bps
-        #  - minimal_orf_length: Minimum length in bps of an ORF to be loaded,
-        #    as the primary ORF, onto a transcript. Default: 50 bps
-        #  - strand_specific: Boolean flag. If set to true, monoexonic transcripts
-        #    will not have their ORF reversed even if they would have an ORF on the opposite
-        #  strand.
-        minimal_orf_length: 50
-        minimal_secondary_orf_length: 200
-        strand_specific: true
       output_format:
         #  Parameters related to the output format.
         #    - source: prefix for the source field in the mikado output.
@@ -380,6 +539,30 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
         id_prefix: mikado
         report_all_orfs: false
         source: Mikado
+
+Generic parameters on the pick run
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section deals with other parameters necessary for the run, such as the number of processors to use, but also more important algorithmic parameters such as how to recognise fragments.
+Parameters:
+
+* *exclude_cds*: whether to remove CDS/UTR information from the Mikado output. Default: *false*.
+* *flank*: when creating superloci, Mikado will gather together all groups of overlapping transcripts that are within this distance. By default, this is set at 1 kbp. This parameter is important to recognize fragments derived from UTRs or misfired transcription in the neighborhood of real transcripts.
+* *fragments_maximal_cds*: during the last control on fragments, Mikado will consider as non-fragmentary any transcript with an ORF of at least this value in bps. By default, this is set to 100, ie any transcript with an ORF of 33 AA or more will be considered by default as valid.
+* *fragments_maximal_exons*: in addition, any transcript with more than this number of exons will be considered as non-fragmentary by definition. By default, this parameter is set at 2, ie any transcript with 3 or more exons will be considered non-fragmentary by definition.
+* *intron_range*: tuple that indicates the range of lengths in which most introns should fall. Transcripts with introns either shorter or longer than this interval will be potentially penalised, depending on the scoring scheme. For the paper, this parameter was set to a tuple of integers in which *98%* of the introns of the reference annotation were falling (ie cutting out the 1st and 99th percentiles).
+* *preload*: boolean. In certain cases, ie when the database is quite small, it might make sense to preload it in memory rather than relying on SQL queries. Set to *false* by default.
+* *shm*: boolean. In certain cases, especially when disk access is a severely limiting factor, it might make sense to copy a SQLite database into RAM before querying. If this parameter is set to *true*, Mikado will copy the SQLite database into a temporary file in RAM, and query it from there.
+* *shm_db*: string. If *shm* is set to true and this string is non-empty, Mikado will copy the database in memory to a file with this name *and leave it there for other Mikado runs*. The file will have to be removed manually.
+* *procs*: number of processors to use. Default: 1.
+* *single_thread*: boolean. If set to true, Mikado will completely disable multiprocessing. Useful mostly for debugging reasons.
+* *subloci_from_cds_only*: boolean. If set to true, subloci will be built only using CDS information - therefore, transcripts with overlapping cDNA but discrete CDSs will be analysed separately. Most useful in cases of **compact** genomes, where genes lie near and it might be possible to analyse them together as the UTRs are overlapping.
+
+.. warning:: the shared-memory options are available only on Linux platforms.
+
+.. code-block:: yaml
+
+   pick:
       run_options:
         #  Generic run options.
         #  - shm: boolean flag. If set and the DB is sqlite, it will be copied onto the
@@ -427,10 +610,6 @@ After selecting the best model for each locus, Mikado will backtrack and try to 
         shm_db: ''
         single_thread: false
         subloci_from_cds_only: false
-      scoring_file: /usr/users/ga002/venturil/workspace/mikado/Mikado/configuration/scoring_files/plants.yaml
-      source_score: {}
-
-
 
 Miscellanea
 -----------
@@ -452,6 +631,8 @@ It is possible to set high-level settings for the logs in the ``log_settings`` s
       #    In decreasing order: DEBUG, INFO, WARNING, ERROR, CRITICAL
       log_level: WARNING
       sql_level: WARNING
+
+.. _start-methods:
 
 It is also possible to set the type of multiprocessing method that should be used by Python3. The possible choices are "fork", "spawn", and "fork-server".
 

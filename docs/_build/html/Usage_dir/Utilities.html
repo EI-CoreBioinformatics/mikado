@@ -244,11 +244,11 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="included-scripts">
-<h1>6.4. Included scripts<a class="headerlink" href="#included-scripts" title="Permalink to this headline">¶</a></h1>
+<span id="id1"></span><h1>6.4. Included scripts<a class="headerlink" href="#included-scripts" title="Permalink to this headline">¶</a></h1>
 <p>All the following scripts are included in the &#8220;util&#8221; folder in the source code, and will be included on the PATH after installation. Some of this scripts are used by the <a class="reference internal" href="Daijin.html#daijin"><span class="std std-ref">The Daijin pipeline for driving Mikado</span></a> pipeline to produce statistics or perform other intermediate steps.</p>
 <div class="section" id="add-transcript-feature-to-gtf-py">
 <h2>6.4.1. add_transcript_feature_to_gtf.py<a class="headerlink" href="#add-transcript-feature-to-gtf-py" title="Permalink to this headline">¶</a></h2>
-<p>This script is needed to add a top-level transcript feature to GTFs that lack it, eg. those produced by CuffMerge <a class="reference internal" href="../References.html#cuffmerge" id="id1">[CuffMerge]</a>.</p>
+<p>This script is needed to add a top-level transcript feature to GTFs that lack it, eg. those produced by CuffMerge <a class="reference internal" href="../References.html#cuffmerge" id="id2">[CuffMerge]</a>.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ add_transcript_feature_to_gtf.py --help
 usage: Script to add a transcript feature to e.g. Cufflinks GTFs
@@ -296,7 +296,7 @@ optional arguments:
 </div>
 <div class="section" id="class-run-py">
 <h2>6.4.4. class_run.py<a class="headerlink" href="#class-run-py" title="Permalink to this headline">¶</a></h2>
-<p>Python3 wrapper for the CLASS <a class="reference internal" href="../References.html#class2" id="id2">[Class2]</a> assembler. It will perform the necessary operations for the assembler (depth and call of the splicing junctions), and launch the program itself. Usage:</p>
+<p>Python3 wrapper for the CLASS <a class="reference internal" href="../References.html#class2" id="id3">[Class2]</a> assembler. It will perform the necessary operations for the assembler (depth and call of the splicing junctions), and launch the program itself. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ class_run.py --help
 usage: Quick utility to rewrite the wrapper for CLASS. [-h] [--clean]
                                                        [--force]
@@ -327,7 +327,7 @@ optional arguments:
 </div>
 <div class="section" id="getfastafromids-py">
 <h2>6.4.5. getFastaFromIds.py<a class="headerlink" href="#getfastafromids-py" title="Permalink to this headline">¶</a></h2>
-<p>Script to extract a list of sequences from a FASTA file, using the <a class="reference external" href="https://pypi.python.org/pypi/pyfaidx">pyfaidx</a> <a class="reference internal" href="../References.html#pyfaidx" id="id3">[PyFaidx]</a> module. Usage:</p>
+<p>Script to extract a list of sequences from a FASTA file, using the <a class="reference external" href="https://pypi.python.org/pypi/pyfaidx">pyfaidx</a> <a class="reference internal" href="../References.html#pyfaidx" id="id4">[PyFaidx]</a> module. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ getFastaFromIds.py -h
 usage: getFastaFromIds.py [-h] [-v] list fasta [out]
 

@@ -161,6 +161,8 @@ Usage::
                             GFF3 format.
 
 
+.. _included_scripts:
+
 Included scripts
 ================
 

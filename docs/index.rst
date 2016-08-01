@@ -6,7 +6,7 @@
 .. |python_badge| image:: https://img.shields.io/pypi/pyversions/snakemake.svg?style=flat-square
    :target: https://www.python.org/
 .. |snake_badge| image:: https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)]
-   :target: http://snakemake.bitbucket.org
+   :target: https://bitbucket.org/snakemake/snakemake/wiki/Home
 
 ============================
 Mikado: pick your transcript
@@ -27,7 +27,7 @@ Mikado is a lightweight Python3 pipeline to extract the best transcript models f
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :numbered:
 
    Introduction

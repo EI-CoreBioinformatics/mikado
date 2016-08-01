@@ -91,7 +91,7 @@ Metrics belong to one of the following categories:
 |                                                | downstream of the stop codon, the metric returns 0.       |              |                 |
 |                                                | This metric considers the combined CDS end.               |              |                 |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
-| *end_distance_from_tes*                        | This property returns the distance of the end of the      | Int          |                 |
+| *end_distance_from_tes*                        | This property returns the distance of the end of the      | Int          | **CDS**         |
 |                                                | combined CDS from the transcript end site. If no CDS is   |              |                 |
 |                                                | defined, it defaults to 0.                                |              |                 |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+

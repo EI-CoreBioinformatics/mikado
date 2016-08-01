@@ -48,6 +48,19 @@
     </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
+  <h3><a href="../index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">5.2. Mikado prepare</a><ul>
+<li><a class="reference internal" href="#collection-of-transcripts-from-the-annotation-files">5.2.1. Collection of transcripts from the annotation files</a><ul>
+<li><a class="reference internal" href="#check-on-strand-correctness">5.2.1.1. Check on strand correctness</a></li>
+<li><a class="reference internal" href="#output-files">5.2.1.2. Output files</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#usage">5.2.2. Usage</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="Configure.html"
                         title="previous chapter">5.1. Mikado configure</a></p>
@@ -81,7 +94,142 @@
             
   <div class="section" id="mikado-prepare">
 <span id="prepare"></span><h1>5.2. Mikado prepare<a class="headerlink" href="#mikado-prepare" title="Permalink to this headline">¶</a></h1>
-<p>During this step, Mikado will collect data from the different input assemblies and generate a merged GTF which will have redundant models removed.</p>
+<p>This is the first executive step of the Mikado pipeline. It will accomplish the following goals:</p>
+<ol class="arabic simple">
+<li>Collect annotations from disparate annotation files</li>
+<li>Remove redundant assemblies, ie, assemblies that are <em>identical</em> across the various input files.</li>
+<li>Determine the strand of the transcript junctions</li>
+<li>Ensure uniqueness of the transcript names</li>
+<li>Order the transcript by locus</li>
+<li>Extract the transcript sequences.</li>
+</ol>
+<div class="section" id="collection-of-transcripts-from-the-annotation-files">
+<h2>5.2.1. Collection of transcripts from the annotation files<a class="headerlink" href="#collection-of-transcripts-from-the-annotation-files" title="Permalink to this headline">¶</a></h2>
+<p>Different assemblers will produce data in different formats, typically in GFF or GTF format, and not necessarily in the same order (if any is present). Mikado will serialise the transcripts from these files and port them all into a standard GTF format. Moreover, it will ensure that each transcript ID appears only once across the input files. The optional labels provided for each file will be attached to the transcript names as prefixes, and used as the source field in the output GTF, to ensure the uniqueness of each transcript name.
+If two or more transcripts are found to be identical, only one will be retained, chosen at random among all the possibilities.
+In addition to this, Mikado prepare will also sort the transcripts by coordinate, irrespective of strand, so that they are suitably displayed for the divide-et-impera algorithm of <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">Mikado pick</span></a>.</p>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">To be considered <em>identical</em>, two transcripts must match down to the last base pair. A simple match or containment of the intron chain will not suffice. This is because using the cDNA data alone it is difficult to understand whether the longer form(s) is the correct assembly rather than a chimera or a trans-splice event.</p>
+</div>
+<div class="section" id="check-on-strand-correctness">
+<h3>5.2.1.1. Check on strand correctness<a class="headerlink" href="#check-on-strand-correctness" title="Permalink to this headline">¶</a></h3>
+<p>During its run, Mikado prepare will also check the correctness of the transcripts. In particular:</p>
+<ul class="simple">
+<li>Unless the assembly is marked as strand-specific, any monoexonic transcript will have its strand <em>removed</em>.</li>
+<li>If a transcript contains canonical splice junctions on <strong>both</strong> strands, it will be completely removed</li>
+<li>If a transcript contains only non-canonical splice junctions, it will be removed <em>unless</em> the &#8220;lenient&#8221; option is specified either at the command line or in the configuration file.</li>
+</ul>
+</div>
+<div class="section" id="output-files">
+<h3>5.2.1.2. Output files<a class="headerlink" href="#output-files" title="Permalink to this headline">¶</a></h3>
+<p>Mikado prepare will produce two files:</p>
+<ul class="simple">
+<li>a <em>sorted</em> GTF file, containing all the transcripts surviving the checks</li>
+<li>a FASTA file of the transcripts, in the proper cDNA orientation.</li>
+</ul>
+<div class="admonition warning">
+<p class="first admonition-title">Warning</p>
+<p class="last">contrary to other tools such as eg gffread from Cufflinks <a class="reference internal" href="../References.html#cufflinks" id="id1">[Cufflinks]</a>, Mikado prepare will <strong>not</strong> try to calculate the loci for the transcripts. This task will be performed later in the pipeline. As such, the GTF file is formally incorrect, as multiple transcripts in the same locus but coming from different assemblies will <em>not</em> have the same gene_id but rather will have kept their original one. Moreover, if two gene_ids were identical but discrete in the input files (ie located on different sections of the genome), this error will not be corrected. If you desire to use this GTF file for any purpose, please use a tool like gffread to calculate the loci appropriately.</p>
+</div>
+</div>
+</div>
+<div class="section" id="usage">
+<h2>5.2.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal"><span class="pre">Mikado</span> <span class="pre">prepare</span></code> allows to override some of the parameters present in the configuration file through command line options, eg the input files. Notwithstanding, in the interest of reproducibility we advise to configure everything through the configuration file and supply it to Mikado prepare without further modifications.</p>
+<p>Available parameters:</p>
+<ul>
+<li><p class="first"><em>json-conf</em>: the most important parameter. This is the configuration file created through <a class="reference internal" href="Configure.html#configure"><span class="std std-ref">Mikado configure</span></a>.</p>
+</li>
+<li><p class="first"><em>fasta</em>: reference genome. Required, either through the command line or through the configuration file.</p>
+</li>
+<li><p class="first"><em>out</em>: Output GTF file, with the collapsed transcripts.</p>
+</li>
+<li><p class="first"><em>out_fasta</em>: Output FASTA file of the collapsed transcripts.</p>
+</li>
+<li><p class="first"><em>start-method</em>: <a class="reference internal" href="Configure.html#start-methods"><span class="std std-ref">multiprocessing start method</span></a>.</p>
+</li>
+<li><p class="first"><em>verbose</em>, <em>quiet</em>: flags to set the verbosity of Mikado prepare. It is generally not advised to turn the verbose mode on, unless there is a problem to debug, given the verbosity of the output.</p>
+</li>
+<li><p class="first"><em>strand-specific</em>: If set, all assemblies will be treated as strand-specific.</p>
+</li>
+<li><p class="first"><em>strand-specific-assemblies</em>: comma-separated list of strand specific assemblies.</p>
+</li>
+<li><dl class="first docutils">
+<dt><em>list</em>: in alternative to specifying all the information on the command line, it is possible to give to Mikado a <em>tab-separated</em> file with the following contents:</dt>
+<dd><ol class="first last arabic simple">
+<li>Location of the file</li>
+<li>label for the file</li>
+<li>whether that assembly is strand-specific or not (write True/False)</li>
+<li>Optionally, a bonus/malus to be associated to transcripts coming from that assembly.</li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><p class="first"><em>log</em>: log file. Optional, by default Mikado will print to standard error.</p>
+</li>
+<li><p class="first"><em>lenient</em>: flag. If set, transcripts without any canonical splice site will be output as well. By default, they would be discarded.</p>
+</li>
+<li><p class="first"><em>single</em>: flag that disables multiprocessing. Mostly useful for debug purposes.</p>
+</li>
+<li><p class="first"><em>strip-cds</em>: some aligners (eg GMAP) will try calculate a CDS on the fly for alignments. Use this flag to discard such CDS sections and retain only the cDNA information.</p>
+</li>
+<li><p class="first"><em>minimum_length</em>: minimum length of the transcripts to be kept.</p>
+</li>
+</ul>
+<p>Command line usage:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span></span>$ mikado prepare --help
+usage: Mikado prepare <span class="o">[</span>-h<span class="o">]</span> <span class="o">[</span>--fasta FASTA<span class="o">]</span> <span class="o">[</span>-v <span class="p">|</span> -q<span class="o">]</span>
+                      <span class="o">[</span>--start-method <span class="o">{</span>fork,spawn,forkserver<span class="o">}]</span>
+                      <span class="o">[</span>-s <span class="p">|</span> -sa STRAND_SPECIFIC_ASSEMBLIES<span class="o">]</span> <span class="o">[</span>--list LIST<span class="o">]</span>
+                      <span class="o">[</span>-l LOG<span class="o">]</span> <span class="o">[</span>--lenient<span class="o">]</span> <span class="o">[</span>-m MINIMUM_LENGTH<span class="o">]</span> <span class="o">[</span>-p PROCS<span class="o">]</span>
+                      <span class="o">[</span>-scds<span class="o">]</span> <span class="o">[</span>--labels LABELS<span class="o">]</span> <span class="o">[</span>--single<span class="o">]</span> <span class="o">[</span>-od OUTPUT_DIR<span class="o">]</span>
+                      <span class="o">[</span>-o OUT<span class="o">]</span> <span class="o">[</span>-of OUT_FASTA<span class="o">]</span> <span class="o">[</span>--json-conf JSON_CONF<span class="o">]</span>
+                      <span class="o">[</span>gff <span class="o">[</span>gff ...<span class="o">]]</span>
+
+Mikado prepare analyses an input GTF file and prepares it <span class="k">for</span> the picking
+analysis by sorting its transcripts and performing some simple consistency
+checks.
+
+positional arguments:
+  gff                   Input GFF/GTF file<span class="o">(</span>s<span class="o">)</span>.
+
+optional arguments:
+  -h, --help            show this <span class="nb">help</span> message and <span class="nb">exit</span>
+  --fasta FASTA         Genome FASTA file. Required.
+  -v, --verbose
+  -q, --quiet
+  --start-method <span class="o">{</span>fork,spawn,forkserver<span class="o">}</span>
+                        Multiprocessing start method.
+  -s, --strand-specific
+                        Flag. If set, monoexonic transcripts will be left on
+                        their strand rather than being moved to the unknown
+                        strand.
+  -sa STRAND_SPECIFIC_ASSEMBLIES, --strand-specific-assemblies STRAND_SPECIFIC_ASSEMBLIES
+                        Comma-delimited list of strand specific assemblies.
+  --list LIST           Tab-delimited file containing rows with the following
+                        format &lt;file&gt; &lt;label&gt; &lt;strandedness&gt;
+  -l LOG, --log LOG     Log file. Optional.
+  --lenient             Flag. If set, transcripts with only non-canonical
+                        splices will be output as well.
+  -m MINIMUM_LENGTH, --minimum_length MINIMUM_LENGTH
+                        Minimum length <span class="k">for</span> transcripts. Default: <span class="m">200</span> bps.
+  -p PROCS, --procs PROCS
+                        Number of processors to use <span class="o">(</span>default 1<span class="o">)</span>
+  -scds, --strip_cds    Boolean flag. If set, ignores any CDS/UTR segment.
+  --labels LABELS       Labels to attach to the IDs of the transcripts of the
+                        input files, separated by comma.
+  --single              Disable multi-threading. Useful <span class="k">for</span> debugging.
+  -od OUTPUT_DIR, --output-dir OUTPUT_DIR
+                        Output directory. Default: current working directory
+  -o OUT, --out OUT     Output file. Default: mikado_prepared.gtf.
+  -of OUT_FASTA, --out_fasta OUT_FASTA
+                        Output file. Default: mikado_prepared.fasta.
+  --json-conf JSON_CONF
+                        Configuration file.
+</pre></div>
+</div>
+</div>
 </div>
 
 

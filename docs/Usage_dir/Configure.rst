@@ -450,7 +450,7 @@ This section of the configuration file specifies how to deal with transcripts pr
  * all the ORFs share the same strand
  * all the ORFs are non-overlapping, ie they do not share any bp
 
-In these situations, Mikado can try to deal with the chimeras in five different ways:
+In these situations, Mikado can try to deal with the chimeras in five different ways, in decreasingly conservative fashion:
 
 * *nosplit*: leave the transcript unchanged. The presence of multiple ORFs will affect the scoring.
 * *stringent*: leave the transcript unchanged, unless the two ORFs both have hits in the protein database and none of the hits is in common.
@@ -458,7 +458,9 @@ In these situations, Mikado can try to deal with the chimeras in five different 
 * *permissive*: presume the transcript is a chimera, and split it, *unless* two ORFs share a hit in the protein database.
 * *split*: presume that every transcript with more than one ORF is incorrect, and split them.
 
-These modes can be controlled directly from the :ref:`pick command line <pick>`. If any BLAST hit *spans* the two ORFs, then
+If any BLAST hit *spans* the two ORFs, then the model will be considered as a non-chimera because there is evidence that the transcript constitutes a single unit. The only case when this information will be disregarded is during the execution of the *split* mode.
+
+These modes can be controlled directly from the :ref:`pick command line <pick>`.
 
 The behaviour, and when to trigger the check, is controlled by the following parameters:
 

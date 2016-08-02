@@ -1,96 +1,156 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
 
-<html xmlns="http://www.w3.org/1999/xhtml">
-  <head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>6.2. The Daijin pipeline for driving Mikado &mdash; Mikado 1.0.0b3 documentation</title>
+  
+
+  
+  
+
+  
+
+  
+  
     
-    <title>2. The Daijin pipeline for driving Mikado &mdash; Mikado 1.0.0b3 documentation</title>
+
+  
+
+  
+  
+    <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="stylesheet" href="../_static/theme_overrides.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="Mikado 1.0.0b3 documentation" href="../index.html"/>
+        <link rel="up" title="4. Usage" href="../Usage.html"/>
+        <link rel="next" title="6.3. Mikado miscellaneous scripts" href="Utilities.html"/>
+        <link rel="prev" title="6.1. Compare" href="Compare.html"/> 
+
+  
+  <script src="../_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
     
-    <link rel="stylesheet" href="../_static/sphinxdoc.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    
-    <script type="text/javascript">
-      var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '../',
-        VERSION:     '1.0.0b3',
-        COLLAPSE_INDEX: false,
-        FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
-      };
-    </script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    <link rel="top" title="Mikado 1.0.0b3 documentation" href="../index.html" />
-    <link rel="up" title="Usage" href="../Usage.html" />
-    <link rel="next" title="3. Mikado miscellaneous scripts" href="Utilities.html" />
-    <link rel="prev" title="1. Compare" href="Compare.html" /> 
-  </head>
-  <body role="document">
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="Utilities.html" title="3. Mikado miscellaneous scripts"
-             accesskey="N">next</a> |</li>
-        <li class="right" >
-          <a href="Compare.html" title="1. Compare"
-             accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">Usage</a> &raquo;</li> 
-      </ul>
-    </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-  <h3><a href="../index.html">Table Of Contents</a></h3>
-  <ul>
-<li><a class="reference internal" href="#">2. The Daijin pipeline for driving Mikado</a><ul>
-<li><a class="reference internal" href="#configure">2.1. Configure</a></li>
-<li><a class="reference internal" href="#assemble">2.2. Assemble</a></li>
-<li><a class="reference internal" href="#mikado">2.3. Mikado</a></li>
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> Mikado
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                1.0
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../Introduction.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Installation.html">2. Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Tutorial.html">3. Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Usage.html">4. Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-pipeline-stages">5. Mikado pipeline stages</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="Compare.html">6.1. Compare</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">6.2. The Daijin pipeline for driving Mikado</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configure">6.2.1. Configure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#assemble">6.2.2. Assemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mikado">6.2.3. Mikado</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="Utilities.html">6.3. Mikado miscellaneous scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Utilities.html#included-scripts">6.4. Included scripts</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../References.html">7. References</a></li>
 </ul>
 
-  <h4>Previous topic</h4>
-  <p class="topless"><a href="Compare.html"
-                        title="previous chapter">1. Compare</a></p>
-  <h4>Next topic</h4>
-  <p class="topless"><a href="Utilities.html"
-                        title="next chapter">3. Mikado miscellaneous scripts</a></p>
-  <div role="note" aria-label="source link">
-    <h3>This Page</h3>
-    <ul class="this-page-menu">
-      <li><a href="../_sources/Usage_dir/Daijin.txt"
-            rel="nofollow">Show Source</a></li>
-    </ul>
-   </div>
-<div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
-    <form class="search" action="../search.html" method="get">
-      <div><input type="text" name="q" /></div>
-      <div><input type="submit" value="Go" /></div>
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+            
+          
         </div>
       </div>
+    </nav>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body" role="main">
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../index.html">Mikado</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          
+
+ 
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../index.html">Docs</a> &raquo;</li>
+      
+          <li><a href="../Usage.html">4. Usage</a> &raquo;</li>
+      
+    <li>6.2. The Daijin pipeline for driving Mikado</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/Usage_dir/Daijin.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
             
   <span class="target" id="assemble-pipeline"></span><div class="section" id="the-daijin-pipeline-for-driving-mikado">
-<span id="daijin"></span><h1>2. The Daijin pipeline for driving Mikado<a class="headerlink" href="#the-daijin-pipeline-for-driving-mikado" title="Permalink to this headline">¶</a></h1>
+<span id="daijin"></span><h1>6.2. The Daijin pipeline for driving Mikado<a class="headerlink" href="#the-daijin-pipeline-for-driving-mikado" title="Permalink to this headline">¶</a></h1>
 <p><a class="reference external" href="http://snakemake.bitbucket.org"><img alt="snake_badge" src="https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)]" /></a></p>
 <p>No emperor or empress can lead its nation without a trusty chancellor to help him or her in organising the bureaucracy. Daijin, the Japanese minister, has the same role in Mikado - it smooths the path to go from a collection of read inputs (both RNA-Seq or long reads) to a polished transcriptome assembly. The pipeline is based on <a class="reference external" href="https://bitbucket.org/snakemake/snakemake/wiki/Home">Snakemake</a> <a class="reference internal" href="../References.html#snake" id="id1">[Snake]</a>; while Snakemake can support any scheduling system, our pipeline manager currently supports only three (SLURM, PBS and LSF), plus any DRMAA-compliant batch submission system. Other schedulers can be added upon request.</p>
 <div class="admonition hint">
@@ -98,11 +158,11 @@
 <p class="last">It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in Mikado.daijin: <a class="reference download internal" href="../_downloads/tr.snakefile" download=""><code class="xref download docutils literal"><span class="pre">tr.snakefile</span></code></a> for the first step, and <a class="reference download internal" href="../_downloads/mikado.snakefile" download=""><code class="xref download docutils literal"><span class="pre">mikado.snakefile</span></code></a> for the second.</p>
 </div>
 <div class="section" id="configure">
-<span id="daijin-configure"></span><h2>2.1. Configure<a class="headerlink" href="#configure" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-configure"></span><h2>6.2.1. Configure<a class="headerlink" href="#configure" title="Permalink to this headline">¶</a></h2>
 <p>This utility creates the configuration file that will drive Daijin, in <a class="reference external" href="http://www.yaml.org/spec/1.2/spec.html">YAML</a> format. The file will need to be edited to</p>
 </div>
 <div class="section" id="assemble">
-<span id="daijin-assemble"></span><h2>2.2. Assemble<a class="headerlink" href="#assemble" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-assemble"></span><h2>6.2.2. Assemble<a class="headerlink" href="#assemble" title="Permalink to this headline">¶</a></h2>
 <p>In the first step of the pipeline, Daijin will perform the following operations for each of the read datasets provided:</p>
 <ol class="arabic simple">
 <li>Create the necessary indices for each of the aligner programs requested.</li>
@@ -166,7 +226,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="mikado">
-<span id="daijin-mikado"></span><h2>2.3. Mikado<a class="headerlink" href="#mikado" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-mikado"></span><h2>6.2.3. Mikado<a class="headerlink" href="#mikado" title="Permalink to this headline">¶</a></h2>
 <p>In this step, the Daijin manager will execute all the steps necessary to perform Mikado on the desired inputs. The manager will execute the following steps:</p>
 <ol class="arabic simple">
 <li>Merge all the input assemblies together using <a class="reference internal" href="Prepare.html#prepare"><span class="std std-ref">Mikado prepare</span></a></li>
@@ -233,30 +293,72 @@ optional arguments:
 </div>
 
 
+           </div>
           </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="Utilities.html" class="btn btn-neutral float-right" title="6.3. Mikado miscellaneous scripts" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="Compare.html" class="btn btn-neutral" title="6.1. Compare" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2016, Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related" role="navigation" aria-label="related navigation">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="Utilities.html" title="3. Mikado miscellaneous scripts"
-             >next</a> |</li>
-        <li class="right" >
-          <a href="Compare.html" title="1. Compare"
-             >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b3 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" >Usage</a> &raquo;</li> 
-      </ul>
-    </div>
-    <div class="footer" role="contentinfo">
-        &copy; Copyright 2016, Venturini Luca, Caim Shabhonam, Mapleson Daniel, Kaithakottil Gemy George, Swarbreck David.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.4.5.
-    </div>
-  </body>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0.0b3',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="../_static/jquery.js"></script>
+      <script type="text/javascript" src="../_static/underscore.js"></script>
+      <script type="text/javascript" src="../_static/doctools.js"></script>
+      <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
 </html>

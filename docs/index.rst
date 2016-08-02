@@ -27,7 +27,7 @@ Mikado is a lightweight Python3 pipeline to extract the best transcript models f
 Contents:
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
    :numbered:
 
    Introduction

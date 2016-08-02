@@ -1918,7 +1918,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def selected_end_distance_from_junction(self):
         """This metric returns the distance between the stop codon and the
-        nearest downstream junction. In many eukaryotes, this distance
+        last junction of the transcript. In many eukaryotes, this distance
         cannot exceed 50-55 bps, otherwise the transcript becomes a target of NMD.
         If the transcript is not coding or there is no junction downstream of
         the stop codon, the metric returns 0."""

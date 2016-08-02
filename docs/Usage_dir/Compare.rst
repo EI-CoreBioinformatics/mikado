@@ -237,6 +237,7 @@ All class codes fall within one of the following categories:
 
  - **Fusion**: this special class code is a qualifier and it never appears on its own. When a transcript is defined as a fusion,  its class code in the *tmap* file will be an "f" followed by the class codes of the individual transcript matches, sperated by comma. So a prediction which matches two reference models, one with a "j" and another with a "o", will have a class code of **"f,j,o"**. In the *refmap* file, if the fusion is the best match, the class code will be "f" followed by the class code for the individual reference transcript; e.g., **"f,j"**
 
+
 .. topic:: Available class codes
 
     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
@@ -279,7 +280,7 @@ All class codes fall within one of the following categories:
     |              | within one of the reference  |              |               |                   |                   |                   |                   |
     |              | exons.                       |              |               |                   |                   |                   |                   |
     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **C**        | The prediction intron chain  | True         | True          | <= 100%, < 100%,  | < 100%, **100%**, | **J**             | **Extension**     |
+    | **C**        | The prediction intron chain  | True         | True          | <= 100%, < 100%,  | < 100%, **100%**, | **J** or **j**    | **Extension**     |
     |              | is completely contained      |              |               | < 100%            | < 100%            |                   |                   |
     |              | within that of the           |              |               |                   |                   |                   |                   |
     |              | reference transcript, but    |              |               |                   |                   |                   |                   |

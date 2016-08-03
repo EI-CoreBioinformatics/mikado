@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>1. Introduction &mdash; Mikado 1.0.0b3 documentation</title>
+  <title>1. Introduction &mdash; Mikado 1.0.0b4 documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="Mikado 1.0.0b3 documentation" href="index.html"/>
+    <link rel="top" title="Mikado 1.0.0b4 documentation" href="index.html"/>
         <link rel="next" title="2. Installation" href="Installation.html"/>
         <link rel="prev" title="Mikado: pick your transcript" href="index.html"/> 
 
@@ -94,6 +94,7 @@
 <li class="toctree-l1"><a class="reference internal" href="Usage.html#mikado-pipeline-stages">5. Mikado pipeline stages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Usage.html#mikado-utilities">6. Mikado utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="References.html">7. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Library/index.html">8. Library documentation</a></li>
 </ul>
 
             
@@ -268,9 +269,9 @@ transcript.</td>
 </tr>
 <tr class="row-even"><td><em>end_distance_from_junction</em></td>
 <td>This metric returns the cDNA distance between the stop
-codon and the last junction in the transcript. In many
-eukaryotes, this distance cannot exceed 50-55 bps
-otherwise the transcript becomes a target of NMD. If the
+and the last junction of the transcript. In many
+eukaryotes, this distance cannot exceed 50-55 bps,
+otherwise the transcript becomes a target for NMD. If the
 transcript is not coding or there is no junction
 downstream of the stop codon, the metric returns 0.
 This metric considers the combined CDS end.</td>
@@ -454,11 +455,11 @@ segments vs. the number of exons. See selected_cds_number.</td>
 </tr>
 <tr class="row-odd"><td><em>selected_end_distance_from_junction</em></td>
 <td>This metric returns the distance between the stop codon
-and the nearest downstream junction. In many eukaryotes,
-this distance cannot exceed 50-55 bps, otherwise the
-transcript becomes a target of NMD. If the transcript is
-not coding or there is no junction downstream of the stop
-codon, the metric returns 0.</td>
+and the last junction of the transcript. In many
+eukaryotes, this distance cannot exceed 50-55 bps,
+otherwise the transcript becomes a target for NMD. If the
+transcript is not coding or there is no junction
+downstream of the stop codon, the metric returns 0.</td>
 <td>Int</td>
 <td><strong>CDS</strong></td>
 </tr>
@@ -593,7 +594,7 @@ transcript which are validated by external data.</td>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'1.0.0b3',
+            VERSION:'1.0.0b4',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

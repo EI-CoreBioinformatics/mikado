@@ -239,7 +239,7 @@ This section of the configuration file deals with the :ref:`serialisation stage 
 
 * discard_definition: boolean. This is used to specify whether we will use the ID or the definition of the sequences when parsing BLAST results. This is important when BLAST data might have a mock, local identifier for the sequence ("lcl|1") rather than its original ID.
 * force: whether the database should be truncated and rebuilt, or just updated.
-* max_objects: this parameter is quite important when running with a SQLite database. SQLite does not support caching on the disk before committing the changes, so that every change has to be kept in memory. This can become a problem for RAM quite quickly. On the other hand, committing is an expensive operation, and it makes sense to minimise calls as much as possible. This parameter specifies the maximum number of objects Mikado will keep in memory before committing them to the database. The default number, 100,000, should ensure that Mikado runs with less than 1GB memory. Increase it to potentially increase speed at the price of greater memory usage.
+* max_objects: this parameter is quite important when running with a SQLite database. SQLite does not support caching on the disk before committing the changes, so that every change has to be kept in memory. This can become a problem for RAM quite quickly. On the other hand, committing is an expensive operation, and it makes sense to minimise calls as much as possible. This parameter specifies the maximum number of objects Mikado will keep in memory before committing them to the database. The default number, 100,000, should ensure that Mikado runs with less than 1GB memory. Increase it to potentially increase speed at the price of greater memory usage; for example, increasing it to 1,000,000 will cause Mikado to use ~6GB of RAM at its peak usage.
 * max_regression: this parameter is a float comprised between 0 and 1. TransDecoder will sometimes output open ORFs even in the presence of an in-frame start codon. Mikado can try to "regress" along the ORF until it finds one such start codon. This parameter imposes how much Mikado will regress, in percentage of the cDNA length.
 * max_target_seqs: equivalent to the BLAST+ parameter of the same name - it indicates the maximum number of discrete hits that can be assigned to one sequence in the database.
 * procs: number of processors to use. Most important for serialising BLAST+ files.
@@ -617,10 +617,16 @@ Parameters:
 Miscellanea
 -----------
 
+.. _scheduler-multiprocessing:
+.. sidebar:: "Python, multiprocessing, and cluster schedulers"
+
+    Some schedulers, in particular SLURM, are not capable to understand that the processes *forked* by Python are still sharing the same memory with the main process, and think instead that each process is using that memory in isolation. As a result, they might think that the Mikado process is using its memory multiplied by the number of processes - depending on when the forking happens - and therefore shut down the program as it *appears* to be using much more memory than needed. For this reason, :ref:`Daijin <Daijin>` forces Mikado to run in **spawn** mode. Although spawning is slower than forking, it happens only once per run, and it has therefore a limited cost in terms of runtime - while greatly reducing the chances of the program being shut down because of "Out of memory" reasons.
+
 It is possible to set high-level settings for the logs in the ``log_settings`` section:
 
 * log_level: level of the logging for Mikado. Options: *DEBUG, INFO, WARNING, ERROR, CRITICAL*. By default, Mikado will be quiet and output log messages of severity *WARNING* or greater.
 * sql_level: level of the logging for messages regarding the database connection (through `SQLAlchemy`_). By default, SQLAlchemy will be set in quiet mode and asked to output only messages of severity *WARNING* or greater.
+
 
 .. warning:: Mikado and SQLAlchemy can be greatly verbose if asked to output *DEBUG* or *INFO* messages, to the point of slowing down the program significantly due to the amount of writing to disk. Please consider setting the level to *DEBUG* only when there is a real problem to debug, not otherwise!
 
@@ -643,7 +649,6 @@ It is also possible to set the type of multiprocessing method that should be use
 
     multiprocessing_method: spawn
 
-.. warning:: Some schedulers, in particular SLURM, are not capable to understand that the processes *forked* by Python are still sharing the same memory with the main process, and think instead that each process is using that memory in isolation. As a result, they might think that the Mikado process is using its memory multiplied by the number of processes - depending on when the forking happens - and therefore shut down the program as it *appears* to be using much more memory than needed. For this reason, :ref:`Daijin <Daijin>` forces Mikado to run in **spawn** mode. Although spawning is slower than forking, it happens only once per run, and it has therefore a limited cost in terms of runtime - while greatly reducing the chances of the program being shut down because of "Out of memory" reasons.
 
 Technical details
 ~~~~~~~~~~~~~~~~~

@@ -35,6 +35,8 @@ Contents:
    Tutorial
    Usage
    References
+   Library/index
+
 
 Citing
 ~~~~~~

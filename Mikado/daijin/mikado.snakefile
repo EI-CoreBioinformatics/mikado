@@ -183,7 +183,7 @@ rule mikado_serialise:
 		blast_target="--blast_targets=" + BLASTX_TARGET if len(BLASTX_TARGET) > 0 else ""
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
-	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --max-objects=20000 --procs={threads} > {log} 2>&1"
+	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --procs={threads} > {log} 2>&1"
 
 rule mikado_pick:
 	input:

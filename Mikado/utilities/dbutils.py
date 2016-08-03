@@ -4,7 +4,8 @@
 
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.engine import create_engine
+from sqlalchemy.engine import create_engine, Engine
+from sqlalchemy import event
 from sqlalchemy_utils import database_exists, create_database
 import sqlite3
 import logging
@@ -95,6 +96,15 @@ def create_connector(json_conf, logger=None):
     else:
         raise ValueError("DB type not supported! {0}".format(db_settings["dbtype"]))
     return func
+
+
+@event.listens_for(Engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA synchronous=OFF")
+    cursor.execute("PRAGMA default_temp_store=MEMORY")
+    cursor.close()
 
 
 def connect(json_conf, logger=None):

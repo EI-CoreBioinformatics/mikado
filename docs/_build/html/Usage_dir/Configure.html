@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>5.1. Mikado configure &mdash; Mikado 1.0.0b3 documentation</title>
+  <title>5.1. Mikado configure &mdash; Mikado 1.0.0b4 documentation</title>
   
 
   
@@ -32,7 +32,7 @@
   
 
   
-    <link rel="top" title="Mikado 1.0.0b3 documentation" href="../index.html"/>
+    <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html"/>
         <link rel="up" title="4. Usage" href="../Usage.html"/>
         <link rel="next" title="5.2. Mikado prepare" href="Prepare.html"/>
         <link rel="prev" title="4. Usage" href="../Usage.html"/> 
@@ -111,6 +111,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../References.html">7. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">8. Library documentation</a></li>
 </ul>
 
             
@@ -410,7 +411,7 @@ Options related to the serialisation step:
 </li>
 <li><p class="first">force: whether the database should be truncated and rebuilt, or just updated.</p>
 </li>
-<li><p class="first">max_objects: this parameter is quite important when running with a SQLite database. SQLite does not support caching on the disk before committing the changes, so that every change has to be kept in memory. This can become a problem for RAM quite quickly. On the other hand, committing is an expensive operation, and it makes sense to minimise calls as much as possible. This parameter specifies the maximum number of objects Mikado will keep in memory before committing them to the database. The default number, 100,000, should ensure that Mikado runs with less than 1GB memory. Increase it to potentially increase speed at the price of greater memory usage.</p>
+<li><p class="first">max_objects: this parameter is quite important when running with a SQLite database. SQLite does not support caching on the disk before committing the changes, so that every change has to be kept in memory. This can become a problem for RAM quite quickly. On the other hand, committing is an expensive operation, and it makes sense to minimise calls as much as possible. This parameter specifies the maximum number of objects Mikado will keep in memory before committing them to the database. The default number, 100,000, should ensure that Mikado runs with less than 1GB memory. Increase it to potentially increase speed at the price of greater memory usage; for example, increasing it to 1,000,000 will cause Mikado to use ~6GB of RAM at its peak usage.</p>
 </li>
 <li><p class="first">max_regression: this parameter is a float comprised between 0 and 1. TransDecoder will sometimes output open ORFs even in the presence of an in-frame start codon. Mikado can try to &#8220;regress&#8221; along the ORF until it finds one such start codon. This parameter imposes how much Mikado will regress, in percentage of the cDNA length.</p>
 </li>
@@ -639,7 +640,7 @@ Options related to the serialisation step:
 <li>all the ORFs are non-overlapping, ie they do not share any bp</li>
 </ul>
 </div></blockquote>
-<p>In these situations, Mikado can try to deal with the chimeras in five different ways:</p>
+<p>In these situations, Mikado can try to deal with the chimeras in five different ways, in decreasingly conservative fashion:</p>
 <ul class="simple">
 <li><em>nosplit</em>: leave the transcript unchanged. The presence of multiple ORFs will affect the scoring.</li>
 <li><em>stringent</em>: leave the transcript unchanged, unless the two ORFs both have hits in the protein database and none of the hits is in common.</li>
@@ -647,7 +648,8 @@ Options related to the serialisation step:
 <li><em>permissive</em>: presume the transcript is a chimera, and split it, <em>unless</em> two ORFs share a hit in the protein database.</li>
 <li><em>split</em>: presume that every transcript with more than one ORF is incorrect, and split them.</li>
 </ul>
-<p>These modes can be controlled directly from the <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">pick command line</span></a>. If any BLAST hit <em>spans</em> the two ORFs, then</p>
+<p>If any BLAST hit <em>spans</em> the two ORFs, then the model will be considered as a non-chimera because there is evidence that the transcript constitutes a single unit. The only case when this information will be disregarded is during the execution of the <em>split</em> mode.</p>
+<p>These modes can be controlled directly from the <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">pick command line</span></a>.</p>
 <p>The behaviour, and when to trigger the check, is controlled by the following parameters:</p>
 <ul>
 <li><p class="first"><em>execute</em>: boolean. If set to <em>false</em>, Mikado will operate in the <em>nosplit</em> mode. If set to <em>true</em>, the choice of the mode will be determined by the other parameters.</p>
@@ -813,6 +815,10 @@ Parameters:</p>
 </div>
 <div class="section" id="miscellanea">
 <h3>5.1.2.6. Miscellanea<a class="headerlink" href="#miscellanea" title="Permalink to this headline">¶</a></h3>
+<div class="sidebar" id="scheduler-multiprocessing">
+<p class="first sidebar-title">&#8220;Python, multiprocessing, and cluster schedulers&#8221;</p>
+<p class="last">Some schedulers, in particular SLURM, are not capable to understand that the processes <em>forked</em> by Python are still sharing the same memory with the main process, and think instead that each process is using that memory in isolation. As a result, they might think that the Mikado process is using its memory multiplied by the number of processes - depending on when the forking happens - and therefore shut down the program as it <em>appears</em> to be using much more memory than needed. For this reason, <a class="reference internal" href="Daijin.html#daijin"><span class="std std-ref">Daijin</span></a> forces Mikado to run in <strong>spawn</strong> mode. Although spawning is slower than forking, it happens only once per run, and it has therefore a limited cost in terms of runtime - while greatly reducing the chances of the program being shut down because of &#8220;Out of memory&#8221; reasons.</p>
+</div>
 <p>It is possible to set high-level settings for the logs in the <code class="docutils literal"><span class="pre">log_settings</span></code> section:</p>
 <ul class="simple">
 <li>log_level: level of the logging for Mikado. Options: <em>DEBUG, INFO, WARNING, ERROR, CRITICAL</em>. By default, Mikado will be quiet and output log messages of severity <em>WARNING</em> or greater.</li>
@@ -835,10 +841,6 @@ Parameters:</p>
 <p id="start-methods">It is also possible to set the type of multiprocessing method that should be used by Python3. The possible choices are &#8220;fork&#8221;, &#8220;spawn&#8221;, and &#8220;fork-server&#8221;.</p>
 <div class="highlight-yaml"><div class="highlight"><pre><span></span><span class="l l-Scalar l-Scalar-Plain">multiprocessing_method</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">spawn</span>
 </pre></div>
-</div>
-<div class="admonition warning">
-<p class="first admonition-title">Warning</p>
-<p class="last">Some schedulers, in particular SLURM, are not capable to understand that the processes <em>forked</em> by Python are still sharing the same memory with the main process, and think instead that each process is using that memory in isolation. As a result, they might think that the Mikado process is using its memory multiplied by the number of processes - depending on when the forking happens - and therefore shut down the program as it <em>appears</em> to be using much more memory than needed. For this reason, <a class="reference internal" href="Daijin.html#daijin"><span class="std std-ref">Daijin</span></a> forces Mikado to run in <strong>spawn</strong> mode. Although spawning is slower than forking, it happens only once per run, and it has therefore a limited cost in terms of runtime - while greatly reducing the chances of the program being shut down because of &#8220;Out of memory&#8221; reasons.</p>
 </div>
 </div>
 </div>
@@ -889,7 +891,7 @@ Parameters:</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../',
-            VERSION:'1.0.0b3',
+            VERSION:'1.0.0b4',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -18,7 +18,6 @@ __author__ = 'Luca Venturini'
 def load_orfs(transcript, candidate_orfs):
 
     """
-
     :param transcript: the Transcript instance
     :type transcript: Mikado.loci_objects.transcript.Transcript
 

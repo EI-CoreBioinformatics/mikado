@@ -230,7 +230,7 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
 @cython.cdivision(True)
 cpdef tuple compare(prediction, reference, bint lenient=False):
 
-    """Function to compare two transcripts and determine a ccode.
+    """Cython function to compare two transcripts and determine a ccode.
 
     :param prediction: the transcript query
     :type prediction: Transcript
@@ -265,21 +265,16 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
 
     We also provide the following additional classifications:
 
-    - f    gene fusion - in this case, this ccode will be followed by the
-    ccodes of the matches for each gene, separated by comma
-    - _    Complete match, for monoexonic transcripts
-    (nucleotide F1>=80% - i.e. min(precision,recall)>=66.7%
+    - f    gene fusion - in this case, this ccode will be followed by the ccodes of the matches for each gene, separated by comma
+    - _    Complete match, for monoexonic transcripts (nucleotide F1>=80% - i.e. min(precision,recall)>=66.7%
     - m    Exon overlap between two monoexonic transcripts
-    - n    Potential extension of the reference - we have added new splice junctions
-    *outside* the boundaries of the transcript itself
-    - C    Contained transcript with overextensions on either side
-    (perfect junction recall, imperfect nucleotide specificity)
-    - J    Potentially novel isoform, where all the known junctions
-    have been confirmed and we have added others as well *externally*
+    - n    Potential extension of the reference - we have added new splice junctions *outside* the boundaries of the transcript itself
+    - C    Contained transcript with overextensions on either side (perfect junction recall, imperfect nucleotide specificity)
+    - J    Potentially novel isoform, where all the known junctions have been confirmed and we have added others as well *externally*
     - I    *multiexonic* transcript falling completely inside a known transcript
     - h    AS event in which at least a couple of introns overlaps but without any
            junction in common.
-    - O    Reverse generic overlap - the reference is monoexonic while the prediction isn't
+    - G    Reverse generic overlap - the reference is monoexonic while the prediction isn't
     - P    Possible polymerase run-on fragment
     - g   Monoexonic overlap - the prediction is monoexonic and the reference is multiexonic
     (within 2K bases of a reference transcript), on the opposite strand

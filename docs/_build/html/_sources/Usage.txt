@@ -38,6 +38,6 @@ Mikado utilities
    Usage_dir/Utilities
 
 In addition with the pipeline proper, Mikado includes the following:
-#. A dedicated utility, :ref:`Mikado compare <compare>`, to assess the similarity between two annotations.
+#. A dedicated utility, :ref:`Mikado compare <Compare>`, to assess the similarity between two annotations.
 #. A pipeline manager, :ref:`Daijin`, to align and assemble transcripts with multiple methods and subsequently drive Mikado on the assemblies.
 #. Assorted utilities, some of them :ref:`part of the Mikado suite <utils>` and others provided as :ref:`accessory scripts <included_scripts>`, to perform standard operations such as calculating statistics from a GFF file or recover a specific suite of transcripts from an annotation file.

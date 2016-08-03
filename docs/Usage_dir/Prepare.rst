@@ -12,39 +12,6 @@ This is the first executive step of the Mikado pipeline. It will accomplish the 
 #. Order the transcript by locus
 #. Extract the transcript sequences.
 
-Collection of transcripts from the annotation files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Different assemblers will produce data in different formats, typically in GFF or GTF format, and not necessarily in the same order (if any is present). Mikado will serialise the transcripts from these files and port them all into a standard GTF format. Moreover, it will ensure that each transcript ID appears only once across the input files. The optional labels provided for each file will be attached to the transcript names as prefixes, and used as the source field in the output GTF, to ensure the uniqueness of each transcript name.
-If two or more transcripts are found to be identical, only one will be retained, chosen at random among all the possibilities.
-In addition to this, Mikado prepare will also sort the transcripts by coordinate, irrespective of strand, so that they are suitably displayed for the divide-et-impera algorithm of :ref:`Mikado pick <pick>`.
-
-.. warning:: To be considered *identical*, two transcripts must match down to the last base pair. A simple match or containment of the intron chain will not suffice. This is because using the cDNA data alone it is difficult to understand whether the longer form(s) is the correct assembly rather than a chimera or a trans-splice event.
-
-Check on strand correctness
----------------------------
-
-During its run, Mikado prepare will also check the correctness of the transcripts. In particular:
-
-* Unless the assembly is marked as strand-specific, any monoexonic transcript will have its strand *removed*.
-* If a transcript contains canonical splice junctions on **both** strands, it will be completely removed
-* If a transcript contains only non-canonical splice junctions, it will be removed *unless* the "lenient" option is specified either at the command line or in the configuration file.
-
-The couples of splice acceptors and donors which are considered as canonical :ref:`can be specified in the configuration file <canonical-configuration>`. By default, Mikado will consider as canonical both properly canonical splicing event (GT-AG) as well as the semi-canonical events (GC-AG, AT-AC). Any other couple will be considered as non-canonical.
-
-.. warning:: Mikado will check the strand of each junction inside a transcript *independently*. Therefore, if a transcript with 9 junctions on the plus strand is found to have a non-canonical splicing junction **which happens to be the reverse of a canonical one** (eg. CT-AC), it will deem this junction as misassigned to the wrong strand and flip it to the minus strand. In this example, the transcript will therefore be **considered as an error** as it contains both + and - junctions, and discarded.
-
-Output files
-------------
-
-Mikado prepare will produce two files:
-
-* a *sorted* GTF file, containing all the transcripts surviving the checks
-* a FASTA file of the transcripts, in the proper cDNA orientation.
-
-.. warning:: contrary to other tools such as eg gffread from Cufflinks [Cufflinks]_, Mikado prepare will **not** try to calculate the loci for the transcripts. This task will be performed later in the pipeline. As such, the GTF file is formally incorrect, as multiple transcripts in the same locus but coming from different assemblies will *not* have the same gene_id but rather will have kept their original one. Moreover, if two gene_ids were identical but discrete in the input files (ie located on different sections of the genome), this error will not be corrected. If you desire to use this GTF file for any purpose, please use a tool like gffread to calculate the loci appropriately.
-
-
 Usage
 ~~~~~
 
@@ -124,3 +91,36 @@ Command line usage:
                             Output file. Default: mikado_prepared.fasta.
       --json-conf JSON_CONF
                             Configuration file.
+
+Collection of transcripts from the annotation files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Different assemblers will produce data in different formats, typically in GFF or GTF format, and not necessarily in the same order (if any is present). Mikado will serialise the transcripts from these files and port them all into a standard GTF format. Moreover, it will ensure that each transcript ID appears only once across the input files. The optional labels provided for each file will be attached to the transcript names as prefixes, and used as the source field in the output GTF, to ensure the uniqueness of each transcript name.
+If two or more transcripts are found to be identical, only one will be retained, chosen at random among all the possibilities.
+In addition to this, Mikado prepare will also sort the transcripts by coordinate, irrespective of strand, so that they are suitably displayed for the divide-et-impera algorithm of :ref:`Mikado pick <pick>`.
+
+.. warning:: To be considered *identical*, two transcripts must match down to the last base pair. A simple match or containment of the intron chain will not suffice. This is because using the cDNA data alone it is difficult to understand whether the longer form(s) is the correct assembly rather than a chimera or a trans-splice event.
+
+Check on strand correctness
+---------------------------
+
+During its run, Mikado prepare will also check the correctness of the transcripts. In particular:
+
+* Unless the assembly is marked as strand-specific, any monoexonic transcript will have its strand *removed*.
+* If a transcript contains canonical splice junctions on **both** strands, it will be completely removed
+* If a transcript contains only non-canonical splice junctions, it will be removed *unless* the "lenient" option is specified either at the command line or in the configuration file.
+
+The couples of splice acceptors and donors which are considered as canonical :ref:`can be specified in the configuration file <canonical-configuration>`. By default, Mikado will consider as canonical both properly canonical splicing event (GT-AG) as well as the semi-canonical events (GC-AG, AT-AC). Any other couple will be considered as non-canonical.
+
+.. warning:: Mikado will check the strand of each junction inside a transcript *independently*. Therefore, if a transcript with 9 junctions on the plus strand is found to have a non-canonical splicing junction **which happens to be the reverse of a canonical one** (eg. CT-AC), it will deem this junction as misassigned to the wrong strand and flip it to the minus strand. In this example, the transcript will therefore be **considered as an error** as it contains both + and - junctions, and discarded.
+
+Output files
+------------
+
+Mikado prepare will produce two files:
+
+* a *sorted* GTF file, containing all the transcripts surviving the checks
+* a FASTA file of the transcripts, in the proper cDNA orientation.
+
+.. warning:: contrary to other tools such as eg gffread from Cufflinks [Cufflinks]_, Mikado prepare will **not** try to calculate the loci for the transcripts. This task will be performed later in the pipeline. As such, the GTF file is formally incorrect, as multiple transcripts in the same locus but coming from different assemblies will *not* have the same gene_id but rather will have kept their original one. Moreover, if two gene_ids were identical but discrete in the input files (ie located on different sections of the genome), this error will not be corrected. If you desire to use this GTF file for any purpose, please use a tool like gffread to calculate the loci appropriately.
+

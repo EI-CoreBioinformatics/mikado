@@ -3,6 +3,10 @@
 Installation
 ============
 
+Python version
+--------------
+
+Mikado
 
 Download
 --------
@@ -77,5 +81,4 @@ These dependencies will be installed automatically by PIP.
 Additional dependencies
 -----------------------
 
-Mikado relies on relational databases for its functioning, so one of SQLite, PosGRESql or MySQL have to present for if to function properly.
-Additionally, the Daijin pipeline, which drives Mikado, requires BLAST+ and TransDecoder for the Mikado stage, and at least one RNA-Seq aligner and one assembler, to be installed. If you are planning to execute it on a cluster, we do support job submission either with DRMAA or without on SLURM, LSF and PBS clusters.
+Mikado relies on relational databases for its functioning, so one of SQLite, PosGRESql or MySQL has to present for if to function properly. Additionally, the Daijin_ pipeline requires BLAST+ and TransDecoder for the Mikado stage, and at least one RNA-Seq aligner and one assembler, to be installed. If you are planning to execute it on a cluster, we do support job submission on SLURM, LSF and PBS clusters, either in the presence or absence of DRMAA.

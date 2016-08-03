@@ -84,9 +84,9 @@ Metrics belong to one of the following categories:
 |                                                | transcript.                                               |              |                 |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | *end_distance_from_junction*                   | This metric returns the cDNA distance between the stop    | Int          | **CDS**         |
-|                                                | codon and the last junction in the transcript. In many    |              |                 |
-|                                                | eukaryotes, this distance cannot exceed 50-55 bps         |              |                 |
-|                                                | otherwise the transcript becomes a target of NMD. If the  |              |                 |
+|                                                | and the last junction of the transcript. In many          |              |                 |
+|                                                | eukaryotes, this distance cannot exceed 50-55 bps,        |              |                 |
+|                                                | otherwise the transcript becomes a target for NMD. If the |              |                 |
 |                                                | transcript is not coding or there is no junction          |              |                 |
 |                                                | downstream of the stop codon, the metric returns 0.       |              |                 |
 |                                                | This metric considers the combined CDS end.               |              |                 |
@@ -183,11 +183,11 @@ Metrics belong to one of the following categories:
 |                                                | segments vs. the number of exons. See selected_cds_number.|              |                 |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | *selected_end_distance_from_junction*          | This metric returns the distance between the stop codon   | Int          | **CDS**         |
-|                                                | and the nearest downstream junction. In many eukaryotes,  |              |                 |
-|                                                | this distance cannot exceed 50-55 bps, otherwise the      |              |                 |
-|                                                | transcript becomes a target of NMD. If the transcript is  |              |                 |
-|                                                | not coding or there is no junction downstream of the stop |              |                 |
-|                                                | codon, the metric returns 0.                              |              |                 |
+|                                                | and the last junction of the transcript. In many          |              |                 |
+|                                                | eukaryotes, this distance cannot exceed 50-55 bps,        |              |                 |
+|                                                | otherwise the transcript becomes a target for NMD. If the |              |                 |
+|                                                | transcript is not coding or there is no junction          |              |                 |
+|                                                | downstream of the stop codon, the metric returns 0.       |              |                 |
 +------------------------------------------------+-----------------------------------------------------------+--------------+-----------------+
 | *selected_end_distance_from_tes*               | This property returns the distance of the end of the best | Int          | **CDS**         |
 |                                                | CDS from the transcript end site. If no CDS is defined,   |              |                 |

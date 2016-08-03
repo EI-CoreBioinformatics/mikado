@@ -329,9 +329,6 @@ cdef class IntervalTree:
     Data structure for performing window intersect queries on a set of
     of possibly overlapping 1d intervals.
 
-    Usage
-    =====
-
     Create an empty IntervalTree
 
     >>> from bx.intervals.intersection import Interval, IntervalTree

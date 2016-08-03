@@ -18,3 +18,18 @@
     overflow: visible;
     height: auto;
 }
+
+
+tt {
+    font-size: 130%;
+}
+
+
+body {
+    font-family: {{ theme_bodyfont }};
+    font-size: 150%;
+    background-color: {{ theme_footerbgcolor }};
+    color: #000;
+    margin: 0;
+    padding: 0;
+}

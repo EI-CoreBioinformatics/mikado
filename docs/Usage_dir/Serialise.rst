@@ -3,6 +3,7 @@
 .. _TransDecoder: http://transdecoder.github.io/
 .. _BED12: https://genome.ucsc.edu/FAQ/FAQformat.html#format1
 .. _STAR: https://github.com/alexdobin/STAR
+.. _SQLalchemy: http://www.sqlalchemy.org/
 
 .. _serialise:
 
@@ -11,6 +12,7 @@ Mikado serialise
 
 Mikado integrates data from multiple sources to select the best transcripts. During this step, these sources are brought together inside a common database, simplifying the process of retrieving them at runtime. Currently, Mikado integrates three different types of data:
 
+.. _BED12-sidebar:
 .. sidebar:: BED12_ files
 
     During serialisation, Mikado interprets BED12 files as having the relevant information in the **thick-start**, **thick-end** fields, ie columns 7 and 8. For ORF files, this means that the CDS should start at the 7th column and end at the 8th (stop-codon exclusive, like in TransDecoder_) - or viceversa for ORFs on the negative strand. For junction files, it means that the reliable junction, ie the reliable *intron*, starts at the thick-start position and ends at the thick-end position. This format requirement is the opposite of what happens for example in the junctions produced by `TopHat <http://ccb.jhu.edu/software/tophat/index.shtml>`_, where the BED12 file lists the two *exonic* fragments, rather than the intron. STAR_ instead provides a tabular non-standard file indicating the most reliable junctions in the alignment. Portcullis_ provides utilities to convert such files into the format used by Mikado, and to merge together multiple junction files. However, we recommend running Portcullis directly on the alignments, rather than using the junctions indicated by the programs themselves.
@@ -24,6 +26,16 @@ After serialisation in the database, these sources will be available to use for 
 Mikado serialise can use three different SQL databases as backends - SQLite, MySQL and PostgreSQL - thanks to SQLAlchemy_.
 This step, together with the creation of the TransDecoder and BLAST data, is the most time consuming of the pipeline. In particular, although Mikado serialise will try to analyse the XML data in a parallelised fashion if so instructed, the insertion of the data in the database will still happen in a single thread and will therefore be of limited speed. If using SQLite as database (the default option), it is possible to decrease the runtime by modifying the "max_objects" parameters, at the cost however of increased RAM usage.
 
+Transdecoder ORFs
+~~~~~~~~~~~~~~~~~
+
+When Mikado analyses ORFs produced by TransDecoder_ or equivalent program, it performs additionally the following checks:
+
+#. Check the congruence between the length of the transcript in the BED12 file and that found in the FASTA file
+#. Check that the ORF does not contain internal stop codons
+#. Check that the CDS length is valid, ie a multiple of 3, if the ORF is complete
+#. Optionally, if the ORF is open on the 5' side, Mikado can try to find an internal start codon. See :`this section <max-regression>` for details.
+
 
 Usage
 ~~~~~
@@ -32,13 +44,37 @@ Usage
 
 Available parameters:
 
-* *start-method*: one of fork, spawn, forkserver. It determines the multiprocessing start method. By default, Mikado will use the default for the system (fork on UNIX, spawn on Windows).
-* *output-dir*: directory where the SQLite database and the log will be written to.
-* *orfs*: ORF BED12 files, separated by comma.
-* *transcripts*: these are the input transcripts that are present on the GTF file considered by Mikado. Normally this should be the output of Mikado prepare.
-* *max-regression*: TransDecoder will greedily try to find the longest ORF in any transcript, even when this means creating an incomplete ORF at the 5' site ... inclusive of a valid internal start codon. Mikado can try to identify those cases by backtracking along the ORF and truncating it on the 5' side when it finds a valid START position. This percentage value, expressed as a number between 0 and 1, indicates how much bps Mikado is allowed to backtrack before considering the ORF as truly open on the 5'. By default, this behaviour is disabled.
-* *max-target-seqs*: maximum number of targets 
+* Parameters related to performance:
+    * *start-method*: one of fork, spawn, forkserver. It determines the multiprocessing start method. By default, Mikado will use the default for the system (fork on UNIX, spawn on Windows).
+    * *procs*: Number of processors to use.
+    * *single-thread*: flag. If set, Mikado will disable all multithreading.
+    * *max_objects*: Maximum number of objects to keep in memory before committing to the database. See :ref:`this section of the configuration <max-objects>` for details.
+* Basic input data and settings:
+    * *output-dir*: directory where the SQLite database and the log will be written to.
+    * *transcripts*: these are the input transcripts that are present on the GTF file considered by Mikado. Normally this should be the output of Mikado prepare.
+    * *genome_fai*: FAIDX file of the genome FASTA. If not given, serialise will derive it from the "reference: genome" field of the configuration.
+    * *force*: flag. If set, and the database is already present, it will be truncated rather than updated.
+    * **json-conf**: this is the configuration file created with :ref:`Mikado configure <configure>`.
+    * *db*: if the database is specified on the command line, ``mikado serialise`` will interpret it as a **SQLite** database. This will overwrite any setting present in the configuration file.
+* Parameters related to logging:
+    * *log*: log file. It defaults to ``serialise.log``.
+    * *log_level*: verbosity of the logging. Please be advised that excessive verbosity can negatively impact the performance of the program - the debug mode is extremely verbose.
+* Parameters related to reliable junctions:
+    * *junctions*: a BED12_ file of reliable junctions. This can be obtained using Portcullis_. Please see the relative :ref:`sidebar <BED12-sidebar>`.
+* Parameters related to the treatment of ORF data:
+    * *orfs*: ORF BED12 files, separated by comma.
+    * *max-regression*: A percentage, expressed as a number between 0 and 1, which indicates how far can Mikado regress along the ORF to find a valid start codon. See the :ref:`relative section in the configuration <max-regression>` for details.
+* Parameters related to BLAST data:
+    * *blast_targets*: BLAST FASTA database.
+    * *discard-definition*: Flag. Depending on how the database has been created, sometimes BLAST will substitute the ID of the sequence with "lcl|" ids. Mikado circumvents this by looking for the definition field in the XML file. Using this flag will disable this behaviour and force Mikado to use the ID - with the potential of having a mismatch between the sequences in the BLAST DB and the sequences in the BLAST files.
+    * *xml*: BLAST files to parse. This can be one of the following:
+        * A list of XML BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .xml)
+        * A list of ASN BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .asn)
+        * A list of folders, comma separated, where it is possible to find files of the former 2 types
+        * A mixture of the three above types.
+    * *max-target-seqs*: maximum number of BLAST targets that can be loaded per sequence, for each BLAST alignment. Please note that if you align against multiple databases, this threshold will be applied once per file.
 
+.. hint:: Mikado will parallelise only the reading of multiple XML files. As such, this part of the pipeline is less performing than the other steps.
 
 .. warning:: It is advised to set this parameter to *spawn* even on UNIX. See :ref:`the dedicated sidebar for details <scheduler-multiprocessing>`.
 

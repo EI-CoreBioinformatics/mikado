@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>5.3. Mikado serialise &mdash; Mikado 1.0.0b4 documentation</title>
+  <title>3. Mikado serialise &mdash; Mikado 1.0.0b4 documentation</title>
   
 
   
@@ -34,8 +34,8 @@
   
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html"/>
         <link rel="up" title="4. Usage" href="../Usage.html"/>
-        <link rel="next" title="5.4. Mikado pick" href="Pick.html"/>
-        <link rel="prev" title="5.2. Mikado prepare" href="Prepare.html"/> 
+        <link rel="next" title="4. Mikado pick" href="Pick.html"/>
+        <link rel="prev" title="2. Mikado prepare" href="Prepare.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -90,18 +90,19 @@
 <li class="toctree-l1"><a class="reference internal" href="../Tutorial.html">3. Tutorial</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html">4. Usage</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../Usage.html#mikado-pipeline-stages">5. Mikado pipeline stages</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Configure.html">5.1. Mikado configure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Prepare.html">5.2. Mikado prepare</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">5.3. Mikado serialise</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#usage">5.3.1. Usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#technical-details">5.3.2. Technical details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Configure.html">1. Mikado configure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Prepare.html">2. Mikado prepare</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">3. Mikado serialise</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#transdecoder-orfs">3.1. Transdecoder ORFs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#usage">3.2. Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#technical-details">3.3. Technical details</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="Pick.html">5.4. Mikado pick</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Pick.html">4. Mikado pick</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../References.html">7. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../References.html">4. References</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Library/index.html">8. Library documentation</a></li>
 </ul>
 
@@ -135,7 +136,7 @@
       
           <li><a href="../Usage.html">4. Usage</a> &raquo;</li>
       
-    <li>5.3. Mikado serialise</li>
+    <li>3. Mikado serialise</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -150,9 +151,9 @@
            <div itemprop="articleBody">
             
   <div class="section" id="mikado-serialise">
-<span id="serialise"></span><h1>5.3. Mikado serialise<a class="headerlink" href="#mikado-serialise" title="Permalink to this headline">¶</a></h1>
+<span id="serialise"></span><h1>3. Mikado serialise<a class="headerlink" href="#mikado-serialise" title="Permalink to this headline">¶</a></h1>
 <p>Mikado integrates data from multiple sources to select the best transcripts. During this step, these sources are brought together inside a common database, simplifying the process of retrieving them at runtime. Currently, Mikado integrates three different types of data:</p>
-<div class="sidebar">
+<div class="sidebar" id="bed12-sidebar">
 <p class="first sidebar-title"><a class="reference external" href="https://genome.ucsc.edu/FAQ/FAQformat.html#format1">BED12</a> files</p>
 <p class="last">During serialisation, Mikado interprets BED12 files as having the relevant information in the <strong>thick-start</strong>, <strong>thick-end</strong> fields, ie columns 7 and 8. For ORF files, this means that the CDS should start at the 7th column and end at the 8th (stop-codon exclusive, like in <a class="reference external" href="http://transdecoder.github.io/">TransDecoder</a>) - or viceversa for ORFs on the negative strand. For junction files, it means that the reliable junction, ie the reliable <em>intron</em>, starts at the thick-start position and ends at the thick-end position. This format requirement is the opposite of what happens for example in the junctions produced by <a class="reference external" href="http://ccb.jhu.edu/software/tophat/index.shtml">TopHat</a>, where the BED12 file lists the two <em>exonic</em> fragments, rather than the intron. <a class="reference external" href="https://github.com/alexdobin/STAR">STAR</a> instead provides a tabular non-standard file indicating the most reliable junctions in the alignment. <a class="reference external" href="https://github.com/maplesond/portcullis">Portcullis</a> provides utilities to convert such files into the format used by Mikado, and to merge together multiple junction files. However, we recommend running Portcullis directly on the alignments, rather than using the junctions indicated by the programs themselves.</p>
 </div>
@@ -162,17 +163,102 @@
 <li>BLASTX <a class="reference internal" href="../References.html#blastplus" id="id1">[Blastplus]</a> data in XML format</li>
 </ol>
 <p>After serialisation in the database, these sources will be available to use for any subsequent Mikado pick run. Having the data present in the database allows to run Mikado with multiple configurations and little overhead in terms of pre-loading data; this feature is taken directly advtange of in <a class="reference internal" href="Daijin.html#daijin"><span class="std std-ref">The Daijin pipeline for driving Mikado</span></a>, where it is possible to run Mikado using multiple modes.</p>
-<p>Mikado serialise can use three different SQL databases as backends - SQLite, MySQL and PostgreSQL - thanks to <a href="#id2"><span class="problematic" id="id3">SQLAlchemy_</span></a>.
+<p>Mikado serialise can use three different SQL databases as backends - SQLite, MySQL and PostgreSQL - thanks to <a class="reference external" href="http://www.sqlalchemy.org/">SQLAlchemy</a>.
 This step, together with the creation of the TransDecoder and BLAST data, is the most time consuming of the pipeline. In particular, although Mikado serialise will try to analyse the XML data in a parallelised fashion if so instructed, the insertion of the data in the database will still happen in a single thread and will therefore be of limited speed. If using SQLite as database (the default option), it is possible to decrease the runtime by modifying the &#8220;max_objects&#8221; parameters, at the cost however of increased RAM usage.</p>
+<div class="section" id="transdecoder-orfs">
+<h2>3.1. Transdecoder ORFs<a class="headerlink" href="#transdecoder-orfs" title="Permalink to this headline">¶</a></h2>
+<p>When Mikado analyses ORFs produced by <a class="reference external" href="http://transdecoder.github.io/">TransDecoder</a> or equivalent program, it performs additionally the following checks:</p>
+<ol class="arabic simple">
+<li>Check the congruence between the length of the transcript in the BED12 file and that found in the FASTA file</li>
+<li>Check that the ORF does not contain internal stop codons</li>
+<li>Check that the CDS length is valid, ie a multiple of 3, if the ORF is complete</li>
+<li>Optionally, if the ORF is open on the 5&#8217; side, Mikado can try to find an internal start codon. See :<cite>this section &lt;max-regression&gt;</cite> for details.</li>
+</ol>
+</div>
 <div class="section" id="usage">
-<h2>5.3.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<h2>3.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <p><code class="docutils literal"><span class="pre">mikado</span> <span class="pre">serialise</span></code> allows to override some of the parameters present in the configuration file through command line options, eg the input files. Notwithstanding, in the interest of reproducibility we advise to configure everything through the configuration file and supply it to Mikado prepare without further modifications.</p>
 <p>Available parameters:</p>
-<ul class="simple">
+<ul>
+<li><dl class="first docutils">
+<dt>Parameters related to performance:</dt>
+<dd><ul class="first last simple">
 <li><em>start-method</em>: one of fork, spawn, forkserver. It determines the multiprocessing start method. By default, Mikado will use the default for the system (fork on UNIX, spawn on Windows).</li>
-<li><em>output-dir</em>: directory where the SQLite database and the log will be written to.</li>
-<li><em>orfs</em>: ORF BED12 files, separated by comma.</li>
+<li><em>procs</em>: Number of processors to use.</li>
+<li><em>single-thread</em>: flag. If set, Mikado will disable all multithreading.</li>
+<li><em>max_objects</em>: Maximum number of objects to keep in memory before committing to the database. See <a class="reference internal" href="Configure.html#max-objects"><span class="std std-ref">this section of the configuration</span></a> for details.</li>
 </ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Basic input data and settings:</dt>
+<dd><ul class="first last simple">
+<li><em>output-dir</em>: directory where the SQLite database and the log will be written to.</li>
+<li><em>transcripts</em>: these are the input transcripts that are present on the GTF file considered by Mikado. Normally this should be the output of Mikado prepare.</li>
+<li><em>genome_fai</em>: FAIDX file of the genome FASTA. If not given, serialise will derive it from the &#8220;reference: genome&#8221; field of the configuration.</li>
+<li><em>force</em>: flag. If set, and the database is already present, it will be truncated rather than updated.</li>
+<li><strong>json-conf</strong>: this is the configuration file created with <a class="reference internal" href="Configure.html#configure"><span class="std std-ref">Mikado configure</span></a>.</li>
+<li><em>db</em>: if the database is specified on the command line, <code class="docutils literal"><span class="pre">mikado</span> <span class="pre">serialise</span></code> will interpret it as a <strong>SQLite</strong> database. This will overwrite any setting present in the configuration file.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Parameters related to logging:</dt>
+<dd><ul class="first last simple">
+<li><em>log</em>: log file. It defaults to <code class="docutils literal"><span class="pre">serialise.log</span></code>.</li>
+<li><em>log_level</em>: verbosity of the logging. Please be advised that excessive verbosity can negatively impact the performance of the program - the debug mode is extremely verbose.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Parameters related to reliable junctions:</dt>
+<dd><ul class="first last simple">
+<li><em>junctions</em>: a <a class="reference external" href="https://genome.ucsc.edu/FAQ/FAQformat.html#format1">BED12</a> file of reliable junctions. This can be obtained using <a class="reference external" href="https://github.com/maplesond/portcullis">Portcullis</a>. Please see the relative <a class="reference internal" href="#bed12-sidebar"><span class="std std-ref">sidebar</span></a>.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Parameters related to the treatment of ORF data:</dt>
+<dd><ul class="first last simple">
+<li><em>orfs</em>: ORF BED12 files, separated by comma.</li>
+<li><em>max-regression</em>: A percentage, expressed as a number between 0 and 1, which indicates how far can Mikado regress along the ORF to find a valid start codon. See the <a class="reference internal" href="Configure.html#max-regression"><span class="std std-ref">relative section in the configuration</span></a> for details.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Parameters related to BLAST data:</dt>
+<dd><ul class="first last">
+<li><p class="first"><em>blast_targets</em>: BLAST FASTA database.</p>
+</li>
+<li><p class="first"><em>discard-definition</em>: Flag. Depending on how the database has been created, sometimes BLAST will substitute the ID of the sequence with &#8220;lcl|&#8221; ids. Mikado circumvents this by looking for the definition field in the XML file. Using this flag will disable this behaviour and force Mikado to use the ID - with the potential of having a mismatch between the sequences in the BLAST DB and the sequences in the BLAST files.</p>
+</li>
+<li><dl class="first docutils">
+<dt><em>xml</em>: BLAST files to parse. This can be one of the following:</dt>
+<dd><ul class="first last simple">
+<li>A list of XML BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .xml)</li>
+<li>A list of ASN BLAST files, optionally compressed with GZip or BZip2, comma separated (suffix .asn)</li>
+<li>A list of folders, comma separated, where it is possible to find files of the former 2 types</li>
+<li>A mixture of the three above types.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first"><em>max-target-seqs</em>: maximum number of BLAST targets that can be loaded per sequence, for each BLAST alignment. Please note that if you align against multiple databases, this threshold will be applied once per file.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<div class="admonition hint">
+<p class="first admonition-title">Hint</p>
+<p class="last">Mikado will parallelise only the reading of multiple XML files. As such, this part of the pipeline is less performing than the other steps.</p>
+</div>
 <div class="admonition warning">
 <p class="first admonition-title">Warning</p>
 <p class="last">It is advised to set this parameter to <em>spawn</em> even on UNIX. See <a class="reference internal" href="Configure.html#scheduler-multiprocessing"><span class="std std-ref">the dedicated sidebar for details</span></a>.</p>
@@ -260,7 +346,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="technical-details">
-<h2>5.3.2. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<h2>3.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
 <p>The schema of the database is quite simple, as it is composed only of 7 discrete tables in two groups. The first group, <em>chrom</em> and <em>junctions</em>, serialises the information pertaining to the reliable junctions - ie information which is not relative to the transcripts but rather to their genomic locations.
 The second group serialises the data regarding ORFs and BLAST files. The need of using a database is mainly driven by the latter, as querying a relational database is faster than retrieving the information from the XML files themselves at runtime.</p>
 <div class="topic">
@@ -279,10 +365,10 @@ The second group serialises the data regarding ORFs and BLAST files. The need of
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="Pick.html" class="btn btn-neutral float-right" title="5.4. Mikado pick" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="Pick.html" class="btn btn-neutral float-right" title="4. Mikado pick" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="Prepare.html" class="btn btn-neutral" title="5.2. Mikado prepare" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="Prepare.html" class="btn btn-neutral" title="2. Mikado prepare" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

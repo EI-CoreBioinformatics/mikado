@@ -155,6 +155,11 @@ def setup(args):
     if args.start_method is not None:
         args.json_conf["multiprocessing_method"] = args.start_method
 
+    if args.log_level is None:
+        args.log_level = args.json_conf["log_settings"]["log_level"]
+    else:
+        args.json_conf["log_settings"]["log_level"] = args.log_level
+
     args.json_conf["serialise"]["log_level"] = args.json_conf["log_settings"]["log_level"]
 
     # Retrieve data from the argparse and put it into the configuration
@@ -374,9 +379,9 @@ def serialise_parser():
     parser.add_argument("-od", "--output-dir", dest="output_dir",
                         type=str, default=None,
                         help="Output directory. Default: current working directory")
-    generic.add_argument("-lv", "--log_level", default="INFO",
+    generic.add_argument("-lv", "--log_level", default=None,
                          choices=["DEBUG", "INFO", "WARN", "ERROR"],
-                         help="Log level. Default: %(default)s")
+                         help="Log level. Default: derived from the configuration; if absent, INFO")
 
     generic.add_argument("db", type=str, default=None,
                          nargs='?',

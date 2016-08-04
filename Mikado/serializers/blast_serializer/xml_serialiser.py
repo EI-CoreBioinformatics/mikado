@@ -10,13 +10,13 @@ import tempfile
 import pickle
 import sqlalchemy
 import sqlalchemy.exc
-from sqlalchemy.orm.session import sessionmaker, Session
+from sqlalchemy.orm.session import Session
 from ...utilities.dbutils import DBBASE
 import pyfaidx
 from ...utilities.dbutils import connect
 from ...parsers.blast_utils import BlastOpener  # , XMLMerger
 from ...utilities.log_utils import create_null_logger, check_logger
-from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
+from . import Query, Target, Hsp, Hit, prepare_hit
 from xml.parsers.expat import ExpatError
 import xml
 import multiprocessing
@@ -31,32 +31,80 @@ __author__ = 'Luca Venturini'
 class _XmlPickler(multiprocessing.Process):
 
     def __init__(self,
+                 queries,
+                 targets,
                  filequeue: multiprocessing.Queue,
                  returnqueue,
                  default_header,
-                 maxobjects,
                  identifier,
                  logging_queue,
-                 level="WARN"):
+                 level="WARN",
+                 max_target_seqs=10,
+                 maxobjects=20000,
+                 discard_definition=False):
 
         super().__init__()
+        self.queries = queries
+        self.targets = targets
+        self.discard_definition = discard_definition
+        self.level = level
+        self.logging_queue = logging_queue
         self.handler = logging_handlers.QueueHandler(logging_queue)
+        self.handler.setLevel(self.level)
         self.__identifier = identifier
         self.name = self._name = "_XmlPickler-{0}".format(self.identifier)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
-        self.logger.setLevel(level)
+        self.logger.setLevel(self.level)
         self.filequeue = filequeue
         self.returnqueue = returnqueue
         self.default_header = default_header
         self.maxobjects = maxobjects
-        self.logging_queue = logging_queue
-        self.level = level
-        self._pickler = functools.partial(_pickle_xml,
-                                          **{"default_header": self.default_header,
-                                             "maxobjects": self.maxobjects,
-                                             "logging_queue": self.logging_queue,
-                                             "level": self.level})
+        self.__max_target_seqs = max_target_seqs
+        self.logger.debug("Started %s", self.name)
+
+        # self._pickler = functools.partial(_pickle_xml,
+        #                                   **{"default_header": self.default_header,
+        #                                      "maxobjects": self.maxobjects,
+        #                                      "logging_queue": self.logging_queue,
+        #                                      "level": self.level})
+
+    def __get_query_for_blast(self, record):
+
+        """ This private method formats the name of the query
+        recovered from the BLAST hit. It will cause an exception if the target is not
+        present in the dictionary.
+        :param record:
+        :return: current_query (ID in the database), name
+        """
+
+        if self.discard_definition is False:
+            name = record.id.split()[0]
+        else:
+            name = record.id
+        self.logger.debug("Started with %s", name)
+
+        if name not in self.queries or self.queries[name][1] is False:
+            raise KeyError("{} not found in the queries!".format(record))
+        current_query = self.queries[name][0]
+        return current_query, name
+
+    def __get_target_for_blast(self, alignment):
+
+        """ This private method retrieves the correct target_id
+        key for the target of the BLAST. If the entry is not present
+        in the database, it will be created on the fly.
+        The method returns the index of the current target and
+        and an updated target dictionary.
+        :param alignment: an alignment child of a BLAST record object
+        :return: current_target (ID in the database), targets
+        """
+
+        if alignment.accession not in self.targets:
+            raise KeyError("{} not found in the targets!".format(alignment.accession))
+
+        current_target = self.targets[alignment.accession][0]
+        return current_target
 
     def __getstate__(self):
 
@@ -66,7 +114,7 @@ class _XmlPickler(multiprocessing.Process):
         state["handler"].close()
         state["handler"] = None
 
-        state["_pickler"] = None
+        # state["_pickler"] = None
         state["logger"] = None
         return state
 
@@ -74,14 +122,118 @@ class _XmlPickler(multiprocessing.Process):
 
         self.__dict__.update(state)
         self.handler = logging_handlers.QueueHandler(self.logging_queue)
+        self.handler.setLevel(self.level)
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.level)
-        self._pickler = functools.partial(_pickle_xml,
-                                          **{"default_header": self.default_header,
-                                           "maxobjects": self.maxobjects,
-                                           "logging_queue": self.logging_queue,
-                                           "level": self.level})
+        # self._pickler = functools.partial(_pickle_xml,
+        #                                   **{"default_header": self.default_header,
+        #                                    "maxobjects": self.maxobjects,
+        #                                    "logging_queue": self.logging_queue,
+        #                                    "level": self.level})
+
+    def _pickler(self, filename):
+
+        # Check the header is alright
+        valid, _, exc = BlastOpener(filename).sniff(default_header=self.default_header)
+        if not valid:
+            self.logger.warning("Invalid BLAST file: %s", filename)
+            return []
+
+        self.logger.info("Starting to pickle %s", filename)
+        hits, hsps = [], []
+
+        pickle_count = 0
+        query_counter = 0
+        try:
+            with BlastOpener(filename) as opened:
+                try:
+                    for record in opened:
+                        query_counter += 1
+                        hits, hsps = self.objectify_record(record, hits, hsps)
+
+                        if len(hits) + len(hsps) > self.maxobjects:
+                            pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                                                           dir=os.path.dirname(filename))
+                            with open(pickle_temp[1], "wb") as pickled:
+                                pickle.dump([query_counter, hits, hsps], pickled)
+
+                            pickle_count += 1
+                            query_counter = 0
+                            self.logger.debug("Sending %s back to the main thread (%d hits and %d hsps)",
+                                              pickle_temp[1], len(hits), len(hsps))
+                            yield pickle_temp[1]
+                            # pfiles.append(pickle_temp[1])
+                            hits, hsps = [], []
+                except ExpatError:
+                    self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
+                                      filename)
+        except xml.etree.ElementTree.ParseError:
+            self.logger.error("%s is an invalid BLAST file, sending back anything salvageable",
+                              filename)
+
+        pickle_temp = tempfile.mkstemp(suffix=".pickle",
+                                       dir=os.path.dirname(filename))
+        with open(pickle_temp[1], "wb") as pickled:
+            pickle.dump([query_counter, hits, hsps], pickled)
+        yield pickle_temp[1]
+        pickle_count += 1
+        # pfiles.append()
+        self.logger.info("Finished pickling %s in %s subsection", filename, pickle_count)
+        # del records
+
+    def objectify_record(self, record, hits, hsps):
+        """
+        Private method to serialise a single record into the DB.
+
+        :param record: The BLAST record to load into the DB.
+        :param hits: Cache of hits to load into the DB.
+        :type hits: list
+
+        :param hsps: Cache of hsps to load into the DB.
+        :type hsps: list
+
+        :returns: hits, hsps
+        :rtype: (list, list)
+        """
+
+        if len(record.hits) == 0:
+            return hits, hsps
+
+        current_query, name = self.__get_query_for_blast(record)
+
+        current_evalue = -1
+        current_counter = 0
+
+        # for ccc, alignment in enumerate(record.alignments):
+        for ccc, alignment in enumerate(record.hits):
+            if ccc + 1 > self.__max_target_seqs:
+                break
+
+            self.logger.debug("Started the hit %s vs. %s",
+                              # name, record.alignments[ccc].accession)
+                              name, record.hits[ccc].id)
+            current_target = self.__get_target_for_blast(alignment)
+
+            hit_dict_params = dict()
+            (hit_dict_params["query_multiplier"],
+             hit_dict_params["target_multiplier"]) = XmlSerializer.get_multipliers(record)
+            hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
+            hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
+            if current_evalue < hit_evalue:
+                current_counter += 1
+                current_evalue = hit_evalue
+
+            hit_dict_params["hit_number"] = current_counter
+            hit_dict_params["evalue"] = hit_evalue
+            hit_dict_params["bits"] = hit_bs
+
+            # Prepare for bulk load
+            hit, hit_hsps = prepare_hit(alignment, current_query, current_target, **hit_dict_params)
+            hits.append(hit)
+            hsps.extend(hit_hsps)
+
+        return hits, hsps
 
     def run(self):
         """
@@ -115,73 +267,6 @@ class _XmlPickler(multiprocessing.Process):
         return self.__identifier
 
 
-def _pickle_xml(filename,
-                default_header='',
-                maxobjects=float("inf"),
-                logging_queue=None,
-                level="WARN"):
-
-    """
-    Private method to load the records from an XML file into a pickled file,
-    for faster loading.
-    :param filename:
-    :param logging_queue: the queue to be used for logging
-
-    :return: a list of the
-    """
-
-    records = []
-    pfiles = []
-
-    if logging_queue is None:
-        handler = logging.NullHandler()
-    else:
-        handler = logging_handlers.QueueHandler(logging_queue)
-    logger = logging.getLogger("pickle_{0}".format(os.path.basename(filename)))
-    logger.addHandler(handler)
-    logger.setLevel(level)
-
-    # Check the header is alright
-    assert default_header is not None
-    valid, _, exc = BlastOpener(filename).sniff(default_header=default_header)
-    if not valid:
-        logger.warning("Invalid BLAST file: %s", filename)
-        return pfiles
-
-    logger.debug("Starting to pickle %s", filename)
-
-    try:
-        with BlastOpener(filename) as opened:
-            try:
-                for record in opened:
-                    if len(record.hits) > 0:
-                        records.append(record)
-                    if len(records) > maxobjects:
-                        pickle_temp = tempfile.mkstemp(suffix=".pickle",
-                                                       dir=os.path.dirname(filename))
-                        with open(pickle_temp[1], "wb") as pickled:
-                            pickle.dump(records, pickled)
-                        yield pickle_temp[1]
-                        # pfiles.append(pickle_temp[1])
-                        records = []
-            except ExpatError:
-                logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                             filename)
-    except xml.etree.ElementTree.ParseError:
-        logger.error("%s is an invalid BLAST file, sending back anything salvageable",
-                     filename)
-
-    pickle_temp = tempfile.mkstemp(suffix=".pickle",
-                                   dir=os.path.dirname(filename))
-    with open(pickle_temp[1], "wb") as pickled:
-        pickle.dump(records, pickled)
-    yield pickle_temp[1]
-    # pfiles.append()
-    logger.debug("Finished pickling %s in %s", filename, pfiles)
-    del records
-    # return pfiles
-
-
 class XmlSerializer:
     """This class has the role of taking in input a blast XML file and (partially)
     serialise it into a database. We are using SQLalchemy, so the database type
@@ -202,7 +287,7 @@ class XmlSerializer:
                  json_conf=None):
         """Initializing method. Arguments:
 
-        :param xml: The XML to parse.
+        :param xml_name: The XML(s) to parse.
 
         Arguments:
 
@@ -217,16 +302,20 @@ class XmlSerializer:
 
         if logger is not None:
             self.logger = check_logger(logger)
+        else:
+            raise ValueError("No logger provided!")
+        self.logger.info("Started to serialise %s, log level: %s",
+                         xml_name, self.logger.level)
 
         # Runtime arguments
+
         self.procs = json_conf["serialise"]["procs"]
         self.single_thread = json_conf["serialise"]["single_thread"]
         self.json_conf = json_conf
-        # if self.procs > 1 and self.single_thread is False:
-            # pylint: disable=unexpected-argument
+        # pylint: disable=unexpected-argument,E1123
         multiprocessing.set_start_method(self.json_conf["multiprocessing_method"],
                                          force=True)
-        # pylint: enable=unexpected-argument
+        # pylint: enable=unexpected-argument,E1123
         self.logging_queue = multiprocessing.Queue(-1)
         self.logger_queue_handler = logging_handlers.QueueHandler(self.logging_queue)
         self.queue_logger = logging.getLogger("parser")
@@ -253,7 +342,7 @@ class XmlSerializer:
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
         session = Session(bind=self.engine, autocommit=True, autoflush=True)
         self.session = session  # session()
-        self.logger.debug("Created the session")
+        self.logger.info("Created the session")
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
         self.xml = xml_name
@@ -265,6 +354,8 @@ class XmlSerializer:
                              "log_process", "pool", "main_logger",
                              "log_handler", "log_writer", "logger", "session",
                              "get_query", "engine", "query_seqs", "target_seqs"]
+
+        self.logger.info("Finished __init__")
 
     def __getstate__(self):
 
@@ -322,6 +413,8 @@ class XmlSerializer:
         self.logger.info("Started to serialise the queries")
         objects = []
         for record in self.query_seqs.records:
+            if not record:
+                continue
             if record in queries and queries[record][1] is not None:
                 continue
             elif record in queries:
@@ -354,22 +447,23 @@ class XmlSerializer:
                 # self.logger.info("Loaded %d objects into the \"target\" table",
                 #                  len(objects))
                 # objects = []
-        self.logger.info("Loading %d objects into the \"query\" table (total %d)",
-                         len(objects), counter+len(objects))
-        # pylint: disable=no-member
-        # self.engine.execute(Target.__table__.insert(),
-        #                     [{"target_name": obj.target_name,
-        #                       "target_length": obj.target_length} for obj in objects])
-        counter += len(objects)
-        # pylint: disable=no-member
-        self.session.begin()
-        # self.session.bulk_insert_mappings(Query, objects)
-        self.engine.execute(Query.__table__.insert(), objects)
-        # pylint: enable=no-member
-        # self.session.bulk_insert_mappings(Query, objects)
-        self.session.commit()
-        # pylint: enable=no-member
-        self.logger.info("Loaded %d objects into the \"query\" table", counter)
+        if len(objects) > 0:
+            self.logger.info("Loading %d objects into the \"query\" table (total %d)",
+                             len(objects), counter+len(objects))
+            # pylint: disable=no-member
+            # self.engine.execute(Target.__table__.insert(),
+            #                     [{"target_name": obj.target_name,
+            #                       "target_length": obj.target_length} for obj in objects])
+            counter += len(objects)
+            # pylint: disable=no-member
+            self.session.begin()
+            # self.session.bulk_insert_mappings(Query, objects)
+            self.engine.execute(Query.__table__.insert(), objects)
+            # pylint: enable=no-member
+            # self.session.bulk_insert_mappings(Query, objects)
+            self.session.commit()
+            # pylint: enable=no-member
+            self.logger.info("Loaded %d objects into the \"query\" table", counter)
         for query in self.session.query(Query):
             queries[query.query_name] = (query.query_id, query.query_length)
         self.logger.info("%d in queries", len(queries))
@@ -544,7 +638,7 @@ class XmlSerializer:
 
             hit_dict_params = dict()
             (hit_dict_params["query_multiplier"],
-             hit_dict_params["target_multiplier"]) = self.__get_multipliers(record)
+             hit_dict_params["target_multiplier"]) = self.get_multipliers(record)
             hit_evalue = min(_.evalue for _ in record.hits[ccc].hsps)
             hit_bs = max(_.bitscore for _ in record.hits[ccc].hsps)
             if current_evalue < hit_evalue:
@@ -556,12 +650,9 @@ class XmlSerializer:
             hit_dict_params["bits"] = hit_bs
 
             # Prepare for bulk load
-            try:
-                hit, hit_hsps = prepare_hit(alignment, current_query, current_target,
-                                            **hit_dict_params)
-            except InvalidHit as exc:
-                self.logger.error(exc)
-                continue
+            hit, hit_hsps = prepare_hit(alignment, current_query, current_target,
+                                        **hit_dict_params)
+
             hits.append(hit)
             hsps.extend(hit_hsps)
 
@@ -649,15 +740,22 @@ class XmlSerializer:
             filequeue = multiprocessing.Queue(-1)
             returnqueue = multiprocessing.Queue(-1)
 
-            procs = [_XmlPickler(filequeue,
-                                 returnqueue,
-                                 self.header,
-                                 int(self.maxobjects/self.procs),
-                                 _,
-                                 self.logging_queue,
-                                 self.json_conf["log_settings"]["log_level"])
-                     for _ in range(min([self.procs, len(self.xml)]))
-                     ]
+            procs = [_XmlPickler(
+                queries,
+                targets,
+                filequeue,
+                returnqueue,
+                self.header,
+                _,
+                logging_queue=self.logging_queue,
+                # level=self.logger.level,
+                level=self.json_conf["log_settings"]["log_level"],
+                discard_definition=self.discard_definition,
+                maxobjects=int(self.maxobjects/self.procs),
+                max_target_seqs=self.__max_target_seqs
+            )
+                for _ in range(min([self.procs, len(self.xml)]))
+                ]
 
             self.logger.info("Starting to pickle and serialise %d files", len(self.xml))
             [_.start() for _ in procs]  # Start processes
@@ -678,26 +776,35 @@ class XmlSerializer:
                     continue
                 for pickle_file in result:
                     with open(pickle_file, "rb") as pickled:
-                        for record in pickle.load(pickled):
-                            record_counter += 1
-                            if record_counter > 0 and record_counter % 10000 == 0:
-                                self.logger.info("Parsed %d queries", record_counter)
-
-                            (hits,
-                             hsps,
-                             partial_hit_counter,
-                             targets) = self.__serialise_record(record,
-                                                                hits,
-                                                                hsps,
-                                                                targets)
-
-                            hit_counter += partial_hit_counter
-                            if hit_counter > 0 and hit_counter % 10000 == 0:
-                                self.logger.info("Serialized %d alignments", hit_counter)
+                        __query_count, __hits, __hsps = pickle.load(pickled)
+                        record_counter += __query_count
+                        self.logger.debug("Received %d hits with %d HSPs",
+                                          len(__hits), len(__hsps))
+                        hit_counter += len(__hits)
+                        hits.extend(__hits)
+                        hsps.extend(__hsps)
+                        hits, hsps = self.__load_into_db(hits, hsps, force=False)
+                        if record_counter > 0 and record_counter % 10000 == 0:
+                            self.logger.info("Parsed %d queries", record_counter)
+                        # for record in pickle.load(pickled):
+                        #     record_counter += 1
+                        #     if
+                        #
+                        #
+                        #     # (hits,
+                        #     #  hsps,
+                        #     #  partial_hit_counter,
+                        #     #  targets) = self.__serialise_record(record,
+                        #     #                                     hits,
+                        #     #                                     hsps,
+                        #     #                                     targets)
+                        #
+                        #     # hit_counter += partial_hit_counter
+                        #     if hit_counter > 0 and hit_counter % 10000 == 0:
+                        #         self.logger.info("Serialized %d alignments", hit_counter)
                     os.remove(pickle_file)
             [_.join() for _ in procs]  # Wait for processes to join
-            self.logger.info("All %d children finished, starting to retrieve the data",
-                             len(procs))
+            self.logger.info("All %d children finished", len(procs))
             del procs
 
             _, _ = self.__load_into_db(hits, hsps, force=True)
@@ -719,7 +826,7 @@ class XmlSerializer:
         self.serialize()
 
     @staticmethod
-    def __get_multipliers(record):
+    def get_multipliers(record):
 
         """
         Private quick method to determine the multipliers for a BLAST alignment
@@ -814,25 +921,4 @@ class XmlSerializer:
             current_target = current_target.target_id
         return current_target, targets
 
-    def load_into_db(self, objects):
-        """
-        :param objects: Objects to be loaded into the database
-        :type objects: list
-
-        Method to perform the bulk loading of objects into the SQL database.
-        DEPRECATED.
-        """
-
-        try:
-            self.session.bulk_save_objects(objects, return_defaults=False)
-            self.session.commit()
-        except sqlalchemy.exc.IntegrityError as err:
-            self.logger.error('Database corrupted')
-            self.logger.error(err)
-            self.logger.error('Dropping and reloading')
-            self.session.rollback()
-            self.session.query(Hsp).delete()
-            self.session.query(Hit).delete()
-            self.session.bulk_save_objects(objects, return_defaults=False)
-            self.session.commit()
 # pylint: enable=too-many-instance-attributes

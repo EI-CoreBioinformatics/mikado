@@ -16,7 +16,7 @@ import pyfaidx
 from ...utilities.dbutils import connect
 from ...parsers.blast_utils import BlastOpener  # , XMLMerger
 from ...utilities.log_utils import create_null_logger, check_logger
-from . import Query, Target, Hsp, Hit, prepare_hit
+from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import xml
 import multiprocessing
@@ -229,7 +229,12 @@ class _XmlPickler(multiprocessing.Process):
             hit_dict_params["bits"] = hit_bs
 
             # Prepare for bulk load
-            hit, hit_hsps = prepare_hit(alignment, current_query, current_target, **hit_dict_params)
+            try:
+                hit, hit_hsps = prepare_hit(alignment, current_query,
+                                            current_target, **hit_dict_params)
+            except InvalidHit as exc:
+                self.logger.error(exc)
+                continue
             hits.append(hit)
             hsps.extend(hit_hsps)
 
@@ -650,8 +655,14 @@ class XmlSerializer:
             hit_dict_params["bits"] = hit_bs
 
             # Prepare for bulk load
-            hit, hit_hsps = prepare_hit(alignment, current_query, current_target,
-                                        **hit_dict_params)
+            try:
+                hit, hit_hsps = prepare_hit(alignment,
+                                            current_query,
+                                            current_target,
+                                            **hit_dict_params)
+            except InvalidHit as exc:
+                self.logger.error(exc)
+                continue
 
             hits.append(hit)
             hsps.extend(hit_hsps)

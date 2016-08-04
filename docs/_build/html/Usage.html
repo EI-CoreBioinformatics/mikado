@@ -33,7 +33,7 @@
 
   
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="index.html"/>
-        <link rel="next" title="5.1. Mikado configure" href="Usage_dir/Configure.html"/>
+        <link rel="next" title="1. Mikado configure" href="Usage_dir/Configure.html"/>
         <link rel="prev" title="3. Tutorial" href="Tutorial.html"/> 
 
   
@@ -55,6 +55,9 @@
             <a href="index.html" class="icon icon-home"> Mikado
           
 
+          
+            
+            <img src="_static/mikado-logo.jpg" class="logo" />
           
           </a>
 
@@ -89,21 +92,21 @@
 <li class="toctree-l1"><a class="reference internal" href="Tutorial.html">3. Tutorial</a></li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">4. Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="#mikado-pipeline-stages">5. Mikado pipeline stages</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Configure.html">5.1. Mikado configure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Prepare.html">5.2. Mikado prepare</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Serialise.html">5.3. Mikado serialise</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Pick.html">5.4. Mikado pick</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Configure.html">1. Mikado configure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Prepare.html">2. Mikado prepare</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Serialise.html">3. Mikado serialise</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Pick.html">4. Mikado pick</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="#mikado-utilities">6. Mikado utilities</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Compare.html">6.1. Compare</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Daijin.html">6.2. The Daijin pipeline for driving Mikado</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Utilities.html">6.3. Mikado miscellaneous scripts</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Utilities.html#included-scripts">6.4. Included scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Compare.html">1. Compare</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Daijin.html">2. The Daijin pipeline for driving Mikado</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Utilities.html">3. Mikado miscellaneous scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Usage_dir/Utilities.html#included-scripts">4. Included scripts</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="References.html">7. References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Library/index.html">8. Library documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="References.html">4. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Library/index.html">5. Library documentation</a></li>
 </ul>
 
             
@@ -149,17 +152,17 @@
            <div itemprop="articleBody">
             
   <div class="section" id="usage">
-<h1>4. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h1>
+<h1>Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h1>
 <p>Mikado is composed of four different programs (<em>configure, prepare, serialise, pick</em>) which have to be executed serially to go from an ensemble of different assemblies to the final dataset. In addition to these core programs, Mikado provides a utility to compare annotations, similarly to CuffCompare and ParsEval (<em>compare</em>), and various other minor utilities to perform operations such as extracting regions from a GFF, convert between different gene annotation formats, etc.</p>
 </div>
 <div class="section" id="mikado-pipeline-stages">
-<h1>5. Mikado pipeline stages<a class="headerlink" href="#mikado-pipeline-stages" title="Permalink to this headline">¶</a></h1>
+<h1>Mikado pipeline stages<a class="headerlink" href="#mikado-pipeline-stages" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Configure.html">5.1. Mikado configure</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Prepare.html">5.2. Mikado prepare</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Serialise.html">5.3. Mikado serialise</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Pick.html">5.4. Mikado pick</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Configure.html">1. Mikado configure</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Prepare.html">2. Mikado prepare</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Serialise.html">3. Mikado serialise</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Pick.html">4. Mikado pick</a></li>
 </ul>
 </div>
 <p>The Mikado pipeline is composed of four different stages, that have to be executed serially:</p>
@@ -171,13 +174,13 @@
 </ol>
 </div>
 <div class="section" id="mikado-utilities">
-<h1>6. Mikado utilities<a class="headerlink" href="#mikado-utilities" title="Permalink to this headline">¶</a></h1>
+<h1>Mikado utilities<a class="headerlink" href="#mikado-utilities" title="Permalink to this headline">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Compare.html">6.1. Compare</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Daijin.html">6.2. The Daijin pipeline for driving Mikado</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Utilities.html">6.3. Mikado miscellaneous scripts</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Utilities.html#included-scripts">6.4. Included scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Compare.html">1. Compare</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Daijin.html">2. The Daijin pipeline for driving Mikado</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Utilities.html">3. Mikado miscellaneous scripts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Usage_dir/Utilities.html#included-scripts">4. Included scripts</a></li>
 </ul>
 </div>
 <p>In addition with the pipeline proper, Mikado includes the following:
@@ -193,7 +196,7 @@
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="Usage_dir/Configure.html" class="btn btn-neutral float-right" title="5.1. Mikado configure" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="Usage_dir/Configure.html" class="btn btn-neutral float-right" title="1. Mikado configure" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="Tutorial.html" class="btn btn-neutral" title="3. Tutorial" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>

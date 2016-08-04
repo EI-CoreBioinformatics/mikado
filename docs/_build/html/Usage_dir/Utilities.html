@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>6.3. Mikado miscellaneous scripts &mdash; Mikado 1.0.0b4 documentation</title>
+  <title>3. Mikado miscellaneous scripts &mdash; Mikado 1.0.0b4 documentation</title>
   
 
   
@@ -34,8 +34,8 @@
   
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html"/>
         <link rel="up" title="4. Usage" href="../Usage.html"/>
-        <link rel="next" title="7. References" href="../References.html"/>
-        <link rel="prev" title="6.2. The Daijin pipeline for driving Mikado" href="Daijin.html"/> 
+        <link rel="next" title="4. References" href="../References.html"/>
+        <link rel="prev" title="2. The Daijin pipeline for driving Mikado" href="Daijin.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -56,6 +56,9 @@
             <a href="../index.html" class="icon icon-home"> Mikado
           
 
+          
+            
+            <img src="../_static/mikado-logo.jpg" class="logo" />
           
           </a>
 
@@ -91,34 +94,34 @@
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html">4. Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-pipeline-stages">5. Mikado pipeline stages</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Compare.html">6.1. Compare</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Daijin.html">6.2. The Daijin pipeline for driving Mikado</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">6.3. Mikado miscellaneous scripts</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#awk-gtf">6.3.1. awk_gtf</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#convert">6.3.2. convert</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#grep">6.3.3. grep</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#merge-blast">6.3.4. merge_blast</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#metrics">6.3.5. metrics</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#stat">6.3.6. stat</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#trim">6.3.7. trim</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Compare.html">1. Compare</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Daijin.html">2. The Daijin pipeline for driving Mikado</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">3. Mikado miscellaneous scripts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#awk-gtf">3.1. awk_gtf</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#convert">3.2. convert</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#grep">3.3. grep</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#merge-blast">3.4. merge_blast</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#metrics">3.5. metrics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#stat">3.6. stat</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trim">3.7. trim</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#included-scripts">6.4. Included scripts</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#add-transcript-feature-to-gtf-py">6.4.1. add_transcript_feature_to_gtf.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#align-collect-py">6.4.2. align_collect.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#asm-collect-py">6.4.3. asm_collect.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#class-run-py">6.4.4. class_run.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#getfastafromids-py">6.4.5. getFastaFromIds.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#grep-py">6.4.6. grep.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#remove-from-embl-py">6.4.7. remove_from_embl.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#split-fasta-py">6.4.8. split_fasta.py</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#trim-long-introns-py">6.4.9. trim_long_introns.py</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#included-scripts">4. Included scripts</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#add-transcript-feature-to-gtf-py">4.1. add_transcript_feature_to_gtf.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#align-collect-py">4.2. align_collect.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#asm-collect-py">4.3. asm_collect.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#class-run-py">4.4. class_run.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#getfastafromids-py">4.5. getFastaFromIds.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#grep-py">4.6. grep.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#remove-from-embl-py">4.7. remove_from_embl.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#split-fasta-py">4.8. split_fasta.py</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#trim-long-introns-py">4.9. trim_long_introns.py</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../References.html">7. References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">8. Library documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../References.html">4. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">5. Library documentation</a></li>
 </ul>
 
             
@@ -151,7 +154,7 @@
       
           <li><a href="../Usage.html">4. Usage</a> &raquo;</li>
       
-    <li>6.3. Mikado miscellaneous scripts</li>
+    <li>3. Mikado miscellaneous scripts</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -166,10 +169,10 @@
            <div itemprop="articleBody">
             
   <div class="section" id="mikado-miscellaneous-scripts">
-<span id="utils"></span><h1>6.3. Mikado miscellaneous scripts<a class="headerlink" href="#mikado-miscellaneous-scripts" title="Permalink to this headline">¶</a></h1>
+<span id="utils"></span><h1>3. Mikado miscellaneous scripts<a class="headerlink" href="#mikado-miscellaneous-scripts" title="Permalink to this headline">¶</a></h1>
 <p>All these utilities can be accessed with the <code class="docutils literal"><span class="pre">mikado</span> <span class="pre">util</span></code> CLI. They perform relatively minor tasks.</p>
 <div class="section" id="awk-gtf">
-<h2>6.3.1. awk_gtf<a class="headerlink" href="#awk-gtf" title="Permalink to this headline">¶</a></h2>
+<h2>3.1. awk_gtf<a class="headerlink" href="#awk-gtf" title="Permalink to this headline">¶</a></h2>
 <p>This utility is used to retrieve specific regions from a GTF file, without breaking any transcript feature. Any transcript falling even partly within the specified coordinates will be retained in its entirety.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado util awk_gtf --help
@@ -194,7 +197,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="convert">
-<h2>6.3.2. convert<a class="headerlink" href="#convert" title="Permalink to this headline">¶</a></h2>
+<h2>3.2. convert<a class="headerlink" href="#convert" title="Permalink to this headline">¶</a></h2>
 <p>This utility is used to convert between GTF and GFF3 files, with the possibility of giving as output BED12 files as well. It is limited to converting transcript features, and will therefore ignore any other feature present (transposons, loci, etc.). The output of the conversion to GFF3 is completely GFF3 compliant.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado util convert --help
@@ -211,7 +214,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="grep">
-<span id="grep-command"></span><h2>6.3.3. grep<a class="headerlink" href="#grep" title="Permalink to this headline">¶</a></h2>
+<span id="grep-command"></span><h2>3.3. grep<a class="headerlink" href="#grep" title="Permalink to this headline">¶</a></h2>
 <p>This utility extracts specific transcripts and genes from an input GTF/GFF3 file. As input, it requires a text file of either the format &#8220;&lt;transcript id&gt;&lt;tab&gt;&lt;gene id&gt;&#8221;, or simply gene per line (in which case the &#8220;&#8211;genes&#8221; switch has to be invoked). If only some of the transcripts of a gene are included in the text file, the gene feature will be shrunk accordingly. The name is an obvious homage to the invaluable UNIX command that we all love.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado util grep --help
@@ -234,7 +237,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="merge-blast">
-<span id="merge-blast-command"></span><h2>6.3.4. merge_blast<a class="headerlink" href="#merge-blast" title="Permalink to this headline">¶</a></h2>
+<span id="merge-blast-command"></span><h2>3.4. merge_blast<a class="headerlink" href="#merge-blast" title="Permalink to this headline">¶</a></h2>
 <p>This script merges together various XML BLAST+ files into a single entity. It might be of use when the input data has been chunked into different FASTA files for submission to a cluster queue. It is also capable of converting from ASN files and of dealing with GZipped files.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado util merge_blast --help
@@ -253,7 +256,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="metrics">
-<span id="metrics-command"></span><h2>6.3.5. metrics<a class="headerlink" href="#metrics" title="Permalink to this headline">¶</a></h2>
+<span id="metrics-command"></span><h2>3.5. metrics<a class="headerlink" href="#metrics" title="Permalink to this headline">¶</a></h2>
 <p>This command generates the documentation regarding the available transcript metrics. It is generated dynamycally by inspecting the code. The documentation in the <a class="reference internal" href="../Introduction.html#metrics"><span class="std std-ref">introduction</span></a> is generated using this utility.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado util metrics
@@ -261,7 +264,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="stat">
-<span id="stat-command"></span><h2>6.3.6. stat<a class="headerlink" href="#stat" title="Permalink to this headline">¶</a></h2>
+<span id="stat-command"></span><h2>3.6. stat<a class="headerlink" href="#stat" title="Permalink to this headline">¶</a></h2>
 <p>This command generates a statistics file for GFF3/GTF files. The output is a table including Average, Mode, and various quantiles for different features present in a typical GFF file (genes, introns, exons, cDNAs, etc.). The operation can be quite time consuming for large files, in which case it is advisable to ask for multiple processors.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado util stats --help
@@ -283,7 +286,7 @@ optional arguments:
 <p>A typical example statistics file can be found <a class="reference download internal" href="../_downloads/TAIR10.stats" download=""><code class="xref download docutils literal"><span class="pre">here,</span> <span class="pre">for</span> <span class="pre">the</span> <span class="pre">TAIR10</span> <span class="pre">annotation</span></code></a>.</p>
 </div>
 <div class="section" id="trim">
-<span id="trim-command"></span><h2>6.3.7. trim<a class="headerlink" href="#trim" title="Permalink to this headline">¶</a></h2>
+<span id="trim-command"></span><h2>3.7. trim<a class="headerlink" href="#trim" title="Permalink to this headline">¶</a></h2>
 <p>This utility trims down the terminal exons of multiexonic transcripts, until either shrinking them to the desired maximum length or meeting the beginning/end of the CDS. It has been used for generating the &#8220;trimmed&#8221; annotations for the analysis of the original Mikado paper.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado util trim --help
@@ -304,10 +307,10 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="included-scripts">
-<span id="id1"></span><h1>6.4. Included scripts<a class="headerlink" href="#included-scripts" title="Permalink to this headline">¶</a></h1>
+<span id="id1"></span><h1>4. Included scripts<a class="headerlink" href="#included-scripts" title="Permalink to this headline">¶</a></h1>
 <p>All the following scripts are included in the &#8220;util&#8221; folder in the source code, and will be included on the PATH after installation. Some of this scripts are used by the <a class="reference internal" href="Daijin.html#daijin"><span class="std std-ref">The Daijin pipeline for driving Mikado</span></a> pipeline to produce statistics or perform other intermediate steps.</p>
 <div class="section" id="add-transcript-feature-to-gtf-py">
-<h2>6.4.1. add_transcript_feature_to_gtf.py<a class="headerlink" href="#add-transcript-feature-to-gtf-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.1. add_transcript_feature_to_gtf.py<a class="headerlink" href="#add-transcript-feature-to-gtf-py" title="Permalink to this headline">¶</a></h2>
 <p>This script is needed to add a top-level transcript feature to GTFs that lack it, eg. those produced by CuffMerge <a class="reference internal" href="../References.html#cuffmerge" id="id2">[CuffMerge]</a>.</p>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ add_transcript_feature_to_gtf.py --help
@@ -324,7 +327,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="align-collect-py">
-<h2>6.4.2. align_collect.py<a class="headerlink" href="#align-collect-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.2. align_collect.py<a class="headerlink" href="#align-collect-py" title="Permalink to this headline">¶</a></h2>
 <p>This script is used to collect statistics from <a class="reference external" href="www.htslib.org/doc/samtools.html">samtools stat</a>.
 Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ align_collect.py  --help
@@ -340,7 +343,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="asm-collect-py">
-<h2>6.4.3. asm_collect.py<a class="headerlink" href="#asm-collect-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.3. asm_collect.py<a class="headerlink" href="#asm-collect-py" title="Permalink to this headline">¶</a></h2>
 <p>This script is used to collect statistics obtained with from the <a class="reference internal" href="#stat-command"><span class="std std-ref">mikado util stats</span></a> utility. Output is printed directly to the screen. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ asm_collect.py -h
 usage: Script to collect info from multiple mikado util stats files
@@ -355,7 +358,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="class-run-py">
-<h2>6.4.4. class_run.py<a class="headerlink" href="#class-run-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.4. class_run.py<a class="headerlink" href="#class-run-py" title="Permalink to this headline">¶</a></h2>
 <p>Python3 wrapper for the CLASS <a class="reference internal" href="../References.html#class2" id="id3">[Class2]</a> assembler. It will perform the necessary operations for the assembler (depth and call of the splicing junctions), and launch the program itself. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ class_run.py --help
 usage: Quick utility to rewrite the wrapper for CLASS. [-h] [--clean]
@@ -386,7 +389,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="getfastafromids-py">
-<h2>6.4.5. getFastaFromIds.py<a class="headerlink" href="#getfastafromids-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.5. getFastaFromIds.py<a class="headerlink" href="#getfastafromids-py" title="Permalink to this headline">¶</a></h2>
 <p>Script to extract a list of sequences from a FASTA file, using the <a class="reference external" href="https://pypi.python.org/pypi/pyfaidx">pyfaidx</a> <a class="reference internal" href="../References.html#pyfaidx" id="id4">[PyFaidx]</a> module. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ getFastaFromIds.py -h
 usage: getFastaFromIds.py [-h] [-v] list fasta [out]
@@ -408,7 +411,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="grep-py">
-<h2>6.4.6. grep.py<a class="headerlink" href="#grep-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.6. grep.py<a class="headerlink" href="#grep-py" title="Permalink to this headline">¶</a></h2>
 <p>A script to extract data from <em>column</em> files, using a list of targets. More efficient than a standard &#8220;grep -f&#8221; for this niche case. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ util/grep.py -h
 usage: grep.py [-h] [-v] [-s SEPARATOR] [-f FIELD] [-q] ids target [out]
@@ -434,7 +437,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="remove-from-embl-py">
-<h2>6.4.7. remove_from_embl.py<a class="headerlink" href="#remove-from-embl-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.7. remove_from_embl.py<a class="headerlink" href="#remove-from-embl-py" title="Permalink to this headline">¶</a></h2>
 <p>Quick script to remove sequences from a given organism from SwissProt files, and print them out in FASTA format. Used to produce the BLAST datasets for the Mikado paper. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ remove_from_embl.py -h
 usage: Script to remove sequences specific of a given organism from a SwissProt file.
@@ -453,7 +456,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="split-fasta-py">
-<h2>6.4.8. split_fasta.py<a class="headerlink" href="#split-fasta-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.8. split_fasta.py<a class="headerlink" href="#split-fasta-py" title="Permalink to this headline">¶</a></h2>
 <p>This script is used to split a FASTA file in a fixed number of files, with an approximate equal number of sequences in each. If the number of sequences in the input file is lower than the number of requested splits, the script will create the necessary number of empty files. Used in <a class="reference internal" href="Daijin.html#daijin"><span class="std std-ref">The Daijin pipeline for driving Mikado</span></a> for preparing the input data for the BLAST analysis. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ split_fasta.py --help
 usage: Script to split FASTA sequences in a fixed number of multiple files.
@@ -471,7 +474,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="trim-long-introns-py">
-<h2>6.4.9. trim_long_introns.py<a class="headerlink" href="#trim-long-introns-py" title="Permalink to this headline">¶</a></h2>
+<h2>4.9. trim_long_introns.py<a class="headerlink" href="#trim-long-introns-py" title="Permalink to this headline">¶</a></h2>
 <p>This script parses an annotation file and truncates any transcript which has <em>UTR</em> introns over the provided threshold. In such cases, the UTR section after the long intron is simply removed. Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ trim_long_introns.py --help
 usage: This script truncates transcript with UTR exons separated by long introns.
@@ -497,10 +500,10 @@ optional arguments:
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../References.html" class="btn btn-neutral float-right" title="7. References" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="../References.html" class="btn btn-neutral float-right" title="4. References" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="Daijin.html" class="btn btn-neutral" title="6.2. The Daijin pipeline for driving Mikado" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="Daijin.html" class="btn btn-neutral" title="2. The Daijin pipeline for driving Mikado" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

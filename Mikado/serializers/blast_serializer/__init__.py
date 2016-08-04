@@ -3,6 +3,7 @@ This package contains all the modules necessary for BLAST serialisation and anal
 """
 
 from .utils import prepare_hit, prepare_hsp
+from ...exceptions import InvalidHit
 from .query import Query
 from .target import Target
 from .hsp import Hsp

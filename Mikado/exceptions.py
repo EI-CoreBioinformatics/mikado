@@ -106,3 +106,8 @@ class CorruptIndex(ValueError):
     """
     Exception to be raised when the index for Mikado compare is corrupt.
     """
+
+class InvalidHit(ValueError):
+    """
+    Exception to be raised when a Hit has discrepant declared and real best e-value.
+    """

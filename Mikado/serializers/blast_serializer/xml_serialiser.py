@@ -10,7 +10,7 @@ import tempfile
 import pickle
 import sqlalchemy
 import sqlalchemy.exc
-from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.orm.session import sessionmaker, Session
 from ...utilities.dbutils import DBBASE
 import pyfaidx
 from ...utilities.dbutils import connect
@@ -105,8 +105,10 @@ class _XmlPickler(multiprocessing.Process):
                                  self._name)
                 self.filequeue.put((number, filename))
                 return 0
-            pfiles = self._pickler(filename)
-            self.returnqueue.put((number, pfiles))
+            for pickled in self._pickler(filename):
+                self.logger.debug("Sending pickled {}".format(pickled))
+                self.returnqueue.put((number, [pickled]))
+            self.returnqueue.put((number, "FINISHED"))
 
     @property
     def identifier(self):
@@ -159,7 +161,8 @@ def _pickle_xml(filename,
                                                        dir=os.path.dirname(filename))
                         with open(pickle_temp[1], "wb") as pickled:
                             pickle.dump(records, pickled)
-                        pfiles.append(pickle_temp[1])
+                        yield pickle_temp[1]
+                        # pfiles.append(pickle_temp[1])
                         records = []
             except ExpatError:
                 logger.error("%s is an invalid BLAST file, sending back anything salvageable",
@@ -172,10 +175,11 @@ def _pickle_xml(filename,
                                    dir=os.path.dirname(filename))
     with open(pickle_temp[1], "wb") as pickled:
         pickle.dump(records, pickled)
-    pfiles.append(pickle_temp[1])
+    yield pickle_temp[1]
+    # pfiles.append()
     logger.debug("Finished pickling %s in %s", filename, pfiles)
     del records
-    return pfiles
+    # return pfiles
 
 
 class XmlSerializer:
@@ -245,10 +249,10 @@ class XmlSerializer:
 
         self.engine = connect(json_conf)
 
-        session = sessionmaker()
-        session.configure(bind=self.engine)
+        # session = sessionmaker(autocommit=True)
         DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
-        self.session = session()
+        session = Session(bind=self.engine, autocommit=True, autoflush=True)
+        self.session = session  # session()
         self.logger.debug("Created the session")
         # Load sequences if necessary
         self.__determine_sequences(query_seqs, target_seqs)
@@ -335,8 +339,10 @@ class XmlSerializer:
             if len(objects) >= self.maxobjects:
                 self.logger.info("Loading %d objects into the \"query\" table (total %d)",
                                  self.maxobjects, counter)
-                # self.session.bulk_insert_mappings(Query, objects)
+
                 # pylint: disable=no-member
+                self.session.begin(subtransactions=True)
+                # self.session.bulk_insert_mappings(Query, objects)
                 self.engine.execute(Query.__table__.insert(), objects)
                 # pylint: enable=no-member
 
@@ -356,6 +362,8 @@ class XmlSerializer:
         #                       "target_length": obj.target_length} for obj in objects])
         counter += len(objects)
         # pylint: disable=no-member
+        self.session.begin()
+        # self.session.bulk_insert_mappings(Query, objects)
         self.engine.execute(Query.__table__.insert(), objects)
         # pylint: enable=no-member
         # self.session.bulk_insert_mappings(Query, objects)
@@ -400,6 +408,7 @@ class XmlSerializer:
                     self.logger.info("Loading %d objects into the \"target\" table",
                                      counter)
                     # self.session.bulk_insert_mappings(Target, objects)
+                    self.session.begin(subtransactions=True)
                     self.engine.execute(Target.__table__.insert(), objects)
                     self.session.commit()
                     objects = []
@@ -411,6 +420,7 @@ class XmlSerializer:
         self.logger.info("Loading %d objects into the \"target\" table, (total %d)",
                          len(objects), counter)
         # pylint: disable=no-member
+        self.session.begin(subtransactions=True)
         self.engine.execute(Target.__table__.insert(), objects)
         # pylint: enable=no-member
         self.session.commit()
@@ -473,6 +483,7 @@ class XmlSerializer:
 
             try:
                 # pylint: disable=no-member
+                self.session.begin(subtransactions=True)
                 self.engine.execute(Hit.__table__.insert(), hits)
                 self.engine.execute(Hsp.__table__.insert(), hsps)
                 # pylint: enable=no-member
@@ -659,7 +670,10 @@ class XmlSerializer:
             returned = []
             while len(returned) != len(self.xml):
                 number, result = returnqueue.get()
-                returned.append(number)
+                if result == "FINISHED":
+                    self.logger.debug("Finished receiving pickles for %d", number)
+                    returned.append(number)
+                    continue
                 if result == "EXIT":
                     continue
                 for pickle_file in result:
@@ -806,7 +820,7 @@ class XmlSerializer:
         :type objects: list
 
         Method to perform the bulk loading of objects into the SQL database.
-
+        DEPRECATED.
         """
 
         try:

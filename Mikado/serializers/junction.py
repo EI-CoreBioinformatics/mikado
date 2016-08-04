@@ -18,7 +18,7 @@ from sqlalchemy import Index
 from sqlalchemy import Float
 from sqlalchemy import select
 from sqlalchemy.orm import relationship, column_property
-from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.orm.session import Session
 from sqlalchemy.ext.hybrid import hybrid_method
 from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12
@@ -159,14 +159,12 @@ class JunctionSerializer:
         self.bed12_parser = bed12.Bed12Parser(handle)
         self.engine = connect(json_conf, logger=logger)
 
-        session = sessionmaker()
-        session.configure(bind=self.engine)
-
+        session = Session(bind=self.engine, autocommit=True, autoflush=True)
         inspector = Inspector.from_engine(self.engine)
         if Junction.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)  # @UndefinedVariable
 
-        self.session = session()
+        self.session = session
         if json_conf is not None:
             self.maxobjects = json_conf["serialise"]["max_objects"]
         else:
@@ -196,6 +194,7 @@ class JunctionSerializer:
             return
 
         if self.fai is not None:
+            self.session.begin(subtransactions=True)
             for line in self.fai:
                 name, length = line.rstrip().split()[:2]
                 try:
@@ -226,8 +225,11 @@ class JunctionSerializer:
             current_junction = Junction(row, current_chrom)
             objects.append(current_junction)
             if len(objects) >= self.maxobjects:
+                self.session.begin(subtransactions=True)
                 self.session.bulk_save_objects(objects)
+                self.session.commit()
                 objects = []
+        self.session.begin(subtransactions=True)
         self.session.bulk_save_objects(objects)
         self.session.commit()
         self.close()

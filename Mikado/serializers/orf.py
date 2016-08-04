@@ -11,7 +11,7 @@ import pyfaidx
 from sqlalchemy import Column, String, Integer, ForeignKey, CHAR, Index, Float, Boolean
 import sqlalchemy.exc
 from sqlalchemy.orm import relationship, backref, column_property
-from sqlalchemy.orm.session import sessionmaker
+from sqlalchemy.orm.session import Session  # sessionmaker
 from sqlalchemy import select
 from ..utilities.dbutils import DBBASE, Inspector, connect
 from ..parsers import bed12  # , GFF
@@ -200,13 +200,13 @@ class OrfSerializer:
 
         self.engine = connect(json_conf, logger)
 
-        session = sessionmaker()
-        session.configure(bind=self.engine)
+        session = Session(bind=self.engine, autocommit=True, autoflush=True)
+        # session.configure(bind=self.engine)
 
         inspector = Inspector.from_engine(self.engine)
         if Orf.__tablename__ not in inspector.get_table_names():
             DBBASE.metadata.create_all(self.engine)
-        self.session = session()
+        self.session = session
         self.maxobjects = json_conf["serialise"]["max_objects"]
 
 
@@ -256,14 +256,16 @@ class OrfSerializer:
                 found.add(record)
                 if len(objects) >= self.maxobjects:
                     done += len(objects)
+                    self.session.begin(subtransactions=True)
                     self.session.bulk_save_objects(objects)
+                    self.session.commit()
                     self.logger.info(
                         "Loaded %d transcripts into query table", done)
                     objects = []
 
             done += len(objects)
+            self.session.begin(subtransactions=True)
             self.session.bulk_save_objects(objects)
-
             self.session.commit()
             self.logger.info(
                 "Finished loading %d transcripts into query table", done)
@@ -311,11 +313,14 @@ class OrfSerializer:
             objects.append(current_junction)
             if len(objects) >= self.maxobjects:
                 done += len(objects)
+                self.session.begin(subtransactions=True)
                 self.session.bulk_save_objects(objects)
+                self.session.commit()
                 self.logger.info("Loaded %d ORFs into the database", done)
                 objects = []
 
         done += len(objects)
+        self.session.begin(subtransactions=True)
         self.session.bulk_save_objects(objects)
         self.logger.info("Finished loading %d ORFs into the database", done)
         self.session.commit()

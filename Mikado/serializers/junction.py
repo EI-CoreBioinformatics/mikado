@@ -171,7 +171,9 @@ class JunctionSerializer:
             self.maxobjects = 10000
 
         if "genome_fai" not in json_conf["reference"] or not json_conf["reference"]["genome_fai"]:
-            self.fai = pyfaidx.Fasta(json_conf["reference"]["genome"]).faidx.indexname
+            _ = pyfaidx.Fasta(json_conf["reference"]["genome"])
+            self.fai = _.faidx.indexname
+            _.close()
         else:
             self.fai = json_conf["reference"]["genome_fai"]
 
@@ -217,6 +219,7 @@ class JunctionSerializer:
                 current_chrom = sequences[row.chrom]
             else:
                 current_chrom = Chrom(row.chrom)
+                self.session.begin(subtransactions=True)
                 self.session.add(current_chrom)
                 self.session.commit()
                 sequences[current_chrom.name] = current_chrom.chrom_id

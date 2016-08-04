@@ -184,7 +184,6 @@ class TestLoadJunction(unittest.TestCase):
 
         jconf["reference"]["genome"] = genome_file.name
 
-
         seri = Mikado.serializers.junction.JunctionSerializer(
                 self.junction_file,
                 json_conf=self.json_conf,
@@ -192,6 +191,7 @@ class TestLoadJunction(unittest.TestCase):
                 )
         seri()
         genome_file.close()
+        # genome_file.delete()
 
     def test_invalid_bed12(self):
 

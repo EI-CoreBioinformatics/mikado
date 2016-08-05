@@ -104,7 +104,7 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../References.html">4. References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">5. Library documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">Library documentation</a></li>
 </ul>
 
             
@@ -153,9 +153,41 @@
             
   <div class="section" id="mikado-pick">
 <span id="pick"></span><h1>4. Mikado pick<a class="headerlink" href="#mikado-pick" title="Permalink to this headline">¶</a></h1>
-<p>This is the final stage of the pipeline, and the one which actually applies the <a class="reference internal" href="../Introduction.html#introduction"><span class="std std-ref">Mikado algorithm</span></a> to identify the loci and select the best transcripts.</p>
+<p>This is the final stage of the pipeline, and the one which actually applies the <a class="reference internal" href="../Introduction.html#introduction"><span class="std std-ref">core algorithms</span></a> to identify the loci and select the best transcripts.
+As such, it is the</p>
 <div class="section" id="usage">
 <h2>4.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal"><span class="pre">mikado</span> <span class="pre">pick</span></code> allows to modify some of the parameters regarding the run at runtime. However, some sections - such as most of the settings regarding alternative splicing - are left untouched by the utility, and are best modified by editing the <a class="reference internal" href="Configure.html#configure"><span class="std std-ref">configuration file itself</span></a>. The available parameters are as follows:</p>
+<ul>
+<li><p class="first"><em>json-conf</em>: required. This is the configuration file created in the <a class="reference internal" href="Configure.html#configure"><span class="std std-ref">first step</span></a> of the pipeline.</p>
+</li>
+<li><p class="first"><em>gff</em>; optionally, it is possible to point Mikado prepare to the GTF it should use here on the command line. This file should be the output of :ref:<code class="docutils literal"><span class="pre">`mikado</span> <span class="pre">prepare</span></code> &lt;prepare&gt;`. Please note that this file should be in GTF format, sorted by chromosome and position; if that is not the case, Mikado will fail.</p>
+</li>
+<li><dl class="first docutils">
+<dt>Options regarding the resources to be used:</dt>
+<dd><ul class="first last simple">
+<li><em>procs</em>: number of processors to use.</li>
+<li><em>start-method</em>: multiprocessing start method. See the <a class="reference internal" href="Configure.html#scheduler-multiprocessing"><span class="std std-ref">explanation on Python multiprocessing</span></a></li>
+<li><em>single</em>: flag. If present, multiprocessing will be disabled.</li>
+<li><em>shared-memory</em>: flag, available on Unix systems only. If set, Mikado will try to copy the SQLite database in RAM. It might provide a small boost if disk access is a limitation. Ineffective with databases other than SQLite.</li>
+<li><em>shared-memory-db</em>: if the database has already been copied in memory, its new location can be given with this argument. Useful to have multiple Mikado picks share the same DB.</li>
+<li><em>preload</em>: flag. If present, Mikado will load the database in memory before execution. <strong>Discouraged unless the database size is quite small.</strong></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Options regarding logging:</dt>
+<dd><ul class="first last simple">
+<li><em>log</em>: name of the log file. By default, &#8220;pick.log&#8221;</li>
+<li><em>verbose</em>: sets the log level to DEBUG. Please be advised that the debug mode is <strong>extremely</strong> verbose and is bestly invoked only for real, targeted debugging sessions.</li>
+<li><em>noverbose</em>: sets the log level to ERROR. In most cases, the log file will be empty.</li>
+<li><em>log-level</em>: directly sets the log level. One of the logging module available mode:</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
 <p>Usage:</p>
 <div class="highlight-default"><div class="highlight"><pre><span></span>$ mikado pick --help
 usage: Mikado pick [-h] [--start-method {fork,spawn,forkserver}] [-p PROCS]

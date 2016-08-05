@@ -3,11 +3,33 @@
 Mikado pick
 ===========
 
-This is the final stage of the pipeline, and the one which actually applies the :ref:`Mikado algorithm <Introduction>` to identify the loci and select the best transcripts.
+This is the final stage of the pipeline, and the one which actually applies the :ref:`core algorithms <Introduction>` to identify the loci and select the best transcripts.
+As such, it is the
+
+
 
 
 Usage
 ~~~~~
+
+``mikado pick`` allows to modify some of the parameters regarding the run at runtime. However, some sections - such as most of the settings regarding alternative splicing - are left untouched by the utility, and are best modified by editing the :ref:`configuration file itself <configure>`. The available parameters are as follows:
+
+* *json-conf*: required. This is the configuration file created in the :ref:`first step <configure>` of the pipeline.
+* *gff*; optionally, it is possible to point Mikado prepare to the GTF it should use here on the command line. This file should be the output of :ref:```mikado prepare`` <prepare>`. Please note that this file should be in GTF format, sorted by chromosome and position; if that is not the case, Mikado will fail.
+* Options regarding the resources to be used:
+    * *procs*: number of processors to use.
+    * *start-method*: multiprocessing start method. See the :ref:`explanation on Python multiprocessing <scheduler-multiprocessing>`
+    * *single*: flag. If present, multiprocessing will be disabled.
+    * *shared-memory*: flag, available on Unix systems only. If set, Mikado will try to copy the SQLite database in RAM. It might provide a small boost if disk access is a limitation. Ineffective with databases other than SQLite.
+    * *shared-memory-db*: if the database has already been copied in memory, its new location can be given with this argument. Useful to have multiple Mikado picks share the same DB.
+    * *preload*: flag. If present, Mikado will load the database in memory before execution. **Discouraged unless the database size is quite small.**
+* Options regarding logging:
+    * *log*: name of the log file. By default, "pick.log"
+    * *verbose*: sets the log level to DEBUG. Please be advised that the debug mode is **extremely** verbose and is bestly invoked only for real, targeted debugging sessions.
+    * *noverbose*: sets the log level to ERROR. In most cases, the log file will be empty.
+    * *log-level*: directly sets the log level. One of the logging module available mode:
+
+
 
 Usage::
 

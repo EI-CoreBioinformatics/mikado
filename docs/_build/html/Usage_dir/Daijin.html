@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>2. The Daijin pipeline for driving Mikado &mdash; Mikado 1.0.0b4 documentation</title>
+  <title>6.2. The Daijin pipeline for driving Mikado &mdash; Mikado 1.0.0b4 documentation</title>
   
 
   
@@ -34,8 +34,8 @@
   
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html"/>
         <link rel="up" title="4. Usage" href="../Usage.html"/>
-        <link rel="next" title="3. Mikado miscellaneous scripts" href="Utilities.html"/>
-        <link rel="prev" title="1. Compare" href="Compare.html"/> 
+        <link rel="next" title="6.3. Mikado miscellaneous scripts" href="Utilities.html"/>
+        <link rel="prev" title="6.1. Compare" href="Compare.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -94,19 +94,19 @@
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html">4. Usage</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-pipeline-stages">5. Mikado pipeline stages</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Compare.html">1. Compare</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">2. The Daijin pipeline for driving Mikado</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#configure">2.1. Configure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#assemble">2.2. Assemble</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#mikado">2.3. Mikado</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Compare.html">6.1. Compare</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">6.2. The Daijin pipeline for driving Mikado</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#configure">6.2.1. Configure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#assemble">6.2.2. Assemble</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#mikado">6.2.3. Mikado</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="Utilities.html">3. Mikado miscellaneous scripts</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Utilities.html#included-scripts">4. Included scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Utilities.html">6.3. Mikado miscellaneous scripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Utilities.html#included-scripts">6.4. Included scripts</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../References.html">4. References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">Library documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../References.html">7. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">8. Library documentation</a></li>
 </ul>
 
             
@@ -139,7 +139,7 @@
       
           <li><a href="../Usage.html">4. Usage</a> &raquo;</li>
       
-    <li>2. The Daijin pipeline for driving Mikado</li>
+    <li>6.2. The Daijin pipeline for driving Mikado</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -154,19 +154,19 @@
            <div itemprop="articleBody">
             
   <span class="target" id="assemble-pipeline"></span><div class="section" id="the-daijin-pipeline-for-driving-mikado">
-<span id="daijin"></span><h1>2. The Daijin pipeline for driving Mikado<a class="headerlink" href="#the-daijin-pipeline-for-driving-mikado" title="Permalink to this headline">¶</a></h1>
+<span id="daijin"></span><h1>6.2. The Daijin pipeline for driving Mikado<a class="headerlink" href="#the-daijin-pipeline-for-driving-mikado" title="Permalink to this headline">¶</a></h1>
 <p><a class="reference external" href="http://snakemake.bitbucket.org"><img alt="snake_badge" src="https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)]" /></a></p>
 <p>No emperor or empress can lead its nation without a trusty chancellor to help him or her in organising the bureaucracy. Daijin, the Japanese minister, has the same role in Mikado - it smooths the path to go from a collection of read inputs (both RNA-Seq or long reads) to a polished transcriptome assembly. The pipeline is based on <a class="reference external" href="https://bitbucket.org/snakemake/snakemake/wiki/Home">Snakemake</a> <a class="reference internal" href="../References.html#snake" id="id1">[Snake]</a>; while Snakemake can support any scheduling system, our pipeline manager currently supports only three (SLURM, PBS and LSF), plus any DRMAA-compliant batch submission system. Other schedulers can be added upon request.</p>
 <div class="admonition hint">
 <p class="first admonition-title">Hint</p>
-<p class="last">It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in Mikado.daijin: <a class="reference download internal" href="../_downloads/tr1.snakefile" download=""><code class="xref download docutils literal"><span class="pre">tr.snakefile</span></code></a> for the first step, and <a class="reference download internal" href="../_downloads/mikado1.snakefile" download=""><code class="xref download docutils literal"><span class="pre">mikado.snakefile</span></code></a> for the second.</p>
+<p class="last">It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in Mikado.daijin: <a class="reference download internal" href="../_downloads/tr.snakefile" download=""><code class="xref download docutils literal"><span class="pre">tr.snakefile</span></code></a> for the first step, and <a class="reference download internal" href="../_downloads/mikado.snakefile" download=""><code class="xref download docutils literal"><span class="pre">mikado.snakefile</span></code></a> for the second.</p>
 </div>
 <div class="section" id="configure">
-<span id="daijin-configure"></span><h2>2.1. Configure<a class="headerlink" href="#configure" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-configure"></span><h2>6.2.1. Configure<a class="headerlink" href="#configure" title="Permalink to this headline">¶</a></h2>
 <p>This utility creates the configuration file that will drive Daijin, in <a class="reference external" href="http://www.yaml.org/spec/1.2/spec.html">YAML</a> format. The file will need to be edited to</p>
 </div>
 <div class="section" id="assemble">
-<span id="daijin-assemble"></span><h2>2.2. Assemble<a class="headerlink" href="#assemble" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-assemble"></span><h2>6.2.2. Assemble<a class="headerlink" href="#assemble" title="Permalink to this headline">¶</a></h2>
 <p>In the first step of the pipeline, Daijin will perform the following operations for each of the read datasets provided:</p>
 <ol class="arabic simple">
 <li>Create the necessary indices for each of the aligner programs requested.</li>
@@ -230,7 +230,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="mikado">
-<span id="daijin-mikado"></span><h2>2.3. Mikado<a class="headerlink" href="#mikado" title="Permalink to this headline">¶</a></h2>
+<span id="daijin-mikado"></span><h2>6.2.3. Mikado<a class="headerlink" href="#mikado" title="Permalink to this headline">¶</a></h2>
 <p>In this step, the Daijin manager will execute all the steps necessary to perform Mikado on the desired inputs. The manager will execute the following steps:</p>
 <ol class="arabic simple">
 <li>Merge all the input assemblies together using <a class="reference internal" href="Prepare.html#prepare"><span class="std std-ref">Mikado prepare</span></a></li>
@@ -303,10 +303,10 @@ optional arguments:
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="Utilities.html" class="btn btn-neutral float-right" title="3. Mikado miscellaneous scripts" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="Utilities.html" class="btn btn-neutral float-right" title="6.3. Mikado miscellaneous scripts" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="Compare.html" class="btn btn-neutral" title="1. Compare" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="Compare.html" class="btn btn-neutral" title="6.1. Compare" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

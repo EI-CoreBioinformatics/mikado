@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>3. Mikado serialise &mdash; Mikado 1.0.0b4 documentation</title>
+  <title>5.3. Mikado serialise &mdash; Mikado 1.0.0b4 documentation</title>
   
 
   
@@ -34,8 +34,8 @@
   
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html"/>
         <link rel="up" title="4. Usage" href="../Usage.html"/>
-        <link rel="next" title="4. Mikado pick" href="Pick.html"/>
-        <link rel="prev" title="2. Mikado prepare" href="Prepare.html"/> 
+        <link rel="next" title="5.4. Mikado pick" href="Pick.html"/>
+        <link rel="prev" title="5.2. Mikado prepare" href="Prepare.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -93,20 +93,20 @@
 <li class="toctree-l1"><a class="reference internal" href="../Tutorial.html">3. Tutorial</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html">4. Usage</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../Usage.html#mikado-pipeline-stages">5. Mikado pipeline stages</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Configure.html">1. Mikado configure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Prepare.html">2. Mikado prepare</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">3. Mikado serialise</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#transdecoder-orfs">3.1. Transdecoder ORFs</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#usage">3.2. Usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#technical-details">3.3. Technical details</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Configure.html">5.1. Mikado configure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Prepare.html">5.2. Mikado prepare</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">5.3. Mikado serialise</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#transdecoder-orfs">5.3.1. Transdecoder ORFs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#usage">5.3.2. Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#technical-details">5.3.3. Technical details</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="Pick.html">4. Mikado pick</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Pick.html">5.4. Mikado pick</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../References.html">4. References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">Library documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../References.html">7. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">8. Library documentation</a></li>
 </ul>
 
             
@@ -139,7 +139,7 @@
       
           <li><a href="../Usage.html">4. Usage</a> &raquo;</li>
       
-    <li>3. Mikado serialise</li>
+    <li>5.3. Mikado serialise</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -154,7 +154,7 @@
            <div itemprop="articleBody">
             
   <div class="section" id="mikado-serialise">
-<span id="serialise"></span><h1>3. Mikado serialise<a class="headerlink" href="#mikado-serialise" title="Permalink to this headline">¶</a></h1>
+<span id="serialise"></span><h1>5.3. Mikado serialise<a class="headerlink" href="#mikado-serialise" title="Permalink to this headline">¶</a></h1>
 <p>Mikado integrates data from multiple sources to select the best transcripts. During this step, these sources are brought together inside a common database, simplifying the process of retrieving them at runtime. Currently, Mikado integrates three different types of data:</p>
 <div class="sidebar" id="bed12-sidebar">
 <p class="first sidebar-title"><a class="reference external" href="https://genome.ucsc.edu/FAQ/FAQformat.html#format1">BED12</a> files</p>
@@ -169,7 +169,7 @@
 <p>Mikado serialise can use three different SQL databases as backends - SQLite, MySQL and PostgreSQL - thanks to <a class="reference external" href="http://www.sqlalchemy.org/">SQLAlchemy</a>.
 This step, together with the creation of the TransDecoder and BLAST data, is the most time consuming of the pipeline. In particular, although Mikado serialise will try to analyse the XML data in a parallelised fashion if so instructed, the insertion of the data in the database will still happen in a single thread and will therefore be of limited speed. If using SQLite as database (the default option), it is possible to decrease the runtime by modifying the &#8220;max_objects&#8221; parameters, at the cost however of increased RAM usage.</p>
 <div class="section" id="transdecoder-orfs">
-<h2>3.1. Transdecoder ORFs<a class="headerlink" href="#transdecoder-orfs" title="Permalink to this headline">¶</a></h2>
+<h2>5.3.1. Transdecoder ORFs<a class="headerlink" href="#transdecoder-orfs" title="Permalink to this headline">¶</a></h2>
 <p>When Mikado analyses ORFs produced by <a class="reference external" href="http://transdecoder.github.io/">TransDecoder</a> or equivalent program, it performs additionally the following checks:</p>
 <ol class="arabic simple">
 <li>Check the congruence between the length of the transcript in the BED12 file and that found in the FASTA file</li>
@@ -179,7 +179,7 @@ This step, together with the creation of the TransDecoder and BLAST data, is the
 </ol>
 </div>
 <div class="section" id="usage">
-<h2>3.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<h2>5.3.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <p><code class="docutils literal"><span class="pre">mikado</span> <span class="pre">serialise</span></code> allows to override some of the parameters present in the configuration file through command line options, eg the input files. Notwithstanding, in the interest of reproducibility we advise to configure everything through the configuration file and supply it to Mikado prepare without further modifications.</p>
 <p>Available parameters:</p>
 <ul>
@@ -349,7 +349,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="technical-details">
-<h2>3.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<h2>5.3.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
 <p>The schema of the database is quite simple, as it is composed only of 7 discrete tables in two groups. The first group, <em>chrom</em> and <em>junctions</em>, serialises the information pertaining to the reliable junctions - ie information which is not relative to the transcripts but rather to their genomic locations.
 The second group serialises the data regarding ORFs and BLAST files. The need of using a database is mainly driven by the latter, as querying a relational database is faster than retrieving the information from the XML files themselves at runtime.</p>
 <div class="topic">
@@ -368,10 +368,10 @@ The second group serialises the data regarding ORFs and BLAST files. The need of
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="Pick.html" class="btn btn-neutral float-right" title="4. Mikado pick" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="Pick.html" class="btn btn-neutral float-right" title="5.4. Mikado pick" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="Prepare.html" class="btn btn-neutral" title="2. Mikado prepare" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="Prepare.html" class="btn btn-neutral" title="5.2. Mikado prepare" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

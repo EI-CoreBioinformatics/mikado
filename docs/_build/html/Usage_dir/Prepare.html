@@ -8,7 +8,7 @@
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>2. Mikado prepare &mdash; Mikado 1.0.0b4 documentation</title>
+  <title>5.2. Mikado prepare &mdash; Mikado 1.0.0b4 documentation</title>
   
 
   
@@ -34,8 +34,8 @@
   
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html"/>
         <link rel="up" title="4. Usage" href="../Usage.html"/>
-        <link rel="next" title="3. Mikado serialise" href="Serialise.html"/>
-        <link rel="prev" title="1. Mikado configure" href="Configure.html"/> 
+        <link rel="next" title="5.3. Mikado serialise" href="Serialise.html"/>
+        <link rel="prev" title="5.1. Mikado configure" href="Configure.html"/> 
 
   
   <script src="../_static/js/modernizr.min.js"></script>
@@ -93,23 +93,23 @@
 <li class="toctree-l1"><a class="reference internal" href="../Tutorial.html">3. Tutorial</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html">4. Usage</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../Usage.html#mikado-pipeline-stages">5. Mikado pipeline stages</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="Configure.html">1. Mikado configure</a></li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">2. Mikado prepare</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#usage">2.1. Usage</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#collection-of-transcripts-from-the-annotation-files">2.2. Collection of transcripts from the annotation files</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#check-on-strand-correctness">2.2.1. Check on strand correctness</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#output-files">2.2.2. Output files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Configure.html">5.1. Mikado configure</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">5.2. Mikado prepare</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#usage">5.2.1. Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#collection-of-transcripts-from-the-annotation-files">5.2.2. Collection of transcripts from the annotation files</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#check-on-strand-correctness">5.2.2.1. Check on strand correctness</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#output-files">5.2.2.2. Output files</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="Serialise.html">3. Mikado serialise</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Pick.html">4. Mikado pick</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Serialise.html">5.3. Mikado serialise</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Pick.html">5.4. Mikado pick</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../Usage.html#mikado-utilities">6. Mikado utilities</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../References.html">4. References</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">Library documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../References.html">7. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../Library/index.html">8. Library documentation</a></li>
 </ul>
 
             
@@ -142,7 +142,7 @@
       
           <li><a href="../Usage.html">4. Usage</a> &raquo;</li>
       
-    <li>2. Mikado prepare</li>
+    <li>5.2. Mikado prepare</li>
       <li class="wy-breadcrumbs-aside">
         
           
@@ -157,7 +157,7 @@
            <div itemprop="articleBody">
             
   <div class="section" id="mikado-prepare">
-<span id="prepare"></span><h1>2. Mikado prepare<a class="headerlink" href="#mikado-prepare" title="Permalink to this headline">¶</a></h1>
+<span id="prepare"></span><h1>5.2. Mikado prepare<a class="headerlink" href="#mikado-prepare" title="Permalink to this headline">¶</a></h1>
 <p>This is the first executive step of the Mikado pipeline. It will accomplish the following goals:</p>
 <ol class="arabic simple">
 <li>Collect annotations from disparate annotation files</li>
@@ -168,7 +168,7 @@
 <li>Extract the transcript sequences.</li>
 </ol>
 <div class="section" id="usage">
-<h2>2.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<h2>5.2.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <p><code class="docutils literal"><span class="pre">Mikado</span> <span class="pre">prepare</span></code> allows to override some of the parameters present in the configuration file through command line options, eg the input files. Notwithstanding, in the interest of reproducibility we advise to configure everything through the configuration file and supply it to Mikado prepare without further modifications.</p>
 <p>Available parameters:</p>
 <ul>
@@ -264,7 +264,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="collection-of-transcripts-from-the-annotation-files">
-<h2>2.2. Collection of transcripts from the annotation files<a class="headerlink" href="#collection-of-transcripts-from-the-annotation-files" title="Permalink to this headline">¶</a></h2>
+<h2>5.2.2. Collection of transcripts from the annotation files<a class="headerlink" href="#collection-of-transcripts-from-the-annotation-files" title="Permalink to this headline">¶</a></h2>
 <p>Different assemblers will produce data in different formats, typically in GFF or GTF format, and not necessarily in the same order (if any is present). Mikado will serialise the transcripts from these files and port them all into a standard GTF format. Moreover, it will ensure that each transcript ID appears only once across the input files. The optional labels provided for each file will be attached to the transcript names as prefixes, and used as the source field in the output GTF, to ensure the uniqueness of each transcript name.
 If two or more transcripts are found to be identical, only one will be retained, chosen at random among all the possibilities.
 In addition to this, Mikado prepare will also sort the transcripts by coordinate, irrespective of strand, so that they are suitably displayed for the divide-et-impera algorithm of <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">Mikado pick</span></a>.</p>
@@ -273,7 +273,7 @@ In addition to this, Mikado prepare will also sort the transcripts by coordinate
 <p class="last">To be considered <em>identical</em>, two transcripts must match down to the last base pair. A simple match or containment of the intron chain will not suffice. This is because using the cDNA data alone it is difficult to understand whether the longer form(s) is the correct assembly rather than a chimera or a trans-splice event.</p>
 </div>
 <div class="section" id="check-on-strand-correctness">
-<h3>2.2.1. Check on strand correctness<a class="headerlink" href="#check-on-strand-correctness" title="Permalink to this headline">¶</a></h3>
+<h3>5.2.2.1. Check on strand correctness<a class="headerlink" href="#check-on-strand-correctness" title="Permalink to this headline">¶</a></h3>
 <p>During its run, Mikado prepare will also check the correctness of the transcripts. In particular:</p>
 <ul class="simple">
 <li>Unless the assembly is marked as strand-specific, any monoexonic transcript will have its strand <em>removed</em>.</li>
@@ -287,7 +287,7 @@ In addition to this, Mikado prepare will also sort the transcripts by coordinate
 </div>
 </div>
 <div class="section" id="output-files">
-<h3>2.2.2. Output files<a class="headerlink" href="#output-files" title="Permalink to this headline">¶</a></h3>
+<h3>5.2.2.2. Output files<a class="headerlink" href="#output-files" title="Permalink to this headline">¶</a></h3>
 <p>Mikado prepare will produce two files:</p>
 <ul class="simple">
 <li>a <em>sorted</em> GTF file, containing all the transcripts surviving the checks</li>
@@ -308,10 +308,10 @@ In addition to this, Mikado prepare will also sort the transcripts by coordinate
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="Serialise.html" class="btn btn-neutral float-right" title="3. Mikado serialise" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="Serialise.html" class="btn btn-neutral float-right" title="5.3. Mikado serialise" accesskey="n">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
-        <a href="Configure.html" class="btn btn-neutral" title="1. Mikado configure" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+        <a href="Configure.html" class="btn btn-neutral" title="5.1. Mikado configure" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
       
     </div>
   

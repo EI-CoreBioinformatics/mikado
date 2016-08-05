@@ -15,7 +15,9 @@ Usage
 ``mikado pick`` allows to modify some of the parameters regarding the run at runtime. However, some sections - such as most of the settings regarding alternative splicing - are left untouched by the utility, and are best modified by editing the :ref:`configuration file itself <configure>`. The available parameters are as follows:
 
 * *json-conf*: required. This is the configuration file created in the :ref:`first step <configure>` of the pipeline.
-* *gff*; optionally, it is possible to point Mikado prepare to the GTF it should use here on the command line. This file should be the output of :ref:```mikado prepare`` <prepare>`. Please note that this file should be in GTF format, sorted by chromosome and position; if that is not the case, Mikado will fail.
+* *gff*; optionally, it is possible to point Mikado prepare to the GTF it should use here on the command line. This file should be the output of the :ref:`preparation step <prepare>`. Please note that this file should be in GTF format, sorted by chromosome and position; if that is not the case, Mikado will fail.
+* Options related to how Mikado will treat the data:
+    * *intron_range*: this option expects a couple of positive integers, in ascending order, indicating the 98% CI where most intron lengths should fall into. Gene models with introns whose lengths fall outside of this range might be penalized, depending on the scoring system used. If uncertain, it is possible to use the :ref:`included stats utility <stat-command>` on the gene annotation of a closely related species.
 * Options regarding the resources to be used:
     * *procs*: number of processors to use.
     * *start-method*: multiprocessing start method. See the :ref:`explanation on Python multiprocessing <scheduler-multiprocessing>`
@@ -26,10 +28,21 @@ Usage
 * Options regarding logging:
     * *log*: name of the log file. By default, "pick.log"
     * *verbose*: sets the log level to DEBUG. Please be advised that the debug mode is **extremely** verbose and is bestly invoked only for real, targeted debugging sessions.
-    * *noverbose*: sets the log level to ERROR. In most cases, the log file will be empty.
-    * *log-level*: directly sets the log level. One of the logging module available mode:
+    * *noverbose*: sets the log level to ERROR. If set, in most cases, the log file will be practically empty.
+    * *log-level*: this flag directly sets the log level. Available values: DEBUG, INFO, WARNING, ERROR.
 
-
+intron_range
+subloci_out
+monoloci_out
+loci_out
+prefix
+no_cds
+source
+flank
+purge
+db
+od
+mode
 
 Usage::
 

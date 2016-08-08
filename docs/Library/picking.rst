@@ -1,9 +1,11 @@
-.. _sub-loci:
+.. _sub-picking:
 
 Submodule: picking
 ==================
 
 .. automodule:: Mikado.picking
+
+.. _sub-picking-loci:
 
 loci_process.py
 ~~~~~~~~~~~~~~~
@@ -12,6 +14,7 @@ loci_process.py
     :members:
     :private-members:
 
+.. _sub-picking-picker:
 
 picker.py
 ~~~~~~~~~

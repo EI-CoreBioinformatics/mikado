@@ -3,11 +3,6 @@
 Installation
 ============
 
-Python version
---------------
-
-Mikado
-
 Download
 --------
 
@@ -29,7 +24,7 @@ If you desire, the unstable development version can be obtained with the command
 
 ``git checkout development``
 
-in the Git directory. Please note that development can proceed quite rapidly.
+in the Git directory. Please note that at the time of this writing development proceeds quite rapidly.
 
 Building and installing from source
 -----------------------------------

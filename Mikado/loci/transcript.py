@@ -33,6 +33,21 @@ import functools
 class Metric(property):
     """Simple aliasing of property. All transcript metrics
     should use this alias, not "property", as a decorator."""
+
+    __category__ = None
+
+    def category_getter(self):
+        return self.__category__
+
+    def category_setter(self, category):
+        if category is not None and not isinstance(category, (str, bytes)):
+            raise TypeError("Invalid category specified: {}".format(category))
+        self.__category__ = category
+
+    category = property(lambda self: self.category_getter(),
+                        lambda self, v: self.category_setter(v),
+                        lambda self: None)
+
     pass
 
 
@@ -1554,11 +1569,15 @@ index {3}, internal ORFs: {4}".format(
             assert c_length > 0
         return c_length
 
+    combined_cds_length.category = "CDS"
+
     @Metric
     def combined_cds_num(self):
         """This property returns the number of non-overlapping CDS segments
         in the transcript."""
         return len(self.combined_cds)
+
+    combined_cds_num.category = "CDS"
 
     @Metric
     def combined_cds_num_fraction(self):
@@ -1567,22 +1586,30 @@ index {3}, internal ORFs: {4}".format(
         vs. the total number of exons"""
         return len(self.combined_cds) / len(self.exons)
 
+    combined_cds_num_fraction.category = "CDS"
+
     @Metric
     def combined_cds_fraction(self):
         """This property return the percentage of the CDS part of the transcript
         vs. the cDNA length"""
         return self.combined_cds_length / self.cdna_length
 
+    combined_cds_fraction.category = "CDS"
+
     @Metric
     def combined_utr_length(self):
         """This property return the length of the UTR part of the transcript."""
         return sum([e[1] - e[0] + 1 for e in self.combined_utr])
+
+    combined_utr_length.category = "UTR"
 
     @Metric
     def combined_utr_fraction(self):
         """This property returns the fraction of the cDNA which is not coding according
         to any ORF. Complement of combined_cds_fraction"""
         return 1 - self.combined_cds_fraction
+
+    combined_utr_fraction.__category = "UTR"
 
     @Metric
     def cdna_length(self):
@@ -1593,10 +1620,14 @@ index {3}, internal ORFs: {4}".format(
             raise TypeError(self.exons)
         return self.__cdna_length
 
+    cdna_length.category = "cDNA"
+
     @Metric
     def number_internal_orfs(self):
         """This property returns the number of ORFs inside a transcript."""
         return len(self.internal_orfs)
+
+    number_internal_orfs.category = "CDS"
 
     @Metric
     def selected_cds_length(self):
@@ -1611,15 +1642,21 @@ index {3}, internal ORFs: {4}".format(
 
         return self.__max_internal_orf_length
 
+    selected_cds_length.category = "CDS"
+
     @Metric
     def selected_cds_num(self):
         """This property calculates the number of CDS exons for the selected ORF"""
         return sum(1 for exon in self.selected_internal_orf if exon[0] == "CDS")
 
+    selected_cds_num.category = "CDS"
+
     @Metric
     def selected_cds_fraction(self):
         """This property calculates the fraction of the selected CDS vs. the cDNA length."""
         return self.selected_cds_length / self.cdna_length
+
+    selected_cds_fraction.category = "CDS"
 
     @Metric
     def highest_cds_exons_num(self):
@@ -1627,6 +1664,8 @@ index {3}, internal ORFs: {4}".format(
         (irrespective of the number of exons involved)"""
         return sum(1 for _ in self.selected_internal_orf if _[0] == "CDS")
         # return len(list(filter(lambda x: x[0] == "CDS", self.selected_internal_orf)))
+
+    highest_cds_exons_num.category = "CDS"
 
     @Metric
     def selected_cds_exons_fraction(self):
@@ -1636,6 +1675,8 @@ index {3}, internal ORFs: {4}".format(
 
         # return len(list(filter(lambda x: x[0] == "CDS",
         #                        self.selected_internal_orf))) / len(self.exons)
+
+    selected_cds_exons_fraction.category = "CDS"
 
     @Metric
     def highest_cds_exon_number(self):
@@ -1652,11 +1693,15 @@ index {3}, internal ORFs: {4}".format(
             # len(list(filter(lambda x: x[0] == "CDS", cds))))
         return max(cds_numbers)
 
+    highest_cds_exon_number.category = "CDS"
+
     @Metric
     def selected_cds_number_fraction(self):
         """This property returns the proportion of best possible CDS segments
         vs. the number of exons. See selected_cds_number."""
         return self.selected_cds_num / self.exon_num
+
+    selected_cds_number_fraction.category = "CDS"
 
     @Metric
     def cds_not_maximal(self):
@@ -1664,6 +1709,8 @@ index {3}, internal ORFs: {4}".format(
         if len(self.internal_orfs) < 2:
             return 0
         return self.combined_cds_length - self.selected_cds_length
+
+    cds_not_maximal.category = "CDS"
 
     @Metric
     def cds_not_maximal_fraction(self):
@@ -1674,6 +1721,8 @@ index {3}, internal ORFs: {4}".format(
         else:
             return self.cds_not_maximal / self.combined_cds_length
 
+    cds_not_maximal_fraction.category = "CDS"
+
     @Metric
     def five_utr_length(self):
         """Returns the length of the 5' UTR of the selected ORF."""
@@ -1681,16 +1730,22 @@ index {3}, internal ORFs: {4}".format(
             return 0
         return sum(utr[1] - utr[0] + 1 for utr in self.five_utr)
 
+    five_utr_length.category = "UTR"
+
     @Metric
     def five_utr_num(self):
         """This property returns the number of 5' UTR segments for the selected ORF."""
         return len(self.five_utr)
+
+    five_utr_num.category = "UTR"
 
     @Metric
     def five_utr_num_complete(self):
         """This property returns the number of 5' UTR segments for the selected ORF,
         considering only those which are complete exons."""
         return sum(1 for utr in self.five_utr if utr in self.exons)
+
+    five_utr_num_complete.category = "UTR"
 
     @Metric
     def three_utr_length(self):
@@ -1699,11 +1754,15 @@ index {3}, internal ORFs: {4}".format(
             return 0
         return sum(x[1] - x[0] + 1 for x in self.three_utr)
 
+    three_utr_length.__category = "UTR"
+
     @Metric
     def three_utr_num(self):
         """This property returns the number of 3' UTR segments
         (referred to the selected ORF)."""
         return len(self.three_utr)
+
+    three_utr_num.category = "UTR"
 
     @Metric
     def three_utr_num_complete(self):
@@ -1711,10 +1770,14 @@ index {3}, internal ORFs: {4}".format(
         considering only those which are complete exons."""
         return sum(1 for utr in self.three_utr if utr in self.exons)
 
+    three_utr_num_complete.category = "UTR"
+
     @Metric
     def utr_num(self):
         """Returns the number of UTR segments (referred to the selected ORF)."""
         return len(self.three_utr + self.five_utr)
+
+    utr_num.category = "UTR"
 
     @Metric
     def utr_num_complete(self):
@@ -1722,16 +1785,22 @@ index {3}, internal ORFs: {4}".format(
         complete exons (referred to the selected ORF)."""
         return self.three_utr_num_complete + self.five_utr_num_complete
 
+    utr_num_complete.category = "UTR"
+
     @Metric
     def utr_fraction(self):
         """This property calculates the length of the UTR
         of the selected ORF vs. the cDNA length."""
         return 1 - self.selected_cds_fraction
 
+    utr_fraction.category = "UTR"
+
     @Metric
     def utr_length(self):
         """Returns the sum of the 5'+3' UTR lengths"""
         return self.three_utr_length + self.five_utr_length
+
+    utr_length.category = "UTR"
 
     @Metric
     def has_start_codon(self):
@@ -1750,6 +1819,8 @@ index {3}, internal ORFs: {4}".format(
             raise TypeError(
                 "Invalid value for has_start_codon: {0}".format(type(value)))
         self.__has_start_codon = value
+
+    has_start_codon.category = "CDS"
 
     @Metric
     def has_stop_codon(self):
@@ -1770,15 +1841,21 @@ index {3}, internal ORFs: {4}".format(
                 "Invalid value for has_stop_codon: {0}".format(type(value)))
         self.__has_stop_codon = value
 
+    has_stop_codon.category = "CDS"
+
     @Metric
     def is_complete(self):
         """Boolean. True if the selected ORF has both start and end."""
         return (self.__has_start_codon is True) and (self.__has_stop_codon is True)
 
+    is_complete.category = "CDS"
+
     @Metric
     def exon_num(self):
         """This property returns the number of exons of the transcript."""
         return len(self.exons)
+
+    exon_num.category = "cDNA"
 
     @Metric
     def exon_fraction(self):
@@ -1798,6 +1875,8 @@ index {3}, internal ORFs: {4}".format(
         if not isinstance(args[0], (float, int)) or (args[0] <= 0 or args[0] > 1):
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
         self.__exon_fraction = args[0]
+
+    exon_fraction.category = "Locus"
 
     @Metric
     def intron_fraction(self):
@@ -1821,6 +1900,8 @@ index {3}, internal ORFs: {4}".format(
                 when the transcript has at least one intron!""")
         self.__intron_fraction = args[0]
 
+    intron_fraction.category = "Locus"
+
     @Metric
     def max_intron_length(self):
         """This property returns the greatest intron length for the transcript."""
@@ -1828,11 +1909,15 @@ index {3}, internal ORFs: {4}".format(
             return 0
         return max(intron[1] + 1 - intron[0] for intron in self.introns)
 
+    max_intron_length.category = "Intron"
+
     @Metric
     def min_intron_length(self):
         if len(self.introns) == 0:
             return 0
         return min(intron[1] + 1 - intron[0] for intron in self.introns)
+
+    min_intron_length.category = "Intron"
 
     @Metric
     def start_distance_from_tss(self):
@@ -1854,6 +1939,8 @@ index {3}, internal ORFs: {4}".format(
                 if self.combined_cds_start >= exon[0]:
                     break
         return distance
+
+    start_distance_from_tss.category = "CDS"
 
     # pylint: disable=invalid-name
     @Metric
@@ -1877,6 +1964,8 @@ index {3}, internal ORFs: {4}".format(
                     break
         return distance
 
+    selected_start_distance_from_tss.category = "CDS"
+
     @Metric
     def source_score(self):
 
@@ -1888,6 +1977,8 @@ index {3}, internal ORFs: {4}".format(
             return self.json_conf["pick"]["source_score"][self.source]
         else:
             return 0
+
+    source_score.category = "External"
 
     @Metric
     def selected_end_distance_from_tes(self):
@@ -1914,6 +2005,8 @@ index {3}, internal ORFs: {4}".format(
                 else:
                     distance += exon[1] - exon[0] + 1
         return distance
+
+    selected_end_distance_from_tes.category = "CDS"
 
     @Metric
     def selected_end_distance_from_junction(self):
@@ -1950,6 +2043,8 @@ index {3}, internal ORFs: {4}".format(
                     else:
                         distance += exon[1] - exon[0] + 1
         return distance
+
+    selected_end_distance_from_junction.category = "CDS"
 
     @Metric
     def end_distance_from_junction(self):
@@ -1989,6 +2084,8 @@ index {3}, internal ORFs: {4}".format(
                         distance += exon[1] - exon[0] + 1
         return distance
 
+    end_distance_from_junction.category = "CDS"
+
     @Metric
     def end_distance_from_tes(self):
         """This property returns the distance of the end of the combined CDS
@@ -2016,6 +2113,8 @@ index {3}, internal ORFs: {4}".format(
                     distance += exon[1] - exon[0] + 1
         return distance
 
+    end_distance_from_tes.category = "CDS"
+
     @Metric
     def combined_cds_intron_fraction(self):
         """This property returns the fraction of CDS introns of the transcript
@@ -2036,6 +2135,8 @@ index {3}, internal ORFs: {4}".format(
             raise TypeError(
                 "Invalid value for the fraction: {0}".format(value))
         self.__combined_cds_intron_fraction = value
+
+    combined_cds_intron_fraction.category = "Locus"
 
     @Metric
     def selected_cds_intron_fraction(self):
@@ -2058,12 +2159,16 @@ index {3}, internal ORFs: {4}".format(
                 "Invalid value for the fraction: {0}".format(args[0]))
         self.__selected_cds_intron_fraction = args[0]
 
+    selected_cds_intron_fraction.category = "CDS"
+
     @Metric
     def retained_intron_num(self):
         """This property records the number of introns in the transcripts
         which are marked as being retained.
         See the corresponding method in the sublocus class."""
         return len(self.retained_introns)
+
+    retained_intron_num.category = "Locus"
 
     @Metric
     def retained_fraction(self):
@@ -2082,6 +2187,8 @@ index {3}, internal ORFs: {4}".format(
             raise TypeError("Invalid value for the fraction: {0}".format(args[0]))
         self.__retained_fraction = args[0]
 
+    retained_fraction.category = "Locus"
+
     @Metric
     def proportion_verified_introns(self):
         """This metric returns, as a fraction, how many of the transcript introns
@@ -2090,6 +2197,8 @@ index {3}, internal ORFs: {4}".format(
             return 0
         else:
             return len(self.verified_introns) / len(self.introns)
+
+    proportion_verified_introns.category = "External"
 
     @Metric
     def non_verified_introns_num(self):
@@ -2109,6 +2218,8 @@ index {3}, internal ORFs: {4}".format(
 
         return num
 
+    non_verified_introns_num.category = "External"
+
     @Metric
     def verified_introns_num(self):
         """
@@ -2117,6 +2228,8 @@ index {3}, internal ORFs: {4}".format(
         :rtype : int
         """
         return len(self.verified_introns)
+
+    verified_introns_num.category = "External"
 
     @Metric
     def proportion_verified_introns_inlocus(self):
@@ -2142,6 +2255,8 @@ index {3}, internal ORFs: {4}".format(
         assert 0 <= value <= 1
         self.__proportion_verified_introns_inlocus = value
 
+    proportion_verified_introns_inlocus.category = "Locus"
+
     @Metric
     def num_introns_greater_than_max(self):
         """
@@ -2156,6 +2271,8 @@ index {3}, internal ORFs: {4}".format(
         #
         # return len(list(filter(lambda x: x[1]-x[0]+1 > self.intron_range[1],
         #                        self.introns)))
+
+    num_introns_greater_than_max.category = "Intron"
 
     @Metric
     def num_introns_smaller_than_min(self):
@@ -2172,6 +2289,8 @@ index {3}, internal ORFs: {4}".format(
         #
         # return len(list(filter(lambda x: x[1]-x[0]+1 < self.intron_range[0],
         #                        self.introns)))
+
+    num_introns_smaller_than_min.category = "Intron"
 
     @Metric
     def snowy_blast_score(self):
@@ -2197,11 +2316,15 @@ index {3}, internal ORFs: {4}".format(
 
         return self.__blast_score
 
+    snowy_blast_score.category = "External"
+
     @Metric
     def best_bits(self):
         """Metric that returns the best BitS associated with the transcript."""
 
         return max([0] + [hit["bits"] for hit in self.blast_hits])
+
+    best_bits.category = "External"
 
     @Metric
     def blast_score(self):
@@ -2213,6 +2336,8 @@ index {3}, internal ORFs: {4}".format(
         # return self.snowy_blast_score
         return self.best_bits
 
+    blast_score.category = "External"
+
     @Metric
     def canonical_intron_proportion(self):
 
@@ -2223,3 +2348,5 @@ index {3}, internal ORFs: {4}".format(
         """
 
         return float(self.attributes.get("canonical_proportion", 0))
+
+    canonical_intron_proportion.category = "Intron"

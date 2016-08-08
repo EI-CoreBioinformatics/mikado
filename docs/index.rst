@@ -31,6 +31,7 @@ Contents:
    :numbered:
 
    Introduction
+   Scoring
    Installation
    Tutorial
    Usage

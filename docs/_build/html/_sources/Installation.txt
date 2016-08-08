@@ -3,11 +3,6 @@
 Installation
 ============
 
-Python version
---------------
-
-Mikado
-
 Download
 --------
 

@@ -191,6 +191,7 @@ class TestLoadJunction(unittest.TestCase):
                 )
         seri()
         genome_file.close()
+        os.remove("{}.fai".format(genome_file.name))
         # genome_file.delete()
 
     def test_invalid_bed12(self):

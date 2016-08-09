@@ -3,6 +3,8 @@
 Transcript measurements and scoring
 ===================================
 
+.. _scoring_algorithm:
+
 In order to determine the best transcript for each locus, Mikado measures each available candidate according to various different :ref:`metrics <Metrics>` and assigning a specific score for each of those. Similarly to `RAMPART <https://github.com/TGAC/RAMPART>`_ [Rampart]_, Mikado will assign a score to each transcript for each metric by assessing it relatively to the other transcripts in the locus. The particular feature rescaling equation used for a given metric depends on the type of feature it represents:
 
 * metrics where higher values represent better transcript assemblies ("maximum").
@@ -23,15 +25,39 @@ Finally, the scores for each metric will be summed up to produce a final score f
 
 Not all the available metrics will be necessarily used for scoring; the choice of which to employ and how to score and weight each of them is left to the experimenter, although Mikado provides some pre-configured scoring files.
 
+.. important:: The scoring algorithm is dependent on the other transcripts in the locus, so each score should not be taken as an *absolute* measure of the reliability of a transcript, but rather as a measure of its **relative goodness compared with the alternatives**. Shifting a transcript from one locus to another can have dramatic effects on the scoring of a transcript, even while the underlying metric values remain unchanged. This is why the score assigned to each transcript changes throughout the Mikado run, as transcripts are moved to subloci, monoloci and finally loci.
+
 Scoring files
 ~~~~~~~~~~~~~
 
-Mikado employs user-defined configuration files to define the desirable features in genes. These files are composed of two sections:
+Mikado employs user-defined configuration files to define the desirable features in genes. These files are in either YAML or JSON format (default YAML) and are composed of two sections:
 
   #. a *requirements* section, specifying the minimum requirements that a transcript must satisfy to be considered as valid. **Any transcript failing these requirements will be scored at 0 and purged.**
   #. a *scoring* section, specifying which features Mikado should look for in transcripts, and how each of them will be weighted.
 
-.. hint:: Although at the moment Mikado does not offer any method to establish machine-learning based scoring configurations, it is a topic we plan to investigate in the future. Mikado already supports `Random Forest Regressors as scorers through Scikit-learn <http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_, but we have yet to devise a proper way to create such regressors.
+Conditions are specified using a strict set of :ref:`available operators <operators>` and the values they have to consider.
+
+.. important:: Although at the moment Mikado does not offer any method to establish machine-learning based scoring configurations, it is a topic we plan to investigate in the future. Mikado already supports `Random Forest Regressors as scorers through Scikit-learn <http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_, but we have yet to devise a proper way to create such regressors.
+
+.. _operators:
+
+Operators
+---------
+
+Mikado allows the following operators to express a relationship inside the scoring files:
+
+* *eq*: equal to (:math:`=`). Valid for comparisons with numbers, boolean values, and strings.
+* *ne*: different from (:math:`\neq`). Valid for comparisons with numbers, boolean values, and strings.
+* *lt*: less than (:math:`<`). Valid for comparisons with numbers.
+* *gt*: greater than (:math:`>`). Valid for comparisons with numbers.
+* *le*: less or equal than (:math:`\le`). Valid for comparisons with numbers.
+* *ge*: greater or equal than (:math:`\ge`). Valid for comparisons with numbers.
+* *in*: member of (:math:`\in`). Valid for comparisons with arrays or sets.
+* *not in*: not member of (:math:`\notin`). Valid for comparisons with arrays or sets.
+
+Mikado will fail if an operator not present on this list is specified, or if the operator is assigned to compare against the wrong data type (eg. *eq* with an array).
+
+.. _requirements-section:
 
 The requirements section
 ------------------------
@@ -82,9 +108,23 @@ In order:
 
 Any transcript for which the expression evaluates to :math:`False` will be assigned a score of 0 outright and therefore discarded.
 
+.. _scoring-section:
+
 The scoring section
 -------------------
 
+This section specifies which metrics will be used by Mikado to score the transcripts. Each metric to be used is specified as a subsection of the configuration, and will have the following attributes:
+
+* *rescaling*: the only compulsory attribute. It specifies the kind of scoring that will be applied to the metric, and it has to be one of "max", "min", or "target". See :ref:`the explanation on the scoring algorithm <scoring_algorithm>` for details.
+* *value*: compulsory if the chosen rescaling algorithm is "target". This should be either a number or a boolean value.
+* *multiplier*: the weight assigned to the metric in terms of scoring. This parameter is optional; if absent, as it is in the majority of cases, Mikado will consider the multiplier to equal to 1. This is the :math:`w_{m}` element in the :ref:`equations above <scoring_algorithm>`.
+* *filter*: It is possible to specify a filter which the metric has to fulfill to be considered for scoring, eg, "cdna_length >= 200". If the transcript fails to pass this filter, the score *for this metric only* will be set to 0. A "filter" subsection has to specify the following:
+    * *operator*: the operator to apply for the boolean expression. See the :ref:`relative section <operators>`.
+    * *value*: value that will be used to assess the metric.
+
+.. hint:: the purpose of the *filter* section is to allow for fine-tuning of the scoring mechanism; ie it allows to penalise transcripts with undesirable qualities (eg a possible retained intron) without discarding them outright. As such, it is a less harsh version of the :ref:`requirements section <requirements-section>` and it is the preferred way of specifying which transcript features Mikado should be wary of.
+
+For example, this is a snippet of a scoring section:
 
 .. code-block:: yaml
 
@@ -100,23 +140,14 @@ The scoring section
             filter: {operator: lt, value: 55}
             rescaling: min
 
-.. _operators:
 
-Operators
----------
+Using this snippet as a guide, Mikado will score transcripts in each locus as follows:
 
-Mikado allows the following operators to express a relationship inside the scoring files:
-
-* *eq*: equal to (:math:`=`). Valid for comparisons with numbers, boolean values, and strings.
-* *ne*: different from (:math:`\neq`). Valid for comparisons with numbers, boolean values, and strings.
-* *lt*: less than (:math:`<`). Valid for comparisons with numbers.
-* *gt*: greater than (:math:`>`). Valid for comparisons with numbers.
-* *le*: less or equal than (:math:`\le`). Valid for comparisons with numbers.
-* *ge*: greater or equal than (:math:`\ge`). Valid for comparisons with numbers.
-* *in*: member of (:math:`\in`). Valid for comparisons with arrays or sets.
-* *not in*: not member of (:math:`\notin`). Valid for comparisons with arrays or sets.
-
-Mikado will fail if an operator not present on this list is specified, or if the operator is assigned to compare against the wrong data type (eg. *eq* with an array).
+* Assign a full score (one point, as no multiplier is specified) to transcripts which have the greatest *blast_score*
+* Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest amount of CDS bases in secondary ORFs (*cds_not_maximal*)
+* Assign a full score (**two points**, as a multiplier of 2 is specified) to transcripts that have a total amount of CDS bps approximating 80% of the transcript cDNA length (*combined_cds_fraction*)
+* Assign a full score (one point, as no multiplier is specified) to transcripts that have a 5' UTR whose length is nearest to 100 bps (*five_utr_length*); if the 5' UTR is longer than 2,500 bps, this score will be 0 (see the filter section)
+* Assign a full score (one point, as no multiplier is specified) to transcripts which have the lowest distance between the CDS end and the most downstream exon-exon junction (*end_distance_from_junction*). If such a distance is greater than 55 bps, assign a score of 0, as it is a probable target for NMD (see the filter section).
 
 .. _Metrics:
 

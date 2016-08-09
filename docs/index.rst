@@ -31,9 +31,9 @@ Contents:
    :numbered:
 
    Introduction
-   Scoring
    Installation
    Tutorial
+   Scoring
    Usage
    References
    Library/index

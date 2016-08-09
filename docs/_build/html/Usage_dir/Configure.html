@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>5.1. Mikado configure &mdash; Mikado 1.0.0b4 documentation</title>
+    <title>1. Mikado configure &mdash; Mikado 1.0.0b4 documentation</title>
     
     <link rel="stylesheet" href="../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -26,9 +26,9 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html" />
-    <link rel="up" title="4. Usage" href="../Usage.html" />
-    <link rel="next" title="5.2. Mikado prepare" href="Prepare.html" />
-    <link rel="prev" title="4. Usage" href="../Usage.html" /> 
+    <link rel="up" title="5. Usage" href="../Usage.html" />
+    <link rel="next" title="2. Mikado prepare" href="Prepare.html" />
+    <link rel="prev" title="5. Usage" href="../Usage.html" /> 
   </head>
   <body role="document">
     <div class="related" role="navigation" aria-label="related navigation">
@@ -41,13 +41,13 @@
           <a href="../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Prepare.html" title="5.2. Mikado prepare"
+          <a href="Prepare.html" title="2. Mikado prepare"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="../Usage.html" title="4. Usage"
+          <a href="../Usage.html" title="5. Usage"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b4 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">5. Usage</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -57,10 +57,10 @@
           <div class="body" role="main">
             
   <div class="section" id="mikado-configure">
-<span id="configure"></span><h1>5.1. Mikado configure<a class="headerlink" href="#mikado-configure" title="Permalink to this headline">¶</a></h1>
+<span id="configure"></span><h1>1. Mikado configure<a class="headerlink" href="#mikado-configure" title="Permalink to this headline">¶</a></h1>
 <p>This utility prepares the configuration file that will be used throughout the pipeline stages. While the most important options can be set at runtime through the command line, many algorithmic details can be accessed and intervened upon only through the file produced through this command.</p>
 <div class="section" id="usage">
-<h2>5.1.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<h2>1.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <p>This command will generate a configuration file (in either JSON or YAML format), with the correct configuration for the parameters set on the command line. See <a class="reference internal" href="#conf-anatomy"><span class="std std-ref">the in-depth section on the structure of the configuration file</span></a> for details.</p>
 <p>Command line parameters:</p>
 <ul class="simple">
@@ -176,10 +176,10 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="anatomy-of-the-configuration-file">
-<span id="conf-anatomy"></span><h2>5.1.2. Anatomy of the configuration file<a class="headerlink" href="#anatomy-of-the-configuration-file" title="Permalink to this headline">¶</a></h2>
+<span id="conf-anatomy"></span><h2>1.2. Anatomy of the configuration file<a class="headerlink" href="#anatomy-of-the-configuration-file" title="Permalink to this headline">¶</a></h2>
 <p>The guide here describes all voices of the configuration file. However, the configuration created by default by <code class="docutils literal"><span class="pre">mikado</span> <span class="pre">configure</span></code> is much simpler</p>
 <div class="section" id="database-settings">
-<span id="db-settings"></span><h3>5.1.2.1. Database settings<a class="headerlink" href="#database-settings" title="Permalink to this headline">¶</a></h3>
+<span id="db-settings"></span><h3>1.2.1. Database settings<a class="headerlink" href="#database-settings" title="Permalink to this headline">¶</a></h3>
 <p>This section deals with the database settings that will be necessary for the <a class="reference internal" href="Serialise.html#serialise"><span class="std std-ref">serialisation</span></a> and <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">picking</span></a> phases of the pipeline. By default, Mikado will use a <a class="reference external" href="https://www.sqlite.org/">SQLite database</a>, but it currently also supports <a class="reference external" href="http://www.mysql.com/">MySQL</a> and <a class="reference external" href="https://www.postgresql.org/">PostgreSQL</a> through <a class="reference external" href="http://www.sqlalchemy.org/">SQLAlchemy</a>. Fields:</p>
 <ul class="simple">
 <li>db: name of the database to use. In case the database is SQLite, this will be the database file, otherwise it will be the database <em>name</em>.</li>
@@ -210,7 +210,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="reference-settings">
-<span id="ref-settings"></span><h3>5.1.2.2. Reference settings<a class="headerlink" href="#reference-settings" title="Permalink to this headline">¶</a></h3>
+<span id="ref-settings"></span><h3>1.2.2. Reference settings<a class="headerlink" href="#reference-settings" title="Permalink to this headline">¶</a></h3>
 <p>This section of the configuration file deals with the reference genome. It specifies two fields:</p>
 <ul class="simple">
 <li>genome: the genome FASTA file. <strong>Required</strong>.</li>
@@ -226,7 +226,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="settings-for-the-prepare-stage">
-<span id="prep-settings"></span><h3>5.1.2.3. Settings for the prepare stage<a class="headerlink" href="#settings-for-the-prepare-stage" title="Permalink to this headline">¶</a></h3>
+<span id="prep-settings"></span><h3>1.2.3. Settings for the prepare stage<a class="headerlink" href="#settings-for-the-prepare-stage" title="Permalink to this headline">¶</a></h3>
 <p>This section of the configuration file deals with the <a class="reference internal" href="Prepare.html#prepare"><span class="std std-ref">prepare stage of Mikado</span></a>. It specifies the input files, their labels, and which of them are strand specific. The available fields are the following:</p>
 <ul>
 <li><p class="first">canonical: this voice specifies the splice site donors and acceptors that are considered canonical for the species. By default, Mikado uses the canonical splice site (GT/AG) and the two semi-canonical pairs (GC/AG and AT/AC). Type: Array of two-element arrays, composed by two-letter strings.</p>
@@ -302,7 +302,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="settings-for-the-serialisation-stage">
-<span id="serialise-settings"></span><h3>5.1.2.4. Settings for the serialisation stage<a class="headerlink" href="#settings-for-the-serialisation-stage" title="Permalink to this headline">¶</a></h3>
+<span id="serialise-settings"></span><h3>1.2.4. Settings for the serialisation stage<a class="headerlink" href="#settings-for-the-serialisation-stage" title="Permalink to this headline">¶</a></h3>
 <p>This section of the configuration file deals with the <a class="reference internal" href="Serialise.html#serialise"><span class="std std-ref">serialisation stage of Mikado</span></a>. It specifies the location of the ORF BED12 files from TransDecoder, the location of the XML files from BLAST, the location of portcullis junctions, and other details important at run time. It has the following voices:</p>
 <ul class="simple">
 <li>discard_definition: boolean. This is used to specify whether we will use the ID or the definition of the sequences when parsing BLAST results. This is important when BLAST data might have a mock, local identifier for the sequence (&#8220;lcl|1&#8221;) rather than its original ID.</li>
@@ -399,7 +399,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="settings-for-the-pick-stage">
-<span id="misc-settings"></span><h3>5.1.2.5. Settings for the pick stage<a class="headerlink" href="#settings-for-the-pick-stage" title="Permalink to this headline">¶</a></h3>
+<span id="misc-settings"></span><h3>1.2.5. Settings for the pick stage<a class="headerlink" href="#settings-for-the-pick-stage" title="Permalink to this headline">¶</a></h3>
 <p>This section of the configuration file deals with the <a class="reference internal" href="Pick.html#pick"><span class="std std-ref">picking stage of Mikado</span></a>. It specifies details on how to handle BLAST and ORF data, which alternative splicing events are considered as valid during the final stages of the picking, and other important algorithmic details. The section comprises the following subsections:</p>
 <ul class="simple">
 <li>alternative_splicing: Options related to which AS events are considered as valid for the primary transcript in a locus.</li>
@@ -410,7 +410,7 @@ Options related to the serialisation step:
 <li>run_options: Generic options related either to the general algorithm or to the number of resources requested.</li>
 </ul>
 <ul class="simple">
-<li>scoring_file: This value specifies the <span class="xref std std-ref">scoring file</span> to be used for Mikado. These can be found in Mikado.configuration.scoring_files.</li>
+<li>scoring_file: This value specifies the <a class="reference internal" href="../Scoring.html#scoring-files"><span class="std std-ref">scoring file</span></a> to be used for Mikado. These can be found in Mikado.configuration.scoring_files.</li>
 </ul>
 <div class="admonition hint">
 <p class="first admonition-title">Hint</p>
@@ -430,7 +430,7 @@ Options related to the serialisation step:
 <p>In this example, we asked Mikado to consider Stringtie transcripts as more trustworthy than the rest (1 additional point), and PacBio transcripts even more so (2 additional points).</p>
 <p>Each subsection of the pick configuration will be explained in its own right.</p>
 <div class="section" id="parameters-regarding-the-alternative-splicing">
-<h4>5.1.2.5.1. Parameters regarding the alternative splicing<a class="headerlink" href="#parameters-regarding-the-alternative-splicing" title="Permalink to this headline">¶</a></h4>
+<h4>1.2.5.1. Parameters regarding the alternative splicing<a class="headerlink" href="#parameters-regarding-the-alternative-splicing" title="Permalink to this headline">¶</a></h4>
 <p>After selecting the best model for each locus, Mikado will backtrack and try to select valid alternative splicing events. This section deals with how Mikado will operate the selection. There are the following available parameters:</p>
 <ul class="simple">
 <li>report: boolean. Whether to calculate and report possible alternative splicing events at all. By default this is set to true; <em>setting this parameter to false will inactivate all the options in this section</em>.</li>
@@ -507,7 +507,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="parameters-regarding-assignment-of-orfs-to-transcripts">
-<span id="orf-loading"></span><h4>5.1.2.5.2. Parameters regarding assignment of ORFs to transcripts<a class="headerlink" href="#parameters-regarding-assignment-of-orfs-to-transcripts" title="Permalink to this headline">¶</a></h4>
+<span id="orf-loading"></span><h4>1.2.5.2. Parameters regarding assignment of ORFs to transcripts<a class="headerlink" href="#parameters-regarding-assignment-of-orfs-to-transcripts" title="Permalink to this headline">¶</a></h4>
 <p>This section of the configuration file deals with how to determine valid ORFs for a transcript from those present in the database. The parameters to control the behaviour of Mikado are the following:</p>
 <ul class="simple">
 <li><em>minimal_orf_length</em>: minimal length of the <em>primary</em> ORF to be loaded onto the transcript. By default, this is set at 50 <strong>bps</strong> (not aminoacids)</li>
@@ -531,7 +531,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="parameters-regarding-splitting-of-chimeras">
-<span id="chimera-splitting"></span><h4>5.1.2.5.3. Parameters regarding splitting of chimeras<a class="headerlink" href="#parameters-regarding-splitting-of-chimeras" title="Permalink to this headline">¶</a></h4>
+<span id="chimera-splitting"></span><h4>1.2.5.3. Parameters regarding splitting of chimeras<a class="headerlink" href="#parameters-regarding-splitting-of-chimeras" title="Permalink to this headline">¶</a></h4>
 <p>This section of the configuration file specifies how to deal with transcripts presenting multiple ORFs, ie <strong>putative chimeras</strong> (see the section above for parameters related to <a class="reference internal" href="#orf-loading"><span class="std std-ref">which ORFs can be loaded</span></a>). Those are identified as transcripts with more than one ORF, where:</p>
 <blockquote>
 <div><ul class="simple">
@@ -606,7 +606,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="parameters-regarding-input-and-output-files">
-<h4>5.1.2.5.4. Parameters regarding input and output files<a class="headerlink" href="#parameters-regarding-input-and-output-files" title="Permalink to this headline">¶</a></h4>
+<h4>1.2.5.4. Parameters regarding input and output files<a class="headerlink" href="#parameters-regarding-input-and-output-files" title="Permalink to this headline">¶</a></h4>
 <p>The &#8220;files&#8221; and &#8220;output_format&#8221; sections deal respectively with input files for the pick stage and with some basic settings for the GFF output. Options:</p>
 <blockquote>
 <div><ul class="simple">
@@ -640,7 +640,7 @@ Options related to the serialisation step:
 </div>
 </div>
 <div class="section" id="generic-parameters-on-the-pick-run">
-<h4>5.1.2.5.5. Generic parameters on the pick run<a class="headerlink" href="#generic-parameters-on-the-pick-run" title="Permalink to this headline">¶</a></h4>
+<h4>1.2.5.5. Generic parameters on the pick run<a class="headerlink" href="#generic-parameters-on-the-pick-run" title="Permalink to this headline">¶</a></h4>
 <p>This section deals with other parameters necessary for the run, such as the number of processors to use, but also more important algorithmic parameters such as how to recognise fragments.
 Parameters:</p>
 <ul class="simple">
@@ -713,7 +713,7 @@ Parameters:</p>
 </div>
 </div>
 <div class="section" id="miscellanea">
-<h3>5.1.2.6. Miscellanea<a class="headerlink" href="#miscellanea" title="Permalink to this headline">¶</a></h3>
+<h3>1.2.6. Miscellanea<a class="headerlink" href="#miscellanea" title="Permalink to this headline">¶</a></h3>
 <div class="sidebar" id="scheduler-multiprocessing">
 <p class="first sidebar-title">&#8220;Python, multiprocessing, and cluster schedulers&#8221;</p>
 <p class="last">Some schedulers, in particular SLURM, are not capable to understand that the processes <em>forked</em> by Python are still sharing the same memory with the main process, and think instead that each process is using that memory in isolation. As a result, they might think that the Mikado process is using its memory multiplied by the number of processes - depending on when the forking happens - and therefore shut down the program as it <em>appears</em> to be using much more memory than needed. For this reason, <a class="reference internal" href="Daijin.html#daijin"><span class="std std-ref">Daijin</span></a> forces Mikado to run in <strong>spawn</strong> mode. Although spawning is slower than forking, it happens only once per run, and it has therefore a limited cost in terms of runtime - while greatly reducing the chances of the program being shut down because of &#8220;Out of memory&#8221; reasons.</p>
@@ -744,7 +744,7 @@ Parameters:</p>
 </div>
 </div>
 <div class="section" id="technical-details">
-<h2>5.1.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<h2>1.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
 <p>The configuration file obeys a specific JSON schema which can be found at <a class="reference download internal" href="../_downloads/configuration_blueprint.json" download=""><code class="xref download docutils literal"><span class="pre">Mikado/configuration/configuration_blueprint.json</span></code></a>. Every time a Mikado utility is launched, it checks the configuration file against the schema to validate it. The schema contains non-standard &#8220;Comment&#8221; and &#8220;SimpleComment&#8221; string arrays which are used at runtime to generate the comment strings in the YAML output.</p>
 </div>
 </div>
@@ -760,35 +760,35 @@ Parameters:</p>
             </a></p>
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">5.1. Mikado configure</a><ul>
-<li><a class="reference internal" href="#usage">5.1.1. Usage</a></li>
-<li><a class="reference internal" href="#anatomy-of-the-configuration-file">5.1.2. Anatomy of the configuration file</a><ul>
-<li><a class="reference internal" href="#database-settings">5.1.2.1. Database settings</a></li>
-<li><a class="reference internal" href="#reference-settings">5.1.2.2. Reference settings</a></li>
-<li><a class="reference internal" href="#settings-for-the-prepare-stage">5.1.2.3. Settings for the prepare stage</a></li>
-<li><a class="reference internal" href="#settings-for-the-serialisation-stage">5.1.2.4. Settings for the serialisation stage</a></li>
-<li><a class="reference internal" href="#settings-for-the-pick-stage">5.1.2.5. Settings for the pick stage</a><ul>
-<li><a class="reference internal" href="#parameters-regarding-the-alternative-splicing">5.1.2.5.1. Parameters regarding the alternative splicing</a></li>
-<li><a class="reference internal" href="#parameters-regarding-assignment-of-orfs-to-transcripts">5.1.2.5.2. Parameters regarding assignment of ORFs to transcripts</a></li>
-<li><a class="reference internal" href="#parameters-regarding-splitting-of-chimeras">5.1.2.5.3. Parameters regarding splitting of chimeras</a></li>
-<li><a class="reference internal" href="#parameters-regarding-input-and-output-files">5.1.2.5.4. Parameters regarding input and output files</a></li>
-<li><a class="reference internal" href="#generic-parameters-on-the-pick-run">5.1.2.5.5. Generic parameters on the pick run</a></li>
+<li><a class="reference internal" href="#">1. Mikado configure</a><ul>
+<li><a class="reference internal" href="#usage">1.1. Usage</a></li>
+<li><a class="reference internal" href="#anatomy-of-the-configuration-file">1.2. Anatomy of the configuration file</a><ul>
+<li><a class="reference internal" href="#database-settings">1.2.1. Database settings</a></li>
+<li><a class="reference internal" href="#reference-settings">1.2.2. Reference settings</a></li>
+<li><a class="reference internal" href="#settings-for-the-prepare-stage">1.2.3. Settings for the prepare stage</a></li>
+<li><a class="reference internal" href="#settings-for-the-serialisation-stage">1.2.4. Settings for the serialisation stage</a></li>
+<li><a class="reference internal" href="#settings-for-the-pick-stage">1.2.5. Settings for the pick stage</a><ul>
+<li><a class="reference internal" href="#parameters-regarding-the-alternative-splicing">1.2.5.1. Parameters regarding the alternative splicing</a></li>
+<li><a class="reference internal" href="#parameters-regarding-assignment-of-orfs-to-transcripts">1.2.5.2. Parameters regarding assignment of ORFs to transcripts</a></li>
+<li><a class="reference internal" href="#parameters-regarding-splitting-of-chimeras">1.2.5.3. Parameters regarding splitting of chimeras</a></li>
+<li><a class="reference internal" href="#parameters-regarding-input-and-output-files">1.2.5.4. Parameters regarding input and output files</a></li>
+<li><a class="reference internal" href="#generic-parameters-on-the-pick-run">1.2.5.5. Generic parameters on the pick run</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#miscellanea">5.1.2.6. Miscellanea</a></li>
+<li><a class="reference internal" href="#miscellanea">1.2.6. Miscellanea</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#technical-details">5.1.3. Technical details</a></li>
+<li><a class="reference internal" href="#technical-details">1.3. Technical details</a></li>
 </ul>
 </li>
 </ul>
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="../Usage.html"
-                        title="previous chapter">4. Usage</a></p>
+                        title="previous chapter">5. Usage</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="Prepare.html"
-                        title="next chapter">5.2. Mikado prepare</a></p>
+                        title="next chapter">2. Mikado prepare</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -820,13 +820,13 @@ Parameters:</p>
           <a href="../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Prepare.html" title="5.2. Mikado prepare"
+          <a href="Prepare.html" title="2. Mikado prepare"
              >next</a> |</li>
         <li class="right" >
-          <a href="../Usage.html" title="4. Usage"
+          <a href="../Usage.html" title="5. Usage"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b4 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" >4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" >5. Usage</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

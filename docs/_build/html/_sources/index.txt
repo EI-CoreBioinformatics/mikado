@@ -33,6 +33,7 @@ Contents:
    Introduction
    Installation
    Tutorial
+   Scoring
    Usage
    References
    Library/index

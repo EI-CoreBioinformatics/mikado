@@ -424,4 +424,6 @@ This function is used to select both for the best match *for the transcript*, as
 
 The interval tree data structure is created using Cython code originally part of the `bx-python <https://bitbucket.org/james_taylor/bx-python/overview>`_, kindly provided by `Dr. Taylor <mailto:james@taylorlab.org>`_ for modification and inclusion in Mikado. The code has been slightly modified for making it Python3 compliant.
 
+The .midx files storing the annotation for repeated compare runs are gzip-compressed JSON files. In them, Mikado will store for each gene its coordinates, its transcripts, and the location of exons and CDS features. MIDX files make repeated runs quite faster, as the program will not have to re-parse the GFF file.
+
 The comparison code is written in Cython and is crucial during the :ref:`picking phase of Mikado <pick>`, not just for the functioning of the comparison utility.

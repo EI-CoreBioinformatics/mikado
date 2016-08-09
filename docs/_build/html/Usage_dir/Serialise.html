@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>5.3. Mikado serialise &mdash; Mikado 1.0.0b4 documentation</title>
+    <title>3. Mikado serialise &mdash; Mikado 1.0.0b4 documentation</title>
     
     <link rel="stylesheet" href="../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -26,9 +26,9 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html" />
-    <link rel="up" title="4. Usage" href="../Usage.html" />
-    <link rel="next" title="5.4. Mikado pick" href="Pick.html" />
-    <link rel="prev" title="5.2. Mikado prepare" href="Prepare.html" /> 
+    <link rel="up" title="5. Usage" href="../Usage.html" />
+    <link rel="next" title="4. Mikado pick" href="Pick.html" />
+    <link rel="prev" title="2. Mikado prepare" href="Prepare.html" /> 
   </head>
   <body role="document">
     <div class="related" role="navigation" aria-label="related navigation">
@@ -41,13 +41,13 @@
           <a href="../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Pick.html" title="5.4. Mikado pick"
+          <a href="Pick.html" title="4. Mikado pick"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="Prepare.html" title="5.2. Mikado prepare"
+          <a href="Prepare.html" title="2. Mikado prepare"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b4 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">5. Usage</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -57,7 +57,7 @@
           <div class="body" role="main">
             
   <div class="section" id="mikado-serialise">
-<span id="serialise"></span><h1>5.3. Mikado serialise<a class="headerlink" href="#mikado-serialise" title="Permalink to this headline">¶</a></h1>
+<span id="serialise"></span><h1>3. Mikado serialise<a class="headerlink" href="#mikado-serialise" title="Permalink to this headline">¶</a></h1>
 <p>Mikado integrates data from multiple sources to select the best transcripts. During this step, these sources are brought together inside a common database, simplifying the process of retrieving them at runtime. Currently, Mikado integrates three different types of data:</p>
 <div class="sidebar" id="bed12-sidebar">
 <p class="first sidebar-title"><a class="reference external" href="https://genome.ucsc.edu/FAQ/FAQformat.html#format1">BED12</a> files</p>
@@ -72,7 +72,7 @@
 <p>Mikado serialise can use three different SQL databases as backends - SQLite, MySQL and PostgreSQL - thanks to <a class="reference external" href="http://www.sqlalchemy.org/">SQLAlchemy</a>.
 This step, together with the creation of the TransDecoder and BLAST data, is the most time consuming of the pipeline. In particular, although Mikado serialise will try to analyse the XML data in a parallelised fashion if so instructed, the insertion of the data in the database will still happen in a single thread and will therefore be of limited speed. If using SQLite as database (the default option), it is possible to decrease the runtime by modifying the &#8220;max_objects&#8221; parameters, at the cost however of increased RAM usage.</p>
 <div class="section" id="transdecoder-orfs">
-<h2>5.3.1. Transdecoder ORFs<a class="headerlink" href="#transdecoder-orfs" title="Permalink to this headline">¶</a></h2>
+<h2>3.1. Transdecoder ORFs<a class="headerlink" href="#transdecoder-orfs" title="Permalink to this headline">¶</a></h2>
 <p>When Mikado analyses ORFs produced by <a class="reference external" href="http://transdecoder.github.io/">TransDecoder</a> or equivalent program, it performs additionally the following checks:</p>
 <ol class="arabic simple">
 <li>Check the congruence between the length of the transcript in the BED12 file and that found in the FASTA file</li>
@@ -82,7 +82,7 @@ This step, together with the creation of the TransDecoder and BLAST data, is the
 </ol>
 </div>
 <div class="section" id="usage">
-<h2>5.3.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<h2>3.2. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <p><code class="docutils literal"><span class="pre">mikado</span> <span class="pre">serialise</span></code> allows to override some of the parameters present in the configuration file through command line options, eg the input files. Notwithstanding, in the interest of reproducibility we advise to configure everything through the configuration file and supply it to Mikado prepare without further modifications.</p>
 <p>Available parameters:</p>
 <ul>
@@ -252,7 +252,7 @@ optional arguments:
 </div>
 </div>
 <div class="section" id="technical-details">
-<h2>5.3.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<h2>3.3. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
 <p>The schema of the database is quite simple, as it is composed only of 7 discrete tables in two groups. The first group, <em>chrom</em> and <em>junctions</em>, serialises the information pertaining to the reliable junctions - ie information which is not relative to the transcripts but rather to their genomic locations.
 The second group serialises the data regarding ORFs and BLAST files. The need of using a database is mainly driven by the latter, as querying a relational database is faster than retrieving the information from the XML files themselves at runtime.</p>
 <div class="topic">
@@ -275,20 +275,20 @@ The second group serialises the data regarding ORFs and BLAST files. The need of
             </a></p>
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">5.3. Mikado serialise</a><ul>
-<li><a class="reference internal" href="#transdecoder-orfs">5.3.1. Transdecoder ORFs</a></li>
-<li><a class="reference internal" href="#usage">5.3.2. Usage</a></li>
-<li><a class="reference internal" href="#technical-details">5.3.3. Technical details</a></li>
+<li><a class="reference internal" href="#">3. Mikado serialise</a><ul>
+<li><a class="reference internal" href="#transdecoder-orfs">3.1. Transdecoder ORFs</a></li>
+<li><a class="reference internal" href="#usage">3.2. Usage</a></li>
+<li><a class="reference internal" href="#technical-details">3.3. Technical details</a></li>
 </ul>
 </li>
 </ul>
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="Prepare.html"
-                        title="previous chapter">5.2. Mikado prepare</a></p>
+                        title="previous chapter">2. Mikado prepare</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="Pick.html"
-                        title="next chapter">5.4. Mikado pick</a></p>
+                        title="next chapter">4. Mikado pick</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -320,13 +320,13 @@ The second group serialises the data regarding ORFs and BLAST files. The need of
           <a href="../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Pick.html" title="5.4. Mikado pick"
+          <a href="Pick.html" title="4. Mikado pick"
              >next</a> |</li>
         <li class="right" >
-          <a href="Prepare.html" title="5.2. Mikado prepare"
+          <a href="Prepare.html" title="2. Mikado prepare"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b4 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" >4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" >5. Usage</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>5.4. Mikado pick &mdash; Mikado 1.0.0b4 documentation</title>
+    <title>4. Mikado pick &mdash; Mikado 1.0.0b4 documentation</title>
     
     <link rel="stylesheet" href="../_static/nature.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
@@ -26,9 +26,9 @@
     <script type="text/javascript" src="../_static/doctools.js"></script>
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="../index.html" />
-    <link rel="up" title="4. Usage" href="../Usage.html" />
-    <link rel="next" title="6.1. Compare" href="Compare.html" />
-    <link rel="prev" title="5.3. Mikado serialise" href="Serialise.html" /> 
+    <link rel="up" title="5. Usage" href="../Usage.html" />
+    <link rel="next" title="1. Compare" href="Compare.html" />
+    <link rel="prev" title="3. Mikado serialise" href="Serialise.html" /> 
   </head>
   <body role="document">
     <div class="related" role="navigation" aria-label="related navigation">
@@ -41,13 +41,13 @@
           <a href="../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Compare.html" title="6.1. Compare"
+          <a href="Compare.html" title="1. Compare"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="Serialise.html" title="5.3. Mikado serialise"
+          <a href="Serialise.html" title="3. Mikado serialise"
              accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b4 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" accesskey="U">5. Usage</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -57,11 +57,10 @@
           <div class="body" role="main">
             
   <div class="section" id="mikado-pick">
-<span id="pick"></span><h1>5.4. Mikado pick<a class="headerlink" href="#mikado-pick" title="Permalink to this headline">¶</a></h1>
-<p>This is the final stage of the pipeline, and the one which actually applies the <a class="reference internal" href="../Introduction.html#introduction"><span class="std std-ref">core algorithms</span></a> to identify the loci and select the best transcripts.
-As such, it is the</p>
+<span id="pick"></span><h1>4. Mikado pick<a class="headerlink" href="#mikado-pick" title="Permalink to this headline">¶</a></h1>
+<p>This is the final stage of the pipeline, in which Mikado identifies gene loci and selects the best transcripts.</p>
 <div class="section" id="usage">
-<h2>5.4.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
+<h2>4.1. Usage<a class="headerlink" href="#usage" title="Permalink to this headline">¶</a></h2>
 <p><code class="docutils literal"><span class="pre">mikado</span> <span class="pre">pick</span></code> allows to modify some of the parameters regarding the run at runtime. However, some sections - such as most of the settings regarding alternative splicing - are left untouched by the utility, and are best modified by editing the <a class="reference internal" href="Configure.html#configure"><span class="std std-ref">configuration file itself</span></a>. The available parameters are as follows:</p>
 <ul>
 <li><p class="first"><em>json-conf</em>: required. This is the configuration file created in the <a class="reference internal" href="Configure.html#configure"><span class="std std-ref">first step</span></a> of the pipeline.</p>
@@ -218,7 +217,7 @@ Log options:
 </div>
 </div>
 <div class="section" id="technical-details">
-<h2>5.4.2. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<h2>4.2. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
 <p><code class="docutils literal"><span class="pre">mikado</span> <span class="pre">pick</span></code> uses a divide-et-impera algorithm to find and analyse loci separately. As the data to be integrated with the transcripts is stored on the database rather than be calculated on the fly, rerunning <code class="docutils literal"><span class="pre">pick</span></code> with different options takes little time and resources.
 To keep the data sorted, Mikado will write out temporary files during the operation and merge them at the end of the run (see function <code class="docutils literal"><span class="pre">merge_loci_gff</span></code> in <a class="reference internal" href="../Library/picking.html#sub-picking-loci"><span class="std std-ref">the picking module</span></a>.</p>
 </div>
@@ -235,19 +234,19 @@ To keep the data sorted, Mikado will write out temporary files during the operat
             </a></p>
   <h3><a href="../index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">5.4. Mikado pick</a><ul>
-<li><a class="reference internal" href="#usage">5.4.1. Usage</a></li>
-<li><a class="reference internal" href="#technical-details">5.4.2. Technical details</a></li>
+<li><a class="reference internal" href="#">4. Mikado pick</a><ul>
+<li><a class="reference internal" href="#usage">4.1. Usage</a></li>
+<li><a class="reference internal" href="#technical-details">4.2. Technical details</a></li>
 </ul>
 </li>
 </ul>
 
   <h4>Previous topic</h4>
   <p class="topless"><a href="Serialise.html"
-                        title="previous chapter">5.3. Mikado serialise</a></p>
+                        title="previous chapter">3. Mikado serialise</a></p>
   <h4>Next topic</h4>
   <p class="topless"><a href="Compare.html"
-                        title="next chapter">6.1. Compare</a></p>
+                        title="next chapter">1. Compare</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -279,13 +278,13 @@ To keep the data sorted, Mikado will write out temporary files during the operat
           <a href="../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Compare.html" title="6.1. Compare"
+          <a href="Compare.html" title="1. Compare"
              >next</a> |</li>
         <li class="right" >
-          <a href="Serialise.html" title="5.3. Mikado serialise"
+          <a href="Serialise.html" title="3. Mikado serialise"
              >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="../index.html">Mikado 1.0.0b4 documentation</a> &raquo;</li>
-          <li class="nav-item nav-item-1"><a href="../Usage.html" >4. Usage</a> &raquo;</li> 
+          <li class="nav-item nav-item-1"><a href="../Usage.html" >5. Usage</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

@@ -68,6 +68,8 @@ superlocus.py
     :members:
     :private-members:
 
+.. _transcript-class:
+
 transcript.py
 ~~~~~~~~~~~~~
 

@@ -3,8 +3,10 @@
 Mikado pick
 ===========
 
-This is the final stage of the pipeline, and the one which actually applies the :ref:`core algorithms <Introduction>` to identify the loci and select the best transcripts.
-As such, it is the
+This is the final stage of the pipeline, in which Mikado identifies gene loci and selects the best transcripts.
+
+
+
 
 
 

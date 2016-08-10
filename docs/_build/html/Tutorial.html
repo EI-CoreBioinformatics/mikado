@@ -56,6 +56,16 @@
             
   <div class="section" id="tutorial">
 <span id="id1"></span><h1>3. Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a></h1>
+<p>This tutorial will guide you through a simple analysis of Mikado, using a small amount of data coming from an experiment on <em>Arabidopsis thaliana</em>. RNA-Seq data was obtained from <a class="reference external" href="http://www.ebi.ac.uk/ena/data/view/PRJEB7093">study PRJEB7093 on ENA</a>, aligned with STAR <a class="reference internal" href="References.html#star" id="id2">[STAR]</a> against the <a class="reference external" href="http://www.arabidopsis.org">TAIR10</a> reference genome, and assembled with four different programs. For this small example, we are going to focus on a small genomic region: Chr5, from 26,575,364 to 26,614,205.</p>
+<p>During this analysis, you will require the following files:</p>
+<ul class="simple">
+<li><a class="reference download internal" href="_downloads/chr5.fas.gz" download=""><code class="xref download docutils literal"><span class="pre">chr5.fas.gz</span></code></a>: a FASTA file containing the Chr5 of <em>A. thaliana</em></li>
+<li><a class="reference download internal" href="_downloads/junctions.bed" download=""><code class="xref download docutils literal"><span class="pre">junctions.bed</span></code></a>: a BED12 file of reliable splicing junctions in the region, identified using Portcullis [Portcullis]</li>
+<li><a class="reference download internal" href="_downloads/class.gtf" download=""><code class="xref download docutils literal"><span class="pre">class.gtf</span></code></a>: a GTF file of transcripts assembled using CLASS [CLASS]</li>
+<li><a class="reference download internal" href="_downloads/cufflinks.gtf" download=""><code class="xref download docutils literal"><span class="pre">cufflinks.gtf</span></code></a>: a GTF file of transcripts assembled using Cufflinks <a class="reference internal" href="References.html#cufflinks" id="id5">[Cufflinks]</a></li>
+<li><a class="reference download internal" href="_downloads/orfs.bed" download=""><code class="xref download docutils literal"><span class="pre">orfs.bed</span></code></a>: a BED12 file containing the ORFs</li>
+<li><em>stringtie.gtf</em></li>
+</ul>
 </div>
 
 

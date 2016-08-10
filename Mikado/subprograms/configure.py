@@ -12,7 +12,7 @@ import argparse
 import sys
 from ..configuration import configurator
 from ..exceptions import InvalidJson
-from ..utilities import comma_split, merge_dictionaries
+from ..utilities import comma_split  # , merge_dictionaries
 import json
 from collections import Counter
 
@@ -246,12 +246,29 @@ def create_config(args):
             config["prepare"]["files"]["strand_specific_assemblies"] = args.strand_specific_assemblies
 
     elif args.list:
+        config["pick"]["source_score"] = dict()
         with open(args.list) as list_file:
-            try:
-                files, labels, strandedness = zip(*[_.strip().split("\t") for _ in list_file])
-            except ValueError:
-                raise ValueError("Malformed inputs file.")
+            files, labels, strandedness, scores = [], [], [], []
             files_counter = Counter()
+            for line in list_file:
+                try:
+                    _fields = line.rstrip().split("\t")
+                    filename, label, stranded =  _fields[:3]
+
+                    if not os.path.exists(filename):
+                        raise ValueError("Invalid file name: {}".format(filename))
+                    files.append(filename)
+                    if label in labels:
+                        raise ValueError("Non-unique label specified: {}".format(label))
+                    labels.append(label)
+                    strandedness.append(stranded)
+                    if len(_fields) > 3:
+                        score = float(_fields[3])
+                    else:
+                        score = 0
+                    scores.append(score)
+                except ValueError as exc:
+                    raise ValueError("Malformed inputs file. Error:\n{}".format(exc))
             files_counter.update(files)
             if files_counter.most_common()[0][1] > 1:
                 raise InvalidJson(
@@ -261,9 +278,10 @@ def create_config(args):
                 raise InvalidJson("Invalid values for strandedness in the list file.")
             config["prepare"]["files"]["labels"] = list(labels)
             config["prepare"]["files"]["gff"] = list(files)
-
             config["prepare"]["files"]["strand_specific_assemblies"] = [files[_[0]] for _ in enumerate(strandedness)
                                                                         if _[1] == "True"]
+            for source, score in zip(labels, scores):
+                config["pick"]["source_score"][source] = score
 
     elif args.no_files is True:
         for stage in ["pick", "prepare", "serialise"]:

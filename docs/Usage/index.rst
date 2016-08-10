@@ -14,10 +14,10 @@ Mikado pipeline stages
    :maxdepth: 1
    :numbered:
 
-   Usage_dir/Configure
-   Usage_dir/Prepare
-   Usage_dir/Serialise
-   Usage_dir/Pick
+   Configure
+   Prepare
+   Serialise
+   Pick
 
 The Mikado pipeline is composed of four different stages, that have to be executed serially:
 
@@ -33,11 +33,14 @@ Mikado utilities
    :maxdepth: 1
    :numbered:
 
-   Usage_dir/Compare
-   Usage_dir/Daijin
-   Usage_dir/Utilities
+   Compare
+   Daijin
+   Utilities
 
 In addition with the pipeline proper, Mikado includes the following:
+
 #. A dedicated utility, :ref:`Mikado compare <Compare>`, to assess the similarity between two annotations.
+
 #. A pipeline manager, :ref:`Daijin`, to align and assemble transcripts with multiple methods and subsequently drive Mikado on the assemblies.
+
 #. Assorted utilities, some of them :ref:`part of the Mikado suite <utils>` and others provided as :ref:`accessory scripts <included_scripts>`, to perform standard operations such as calculating statistics from a GFF file or recover a specific suite of transcripts from an annotation file.

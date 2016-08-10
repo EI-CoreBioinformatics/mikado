@@ -32,9 +32,9 @@ Contents:
 
    Introduction
    Installation
-   Tutorial
    Scoring
-   Usage
+   Usage/index
+   Tutorial/index
    References
    Library/index
 

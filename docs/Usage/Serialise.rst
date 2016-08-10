@@ -168,7 +168,7 @@ The schema of the database is quite simple, as it is composed only of 7 discrete
 The second group serialises the data regarding ORFs and BLAST files. The need of using a database is mainly driven by the latter, as querying a relational database is faster than retrieving the information from the XML files themselves at runtime.
 
 .. database figure generated with `SchemaCrawler <http://sualeh.github.io/SchemaCrawler/>`_, using the following command line:
-    schemacrawler -c graph -url=jdbc:sqlite:sample_data/mikado.db -o docs/Usage_dir/database_schema.png --outputformat=png -infolevel=maximum
+    schemacrawler -c graph -url=jdbc:sqlite:sample_data/mikado.db -o docs/Usage/database_schema.png --outputformat=png -infolevel=maximum
 
 .. topic:: Database schema used by Mikado.
 

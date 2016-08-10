@@ -43,6 +43,7 @@ rule complete:
 rule test_json:
     input: db=zipDBs, config=configname
     output: touch("{}.ok".format(configname)), "chr5.fas"
+    message: "gunzip -c chr5.fas.gz > chr5.fas"
     run:
         __= Mikado.configuration.configurator.to_json(configname)
         subprocess.call("gunzip -c chr5.fas.gz > chr5.fas", shell=True)
@@ -52,11 +53,13 @@ rule prepare:
     input: "class.gtf", "cufflinks.gtf", "stringtie.gtf", "trinity.gff3", "mikado.bed", rules.test_json.output[0], rules.test_json.output[1]
     # log: config["prepare"]["files"]["log"]
     output: gtf="mikado_prepared.gtf", fasta="mikado_prepared.fasta"
+    message: "mikado prepare --json-conf configuration.yaml"
     shell: "mikado prepare --json-conf configuration.yaml"
 
 rule uncompress_blast:
     input: "{0}.gz".format(swissprot)
     output: swissprot
+    message: "gzip -dc {input} > {output}"
     shell:
       "gzip -dc {input} > {output}"
 
@@ -64,25 +67,21 @@ rule prepare_blast:
     input: rules.uncompress_blast.output
     output: "{}.pog".format(swissprot)
     log: "blast_prepare.log"
+    message: "makeblastdb -in {input} -dbtype prot -parse_seqids > {log}"
     shell:
        "makeblastdb -in {input} -dbtype prot -parse_seqids > {log}"
 
 rule blast_complete:
-    params:	prefix="mikado"
     input: rules.prepare.output, rules.prepare_blast.output
     output: xml="mikado.blast.xml.gz"
     threads: 10
     log: "blast.log"
-    run:
-        command = """blastx -num_threads {threads} -query {query} \
-        -outfmt 5 -db {db} -evalue 0.000001 \
-        -max_target_seqs 5""".format(threads=threads, query=rules.prepare.output.fasta,
-                                             db=rules.uncompress_blast.output)
-        gzip_command = "sed '/^$/d' | gzip -c - > {}".format(output.xml)
-        log = open("{}".format(log), "wt")
-        blastx = subprocess.Popen(command, shell=True, stderr=log, stdout=subprocess.PIPE)
-        subprocess.call(gzip_command, shell=True, stdin=blastx.stdout)
-        log.close()
+    params:
+        prefix="mikado",
+        gzip_command="sed '/^$/d' | gzip -c - > {}".format("mikado.blast.xml.gz"),
+        command="blastx -max_target_seqs 5 -num_threads 10 -query {query} -outfmt 5 -db {db} -evalue 0.000001 2> blast.log".format(query=rules.prepare.output.fasta, db=rules.uncompress_blast.output)
+    message: "{params.command} | {params.gzip_command}"
+    shell: "{params.command} | {params.gzip_command}"
 
 rule serialise:
     input:
@@ -91,6 +90,8 @@ rule serialise:
     log: config["serialise"]["files"]["log"]
     output: touch("serialised.ok")  #, config["db_settings"]["db"]
     threads: 10
+    message: """mikado serialise -p {threads} --json-conf {configname} --xml {input.xml} \
+        --orfs {input.orfs} --blast_targets {swissprot} --force"""
     shell:
         """mikado serialise -p {threads} --json-conf {configname} --xml {input.xml} \
         --orfs {input.orfs} --blast_targets {swissprot} --force"""
@@ -101,24 +102,28 @@ rule pick:
     log: config["pick"]["files"]["log"]
     threads: 10
     output: "mikado.loci.gff3", "mikado.subloci.gff3"
+    message: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p {threads}"
     shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p {threads}"
 
 rule compare:
     input: reference="reference.gff3", prediction="mikado.loci.gff3"
     output: "compare.stats", "compare.tmap", "compare.refmap"
     log: "compare.log"
+    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare -l {log}"""
     
 rule compare_input:
     input: reference="reference.gff3", prediction="mikado_prepared.gtf"
     output: "compare_input.stats", "compare_input.tmap", "compare_input.refmap"
     log: "compare_input.log"
+    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_input -l {log}"""
 
 rule compare_subloci:
     input: reference="reference.gff3", prediction="mikado.subloci.gff3"
     output: "compare_subloci.stats", "compare_subloci.tmap", "compare_subloci.refmap"
     log: "compare_subloci.log"
+    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
 
 rule clean:

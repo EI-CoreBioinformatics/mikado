@@ -159,11 +159,17 @@ These are all the metrics available to quantify transcripts. The documentation f
 Metrics belong to one of the following categories:
 
 * **Descriptive**: these metrics merely provide a description of the transcript (eg its ID) and are not used for scoring.
+
 * **cDNA**: these metrics refer to basic features of any transcript such as its number of exons, its cDNA length, etc.
+
 * **Intron**: these metrics refer to features related to the number of introns and their lengths.
+
 * **CDS**: these metrics refer to features related to the CDS assigned to the transcript.
+
 * **UTR**: these metrics refer to features related to the UTR of the transcript. In the case in which a transcript has been assigned multiple ORFs, unless otherwise stated the UTR metrics will be derived only considering the *selected* ORF, not the combination of all of them.
+
 * **Locus**: these metrics refer to features of the transcript in relationship to all other transcripts in its locus, eg how many of the introns present in the locus are present in the transcript. These metrics are calculated by Mikado during the picking phase, and as such their value can vary during the different stages as the transcripts are shifted to different groups.
+
 * **External**: these metrics are derived from accessory data that is recovered for the transcript during the run time. Examples include data regarding the number of introns confirmed by external programs such as PortCullis, or the BLAST score of the best hits.
 
 

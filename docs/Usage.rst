@@ -8,7 +8,7 @@ Mikado is composed of four different programs (*configure, prepare, serialise, p
 
 
 Mikado pipeline stages
-======================
+~~~~~~~~~~~~~~~~~~~~~~
 
 .. toctree::
    :maxdepth: 1
@@ -27,7 +27,7 @@ The Mikado pipeline is composed of four different stages, that have to be execut
 #. :ref:`pick`, to perform the actual selection of the best transcripts in each locus.
 
 Mikado utilities
-================
+~~~~~~~~~~~~~~~~
 
 .. toctree::
    :maxdepth: 1

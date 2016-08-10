@@ -3,3 +3,52 @@
 Tutorial
 ========
 
+This tutorial will guide you through
+
+.. output of the Snakefile:
+    Creating the configuration file
+    mikado configure --list list.txt --reference chr5.fas --mode permissive         --scoring plants.yaml --junctions junctions.bed -bt uniprot_sprot_plants.fasta configuration.yaml
+    Provided cores: 1
+    Rules claiming more threads will be scaled down.
+    Job counts:
+        count	jobs
+        1	blast_complete
+        1	compare
+        1	compare_input
+        1	compare_subloci
+        1	complete
+        1	pick
+        1	prepare
+        1	prepare_blast
+        1	serialise
+        1	test_json
+        1	uncompress_blast
+        11
+    gunzip -c chr5.fas.gz > chr5.fas
+    Touching output file configuration.yaml.ok.
+    1 of 11 steps (9%) done
+    mikado prepare --json-conf configuration.yaml
+    2 of 11 steps (18%) done
+    gzip -dc uniprot_sprot_plants.fasta.gz > uniprot_sprot_plants.fasta
+    3 of 11 steps (27%) done
+    makeblastdb -in uniprot_sprot_plants.fasta -dbtype prot -parse_seqids > blast_prepare.log
+    4 of 11 steps (36%) done
+    blastx -max_target_seqs 5 -num_threads 10 -query mikado_prepared.fasta -outfmt 5 -db uniprot_sprot_plants.fasta -evalue 0.000001 2> blast.log | sed '/^$/d' | gzip -c - > mikado.blast.xml.gz
+    5 of 11 steps (45%) done
+    mikado serialise -p 1 --json-conf configuration.yaml --xml mikado.blast.xml.gz         --orfs mikado.bed --blast_targets uniprot_sprot_plants.fasta --force
+    Touching output file serialised.ok.
+    6 of 11 steps (55%) done
+    mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p 1
+    7 of 11 steps (64%) done
+    mikado compare -r reference.gff3 -p mikado.subloci.gff3 -o compare_subloci -l compare_subloci.log
+    8 of 11 steps (73%) done
+    mikado compare -r reference.gff3 -p mikado_prepared.gtf -o compare_input -l compare_input.log
+    9 of 11 steps (82%) done
+    mikado compare -r reference.gff3 -p mikado.loci.gff3 -o compare -l compare.log
+    10 of 11 steps (91%) done
+    localrule complete:
+        input: compare.stats, compare_subloci.stats, compare_input.stats
+        output: finished.ok
+    Touching output file finished.ok.
+    11 of 11 steps (100%) done
+

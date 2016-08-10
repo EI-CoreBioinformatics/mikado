@@ -8,5 +8,14 @@ SC performed most of the tests, created the figures and tables, and contributed 
 
 Daniel Mapleson <Daniel.Mapleson@earlham.ac.uk>
 
-DM created the DAGGER pipeline and is the author of PortCullis, the splice junction analysis tool
+DM created the Daijin pipeline and is the author of PortCullis, the splice junction analysis tool
 whose results were used throughout all analyses.
+
+Gemy George Kaithakottil <Gemy.Kaithakottil@earlham.ac.uk>
+
+GGK tested Mikado on PacBio data, helped with the development and polishing of the algorithm, and contributed to the manuscript in terms of writing and creating the figures.
+
+David Swarbreck <David.Swarbreck@earlham.ac.uk>
+
+Last author. DS ideated the original algorithm and the shape of the final pipeline and contributed to the assessment of refinement of the results of the program. He also contributed to all stages of the writing of the manuscript.
+

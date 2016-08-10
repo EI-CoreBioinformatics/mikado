@@ -22,7 +22,7 @@ All of this data can also be found in the ``sample_data`` directory of the `Mika
 You will also require the following software:
 
 * a functioning installation of SQLite.
-* a functioning version of BLAST+.
+* a functioning version of BLAST+ [Blastplus]_.
 
 Creating the configuration file for Mikado
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

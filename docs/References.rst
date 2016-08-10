@@ -28,3 +28,4 @@ References
 .. [Apollo] **Web Apollo: a web-based genomic annotation editing platform** Eduardo Lee, Gregg A Helt, Justin T Reese, Monica C Munoz-Torres, Chris P Childers, Robert M Buels, Lincoln Stein, Ian H Holmes, Christine G Elsik and Suzanna E Lewis. *Genome Biology*, 2013, doi:10.1186/gb-2013-14-8-r93
 .. [Rampart] **RAMPART: a workflow management system for de novo genome assembly**, Daniel Mapleson, Nizar Drou and David Swarbreck. *Bioinformatics*, 2015. doi:10.1093/bioinformatics/btv056
 .. [Uniprot] **UniProt: a hub for protein information** The UniProt Consortium. *Nucleic Acid Research*, 2014. doi:10.1093/nar/gku989
+.. [Portcullis] http://www.github.com/maplesod/portcullis/

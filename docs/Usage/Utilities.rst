@@ -350,3 +350,4 @@ This script parses an annotation file and truncates any transcript which has *UT
       -h, --help            show this help message and exit
       -mi MAX_INTRON, --max-intron MAX_INTRON
                             Maximum intron length for UTR introns.
+

@@ -42,7 +42,7 @@ except:
 configfile: "configuration.yaml"
 
 rule complete:
-    input: "compare.stats", "compare_subloci.stats", "compare_input.stats"
+    input: "compare.stats", "compare_subloci.stats", "compare_input.stats", "compare_monoloci.stats"
     output: touch("finished.ok")
 
 rule test_json:
@@ -111,8 +111,8 @@ rule pick:
     log: config["pick"]["files"]["log"]
     threads: 10
     output: "mikado.loci.gff3", "mikado.subloci.gff3"
-    message: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p {threads}"
-    shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 -p {threads}"
+    message: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
+    shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
 
 rule index_reference:
     input: reference="reference.gff3"
@@ -141,6 +141,14 @@ rule compare_subloci:
     log: "compare_subloci.log"
     message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
     shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_subloci -l {log}"""
+
+rule compare_monoloci:
+    input: reference="reference.gff3", prediction="mikado.monoloci.gff3", midx=rules.index_reference.output
+    output: "compare_monoloci.stats", "compare_monoloci.tmap", "compare_monoloci.refmap"
+    log: "compare_subloci.log"
+    message: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_monoloci -l {log}"""
+    shell: """mikado compare -r {input[reference]} -p {input[prediction]} -o compare_monoloci -l {log}"""
+
 
 rule clean:
     run:

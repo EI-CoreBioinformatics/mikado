@@ -26,21 +26,38 @@ The Mikado pipeline is composed of four different stages, that have to be execut
 #. :ref:`serialise`, to gather all external data into a single database.
 #. :ref:`pick`, to perform the actual selection of the best transcripts in each locus.
 
-Mikado utilities
-~~~~~~~~~~~~~~~~
+Compare
+~~~~~~~
 
 .. toctree::
    :maxdepth: 1
    :numbered:
 
    Compare
+
+
+Mikado also comprises a dedicated utility, :ref:`Mikado compare <Compare>`, to assess the similarity between two annotations.
+
+Daijin
+~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
    Daijin
+
+Mikado provides a pipeline manager, :ref:`Daijin <Daijin>`, to align and assemble transcripts with multiple methods and subsequently choose the best assemblies among the options. The pipeline is implemented using Snakemake [Snake]_.
+
+
+Miscellaneous utilities
+~~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 2
+
    Utilities
 
-In addition with the pipeline proper, Mikado includes the following:
+Finally, Mikado provides some dedicated utilities to perform common tasks.
 
-#. A dedicated utility, :ref:`Mikado compare <Compare>`, to assess the similarity between two annotations.
-
-#. A pipeline manager, :ref:`Daijin`, to align and assemble transcripts with multiple methods and subsequently drive Mikado on the assemblies.
-
-#. Assorted utilities, some of them :ref:`part of the Mikado suite <utils>` and others provided as :ref:`accessory scripts <included_scripts>`, to perform standard operations such as calculating statistics from a GFF file or recover a specific suite of transcripts from an annotation file.
+* Some of the utilities are :ref:`integral to the Mikado suite <utils>` and can be accessed as subcommands of Mikado. These utilities comprise programs to calculate annotation statistics, retrieve or exclude specific loci from a file, etc.
+* Other utilities are provided as :ref:`stand-alone scripts <included_scripts>`; while some of them directly depend on the Mikado library, this is not necessarily the case for them all.

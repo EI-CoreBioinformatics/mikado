@@ -125,7 +125,7 @@ def create_daijin_config(args):
     # Set and eventually copy the scoring file.
     if args.scoring is not None:
         if args.copy_scoring is not False:
-            with open(args.copy_scoring, "wb") as out:
+            with open(args.copy_scoring, "wt") as out:
                 with resource_stream("Mikado", os.path.join("configuration",
                                                             "scoring_files",
                                                             args.scoring)) as original:

@@ -201,7 +201,7 @@
     "blastx": {
       "type":"object",
       "properties":{
-        "prot_db": {"type": "string", "required": true},
+        "prot_db": {"type": "array", "required": true},
         "evalue": {"type": "number", "minimum": 0, "default": 0.0000001},
         "max_target_seqs": {"type": "integer", "minimum": 1, "default": 10},
         "chunks": {"type": "integer", "minimum": 1, "default": 10}

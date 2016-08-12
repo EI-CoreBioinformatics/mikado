@@ -89,7 +89,7 @@ rule create_blast_database:
     output: BLAST_DIR+"/index/blastdb-proteins.fa"
     message: "Creating the BLASTX database"
     params:
-         fastas=" ".join("{input.fa}")
+         fastas=" ".join(BLASTX_TARGET)
     shell: """sanitize_blast_db.py --out {output} {params.fastas}"""
 
 rule make_blast:

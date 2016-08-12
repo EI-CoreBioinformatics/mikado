@@ -39,7 +39,6 @@ TDC_DIR_FULL = os.path.abspath(TDC_DIR)
 
 CWD = os.getcwd()
 
-
 BLASTX_TARGET = config["blastx"]["prot_db"]
 BLASTX_MAX_TARGET_SEQS = config["blastx"]["max_target_seqs"]
 BLASTX_EVALUE = config["blastx"]["evalue"]
@@ -85,15 +84,23 @@ rule mikado_prepare:
 	message: "Preparing transcripts using mikado"
 	shell: "{params.load} mikado prepare --start-method=spawn --procs={threads} --fasta={input.ref} --json-conf={params.cfg} -od {MIKADO_DIR} 2>&1"
 
+rule create_blast_database:
+    input: fa=BLASTX_TARGET
+    output: BLAST_DIR+"/index/blastdb-proteins.fa"
+    message: "Creating the BLASTX database"
+    params:
+         fastas=" ".join(input)
+    shell: """sanitize_blast_db.py --out {output} {params.fastas}"""
+
 rule make_blast:
-	input: fa=BLASTX_TARGET
+	input: fa=BLAST_DIR+"/index/blastdb-proteins.fa"
 	output: BLAST_DIR+"/index/blastdb-proteins.pog"
 	params:
 		db=BLAST_DIR+"/index/blastdb-proteins",
 		load=loadPre(config["load"]["blast"])
 	log: BLAST_DIR+"/blast.index.log"
 	message: "Making BLAST protein database for: {input.fa}"
-	shell: "{params.load} makeblastdb -in <(sed '/>/s:\t:    :g' {input.fa}) -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
+	shell: "{params.load} makeblastdb -in {input.fa} -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
 
 rule split_fa:
 	input: tr=rules.mikado_prepare.output.fa
@@ -180,7 +187,7 @@ rule mikado_serialise:
 	    cfg=CFG,
 		blast="--xml=" + BLAST_DIR+"/xmls" if len(BLASTX_TARGET) > 0 else "",
 		load=loadPre(config["load"]["mikado"]),
-		blast_target="--blast_targets=" + BLASTX_TARGET if len(BLASTX_TARGET) > 0 else ""
+		blast_target="--blast_targets=" + BLAST_DIR+"/index/blastdb-proteins.fa" if len(BLASTX_TARGET) > 0 else ""
 	threads: THREADS
 	message: "Running Mikado serialise to move numerous data sources into a single database"
 	shell: "{params.load} mikado serialise {params.blast} {params.blast_target} --start-method=spawn --transcripts={input.transcripts} --genome_fai={input.fai} --json-conf={params.cfg} --force --orfs {input.orfs} -od {MIKADO_DIR} --procs={threads} > {log} 2>&1"

@@ -93,7 +93,7 @@ rule make_blast:
 		load=loadPre(config["load"]["blast"])
 	log: BLAST_DIR+"/blast.index.log"
 	message: "Making BLAST protein database for: {input.fa}"
-	shell: "{params.load} makeblastdb -in {input.fa} -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
+	shell: "{params.load} makeblastdb -in <(sed '/>/s:\t:    :g' {input.fa}) -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
 
 rule split_fa:
 	input: tr=rules.mikado_prepare.output.fa

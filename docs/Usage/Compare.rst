@@ -230,6 +230,7 @@ All class codes fall within one of the following categories:
  - **Extension**: class codes of this type indicate that one of the two models extends the intron chain of the other, without internal interruptions. The extension can be from either perspective - either the prediction extends the reference, or it is instead *contained* within the reference (so that switching perspectives, the reference would "extend" the prediction).
  - **Alternative splicing**: the two exon chains overlap but differ in significant ways.
  - **Intronic**: either the prediction is completely contained within the introns of the reference, or viceversa.
+ - **Overlap**: the two transcript models generically overlap on their exonic sequence.
  - **Fragment**: the prediction is a fragment of the reference, in most cases because they are on opposite strands.
  - **No overlap**: the prediction and the reference are near but do not directly overlap.
 
@@ -251,9 +252,6 @@ All class codes fall within one of the following categories:
     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
     | **_**        | Complete match between two   | False        | False         | NA, NA, **>=80%** | NA                | **_**             | **Match**         |
     | (underscore) | monoexonic transcripts.      |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **m**        | Generic match between two    | False        | False         | NA, NA, **< 80%** | NA                | **m**             | **Match**         |
-    |              | monoexonic transcripts.      |              |               |                   |                   |                   |                   |
     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
     | **n**        | Intron chain extension, ie.  | True         | True          | **100%**, < 100%, | 100%, < 100%,     | **c**             | **Extension**     |
     |              | both transcripts are         |              |               | < 100%            | < 100%            |                   |                   |
@@ -298,11 +296,6 @@ All class codes fall within one of the following categories:
     |              | and one intron of the        |              |               |                   |                   |                   |                   |
     |              | prediction partially overlap.|              |               |                   |                   |                   |                   |
     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **o**        | Generic overlap between two  | True         | True          | > 0%, > 0%, > 0%  | 0%, 0%, 0%        | **o**             | **Alternative     |
-    |              | multiexonic transcripts,     |              |               |                   |                   |                   | splicing**        |
-    |              | which do not share **any**   |              |               |                   |                   |                   |                   |
-    |              | overlap among their introns. |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
     | **g**        | The monoexonic prediction    | True         | False         | > 0%, > 0%,       | 0%                | **G**             | **Alternative     |
     | ("mo" before | overlaps one or more exons of|              |               | between 0 and 100%|                   |                   | splicing**        |
     | release 1)   | the reference transcript; the|              |               |                   |                   |                   |                   |
@@ -317,6 +310,20 @@ All class codes fall within one of the following categories:
     | ("O" before  | multiexonic prediction       |              |               |                   |                   |                   | splicing**        |
     | release 1)   | transcript versus a          |              |               |                   |                   |                   |                   |
     |              | monoexonic reference.        |              |               |                   |                   |                   |                   |
+    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
+    | **o**        | Generic overlap between two  | True         | True          | > 0%, > 0%, > 0%  | 0%, 0%, 0%        | **o**             | **Overlap**       |
+    |              | multiexonic transcripts,     |              |               |                   |                   |                   |                   |
+    |              | which do not share **any**   |              |               |                   |                   |                   |                   |
+    |              | overlap among their introns. |              |               |                   |                   |                   |                   |
+    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
+    | **e**        | Single exon transcript       | True         | False         | > 0%, > 0%,       | 0%                | **G**             | **Overlap**       |
+    |              | overlapping *one* reference  |              |               | between 0 and 100%|                   |                   |                   |
+    |              | exon and at least 10 bps of a|              |               |                   |                   |                   |                   |
+    |              | reference intron, indicating |              |               |                   |                   |                   |                   |
+    |              | a possible pre-mRNA fragment.|              |               |                   |                   |                   |                   |
+    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
+    | **m**        | Generic match between two    | False        | False         | NA, NA, **< 80%** | NA                | **m**             | **Overlap**       |
+    |              | monoexonic transcripts.      |              |               |                   |                   |                   |                   |
     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
     | **i**        | Monoexonic prediction        | True         | False         | 0%                | 0%                | **ri**            | **Intronic**      |
     |              | completely contained within  |              |               |                   |                   |                   |                   |
@@ -352,12 +359,6 @@ All class codes fall within one of the following categories:
     |              | these constraints, then the  |              |               |                   |                   |                   |                   |
     |              | prediction model is          |              |               |                   |                   |                   |                   |
     |              | classified as a **fusion**.  |              |               |                   |                   |                   |                   |
-    +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
-    | **e**        | Single exon transcript       | True         | False         | > 0%, > 0%,       | 0%                | **G**             | **Fragment**      |
-    |              | overlapping *one* reference  |              |               | between 0 and 100%|                   |                   |                   |
-    |              | exon and at least 10 bps of a|              |               |                   |                   |                   |                   |
-    |              | reference intron, indicating |              |               |                   |                   |                   |                   |
-    |              | a possible pre-mRNA fragment.|              |               |                   |                   |                   |                   |
     +--------------+------------------------------+--------------+---------------+-------------------+-------------------+-------------------+-------------------+
     | **x**        | Monoexonic match on the      | NA           | False         | >= 0%             | 0%                | **x** or **X**    | **Fragment**      |
     |              | *opposite* strand.           |              |               |                   |                   |                   |                   |

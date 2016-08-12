@@ -16,7 +16,7 @@ import yaml
 import snakemake
 from snakemake.utils import min_version
 from ..utilities.log_utils import create_default_logger
-from ..configuration.daijin_configurator import create_daijin_config
+from ..configuration.daijin_configurator import create_daijin_config, check_config
 import shutil
 import pkg_resources
 
@@ -30,7 +30,6 @@ NOW = datetime.datetime.fromtimestamp(TIME_START).strftime('%Y-%m-%d_%H:%M:%S')
 
 DAIJIN_DIR = pkg_resources.resource_filename("Mikado", "daijin")
 assert pkg_resources.resource_exists("Mikado", "daijin")
-
 
 # noinspection PyPep8Naming
 def get_sub_commands(SCHEDULER):
@@ -181,6 +180,9 @@ def assemble_transcripts_pipeline(args):
     with open(args.config, 'r') as _:
         doc = loader(_)
 
+    # Check the configuration
+    check_config(doc)
+
     # pylint: disable=invalid-name
     LABELS = doc["short_reads"]["samples"]
     R1 = doc["short_reads"]["r1"]
@@ -260,8 +262,15 @@ def mikado_pipeline(args):
     :return:
     """
 
+    if args.config.endswith("json"):
+        loader = json.load
+    else:
+        loader = yaml.load
+
     with open(args.config, 'r') as _:
-        doc = yaml.load(_)
+        doc = loader(_)
+
+    check_config(doc)
 
     # pylint: disable=invalid-name
     SCHEDULER = doc["scheduler"] if ("scheduler" in doc and doc["scheduler"]) else ""

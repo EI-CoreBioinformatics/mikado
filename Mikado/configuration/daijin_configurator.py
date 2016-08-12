@@ -29,6 +29,33 @@ def create_daijin_validator():
     return validator
 
 
+def check_config(config, logger=None):
+
+    """
+    Function to check that a configuration abides to the Daijin schema.
+
+    :param config: the dictionary to validate
+    :param logger: optional logger. If none is provided, one will be created
+    :return:
+    """
+
+    if logger is None:
+        logger = create_default_logger("daijin_validator")
+
+    try:
+        resolver = jsonschema.RefResolver("file:///{}".format(
+            resource_filename("Mikado.configuration", "configuration")), None)
+        with io.TextIOWrapper(resource_stream(__name__,
+                                              "daijin_schema.json")) as blue:
+            blue_print = json.load(blue)
+
+        validator = jsonschema.Draft4Validator(blue_print, resolver=resolver)
+        validator.validate(config)
+    except Exception as exc:
+        logger.exception(exc)
+        sys.exit(1)
+
+
 def create_daijin_base_config():
 
     validator = create_daijin_validator()
@@ -138,18 +165,7 @@ def create_daijin_config(args):
         config["blastx"]["prot_db"] = args.prot_db
 
     final_config = config.copy()
-    try:
-        resolver = jsonschema.RefResolver("file:///{}".format(
-            resource_filename("Mikado.configuration", "configuration")), None)
-        with io.TextIOWrapper(resource_stream(__name__,
-                                              "daijin_schema.json")) as blue:
-            blue_print = json.load(blue)
-
-        validator = jsonschema.Draft4Validator(blue_print, resolver=resolver)
-        validator.validate(config)
-    except Exception as exc:
-        logger.exception(exc)
-        sys.exit(1)
+    check_config(config, logger)
 
     if args.cluster_config is not None:
         with open(args.cluster_config, "wb") as out:

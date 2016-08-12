@@ -157,7 +157,7 @@ def create_config_parser():
                         choices=["nosplit", "split", "permissive", "stringent", "lenient"],
                         required=False,
                         help="Mikado pick modes to run. Choices: %(choices)s")
-    mikado.add_argument("--prot-db", dest="prot_db", default="",
+    mikado.add_argument("--prot-db", dest="prot_db", default=[], nargs="+",
                         help="Protein database to compare against, for Mikado.")
     parser.set_defaults(func=create_daijin_config)
     return parser

@@ -534,6 +534,8 @@ class Assigner:
         prediction = self.__prepare_transcript(prediction)
         if prediction is None:
             return None
+        elif prediction.finalized is False:
+            self.logger.error("%s failed to be finalised. Ignoring it.", prediction.id)
 
         # Ignore non-coding RNAs if we are interested in protein-coding transcripts only
         # noinspection PyUnresolvedReferences

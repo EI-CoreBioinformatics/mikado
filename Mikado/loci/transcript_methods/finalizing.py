@@ -20,8 +20,10 @@ def __basic_final_checks(transcript):
     """
 
     if len(transcript.exons) == 0:
-        raise InvalidTranscript(
+        exc=InvalidTranscript(
             "No exon defined for the transcript {0}. Aborting".format(transcript.id))
+        transcript.logger.exception(exc)
+        raise exc
 
     if not isinstance(transcript.exons[0], tuple):
         _ = [tuple([int(exon[0]), int(exon[1])]) for exon in transcript.exons]
@@ -47,22 +49,29 @@ def __basic_final_checks(transcript):
     transcript.exons = sorted(new_exons)
 
     if invalid:
-        raise InvalidTranscript("""Exons out of bounds of the transcript:
+        exc = InvalidTranscript("""Exons out of bounds of the transcript:
         ({start}, {end})
         Exons: {exons}""".format(start=transcript.start,
                                  end=transcript.end,
                                  exons=transcript.exons))
+        transcript.logger.exception(exc)
+        raise exc
 
     if len(transcript.exons) > 1 and transcript.strand is None:
-        raise InvalidTranscript(
+
+        exc = InvalidTranscript(
             "Multiexonic transcripts must have a defined strand! Error for {0}".format(
                 transcript.id))
+        transcript.logger.exception(exc)
+        raise exc
 
     if transcript.combined_utr != [] and transcript.combined_cds == []:
-        raise InvalidTranscript(
+
+        exc = InvalidTranscript(
             "Transcript {tid} has defined UTRs but no CDS feature!".format(
                 tid=transcript.id))
-
+        transcript.logger.exception(exc)
+        raise exc
 
 def _check_cdna_vs_utr(transcript):
 
@@ -157,9 +166,11 @@ def __calculate_introns(transcript):
         for index in range(len(transcript.exons) - 1):
             exona, exonb = transcript.exons[index:index + 2]
             if exona[1] >= exonb[0]:
-                raise InvalidTranscript(
+                exc = InvalidTranscript(
                     "Overlapping exons found!\n{0} {1}/{2}\n{3}".format(
                         transcript.id, exona, exonb, transcript.exons))
+                transcript.logger.exception(exc)
+                raise exc
             # Append the splice junction
             introns.append(tuple([exona[1] + 1, exonb[0] - 1]))
             # Append the splice locations

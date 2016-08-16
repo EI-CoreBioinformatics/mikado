@@ -11,6 +11,4 @@ Introduction
 |python_badge| |snake_badge|
 
 
-Introduction test
-
-
+Numerous research groups have proposed different methods to treat RNA-Seq data and generate transcript isoforms from the 

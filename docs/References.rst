@@ -29,3 +29,14 @@ References
 .. [Rampart] **RAMPART: a workflow management system for de novo genome assembly**, Daniel Mapleson, Nizar Drou and David Swarbreck. *Bioinformatics*, 2015. doi:10.1093/bioinformatics/btv056
 .. [Uniprot] **UniProt: a hub for protein information** The UniProt Consortium. *Nucleic Acid Research*, 2014. doi:10.1093/nar/gku989
 .. [Portcullis] http://www.github.com/maplesod/portcullis/
+.. [Oases] **Oases: robust de novo RNA-seq assembly across the dynamic range of expression levels** Marcel H Schulz, Daniel R Zerbino, Martin Vingron and Ewan Birney. *Bioinformatics*, 2012. doi: 10.1093/bioinformatics/bts094
+.. [Bridger] **Bridger: a new framework for de novo transcriptome assembly using RNA-seq data** Zheng Chang, Guojun Li, Juntao Liu, Cody Ashby, Deli Liu, Carole L Cramer and Xiuzhen Huang. *Genome Biology*, 2015. doi:10.1186/s13059-015-0596-2
+.. [EviGeneTobacco] **Combining Transcriptome Assemblies from Multiple De Novo Assemblers in the Allo-Tetraploid Plant Nicotiana benthamiana** Kenlee Nakasugi, Ross Crowhurst, Julia Bally, Peter Waterhouse. *PLoS ONE*, 2014. doi:10.1371/journal.pone.0091776
+.. [TransAbyss] **De novo assembly and analysis of RNA-seq data** Gordon Robertson et al., *Nature Methods*, 2010. doi:10.1038/nmeth.1517
+.. [Transrate] **TransRate: reference-free quality assessment of de novo transcriptome assemblies** Richard Smith-Unna, Chris Boursnell, Rob Patro, Julian M. Hibberd and Steven Kelly. *Genome Research*, 2016. doi:10.1101/gr.196469.115
+.. [RSEMeval] **Evaluation of de novo transcriptome assemblies from RNA-Seq data** Bo Li, Nathanael Fillmore, Yongsheng Bai, Mike Collins, James A Thomson, Ron Stewart and Colin N Dewey. *Genome Biology*, 2014. doi:10.1186/s13059-014-0553-5
+.. [Maker] **MAKER2: an annotation pipeline and genome-database management tool for second-generation genome projects** Carson Holt and Mark Yandell. *BMC Bioinformatics*, 2011. doi:10.1186/1471-2105-12-491
+.. [EVM] **Automated eukaryotic gene structure annotation using EVidenceModeler and the Program to Assemble Spliced Alignments** Brian J Haas, Steven L Salzberg, Wei Zhu, Mihaela Pertea, Jonathan E Allen, Joshua Orvis, Owen White, C Robin Buell and Jennifer R Wortman. *Genome Biology*, 2008. doi:10.1186/gb-2008-9-1-r7
+.. [PYinterval] https://github.com/chaimleib/intervaltree
+.. [BXPython] https://bitbucket.org/james_taylor/bx-python/overview
+.. [Snakeviz] https://jiffyclub.github.io/snakeviz/

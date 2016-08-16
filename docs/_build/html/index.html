@@ -71,12 +71,17 @@ Swarbreck David</td>
 <p>Contents:</p>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="Introduction.html">1. Introduction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Introduction.html">1. Introduction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Introduction.html#the-core-algorithms">1.1. The core algorithms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Introduction.html#technical-details">1.2. Technical details</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="Installation.html">2. Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="Installation.html#download">2.1. Download</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Installation.html#building-and-installing-from-source">2.2. Building and installing from source</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Installation.html#python-dependencies">2.3. Python Dependencies</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Installation.html#additional-dependencies">2.4. Additional dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#system-requirements">2.1. System requirements</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#download">2.2. Download</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#building-and-installing-from-source">2.3. Building and installing from source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#python-dependencies">2.4. Python Dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Installation.html#additional-dependencies">2.5. Additional dependencies</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Scoring.html">3. Transcript measurements and scoring</a><ul>
@@ -92,17 +97,17 @@ Swarbreck David</td>
 <li class="toctree-l2"><a class="reference internal" href="Usage/index.html#miscellaneous-utilities">4.4. Miscellaneous utilities</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="Tutorial/index.html">5. Tutorial</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#creating-the-configuration-file-for-mikado">5.1. Creating the configuration file for Mikado</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#mikado-prepare">5.2. Mikado prepare</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#blast-of-the-candidate-transcripts">5.3. BLAST of the candidate transcripts</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#mikado-serialise">5.4. Mikado serialise</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#mikado-pick">5.5. Mikado pick</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#comparing-files-with-the-reference">5.6. Comparing files with the reference</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#analysing-the-tutorial-data-with-snakemake">5.7. Analysing the tutorial data with Snakemake</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Tutorial/index.html">4. Tutorial</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#creating-the-configuration-file-for-mikado">4.1. Creating the configuration file for Mikado</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#mikado-prepare">4.2. Mikado prepare</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#blast-of-the-candidate-transcripts">4.3. BLAST of the candidate transcripts</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#mikado-serialise">4.4. Mikado serialise</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#mikado-pick">4.5. Mikado pick</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#comparing-files-with-the-reference">4.6. Comparing files with the reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Tutorial/index.html#analysing-the-tutorial-data-with-snakemake">4.7. Analysing the tutorial data with Snakemake</a></li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="References.html">6. References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="References.html">5. References</a></li>
 <li class="toctree-l1"><a class="reference internal" href="Library/index.html">6. Library documentation</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="Library/index.html#module-Mikado.exceptions">6.1. Custom exceptions</a></li>
 <li class="toctree-l2"><a class="reference internal" href="Library/index.html#modules">6.2. Modules</a></li>
@@ -120,8 +125,13 @@ In the meantime, if you use Mikado please reference our github page: <a class="r
 <p>Open source code available on github: <a class="reference external" href="https://github.com/lucventurini/mikado">https://github.com/lucventurini/mikado</a></p>
 <p>This documentation is hosted publicly on read the docs: <a class="reference external" href="https://mikado.readthedocs.org/en/latest/">https://mikado.readthedocs.org/en/latest/</a></p>
 <p>Mikado is available under <a class="reference external" href="http://www.gnu.org/licenses/gpl.txt">GNU GLP V3</a>.</p>
+</div>
+<div class="section" id="acknowledgements">
+<h2>Acknowledgements<a class="headerlink" href="#acknowledgements" title="Permalink to this headline">¶</a></h2>
+<p>Mikado has greatly benefitted from the public libraries, in particular the <a class="reference internal" href="References.html#networkx" id="id2">[NetworkX]</a> library, Scipy and Numpy (<a class="reference internal" href="References.html#scipy" id="id3">[Scipy]</a>, <a class="reference internal" href="References.html#numpy" id="id4">[Numpy]</a>), Intervaltree <a class="reference internal" href="References.html#pyinterval" id="id5">[PYinterval]</a>, and the BX library for a Cython implementation of interval trees. Mikado has also been constantly optimised using Snakeviz, a tool which proved invaluable during the development process.</p>
+</div>
 <div class="section" id="credits">
-<h3>Credits<a class="headerlink" href="#credits" title="Permalink to this headline">¶</a></h3>
+<h2>Credits<a class="headerlink" href="#credits" title="Permalink to this headline">¶</a></h2>
 <blockquote>
 <div><ul class="simple">
 <li>Luca Venturini (The software architect and developer)</li>
@@ -131,7 +141,6 @@ In the meantime, if you use Mikado please reference our github page: <a class="r
 <li>David Swarbreck (Annotation guru and ideator of the pipeline)</li>
 </ul>
 </div></blockquote>
-</div>
 </div>
 </div>
 
@@ -148,10 +157,9 @@ In the meantime, if you use Mikado please reference our github page: <a class="r
   <ul>
 <li><a class="reference internal" href="#">Mikado: pick your transcript</a><ul>
 <li><a class="reference internal" href="#citing">Citing</a></li>
-<li><a class="reference internal" href="#availability-and-license">Availability and License</a><ul>
+<li><a class="reference internal" href="#availability-and-license">Availability and License</a></li>
+<li><a class="reference internal" href="#acknowledgements">Acknowledgements</a></li>
 <li><a class="reference internal" href="#credits">Credits</a></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>

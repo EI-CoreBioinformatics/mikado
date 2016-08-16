@@ -57,8 +57,37 @@
   <p>:: <a class="reference internal" href="#installation">Installation</a></p>
 <div class="section" id="installation">
 <h1>2. Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="system-requirements">
+<h2>2.1. System requirements<a class="headerlink" href="#system-requirements" title="Permalink to this headline">¶</a></h2>
+<p>Mikado requires CPython 3.4 or later to function (Python2 is not supported). Additionally, it requires a functioning installation of one among SQLite, PostgreSQL and MySQL. Mikado has additionally the following python dependencies:</p>
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">wheel</span><span class="o">&gt;=</span><span class="mf">0.28</span><span class="o">.</span><span class="mi">0</span>
+<span class="n">pyyaml</span>
+<span class="n">jsonschema</span>
+<span class="n">Cython</span>
+<span class="n">cython</span>
+<span class="n">numpy</span>
+<span class="n">networkx</span><span class="o">&gt;=</span><span class="mf">1.10</span>
+<span class="n">sqlalchemy</span><span class="o">&gt;=</span><span class="mi">1</span>
+<span class="n">sqlalchemy_utils</span>
+<span class="n">biopython</span><span class="o">&gt;=</span><span class="mf">1.66</span>
+<span class="n">intervaltree</span>
+<span class="n">nose</span>
+<span class="n">pyfaidx</span>
+<span class="n">scikit</span><span class="o">-</span><span class="n">learn</span><span class="o">&gt;=</span><span class="mf">0.17</span><span class="o">.</span><span class="mi">0</span>
+<span class="n">scipy</span><span class="o">&gt;=</span><span class="mf">0.15</span><span class="o">.</span><span class="mi">0</span>
+<span class="n">frozendict</span>
+<span class="n">python</span><span class="o">-</span><span class="n">magic</span>
+<span class="n">drmaa</span>
+<span class="n">snakemake</span>
+<span class="n">docutils</span>
+<span class="n">tabulate</span>
+</pre></div>
+</div>
+<p>Mikado can run with little system requirements, being capable of analysing human data with less than 4GB of RAM in all stages. It benefits from the availability of multiple processors, as many of the steps of the pipeline are parallelised.</p>
+<p>Mikado is at its core a data integrator. The <a class="reference internal" href="Usage/Daijin.html#daijin"><span class="std std-ref">Daijin pipeline</span></a> has been written to facilitate the creation of a functioning workflow. To function, it requires Snakemake <a class="reference internal" href="References.html#snake" id="id1">[Snake]</a> and the presence of at least one supported RNA-Seq aligner and one supported transcript assembler. If you are planning to execute it on a cluster, we do support job submission on SLURM, LSF and PBS clusters, either in the presence or absence of DRMAA.</p>
+</div>
 <div class="section" id="download">
-<h2>2.1. Download<a class="headerlink" href="#download" title="Permalink to this headline">¶</a></h2>
+<h2>2.2. Download<a class="headerlink" href="#download" title="Permalink to this headline">¶</a></h2>
 <p>Mikado is available on PyPI, so it is possible to install it with</p>
 <p><code class="docutils literal"><span class="pre">pip3</span> <span class="pre">install</span> <span class="pre">mikado</span></code></p>
 <p>The source for the latest release can be obtained with</p>
@@ -71,7 +100,7 @@
 <p>in the Git directory. Please note that at the time of this writing development proceeds quite rapidly.</p>
 </div>
 <div class="section" id="building-and-installing-from-source">
-<h2>2.2. Building and installing from source<a class="headerlink" href="#building-and-installing-from-source" title="Permalink to this headline">¶</a></h2>
+<h2>2.3. Building and installing from source<a class="headerlink" href="#building-and-installing-from-source" title="Permalink to this headline">¶</a></h2>
 <p>If you desire to install Mikado from source, this can be achieved with</p>
 <p><code class="docutils literal"><span class="pre">python3</span> <span class="pre">setup.py</span> <span class="pre">bdist_wheel</span></code></p>
 <p>Followed by</p>
@@ -81,35 +110,34 @@
 <p>Although code coverage is not perfect yet, it is over 50% for the whole package and considerably higher for the core components.</p>
 </div>
 <div class="section" id="python-dependencies">
-<h2>2.3. Python Dependencies<a class="headerlink" href="#python-dependencies" title="Permalink to this headline">¶</a></h2>
+<h2>2.4. Python Dependencies<a class="headerlink" href="#python-dependencies" title="Permalink to this headline">¶</a></h2>
 <p>Mikado has been written for Python 3.4 and 3.5. It is dependent on the following Python3 modules:</p>
 <ul class="simple">
 <li>wheel&gt;=0.28.0</li>
-<li>pyyaml <a class="reference internal" href="References.html#pyyaml" id="id1">[PyYaml]</a></li>
+<li>pyyaml <a class="reference internal" href="References.html#pyyaml" id="id2">[PyYaml]</a></li>
 <li>jsonschema</li>
-<li>Cython <a class="reference internal" href="References.html#cython" id="id2">[Cython]</a></li>
-<li>cython <a class="reference internal" href="References.html#cython" id="id3">[Cython]</a></li>
-<li>numpy <a class="reference internal" href="References.html#numpy" id="id4">[Numpy]</a></li>
-<li>networkx&gt;=1.10 <a class="reference internal" href="References.html#networkx" id="id5">[NetworkX]</a></li>
+<li>Cython <a class="reference internal" href="References.html#cython" id="id3">[Cython]</a></li>
+<li>cython <a class="reference internal" href="References.html#cython" id="id4">[Cython]</a></li>
+<li>numpy <a class="reference internal" href="References.html#numpy" id="id5">[Numpy]</a></li>
+<li>networkx&gt;=1.10 <a class="reference internal" href="References.html#networkx" id="id6">[NetworkX]</a></li>
 <li>sqlalchemy&gt;=1</li>
 <li>sqlalchemy_utils</li>
-<li>biopython&gt;=1.66 <a class="reference internal" href="References.html#biopython" id="id6">[BioPython]</a></li>
+<li>biopython&gt;=1.66 <a class="reference internal" href="References.html#biopython" id="id7">[BioPython]</a></li>
 <li>intervaltree</li>
 <li>nose</li>
 <li>pyfaidx</li>
-<li>scikit-learn&gt;=0.17.0 <a class="reference internal" href="References.html#scikit" id="id7">[SciKit]</a></li>
-<li>scipy&gt;=0.15.0 <a class="reference internal" href="References.html#scipy" id="id8">[Scipy]</a></li>
+<li>scikit-learn&gt;=0.17.0 <a class="reference internal" href="References.html#scikit" id="id8">[SciKit]</a></li>
+<li>scipy&gt;=0.15.0 <a class="reference internal" href="References.html#scipy" id="id9">[Scipy]</a></li>
 <li>frozendict</li>
 <li>python-magic</li>
-<li>drmaa <a class="reference internal" href="References.html#drmaa" id="id9">[DRMAA]</a></li>
-<li>snakemake <a class="reference internal" href="References.html#snake" id="id10">[Snake]</a></li>
+<li>drmaa <a class="reference internal" href="References.html#drmaa" id="id10">[DRMAA]</a></li>
+<li>snakemake <a class="reference internal" href="References.html#snake" id="id11">[Snake]</a></li>
 <li>docutils</li>
 </ul>
 <p>These dependencies will be installed automatically by PIP.</p>
 </div>
 <div class="section" id="additional-dependencies">
-<h2>2.4. Additional dependencies<a class="headerlink" href="#additional-dependencies" title="Permalink to this headline">¶</a></h2>
-<p>Mikado relies on relational databases for its functioning, so one of SQLite, PosGRESql or MySQL has to present for if to function properly. Additionally, the <a class="reference internal" href="Usage/Daijin.html#daijin"><span class="std std-ref">Daijin</span></a> pipeline requires BLAST+ and TransDecoder for the Mikado stage, and at least one RNA-Seq aligner and one assembler, to be installed. If you are planning to execute it on a cluster, we do support job submission on SLURM, LSF and PBS clusters, either in the presence or absence of DRMAA.</p>
+<h2>2.5. Additional dependencies<a class="headerlink" href="#additional-dependencies" title="Permalink to this headline">¶</a></h2>
 </div>
 </div>
 
@@ -125,10 +153,11 @@
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">2. Installation</a><ul>
-<li><a class="reference internal" href="#download">2.1. Download</a></li>
-<li><a class="reference internal" href="#building-and-installing-from-source">2.2. Building and installing from source</a></li>
-<li><a class="reference internal" href="#python-dependencies">2.3. Python Dependencies</a></li>
-<li><a class="reference internal" href="#additional-dependencies">2.4. Additional dependencies</a></li>
+<li><a class="reference internal" href="#system-requirements">2.1. System requirements</a></li>
+<li><a class="reference internal" href="#download">2.2. Download</a></li>
+<li><a class="reference internal" href="#building-and-installing-from-source">2.3. Building and installing from source</a></li>
+<li><a class="reference internal" href="#python-dependencies">2.4. Python Dependencies</a></li>
+<li><a class="reference internal" href="#additional-dependencies">2.5. Additional dependencies</a></li>
 </ul>
 </li>
 </ul>

@@ -3,6 +3,18 @@
 Installation
 ============
 
+System requirements
+-------------------
+
+Mikado requires CPython 3.4 or later to function (Python2 is not supported). Additionally, it requires a functioning installation of one among SQLite, PostgreSQL and MySQL. Mikado has additionally the following python dependencies:
+
+.. literalinclude:: ../requirements.txt
+
+Mikado can run with little system requirements, being capable of analysing human data with less than 4GB of RAM in all stages. It benefits from the availability of multiple processors, as many of the steps of the pipeline are parallelised.
+
+Mikado is at its core a data integrator. The :ref:`Daijin pipeline <Daijin>` has been written to facilitate the creation of a functioning workflow. To function, it requires Snakemake [Snake]_ and the presence of at least one supported RNA-Seq aligner and one supported transcript assembler. If you are planning to execute it on a cluster, we do support job submission on SLURM, LSF and PBS clusters, either in the presence or absence of DRMAA.
+
+
 Download
 --------
 
@@ -76,4 +88,3 @@ These dependencies will be installed automatically by PIP.
 Additional dependencies
 -----------------------
 
-Mikado relies on relational databases for its functioning, so one of SQLite, PosGRESql or MySQL has to present for if to function properly. Additionally, the :ref:`Daijin <Daijin>` pipeline requires BLAST+ and TransDecoder for the Mikado stage, and at least one RNA-Seq aligner and one assembler, to be installed. If you are planning to execute it on a cluster, we do support job submission on SLURM, LSF and PBS clusters, either in the presence or absence of DRMAA.

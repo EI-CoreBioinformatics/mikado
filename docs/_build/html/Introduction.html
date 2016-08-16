@@ -57,7 +57,122 @@
   <span class="target" id="introduction"></span><div class="section" id="id1">
 <h1>1. Introduction<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h1>
 <p><a class="reference external" href="https://www.python.org/"><img alt="python_badge" src="https://img.shields.io/pypi/pyversions/snakemake.svg?style=flat-square" /></a> <a class="reference external" href="http://snakemake.bitbucket.org"><img alt="snake_badge" src="https://img.shields.io/badge/snakemake-≥3.5.2-brightgreen.svg?style=flat-square)]" /></a></p>
-<p>Introduction test</p>
+<dl class="docutils">
+<dt>Numerous algorithms have been proposed to analyse RNA-Seq data, both in terms of aligning the reads to a reference genome (<a class="reference internal" href="References.html#tophat2" id="id2">[TopHat2]</a>, <a class="reference internal" href="References.html#star" id="id3">[STAR]</a>, <a class="reference internal" href="References.html#hisat" id="id4">[Hisat]</a>) or to assemble them to infer the sequence and structure of the original molecules present in the sample. The latter phase can be performed either by using alignment data against the reference genome (<a class="reference internal" href="References.html#cufflinks" id="id5">[Cufflinks]</a>, <a class="reference internal" href="References.html#stringtie" id="id6">[StringTie]</a>, <a class="reference internal" href="References.html#class2" id="id7">[Class2]</a>, <a class="reference internal" href="References.html#trinity" id="id8">[Trinity]</a>) or in the absence of such information (<a class="reference internal" href="References.html#trinity" id="id9">[Trinity]</a>, <a class="reference internal" href="References.html#oases" id="id10">[Oases]</a>, <a class="reference internal" href="References.html#bridger" id="id11">[Bridger]</a>, ). Each of these methods has to contend with numerous sources of variability in the RNA-Seq data:</dt>
+<dd><ul class="first last simple">
+<li>alternative splicing events at the same locus</li>
+<li>extremely variable expression and therefore sequencing depth at different loci</li>
+<li>presence of orthologous genes with very similar cDNAs.</li>
+<li>tandem duplicated genes which can be artefactually reconstructed as a single, fused entity</li>
+</ul>
+</dd>
+</dl>
+<p>Multiple assessments of these methods on real and simulated data. In particular, the RGASP consortium promoted a competition among some of the most popular methods in 2012 <a class="reference internal" href="References.html#rgasp" id="id12">[RGASP]</a>; the results showed that the accuracy of the methods was dependent on the input data, the expression levels of the genes, and on the species under analysis. A different concern regards the completeness of each of the assembly methods, ie whether methods that are not necessarily the best across all gene loci might nonetheless be capable of outperforming other competitors for specific contigs. Recently, approaches have been proposed to integrate multiple RNA-Seq assemblies by inferring their protein-coding content and collapsing them accordingly <a class="reference internal" href="References.html#evigenetobacco" id="id13">[EviGeneTobacco]</a> or to determine the best proposed assembly using multiple measures related to how the transcript compares to the input RNA-Seq reads (<a class="reference internal" href="References.html#transrate" id="id14">[Transrate]</a>, <a class="reference internal" href="References.html#rsemeval" id="id15">[RSEMeval]</a>).</p>
+<p>A different but related line of research has focused on how to integrate data coming from multiple samples. While some researchers advocate for merging together the input data and assembling it <a class="reference internal" href="References.html#trinity" id="id16">[Trinity]</a>, others have developed methods to integrate multiple assemblies into a single coherent annotation (<a class="reference internal" href="References.html#cuffmerge" id="id17">[CuffMerge]</a>, Stringtie-merge). Another common approach relies on a third party tool to integrate multiple assemblies together with other data - typically protein alignments and <em>ab initio</em> predictions - to select for the best model. The latter approach has been chosen by some of the most popular pipelines for genome annotation in the last years (<a class="reference internal" href="References.html#evm" id="id18">[EVM]</a>, <a class="reference internal" href="References.html#maker" id="id19">[Maker]</a>).</p>
+<p>Our tool, Mikado, contributes to this area of research by proposing a novel algorithm to integrate multiple transcript assemblies, leveraging additional data regarding the position of ORFs (generally derived with Transdecoder <a class="reference internal" href="References.html#trinity" id="id20">[Trinity]</a>), sequence similarity (derived with BLAST <a class="reference internal" href="References.html#blastplus" id="id21">[Blastplus]</a>) and reliable splicing junctions (generally derived using Portcullis <a class="reference internal" href="References.html#portcullis" id="id22">[Portcullis]</a>). Through the combination of these input data sources, we are capable of identifying artefacts - especially gene fusions and small fragments - and retrieve the original transcripts in each locus with high accuracy and sensitivity.</p>
+<p>An important caveat is that our approach does not look for the <em>best</em> candidate in terms of the input data, as Transrate <a class="reference internal" href="References.html#transrate" id="id23">[Transrate]</a> or RSEM-Eval <a class="reference internal" href="References.html#rsemeval" id="id24">[RSEMeval]</a> do. Rather, our approach is more similar to EvidentialGene <a class="reference internal" href="References.html#evigenetobacco" id="id25">[EviGeneTobacco]</a> as Mikado will try to find the candidates most likely to represent the isoforms which would be annotated as canonical by a human annotator. Biological events such as intron retentions or trans-splicing that might be present in the sample are explicitly selected against, in order to provide a clean annotation of the genome.</p>
+<div class="section" id="the-core-algorithms">
+<h2>1.1. The core algorithms<a class="headerlink" href="#the-core-algorithms" title="Permalink to this headline">¶</a></h2>
+<div class="sidebar">
+<p class="first sidebar-title">The Mikado algorithm</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="_images/Mikado_algorithm.jpeg"><img alt="_images/Mikado_algorithm.jpeg" src="_images/Mikado_algorithm.jpeg" style="width: 640.0px; height: 360.0px;" /></a>
+</div>
+<p class="last">Schematic representation of the steps in the Mikado pipeline.</p>
+</div>
+<p>Mikado analyses an ensemble of RNA-Seq assemblies by looking for overlapping transcripts based on their genomic position. Such clusters of genes, or <em>superloci</em>, are then analysed to locate the gene loci that will form the final annotation. The algorithm presupposes that the transcripts have been ordered on the genome based on their location (see the second step in the pipeline, <a class="reference internal" href="Usage/Prepare.html#prepare"><span class="std std-ref">mikado prepare</span></a>.). Additionally, transcript data is integrated with external data sources in real time, while traversing the annotation file (see the third step in the pipeline, <a class="reference internal" href="Usage/Serialise.html#serialise"><span class="std std-ref">mikado serialise</span></a>, for details on which data can be integrated). The selection algorithm proper is implemented in the <a class="reference internal" href="Usage/Pick.html#pick"><span class="std std-ref">last step of the pipeline</span></a>.</p>
+<p>Transcripts are scored and selected according to user-defined rules, based on many different features of the transcripts themselves (cDNA length, CDS length, UTR fraction, number of reliable junctions, etc.; please see the <a class="reference internal" href="Scoring.html#scoring-files"><span class="std std-ref">dedicated section on scoring</span></a> for details on the scoring algorithm).</p>
+<p>The detection and analysis of a locus proceeds as follows:</p>
+<ol class="arabic">
+<li><p class="first">When the first transcript is detected, Mikado will create a <em>superlocus</em> - a container of transcripts sharing the same genomic location - and assign the transcript to it.</p>
+</li>
+<li><p class="first">While traversing the genome, as long as any new transcript is within the maximum allowed flanking distance, it will be added to the superlocus.</p>
+</li>
+<li><dl class="first docutils">
+<dt>When the last transcript is added, Mikado performs the following preliminary operations:</dt>
+<dd><ol class="first last arabic">
+<li><p class="first">Integrate all the data from the database (including ORFs, reliable junctions in the region, and BLAST homology).</p>
+</li>
+<li><p class="first">If a transcript is monoexonic, assign or reverse its strand if the ORF data supports the decision</p>
+</li>
+<li><p class="first">If requested and the ORF data supports the operation, split chimeric transcripts - ie those that contain two or more non-overlapping ORFs on the same strand.</p>
+</li>
+<li><dl class="first docutils">
+<dt>Split the superlocus into groups of transcripts that:</dt>
+<dd><ul class="first last simple">
+<li>share the same strand</li>
+<li>have at least 1bp overlap</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">Analyse each of these novel &#8220;stranded&#8221; superloci separately.</p>
+</li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Create <em>subloci</em>, ie group transcripts so to minimize the probability of mistakenly merging multiple gene loci due to chimeras. These groups are defined as follows:</dt>
+<dd><ul class="first last simple">
+<li>if the transcripts are multiexonic, they must share at least one intron, inclusive of the borders</li>
+<li>if the transcripts are monoexonic, they must overlap by at least 1bp.</li>
+<li>Monoexonic and multiexonic transcripts <em>cannot</em> be part of the same sublocus.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Select the best transcript inside each sublocus:</dt>
+<dd><ol class="first last arabic simple">
+<li>Score the transcripts (see the <a class="reference internal" href="Scoring.html#scoring-files"><span class="std std-ref">section on scoring</span></a>)</li>
+<li>Select as winner the transcript with the highest score and assign it to a <em>monosublocus</em></li>
+<li>Discard any transcript which is overlapping with it, according to the definitions in the point above</li>
+<li>Repeat the procedure from point 2 until no transcript remains in the sublocus</li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt><em>Monosubloci</em> are gathered together into <em>monosubloci holders</em>, ie the seeds for the gene loci. Monosubloci holder have more lenient parameters to group transcripts, as the first phase should have already discarded most chimeras. Once a holder is created by a single <em>monosublocus</em>, any subsequent candidate <em>monosublocus</em> will be integrated only if the following conditions are satisfied:</dt>
+<dd><ul class="first last simple">
+<li>if the candidate is monoexonic, its exon must overlap at least one exon of a transcript already present in the holder</li>
+<li>if the candidate is multiexonic and the holder contains only monoexonic transcripts, apply the same criterion, ie check whether its exons overlap the exons of at least one of the transcripts already present</li>
+<li>if the candidate is multiexonic and the holder contains multiexonic transcripts, check whether its introns overlap the introns of at least one of the transcripts in the holder.</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p class="first">Once the holders are created, apply the same scoring and selection procedure of the sublocus selection step. The winning transcripts are assigned to the final <em>loci</em>. These are called the <em>primary transcripts of the loci</em>.</p>
+</li>
+<li><dl class="first docutils">
+<dt>Once the loci are created, track back to the original transcripts of the superlocus:</dt>
+<dd><ol class="first last arabic simple">
+<li>discard any transcript overlapping more than one locus, as these are probably chimeras.</li>
+<li>For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the <span class="xref std std-ref">class code</span> of the comparison against the primary transcript.</li>
+</ol>
+</dd>
+</dl>
+</li>
+<li><dl class="first docutils">
+<dt>Finally detect and either tag or discard fragments inside the initial <em>superlocus</em> (irrespective of strand):</dt>
+<dd><ol class="first last arabic simple">
+<li>Check whether the primary transcript of any locus meets the criteria to be defined as a fragment (by default, maximum ORF of 30AA and maximum 2 exons - any transcript exceeding either criterion will be considered as non-fragment by default)</li>
+<li>If so, verify whether they are near enough any valid locus to be considered as a fragment (in general, class codes which constitute the &#8220;Intronic&#8221;, &#8220;Fragmentary&#8221; and &#8220;No overlap&#8221; categories).</li>
+<li>If these conditions are met, tag the locus as a fragment. If requested, Mikado will just discard these transcripts (advised).</li>
+</ol>
+</dd>
+</dl>
+</li>
+</ol>
+<p>These steps help Mikado identify and solve fusions, detect correctly the gene loci, and define valid alternative splicing events.</p>
+</div>
+<div class="section" id="technical-details">
+<h2>1.2. Technical details<a class="headerlink" href="#technical-details" title="Permalink to this headline">¶</a></h2>
+<p>Most of the selection (ie &#8220;pick&#8221;) stage of the pipeline relies on the implementation of the objects in the <a class="reference internal" href="Library/loci.html#sub-loci"><span class="std std-ref">loci submodule</span></a>. In particular, the library defines an abstract class, &#8220;Abstractlocus&#8221;, which requires all its children to implement a version of the &#8220;is_intersecting&#8221; method. Each implementation of the method is specific to the stage. So the <em>superlocus</em> class will require in the &#8220;is_intersecting&#8221; method only overlap between the transcripts, optionally with a flanking and optionally restricting the groups to transcripts that share the same strand. The <em>sublocus</em> class will implement a different algorithm, and so on.
+The scoring is effectuated by first asking to recalculate the metrics (.calculate_metrics) and subsequently
+to calculate the scores (.calculate_scores). Mikado will try to cache and avoid recalculation of metrics and scores as much as possible, to make the program faster.</p>
+</div>
 </div>
 
 
@@ -69,6 +184,15 @@
             <p class="logo"><a href="index.html">
               <img class="logo" src="_static/mikado-logo.jpg" alt="Logo"/>
             </a></p>
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">1. Introduction</a><ul>
+<li><a class="reference internal" href="#the-core-algorithms">1.1. The core algorithms</a></li>
+<li><a class="reference internal" href="#technical-details">1.2. Technical details</a></li>
+</ul>
+</li>
+</ul>
+
   <h4>Previous topic</h4>
   <p class="topless"><a href="index.html"
                         title="previous chapter">Mikado: pick your transcript</a></p>

@@ -55,9 +55,14 @@ This documentation is hosted publicly on read the docs: `https://mikado.readthed
 
 Mikado is available under `GNU GLP V3 <http://www.gnu.org/licenses/gpl.txt>`_.
 
+Acknowledgements
+~~~~~~~~~~~~~~~~
+
+Mikado has greatly benefitted from the public libraries, in particular the [NetworkX]_ library, Scipy and Numpy ([Scipy]_, [Numpy]_), Intervaltree [PYinterval]_, and the BX library for a Cython implementation of interval trees. Mikado has also been constantly optimised using Snakeviz, a tool which proved invaluable during the development process.
+
 
 Credits
--------
+~~~~~~~
 
  - Luca Venturini (The software architect and developer)
  - Shabhonam Caim (Primary tester and analytic consultancy)

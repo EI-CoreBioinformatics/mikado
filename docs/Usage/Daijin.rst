@@ -17,6 +17,8 @@ The Daijin pipeline for driving Mikado
 
 No emperor or empress can lead its nation without a trusty chancellor to help him or her in organising the bureaucracy. Daijin, the Japanese minister, has the same role in Mikado - it smooths the path to go from a collection of read inputs (both RNA-Seq or long reads) to a polished transcriptome assembly. The pipeline is based on Snakemake_ [Snake]_; while Snakemake can support any scheduling system, our pipeline manager currently supports only three (SLURM, PBS and LSF), plus any DRMAA-compliant batch submission system. Other schedulers can be added upon request.
 
+This page contains a detailed explanation on how to use Daijin. We also provide a :ref:`tutorial <Daijin-Tutorial>` that will guide you through using the manager for analysing an RNA-Seq sample for *Sc. pombe*.
+
 .. hint:: It is possible to launch the two steps of the pipeline directly with Snakemake, using the snakefiles located in Mikado.daijin: :download:`tr.snakefile <tr.snakefile>` for the first step, and :download:`mikado.snakefile` for the second.
 
 
@@ -217,12 +219,44 @@ Structure of the output directory
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
-Daijin will organise the output directory in 5 major sections:
+Daijin will organise the output directory in 5 major sections, plus the configuration file for the Mikado step:
 
 #. *1-reads*: this folder contains links to the original read files.
 #. *2-alignments*: this folder stores the indices built for each aligner, and the results. The structure is as follows:
-
-
+    * *output*: this folder contains the final BAM files, sorted and indexed.
+    * *alignments.stats*: this file contains a table reporting the most salient parameters derived from ``samtools stats`` calls onto the multiple BAM files.
+    * One folder per aligner, inside which are present:
+        * *index* folder, containing the genome indices for the tool
+        * One folder per sample, containing the output BAM file.
+#. *3-assemblies*: this folder contains the RNA-Seq assemblies which will be used as input by Mikado. The structure is as follows:
+    * *output*: this folder contains the final GTF/GFF3 assemblies. For each combination of aligner/assembler that has been requested, Daijin will here provide:
+        * the GTF file
+        * a statistics file derived using ``mikado util stats`` (see the :ref:`section on this utility <stat-command>` for details)
+    * *assembly.stats*: a tabular file collecting the most salient data from the statistics files generated for each assembly
+    * One folder per assembly, containing tool-specific files and the final assembly.
+#. *4-portcullis*: this folder contains the results of Portcullis_, if its execution has been requested. The folder will contain the following:
+    * *output*: folder which contains a merged BED file of reliable junctions, creating by merging all junctions from all alignments.
+    * One folder per alignment analysed. We redirect you to the `documentation of the tool <http://portcullis.readthedocs.io/en/latest/>`_ for more details.
+#. *mikado.yaml*: final output file of the `assemble` part of the pipeline. This file will act both as the configuration for Daijin and for Mikado; for a description of the Mikado specific fields, we remand to the :ref:`section on the configuration of the tool <configure>`.
+#. *5-mikado*: this folder contains the results for mikado. It is organised as follows:
+    #. a link to the genome FASTA, and corresponding FAI file (generated with samtools)
+    #. Files created by the :ref:`prepare step <prepare>`:
+        * mikado_prepared.fasta
+        * mikado_prepared.gtf
+        * prepare.log
+    #. *transdecoder*: this folder contains the results of the TransDecoder_ run against the mikado_prepared.fasta file. Mikado will use the file *transcripts.fasta.transdecoder.bed* as source for the ORF location.
+    #. *blast*: this folder contains the BLAST data. In particular:
+        * *index*: this folder contains the FASTA file of the protein database, and the BLAST database files.
+        * *fastas*: Daijin will split mikado_prepared.fasta into multiple files, for easier runs onto a cluster. This folder contains the splitted FASTAs.
+        * *xmls*: this folder contains the XML files corresponding to the BLASTs of the files present in *fastas*
+        * *logs*: this folder contains the log files corresponding to the BLASTs of the files present in *fastas*
+    #. *pick*: this folder contains the results of :ref:`Mikado pick <pick>`. It is organissed as follows:
+        * One folder per requested :ref:`Mikado chimera-splitting mode <chimera-split>`. Inside each folder, it is possible to find:
+            * mikado-{mode}.loci.gff3: Final GFF3 output file.
+            * mikado-{mode}.metrics.gff3: Final metrics output file, containing the metrics of the transcripts that have been selected.
+            * mikado-{mode}.scores.gff3: Final metrics output file, containing the scores associated to the evaluated metrics, for each of the selected transcripts.
+            * mikado-{mode}.loci.stats: statistics file derived using ``mikado util stats`` (see the :ref:`section on this utility <stat-command>` for details)
+        * *comparison.stats*: this tabular file collects the most salient data from the statistics files generated for each pick mode.
 
 Running the pipeline
 ~~~~~~~~~~~~~~~~~~~~

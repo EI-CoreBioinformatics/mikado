@@ -15,6 +15,7 @@ from ..exceptions import InvalidJson
 from ..utilities import comma_split  # , merge_dictionaries
 import json
 from collections import Counter
+import tempfile
 
 __author__ = 'Luca Venturini'
 
@@ -314,6 +315,17 @@ def create_config(args):
             else:
                 config["pick"]["chimera_split"]["blast_check"] = True
                 config["pick"]["chimera_split"]["blast_params"]["leniency"] = args.mode.upper()
+
+
+    # Check that the configuration file is correct
+    tempcheck = tempfile.NamedTemporaryFile("wt", suffix=".yaml")
+    output = yaml.dump(config, default_flow_style=False)
+    print_config(output, tempcheck)
+    tempcheck.flush()
+    try:
+        configurator.to_json(tempcheck.name)
+    except InvalidJson as exc:
+        raise InvalidJson("Created an invalid configuration file! Error:\n{}".format(exc))
 
     if args.json is True or args.out.name.endswith("json"):
         json.dump(config, args.out, sort_keys=True, indent=4)

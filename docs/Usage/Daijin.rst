@@ -30,6 +30,12 @@ Configuring Daijin
 * *out*: Output file, ie the configuration file for Daijin.
 * *od*: Directory that Daijin will use as master for its jobs.
 * *genome*: Genome FASTA file. Required.
+* *transcriptome*: Optional reference transcriptome, to be used for alignment and assembly. Please note that Mikado will **not** use the reference annotation, it will only be used during the alignment and assembly steps.
+* *name*: Name to be applied to the genome, eg the species.
+
+.. warning:: The name must avoid containing spaces or any non-standard character. This string will be used among other things to determine the name of the index to be used by the aligners; if the string contains non-valid characters it will cause them - and on cascade Daijin - to fail.
+
+* *prot-db*: this parameter specifies a protein database to be used for BLAST. If none is specified, this step will be omitted.
 * *aligners*: aligner(s) to be used during the run. Currently, Daijin supports the following aligners:
     * *gsnap*
     * *star*
@@ -41,9 +47,15 @@ Configuring Daijin
     * *stringtie*
     * *trinity*
 * *threads*: Number of threads to be requested for parallelisable steps.
+* *modes*: Daijin can run Mikado in multiple modes regarding the :ref:`handling of putative chimeras <chimera_splitting>`. Specify those you desire to execute here.
 * *scheduler*: if Daijin has to execute the pipeline on a cluster (potentially using DRMAA), it is necessary to specify the scheduler here. At the moment we support the following widely used schedulers: PBS, LSF, SLURM.
 * *r1*, *r2*, *samples*: RNA-Seq reads 1, RNA-Seq reads 2, and sample name. At least one of each is required.
-* *strandedness*: if not specified, all samples will be assumed to be unstranded. 
+* *strandedness*: if not specified, all samples will be assumed to be unstranded. Specify it as you would with HISAT or TopHat2.
+* *cluster_config*: if specified, a sample cluster configuration file will be copied in the specified location. A cluster configuration file has the following structure:
+
+.. literalinclude:: hpc.yaml
+
+As it can be seen, it is a YAML format with two fields: __default__ and asm_trinitygg. The former specifies common parameters for all the steps: the queue to be used, the number of threads to request, and the memory per job. The "asm_trinitygg" field specifies particular parameters to be applied to the asm_trinitygg rule - in this case, increasing the requested memory (Trinity is a *de novo* assembler and uses much more memory than most reference-guided assemblers). Please note that **the number of threads specified on the command line, or in the configuration file proper, takes precedence over the equivalent parameter in the cluster configuration file**.
 
 .. code-block:: bash
 
@@ -119,6 +131,97 @@ Configuring Daijin
                             Protein database to compare against, for Mikado.
 
 .. warning:: if DRMAA is requested and no scheduler is specified, Daijin will fail. For this reason, Daijin *requires* a scheduler name. If one is not provided, Daijin will fall back to local execution.
+
+Tweaking the configuration file
+-------------------------------
+
+Daijin can be configured so to run each assembler and/or aligner multiple times, with a different set of parameters each. This is achieved by specifying the additional command line arguments in the array for each program. For example, in this section:
+
+.. code-block:: yaml
+
+    align_methods:
+      hisat:
+      - ''
+      - "-k 10"
+    asm_methods:
+      class:
+      - ''
+      - "--set-cover"
+      stringtie:
+      - ''
+      - "-T 0.1"
+
+we are asking Daijin to execute each program twice:
+
+* HISAT2: once with default parameters, once reporting the 10 best alignments for each pair
+* CLASS2: once with default parameters, once using the "set-cover" algorithm
+* Stringtie: once with default parameters, once lowering the minimum expression to 0.1 TPM.
+
+If you are running Daijin on a cluster and the software tools have to be sourced or loaded, you can specify the versions and command to load in the configuration file itself. Edit the file at this section:
+
+.. code-block:: yaml
+
+    load:
+      #  Commands to use to load/select the versions of the programs to use. Leave an empty
+      #  string if no loading is necessary.
+      blast: 'source blast-2.3.0'
+      class: 'source class-2.12'
+      cufflinks: ''
+      gmap: ''
+      hisat: 'source HISAT-2.0.4'
+      mikado: 'souce mikado-devel'
+      portcullis: 'source portcullis-0.17.2'
+      samtools: 'source samtools-1.2'
+      star: ''
+      stringtie: 'source stringtie-1.2.4'
+      tophat: ''
+      transdecoder: 'source transdecoder-3.0.0'
+      trinity: ''
+
+In this case, the cluster requires to load software on-demand using the source command, and we specify the versions of the programs we wish to use.
+
+Regarding read alignment, it is also possible to specify the minimum and maximum permissible intron lengths:
+
+.. code-block:: yaml
+
+ short_reads:
+  #  Parameters related to the reads to use for the assemblies. Voices:
+  #  - r1: array of left read files.
+  #  - r2: array of right read files. It must be of the same length of r1; if one
+  #    one or more of the samples are single-end reads, add an empty string.
+  #  - samples: array of the sample names. It must be of the same length of r1.
+  #  - strandedness: array of strand-specificity of the samples. It must be of the
+  #    same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded.
+  max_intron: 10000
+  min_intron: 20
+  r1:
+  - SRR1617247_1.fastq.gz
+  r2:
+  - SRR1617247_2.fastq.gz
+  samples:
+  - SRR1617247
+  strandedness:
+  - fr-secondstrand
+
+Regarding the Mikado stage of Daijin, the configuration file contains all the fields that can be found in a :ref:`normal Mikado configuration file <configure>`. All mikado-specific parameters are stored under the "mikado" field. It is also possible to modify the following:
+
+* *blastx*: these are parameters regarding the running of BLASTX. This field contains the following variables:
+   * prot-db: this is an **array** of FASTA files to use as protein databases for the BLASTX step.
+   * chunks: number of chunks to divide the BLASTX into. When dealing with big input FASTA files and with a cluster at disposal, it is more efficient to chunk the input FASTA in multiple smaller files and execute BLASTX on them independently. The default number of chunks is 10. Increase it as you see fit - it often makes sense, especially on clusters, to launch a multitude of small jobs rather than a low number of big jobs.
+   * evalue: maximum e-value for the searches.
+   * max_target_seqs: maximum number of hits to report.
+* *transdecoder*: parameters related to transdecoder. At the moment only one is available:
+    * *min_protein_len*: minimum protein length that TransDecoder should report. The default value set by Mikado, 30, is much lower than the default (100) and this is intentional, as the chimera splitting algorithm relies on the capability of TransDecoder of finding incomplete short ORFs at different ends of a transcript.
+
+Structure of the output directory
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+Daijin will organise the output directory in 5 major sections:
+
+#. *1-reads*: this folder contains links to the original read files.
+#. *2-alignments*: this folder stores the indices built for each aligner, and the results. The structure is as follows:
+
 
 
 Running the pipeline

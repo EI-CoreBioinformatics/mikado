@@ -158,7 +158,7 @@ def create_daijin_config(args):
                                                             args.scoring)) as original:
                     for line in original:
                         print(line.decode(), file=out, end="")
-            args.scoring = args.copy_scoring
+            args.scoring = os.path.abspath(args.copy_scoring)
         config["mikado"]["pick"]["scoring_file"] = args.scoring
 
     if args.prot_db:

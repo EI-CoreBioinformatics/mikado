@@ -334,9 +334,9 @@ def configure_parser():
     parser.add_argument("--full", action="store_true", default=False)
     scoring = parser.add_argument_group("Options related to the scoring system")
     scoring.add_argument("--scoring", type=str, default=None,
-                         choices=resource_listdir(
-                             "Mikado", os.path.join("configuration", "scoring_files")),
-                         help="Available scoring files.")
+                         help="Scoring file to use. Mikado provides the following: {}".format(
+                             ",".join(resource_listdir("Mikado", os.path.join("configuration", "scoring_files"))
+                         )))
     scoring.add_argument("--copy-scoring", default=False,
                          type=str, dest="copy_scoring",
                          help="File into which to copy the selected scoring file, for modification.")

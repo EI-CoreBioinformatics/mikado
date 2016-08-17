@@ -41,7 +41,12 @@ Configuring Daijin
     * *stringtie*
     * *trinity*
 * *threads*: Number of threads to be requested for parallelisable steps.
-*
+* *scheduler*: if Daijin has to execute the pipeline on a cluster (potentially using DRMAA), it is necessary to specify the scheduler here. At the moment we support the following widely used schedulers: PBS, LSF, SLURM.
+* *r1*, *r2*, *samples*: RNA-Seq reads 1, RNA-Seq reads 2, and sample name. At least one of each is required.
+* *strandedness*: if not specified, all samples will be assumed to be unstranded. Specify it as you would with HISAT or TopHat2.
+* *cluster_config*: if specified, a sample cluster configuration file will be copied in the specified location. A cluster configuration file has the following structure:
+
+.. literalinclude:: hpc.yaml
 
 .. code-block:: bash
 
@@ -116,6 +121,8 @@ Configuring Daijin
       --prot-db PROT_DB [PROT_DB ...]
                             Protein database to compare against, for Mikado.
 
+.. warning:: if DRMAA is requested and no scheduler is specified, Daijin will fail. For this reason, Daijin *requires* a scheduler name. If one is not provided, Daijin will fall back to local execution.
+
 
 Running the pipeline
 ~~~~~~~~~~~~~~~~~~~~
@@ -168,11 +175,11 @@ The available command parameters are:
 * *config*: the configuration file.
 * *hpc_conf*: cluster configuration file.
 * *jobs*: Maximum number of jobs that can be executed (if Daijin is in local mode) or be present in the submission queue (if Daijin is in DRMAA/cluster mode) at any one time.
-* *dryrun*: do not execute, just list all the commands that will be executed. Useful also for
+* *dryrun*: do not execute, just list all the commands that will be executed. Useful also for listing the rules that have to be executed.
 * *cores*: Maximum number of cores that Daijin can claim at any one time.
 * *threads*: Maximum number of cores/threads that can be assigned to any step of the pipeline.
 * *rerun-incomplete*: Ask Snakemake to check which steps have produced empty or incomplete output files, and re-execute them and all the downstream commands.
-* *forcerun*: force the re
+* *forcerun*: force the re-run of a
 
 
 .. _daijin-assemble:

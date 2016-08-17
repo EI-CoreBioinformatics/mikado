@@ -46,7 +46,7 @@ def get_sub_commands(SCHEDULER):
         res_cmd = " -lselect=1:mem={cluster.memory}MB:ncpus={threads} -q {cluster.queue}"
     elif SCHEDULER == "SLURM":
         sub_cmd = "sbatch"
-        res_cmd = " ".join(["-N 1 -n 1 -c {threads} -p {cluster.queue} --mem={cluster.memory}",
+        res_cmd = " ".join([" -N 1 -n 1 -c {threads} -p {cluster.queue} --mem={cluster.memory}",
                             "-J {rule} -o daijin_logs/{rule}_%j.out -e daijin_logs/{rule}_%j.err"])
     return res_cmd, sub_cmd
 

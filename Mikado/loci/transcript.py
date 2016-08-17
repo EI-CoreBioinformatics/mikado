@@ -2192,9 +2192,9 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def proportion_verified_introns(self):
         """This metric returns, as a fraction, how many of the transcript introns
-        are validated by external data."""
+        are validated by external data. Monoexonic transcripts are set to 1."""
         if self.monoexonic is True:
-            return 0
+            return 1
         else:
             return len(self.verified_introns) / len(self.introns)
 

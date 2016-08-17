@@ -66,6 +66,8 @@ def create_parser():
                         help="""Configuration file that allows the user to override
                         resource requests for each rule when running under a scheduler
                         in a HPC environment.""")
+    parser.add_argument("-d", "--dryrun", action="store_true", default=False,
+                        help="Do a dry run for testing.")
     parser.add_argument("--jobs", "-J", action="store", metavar="N", type=int, default="10",
                         help="Maximum number of cluster jobs to execute concurrently.")
     parser.add_argument("--cores", "-C", action="store", nargs="?", metavar="N", type=int, default="1000",
@@ -233,6 +235,7 @@ def assemble_transcripts_pipeline(args):
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "tr.snakefile")),
+        dryrun=args.dryrun,
         cores=args.cores,
         nodes=args.jobs,
         configfile=args.config,
@@ -240,7 +243,7 @@ def assemble_transcripts_pipeline(args):
         workdir=CWD,
         cluster_config=args.hpc_conf,
         cluster=sub_cmd + res_cmd if args.no_drmaa else None,
-        drmaa=res_cmd if not args.no_drmaa else None,
+        drmaa=res_cmd if (not args.no_drmaa and res_cmd is not None) else None,
         printshellcmds=True,
         snakemakepath=shutil.which("snakemake"),
         stats="daijin_tr_" + NOW + ".stats",

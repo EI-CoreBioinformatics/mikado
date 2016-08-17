@@ -1,7 +1,64 @@
+.. _algorithms:
+
+Mikado core algorithms
+======================
+
+.. _pick-algo:
+
+Picking transcripts: how to define loci and their members
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. topic:: The Mikado pick algorithm
+
+    .. figure:: Mikado_algorithm.jpeg
+        :align: center
+        :scale: 50%
+
+    Schematic representation of how Mikado unbundles a complex locus into two separate genes.
+
+Transcripts are scored and selected according to user-defined rules, based on many different features of the transcripts themselves (cDNA length, CDS length, UTR fraction, number of reliable junctions, etc.; please see the :ref:`dedicated section on scoring <scoring_files>` for details on the scoring algorithm).
+
+The detection and analysis of a locus proceeds as follows:
+
+#. When the first transcript is detected, Mikado will create a *superlocus* - a container of transcripts sharing the same genomic location - and assign the transcript to it.
+#. While traversing the genome, as long as any new transcript is within the maximum allowed flanking distance, it will be added to the superlocus.
+#. When the last transcript is added, Mikado performs the following preliminary operations:
+    #. Integrate all the data from the database (including ORFs, reliable junctions in the region, and BLAST homology).
+    #. If a transcript is monoexonic, assign or reverse its strand if the ORF data supports the decision
+    #. If requested and the ORF data supports the operation, split chimeric transcripts - ie those that contain two or more non-overlapping ORFs on the same strand.
+    #. Split the superlocus into groups of transcripts that:
+        * share the same strand
+        * have at least 1bp overlap
+    #. Analyse each of these novel "stranded" superloci separately.
+#. Create *subloci*, ie group transcripts so to minimize the probability of mistakenly merging multiple gene loci due to chimeras. These groups are defined as follows:
+    * if the transcripts are multiexonic, they must share at least one intron, inclusive of the borders
+    * if the transcripts are monoexonic, they must overlap by at least 1bp.
+    * Monoexonic and multiexonic transcripts *cannot* be part of the same sublocus.
+#. Select the best transcript inside each sublocus:
+    #. Score the transcripts (see the :ref:`section on scoring <scoring_files>`)
+    #. Select as winner the transcript with the highest score and assign it to a *monosublocus*
+    #. Discard any transcript which is overlapping with it, according to the definitions in the point above
+    #. Repeat the procedure from point 2 until no transcript remains in the sublocus
+#. *Monosubloci* are gathered together into *monosubloci holders*, ie the seeds for the gene loci. Monosubloci holder have more lenient parameters to group transcripts, as the first phase should have already discarded most chimeras. Once a holder is created by a single *monosublocus*, any subsequent candidate *monosublocus* will be integrated only if the following conditions are satisfied:
+    * if the candidate is monoexonic, its exon must overlap at least one exon of a transcript already present in the holder
+    * if the candidate is multiexonic and the holder contains only monoexonic transcripts, apply the same criterion, ie check whether its exons overlap the exons of at least one of the transcripts already present
+    * if the candidate is multiexonic and the holder contains multiexonic transcripts, check whether its introns overlap the introns of at least one of the transcripts in the holder.
+#. Once the holders are created, apply the same scoring and selection procedure of the sublocus selection step. The winning transcripts are assigned to the final *loci*. These are called the *primary transcripts of the loci*.
+#. Once the loci are created, track back to the original transcripts of the superlocus:
+    #. discard any transcript overlapping more than one locus, as these are probably chimeras.
+    #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccode>` of the comparison against the primary transcript.
+#. Finally detect and either tag or discard fragments inside the initial *superlocus* (irrespective of strand):
+    #. Check whether the primary transcript of any locus meets the criteria to be defined as a fragment (by default, maximum ORF of 30AA and maximum 2 exons - any transcript exceeding either criterion will be considered as non-fragment by default)
+    #. If so, verify whether they are near enough any valid locus to be considered as a fragment (in general, class codes which constitute the "Intronic", "Fragmentary" and "No overlap" categories).
+    #. If these conditions are met, tag the locus as a fragment. If requested, Mikado will just discard these transcripts (advised).
+
+These steps help Mikado identify and solve fusions, detect correctly the gene loci, and define valid alternative splicing events.
+
+
 .. _scoring_files:
 
 Transcript measurements and scoring
-===================================
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. _scoring_algorithm:
 
@@ -379,6 +436,10 @@ Metrics belong to one of the following categories:
 
 Technical details
 ~~~~~~~~~~~~~~~~~
+
+Most of the selection (ie "pick") stage of the pipeline relies on the implementation of the objects in the :ref:`loci submodule <sub-loci>`. In particular, the library defines an abstract class, "Abstractlocus", which requires all its children to implement a version of the "is_intersecting" method. Each implementation of the method is specific to the stage. So the *superlocus* class will require in the "is_intersecting" method only overlap between the transcripts, optionally with a flanking and optionally restricting the groups to transcripts that share the same strand. The *sublocus* class will implement a different algorithm, and so on.
+The scoring is effectuated by first asking to recalculate the metrics (.calculate_metrics) and subsequently
+to calculate the scores (.calculate_scores). Mikado will try to cache and avoid recalculation of metrics and scores as much as possible, to make the program faster.
 
 Metrics are an extension of the ``property`` construct in Python3. Compared to normal properties, they are distinguished only by the optional ``category`` attribute, whose function is only descriptive. The main reason to subclass ``property`` is to allow Mikado to be self-aware of which properties will be used for scoring transcripts, and which will not. So, for example, in the following snippet from the :ref:`Transcript class definition <transcript-class>`:
 

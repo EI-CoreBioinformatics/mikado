@@ -329,7 +329,7 @@ def configure_parser():
     :rtype: argparse.ArgumentParser
     """
 
-    parser = argparse.ArgumentParser("Configuration utility for Mikado",
+    parser = argparse.ArgumentParser(description="Configuration utility for Mikado",
                                      formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--full", action="store_true", default=False)
     scoring = parser.add_argument_group("Options related to the scoring system")

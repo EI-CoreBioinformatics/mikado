@@ -22,10 +22,162 @@ No emperor or empress can lead its nation without a trusty chancellor to help hi
 
 .. _daijin-configure:
 
-Configure
-~~~~~~~~~
+Configuring Daijin
+~~~~~~~~~~~~~~~~~~
 
-This utility creates the configuration file that will drive Daijin, in YAML_ format. The file will need to be edited to
+``daijin configure`` creates the configuration file that will drive Daijin, in YAML_ format. Most options can be specified by command line. Available parameters for the command line are:
+
+* *out*: Output file, ie the configuration file for Daijin.
+* *od*: Directory that Daijin will use as master for its jobs.
+* *genome*: Genome FASTA file. Required.
+* *aligners*: aligner(s) to be used during the run. Currently, Daijin supports the following aligners:
+    * *gsnap*
+    * *star*
+    * *tophat2*
+    * *hisat2*
+* *assemblers*: assembler(s) to be used during the run. Currently, Daijin supports the following RNA-Seq assemblers:
+    * *cufflinks*
+    * *class2*
+    * *stringtie*
+    * *trinity*
+* *threads*: Number of threads to be requested for parallelisable steps.
+* *scheduler*: if Daijin has to execute the pipeline on a cluster (potentially using DRMAA), it is necessary to specify the scheduler here. At the moment we support the following widely used schedulers: PBS, LSF, SLURM.
+* *r1*, *r2*, *samples*: RNA-Seq reads 1, RNA-Seq reads 2, and sample name. At least one of each is required.
+* *strandedness*: if not specified, all samples will be assumed to be unstranded. 
+
+.. code-block:: bash
+
+    $ daijin configure --help
+    usage: daijin configure [-h] [-c CLUSTER_CONFIG] [--threads N] [-od OUT_DIR]
+                            [-o OUT] [--scheduler {,SLURM,LSF,PBS}] [--name NAME]
+                            --genome GENOME [--transcriptome TRANSCRIPTOME]
+                            [-r1 R1 [R1 ...]] [-r2 R2 [R2 ...]]
+                            [-s SAMPLES [SAMPLES ...]]
+                            [-st {fr-unstranded,fr-secondstrand,fr-firststrand} [{fr-unstranded,fr-secondstrand,fr-firststrand} ...]]
+                            -al
+                            [{gsnap,star,hisat,tophat2} [{gsnap,star,hisat,tophat2} ...]]
+                            -as
+                            [{class,cufflinks,stringtie,trinity} [{class,cufflinks,stringtie,trinity} ...]]
+                            [--scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml}]
+                            [--copy-scoring COPY_SCORING]
+                            [-m {nosplit,split,permissive,stringent,lenient} [{nosplit,split,permissive,stringent,lenient} ...]]
+                            [--prot-db PROT_DB [PROT_DB ...]]
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -al [{gsnap,star,hisat,tophat2} [{gsnap,star,hisat,tophat2} ...]], --aligners [{gsnap,star,hisat,tophat2} [{gsnap,star,hisat,tophat2} ...]]
+                            Aligner(s) to use for the analysis. Choices: gsnap,
+                            star, hisat, tophat2
+      -as [{class,cufflinks,stringtie,trinity} [{class,cufflinks,stringtie,trinity} ...]], --assemblers [{class,cufflinks,stringtie,trinity} [{class,cufflinks,stringtie,trinity} ...]]
+                            Assembler(s) to use for the analysis. Choices: class,
+                            cufflinks, stringtie, trinity
+
+    Options related to how to run Daijin - threads, cluster configuration, etc.:
+      -c CLUSTER_CONFIG, --cluster_config CLUSTER_CONFIG
+                            Cluster configuration file to write to.
+      --threads N, -t N     Maximum number of threads per job. Default: 4
+      -od OUT_DIR, --out-dir OUT_DIR
+                            Output directory. Default if unspecified: chosen name.
+      -o OUT, --out OUT     Output file. If the file name ends in "json", the file
+                            will be in JSON format; otherwise, Daijin will print
+                            out a YAML file. Default: STDOUT.
+      --scheduler {,SLURM,LSF,PBS}
+                            Scheduler to use. Default: None - ie, either execute
+                            everything on the local machine or use DRMAA to submit
+                            and control jobs (recommended).
+
+    Arguments related to the reference species.:
+      --name NAME           Name of the species under analysis.
+      --genome GENOME, -g GENOME
+                            Reference genome for the analysis, in FASTA format.
+                            Required.
+      --transcriptome TRANSCRIPTOME
+                            Reference annotation, in GFF3 or GTF format.
+
+    Arguments related to the input paired reads.:
+      -r1 R1 [R1 ...], --left_reads R1 [R1 ...]
+                            Left reads for the analysis. Required.
+      -r2 R2 [R2 ...], --right_reads R2 [R2 ...]
+                            Right reads for the analysis. Required.
+      -s SAMPLES [SAMPLES ...], --samples SAMPLES [SAMPLES ...]
+                            Sample names for the analysis. Required.
+      -st {fr-unstranded,fr-secondstrand,fr-firststrand} [{fr-unstranded,fr-secondstrand,fr-firststrand} ...], --strandedness {fr-unstranded,fr-secondstrand,fr-firststrand} [{fr-unstranded,fr-secondstrand,fr-firststrand} ...]
+                            Strandedness of the reads. Specify it 0, 1, or number
+                            of samples times. Choices: fr-unstranded, fr-
+                            secondstrand, fr-firststrand.
+
+    Options related to the Mikado phase of the pipeline.:
+      --scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml}
+                            Available scoring files.
+      --copy-scoring COPY_SCORING
+                            File into which to copy the selected scoring file, for
+                            modification.
+      -m {nosplit,split,permissive,stringent,lenient} [{nosplit,split,permissive,stringent,lenient} ...], --modes {nosplit,split,permissive,stringent,lenient} [{nosplit,split,permissive,stringent,lenient} ...]
+                            Mikado pick modes to run. Choices: nosplit, split,
+                            permissive, stringent, lenient
+      --prot-db PROT_DB [PROT_DB ...]
+                            Protein database to compare against, for Mikado.
+
+.. warning:: if DRMAA is requested and no scheduler is specified, Daijin will fail. For this reason, Daijin *requires* a scheduler name. If one is not provided, Daijin will fall back to local execution.
+
+
+Running the pipeline
+~~~~~~~~~~~~~~~~~~~~
+
+Daijin executes the pipeline in two distinct phases, *assemble* and *mikado*. Both commands have the same command line interface, namely::
+
+     $ daijin assemble --help
+    usage: daijin assemble [-h] [-c HPC_CONF] [-d] [--jobs N] [--cores [N]]
+                           [--threads N] [--no_drmaa] [--rerun-incomplete]
+                           [--forcerun TARGET [TARGET ...]] [--detailed-summary]
+                           [--list] [--dag]
+                           config
+
+    positional arguments:
+      config                Configuration file to use for running the transcript
+                            assembly pipeline.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -c HPC_CONF, --hpc_conf HPC_CONF
+                            Configuration file that allows the user to override
+                            resource requests for each rule when running under a
+                            scheduler in a HPC environment.
+      -d, --dryrun          Do a dry run for testing.
+      --jobs N, -J N        Maximum number of cluster jobs to execute
+                            concurrently.
+      --cores [N], -C [N]   Use at most N cores in parallel (default: 1000).
+      --threads N, -t N     Maximum number of threads per job. Default: None (set
+                            in the configuration file)
+      --no_drmaa, -nd       Use this flag if you wish to run without DRMAA, for
+                            example, if running on a HPC and DRMAA is not
+                            available, or if running locally on your own machine
+                            or server.
+      --rerun-incomplete, --ri
+                            Re-run all jobs the output of which is recognized as
+                            incomplete.
+      --forcerun TARGET [TARGET ...], -R TARGET [TARGET ...]
+                            Force the re-execution or creation of the given rules
+                            or files. Use this option if you changed a rule and
+                            want to have all its output in your workflow updated.
+      --detailed-summary, -D
+                            Print detailed summary of all input and output files
+      --list, -l            List resources used in the workflow
+      --dag                 Do not execute anything and print the redirected
+                            acylic graph of jobs in the dot language.
+
+
+The available command parameters are:
+
+* *config*: the configuration file.
+* *hpc_conf*: cluster configuration file.
+* *jobs*: Maximum number of jobs that can be executed (if Daijin is in local mode) or be present in the submission queue (if Daijin is in DRMAA/cluster mode) at any one time.
+* *dryrun*: do not execute, just list all the commands that will be executed. Useful also for listing the rules that have to be executed.
+* *cores*: Maximum number of cores that Daijin can claim at any one time.
+* *threads*: Maximum number of cores/threads that can be assigned to any step of the pipeline.
+* *rerun-incomplete*: Ask Snakemake to check which steps have produced empty or incomplete output files, and re-execute them and all the downstream commands.
+* *forcerun*: force the re-run of a
+
 
 .. _daijin-assemble:
 
@@ -54,59 +206,13 @@ So during this first step Daijin will go from raw reads files to multiple assemb
         :figwidth: 100%
 
 
-        Example of a pipeline to assemble a single paired-end read dataset using three aligners (STAR [STAR]_, Hisat [Hisat]_, TopHat2 [TopHat2]_ ) and two different RNA-Seq assemblers (StringTie [StringTie]_, CLASS2 [Class2]_ ). Reliable junctions from the three alignments are called and merged together using Portcullis_.
-
-Usage::
-
-    $ daijin assemble --help
-    usage: daijin assemble [-h] [-c HPC_CONF] [--jobs N] [--cores [N]]
-                           [--threads N] [--no_drmaa] [--rerun-incomplete]
-                           [--forcerun TARGET [TARGET ...]] [--detailed-summary]
-                           [--list] [--dag]
-                           config
-
-    positional arguments:
-      config                Configuration file to use for running the transcript
-                            assembly pipeline.
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      -c HPC_CONF, --hpc_conf HPC_CONF
-                            Configuration file that allows the user to override
-                            resource requests for each rule when running under a
-                            scheduler in a HPC environment.
-      --jobs N, -J N        Maximum number of cluster jobs to execute
-                            concurrently.
-      --cores [N], -C [N]   Use at most N cores in parallel (default: 1000).
-      --threads N, -t N     Maximum number of threads per job. Default: None (set
-                            in the configuration file)
-      --no_drmaa, -nd       Use this flag if you wish to run without DRMAA, for
-                            example, if running on a HPC and DRMAA is not
-                            available, or if running locally on your own machine
-                            or server.
-      --rerun-incomplete, --ri
-                            Re-run all jobs the output of which is recognized as
-                            incomplete.
-      --forcerun TARGET [TARGET ...], -R TARGET [TARGET ...]
-                            Force the re-execution or creation of the given rules
-                            or files. Use this option if you changed a rule and
-                            want to have all its output in your workflow updated.
-      --detailed-summary, -D
-                            Print detailed summary of all input and output files
-      --list, -l            List resources used in the workflow
-      --dag                 Do not execute anything and print the redirected
-                            acylic graph of jobs in the dot language.
-
-
-
+        Example of a pipeline to assemble a single paired-end read dataset using one aligners (Hisat [Hisat]_) and two different RNA-Seq assemblers (StringTie [StringTie]_ and CLASS2 [Class2]_ ). Reliable junctions from the three alignments are called and merged together using Portcullis_.
 
 
 .. _daijin-mikado:
 
 Mikado
 ~~~~~~
-
-
 
 In this step, the Daijin manager will execute all the steps necessary to perform Mikado on the desired inputs. The manager will execute the following steps:
 
@@ -118,6 +224,7 @@ In this step, the Daijin manager will execute all the steps necessary to perform
 #. Run :ref:`Mikado pick <pick>` on the data, in the selected modes.
 #. Collate and collapse the statistics for each of the filtered assemblies.
 
+``daijin mikado`` by default should use as config **the configuration file created by** ``daijin assemble``, which will be located in <output directory>/mikado.yaml.
 
 .. topic:: Mikado pipeline, as driven by Daijin
 
@@ -128,48 +235,5 @@ In this step, the Daijin manager will execute all the steps necessary to perform
 
         Example of a typical Mikado pipeline. In this case the number of chunks for BLAST is limited - 10 - but we advise to increase this number for big datasets.
 
-
-Command line usage::
-
-    $ daijin mikado --help
-    usage: daijin mikado [-h] [-c HPC_CONF] [--jobs N] [--cores [N]] [--threads N]
-                         [--no_drmaa] [--rerun-incomplete]
-                         [--forcerun TARGET [TARGET ...]] [--detailed-summary]
-                         [--list] [--dag]
-                         config
-
-    positional arguments:
-      config                Configuration file to use for running the Mikado step
-                            of the pipeline.
-
-    optional arguments:
-      -h, --help            show this help message and exit
-      -c HPC_CONF, --hpc_conf HPC_CONF
-                            Configuration file that allows the user to override
-                            resource requests for each rule when running under a
-                            scheduler in a HPC environment.
-      --jobs N, -J N        Maximum number of cluster jobs to execute
-                            concurrently.
-      --cores [N], -C [N]   Use at most N cores in parallel (default: 1000).
-      --threads N, -t N     Maximum number of threads per job. Default: None (set
-                            in the configuration file)
-      --no_drmaa, -nd       Use this flag if you wish to run without DRMAA, for
-                            example, if running on a HPC and DRMAA is not
-                            available, or if running locally on your own machine
-                            or server.
-      --rerun-incomplete, --ri
-                            Re-run all jobs the output of which is recognized as
-                            incomplete.
-      --forcerun TARGET [TARGET ...], -R TARGET [TARGET ...]
-                            Force the re-execution or creation of the given rules
-                            or files. Use this option if you changed a rule and
-                            want to have all its output in your workflow updated.
-      --detailed-summary, -D
-                            Print detailed summary of all input and output files
-      --list, -l            List resources used in the workflow
-      --dag                 Do not execute anything and print the redirected
-                            acylic graph of jobs in the dot language.
-
-
 .. The part regarding being able to use directly Mikado configure is not true yet. Gotta work on it!
-.. tip:: If you have already created some assemblies and wish to analyse them with Daijin, it is also possible to :ref:`configure Mikado externally <configure>` and use the resulting configuration file to guide Daijin.
+.. hint:: If you have already created some assemblies and wish to analyse them with Daijin, it is also possible to :ref:`configure Mikado externally <configure>` and use the resulting configuration file to guide Daijin. At the time of this writing, this is also the recommended protocol for including eg Pacbio or EST alignments.

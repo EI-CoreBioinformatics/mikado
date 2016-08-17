@@ -197,6 +197,8 @@ class GffLine(GFAnnotation):
             return False
         if self.feature.endswith("transcript") or "RNA" in self.feature.upper():
             return True
+        elif self.id is not None and "transcript:" in self.id and self.parent is not None:
+            return True
         return False
 
     @property

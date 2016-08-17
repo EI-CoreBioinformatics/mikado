@@ -110,7 +110,7 @@ rule pick:
     input: configuration=configname, gtf="mikado_prepared.gtf", check="serialised.ok"
     log: config["pick"]["files"]["log"]
     threads: 10
-    output: "mikado.loci.gff3", "mikado.subloci.gff3"
+    output: "mikado.loci.gff3", "mikado.subloci.gff3", "mikado.monoloci.gff3"
     message: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
     shell: "mikado pick --json-conf configuration.yaml -lv INFO --subloci_out mikado.subloci.gff3 --monoloci_out mikado.monoloci.gff3 -p {threads}"
 

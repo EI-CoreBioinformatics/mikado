@@ -7,15 +7,14 @@ requirements:
     combined_cds_length.mono: {operator: gt, value: -1}
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
-    max_intron_length: {operator: le, value: 5000}
+    max_intron_length: {operator: le, value: 20000}
     min_intron_length: {operator: ge, value: 5}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}
-  exon_fraction: {rescaling: max}
-  exon_num: {rescaling: max}
+  exon_num: {rescaling: min}
   five_utr_length:
     filter: {operator: le, value: 2500}
     rescaling: target
@@ -27,8 +26,6 @@ scoring:
   end_distance_from_junction:
     filter: {operator: lt, value: 55}
     rescaling: min
-  highest_cds_exon_number: {rescaling: max}
-  intron_fraction: {rescaling: max}
   number_internal_orfs: {rescaling: target, value: 1}
   proportion_verified_introns: {rescaling: max}
   retained_fraction: {rescaling: min}

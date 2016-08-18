@@ -79,7 +79,7 @@ The Mikado suite provides two commands: ``mikado`` and ``daijin``. The former pr
 Each of these subcommands is explained in detail in the :ref:`Usage <Usage>` section.
 
 
-``daijin`` instead provides the interface to the :ref:`Daijin pipeline manager <Daijin>`_, which manages the task of going from a dataset of multiple reads to the Mikado final picking. This is its interface:
+``daijin`` instead provides the interface to the :ref:`Daijin pipeline manager <Daijin>`, which manages the task of going from a dataset of multiple reads to the Mikado final picking. This is its interface:
 
 .. code-block:: bash
 

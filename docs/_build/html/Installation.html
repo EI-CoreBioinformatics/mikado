@@ -26,7 +26,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Mikado 1.0.0b4 documentation" href="index.html" />
-    <link rel="next" title="Usage" href="Usage/index.html" />
+    <link rel="next" title="3. Tutorial" href="Tutorial/index.html" />
     <link rel="prev" title="1. Introduction" href="Introduction.html" /> 
   </head>
   <body role="document">
@@ -40,7 +40,7 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Usage/index.html" title="Usage"
+          <a href="Tutorial/index.html" title="3. Tutorial"
              accesskey="N">next</a> |</li>
         <li class="right" >
           <a href="Introduction.html" title="1. Introduction"
@@ -54,9 +54,8 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <p>:: <a class="reference internal" href="#installation">Installation</a></p>
-<div class="section" id="installation">
-<h1>2. Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
+  <div class="section" id="installation">
+<span id="id1"></span><h1>2. Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="system-requirements">
 <h2>2.1. System requirements<a class="headerlink" href="#system-requirements" title="Permalink to this headline">¶</a></h2>
 <p>Mikado requires CPython 3.4 or later to function (Python2 is not supported). Additionally, it requires a functioning installation of one among SQLite, PostgreSQL and MySQL. Mikado has additionally the following python dependencies:</p>
@@ -84,7 +83,7 @@
 </pre></div>
 </div>
 <p>Mikado can run with little system requirements, being capable of analysing human data with less than 4GB of RAM in all stages. It benefits from the availability of multiple processors, as many of the steps of the pipeline are parallelised.</p>
-<p>Mikado is at its core a data integrator. The <a class="reference internal" href="Usage/Daijin.html#daijin"><span class="std std-ref">Daijin pipeline</span></a> has been written to facilitate the creation of a functioning workflow. To function, it requires Snakemake <a class="reference internal" href="References.html#snake" id="id1">[Snake]</a> and the presence of at least one supported RNA-Seq aligner and one supported transcript assembler. If you are planning to execute it on a cluster, we do support job submission on SLURM, LSF and PBS clusters, either in the presence or absence of DRMAA.</p>
+<p>Mikado is at its core a data integrator. The <a class="reference internal" href="Usage/Daijin.html#daijin"><span class="std std-ref">Daijin pipeline</span></a> has been written to facilitate the creation of a functioning workflow. To function, it requires Snakemake <a class="reference internal" href="References.html#snake" id="id2">[Snake]</a> and the presence of at least one supported RNA-Seq aligner and one supported transcript assembler. If you are planning to execute it on a cluster, we do support job submission on SLURM, LSF and PBS clusters, either in the presence or absence of DRMAA.</p>
 </div>
 <div class="section" id="download">
 <h2>2.2. Download<a class="headerlink" href="#download" title="Permalink to this headline">¶</a></h2>
@@ -114,24 +113,24 @@
 <p>Mikado has been written for Python 3.4 and 3.5. It is dependent on the following Python3 modules:</p>
 <ul class="simple">
 <li>wheel&gt;=0.28.0</li>
-<li>pyyaml <a class="reference internal" href="References.html#pyyaml" id="id2">[PyYaml]</a></li>
+<li>pyyaml <a class="reference internal" href="References.html#pyyaml" id="id3">[PyYaml]</a></li>
 <li>jsonschema</li>
-<li>Cython <a class="reference internal" href="References.html#cython" id="id3">[Cython]</a></li>
-<li>cython <a class="reference internal" href="References.html#cython" id="id4">[Cython]</a></li>
-<li>numpy <a class="reference internal" href="References.html#numpy" id="id5">[Numpy]</a></li>
-<li>networkx&gt;=1.10 <a class="reference internal" href="References.html#networkx" id="id6">[NetworkX]</a></li>
+<li>Cython <a class="reference internal" href="References.html#cython" id="id4">[Cython]</a></li>
+<li>cython <a class="reference internal" href="References.html#cython" id="id5">[Cython]</a></li>
+<li>numpy <a class="reference internal" href="References.html#numpy" id="id6">[Numpy]</a></li>
+<li>networkx&gt;=1.10 <a class="reference internal" href="References.html#networkx" id="id7">[NetworkX]</a></li>
 <li>sqlalchemy&gt;=1</li>
 <li>sqlalchemy_utils</li>
-<li>biopython&gt;=1.66 <a class="reference internal" href="References.html#biopython" id="id7">[BioPython]</a></li>
+<li>biopython&gt;=1.66 <a class="reference internal" href="References.html#biopython" id="id8">[BioPython]</a></li>
 <li>intervaltree</li>
 <li>nose</li>
 <li>pyfaidx</li>
-<li>scikit-learn&gt;=0.17.0 <a class="reference internal" href="References.html#scikit" id="id8">[SciKit]</a></li>
-<li>scipy&gt;=0.15.0 <a class="reference internal" href="References.html#scipy" id="id9">[Scipy]</a></li>
+<li>scikit-learn&gt;=0.17.0 <a class="reference internal" href="References.html#scikit" id="id9">[SciKit]</a></li>
+<li>scipy&gt;=0.15.0 <a class="reference internal" href="References.html#scipy" id="id10">[Scipy]</a></li>
 <li>frozendict</li>
 <li>python-magic</li>
-<li>drmaa <a class="reference internal" href="References.html#drmaa" id="id10">[DRMAA]</a></li>
-<li>snakemake <a class="reference internal" href="References.html#snake" id="id11">[Snake]</a></li>
+<li>drmaa <a class="reference internal" href="References.html#drmaa" id="id11">[DRMAA]</a></li>
+<li>snakemake <a class="reference internal" href="References.html#snake" id="id12">[Snake]</a></li>
 <li>docutils</li>
 </ul>
 <p>These dependencies will be installed automatically by PIP.</p>
@@ -166,8 +165,8 @@
   <p class="topless"><a href="Introduction.html"
                         title="previous chapter">1. Introduction</a></p>
   <h4>Next topic</h4>
-  <p class="topless"><a href="Usage/index.html"
-                        title="next chapter">Usage</a></p>
+  <p class="topless"><a href="Tutorial/index.html"
+                        title="next chapter">3. Tutorial</a></p>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -199,7 +198,7 @@
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="Usage/index.html" title="Usage"
+          <a href="Tutorial/index.html" title="3. Tutorial"
              >next</a> |</li>
         <li class="right" >
           <a href="Introduction.html" title="1. Introduction"

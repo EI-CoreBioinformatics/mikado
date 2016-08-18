@@ -343,7 +343,7 @@ So during this first step Daijin will go from raw reads files to multiple assemb
         :figwidth: 100%
 
 
-        Example of a pipeline to assemble a single paired-end read dataset using one aligners (Hisat [Hisat]_) and two different RNA-Seq assemblers (StringTie [StringTie]_ and CLASS2 [Class2]_ ). Reliable junctions from the three alignments are called and merged together using Portcullis_.
+        Example of a pipeline to assemble a single paired-end read dataset using one aligner (Hisat [Hisat]_) and two different RNA-Seq assemblers (StringTie [StringTie]_ and CLASS2 [Class2]_ ). Reliable junctions from the three alignments are called and merged together using Portcullis_.
 
 
 .. _daijin-mikado:

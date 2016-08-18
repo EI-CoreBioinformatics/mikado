@@ -57,7 +57,7 @@ def loadPre(command):
 	if not cc:
 		return ""
 	else:
-		return cc + " && "
+		return "set +u && {} &&".format(cc)
 
 
 #########################

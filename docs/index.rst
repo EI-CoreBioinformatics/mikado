@@ -32,13 +32,14 @@ Contents
 --------
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :numbered:
 
    Introduction
    Installation
-   Usage/index
    Tutorial/index
+   Tutorial/Daijin_tutorial
+   Usage/index
    Algorithms
    References
    Library/index

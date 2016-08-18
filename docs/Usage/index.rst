@@ -1,4 +1,5 @@
 .. _Portcullis: https://github.com/maplesond/portcullis
+.. _Usage:
 
 Usage
 =====
@@ -12,7 +13,6 @@ Mikado pipeline stages
 
 .. toctree::
    :maxdepth: 1
-   :numbered:
 
    Configure
    Prepare
@@ -31,7 +31,6 @@ Compare
 
 .. toctree::
    :maxdepth: 1
-   :numbered:
 
    Compare
 

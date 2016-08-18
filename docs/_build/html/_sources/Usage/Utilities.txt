@@ -113,8 +113,8 @@ Usage::
 
 .. _stat-command:
 
-stat
-~~~~
+stats
+~~~~~
 
 This command generates a statistics file for GFF3/GTF files. The output is a table including Average, Mode, and various quantiles for different features present in a typical GFF file (genes, introns, exons, cDNAs, etc.). The operation can be quite time consuming for large files, in which case it is advisable to ask for multiple processors.
 

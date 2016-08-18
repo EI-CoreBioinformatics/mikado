@@ -1,0 +1,136 @@
+#  This is a standard configuration file for Daijin. Fields:
+#  - short_reads: this section deals with RNA-Seq short read input data.
+#  - name: name of the species under analysis.
+#  - reference: reference data to use. A reference genome is required.
+align_methods:
+  hisat:
+  - ''
+asm_methods:
+  class:
+  - ''
+  stringtie:
+  - ''
+blastx:
+  prot_db:
+  - uniprot_sprot_fungi.fasta
+  chunks: 100
+  evalue: 1.0e-03
+  max_target_seqs: 10
+extra:
+  #  Options related to indexing.
+  star_index: ''
+load:
+  #  Commands to use to load/select the versions of the programs to use. Leave an empty
+  #  string if no loading is necessary.
+  blast: ''
+  class: ''
+  cufflinks: ''
+  gmap: ''
+  hisat: ''
+  mikado: ''
+  portcullis: ''
+  samtools: ''
+  star: ''
+  stringtie: ''
+  tophat: ''
+  transdecoder: ''
+  trinity: ''
+mikado:
+  db_settings:
+    #  Settings related to DB connection. Parameters:
+    #  db: the DB to connect to. Required. Default: mikado.db
+    #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
+    #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
+    #  dbuser: DB user. Default:
+    #  dbpasswd: DB password for the user. Default:
+    #  dbport: Integer. It indicates the default port for the DB.
+    db: mikado.db
+    dbhost: localhost
+    dbpasswd: ''
+    dbport: 0
+    dbtype: sqlite
+    dbuser: ''
+  modes:
+  - permissive
+  pick:
+    alternative_splicing:
+      #  Parameters related to alternative splicing reporting.
+      #  - report: whether to report at all or not the AS events.
+      #  - max_isoforms: Maximum number of isoforms per locus. 1 implies no AS reported.
+      #  Default: 3
+      #  - only_confirmed_introns: bring back AS events only when their introns are
+      #  either
+      #   present in the primary transcript or in the set of confirmed introns.
+      keep_retained_introns: false
+      max_fiveutr_length: 1000000
+      max_isoforms: 3
+      max_threeutr_length: 1000000
+      max_utr_length: 1000000
+      min_cdna_overlap: 0
+      min_cds_overlap: 0.6
+      min_score_perc: 0.6
+      only_confirmed_introns: false
+      redundant_ccodes:
+      - c
+      - m
+      - _
+      - '='
+      - n
+      - C
+      report: true
+      valid_ccodes:
+      - j
+      - J
+      - G
+      - g
+      - h
+    scoring_file: spombe.yaml
+  prepare:
+    #  Options related to Mikado prepare. Possibilities:
+    #  - lenient: whether to activate the lenient mode of Mikado.
+    #  - canonical: which combinations of donor and acceptor sites are considered
+    #  as valid.
+    canonical:
+    - - GT
+      - AG
+    - - GC
+      - AG
+    - - AT
+      - AC
+    lenient: false
+  serialise:
+    force: true
+name: Sc_pombe
+out_dir: daijin_spombe
+portcullis:
+  #  Options related to portcullis
+  canonical_juncs: C,S
+  do: true
+reference:
+  #  Options related to the reference genome.
+  genome: Schizosaccharomyces_pombe.ASM294v2.dna.toplevel.fa
+  genome_fai: ''
+  transcriptome: ''
+scheduler: SLURM
+short_reads:
+  #  Parameters related to the reads to use for the assemblies. Voices:
+  #  - r1: array of left read files.
+  #  - r2: array of right read files. It must be of the same length of r1; if one
+  #    one or more of the samples are single-end reads, add an empty string.
+  #  - samples: array of the sample names. It must be of the same length of r1.
+  #  - strandedness: array of strand-specificity of the samples. It must be of the
+  #    same length of r1. Valid values: fr-firststrand, fr-secondstrand, fr-unstranded.
+  max_intron: 10000
+  min_intron: 20
+  r1:
+  - SRR1617247_1.fastq.gz
+  r2:
+  - SRR1617247_2.fastq.gz
+  samples:
+  - SRR1617247
+  strandedness:
+  - fr-secondstrand
+tgg_max_mem: 6000
+threads: 20
+transdecoder:
+  min_protein_len: 30

@@ -19,6 +19,7 @@ from ...utilities.log_utils import create_null_logger, check_logger
 from . import Query, Target, Hsp, Hit, prepare_hit, InvalidHit
 from xml.parsers.expat import ExpatError
 import xml
+from queue import Empty
 import multiprocessing
 
 
@@ -256,6 +257,8 @@ class _XmlPickler(multiprocessing.Process):
                 # self.filequeue.put("EXIT")
                 # return 0
                 raise
+            except Empty:
+                continue
 
             if filename == "EXIT":
                 self.logger.info("Process %s received EXIT signal, terminating",

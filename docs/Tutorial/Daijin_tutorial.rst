@@ -211,7 +211,11 @@ It is possible to compare them to the current annotation by using :ref:`Mikado c
 
 .. code-block:: bash
 
+  # First index the refernece GFF3
+  mikado compare -r Arabidopsis_thaliana.TAIR10.32.gff3 --index;
+  # Compare the CLASS2 assembly against the reference
   mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare.log;
+  # Compare the Stringtie assembly against the reference
   mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare.log;
 
 The analysis will produce *TMAP*, *REFMAP* and *STATS* files for each of the two assemblies. This is the report of the stats file for the CLASS2 assembly::

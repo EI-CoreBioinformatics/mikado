@@ -14,10 +14,6 @@ scoring:
   cdna_length: {rescaling: max}
   cds_not_maximal: {rescaling: min}
   cds_not_maximal_fraction: {rescaling: min}
-  combined_cds_fraction: {rescaling: target, value: 0.8}
-  combined_cds_intron_fraction: {rescaling: max}
-  combined_cds_length: {rescaling: max}
-  combined_cds_num: {rescaling: max}
   exon_fraction: {rescaling: max}
   exon_num: {rescaling: max}
   five_utr_length:

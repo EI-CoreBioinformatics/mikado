@@ -230,7 +230,9 @@ class GFAnnotation(metaclass=abc.ABCMeta):
                 if "transcript:" in self.id:
                     return False
                 return True
-
+            elif self.id is not None and self.id.startswith("gene:"):
+                # Hack for EnsEMBL
+                return True
         return False
 
     @property

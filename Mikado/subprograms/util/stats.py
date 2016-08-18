@@ -233,7 +233,10 @@ class Calculator:
                         new_record,
                         only_coding=self.only_coding,
                         logger=self.__logger)
-                transcript2gene[record.id] = record.parent[0]
+                try:
+                    transcript2gene[record.id] = record.parent[0]
+                except IndexError:
+                    raise IndexError("{}; {}".format(str(record), record.parent))
                 assert current_gene is not None, record
                 current_gene.transcripts[record.id] = TranscriptComputer(record,
                                                                          logger=self.__logger)

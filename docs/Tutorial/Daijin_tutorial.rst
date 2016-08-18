@@ -1,9 +1,13 @@
+.. _ERR588044: http://www.ebi.ac.uk/ena/data/view/ERR588044
+.. _PRJEB7093: http://www.ebi.ac.uk/ena/data/view/PRJEB7093
+.. _ERR588044_1.fastq.gz: ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR588/ERR588044/ERR588044_1.fastq.gz
+.. _ERR588044_2.fastq.gz: ftp://ftp.sra.ebi.ac.uk/vol1/fastq/ERR588/ERR588044/ERR588044_2.fastq.gz
 .. _Daijin-Tutorial:
 
 Tutorial for Daijin
 ===================
 
-This tutorial will guide you through the task of configuring and running the whole Daijin pipeline on a *S. pombe* dataset, using one aligner (HISAT) and two assemblers (Stringtie and CLASS2) as chosen methods. A modern desktop computer with a multicore processor and 4GB of RAM or more should suffice to execute the pipeline.
+This tutorial will guide you through the task of configuring and running the whole Daijin pipeline on a *A. thaliana* dataset, using one aligner (HISAT) and two assemblers (Stringtie and CLASS2) as chosen methods. A modern desktop computer with a multicore processor and 4GB of RAM or more should suffice to execute the pipeline.
 
 
 Overview
@@ -33,86 +37,88 @@ Mikado should be installed and configured properly (see our :ref:`installation i
 Input data
 ~~~~~~~~~~
 
-Throughout this tutorial, we will use data coming from release 32 of EnsEMBL and from the SRR1617247 experiment on ENA. In particular, we will need:
+Throughout this tutorial, we will use data coming from release 32 of EnsEMBL and from the PRJEB7093_ experiment on ENA. In particular, we will need:
 
- * the `genome FASTA file <ftp://ftp.ensemblgenomes.org/pub/fungi/release-32/fasta/schizosaccharomyces_pombe/dna/Schizosaccharomyces_pombe.ASM294v2.dna.toplevel.fa.gz>`_ of *Schizosaccharomyces pombe*
- * its `relative genome annotation <ftp://ftp.ensemblgenomes.org/pub/fungi/release-32/gff3/schizosaccharomyces_pombe/Schizosaccharomyces_pombe.ASM294v2.32.gff3.gz>`_
- * RNA-Seq from the SRR1617247 experiment: `left <ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR161/007/SRR1617247/SRR1617247_1.fastq.gz>`_ and `right <ftp://ftp.sra.ebi.ac.uk/vol1/fastq/SRR161/007/SRR1617247/SRR1617247_2.fastq.gz>`_.
- * the SwissProt fungi database (downloaded from `here <ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/taxonomic_divisions/uniprot_trembl_fungi.dat.gz>`_, using Uniprot release **2016-07**)
+ * the `genome FASTA file <ftp://ftp.ensemblgenomes.org/pub/fungi/release-32/fasta/arabidopsis_thaliana/dna/Arabidopsis_thaliana.TAIR10.dna.toplevel.fa.gz>`_ of *Arabidopsis thaliana*
+ * its `relative genome annotation <ftp://ftp.ensemblgenomes.org/pub/fungi/release-32/gff3/arabidopsis_thaliana/Arabidopsis_thaliana.TAIR10.32.gff3.gz>`_
+ * RNA-Seq from one sample, ERR588044_, of the PRJEB7093_ study: left (`ERR588044_1.fastq.gz`_) and right (`ERR588044_2.fastq.gz`_)
+ * the SwissProt plants database (downloaded from `here <ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/taxonomic_divisions/uniprot_sprot_plants.dat.gz>`_, using Uniprot release **2016-07**)
 
-Uncompress the genome, the annotation GFF3 and the Uniprot DAT files using GUNZip. The protein database must be converted into FASTA format, and we should remove the *Sc. pombe* proteins to avoid biasing our results. To do so, use the script ``remove_from_embl.py`` (included in Mikado)::
+Uncompress the genome, the annotation GFF3 and the Uniprot DAT files using GUNZip. The protein database must be converted into FASTA format, and we should remove the *A. thaliana* proteins to avoid biasing our results. To do so, use the script ``remove_from_embl.py`` (included in Mikado; please include the quotes, or the script will fail!)::
 
-    remove_from_embl.py --format fasta -o "Schizosaccharomyces pombe" uniprot_sprot_fungi.dat uniprot_sprot_fungi.fasta
+    remove_from_embl.py -o "Arabidopsis thaliana" uniprot_sprot_plants.dat uniprot_sprot_plants.fasta
+
+.. hint:: it is not necessary nor advisable to remove proteins from the database in a real experiment. We are doing so here only to avoid biasing the Mikado results. You can convert the DAT files to FASTA using the same script but using "NULL" in place of "Arabidopsis thaliana".
 
 It is possible to have a feel for the annnotation of this species - the size of its genes and transcripts, the average number of exons per transcript, etc - by using ``mikado util stats``; just issue the following command::
 
-    mikado util stats Schizosaccharomyces_pombe.ASM294v2.32.gff3 Schizosaccharomyces_pombe.ASM294v2.32.gff3.stats
+    mikado util stats Arabidopsis_thaliana.TAIR10.32.gff3 Arabidopsis_thaliana.TAIR10.32.gff3.stats
 
-The file *Schizosaccharomyces_pombe.ASM294v2.32.gff3.stats* contains the following information:
+The file *Arabidopsis_thaliana.TAIR10.32.gff3.stats* contains the following information:
 
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Stat                             | Total    | Average   | Mode         | Min    | 1%     | 5%     | 10%    | 25%   | Median   | 75%   | 90%   | 95%   | 99%   | Max    |
-+==================================+==========+===========+==============+========+========+========+========+=======+==========+=======+=======+=======+=======+========+
-| Number of genes                  | 7014     | NA        | NA           | NA     | NA     | NA     | NA     | NA    | NA       | NA    | NA    | NA    | NA    | NA     |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Number of genes (coding)         | 5145     | NA        | NA           | NA     | NA     | NA     | NA     | NA    | NA       | NA    | NA    | NA    | NA    | NA     |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Number of monoexonic genes       | 4461     | NA        | NA           | NA     | NA     | NA     | NA     | NA    | NA       | NA    | NA    | NA    | NA    | NA     |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Transcripts per gene             | 7015     | 1.00      | 1            | 1      | 1      | 1      | 1      | 1     | 1        | 1     | 1     | 1     | 1     | 2      |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Coding transcripts per gene      | 5146     | 0.73      | 1            | 0      | 0      | 0      | 0      | 0     | 1        | 1     | 1     | 1     | 1     | 2      |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDNA lengths                     | 12586389 | 1,794.21  | 72           | 47     | 72     | 185    | 448    | 922   | 1,549    | 2,363 | 3,400 | 4,151 | 5,894 | 15,022 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDNA lengths (mRNAs)             | 10592917 | 2,058.48  | 1315         | 75     | 283    | 546    | 753    | 1,201 | 1,792    | 2,613 | 3,675 | 4,425 | 6,404 | 15,022 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDS lengths                      | 7178717  | 1,023.34  | 0            | 0      | 0      | 0      | 0      | 0     | 795      | 1,500 | 2,339 | 3,045 | 4,994 | 14,775 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDS lengths (mRNAs)              | NA       | 1,023.34  | 0            | 0      | 0      | 0      | 0      | 0     | 795      | 1,500 | 2,339 | 3,045 | 4,994 | 14,775 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDS/cDNA ratio                   | NA       | 67.48     | 100.0        | 5      | 15     | 28     | 37     | 53    | 70       | 84    | 93    | 100   | 100   | 100    |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Monoexonic transcripts           | 4461     | 1,745.01  | 72           | 47     | 72     | 100    | 336    | 811   | 1,489    | 2,344 | 3,432 | 4,179 | 6,019 | 14,362 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| MonoCDS transcripts              | 2753     | 1,485.99  | 4002;375;432 | 93     | 218    | 332    | 418    | 732   | 1,191    | 1,806 | 2,849 | 3,784 | 5,875 | 14,154 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Exons per transcript             | 12379    | 1.76      | 1            | 1      | 1      | 1      | 1      | 1     | 1        | 2     | 4     | 4     | 7     | 16     |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Exons per transcript (mRNAs)     | 3081     | 2.03      | 1            | 1      | 1      | 1      | 1      | 1     | 1        | 3     | 4     | 5     | 7     | 16     |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Exon lengths                     | NA       | 1,016.75  | 72           | 2      | 25     | 61     | 83     | 184   | 561      | 1,502 | 2,548 | 3,326 | 5,015 | 14,362 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Exon lengths (mRNAs)             | NA       | 1,013.39  | 106          | 3      | 24     | 59     | 86     | 175   | 499      | 1,516 | 2,605 | 3,414 | 5,117 | 14,362 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Intron lengths                   | NA       | 83.69     | 49           | 1      | 17     | 38     | 41     | 46    | 56       | 85    | 162   | 226   | 411   | 2,526  |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Intron lengths (mRNAs)           | NA       | 84.16     | 46           | 1      | 36     | 39     | 41     | 46    | 56       | 86    | 162   | 227   | 412   | 2,526  |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDS exons per transcript         | 2091     | 1.46      | 1            | 0      | 0      | 0      | 0      | 0     | 1        | 2     | 3     | 4     | 7     | 16     |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDS exons per transcript (mRNAs) | 2091     | 1.99      | 1            | 1      | 1      | 1      | 1      | 1     | 1        | 3     | 4     | 5     | 7     | 16     |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDS exon lengths                 | 7178717  | 702.76    | 69;99        | 1      | 8      | 29     | 49     | 106   | 307      | 990   | 1,797 | 2,474 | 4,370 | 14,154 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| CDS Intron lengths               | 414501   | 81.77     | 44;45        | 0      | 35     | 38     | 40     | 45    | 55       | 84    | 157   | 220   | 395   | 2,525  |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| 5'UTR exon number                | 5146     | 0.95      | 1            | 0      | 0      | 0      | 1      | 1     | 1        | 1     | 1     | 1     | 2     | 3      |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| 3'UTR exon number                | 5146     | 0.93      | 1            | 0      | 0      | 0      | 1      | 1     | 1        | 1     | 1     | 1     | 2     | 3      |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| 5'UTR length                     | 1372304  | 266.67    | 0            | 0      | 0      | 0      | 17     | 71    | 154      | 309   | 586   | 932   | 1,935 | 4,397  |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| 3'UTR length                     | 2041896  | 396.79    | 0            | 0      | 0      | 0      | 46     | 126   | 243      | 441   | 865   | 1,386 | 2,644 | 5,911  |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Stop distance from junction      | NA       | 7.58      | 0            | 0      | 0      | 0      | 0      | 0     | 0        | 0     | 0     | 0     | 23    | 3,385  |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Intergenic distances             | NA       | -59.13    | -66          | -9,461 | -3,779 | -2,220 | -1,425 | -188  | 80       | 383   | 857   | 1,303 | 2,734 | 31,961 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
-| Intergenic distances (coding)    | NA       | 297.72    | -66          | -7,815 | -3,477 | -1,598 | -440   | -32   | 176      | 600   | 1,302 | 1,913 | 3,924 | 78,421 |
-+----------------------------------+----------+-----------+--------------+--------+--------+--------+--------+-------+----------+-------+-------+-------+-------+--------+
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Stat                             | Total    | Average   | Mode    | Min     | 1%     | 5%   | 10%   | 25%   | Median   | 75%   | 90%   | 95%   | 99%    | Max     |
++==================================+==========+===========+=========+=========+========+======+=======+=======+==========+=======+=======+=======+========+=========+
+| Number of genes                  | 33602    | NA        | NA      | NA      | NA     | NA   | NA    | NA    | NA       | NA    | NA    | NA    | NA     | NA      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Number of genes (coding)         | 27397    | NA        | NA      | NA      | NA     | NA   | NA    | NA    | NA       | NA    | NA    | NA    | NA     | NA      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Number of monoexonic genes       | 11079    | NA        | NA      | NA      | NA     | NA   | NA    | NA    | NA       | NA    | NA    | NA    | NA     | NA      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Transcripts per gene             | 41671    | 1.24      | 1       | 1       | 1      | 1    | 1     | 1     | 1        | 1     | 2     | 2     | 4      | 10      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Coding transcripts per gene      | 35359    | 1.05      | 1       | 0       | 0      | 0    | 0     | 1     | 1        | 1     | 2     | 2     | 4      | 10      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDNA lengths                     | 64867032 | 1,556.65  | 72      | 22      | 73     | 255  | 463   | 835   | 1,361    | 1,963 | 2,835 | 3,614 | 5,517  | 16,347  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDNA lengths (mRNAs)             | 54248365 | 1,534.22  | 357     | 22      | 144    | 371  | 555   | 897   | 1,383    | 1,919 | 2,664 | 3,268 | 4,826  | 16,347  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDS lengths                      | 43498974 | 1,043.87  | 0       | 0       | 0      | 0    | 0     | 386   | 903      | 1,449 | 2,154 | 2,724 | 4,238  | 16,182  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDS lengths (mRNAs)              | NA       | 1,043.87  | 0       | 0       | 0      | 0    | 0     | 386   | 903      | 1,449 | 2,154 | 2,724 | 4,238  | 16,182  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDS/cDNA ratio                   | NA       | 78.44     | 100.0   | 2       | 35     | 48   | 56    | 68    | 80       | 92    | 100   | 100   | 100    | 100     |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Monoexonic transcripts           | 11494    | 1,377.97  | 72      | 22      | 71     | 77   | 136   | 465   | 972      | 1,841 | 3,110 | 4,335 | 5,949  | 15,195  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| MonoCDS transcripts              | 7367     | 862.50    | 357     | 22      | 99     | 138  | 192   | 357   | 675      | 1,206 | 1,791 | 2,136 | 2,822  | 6,885   |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Exons per transcript             | 217183   | 5.21      | 1       | 1       | 1      | 1    | 1     | 1     | 3        | 7     | 12    | 15    | 24     | 79      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Exons per transcript (mRNAs)     | 2699     | 5.86      | 1       | 1       | 1      | 1    | 1     | 2     | 4        | 8     | 13    | 16    | 25     | 79      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Exon lengths                     | NA       | 298.67    | 72      | 1       | 32     | 51   | 63    | 89    | 150      | 314   | 615   | 990   | 2,400  | 15,195  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Exon lengths (mRNAs)             | NA       | 261.83    | 72      | 1       | 32     | 51   | 63    | 89    | 147      | 300   | 559   | 857   | 1,736  | 7,761   |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Intron lengths                   | NA       | 165.84    | 87      | 8       | 67     | 74   | 78    | 86    | 100      | 168   | 334   | 461   | 849    | 57,631  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Intron lengths (mRNAs)           | NA       | 164.69    | 87      | 8       | 67     | 75   | 78    | 86    | 100      | 168   | 333   | 458   | 838    | 11,602  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDS exons per transcript         | 2308     | 4.73      | 1       | 0       | 0      | 0    | 0     | 1     | 3        | 7     | 11    | 14    | 24     | 78      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDS exons per transcript (mRNAs) | 2308     | 5.57      | 1       | 1       | 1      | 1    | 1     | 2     | 4        | 8     | 12    | 15    | 24     | 78      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDS exon lengths                 | 43498974 | 220.92    | 72      | 1       | 19     | 45   | 58    | 81    | 127      | 228   | 458   | 735   | 1,572  | 7,761   |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| CDS Intron lengths               | 25183403 | 155.90    | 84      | 7       | 66     | 73   | 77    | 84    | 98       | 155   | 307   | 427   | 789    | 10,233  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| 5'UTR exon number                | 35359    | 0.98      | 1       | 0       | 0      | 0    | 0     | 1     | 1        | 1     | 2     | 2     | 3      | 12      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| 3'UTR exon number                | 35359    | 0.87      | 1       | 0       | 0      | 0    | 0     | 1     | 1        | 1     | 1     | 2     | 2      | 15      |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| 5'UTR length                     | 4119344  | 116.50    | 0       | 0       | 0      | 0    | 0     | 11    | 81       | 163   | 280   | 378   | 609    | 3,214   |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| 3'UTR length                     | 6630047  | 187.51    | 0       | 0       | 0      | 0    | 0     | 77    | 181      | 257   | 348   | 434   | 755    | 3,164   |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Stop distance from junction      | NA       | 7.62      | 0       | 0       | 0      | 0    | 0     | 0     | 0        | 0     | 0     | 10    | 213    | 2,286   |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Intergenic distances             | NA       | 1,429.33  | 254;260 | -57,916 | -1,251 | -42  | 68    | 279   | 822      | 1,899 | 3,619 | 4,996 | 8,734  | 72,645  |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
+| Intergenic distances (coding)    | NA       | 2,163.73  | 187     | -10,136 | -571   | -34  | 70    | 284   | 866      | 2,143 | 4,500 | 6,878 | 20,134 | 490,690 |
++----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
 
-From this summary it is quite apparent that the *Sc. pombe* genome preferentially encodes single-exon transcripts, and that the multiexonic transcripts have relatively short introns (average of 84 bps, median of 56 bps).
+From this summary it is quite apparent that the *A. thaliana* genome preferentially encodes multiexonic transcripts with a median CDS/UTR ratio of approximately 80%. Each transcript has on average 5 exons (median 3), and intron lengths are generally short - 165 bps on average and 100 as median, with a maximum value of ~11,000 bps for mRNAs.
 
 Step 1: configuring Daijin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,25 +130,25 @@ The first task is to create a configuration file for Daijin using ``daijin confi
 * reference genome and the name of the species (**without spaces or non-ASCII/special characters**)
 * reads to use, with their strandedness and the name of the sample
 * aligners (HISAT2) and assemblers (Stringtie, CLASS2) to use
-* output directory (daijin_spombe)
-* the scoring file to use for Mikado pick; we will ask to copy it in-place to have a look at it (spombe.yaml)
-* the protein database for homology searches for Mikado (uniprot_sprot.fungi.fasta)
+* output directory (athaliana)
+* the scoring file to use for Mikado pick; we will ask to copy it in-place to have a look at it (plants.yaml)
+* the protein database for homology searches for Mikado (uniprot_sprot_plants.fasta)
 * (optional) the scheduler to use for the cluster (we will presume SLURM, but we also support LSF and PBS)
 * (optional) name of the cluster configuration file, which will have to be edited manually.
 
 This can all be specified with the following command line::
 
-    daijin configure \
-        -o daijin.yaml \
-        --threads 5 \
-        --genome Schizosaccharomyces_pombe.ASM294v2.dna.toplevel.fa --name "Sc_pombe" \
-        -od daijin_spombe \
-        -r1 SRR1617247_1.fastq.gz -r2 SRR1617247_2.fastq.gz --strandedness fr-secondstrand -s SRR1617247 \
-        -al hisat -as stringtie class \
-        --scoring spombe.yaml --copy-scoring spombe.yaml \
-        --prot-db uniprot_sprot_fungi.fasta \
-        --scheduler SLURM \
-        -c slurm.yaml;
+  daijin configure \
+    -o daijin.yaml \
+    --threads 5 \
+    --genome Arabidopsis_thaliana.TAIR10.dna.toplevel.fa --name "Athaliana" \
+    -od athaliana \
+    -r1 ERR588044_1.fastq.gz -r2 ERR588044_1.fastq.gz --strandedness fr-firststrand -s ERR588044 \
+    -al hisat -as stringtie class \
+    --scoring plants.yaml --copy-scoring plants.yaml \
+    --prot-db uniprot_sprot_plants.fasta \
+    --scheduler SLURM \
+    -c slurm.yaml;
 
 This will produce a file, *daijin.yaml*, which should specify the same parameters as :download:`this preformed example <daijin.yaml>`.
 
@@ -189,23 +195,15 @@ You can also ask Daijin to display the steps to be executed, inclusive of their 
 
   daijin assemble -c slurm.yaml --dryrun daijin.yaml
 
-When Daijin is finished, have a look inside the folder daijin_spombe/3-assemblies/output/; you will find the following two GTF files:
+When Daijin is finished, have a look inside the folder athaliana/3-assemblies/output/; you will find the following two GTF files:
 
-* class-0-hisat-SRR1617247-0.gtf
-* stringtie-0-hisat-SRR1617247-0.gtf
+* class-0-hisat--0.gtf
+* stringtie-0-hisat--0.gtf
 
 These are standard GTF files reporting the assembled transcripts for each method. We can have a feel for how they compare with our reference annotation by, again, using ``mikado util stats``. Conveniently, Daijin has already performed this analysis for us, and the files will be present in the same folder:
 
-* class-0-hisat-SRR1617247-0.gtf**.stats**
-* stringtie-0-hisat-SRR1617247-0.gtf**.stats**
-
-+------------------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
-| File                                     |   genes |   monoexonic_genes |   transcripts |   transcripts_per_gene |   transcript_len_mean |   monoexonic_transcripts |   exons |   exons_per_transcript |   exon_len_mean |
-+==========================================+=========+====================+===============+========================+=======================+==========================+=========+========================+=================+
-| class-0-hisat-SRR1617247-0.gtf.stats     |    4148 |                781 |          4415 |                   1.05 |               1604.63 |                      781 |   10944 |                   2.48 |          647.34 |
-+------------------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
-| stringtie-0-hisat-SRR1617247-0.gtf.stats |   11062 |               7938 |         12625 |                   1.11 |               1188.7  |                     8236 |   21427 |                   1.7  |          700.39 |
-+------------------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
+* class-0-hisat-ERR588044-0.gtf**.stats**
+* stringtie-0-hisat-ERR588044-0.gtf**.stats**
 
 From this quick analysis, it seems that Stringtie has assembled - correctly - mostly monoexonic transcripts, but has probably massively overestimated the number of genes (11,062, almost 50% more than those found in the reference annotation). CLASS2 has been more conservative, but contrary to Stringtie it has assembled mostly multiexonic transcripts. Stringtie transcripts are also much shorter than CLASS2 transcripts, suggesting that this tool might have reported many fragmentary loci.
 
@@ -213,12 +211,12 @@ It is possible to compare them to the current annotation by using :ref:`Mikado c
 
 .. code-block:: bash
 
-  mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p daijin_spombe/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.gtf -o daijin_spombe/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare -l daijin_spombe/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare.log;
-  mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p daijin_spombe/3-assemblies/output/class-0-hisat-SRR1617247-0.gtf -o daijin_spombe/3-assemblies/output/class-0-hisat-SRR1617247-0.compare -l daijin_spombe/3-assemblies/output/class-0-hisat-SRR1617247-0.compare.log;
+  mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare.log;
+  mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare.log;
 
 The analysis will produce *TMAP*, *REFMAP* and *STATS* files for each of the two assemblies. This is the report of the stats file for the CLASS2 assembly::
 
-  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p daijin_spombe/3-assemblies/output/class-0-hisat-SRR1617247-0.gtf -o daijin_spombe/3-assemblies/output/class-0-hisat-SRR1617247-0.compare -l daijin_spombe/3-assemblies/output/class-0-hisat-SRR1617247-0.compare.log
+  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare.log
   7015 reference RNAs in 7014 genes
   4415 predicted RNAs in  4148 genes
   --------------------------------- |   Sn |   Pr |   F1 |
@@ -258,7 +256,7 @@ The analysis will produce *TMAP*, *REFMAP* and *STATS* files for each of the two
 and this instead for Stringtie::
 
   Command line:
-  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p daijin_spombe/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.gtf -o daijin_spombe/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare -l daijin_spombe/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare.log
+  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare.log
   7015 reference RNAs in 7014 genes
   12625 predicted RNAs in  11062 genes
   --------------------------------- |   Sn |   Pr |   F1 |
@@ -307,17 +305,17 @@ Step 3: running the Mikado steps
 
 Now that we have created the input assemblies, it is time to run Mikado. First of all, let us have a look at the *spombe.yaml* file, which we have conveniently copied to our current directory:
 
-.. literalinclude:: spombe.yaml
+.. literalinclude:: plants.yaml
 
 With this file, we are telling Mikado that we are looking for transcripts with a low number of exons ("exon_num: {rescaling: min}"), with a ratio of CDS/UTR of ~80% ("selected_cds_fraction: {rescaling: target, value: 0.8}") and good homology support ("blast_score: {rescaling: max}"). We are also rewarding long cDNAs ("cdna_length: {rescaling: max}") with a good homology to known proteins ("blast_score: {rescaling: max}") and only one ORF ("cds_not_maximal: {rescaling: min}"; "number_internal_orfs: {rescaling: target, value: 1}"). This set of rules is tailored for compact fungal genomes, where this kind of models is expected at a much higher rate than in other eukaryotes (eg plants or mammals).
 
-Before launching ``daijin mikado``, we can have a look at the BLAST and TransDecoder sections. It is advisable to modify the number of chunks for BLASTX to a high number, eg. 100, if you are using a cluster. Please note that now we are going to use a different configuration file, **daijin_spombe/mikado.yaml**, which Daijin created as last step in the assembly pipeline.
+Before launching ``daijin mikado``, we can have a look at the BLAST and TransDecoder sections. It is advisable to modify the number of chunks for BLASTX to a high number, eg. 100, if you are using a cluster. Please note that now we are going to use a different configuration file, **athaliana/mikado.yaml**, which Daijin created as last step in the assembly pipeline.
 
 Issue the command::
 
-  daijin mikado -c slurm.yaml daijin_spombe/mikado.yaml
+  daijin mikado -c slurm.yaml athaliana/mikado.yaml
 
-This part of the pipeline should be quicker than the previous stage. After the pipeline is finished, Daijin will have created the final output files in daijin_spombe/5-mikado/pick/. As we requested only for the *permissive* mode, we only have one output - *daijin_spombe/5-mikado/pick/mikado-permissive.loci.gff3*. These are basic statistics on this annotation:
+This part of the pipeline should be quicker than the previous stage. After the pipeline is finished, Daijin will have created the final output files in athaliana/5-mikado/pick/. As we requested only for the *permissive* mode, we only have one output - *athaliana/5-mikado/pick/mikado-permissive.loci.gff3*. These are basic statistics on this annotation:
 
 +------------------------------+---------+--------------------+---------------+------------------------+-----------------------+--------------------------+---------+------------------------+-----------------+
 | File                         |   genes |   monoexonic_genes |   transcripts |   transcripts_per_gene |   transcript_len_mean |   monoexonic_transcripts |   exons |   exons_per_transcript |   exon_len_mean |
@@ -327,11 +325,11 @@ This part of the pipeline should be quicker than the previous stage. After the p
 
 Mikado has created an annotation that is in between those produced by Stringtie and CLASS2. Compared to CLASS2, the Mikado assembly is probably more comprehensive, given the higher number of genes. Half the genes are monoexonic, an improvement compared to CLASS2, and at the same time the number of genes is much lower than in Stringtie, with a higher average cDNA length. These statistics suggest that the Mikado filtered annotation has been able to retain most of the real genes, while discarding many of the fragments present in either assembly. We can verify this by comparing the Mikado results against the reference annotation::
 
-    mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p daijin_spombe/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o daijin_spombe/5-mikado/mikado_prepared.compare -l daijin_spombe/5-mikado/mikado_prepared.compare.log
+    mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/mikado_prepared.compare -l athaliana/5-mikado/mikado_prepared.compare.log
 
 A cursory look at the STATS file confirms the impression; the Mikado annotation has removed many of the spurious transcripts and is both more sensitive and more precise than either of the input assemblies::
 
-  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p daijin_spombe/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o daijin_spombe/5-mikado/mikado_prepared.compare -l daijin_spombe/5-mikado/mikado_prepared.compare.log
+  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/mikado_prepared.compare -l athaliana/5-mikado/mikado_prepared.compare.log
   7015 reference RNAs in 7014 genes
   6054 predicted RNAs in  5633 genes
   --------------------------------- |   Sn |   Pr |   F1 |

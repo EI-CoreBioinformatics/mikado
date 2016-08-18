@@ -11,29 +11,29 @@ asm_methods:
   stringtie:
   - ''
 blastx:
-  prot_db:
-  - uniprot_sprot_fungi.fasta
   chunks: 100
   evalue: 1.0e-03
   max_target_seqs: 10
+  prot_db:
+  - uniprot_sprot_plants.fasta
 extra:
   #  Options related to indexing.
   star_index: ''
 load:
   #  Commands to use to load/select the versions of the programs to use. Leave an empty
   #  string if no loading is necessary.
-  blast: ''
-  class: ''
+  blast: 'source blast+-2.3.0'
+  class: 'source class-2.12'
   cufflinks: ''
   gmap: ''
-  hisat: ''
-  mikado: ''
-  portcullis: ''
-  samtools: ''
+  hisat: 'source HISAT-2.0.4'
+  mikado: 'source mikado-devel'
+  portcullis: 'source portcullis-0.17.2'
+  samtools: 'source samtools-1.2'
   star: ''
-  stringtie: ''
+  stringtie: 'source stringtie-1.2.4'
   tophat: ''
-  transdecoder: ''
+  transdecoder: 'source transdecoder-3.0.0'
   trinity: ''
 mikado:
   db_settings:
@@ -41,8 +41,8 @@ mikado:
     #  db: the DB to connect to. Required. Default: mikado.db
     #  dbtype: Type of DB to use. Choices: sqlite, postgresql, mysql. Default: sqlite.
     #  dbhost: Host of the database. Unused if dbtype is sqlite. Default: localhost
-    #  dbuser: DB user. Default:
-    #  dbpasswd: DB password for the user. Default:
+    #  dbuser: DB user. Default: 
+    #  dbpasswd: DB password for the user. Default: 
     #  dbport: Integer. It indicates the default port for the DB.
     db: mikado.db
     dbhost: localhost
@@ -84,7 +84,7 @@ mikado:
       - G
       - g
       - h
-    scoring_file: spombe.yaml
+    scoring_file: /tgac/scratch/venturil/At_Mikado_tutorial/plants.yaml
   prepare:
     #  Options related to Mikado prepare. Possibilities:
     #  - lenient: whether to activate the lenient mode of Mikado.
@@ -100,15 +100,15 @@ mikado:
     lenient: false
   serialise:
     force: true
-name: Sc_pombe
-out_dir: daijin_spombe
+name: Athaliana
+out_dir: athaliana
 portcullis:
   #  Options related to portcullis
   canonical_juncs: C,S
   do: true
 reference:
   #  Options related to the reference genome.
-  genome: Schizosaccharomyces_pombe.ASM294v2.dna.toplevel.fa
+  genome: Arabidopsis_thaliana.TAIR10.dna.toplevel.fa
   genome_fai: ''
   transcriptome: ''
 scheduler: SLURM
@@ -123,14 +123,15 @@ short_reads:
   max_intron: 10000
   min_intron: 20
   r1:
-  - SRR1617247_1.fastq.gz
+  - ERR588044_1.fastq.gz
   r2:
-  - SRR1617247_2.fastq.gz
+  - ERR588044_1.fastq.gz
   samples:
-  - SRR1617247
+  - ERR588044
   strandedness:
   - fr-secondstrand
 tgg_max_mem: 6000
 threads: 20
 transdecoder:
   min_protein_len: 30
+

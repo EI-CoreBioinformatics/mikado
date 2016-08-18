@@ -372,9 +372,10 @@ rule bam_sort:
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam"
 	params:
 		load=loadPre(config["load"]["samtools"]),
+		temp=ALIGN_DIR+"/sort_{align.run}"
 	threads: int(THREADS)
 	message: "Using samtools to sort {input.bam}"
-	shell: "{params.load} samtools sort -o {output} -O bam -m 1G -T sort_{wildcards.align_run} -@ {threads} {input.bam}"
+	shell: "{params.load} samtools sort -o {output} -O bam -m 1G -T {params.temp} -@ {threads} {input.bam}"
 
 
 rule bam_index:

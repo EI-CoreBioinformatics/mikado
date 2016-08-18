@@ -37,6 +37,8 @@ References
 .. [RSEMeval] **Evaluation of de novo transcriptome assemblies from RNA-Seq data** Bo Li, Nathanael Fillmore, Yongsheng Bai, Mike Collins, James A Thomson, Ron Stewart and Colin N Dewey. *Genome Biology*, 2014. doi:10.1186/s13059-014-0553-5
 .. [Maker] **MAKER2: an annotation pipeline and genome-database management tool for second-generation genome projects** Carson Holt and Mark Yandell. *BMC Bioinformatics*, 2011. doi:10.1186/1471-2105-12-491
 .. [EVM] **Automated eukaryotic gene structure annotation using EVidenceModeler and the Program to Assemble Spliced Alignments** Brian J Haas, Steven L Salzberg, Wei Zhu, Mihaela Pertea, Jonathan E Allen, Joshua Orvis, Owen White, C Robin Buell and Jennifer R Wortman. *Genome Biology*, 2008. doi:10.1186/gb-2008-9-1-r7
+.. [Augustus] **WebAUGUSTUS—a web service for training AUGUSTUS and predicting genes in eukaryotes** Katharina J. Hoff and Mario Stanke. *Nucleic Acid Research*, 2013. doi:10.1093/nar/gkt418
+.. [Maker2] **MAKER2: an annotation pipeline and genome-database management tool for second-generation genome projects** Carson Holt and Mark Yandell. *BMC Bioinformatics*, 2011. doi:10.1186/1471-2105-12-491
 .. [PYinterval] https://github.com/chaimleib/intervaltree
 .. [BXPython] https://bitbucket.org/james_taylor/bx-python/overview
 .. [Snakeviz] https://jiffyclub.github.io/snakeviz/

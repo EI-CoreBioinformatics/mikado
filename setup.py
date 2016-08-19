@@ -38,11 +38,11 @@ setup(
     license="GPL3",
     classifiers=[
         "Development Status :: 4 - Beta",
-        "Topic :: Gene Annotation",
-        "License :: OSI Approved :: GPL3",
-        'Programming Language :: Python :: 3.4'
+        "Topic :: Scientific/Engineering :: Bio-Informatics",
+        "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+        "Operating System :: POSIX :: Linux",
+        'Programming Language :: Python :: 3.4',
         "Programming Language :: Python :: 3.5",
-        "Operating System :: Linux"
     ],
     ext_modules=cythonize([Extension(path.join("Mikado.utilities.overlap"),
                                      [path.join("Mikado", "utilities", "overlap.pyx")]),

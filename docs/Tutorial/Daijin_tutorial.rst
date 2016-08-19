@@ -44,7 +44,7 @@ Throughout this tutorial, we will use data coming from release 32 of EnsEMBL and
  * RNA-Seq from one sample, ERR588044_, of the PRJEB7093_ study: left (`ERR588044_1.fastq.gz`_) and right (`ERR588044_2.fastq.gz`_)
  * the SwissProt plants database (downloaded from `here <ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/taxonomic_divisions/uniprot_sprot_plants.dat.gz>`_, using Uniprot release **2016-07**)
 
-Uncompress the genome, the annotation GFF3 and the Uniprot DAT files using GUNZip. The protein database must be converted into FASTA format, and we should remove the *A. thaliana* proteins to avoid biasing our results. To do so, use the script ``remove_from_embl.py`` (included in Mikado; please include the quotes, or the script will fail!)::
+Uncompress the genome, the annotation GFF3 and the Uniprot DAT files using GUNZip. The protein database must be converted into FASTA format, and we should remove the *A. thaliana* proteins to avoid biasing our results. To do so, use the script ``remove_from_embl.py`` (included in Mikado; please include the quotes in the command, or the script will fail!)::
 
     remove_from_embl.py -o "Arabidopsis thaliana" uniprot_sprot_plants.dat uniprot_sprot_plants.fasta
 
@@ -143,7 +143,7 @@ This can all be specified with the following command line::
     --threads 5 \
     --genome Arabidopsis_thaliana.TAIR10.dna.toplevel.fa --name "Athaliana" \
     -od athaliana \
-    -r1 ERR588044_1.fastq.gz -r2 ERR588044_1.fastq.gz --strandedness fr-firststrand -s ERR588044 \
+    -r1 ERR588044_1.fastq.gz -r2 ERR588044_2.fastq.gz --strandedness fr-secondstrand -s ERR588044 \
     -al hisat -as stringtie class \
     --scoring plants.yaml --copy-scoring plants.yaml \
     --prot-db uniprot_sprot_plants.fasta \
@@ -211,97 +211,95 @@ It is possible to compare them to the current annotation by using :ref:`Mikado c
 
 .. code-block:: bash
 
-  # First index the refernece GFF3
+  # First index the reference GFF3
   mikado compare -r Arabidopsis_thaliana.TAIR10.32.gff3 --index;
   # Compare the CLASS2 assembly against the reference
-  mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare.log;
+  mikado compare -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/3-assemblies/output/class-0-hisat-ERR588044-0.gtf -o athaliana/3-assemblies/output/class-0-hisat-ERR588044-0.compare -l athaliana/3-assemblies/output/class-0-hisat-ERR588044-0.log
   # Compare the Stringtie assembly against the reference
-  mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare.log;
+  mikado compare -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/3-assemblies/output/stringtie-0-hisat-ERR588044-0.gtf -o athaliana/3-assemblies/output/stringtie-0-hisat-ERR588044-0.compare -l athaliana/3-assemblies/output/stringtie-0-hisat-ERR588044-0.compare.log
 
-The analysis will produce *TMAP*, *REFMAP* and *STATS* files for each of the two assemblies. This is the report of the stats file for the CLASS2 assembly::
+The analysis will produce *TMAP*, *REFMAP* and *STATS* files for each of the two assemblies. This is the report of the stats file for the CLASS2 assembly, ::
 
-  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/class-0-hisat-SRR1617247-0.compare.log
-  7015 reference RNAs in 7014 genes
-  4415 predicted RNAs in  4148 genes
+  41671 reference RNAs in 33602 genes
+  35276 predicted RNAs in  29029 genes
   --------------------------------- |   Sn |   Pr |   F1 |
-                          Base level: 34.43  69.23  45.98
-              Exon level (stringent): 19.11  22.61  20.72
-                Exon level (lenient): 81.19  65.65  72.60
-                        Intron level: 86.12  74.36  79.81
-                  Intron chain level: 68.68  48.21  56.65
+                          Base level: 40.73  80.36  54.06
+              Exon level (stringent): 43.80  56.22  49.24
+                Exon level (lenient): 65.81  74.31  69.80
+                        Intron level: 68.00  86.79  76.25
+                  Intron chain level: 28.37  26.88  27.61
         Transcript level (stringent): 0.00  0.00  0.00
-    Transcript level (>=95% base F1): 3.12  4.92  3.82
-    Transcript level (>=80% base F1): 17.01  26.66  20.77
+    Transcript level (>=95% base F1): 2.30  2.70  2.48
+    Transcript level (>=80% base F1): 16.33  19.19  17.64
            Gene level (100% base F1): 0.00  0.00  0.00
-          Gene level (>=95% base F1): 3.12  5.21  3.90
-          Gene level (>=80% base F1): 17.01  28.28  21.24
+          Gene level (>=95% base F1): 2.77  3.20  2.97
+          Gene level (>=80% base F1): 19.43  22.37  20.80
 
   #   Matching: in prediction; matched: in reference.
 
-              Matching intron chains: 1752
-               Matched intron chains: 1753
-     Matching monoexonic transcripts: 310
-      Matched monoexonic transcripts: 326
-          Total matching transcripts: 2062
-           Total matched transcripts: 2079
+              Matching intron chains: 8549
+               Matched intron chains: 8575
+     Matching monoexonic transcripts: 870
+      Matched monoexonic transcripts: 883
+          Total matching transcripts: 9419
+           Total matched transcripts: 9458
 
-            Missed exons (stringent): 10012/12378  (80.89%)
-             Novel exons (stringent): 8097/10463  (77.39%)
-              Missed exons (lenient): 1490/7923  (18.81%)
-               Novel exons (lenient): 3366/9799  (34.35%)
-                      Missed introns: 744/5361  (13.88%)
-                       Novel introns: 1592/6209  (25.64%)
+            Missed exons (stringent): 95133/169282  (56.20%)
+             Novel exons (stringent): 57739/131888  (43.78%)
+              Missed exons (lenient): 52381/153221  (34.19%)
+               Novel exons (lenient): 34867/135707  (25.69%)
+                      Missed introns: 40932/127896  (32.00%)
+                       Novel introns: 13234/100198  (13.21%)
 
-                  Missed transcripts: 2937/7015  (41.87%)
-                   Novel transcripts: 3/4415  (0.07%)
-                        Missed genes: 2936/7014  (41.86%)
-                         Novel genes: 3/4148  (0.07%)
+                  Missed transcripts: 15490/41671  (37.17%)
+                   Novel transcripts: 99/35276  (0.28%)
+                        Missed genes: 14849/33602  (44.19%)
+                         Novel genes: 70/29029  (0.24%)
 
 and this instead for Stringtie::
 
-  Command line:
-  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.gtf -o athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare -l athaliana/3-assemblies/output/stringtie-0-hisat-SRR1617247-0.compare.log
-  7015 reference RNAs in 7014 genes
-  12625 predicted RNAs in  11062 genes
+  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/3-assemblies/output/stringtie-0-hisat-ERR588044-0.gtf -o athaliana/3-assemblies/output/stringtie-0-hisat-ERR588044-0.compare -l athaliana/3-assemblies/output/stringtie-0-hisat-ERR588044-0.compare.log
+  41671 reference RNAs in 33602 genes
+  55055 predicted RNAs in  40566 genes
   --------------------------------- |   Sn |   Pr |   F1 |
-                          Base level: 70.12  67.71  68.89
-              Exon level (stringent): 19.88  12.74  15.53
-                Exon level (lenient): 68.66  60.10  64.10
-                        Intron level: 88.73  70.16  78.36
-                  Intron chain level: 73.81  42.99  54.34
+                          Base level: 55.21  59.42  57.23
+              Exon level (stringent): 45.31  38.81  41.81
+                Exon level (lenient): 68.12  57.04  62.09
+                        Intron level: 72.94  64.23  68.31
+                  Intron chain level: 42.54  29.94  35.15
         Transcript level (stringent): 0.00  0.00  0.00
-    Transcript level (>=95% base F1): 25.69  14.51  18.55
-    Transcript level (>=80% base F1): 47.68  27.84  35.16
+    Transcript level (>=95% base F1): 21.26  18.02  19.50
+    Transcript level (>=80% base F1): 34.77  32.56  33.63
            Gene level (100% base F1): 0.00  0.00  0.00
-          Gene level (>=95% base F1): 25.69  16.14  19.82
-          Gene level (>=80% base F1): 47.69  30.69  37.35
+          Gene level (>=95% base F1): 24.76  22.49  23.57
+          Gene level (>=80% base F1): 40.20  40.28  40.24
 
   #   Matching: in prediction; matched: in reference.
 
-              Matching intron chains: 1890
-               Matched intron chains: 1884
-     Matching monoexonic transcripts: 1739
-      Matched monoexonic transcripts: 1746
-          Total matching transcripts: 3629
-           Total matched transcripts: 3630
+              Matching intron chains: 12817
+               Matched intron chains: 12854
+     Matching monoexonic transcripts: 1827
+      Matched monoexonic transcripts: 1836
+          Total matching transcripts: 14644
+           Total matched transcripts: 14690
 
-            Missed exons (stringent): 9917/12378  (80.12%)
-             Novel exons (stringent): 16857/19318  (87.26%)
-              Missed exons (lenient): 3027/9658  (31.34%)
-               Novel exons (lenient): 4402/11033  (39.90%)
-                      Missed introns: 604/5361  (11.27%)
-                       Novel introns: 2023/6780  (29.84%)
+            Missed exons (stringent): 92576/169282  (54.69%)
+             Novel exons (stringent): 120959/197665  (61.19%)
+              Missed exons (lenient): 49435/155043  (31.88%)
+               Novel exons (lenient): 79549/185157  (42.96%)
+                      Missed introns: 34606/127896  (27.06%)
+                       Novel introns: 51958/145248  (35.77%)
 
-                  Missed transcripts: 523/7015  (7.46%)
-                   Novel transcripts: 9/12625  (0.07%)
-                        Missed genes: 523/7014  (7.46%)
-                         Novel genes: 9/11062  (0.08%)
+                  Missed transcripts: 12822/41671  (30.77%)
+                   Novel transcripts: 155/55055  (0.28%)
+                        Missed genes: 12288/33602  (36.57%)
+                         Novel genes: 138/40566  (0.34%)
 
 These comparisons suggest the following:
 
-#. Most of the transcripts reconstructed by both assemblers are near enough known genes so as not to be categorised as completely novel. Only 3 genes for CLASS2 and 9 genes for Stringtie are in non-annotated genomic loci.
-#. CLASS2 has performed worse than Stringtie for this particular species - the number of reconstructed transcript is lower, and so is the F1 at the transcript and gene level.
-#. Gene precision is pretty low for Stringtie - 30% - suggesting that the assembler has probably detected many spurious loci near annotated ones.
+#. Most of the transcripts reconstructed by both assemblers are near enough known genes so as not to be categorised as completely novel. Only 70 genes for CLASS2 and 130 genes for Stringtie are in non-annotated genomic loci.
+#. CLASS2 has performed worse than Stringtie for this particular species and samples - the number of reconstructed transcript is lower, and so is the F1 at the transcript and gene level.
+#. Gene precision is pretty low for Stringtie - 40% - suggesting that the assembler has probably detected many spurious loci near annotated ones.
 
 
 Step 3: running the Mikado steps

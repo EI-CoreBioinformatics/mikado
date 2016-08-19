@@ -1,5 +1,10 @@
 include DESCRIPTION.md
-include *py
+include README.md
+include AUTHORS
+include requirements.txt
+recursive-include *py
+recursive-include Mikado *pyx
+recursive-include Mikado *pxd
 recursive-include bin *py
 recursive-include util *py
 recursive-include Mikado *snakefile *json *yaml

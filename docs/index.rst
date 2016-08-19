@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-.. image:: mikado-header.jpg
+.. image:: mikado-logo.png
     :align: center
     :scale: 75%
 

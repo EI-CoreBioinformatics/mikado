@@ -161,6 +161,9 @@ def create_daijin_config(args):
             args.scoring = os.path.abspath(args.copy_scoring)
         config["mikado"]["pick"]["scoring_file"] = args.scoring
 
+    if args.flank is not None:
+        config["mikado"]["pick"]["run_options"]["flank"] = args.flank
+
     if args.prot_db:
         config["blastx"]["prot_db"] = args.prot_db
 

@@ -221,7 +221,13 @@
           "properties": {
             "scoring_file": {"$ref": "configuration_blueprint.json#properties/pick/properties/scoring_file"},
             "alternative_splicing": {
-              "$ref": "configuration_blueprint.json#properties/pick/properties/alternative_splicing"}
+              "$ref": "configuration_blueprint.json#properties/pick/properties/alternative_splicing"},
+            "run_options": {
+              "type": "object",
+              "properties": {
+                "flank": {"$ref": "configuration_blueprint.json#properties/pick/properties/run_options/properties/flank"}
+              }
+            }
           }
         },
         "serialise": {

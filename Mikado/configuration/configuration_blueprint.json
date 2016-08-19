@@ -319,7 +319,7 @@
             "max_isoforms": {
               "type": "integer",
               "minimum": 1,
-              "default": 3
+              "default": 5
             },
             "max_utr_length": {
               "type": "integer",
@@ -357,6 +357,7 @@
               "default": [
                 "j",
                 "J",
+                "C",
                 "G",
                 "g",
                 "h"
@@ -393,8 +394,7 @@
                 "m",
                 "_",
                 "=",
-                "n",
-                "C"
+                "n"
               ]
             },
             "min_score_perc": {

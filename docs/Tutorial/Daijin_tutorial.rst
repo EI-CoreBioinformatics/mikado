@@ -118,7 +118,7 @@ The file *Arabidopsis_thaliana.TAIR10.32.gff3.stats* contains the following info
 | Intergenic distances (coding)    | NA       | 2,163.73  | 187     | -10,136 | -571   | -34  | 70    | 284   | 866      | 2,143 | 4,500 | 6,878 | 20,134 | 490,690 |
 +----------------------------------+----------+-----------+---------+---------+--------+------+-------+-------+----------+-------+-------+-------+--------+---------+
 
-From this summary it is quite apparent that the *A. thaliana* genome preferentially encodes multiexonic transcripts with a median CDS/UTR ratio of approximately 80%. Each transcript has on average 5 exons (median 3), and intron lengths are generally short - 165 bps on average and 100 as median, with a maximum value of ~11,000 bps for mRNAs.
+From this summary it is quite apparent that the *A. thaliana* genome preferentially encodes multiexonic transcripts with a median CDS/UTR ratio of approximately 80%. Each transcript has on average 5 exons (median 3), and intron lengths are generally short - 165 bps on average and 100 as median, with a maximum value of ~11,000 bps for mRNAs. It is also a compact genome, with a median intergenic distance under 1 kbps and a modal distance of only 250 bps.
 
 Step 1: configuring Daijin
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -133,6 +133,7 @@ The first task is to create a configuration file for Daijin using ``daijin confi
 * output directory (athaliana)
 * the scoring file to use for Mikado pick; we will ask to copy it in-place to have a look at it (plants.yaml)
 * the protein database for homology searches for Mikado (uniprot_sprot_plants.fasta)
+* flank: as *A. thaliana* has a quite compact genome, we should decrease the maximum distance for grouping together transcripts. We will decrease from 1kbps (default) to 250.
 * (optional) the scheduler to use for the cluster (we will presume SLURM, but we also support LSF and PBS)
 * (optional) name of the cluster configuration file, which will have to be edited manually.
 
@@ -140,6 +141,7 @@ This can all be specified with the following command line::
 
   daijin configure \
     -o daijin.yaml \
+    --flank 100 \
     --threads 5 \
     --genome Arabidopsis_thaliana.TAIR10.dna.toplevel.fa --name "Athaliana" \
     -od athaliana \
@@ -299,7 +301,7 @@ These comparisons suggest the following:
 
 #. Most of the transcripts reconstructed by both assemblers are near enough known genes so as not to be categorised as completely novel. Only 70 genes for CLASS2 and 130 genes for Stringtie are in non-annotated genomic loci.
 #. CLASS2 has performed worse than Stringtie for this particular species and samples - the number of reconstructed transcript is lower, and so is the F1 at the transcript and gene level.
-#. Gene precision is pretty low for Stringtie - 40% - suggesting that the assembler has probably detected many spurious loci near annotated ones.
+#. Although the number of novel loci is low for both CLASS and Stringtie, the high number of loci
 
 
 Step 3: running the Mikado steps
@@ -329,44 +331,93 @@ Mikado has created an annotation that is in between those produced by Stringtie 
 
     mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/mikado_prepared.compare -l athaliana/5-mikado/mikado_prepared.compare.log
 
-A cursory look at the STATS file confirms the impression; the Mikado annotation has removed many of the spurious transcripts and is both more sensitive and more precise than either of the input assemblies::
+A cursory look at the STATS file confirms the impression; the Mikado annotation has removed many of the spurious transcripts and is quite more precise than either of the input assemblies, while retaining their sensitivity::
 
-  /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Schizosaccharomyces_pombe.ASM294v2.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/mikado_prepared.compare -l athaliana/5-mikado/mikado_prepared.compare.log
-  7015 reference RNAs in 7014 genes
-  6054 predicted RNAs in  5633 genes
-  --------------------------------- |   Sn |   Pr |   F1 |
-                          Base level: 64.04  85.97  73.40
-              Exon level (stringent): 20.37  21.96  21.13
-                Exon level (lenient): 70.61  81.36  75.61
-                        Intron level: 88.21  87.03  87.61
-                  Intron chain level: 79.58  68.60  73.68
-        Transcript level (stringent): 0.09  0.10  0.09
-    Transcript level (>=95% base F1): 24.55  28.51  26.38
-    Transcript level (>=80% base F1): 47.04  54.64  50.56
-           Gene level (100% base F1): 0.09  0.11  0.09
-          Gene level (>=95% base F1): 24.55  30.64  27.26
-          Gene level (>=80% base F1): 47.05  58.73  52.24
+    Command line:
+    /tgac/software/testing/bin/core/../..//mikado/devel/x86_64/bin/mikado compare -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare -l athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.log
+    41671 reference RNAs in 33602 genes
+    30806 predicted RNAs in  24730 genes
+    --------------------------------- |   Sn |   Pr |   F1 |
+                            Base level: 53.43  87.95  66.48
+                Exon level (stringent): 45.44  58.77  51.26
+                  Exon level (lenient): 68.71  86.45  76.57
+                          Intron level: 73.13  93.43  82.05
+                    Intron chain level: 43.73  53.48  48.11
+          Transcript level (stringent): 0.01  0.01  0.01
+      Transcript level (>=95% base F1): 18.87  25.49  21.69
+      Transcript level (>=80% base F1): 33.71  45.78  38.83
+             Gene level (100% base F1): 0.01  0.02  0.01
+            Gene level (>=95% base F1): 22.36  30.35  25.75
+            Gene level (>=80% base F1): 39.52  53.95  45.62
 
-  #   Matching: in prediction; matched: in reference.
+    #   Matching: in prediction; matched: in reference.
 
-              Matching intron chains: 2030
-               Matched intron chains: 2030
-     Matching monoexonic transcripts: 1688
-      Matched monoexonic transcripts: 1690
-          Total matching transcripts: 3718
-           Total matched transcripts: 3720
+                Matching intron chains: 13173
+                 Matched intron chains: 13213
+       Matching monoexonic transcripts: 1702
+        Matched monoexonic transcripts: 1710
+            Total matching transcripts: 14875
+             Total matched transcripts: 14923
 
-            Missed exons (stringent): 9857/12378  (79.63%)
-             Novel exons (stringent): 8960/11481  (78.04%)
-              Missed exons (lenient): 2822/9602  (29.39%)
-               Novel exons (lenient): 1553/8333  (18.64%)
-                      Missed introns: 632/5361  (11.79%)
-                       Novel introns: 705/5434  (12.97%)
+              Missed exons (stringent): 92353/169282  (54.56%)
+               Novel exons (stringent): 53962/130891  (41.23%)
+                Missed exons (lenient): 48471/154914  (31.29%)
+                 Novel exons (lenient): 16682/123125  (13.55%)
+                        Missed introns: 34362/127896  (26.87%)
+                         Novel introns: 6576/100110  (6.57%)
 
-                  Missed transcripts: 1745/7015  (24.88%)
-                   Novel transcripts: 1/6054  (0.02%)
-                        Missed genes: 1745/7014  (24.88%)
-                         Novel genes: 1/5633  (0.02%)
+                    Missed transcripts: 13373/41671  (32.09%)
+                     Novel transcripts: 132/30806  (0.43%)
+                          Missed genes: 12824/33602  (38.16%)
+                           Novel genes: 120/24730  (0.49%)
+
+
+
+Moreover, Mikado models have an ORF assigned to them. We can ask Mikado compare to consider only the coding component of transcripts with the following command line::
+
+    mikado compare -eu -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu -l athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu.log
+
+The statistics file looks as follows::
+
+    Command line:
+    mikado compare -eu -r Arabidopsis_thaliana.TAIR10.32.gff3 -p athaliana/5-mikado/pick/permissive/mikado-permissive.loci.gff3 -o athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu -l athaliana/5-mikado/pick/permissive/mikado-permissive.loci.compare.eu.log
+    41671 reference RNAs in 33602 genes
+    30806 predicted RNAs in  24730 genes
+    --------------------------------- |   Sn |   Pr |   F1 |
+                            Base level: 53.00  93.07  67.54
+                Exon level (stringent): 60.90  78.70  68.67
+                  Exon level (lenient): 69.57  88.37  77.85
+                          Intron level: 73.44  94.86  82.79
+                    Intron chain level: 46.39  57.65  51.41
+          Transcript level (stringent): 25.84  34.31  29.48
+      Transcript level (>=95% base F1): 35.32  47.28  40.43
+      Transcript level (>=80% base F1): 39.45  53.03  45.25
+             Gene level (100% base F1): 26.78  36.40  30.86
+            Gene level (>=95% base F1): 37.63  51.16  43.37
+            Gene level (>=80% base F1): 42.29  57.54  48.75
+
+    #   Matching: in prediction; matched: in reference.
+
+                Matching intron chains: 13988
+                 Matched intron chains: 14097
+       Matching monoexonic transcripts: 2687
+        Matched monoexonic transcripts: 2693
+            Total matching transcripts: 16675
+             Total matched transcripts: 16790
+
+              Missed exons (stringent): 61443/157150  (39.10%)
+               Novel exons (stringent): 25902/121609  (21.30%)
+                Missed exons (lenient): 44733/146988  (30.43%)
+                 Novel exons (lenient): 13456/115711  (11.63%)
+                        Missed introns: 32026/120580  (26.56%)
+                         Novel introns: 4795/93349  (5.14%)
+
+                    Missed transcripts: 13627/41671  (32.70%)
+                     Novel transcripts: 141/30806  (0.46%)
+                          Missed genes: 13060/33602  (38.87%)
+                           Novel genes: 127/24730  (0.51%)
+
+The similarity is quite higher, suggesting that for many models the differences between the Mikado annotation and the reference lies in the UTR component.
 
 We suggest to visualise assemblies with one of the many tools currently at disposal, such as eg `WebApollo <http://genomearchitect.org/>`_ [Apollo]_. Mikado files are GFF3-compliant and can be loaded directly into Apollo or similar tools. GTF files can be converted into proper GFF3 files using the convert utility::
 

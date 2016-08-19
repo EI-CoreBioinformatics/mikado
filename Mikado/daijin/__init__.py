@@ -31,6 +31,7 @@ NOW = datetime.datetime.fromtimestamp(TIME_START).strftime('%Y-%m-%d_%H:%M:%S')
 DAIJIN_DIR = pkg_resources.resource_filename("Mikado", "daijin")
 assert pkg_resources.resource_exists("Mikado", "daijin")
 
+
 # noinspection PyPep8Naming
 def get_sub_commands(SCHEDULER):
     res_cmd = ""
@@ -158,6 +159,9 @@ def create_config_parser():
                         choices=["nosplit", "split", "permissive", "stringent", "lenient"],
                         required=False,
                         help="Mikado pick modes to run. Choices: %(choices)s")
+    mikado.add_argument("--flank", default=None, type=int,
+                        required=False,
+                        help="Amount of flanking for frouping transcripts in Mikado.")
     mikado.add_argument("--prot-db", dest="prot_db", default=[], nargs="+",
                         help="Protein database to compare against, for Mikado.")
     parser.set_defaults(func=create_daijin_config)

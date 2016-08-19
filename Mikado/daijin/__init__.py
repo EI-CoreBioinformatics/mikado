@@ -161,7 +161,7 @@ def create_config_parser():
                         help="Mikado pick modes to run. Choices: %(choices)s")
     mikado.add_argument("--flank", default=None, type=int,
                         required=False,
-                        help="Amount of flanking for frouping transcripts in Mikado.")
+                        help="Amount of flanking for grouping transcripts in superloci during the pick phase of Mikado.")
     mikado.add_argument("--prot-db", dest="prot_db", default=[], nargs="+",
                         help="Protein database to compare against, for Mikado.")
     parser.set_defaults(func=create_daijin_config)

@@ -50,6 +50,7 @@ Configuring Daijin
     * *trinity*
 * *threads*: Number of threads to be requested for parallelisable steps.
 * *modes*: Daijin can run Mikado in multiple modes regarding the :ref:`handling of putative chimeras <chimera_splitting>`. Specify those you desire to execute here.
+* *flank*: Amount of flanking that Mikado will allow while looking for fragments around good gene loci. Default 1000 bps. It is advisable to reduce it in species with compact genomes.
 * *scheduler*: if Daijin has to execute the pipeline on a cluster (potentially using DRMAA), it is necessary to specify the scheduler here. At the moment we support the following widely used schedulers: PBS, LSF, SLURM.
 * *r1*, *r2*, *samples*: RNA-Seq reads 1, RNA-Seq reads 2, and sample name. At least one of each is required.
 * *strandedness*: if not specified, all samples will be assumed to be unstranded. Specify it as you would with HISAT or TopHat2.
@@ -72,10 +73,11 @@ As it can be seen, it is a YAML format with two fields: __default__ and asm_trin
                             [{gsnap,star,hisat,tophat2} [{gsnap,star,hisat,tophat2} ...]]
                             -as
                             [{class,cufflinks,stringtie,trinity} [{class,cufflinks,stringtie,trinity} ...]]
-                            [--scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml}]
+                            [--scoring {insects.yaml,human.yaml,plants.yaml,worm.yaml,spombe.yaml}]
                             [--copy-scoring COPY_SCORING]
                             [-m {nosplit,split,permissive,stringent,lenient} [{nosplit,split,permissive,stringent,lenient} ...]]
-                            [--prot-db PROT_DB [PROT_DB ...]]
+                            [--flank FLANK] [--prot-db PROT_DB [PROT_DB ...]]
+
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -129,6 +131,8 @@ As it can be seen, it is a YAML format with two fields: __default__ and asm_trin
       -m {nosplit,split,permissive,stringent,lenient} [{nosplit,split,permissive,stringent,lenient} ...], --modes {nosplit,split,permissive,stringent,lenient} [{nosplit,split,permissive,stringent,lenient} ...]
                             Mikado pick modes to run. Choices: nosplit, split,
                             permissive, stringent, lenient
+      --flank FLANK         Amount of flanking for grouping transcripts in
+                            superloci during the pick phase of Mikado.
       --prot-db PROT_DB [PROT_DB ...]
                             Protein database to compare against, for Mikado.
 

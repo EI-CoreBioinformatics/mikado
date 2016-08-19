@@ -141,7 +141,7 @@ This can all be specified with the following command line::
 
   daijin configure \
     -o daijin.yaml \
-    --flank 100 \
+    --flank 250 \
     --threads 5 \
     --genome Arabidopsis_thaliana.TAIR10.dna.toplevel.fa --name "Athaliana" \
     -od athaliana \

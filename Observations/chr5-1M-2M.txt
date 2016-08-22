@@ -1,4 +1,0 @@
-AT5G01280:	discarded two very short models (trinity and class) that covered one junction
-AT5G01290.1:	
-AT5G038801.1:	we probably should have excluded the second option (for Mikado split) as a retained intron. Fixed in 0.9.6?
-

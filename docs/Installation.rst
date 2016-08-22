@@ -84,7 +84,3 @@ Mikado has been written for Python 3.4 and 3.5. It is dependent on the following
 These dependencies will be installed automatically by PIP.
 
 .. _GitHub: https://github.com/lucventurini/mikado
-
-Additional dependencies
------------------------
-

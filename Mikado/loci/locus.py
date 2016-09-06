@@ -114,6 +114,18 @@ class Locus(Sublocus, Abstractlocus):
         Before a transcript is added, the class checks that it is a valid splicing isoform
         and that we have not exceeded already the maximum number of isoforms for the Locus.
 
+        The checks performed are, in order:
+
+        #. whether the locus already has the maximum number of acceptable isoforms ("max_isoforms")
+        #. (optional) whether all the introns *specific to the transcript when compared with the primary transcript* are confirmed by external validation tools (eg Portcullis)
+        #. Whether the score of the proposed AS event has a score over the minimum percentage of the primary transcript score (eg if the minimum percentage is 0.6 and the primary is scored 20, a model with a score of 11 would be rejected and one with a score of 12 would be accepted)
+        #. Whether the strand of the candidate is the same as the one of the locus
+        #. Whether the AS event is classified (ie has a class code) which is acceptable as valid AS
+        #. Whether the transcript shares enough cDNA with the primary transcript ("min_cdna_overlap")
+        #. Whether the proposed model has too much UTR
+        #. (optional) Whether the proposed model has a retained intron compared to the primary, ie part of its non-coding regions overlaps one intron of the primary model
+        #. Whether the proposed model shares enough CDS with the primary model (min_cds_overlap)
+
         :param transcript: the candidate transcript
         :type transcript: Transcript
 

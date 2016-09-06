@@ -28,6 +28,7 @@
         "transdecoder": {"type": "string", "default": ""},
         "portcullis": {"type": "string", "default": ""},
         "mikado": {"type": "string", "default": ""},
+        "diamond": {"type": "string", "default": ""},
         "blast": {"type": "string", "default": ""}
       }
     },

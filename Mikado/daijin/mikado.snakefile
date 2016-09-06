@@ -129,6 +129,29 @@ rule blastx:
 	shell: "{params.load} if [ -s {params.tr} ]; then blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
 
 
+rule diamond_index:
+    input: fa=BLAST_DIR+"/index/blastdb-proteins.fa"
+    output: BLAST_DIR+"/index/blastdb-proteins.dmd"
+    params:
+        db= BLAST_DIR+"/index/blastdb-proteins"
+        load=loadPre(config["load"]["diamond"])
+    log: BLAST_DIR+"/diamond.index.log"
+    message: "Making DIAMOND protein database for: {input.fa}"
+    threads: THREADS
+    shell: "{params.load} diamond makedb --threads THREADS --in {input.fa} --db {params.db}"
+
+rule diamond:
+    input:
+        db=rules.diamond_index.output,
+        split=rules.split_fa.output
+    output: BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml.gz"
+    params:
+        load=loadPre(config["load"]["diamond"]),
+        tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta"
+    threads: THREADS
+    log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
+    shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --outfmt 6 --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --query {input.split} 2> {log}; else touch {output}; fi"
+
 rule blast_all:
 	input: expand(BLAST_DIR + "/xmls/chunk-{chunk_id}-proteins.xml.gz", chunk_id=CHUNK_ARRAY)
 	output: BLAST_DIR + "/blastx.all.done"

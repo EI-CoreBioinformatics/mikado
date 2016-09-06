@@ -41,7 +41,6 @@ By far, the most important source of data for Mikado is Transdecoder_, as the al
 
 Using these multiple data sources, and its distinctive iterative method to identify and disentangle gene loci, Mikado is capable of bringing together methods with very different results, and interpret the composition of a locus similarly to how a manual annotator would. This leads to cleaned RNA-Seq annotations that can be used as the basis of the downstream analysis of choice, such as eg a hint-based *ab initio* annotation with Augustus [Augustus]_ or Maker2 [Maker]_.
 
-
 .. topic:: Mikado in action: recovering fused gene loci
 
     .. figure:: locus_example.jpeg

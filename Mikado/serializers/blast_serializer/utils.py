@@ -83,7 +83,7 @@ def prepare_hsp(hsp, counter):
 
     assert query_pos <= hsp.query_end and target_pos <= hsp.hit_end
     # assert positive_count == hsp.positives and iden_count == hsp.identities
-    assert positive_count == hsp.pos_num and iden_count == hsp.ident_num
+    # assert positive_count == hsp.pos_num and iden_count == hsp.ident_num
 
     hsp_dict["match"] = match
 

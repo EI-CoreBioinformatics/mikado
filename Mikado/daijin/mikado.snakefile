@@ -128,17 +128,25 @@ rule blastx:
 	message: "Running BLASTX for mikado transcripts against: {params.tr}"
 	shell: "{params.load} if [ -s {params.tr} ]; then blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
 
+rule check_diamond:
+    input: fa=BLAST_DIR+"/index/blastdb-proteins.fa"
+    output: BLAST_DIR+"diamond.available"
+    params:
+        load=loadPre(config["load"]["diamond"])
+    shell: "{params.load} hash diamond && touch {output}"
 
 rule diamond_index:
-    input: fa=BLAST_DIR+"/index/blastdb-proteins.fa"
-    output: BLAST_DIR+"/index/blastdb-proteins.dmd"
+    input:
+        fa=BLAST_DIR+"/index/blastdb-proteins.fa",
+        check=rules.check_diamond.output
+    output: BLAST_DIR+"/index/blastdb-proteins.dmnd"
     params:
-        db= BLAST_DIR+"/index/blastdb-proteins"
+        db= BLAST_DIR+"/index/blastdb-proteins",
         load=loadPre(config["load"]["diamond"])
     log: BLAST_DIR+"/diamond.index.log"
     message: "Making DIAMOND protein database for: {input.fa}"
     threads: THREADS
-    shell: "{params.load} diamond makedb --threads THREADS --in {input.fa} --db {params.db}"
+    shell: "{params.load} diamond makedb --threads THREADS --in {input.fa} --db {params.db} 2> {log} > {log}"
 
 rule diamond:
     input:
@@ -150,7 +158,7 @@ rule diamond:
         tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta"
     threads: THREADS
     log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
-    shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --outfmt 6 --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --query {input.split} 2> {log}; else touch {output}; fi"
+    shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --threads {threads} --outfmt xml --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} > {log} 2> {log}; else touch {output}; fi"
 
 rule blast_all:
 	input: expand(BLAST_DIR + "/xmls/chunk-{chunk_id}-proteins.xml.gz", chunk_id=CHUNK_ARRAY)
@@ -252,3 +260,6 @@ rule mikado_collect_stats:
 
 rule complete:
   input: rules.mikado_collect_stats.output
+
+ruleorder: diamond > blastx
+ruleorder: diamond_index > make_blast

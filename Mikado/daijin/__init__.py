@@ -302,6 +302,7 @@ def mikado_pipeline(args):
     snakemake.snakemake(
         pkg_resources.resource_filename("Mikado",
                                         os.path.join("daijin", "mikado.snakefile")),
+        ignore_ambiguity=False,
         cores=args.cores,
         dryrun=args.dryrun,
         nodes=args.jobs,

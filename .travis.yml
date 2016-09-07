@@ -2,5 +2,7 @@ language: python
 python:
   - "3.4"
   - "3.5"
-install: "pip install -r requirements.txt"
-script: nosetests
+install: "pip install -r requirements.txt
+script:
+  - "cd mikado;"
+  - "python3 setup.py test;"

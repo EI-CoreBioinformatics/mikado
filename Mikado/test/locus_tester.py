@@ -300,7 +300,7 @@ class ASeventsTester(unittest.TestCase):
         t2.finalize()
 
         self.locus.add_transcript_to_locus(t2)
-        self.assertEqual(len(self.locus.transcripts), 1, self.locus.transcripts)
+        self.assertEqual(len(self.locus.transcripts), 2, self.locus.transcripts)
 
 
 class MonoHolderTester(unittest.TestCase):
@@ -671,10 +671,6 @@ class TestLocus(unittest.TestCase):
         locus.json_conf = self.json_conf
         self.assertEqual(len(locus.transcripts), 1)
 
-        locus.json_conf["pick"]["alternative_splicing"]["max_isoforms"] = 1
-        locus.add_transcript_to_locus(self.t1_as)
-        self.assertEqual(len(locus.transcripts), 1)
-
         locus.json_conf["pick"]["alternative_splicing"]["max_isoforms"] = 3
         locus.json_conf["pick"]["alternative_splicing"]["valid_ccodes"] = ["n", "O", "h"]
         locus.add_transcript_to_locus(self.t1_as)
@@ -684,28 +680,6 @@ class TestLocus(unittest.TestCase):
         locus.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] = 100
         locus.add_transcript_to_locus(self.t1_as)
         self.assertEqual(len(locus.transcripts), 1)
-
-    def test_exclude_with_retained_intron(self):
-
-        """Test that a transcript with a retained intron is chucked out"""
-
-        locus = Mikado.loci.Locus(self.t1, logger=self.logger)
-        locus.json_conf = self.json_conf
-        self.assertEqual(len(locus.transcripts), 1)
-        locus.add_transcript_to_locus(self.t1_retained)
-        self.assertEqual(len(locus.transcripts), 1)
-
-    def test_add_with_retained_intron(self):
-        """Test that a transcript with a retained intron is kept as valid
-        if we change the switch."""
-
-        locus = Mikado.loci.Locus(self.t1, logger=self.logger)
-        json_conf = self.json_conf.copy()
-        json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] = True
-        locus.json_conf = json_conf
-        self.assertEqual(len(locus.transcripts), 1)
-        locus.add_transcript_to_locus(self.t1_retained)
-        self.assertEqual(len(locus.transcripts), 2)
 
     def test_exclude_opposite_strand(self):
 

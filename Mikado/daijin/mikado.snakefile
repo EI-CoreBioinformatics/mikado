@@ -256,6 +256,3 @@ rule mikado_collect_stats:
 
 rule complete:
   input: rules.mikado_collect_stats.output
-
-ruleorder: diamond > blastx
-ruleorder: diamond_index > make_blast

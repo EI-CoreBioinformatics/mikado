@@ -92,16 +92,6 @@ rule create_blast_database:
          fastas=" ".join(BLASTX_TARGET)
     shell: """sanitize_blast_db.py --out {output} {params.fastas}"""
 
-rule make_blast:
-	input: fa=BLAST_DIR+"/index/blastdb-proteins.fa"
-	output: BLAST_DIR+"/index/blastdb-proteins.pog"
-	params:
-		db=BLAST_DIR+"/index/blastdb-proteins",
-		load=loadPre(config["load"]["blast"])
-	log: BLAST_DIR+"/blast.index.log"
-	message: "Making BLAST protein database for: {input.fa}"
-	shell: "{params.load} makeblastdb -in {input.fa} -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
-
 rule split_fa:
 	input: tr=rules.mikado_prepare.output.fa
 	output: BLAST_DIR+"/fastas/split.done"
@@ -113,52 +103,58 @@ rule split_fa:
 	message: "Splitting fasta: {input.tr}"
 	shell: "{params.load} split_fasta.py -m {params.chunks} {input.tr} {params.outdir} && touch {output}"
 
-rule blastx:
-	input: 
-		db=rules.make_blast.output,
-		split=rules.split_fa.output
-	output: BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml.gz"
-	params: 
-		tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta",
-		db=BLAST_DIR + "/index/blastdb-proteins",
-		load=loadPre(config["load"]["blast"]),
-		uncompressed=BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml",
-	log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
-	threads: THREADS
-	message: "Running BLASTX for mikado transcripts against: {params.tr}"
-	shell: "{params.load} if [ -s {params.tr} ]; then blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
+if config["mikado"]["use_diamond"] is False:
+    # Default, use BLAST
+    rule make_blast:
+        input: fa=BLAST_DIR+"/index/blastdb-proteins.fa"
+        output: BLAST_DIR+"/index/blastdb-proteins.pog"
+        params:
+            db=BLAST_DIR+"/index/blastdb-proteins",
+            load=loadPre(config["load"]["blast"])
+        log: BLAST_DIR+"/blast.index.log"
+        message: "Making BLAST protein database for: {input.fa}"
+        shell: "{params.load} makeblastdb -in {input.fa} -out {params.db} -dbtype prot -parse_seqids > {log} 2>&1"
 
-rule check_diamond:
-    input: fa=BLAST_DIR+"/index/blastdb-proteins.fa"
-    output: BLAST_DIR+"diamond.available"
-    params:
-        load=loadPre(config["load"]["diamond"])
-    shell: "{params.load} hash diamond && touch {output}"
+    rule blastx:
+        input:
+            db=rules.make_blast.output,
+            split=rules.split_fa.output
+        output: BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml.gz"
+        params:
+            tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta",
+            db=BLAST_DIR + "/index/blastdb-proteins",
+            load=loadPre(config["load"]["blast"]),
+            uncompressed=BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml",
+        log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
+        threads: THREADS
+        message: "Running BLASTX for mikado transcripts against: {params.tr}"
+        shell: "{params.load} if [ -s {params.tr} ]; then blastx -num_threads {threads} -outfmt 5 -query {params.tr} -db {params.db} -evalue {BLASTX_EVALUE} -max_target_seqs {BLASTX_MAX_TARGET_SEQS} > {params.uncompressed} 2> {log}; else touch {params.uncompressed}; fi && gzip {params.uncompressed}"
 
-rule diamond_index:
-    input:
-        fa=BLAST_DIR+"/index/blastdb-proteins.fa",
-        check=rules.check_diamond.output
-    output: BLAST_DIR+"/index/blastdb-proteins.dmnd"
-    params:
-        db= BLAST_DIR+"/index/blastdb-proteins",
-        load=loadPre(config["load"]["diamond"])
-    log: BLAST_DIR+"/diamond.index.log"
-    message: "Making DIAMOND protein database for: {input.fa}"
-    threads: THREADS
-    shell: "{params.load} diamond makedb --threads THREADS --in {input.fa} --db {params.db} 2> {log} > {log}"
+else:
+    # EXPERIMENTAL, DIAMOND itself at the moment does *not* support the necessary features!
+    rule diamond_index:
+        input:
+            fa=BLAST_DIR+"/index/blastdb-proteins.fa"
+        output: BLAST_DIR+"/index/blastdb-proteins.dmnd"
+        params:
+            db= BLAST_DIR+"/index/blastdb-proteins",
+            load=loadPre(config["load"]["diamond"])
+        log: BLAST_DIR+"/diamond.index.log"
+        message: "Making DIAMOND protein database for: {input.fa}"
+        threads: THREADS
+        shell: "{params.load} diamond makedb --threads THREADS --in {input.fa} --db {params.db} 2> {log} > {log}"
 
-rule diamond:
-    input:
-        db=rules.diamond_index.output,
-        split=rules.split_fa.output
-    output: BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml.gz"
-    params:
-        load=loadPre(config["load"]["diamond"]),
-        tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta"
-    threads: THREADS
-    log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
-    shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --threads {threads} --outfmt xml --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} > {log} 2> {log}; else touch {output}; fi"
+    rule diamond:
+        input:
+            db=rules.diamond_index.output,
+            split=rules.split_fa.output
+        output: BLAST_DIR+"/xmls/chunk-{chunk_id}-proteins.xml.gz"
+        params:
+            load=loadPre(config["load"]["diamond"]),
+            tr=BLAST_DIR+"/fastas/chunk_{chunk_id}.fasta"
+        threads: THREADS
+        log: BLAST_DIR + "/logs/chunk-{chunk_id}.blastx.log"
+        shell: "{params.load} if [ -s {params.tr} ]; then diamond blastx --threads {threads} --outfmt xml --compress 1 --out {output} --max-target-seqs {BLASTX_MAX_TARGET_SEQS} --evalue {BLASTX_EVALUE} --db {input.db} --salltitles --query {params.tr} > {log} 2> {log}; else touch {output}; fi"
 
 rule blast_all:
 	input: expand(BLAST_DIR + "/xmls/chunk-{chunk_id}-proteins.xml.gz", chunk_id=CHUNK_ARRAY)

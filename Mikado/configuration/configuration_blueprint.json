@@ -314,7 +314,7 @@
             },
             "keep_retained_introns": {
               "type": "boolean",
-              "default": true
+              "default": false
             },
             "max_isoforms": {
               "type": "integer",
@@ -399,7 +399,7 @@
             },
             "min_score_perc": {
               "type": "number",
-              "default": 0.5,
+              "default": 0.6,
               "minimum": 0,
               "maximum": 1
             },
@@ -620,6 +620,10 @@
             "fragments_maximal_exons": {
               "type": "integer",
               "default": 2
+            },
+            "fragments_maximal_cdna": {
+              "type": "integer",
+              "default": 400
             },
             "intron_range": {
               "type": "array",

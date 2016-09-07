@@ -1137,6 +1137,8 @@ class Superlocus(Abstractlocus):
                 self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
             self.loci[lid].finalize_alternative_splicing()
 
+        return
+
     def calculate_mono_metrics(self):
         """Wrapper to calculate the metrics for the monosubloci."""
         self.monoholders = []

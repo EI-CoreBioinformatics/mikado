@@ -286,6 +286,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
     loci_to_check = {True: set(), False: set()}
     mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
     mexons = json_conf["pick"]["run_options"]["fragments_maximal_exons"]
+    mcdna = json_conf["pick"]["run_options"]["fragments_maximal_cdna"]
 
     total = 0
     for stranded_locus in stranded_loci:
@@ -311,6 +312,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
                     if other_locus.other_is_fragment(
                             locus_instance,
                             minimal_cds_length=mcdl,
+                            minimal_cdna_length=mcdna,
                             minimal_exons=mexons) is True:
                         if bool_remove_fragments is False:
                             # Just mark it as a fragment

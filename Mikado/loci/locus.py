@@ -120,35 +120,62 @@ class Locus(Sublocus, Abstractlocus):
         self.metrics_calculated = False
         self.scores_calculated = False
         self.calculate_scores()
+        max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
 
         while True:
-            to_remove = set()
-            for transcript in self.transcripts.values():
-                if transcript.id == self.primary_transcript_id:
-                    continue
-                if (transcript.score <
-                        self.primary_transcript.score *
-                        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
-                    self.logger.debug(
-                        "%s removed because its score (%.2f) is less \
-                        than %.2f%% of the primary score (%.2f)",
-                        transcript.id,
-                        transcript.score,
-                        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * 100,
-                        self.primary_transcript.score)
-                    to_remove.add(transcript.id)
+            to_keep = {self.primary_transcript_id}
+            order = sorted([(tid, self.transcripts[tid].score) for tid in self.transcripts
+                            if tid != self.primary_transcript_id],
+                           key=operator.itemgetter(1), reverse=True)
+            threshold = self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * self.primary_transcript.score
 
+            for tid, score in order:
+                if len(to_keep) == max_isoforms:
+                    self.logger.debug(
+                        "Discarding {} from the locus because we have reached the maximum number of isoforms for the locus".format(
+                            ", ".join(list(set.difference(set(self.transcripts.keys()),
+                                                          to_keep)))
+                        ))
+                    break
+                if score < threshold:
+                    self.logger.debug(
+                        "Discarding {} from the locus because their scores are below the threshold ({})".format(
+                            ", ".join(list(set.difference(set(self.transcripts.keys()),
+                                                          to_keep))),
+                            round(threshold, 2)))
+                    break
+                to_keep.add(tid)
+
+            if to_keep == set(self.transcripts.keys()):
+                self.logger.debug("Finished to discard superfluous transcripts from {}".format(self.id))
+                break
+            else:
+                for tid in set.difference(set(self.transcripts.keys()), to_keep):
+                    self.remove_transcript_from_locus(tid)
+                assert len(self.transcripts) > 0, to_keep
+                self.metrics_calculated = False
+                self.scores_calculated = False
+                self.calculate_scores()
+
+        self.logger.debug("Now checking the retained introns")
+        if self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
+            to_remove = set()
+            for tid, transcript in self.transcripts.items():
+                if tid == self.primary_transcript_id:
+                    continue
+                self.find_retained_introns(transcript)
+                if transcript.retained_intron_num > 0:
+                    to_remove.add(tid)
+                else:
+                    continue
             if to_remove:
-                self.logger.debug("Removing the following transcripts as non-valid AS events: {}".format(
-                    ", ".join(to_remove)))
+                self.logger.debug("Removing {} because they contain retained introns".format(
+                    ", ".join(list(to_remove))))
                 for tid in to_remove:
-                    self.locus_verified_introns.remove(self.transcripts[tid].verified_introns)
                     self.remove_transcript_from_locus(tid)
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.calculate_scores()
-            else:
-                break
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.
@@ -180,12 +207,12 @@ class Locus(Sublocus, Abstractlocus):
             "total": self.json_conf["pick"]["alternative_splicing"]["max_utr_length"],
             "five": self.json_conf["pick"]["alternative_splicing"]["max_fiveutr_length"],
             "three": self.json_conf["pick"]["alternative_splicing"]["max_threeutr_length"]}
-        max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
-
-        if len(self.transcripts) >= max_isoforms:
-            self.logger.debug("%s not added because the Locus has already too many transcripts.",
-                              transcript.id)
-            to_be_added = False
+        # max_isoforms = self.json_conf["pick"]["alternative_splicing"]["max_isoforms"]
+        #
+        # if len(self.transcripts) >= max_isoforms:
+        #     self.logger.debug("%s not added because the Locus has already too many transcripts.",
+        #                       transcript.id)
+        #     to_be_added = False
 
         if self.json_conf["pick"]["alternative_splicing"]["only_confirmed_introns"] is True:
             to_check = transcript.introns - self.primary_transcript.introns
@@ -237,15 +264,6 @@ class Locus(Sublocus, Abstractlocus):
                               transcript.three_utr_length)
             to_be_added = False
 
-        self.find_retained_introns(transcript)
-        if (to_be_added and
-                self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False):
-            if transcript.retained_intron_num > 0:
-                self.logger.debug("%s not added because it has %d retained introns.",
-                                  transcript.id,
-                                  transcript.retained_intron_num)
-                to_be_added = False
-
         if to_be_added and self.json_conf["pick"]["alternative_splicing"]["min_cds_overlap"] > 0:
             if self.primary_transcript.combined_cds_length > 0:
                 tr_nucls = set(itertools.chain(
@@ -282,6 +300,7 @@ class Locus(Sublocus, Abstractlocus):
     def other_is_fragment(self,
                           other,
                           minimal_cds_length=0,
+                          minimal_cdna_length=0,
                           minimal_exons=2):
         """
         :param other: another Locus to compare against
@@ -322,6 +341,11 @@ class Locus(Sublocus, Abstractlocus):
             self.logger.debug("%s has %d exons, not a fragment by definition",
                               other.primary_transcript_id,
                               other.primary_transcript.combined_cds_length)
+            return False
+        elif other.primary_transcript.cdna_length > minimal_cdna_length:
+            self.logger.debug("%s is %d bps long, not a fragment by definition",
+                              other.primary_transcript_id,
+                              other.primary_transcript.cdna_length)
             return False
 
         result, _ = Assigner.compare(other.primary_transcript, self.primary_transcript)
@@ -608,12 +632,23 @@ class Locus(Sublocus, Abstractlocus):
         order = sorted([k for k in self.transcripts.keys() if k != primary_id],
                        key=lambda xtid: self.transcripts[xtid])
 
+        mapper = {old_primary: primary_id}
+
         for counter, tid in enumerate(order):
             counter += 2
             self.transcripts[tid].attributes["Alias"] = tid
             new_id = "{0}.{1}".format(string, counter)
             self.transcripts[tid].id = new_id
             self.transcripts[new_id] = self.transcripts.pop(tid)
+            mapper[tid] = new_id
+
+        if self.scores_calculated is True:
+            for tid in mapper:
+                self.scores[mapper[tid]] = self.scores.pop(tid)
+        if self.metrics_calculated is True:
+            for index in range(len(self.metric_lines_store)):
+                self.metric_lines_store[index]["tid"] = mapper[self.metric_lines_store[index]["tid"]]
+                self.metric_lines_store[index]["parent"] = self.id
 
     # pylint: enable=invalid-name,arguments-differ
 

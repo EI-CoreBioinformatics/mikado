@@ -1135,6 +1135,7 @@ class Superlocus(Abstractlocus):
                               key=lambda ttid: self.transcripts[ttid].score,
                               reverse=True):
                 self.loci[lid].add_transcript_to_locus(self.transcripts[tid])
+            self.loci[lid].finalize_alternative_splicing()
 
     def calculate_mono_metrics(self):
         """Wrapper to calculate the metrics for the monosubloci."""

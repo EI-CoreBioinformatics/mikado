@@ -109,6 +109,40 @@ class Locus(Sublocus, Abstractlocus):
 
         return "\n".join(lines)
 
+    def finalize_alternative_splicing(self):
+
+        self.metrics_calculated = False
+        self.scores_calculated = False
+        self.calculate_scores()
+
+        while True:
+            to_remove = set()
+            for transcript in self.transcripts.values():
+                if transcript.id == self.primary_transcript_id:
+                    continue
+                if (transcript.score <
+                        self.primary_transcript.score *
+                        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
+                    self.logger.debug(
+                        "%s removed because its score (%.2f) is less \
+                        than %.2f%% of the primary score (%.2f)",
+                        transcript.id,
+                        transcript.score,
+                        self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * 100,
+                        self.primary_transcript.score)
+                    to_remove.add(transcript.id)
+
+            if to_remove:
+                self.logger.debug("Removing the following transcripts as non-valid AS events: {}".format(
+                    ", ".join(to_remove)))
+                for tid in to_remove:
+                    self.remove_transcript_from_locus(tid)
+                self.metrics_calculated = False
+                self.scores_calculated = False
+                self.calculate_scores()
+            else:
+                break
+
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.
         Before a transcript is added, the class checks that it is a valid splicing isoform
@@ -156,18 +190,6 @@ class Locus(Sublocus, Abstractlocus):
                     len(to_check),
                     "s" * min(1, len(to_check) - 1))
                 to_be_added = False
-
-        if (to_be_added and transcript.score <
-                self.primary_transcript.score *
-                self.json_conf["pick"]["alternative_splicing"]["min_score_perc"]):
-            self.logger.debug(
-                "%s not added because its score (%.2f) is less \
-                than %.2f%% of the primary score (%.2f)",
-                transcript.id,
-                transcript.score,
-                self.json_conf["pick"]["alternative_splicing"]["min_score_perc"] * 100,
-                self.primary_transcript.score)
-            to_be_added = False
 
         if to_be_added and transcript.strand != self.strand:
             self.logger.debug("%s not added because it has a different strand from %s (%s vs. %s)",
@@ -463,6 +485,8 @@ class Locus(Sublocus, Abstractlocus):
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
+        self.scores_calculated = False
+        self.metrics_calculated = False
         self.calculate_scores()
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])

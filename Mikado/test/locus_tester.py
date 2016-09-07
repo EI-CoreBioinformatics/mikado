@@ -79,17 +79,18 @@ Chr1\tfoo\texon\t501\t600\t.\t+\t.\tID=t1:exon3;Parent=t1""".split("\n")
         # Test that creating a superlocus without configuration fails
         with self.assertRaises(exceptions.NoJsonConfigError):
             _ = Superlocus(self.transcript1)
+        self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
+        self.my_json = configurator.to_json(self.my_json)
+        self.assertIn("scoring", self.my_json, self.my_json.keys())
 
     def test_locus(self):
         """Basic testing of the Locus functionality."""
 
-        my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
-        my_json = configurator.to_json(my_json)
         logger = create_null_logger("null")
         logger.setLevel("WARNING")
         logger.info("Started")
         slocus = Superlocus(self.transcript1,
-                            json_conf=my_json,
+                            json_conf=self.my_json,
                             logger=logger)
         slocus.add_transcript_to_locus(self.transcript2)
         self.assertEqual(slocus.strand, self.transcript1.strand)
@@ -114,7 +115,7 @@ Chr1\tfoo\texon\t101\t200\t.\t-\t.\tID=tminus0:exon1;Parent=tminus0""".split("\n
         for exon in gff_transcript3[1:]:
                 transcript3.add_exon(exon)
         transcript3.finalize()
-        minusuperlocus = Superlocus(transcript3, json_conf=my_json)
+        minusuperlocus = Superlocus(transcript3, json_conf=self.my_json)
         minusuperlocus.define_loci()
         self.assertEqual(len(minusuperlocus.loci), 1)
         self.assertTrue(transcript3.strand != self.transcript1.strand)

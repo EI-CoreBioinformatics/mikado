@@ -34,7 +34,9 @@ def launch(args):
         if current is None or ((line.is_gene or line.is_transcript) and line.gene != current.id):
             if current:
                 print(current.format(out_format), file=args.out)
-            if line.is_gene is True:
+            if "superlocus" in line.feature:  # Hack for Mikado files
+                continue
+            elif line.is_gene is True:
                 current = Gene(line)
             else:
                 current = Gene(Transcript(line))

@@ -304,17 +304,17 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.6
+              "default": 0.5
             },
             "min_cdna_overlap": {
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0
+              "default": 0.3
             },
             "keep_retained_introns": {
               "type": "boolean",
-              "default": false
+              "default": true
             },
             "max_isoforms": {
               "type": "integer",
@@ -399,13 +399,13 @@
             },
             "min_score_perc": {
               "type": "number",
-              "default": 0.6,
+              "default": 0.5,
               "minimum": 0,
               "maximum": 1
             },
             "only_confirmed_introns":{
               "type": "boolean",
-              "default": false
+              "default": true
             }
           }
         },
@@ -532,7 +532,7 @@
                   "type": "number",
                   "minimum": 0,
                   "maximum": 1,
-                  "default": 0.9
+                  "default": 0.5
                 },
                 "min_overlap_duplication": {
                   "type": "number",
@@ -602,7 +602,7 @@
             },
             "purge": {
               "type": "boolean",
-              "default": false
+              "default": true
             },
             "remove_overlapping_fragments": {
               "type": "boolean",
@@ -611,11 +611,11 @@
             "flank":{
               "type": "integer",
               "minimum": 0,
-              "default": 1000
+              "default": 200
             },
             "fragments_maximal_cds": {
               "type": "integer",
-              "default": 100
+              "default": 200
             },
             "fragments_maximal_exons": {
               "type": "integer",

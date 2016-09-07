@@ -724,7 +724,7 @@ def __relocate_orfs(transcript, bed12_objects, tstart, tend):
             assert obj.thick_end > obj.thick_start > 0
             obj.block_sizes = [obj.end]
             obj.block_starts = [obj.block_starts]
-            transcript.logger.warning("Inverting negative ORF in %s",
+            transcript.logger.debug("Inverting negative ORF in %s",
                                       transcript.id)
         else:
             obj.start = 1

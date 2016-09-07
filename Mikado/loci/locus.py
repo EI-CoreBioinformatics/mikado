@@ -111,6 +111,12 @@ class Locus(Sublocus, Abstractlocus):
 
     def finalize_alternative_splicing(self):
 
+        """"This method ensures that all the transcripts retained in the locus
+        are within the score threshold. This is due to the fact that the score
+        changes depending on the transcript considered together; so that a transcript
+        that might have scored relatively well on its own will score pretty badly when
+        brought inside the locus."""
+
         self.metrics_calculated = False
         self.scores_calculated = False
         self.calculate_scores()
@@ -136,6 +142,7 @@ class Locus(Sublocus, Abstractlocus):
                 self.logger.debug("Removing the following transcripts as non-valid AS events: {}".format(
                     ", ".join(to_remove)))
                 for tid in to_remove:
+                    self.locus_verified_introns.remove(self.transcripts[tid].verified_introns)
                     self.remove_transcript_from_locus(tid)
                 self.metrics_calculated = False
                 self.scores_calculated = False
@@ -485,8 +492,6 @@ class Locus(Sublocus, Abstractlocus):
 
     def print_scores(self):
         """This method yields dictionary rows that are given to a csv.DictWriter class."""
-        self.scores_calculated = False
-        self.metrics_calculated = False
         self.calculate_scores()
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()) + ["source_score"])

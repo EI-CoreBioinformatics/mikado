@@ -199,7 +199,7 @@ def merge_loci_gff(gff_filenames, gff_handle, prefix=""):
                 print("###", file=gff_handle)
             del current_lines[index]
 
-    [os.remove(_) for _ in gff_filenames]
+    # [os.remove(_) for _ in gff_filenames]
     return gid_to_new, tid_to_new
 
 
@@ -244,21 +244,25 @@ def merge_loci(num_temp, out_handles, prefix="", tempdir="mikado_pick_tmp"):
                         _.close()
                         finished.add(_.name)
 
+        # Parsing scores and metrics
         while len(current_lines) > 0:
             current = min(current_lines.keys())
             for index, line in current_lines[current]:
                 fields = line.split("\t")
                 tid, gid = fields[:2]
-                assert (index, gid) in gid_to_new, ((index, gid),
-                                                    "\n".join(str(_) for _ in gid_to_new.items()))
-                assert (index, tid) in tid_to_new, (index, tid, tid_to_new)
+                if (index, gid) not in gid_to_new:
+                    raise KeyError("GID {} not found in {}!".format(
+                        (index, gid), handle.name))
+                if (index, tid) not in tid_to_new:
+                    raise KeyError("TID {} not found in {}!".format(
+                        (index, tid), handle.name))
 
                 fields[0] = tid_to_new[(index, tid)]
                 fields[1] = gid_to_new[(index, gid)]
                 line = "\t".join(fields)
                 print(line, file=handle, end="")
             del current_lines[current]
-        [os.remove(_) for _ in finished]
+        # [os.remove(_) for _ in finished]
     return
 
 

@@ -819,9 +819,22 @@ memory intensive, proceed with caution!")
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
-        tempdir = tempfile.TemporaryDirectory(suffix="",
+        class o:
+            def __init__(self, name):
+                self.name = name
+
+            def cleanup(self):
+                pass
+
+        tempdir = tempfile.mkdtemp(suffix="",
                                               prefix="mikado_pick_tmp",
                                               dir=self.json_conf["pick"]["files"]["output_dir"])
+        # os.mkdir(tempdir)
+        tempdir = o(tempdir)
+
+        # tempdir = tempfile.TemporaryDirectory(suffix="",
+        #                                       prefix="mikado_pick_tmp",
+        #                                       dir=self.json_conf["pick"]["files"]["output_dir"])
 
         self.logger.info("Creating the worker processes")
         working_processes = [LociProcesser(self.json_conf,

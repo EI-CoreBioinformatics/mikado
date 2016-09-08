@@ -9,10 +9,6 @@ and is used to define all the possible children (subloci, monoloci, loci, etc.)
 # Core imports
 import collections
 from sys import version_info
-if version_info.minor < 5:
-    from sortedcontainers import SortedDict
-else:
-    from collections import OrderedDict as SortedDict
 import networkx
 from sqlalchemy.engine import Engine
 from ..utilities import dbutils, grouper
@@ -31,6 +27,10 @@ from .sublocus import Sublocus
 from .monosublocusholder import MonosublocusHolder
 from ..parsers.GFF import GffLine
 from ..exceptions import NoJsonConfigError, NotInLocusError
+if version_info.minor < 5:
+    from sortedcontainers import SortedDict
+else:
+    from collections import OrderedDict as SortedDict
 
 # The number of attributes is something I need
 # pylint: disable=too-many-instance-attributes
@@ -432,12 +432,13 @@ class Superlocus(Abstractlocus):
             # dbquery = self.db_baked(self.session).params(chrom_name=self.chrom).all()
 
             ver_introns = self.engine.execute(" ".join([
-                "select junction_start, junction_end from junctions where",
+                "select junction_start, junction_end, strand from junctions where",
                 "chrom_id = (select chrom_id from chrom where name = \"{chrom}\")",
                 "and junction_start > {start} and junction_end < {end}"]).format(
                     chrom=self.chrom, start=self.start, end=self.end
             ))
-            ver_introns = [(junc.junction_start, junc.junction_end) for junc in ver_introns]
+            ver_introns = dict(((junc.junction_start, junc.junction_end), junc.strand)
+                                for junc in ver_introns)
 
             # ver_introns = set((junc.junction_start, junc.junction_end) for junc in
             #                   self.junction_baked(self.session).params(
@@ -458,7 +459,7 @@ class Superlocus(Abstractlocus):
                                       self.chrom, intron[0], intron[1])
                     self.locus_verified_introns.append((intron[0],
                                                         intron[1],
-                                                        self.strand))
+                                                        ver_introns[(intron[0], intron[1])]))
         else:
             for intron in self.introns:
                 self.logger.debug("Checking %s%s:%d-%d",

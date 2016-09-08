@@ -282,6 +282,7 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
     transcript.logger.debug("Loading {0}".format(transcript.id))
     transcript.json_conf = json_conf
 
+    __load_verified_introns(transcript, data_dict, introns)
     if data_dict is not None:
         retrieve_from_dict(transcript, data_dict)
     else:
@@ -303,7 +304,6 @@ def load_information_from_db(transcript, json_conf, introns=None, session=None,
         __load_blast(transcript)
         transcript.logger.debug("Loaded the BLAST data for %s", transcript.id)
     # Finally load introns, separately
-    __load_verified_introns(transcript, data_dict, introns)
     transcript.logger.debug("Loaded data for %s", transcript.id)
 
 
@@ -564,8 +564,8 @@ def __load_verified_introns(transcript, data_dict=None, introns=None):
                     transcript.verified_introns.add(intron)
 
     else:
-        transcript.logger.debug("Checking introns using data structure for %s",
-                                transcript.id)
+        transcript.logger.debug("Checking introns using data structure for %s; introns: %s",
+                                transcript.id, introns)
         for intron in transcript.introns:
             transcript.logger.debug("Checking intron %s%s:%d-%d for %s",
                                     transcript.chrom, transcript.strand,

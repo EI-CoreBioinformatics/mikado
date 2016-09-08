@@ -298,21 +298,10 @@ class Locus(Sublocus, Abstractlocus):
         assess whether a transcript is a splicing isoform or not.""")
 
     def other_is_fragment(self,
-                          other,
-                          minimal_cds_length=0,
-                          minimal_cdna_length=0,
-                          minimal_exons=2):
+                          other):
         """
         :param other: another Locus to compare against
         :type other: Locus
-
-        :param minimal_cds_length: Minimal CDS length to consider
-        a Locus as non-fragment, no matter the ccode.
-        :type minimal_cds_length: int
-
-        :param minimal_exons: Maximum number of exons to consider a
-        a Locus as non-fragment, no matter the ccode.
-        :type minimal_cds_length: int
 
         This function checks whether another *monoexonic* Locus
         *on the opposite strand* is a fragment,by checking its classification
@@ -332,20 +321,20 @@ class Locus(Sublocus, Abstractlocus):
                           self.primary_transcript_id,
                           other.primary_transcript_id)
 
-        if other.primary_transcript.combined_cds_length > minimal_cds_length:
-            self.logger.debug("%s has a CDS of %d, not a fragment by definition",
-                              other.primary_transcript_id,
-                              other.primary_transcript.combined_cds_length)
-            return False
-        elif other.primary_transcript.exon_num > minimal_exons:
-            self.logger.debug("%s has %d exons, not a fragment by definition",
-                              other.primary_transcript_id,
-                              other.primary_transcript.combined_cds_length)
-            return False
-        elif other.primary_transcript.cdna_length > minimal_cdna_length:
-            self.logger.debug("%s is %d bps long, not a fragment by definition",
-                              other.primary_transcript_id,
-                              other.primary_transcript.cdna_length)
+        self.json_conf["fragments"]["compiled"] = compile(
+            self.json_conf["requirements"]["expression"], "<json>",
+            "eval")
+
+        evaluated = dict()
+        for key in self.json_conf["fragments"]["parameters"]:
+            value = getattr(other.primary_transcript,
+                            self.json_conf["fragments"]["parameters"][key]["name"])
+            evaluated[key] = self.evaluate(
+                value,
+                self.json_conf["fragments"]["parameters"][key])
+        if eval(self.json_conf["requirements"]["compiled"]) is True:
+            self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
+                              other.primary_transcript_id)
             return False
 
         result, _ = Assigner.compare(other.primary_transcript, self.primary_transcript)

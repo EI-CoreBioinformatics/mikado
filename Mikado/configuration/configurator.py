@@ -188,12 +188,18 @@ def check_all_requirements(json_conf):
         require_schema = json.load(rs_blueprint)
 
     if "requirements" in json_conf:
-        json_conf = check_requirements(json_conf, require_schema)
+        json_conf = check_requirements(json_conf,
+                                       require_schema,
+                                       "requirements")
+    if "fragments" in json_conf:
+        json_conf = check_requirements(json_conf,
+                                       require_schema,
+                                       "fragments")
 
     return json_conf
 
 
-def check_requirements(json_conf, require_schema):
+def check_requirements(json_conf, require_schema, index):
     """
     Function to check the "requirements" section of the configuration.
     Each filtering function will be checked for:
@@ -214,23 +220,23 @@ def check_requirements(json_conf, require_schema):
     parameters_not_found = []
     available_metrics = Transcript.get_available_metrics()
 
-    if "parameters" not in json_conf["requirements"]:
+    if "parameters" not in json_conf[index]:
         raise InvalidJson(
-            "The requirements field must have a \"parameters\" subfield!")
-    for key in json_conf["requirements"]["parameters"]:
+            "The {} field must have a \"parameters\" subfield!".format(index))
+    for key in json_conf[index]["parameters"]:
         key_name = key.split(".")[0]
         if key_name not in available_metrics:
             parameters_not_found.append(key_name)
             continue
         if not jsonschema.Draft4Validator(require_schema["definitions"]["parameter"]).is_valid(
-                json_conf["requirements"]["parameters"][key]):
+                json_conf[index]["parameters"][key]):
             errors = list(jsonschema.Draft4Validator(require_schema).iter_errors(
-                json_conf["requirements"]["parameters"][key]
+                json_conf[index]["parameters"][key]
             ))
-            raise InvalidJson("Invalid parameter for {0}: \n{1}".format(
-                key, errors))
+            raise InvalidJson("Invalid parameter for {0} in {1}: \n{2}".format(
+                key, index, errors))
 
-        json_conf["requirements"]["parameters"][key]["name"] = key_name
+        json_conf[index]["parameters"][key]["name"] = key_name
 
     if len(parameters_not_found) > 0:
         raise InvalidJson(
@@ -239,25 +245,25 @@ def check_requirements(json_conf, require_schema):
             ))
 
     # Create automatically a filtering expression
-    if "expression" not in json_conf["requirements"]:
-        json_conf["requirements"]["expression"] = " and ".join(
-            list(json_conf["requirements"]["parameters"].keys()))
-        keys = json_conf["requirements"]["parameters"].keys()
-        newexpr = json_conf["requirements"]["expression"][:]
+    if "expression" not in json_conf[index]:
+        json_conf[index]["expression"] = " and ".join(
+            list(json_conf[index]["parameters"].keys()))
+        keys = json_conf[index]["parameters"].keys()
+        newexpr = json_conf[index]["expression"][:]
     else:
 
         if not jsonschema.Draft4Validator(
                 require_schema["definitions"]["expression"]).is_valid(
-                    json_conf["requirements"]["expression"]):
+                    json_conf[index]["expression"]):
             raise InvalidJson("Invalid expression field")
-        expr = " ".join(json_conf["requirements"]["expression"])
+        expr = " ".join(json_conf[index]["expression"])
         newexpr = expr[:]
 
         keys = list(key for key in re.findall(
             "([^ ()]+)", expr) if key not in ("and", "or", "not", "xor"))
 
         diff_params = set.difference(
-            set(keys), set(json_conf["requirements"]["parameters"].keys()))
+            set(keys), set(json_conf[index]["parameters"].keys()))
 
         if len(diff_params) > 0:
             raise InvalidJson(
@@ -271,9 +277,9 @@ def check_requirements(json_conf, require_schema):
     try:
         compile(newexpr, "<json>", "eval")
     except SyntaxError:
-        raise InvalidJson("Invalid requirements expression:\n{}".format(newexpr))
+        raise InvalidJson("Invalid expression for {}:\n{}".format(index, newexpr))
 
-    json_conf["requirements"]["expression"] = newexpr
+    json_conf[index]["expression"] = newexpr
     return json_conf
 
 

@@ -180,7 +180,7 @@ class Transcript:
         self.finalized = False  # Flag. We do not want to repeat the finalising more than once.
         self.selected_internal_orf_index = None
         self.non_overlapping_cds = None
-        self.verified_introns = set()
+        self.__verified_introns = set()
         self.segments = []
         self.intron_range = intron_range
         self.internal_orfs = []
@@ -2220,6 +2220,23 @@ index {3}, internal ORFs: {4}".format(
 
     non_verified_introns_num.category = "External"
 
+    @property
+    def verified_introns(self):
+
+        if set.difference(self.__verified_introns, self.introns):
+            self.logger.warning("Invalid verified junctions found for %s, removing them",
+                                self.id)
+            self.__verified_introns = set.intersection(self.introns, self.__verified_introns)
+        return self.__verified_introns
+
+    @verified_introns.setter
+    def verified_introns(self, item):
+
+        if not isinstance(item, set):
+            raise TypeError("Invalid type for verified junctions, expected set, got {}".format(
+                type(item)))
+        self.__verified_introns = set.intersection(item, self.introns)
+
     @Metric
     def verified_introns_num(self):
         """
@@ -2227,6 +2244,8 @@ index {3}, internal ORFs: {4}".format(
         by external data.
         :rtype : int
         """
+
+        assert len(self.verified_introns) <= len(self.introns)
         return len(self.verified_introns)
 
     verified_introns_num.category = "External"

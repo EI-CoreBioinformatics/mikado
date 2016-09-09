@@ -299,24 +299,29 @@ class Locus(Sublocus, Abstractlocus):
 
     def is_putative_fragment(self):
 
-        """This method will use the expression in the "fragments" section
+        """This method will use the expression in the "not_fragmentary" section
         of the configuration to determine whether it is itself a putative fragment."""
 
-        self.json_conf["fragments"]["compiled"] = compile(
-            self.json_conf["requirements"]["expression"], "<json>",
+        self.json_conf["not_fragmentary"]["compiled"] = compile(
+            self.json_conf["not_fragmentary"]["expression"], "<json>",
             "eval")
 
         evaluated = dict()
-        for key in self.json_conf["fragments"]["parameters"]:
+        for key in self.json_conf["not_fragmentary"]["parameters"]:
             value = getattr(self.primary_transcript,
-                            self.json_conf["fragments"]["parameters"][key]["name"])
+                            self.json_conf["not_fragmentary"]["parameters"][key]["name"])
             evaluated[key] = self.evaluate(
                 value,
-                self.json_conf["fragments"]["parameters"][key])
-        if eval(self.json_conf["requirements"]["compiled"]) is True:
+                self.json_conf["not_fragmentary"]["parameters"][key])
+        if eval(self.json_conf["not_fragmentary"]["compiled"]) is True:
             self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
-                              self.primary_transcript_id)
+                              self.id)
             return False
+        else:
+            self.logger.debug(
+                "%s could be a fragment according to the definitions, tagging it for analysis",
+                self.id)
+            return True
 
     def other_is_fragment(self,
                           other):
@@ -350,7 +355,7 @@ class Locus(Sublocus, Abstractlocus):
             other.primary_transcript.id,
             result.ccode[0],
             other.strand))
-        if result.ccode[0] in ("i", "P", "p", "x"):
+        if result.ccode[0] in ("i", "P", "p", "x", "X", "m", "_"):
             self.logger.debug("{0} is a fragment (ccode {1})".format(
                 other.primary_transcript.id, result.ccode[0]))
             return True

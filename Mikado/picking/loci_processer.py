@@ -284,20 +284,24 @@ def remove_fragments(stranded_loci, json_conf, logger):
     """
 
     loci_to_check = {True: set(), False: set()}
-    mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
-    mexons = json_conf["pick"]["run_options"]["fragments_maximal_exons"]
-    mcdna = json_conf["pick"]["run_options"]["fragments_maximal_cdna"]
+    # mcdl = json_conf["pick"]["run_options"]["fragments_maximal_cds"]
+    # mexons = json_conf["pick"]["run_options"]["fragments_maximal_exons"]
+    # mcdna = json_conf["pick"]["run_options"]["fragments_maximal_cdna"]
 
     total = 0
+
     for stranded_locus in stranded_loci:
         for _, locus_instance in stranded_locus.loci.items():
+            logger.debug("Assessing whether %s could be a fragment", _)
             locus_instance.logger = logger
             total += 1
-            to_check = (locus_instance.primary_transcript.combined_cds_length < mcdl)
-            loci_to_check[to_check].add(locus_instance)
+            is_fragment = locus_instance.is_putative_fragment()
+            logger.debug("%s is a putative fragment: %s", _, is_fragment)
+            loci_to_check[is_fragment].add(locus_instance)
 
     if len(loci_to_check[True]) == total:
-        loci_to_check[False] = loci_to_check[True].copy()
+        loci_to_check[False] = loci_to_check.pop(True)
+        loci_to_check[True] = set()
 
     bool_remove_fragments = json_conf["pick"]["run_options"]["remove_overlapping_fragments"]
     for stranded_locus in stranded_loci:
@@ -310,10 +314,7 @@ def remove_fragments(stranded_loci, json_conf, logger):
                         olocus for olocus in loci_to_check[False]
                         if olocus.primary_transcript_id != locus_instance.primary_transcript_id):
                     if other_locus.other_is_fragment(
-                            locus_instance,
-                            minimal_cds_length=mcdl,
-                            minimal_cdna_length=mcdna,
-                            minimal_exons=mexons) is True:
+                            locus_instance) is True:
                         if bool_remove_fragments is False:
                             # Just mark it as a fragment
                             stranded_locus.loci[locus_id].is_fragment = True

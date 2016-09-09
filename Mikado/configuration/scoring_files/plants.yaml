@@ -9,7 +9,7 @@ requirements:
     max_intron_length: {operator: le, value: 20000}
     min_intron_length: {operator: ge, value: 5}
     verified_introns_num: {operator: gt, value: 0}
-fragments:
+not_fragmentary:
   expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
   parameters:
     exon_num.multi: {operator: gt, value: 1}

@@ -101,10 +101,15 @@ class _XmlPickler(multiprocessing.Process):
         :return: current_target (ID in the database), targets
         """
 
-        if alignment.accession not in self.targets:
+        if self.discard_definition:
+            accession = alignment.accession
+        else:
+            accession = alignment.id
+
+        if accession not in self.targets:
             raise KeyError("{} not found in the targets!".format(alignment.accession))
 
-        current_target = self.targets[alignment.accession][0]
+        current_target = self.targets[accession][0]
         return current_target
 
     def __getstate__(self):

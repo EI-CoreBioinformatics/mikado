@@ -191,10 +191,15 @@ def check_all_requirements(json_conf):
         json_conf = check_requirements(json_conf,
                                        require_schema,
                                        "requirements")
-    if "fragments" in json_conf:
+    else:
+        raise InvalidJson("No minimal requirements specified!")
+
+    if "not_fragmentary" in json_conf:
         json_conf = check_requirements(json_conf,
                                        require_schema,
-                                       "fragments")
+                                       "not_fragmentary")
+    else:
+        json_conf["not_fragmentary"] = json_conf["requirements"].copy()
 
     return json_conf
 

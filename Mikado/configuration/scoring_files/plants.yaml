@@ -10,13 +10,13 @@ requirements:
     min_intron_length: {operator: ge, value: 5}
     verified_introns_num: {operator: gt, value: 0}
 fragments:
-  expression: [(exon_num.multi and (cdna_length.multi or combined_cds_length.mono)), or, (exon_num.mono and combined_cds_length.mono)]
+  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
   parameters:
     exon_num.multi: {operator: gt, value: 1}
     cdna_length.multi: {operator: ge, value: 200}
     combined_cds_length.multi: {operator: gt, value: 150}
     exon_num.mono: {operator: eq, value: 1}
-    combined_cds_length.mono: {operator: gt, value: 300}
+    combined_cds_length.mono: {operator: gt, value: 200}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}

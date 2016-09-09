@@ -297,6 +297,27 @@ class Locus(Sublocus, Abstractlocus):
         raise NotImplementedError("""Loci do not use this method, but rather
         assess whether a transcript is a splicing isoform or not.""")
 
+    def is_putative_fragment(self):
+
+        """This method will use the expression in the "fragments" section
+        of the configuration to determine whether it is itself a putative fragment."""
+
+        self.json_conf["fragments"]["compiled"] = compile(
+            self.json_conf["requirements"]["expression"], "<json>",
+            "eval")
+
+        evaluated = dict()
+        for key in self.json_conf["fragments"]["parameters"]:
+            value = getattr(self.primary_transcript,
+                            self.json_conf["fragments"]["parameters"][key]["name"])
+            evaluated[key] = self.evaluate(
+                value,
+                self.json_conf["fragments"]["parameters"][key])
+        if eval(self.json_conf["requirements"]["compiled"]) is True:
+            self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
+                              self.primary_transcript_id)
+            return False
+
     def other_is_fragment(self,
                           other):
         """
@@ -320,22 +341,6 @@ class Locus(Sublocus, Abstractlocus):
         self.logger.debug("Comparing %s with %s",
                           self.primary_transcript_id,
                           other.primary_transcript_id)
-
-        self.json_conf["fragments"]["compiled"] = compile(
-            self.json_conf["requirements"]["expression"], "<json>",
-            "eval")
-
-        evaluated = dict()
-        for key in self.json_conf["fragments"]["parameters"]:
-            value = getattr(other.primary_transcript,
-                            self.json_conf["fragments"]["parameters"][key]["name"])
-            evaluated[key] = self.evaluate(
-                value,
-                self.json_conf["fragments"]["parameters"][key])
-        if eval(self.json_conf["requirements"]["compiled"]) is True:
-            self.logger.debug("%s cannot be a fragment according to the definitions, keeping it",
-                              other.primary_transcript_id)
-            return False
 
         result, _ = Assigner.compare(other.primary_transcript, self.primary_transcript)
         # Exclude anything which is completely contained within an intron,

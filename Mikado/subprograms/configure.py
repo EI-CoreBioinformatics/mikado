@@ -100,6 +100,7 @@ def create_simple_config():
 
     del default["scoring"]
     del default["requirements"]
+    del default["fragments"]
     # del default["soft_requirements"]
 
     new_dict = dict()

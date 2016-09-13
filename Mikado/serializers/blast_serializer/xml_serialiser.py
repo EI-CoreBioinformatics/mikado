@@ -400,7 +400,8 @@ class XmlSerializer:
 
         self.target_seqs = []
         for target in target_seqs:
-            assert os.path.exists(target)
+            if not os.path.exists(target):
+                raise ValueError("{} not found!".format(target))
             self.target_seqs.append(pyfaidx.Fasta(target))
 
         # if isinstance(target_seqs, str):

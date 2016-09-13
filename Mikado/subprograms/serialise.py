@@ -279,6 +279,13 @@ def serialise(args):
         for tab in reversed(meta.sorted_tables):
             logger.warn("Dropping %s", tab)
             tab.drop()
+            if args.json_conf["db_settings"]["dbtype"] == "mysql":
+                engine.execute("OPTIMIZE TABLE {}".format(tab.name))
+        if args.json_conf["db_settings"]["dbtype"] == "mysql":
+            engine.execute("")
+        # This would fail in MySQL as it uses the OPTIMIZE TABLE syntax above
+        if args.json_conf["db_settings"]["dbtype"] != "mysql":
+            engine.execute("VACUUM")
         dbutils.DBBASE.metadata.create_all(engine)
 
     load_junctions(args, logger)

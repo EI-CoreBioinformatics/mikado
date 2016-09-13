@@ -34,8 +34,8 @@ class _XmlPickler(multiprocessing.Process):
     def __init__(self,
                  queries,
                  targets,
-                 filequeue: multiprocessing.Queue,
-                 returnqueue,
+                 # filequeue: multiprocessing.Queue,
+                 # returnqueue,
                  default_header,
                  identifier,
                  logging_queue,
@@ -57,8 +57,8 @@ class _XmlPickler(multiprocessing.Process):
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.level)
-        self.filequeue = filequeue
-        self.returnqueue = returnqueue
+        # self.filequeue = filequeue
+        # self.returnqueue = returnqueue
         self.default_header = default_header
         self.maxobjects = maxobjects
         self.__max_target_seqs = max_target_seqs
@@ -69,48 +69,6 @@ class _XmlPickler(multiprocessing.Process):
         #                                      "maxobjects": self.maxobjects,
         #                                      "logging_queue": self.logging_queue,
         #                                      "level": self.level})
-
-    def __get_query_for_blast(self, record):
-
-        """ This private method formats the name of the query
-        recovered from the BLAST hit. It will cause an exception if the target is not
-        present in the dictionary.
-        :param record:
-        :return: current_query (ID in the database), name
-        """
-
-        if self.discard_definition is False:
-            name = record.id.split()[0]
-        else:
-            name = record.id
-        self.logger.debug("Started with %s", name)
-
-        if name not in self.queries or self.queries[name][1] is False:
-            raise KeyError("{} not found in the queries!".format(record))
-        current_query = self.queries[name][0]
-        return current_query, name
-
-    def __get_target_for_blast(self, alignment):
-
-        """ This private method retrieves the correct target_id
-        key for the target of the BLAST. If the entry is not present
-        in the database, it will be created on the fly.
-        The method returns the index of the current target and
-        and an updated target dictionary.
-        :param alignment: an alignment child of a BLAST record object
-        :return: current_target (ID in the database), targets
-        """
-
-        if self.discard_definition:
-            accession = alignment.accession
-        else:
-            accession = alignment.id
-
-        if accession not in self.targets:
-            raise KeyError("{} not found in the targets!".format(alignment.accession))
-
-        current_target = self.targets[accession][0]
-        return current_target
 
     def __getstate__(self):
 
@@ -206,7 +164,7 @@ class _XmlPickler(multiprocessing.Process):
         if len(record.hits) == 0:
             return hits, hsps
 
-        current_query, name = self.__get_query_for_blast(record)
+        current_query, name = _get_query_for_blast(self, record)
 
         current_evalue = -1
         current_counter = 0
@@ -219,7 +177,7 @@ class _XmlPickler(multiprocessing.Process):
             self.logger.debug("Started the hit %s vs. %s",
                               # name, record.alignments[ccc].accession)
                               name, record.hits[ccc].id)
-            current_target = self.__get_target_for_blast(alignment)
+            current_target = _get_target_for_blast(self, alignment)
 
             hit_dict_params = dict()
             (hit_dict_params["query_multiplier"],
@@ -763,8 +721,8 @@ class XmlSerializer:
             procs = [_XmlPickler(
                 queries,
                 targets,
-                filequeue,
-                returnqueue,
+                # filequeue,
+                # returnqueue,
                 self.header,
                 _,
                 logging_queue=self.logging_queue,
@@ -803,7 +761,7 @@ class XmlSerializer:
                         hit_counter += len(__hits)
                         hits.extend(__hits)
                         hsps.extend(__hsps)
-                        hits, hsps = self.__load_into_db(hits, hsps, force=False)
+                        hits, hsps = load_into_db(self, hits, hsps, force=False)
                         if record_counter > 0 and record_counter % 10000 == 0:
                             self.logger.info("Parsed %d queries", record_counter)
                         # for record in pickle.load(pickled):
@@ -942,3 +900,85 @@ class XmlSerializer:
         return current_target, targets
 
 # pylint: enable=too-many-instance-attributes
+
+
+def load_into_db(self, hits, hsps, force=False):
+    """
+    :param hits:
+    :param hsps:
+
+    :param force: boolean flag. If set, data will be loaded no matter what.
+    To be used at the end of the serialisation to load the final batch of data.
+    :type force: bool
+
+    :return:
+    """
+
+    self.logger.debug("Checking whether to load %d hits and %d hsps",
+                      len(hits), len(hsps))
+
+    tot_objects = len(hits) + len(hsps)
+    if len(hits) == 0:
+        self.logger.debug("No hits to serialise. Exiting")
+        return hits, hsps
+
+    if tot_objects >= self.maxobjects or force:
+        # Bulk load
+        self.logger.info("Loading %d BLAST objects into database", tot_objects)
+
+        try:
+            # pylint: disable=no-member
+            self.session.begin(subtransactions=True)
+            self.engine.execute(Hit.__table__.insert(), hits)
+            self.engine.execute(Hsp.__table__.insert(), hsps)
+            # pylint: enable=no-member
+            self.session.commit()
+        except sqlalchemy.exc.IntegrityError as err:
+            self.logger.critical("Failed to serialise BLAST!")
+            self.logger.exception(err)
+            raise err
+        self.logger.info("Loaded %d BLAST objects into database", tot_objects)
+        hits, hsps = [], []
+    return hits, hsps
+
+
+def _get_query_for_blast(self, record):
+    """ This private method formats the name of the query
+    recovered from the BLAST hit. It will cause an exception if the target is not
+    present in the dictionary.
+    :param record:
+    :return: current_query (ID in the database), name
+    """
+
+    if self.discard_definition is False:
+        name = record.id.split()[0]
+    else:
+        name = record.id
+    self.logger.debug("Started with %s", name)
+
+    if name not in self.queries or self.queries[name][1] is False:
+        raise KeyError("{} not found in the queries!".format(record))
+    current_query = self.queries[name][0]
+    return current_query, name
+
+
+def _get_target_for_blast(self, alignment):
+    """ This private method retrieves the correct target_id
+    key for the target of the BLAST. If the entry is not present
+    in the database, it will be created on the fly.
+    The method returns the index of the current target and
+    and an updated target dictionary.
+    :param alignment: an alignment child of a BLAST record object
+    :return: current_target (ID in the database), targets
+    """
+
+    if self.discard_definition:
+        accession = alignment.accession
+    else:
+        accession = alignment.id
+
+    if accession not in self.targets:
+        raise KeyError("{} not found in the targets!".format(alignment.accession))
+
+    current_target = self.targets[accession][0]
+    return current_target

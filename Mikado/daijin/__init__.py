@@ -86,6 +86,10 @@ if running on a HPC and DRMAA is not available, or if running locally on your ow
                         help="Force the re-execution or creation of the given rules or files. \
                         Use this option if you changed a rule and want to have all its output in your \
                         workflow updated.")
+    parser.add_argument("--cleanup-metadata", dest="cleanup_metadata",
+                        action="store_true",
+                        default=False,
+                        help="Flag. If set, Daijin will cleanup the metadata for the files (useful if the pipeline process failed at some point.")
     parser.add_argument("--detailed-summary", "-D", action='store_true', default=False,
                         dest="detailed_summary",
                         help="Print detailed summary of all input and output files")
@@ -319,6 +323,7 @@ def mikado_pipeline(args):
         detailed_summary=args.detailed_summary,
         list_resources=args.list,
         latency_wait=60 if not SCHEDULER == "" else 1,
+        cleanup_metadata=args.cleanup_metadata,
         printdag=args.dag,
         forceall=args.dag,
         forcerun=args.forcerun)

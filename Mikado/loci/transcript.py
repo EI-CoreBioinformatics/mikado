@@ -2224,7 +2224,7 @@ index {3}, internal ORFs: {4}".format(
     def verified_introns(self):
 
         if set.difference(self.__verified_introns, self.introns):
-            self.logger.warning("Invalid verified junctions found for %s, removing them",
+            self.logger.debug("Invalid verified junctions found for %s, removing them",
                                 self.id)
             self.__verified_introns = set.intersection(self.introns, self.__verified_introns)
         return self.__verified_introns

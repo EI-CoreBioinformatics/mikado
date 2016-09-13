@@ -46,7 +46,7 @@ The detection and analysis of a locus proceeds as follows:
 #. Once the holders are created, apply the same scoring and selection procedure of the sublocus selection step. The winning transcripts are assigned to the final *loci*. These are called the *primary transcripts of the loci*.
 #. Once the loci are created, track back to the original transcripts of the superlocus:
     #. discard any transcript overlapping more than one locus, as these are probably chimeras.
-    #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccode>` of the comparison against the primary transcript.
+    #. For those transcripts that are overlapping to a single locus, verify that they are valid alternative splicing events using the :ref:`class code <ccode>` of the comparison against the primary transcript. Transcripts are re-scored dynamically when they are re-added in this fashion, to ensure their quality when compared with the primary transcript.
 #. Finally detect and either tag or discard fragments inside the initial *superlocus* (irrespective of strand):
     #. Check whether the primary transcript of any locus meets the criteria to be defined as a fragment (by default, maximum ORF of 30AA and maximum 2 exons - any transcript exceeding either criterion will be considered as non-fragment by default)
     #. If so, verify whether they are near enough any valid locus to be considered as a fragment (in general, class codes which constitute the "Intronic", "Fragmentary" and "No overlap" categories).

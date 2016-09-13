@@ -819,13 +819,6 @@ memory intensive, proceed with caution!")
             [_.close() for _ in handles[2]]
             handles[2] = [_.name for _ in handles[2]]
 
-        class o:
-            def __init__(self, name):
-                self.name = name
-
-            def cleanup(self):
-                pass
-
         tempdir = tempfile.TemporaryDirectory(suffix="",
                                               prefix="mikado_pick_tmp",
                                               dir=self.json_conf["pick"]["files"]["output_dir"])

@@ -17,7 +17,7 @@ not_fragmentary:
     cdna_length.multi: {operator: ge, value: 200}
     combined_cds_length.multi: {operator: gt, value: 150}
     exon_num.mono: {operator: eq, value: 1}
-    combined_cds_length.mono: {operator: gt, value: 200}
+    combined_cds_length.mono: {operator: gt, value: 400}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}

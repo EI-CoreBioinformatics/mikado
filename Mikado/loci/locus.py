@@ -158,7 +158,7 @@ class Locus(Sublocus, Abstractlocus):
                 self.calculate_scores()
 
         self.logger.debug("Now checking the retained introns")
-        if self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
+        while True:
             to_remove = set()
             for tid, transcript in self.transcripts.items():
                 if tid == self.primary_transcript_id:
@@ -168,7 +168,8 @@ class Locus(Sublocus, Abstractlocus):
                     to_remove.add(tid)
                 else:
                     continue
-            if to_remove:
+            if (self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is True
+                and to_remove):
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(to_remove))))
                 for tid in to_remove:
@@ -176,6 +177,14 @@ class Locus(Sublocus, Abstractlocus):
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.calculate_scores()
+            elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
+                for tid in to_remove:
+                    self.transcripts[tid].attributes["retained_intron"] = True
+                break
+            elif not to_remove:
+                break
+        return
+
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.

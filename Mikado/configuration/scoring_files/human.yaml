@@ -3,8 +3,8 @@ requirements:
     (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
   parameters:
     cdna_length.mono: {operator: gt, value: 800}
-    cdna_length.multi: {operator: ge, value: 300}
-    combined_cds_length.mono: {operator: gt, value: 100}
+    cdna_length.multi: {operator: ge, value: 200}
+    combined_cds_length.mono: {operator: gt, value: 300}
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
     max_intron_length: {operator: le, value: 4500000}

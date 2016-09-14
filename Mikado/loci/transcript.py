@@ -1806,7 +1806,7 @@ index {3}, internal ORFs: {4}".format(
     def has_start_codon(self):
         """Boolean. True if the selected ORF has a start codon.
         :rtype: bool"""
-        return self.__has_start_codon
+        return self.__has_start_codon and (self.combined_cds_length > 0)
 
     @has_start_codon.setter
     def has_start_codon(self, value):
@@ -1827,7 +1827,7 @@ index {3}, internal ORFs: {4}".format(
         """Boolean. True if the selected ORF has a stop codon.
         :rtype bool
         """
-        return self.__has_stop_codon
+        return self.__has_stop_codon and (self.combined_cds_length > 0)
 
     @has_stop_codon.setter
     def has_stop_codon(self, value):
@@ -1839,6 +1839,7 @@ index {3}, internal ORFs: {4}".format(
         if value not in (None, False, True):
             raise TypeError(
                 "Invalid value for has_stop_codon: {0}".format(type(value)))
+
         self.__has_stop_codon = value
 
     has_stop_codon.category = "CDS"
@@ -1846,7 +1847,7 @@ index {3}, internal ORFs: {4}".format(
     @Metric
     def is_complete(self):
         """Boolean. True if the selected ORF has both start and end."""
-        return (self.__has_start_codon is True) and (self.__has_stop_codon is True)
+        return (self.has_start_codon is True) and (self.has_stop_codon is True)
 
     is_complete.category = "CDS"
 

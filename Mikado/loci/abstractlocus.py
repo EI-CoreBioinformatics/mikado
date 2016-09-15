@@ -267,7 +267,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if inters is None:
             inters = self.is_intersecting
 
-        return define_graph(objects, inters)
+        return define_graph(objects, inters, **kwargs)
 
     def find_communities(self, graph: networkx.Graph) -> list:
         """

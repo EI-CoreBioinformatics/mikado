@@ -221,9 +221,8 @@ class Transcript:
         if not isinstance(transcript_row, (GffLine, GtfLine)):
             raise TypeError("Invalid data type: {0}".format(type(transcript_row)))
         self.chrom = intern(transcript_row.chrom)
-        self.feature = intern(transcript_row.feature)
-        # pylint: disable=invalid-name
 
+        # pylint: disable=invalid-name
         # pylint: enable=invalid-name
         self.name = transcript_row.name
         if self.source is None:
@@ -251,6 +250,7 @@ class Transcript:
         else:
             self.parent = transcript_row.parent
             self.id = transcript_row.id
+            self.feature = intern(transcript_row.feature)
 
     def __str__(self, to_gtf=False, print_cds=True):
         """

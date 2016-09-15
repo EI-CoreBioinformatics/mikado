@@ -185,7 +185,6 @@ class Locus(Sublocus, Abstractlocus):
                 break
         return
 
-
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
         """Implementation of the add_transcript_to_locus method.
         Before a transcript is added, the class checks that it is a valid splicing isoform

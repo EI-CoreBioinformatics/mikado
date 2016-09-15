@@ -40,9 +40,18 @@ def launch(args):
                 current = Gene(line)
             else:
                 current = Gene(Transcript(line))
+        elif parser.__annot_type__ == "gtf" and line.is_exon is True and (
+                        current is None or current.id != line.gene):
+            if current:
+                print(current.format(out_format), file=args.out)
+            current = Gene(Transcript(line))
+        elif (parser.__annot_type__ == "gtf" and
+                      line.is_exon is True and line.transcript not in current.transcripts):
+            current.add(Transcript(line))
         elif line.is_transcript is True:
             current.add(Transcript(line))
         elif line.is_exon is True:
+            assert line.gene == current.id
             current.add_exon(line)
     if current is not None:
         print(current.format(out_format), file=args.out)

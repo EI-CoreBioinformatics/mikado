@@ -168,7 +168,7 @@ class Locus(Sublocus, Abstractlocus):
                     to_remove.add(tid)
                 else:
                     continue
-            if (self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is True
+            if (self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False
                 and to_remove):
                 self.logger.debug("Removing {} because they contain retained introns".format(
                     ", ".join(list(to_remove))))
@@ -177,7 +177,7 @@ class Locus(Sublocus, Abstractlocus):
                 self.metrics_calculated = False
                 self.scores_calculated = False
                 self.calculate_scores()
-            elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is False:
+            elif self.json_conf["pick"]["alternative_splicing"]["keep_retained_introns"] is True:
                 for tid in to_remove:
                     self.transcripts[tid].attributes["retained_intron"] = True
                 break

@@ -52,7 +52,7 @@ scoring:
   three_utr_length:
     filter: {operator: le, value: 2500}
     rescaling: target
-    value: 200
+    value: 300
   three_utr_num:
     filter: {operator: lt, value: 3}
     rescaling: target

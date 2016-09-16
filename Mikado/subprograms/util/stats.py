@@ -13,7 +13,6 @@ from ...loci import Transcript, Gene
 from ...parsers import GFF
 import numpy
 from collections import namedtuple, Counter
-import multiprocessing
 from ...utilities.log_utils import create_null_logger
 from collections import defaultdict
 
@@ -188,8 +187,24 @@ class Calculator:
             self.is_gff = False
         self.__logger = create_null_logger("calculator")
         self.only_coding = parsed_args.only_coding
+        self.tab_handle = parsed_args.tab_stats
+        if self.tab_handle is not None:
+            # TID, Parent, Exon number, cDNA length, CDS length, #coding exons, cDNA/CDS ratio
+            # 5'UTR, 5'UTR exons, 3'UTR, 3'UTR exons
+            __fieldnames = ["TID", "GID",
+                            "Exon number",
+                            "cDNA length",
+                            "CDS length",
+                            "# coding exons",
+                            "cDNA/CDS ratio",
+                            "5'UTR",
+                            "5'UTR exons",
+                            "3'UTR",
+                            "3'UTR exons"]
+            self.tab_writer = csv.DictWriter(self.tab_handle, __fieldnames, delimiter="\t")
+            self.tab_writer.writeheader()
+
         self.out = parsed_args.out
-        self.procs = parsed_args.procs
         self.genes = dict()
         self.coding_genes = []
         self.__distances = numpy.array([])
@@ -369,6 +384,7 @@ class Calculator:
         self.__stores["cdna_lengths"] = Counter()  # Done
         self.__stores["cdna_lengths_coding"] = Counter()
         self.__stores["cds_lengths"] = Counter()  # Done
+        self.__stores["cds_lengths_coding"] = Counter()  # Done
         self.__stores["cds_ratio"] = Counter()
         self.__stores["monoexonic_lengths"] = Counter()
         self.__stores["multiexonic_lengths"] = Counter()
@@ -409,6 +425,32 @@ class Calculator:
             self.__stores["monoexonic_genes"].add(gene.id)
 
         for tid in gene.transcripts:
+
+            if self.tab_handle is not None:
+                # __fieldnames = ["TID", "GID",
+                #                 "Exon number",
+                #                 "cDNA length",
+                #                 "CDS length",
+                #                 "# coding exons",
+                #                 "cDNA/CDS ratio",
+                #                 "5'UTR",
+                #                 "5'UTR exons",
+                #                 "3'UTR",
+                #                 "3'UTR exons"]
+                row = dict()
+                row["TID"] = tid
+                row["GID"] = gene.id
+                row["Exon number"] = len(gene.transcripts[tid].exon_lengths)
+                row["cDNA length"] = gene.transcripts[tid].cdna_length
+                row["CDS length"] = gene.transcripts[tid].selected_cds_length
+                row["# coding exons"] = len(gene.transcripts[tid].cds_exon_lengths)
+                row["cDNA/CDS ratio"] = "{:.2f}".format(100 * gene.transcripts[tid].selected_cds_length / gene.transcripts[tid].cdna_length)
+                row["5'UTR"] = gene.transcripts[tid].five_utr_length
+                row["5'UTR exons"] = gene.transcripts[tid].five_utr_num
+                row["3'UTR"] = gene.transcripts[tid].three_utr_length
+                row["3'UTR exons"] = gene.transcripts[tid].three_utr_num
+                self.tab_writer.writerow(row)
+
             self.__stores["exons"].update(
                 gene.transcripts[tid].exon_lengths)
             exon_number = len(gene.transcripts[tid].exon_lengths)
@@ -437,6 +479,11 @@ class Calculator:
             self.__stores["cds_lengths"].update(
                 [gene.transcripts[tid].selected_cds_length])
             if gene.transcripts[tid].selected_cds_length > 0:
+                __cds_length = gene.transcripts[tid].selected_cds_length
+                __cdna_length = gene.transcripts[tid].cdna_length
+                assert __cds_length > 0
+                self.__stores["cds_lengths_coding"].update(
+                    [gene.transcripts[tid].selected_cds_length])
                 self.__stores["five_utr_lengths"].update(
                     [gene.transcripts[tid].five_utr_length])
                 self.__stores["three_utr_lengths"].update(
@@ -447,8 +494,6 @@ class Calculator:
                     [gene.transcripts[tid].three_utr_num])
                 self.__stores["end_distance_from_junction"].update(
                     [gene.transcripts[tid].selected_end_distance_from_junction])
-                __cds_length = gene.transcripts[tid].selected_cds_length
-                __cdna_length = gene.transcripts[tid].cdna_length
                 self.__stores["cds_ratio"].update([100 * __cds_length / __cdna_length])
 
             if self.only_coding is False:
@@ -476,9 +521,7 @@ class Calculator:
         self.__arrays["CDNA lengths (mRNAs)"] = itemize(self.__stores["cdna_lengths_coding"])
         self.__arrays['CDS lengths'] = itemize(self.__stores["cds_lengths"])
         if self.only_coding is False:
-            __lengths = self.__stores["cds_lengths"].copy()
-            # del __lengths[0]  # Why?
-            self.__arrays["CDS lengths (mRNAs)"] = itemize(__lengths)
+            self.__arrays["CDS lengths (mRNAs)"] = itemize(self.__stores["cds_lengths_coding"])
             self.__arrays['Exons per transcript (mRNAs)'] = itemize(self.__stores["exon_num_coding"])
             self.__arrays['Exon lengths (mRNAs)'] = itemize(self.__stores["exons_coding"])
             self.__arrays["CDS exons per transcript (mRNAs)"] = itemize(
@@ -632,8 +675,11 @@ def stats_parser():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--only-coding', dest="only_coding", action="store_true", default=False)
-    parser.add_argument('-p', "--processors", dest="procs", type=int,
-                        default=1)
+    parser.add_argument('--tab-stats',
+                        dest="tab_stats",
+                        default=None,
+                        type=argparse.FileType('w'),
+                        help="Optional tabular file to write statistics for each transcript.")
     parser.add_argument('gff', type=to_gff, help="GFF file to parse.")
     parser.add_argument('out', type=argparse.FileType('w'), default=sys.stdout, nargs='?')
     parser.set_defaults(func=launch)

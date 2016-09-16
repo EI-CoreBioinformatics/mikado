@@ -45,7 +45,7 @@ scoring:
   proportion_verified_introns_inlocus: {rescaling: max}
   retained_fraction: {rescaling: min}
   retained_intron_num: {rescaling: min}
-  selected_cds_fraction: {rescaling: target, value: 0.6}
+  selected_cds_fraction: {rescaling: target, value: 0.8}
   selected_cds_intron_fraction: {rescaling: max}
   selected_cds_length: {rescaling: max}
   selected_cds_num: {rescaling: max}

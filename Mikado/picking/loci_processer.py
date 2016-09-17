@@ -518,9 +518,9 @@ class LociProcesser(Process):
 
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
-                self.regressor = pickle.load(forest)["scoring"]
+                self.regressor = pickle.load(forest)
             from sklearn.ensemble import RandomForestRegressor
-            if not isinstance(self.regressor, RandomForestRegressor):
+            if not isinstance(self.regressor["scoring"], RandomForestRegressor):
                 exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor))
                 self.logger.critical(exc)
                 self.exitcode = 9

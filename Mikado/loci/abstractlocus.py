@@ -691,8 +691,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     @regressor.setter
     def regressor(self, regr):
 
-        if not (isinstance(regr["scoring"], RandomForestRegressor) or regr is None):
+        if isinstance(regr, dict) and isinstance(regr["scoring"], RandomForestRegressor):
+            self.__regressor = regr["scoring"]
+        elif regr is None or isinstance(regr, RandomForestRegressor):
+            self.__regressor = regr
+        else:
             raise TypeError("Invalid regressor provided, type: %s", type(regr))
 
         self.logger.debug("Set regressor")
-        self.__regressor = regr["scoring"]
+

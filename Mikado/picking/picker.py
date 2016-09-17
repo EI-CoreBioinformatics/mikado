@@ -113,8 +113,8 @@ class Picker:
         if self.json_conf["pick"]["scoring_file"].endswith((".pickle", ".model")):
             with open(self.json_conf["pick"]["scoring_file"], "rb") as forest:
                 self.regressor = pickle.load(forest)
-            if not isinstance(self.regressor, RandomForestRegressor):
-                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor))
+            if not isinstance(self.regressor["scoring"], RandomForestRegressor):
+                exc = TypeError("Invalid regressor provided, type: %s", type(self.regressor["scoring"]))
                 self.logger.critical(exc)
                 return
         else:
@@ -423,7 +423,7 @@ memory intensive, proceed with caution!")
         if self.regressor is None:
             score_keys += sorted(list(self.json_conf["scoring"].keys()))
         else:
-            score_keys += self.regressor.metrics
+            score_keys += self.regressor["scoring"].metrics
 
         score_keys = ["tid", "parent", "score"] + sorted(score_keys)
         # Define mandatory output files

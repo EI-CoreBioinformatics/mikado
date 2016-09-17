@@ -695,4 +695,4 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             raise TypeError("Invalid regressor provided, type: %s", type(regr))
 
         self.logger.debug("Set regressor")
-        self.__regressor = regr
+        self.__regressor = regr["scoring"]

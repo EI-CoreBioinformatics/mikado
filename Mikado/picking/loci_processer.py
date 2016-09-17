@@ -608,7 +608,7 @@ class LociProcesser(Process):
         if self.regressor is None:
             score_keys = sorted(list(self.json_conf["scoring"].keys()))
         else:
-            score_keys = self.regressor.metrics
+            score_keys = self.regressor["scoring"].metrics
         # Define mandatory output files
 
         score_keys = ["tid", "parent", "score"] + sorted(score_keys + ["source_score"])

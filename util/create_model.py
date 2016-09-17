@@ -12,6 +12,7 @@ from Mikado.loci import Transcript
 import operator
 import random
 from math import floor
+import yaml
 
 
 class MetricEntry:
@@ -143,6 +144,7 @@ def main():
                         required=True)
     parser.add_argument("-m", "--metrics", help="The metrics file.", required=True)
     parser.add_argument("-o", "--out", help="Output file.", default="forest.model")
+    parser.add_argument("-s", "--scoring", help="The original scoring file, to retrieve info on fragments.")
     args = parser.parse_args()
 
     # X should contain a matrix of features derived from the portcullis tab file
@@ -219,6 +221,13 @@ def main():
     #         MetricEntry.metrics[f],
     #         importances[f]
     #     ))
+
+    # Create the dictionary
+    clf = dict(("scoring", clf))
+    with open(args.scoring) as sco:
+        orig = yaml.load(sco)
+    clf["requirements"] = orig["requirements"]
+    clf["not_fragmentary"] = orig["not_fragmentary"]
 
     with open(args.out, "wb") as forest:
         pickle.dump(clf, forest)

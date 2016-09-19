@@ -227,6 +227,50 @@ class AssignerTester(unittest.TestCase):
         result, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
         self.assertEqual(result.ccode, ("x",))
 
+    def test_exon_skipping(self):
+
+        """Test to verify that we call correctly an exon skipping as j"""
+
+        reference = Mikado.loci.Transcript()
+        reference.chrom = 12
+        reference.strand = "+"
+        reference.add_exons([(7014003, 7014067),
+                             (7014749, 7014923),
+                             (7015573, 7015826),
+                             (7016479, 7016609),
+                             (7019054, 7019190),
+                             (7021894, 7022191),
+                             (7023055, 7023555),
+                             (7015009, 7015118)  # This is our additional internal exon
+                             ])
+        reference.start = min(_[0] for _ in reference.exons)
+        reference.end = max(_[1] for _ in reference.exons)
+        reference.id = "t5"
+
+        reference.finalize()
+
+        prediction = Mikado.loci.Transcript()
+        prediction.chrom, prediction.strand = reference.chrom, reference.strand
+        prediction.start, prediction.end = reference.start, reference.end
+        prediction.add_exons([(7014003, 7014067),
+                             (7014749, 7014923),
+                             (7015573, 7015826),
+                             (7016479, 7016609),
+                             (7019054, 7019190),
+                             (7021894, 7022191),
+                             (7023055, 7023555)
+                              ])
+        prediction.finalize()
+        prediction.id = "t3"
+
+        self.assertEqual(len(reference.introns), 7)
+        self.assertEqual(len(prediction.introns), 6)
+
+        ref_vs_pred, _ = Mikado.scales.assigner.Assigner.compare(prediction, reference)
+        self.assertEqual(ref_vs_pred.ccode, ("j", ), prediction.introns - reference.introns)
+        pred_vs_ref, _ = Mikado.scales.assigner.Assigner.compare(reference, prediction)
+        self.assertEqual(pred_vs_ref.ccode, ("j", ), prediction.introns - reference.introns)
+
     def test_alternative(self):
 
         reference = Mikado.loci.Transcript()

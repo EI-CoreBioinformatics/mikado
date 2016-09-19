@@ -178,7 +178,9 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
     elif 0 < junction_recall < 1 and 0 < junction_precision < 1:
         ccode = "j"
     elif junction_precision == 1 and junction_recall < 1:
-        if nucl_precision == 1:
+        if set.difference(p_introns, r_introns):
+            ccode = "j"
+        elif nucl_precision == 1:
             # assert nucl_recall < 1
             ccode = "c"
         else:
@@ -194,7 +196,6 @@ cdef str __assign_multiexonic_ccode(prediction, reference, long nucl_overlap, do
                 if p_end > intron_end and intron_start > max_splice:
                     end_in = 1
                     break
-
             if start_in or end_in:
                 ccode = "j"
             else:
@@ -401,9 +402,9 @@ cpdef tuple compare(prediction, reference, bint lenient=False):
             ccode = "P"
         distance = long_max(p_start - r_end, r_start - p_end)
 
-    elif nucl_precision == 1:
-        if p_exon_num == 1 or (p_exon_num > 1 and junction_precision == 1):
-            ccode = "c"
+#    elif nucl_precision == 1:
+#        if p_exon_num == 1 or (p_exon_num > 1 and junction_precision == 1):
+#            ccode = "c"
 
     if ccode == "":
         # stats = (nucl_recall, nucl_precision, nucl_f1,

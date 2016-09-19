@@ -523,8 +523,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                     break
                 if tid == transcript.id:
                     continue
-                if ((self.strand == "+" and exon[0] - 1 not in self.transcripts[tid].junctions) or
-                        (self.strand == "-" and exon[1] + 1 not in self.transcripts[tid].junctions)):
+                if ((self.strand == "+" and exon[0] not in [_[0] for _ in self.transcripts[tid].exons]) or
+                        (self.strand == "-" and exon[1] not in [_[1] for _ in self.transcripts[tid].exons])):
                     # The first junction must be present for it to be a retained intron
                     continue
                 for frag in exon_interval:

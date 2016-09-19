@@ -201,6 +201,7 @@ class Transcript:
         # Initialisation of the CDS segments used for finding retained introns
         self.__cds_tree = None
         self.__expandable = False
+        self.__cds_introntree = intervaltree.IntervalTree()
         # self.query_id = None
 
         if len(args) == 0:
@@ -1445,6 +1446,18 @@ class Transcript:
             return self.combined_cds[0][0]
         else:
             return self.combined_cds[-1][1]
+
+    @property
+    def _cds_introntree(self):
+
+        """
+        :rtype: intervaltree.IntervalTree
+        """
+
+        if len(self.__cds_introntree) != len(self.combined_cds_introns):
+            self.__cds_introntree = intervaltree.IntervalTree(
+                [intervaltree.Interval(_[0], _[1] + 1) for _ in self.combined_cds_introns])
+        return self.__cds_introntree
 
     @property
     def selected_cds(self):

@@ -148,7 +148,7 @@ def create_config_parser():
         "-st", "--strandedness", nargs="+",
         default=[], required=False, choices=["fr-unstranded", "fr-secondstrand", "fr-firststrand"],
         help="Strandedness of the reads. Specify it 0, 1, or number of samples times. Choices: %(choices)s.")
-    parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat2"], required=True,
+    parser.add_argument("-al", "--aligners", choices=["gsnap", "star", "hisat", "tophat"], required=True,
                         default=[], nargs="*", help="Aligner(s) to use for the analysis. Choices: %(choices)s")
     parser.add_argument("-as", "--assemblers", dest="asm_methods", required=True,
                         choices=["class", "cufflinks", "stringtie", "trinity"],

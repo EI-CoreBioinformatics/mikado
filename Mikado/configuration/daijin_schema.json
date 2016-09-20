@@ -125,14 +125,14 @@
     "align_methods": {
       "type": "object",
       "anyOf": [
-        {"required":["tophat2"]},
+        {"required":["tophat"]},
         {"required":["hisat"]},
         {"required":["star"]},
         {"required":["gsnap"]}
       ],
        "additionalProperties": false,
       "properties": {
-          "tophat2": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+          "tophat": {"type": "array", "items": {"type": "string"}, "minItems": 1},
           "hisat": {"type": "array", "items": {"type": "string"}, "minItems": 1},
           "star": {"type": "array", "items": {"type": "string"}, "minItems": 1}},
           "gsnap": {"type": "array", "items": {"type": "string"}, "minItems": 1}

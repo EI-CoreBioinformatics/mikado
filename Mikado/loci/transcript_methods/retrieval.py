@@ -637,9 +637,10 @@ def orf_sorter(orf):
     :param orf: an ORF to sort
     :type orf: Mikado.serializers.orf.Orf
     """
-    return ((orf.has_start_codon and orf.has_stop_codon),
+    return (orf.cds_len,
+            (orf.has_start_codon and orf.has_stop_codon),
             (orf.has_start_codon or orf.has_stop_codon),
-            orf.cds_len)
+            )
 
 
 def find_candidate_orfs(transcript, graph, orf_dictionary) -> list:

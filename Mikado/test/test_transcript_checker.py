@@ -1,6 +1,8 @@
 from Mikado.loci.transcriptchecker import TranscriptChecker
 import unittest
 
+# TODO: write this test!
+
 
 class TChekerTester(unittest.TestCase):
 

@@ -694,5 +694,316 @@ class TestLocus(unittest.TestCase):
         self.assertEqual(len(locus.transcripts), 1)
 
 
+class RetainedIntronTester(unittest.TestCase):
+
+    def setUp(self):
+        self.my_json = os.path.join(os.path.dirname(__file__), "configuration.yaml")
+        self.my_json = configurator.to_json(self.my_json)
+
+    def test_real_retained_pos(self):
+
+        """Here we verify that a real retained intron is called as such"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "+", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  #100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "+", "t2"
+        t2.add_exons([(101, 500), (801, 1000), (1201, 1600)])
+        t2.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1420),  # 220
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_introns, ((1201, 1600),))
+
+    def test_real_retained_pos_noCDS(self):
+        """Here we verify that a real retained intron is called as such, even when the transcript lacks a CDS"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "+", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "+", "t2"
+        t2.add_exons([(101, 500), (801, 1000), (1201, 1600)])
+        # t2.add_exons([(201, 500),  # 300
+        #               (801, 1000),  # 200
+        #               (1201, 1420),  # 220
+        #               ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_introns, ((1201, 1600),))
+
+    def test_not_retained_pos(self):
+
+        """Here we verify that a false retained intron is not called as such"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "+", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "+", "t2"
+        t2.add_exons([(101, 500), (801, 1000), (1201, 1600)])
+        t2.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1540),  # 340
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+    def test_real_retained_neg(self):
+        """Here we verify that a real retained intron is called as such"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "-", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "-", "t2"
+        t2.add_exons([(601, 1000), (1201, 1300), (1501, 1800)])
+        t2.add_exons([(1501, 1530),  # 30
+                      (1201, 1300),  # 100
+                      (771, 1000)  # 230
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_introns, ((601, 1000),))
+
+    def test_not_retained_neg(self):
+        """Here we verify that a false retained intron is not called as such"""
+
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "-", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "-", "t2"
+        t2.add_exons([(301, 1000), (1201, 1300), (1501, 1800)])
+        t2.add_exons([(1501, 1530),  # 30
+                      (1201, 1300),  # 100
+                      (471, 1000)  # 230
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+    def test_exon_switching_pos(self):
+
+        """Checking that an exon switching is treated correctly as a NON-retained intron. Positive strand case"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "+", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (2501, 2800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (2501, 2530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "+", "t2"
+        t2.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t2.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+    def test_exon_switching_pos_noCDS(self):
+        """Checking that an exon switching is treated correctly as a NON-retained intron even when the CDS is absent.
+        Positive strand case"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "+", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (2501, 2800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (2501, 2530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "+", "t2"
+        t2.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        # t2.add_exons([(201, 500),  # 300
+        #               (801, 1000),  # 200
+        #               (1201, 1300),  # 100
+        #               (1501, 1530)  # 30
+        #               ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+
+    def test_exon_switching_neg(self):
+        """Checking that an exon switching is treated correctly as a NON-retained intron. Positive strand case"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "-", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (2201, 2300), (2501, 2800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (2201, 2300),  # 100
+                      (2501, 2530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "-", "t2"
+        t2.add_exons([(101, 500), (1701, 2000), (2201, 2300), (1501, 1800)])
+        t2.add_exons([
+                      (1801, 2000),  # 200
+                      (2201, 2300),  # 100
+                      (2501, 2530)  # 30
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+
+    def test_exon_switching_neg_noCDS(self):
+        """Checking that an exon switching is treated correctly as a NON-retained intron even when the CDS is absent.
+        Positive strand case"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "-", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (2501, 2800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (2501, 2530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "-", "t2"
+        t2.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        # t2.add_exons([(201, 500),  # 300
+        #               (801, 1000),  # 200
+        #               (1201, 1300),  # 100
+        #               (1501, 1530)  # 30
+        #               ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+    def test_mixed_strands(self):
+
+        """Verify that no retained intron is called if the strands are mixed."""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "+", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "-", "t2"
+        t2.add_exons([(601, 1000), (1201, 1300), (1501, 1800)])
+        t2.add_exons([(1501, 1530),  # 30
+                      (1201, 1300),  # 100
+                      (771, 1000)  # 230
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json, stranded=False)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

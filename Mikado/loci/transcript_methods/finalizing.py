@@ -32,6 +32,13 @@ def __basic_final_checks(transcript):
 
     new_exons = []
     invalid = False
+
+    # Set the start and end automatically if none has been explicitly provided
+    if transcript.start is None:
+        transcript.start = min(_[0] for _ in transcript.exons)
+    if transcript.end is None:
+        transcript.end = max(_[1] for _ in transcript.exons)
+
     for exon in transcript.exons:
         if not isinstance(exon, tuple):
             if (isinstance(exon, intervaltree.Interval) or

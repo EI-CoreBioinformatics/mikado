@@ -521,7 +521,8 @@ class Abstractlocus(metaclass=abc.ABCMeta):
             for tid in self.transcripts:
                 if is_retained:
                     break
-                if tid == transcript.id:
+                if tid == transcript.id or transcript.strand != self.transcripts[tid].strand:
+                    # We cannot call retained introns against oneself or against stuff on the opposite strand
                     continue
                 if ((self.strand == "+" and exon[0] not in [_[0] for _ in self.transcripts[tid].exons]) or
                         (self.strand == "-" and exon[1] not in [_[1] for _ in self.transcripts[tid].exons])):

@@ -125,18 +125,59 @@
     "align_methods": {
       "type": "object",
       "anyOf": [
-        {"required":["tophat"]},
-        {"required":["hisat"]},
-        {"required":["star"]},
-        {"required":["gsnap"]}
-      ],
-       "additionalProperties": false,
-      "properties": {
-          "tophat": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-          "hisat": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-          "star": {"type": "array", "items": {"type": "string"}, "minItems": 1}},
-          "gsnap": {"type": "array", "items": {"type": "string"}, "minItems": 1}
+        {
+          "required": [
+            "tophat"
+          ]
         },
+        {
+          "required": [
+            "hisat"
+          ]
+        },
+        {
+          "required": [
+            "star"
+          ]
+        },
+        {
+          "required": [
+            "gsnap"
+          ]
+        }
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "tophat": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "hisat": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "star": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "gsnap": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    },
     "asm_methods": {
       "type": "object",
       "anyOf": [

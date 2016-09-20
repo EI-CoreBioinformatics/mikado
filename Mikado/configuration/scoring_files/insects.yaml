@@ -36,9 +36,8 @@ scoring:
     filter: {operator: lt, value: 55}
     rescaling: min
   highest_cds_exon_number: {rescaling: max}
-  has_stop_codon: {rescaling: target, value: true}
-  has_start_codon: {rescaling: target, value: true}
   intron_fraction: {rescaling: max}
+  is_complete: {rescaling: target, value: true}
   num_introns_greater_than_max: {rescaling: target, value: 0}
   number_internal_orfs: {rescaling: target, value: 1}
   proportion_verified_introns: {rescaling: max}

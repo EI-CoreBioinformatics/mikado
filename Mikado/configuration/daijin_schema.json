@@ -81,7 +81,11 @@
           "type": "array",
           "required": true,
           "default": [],
-          "items": {"type": "string", "enum": ["fr-firststrand", "fr-secondstrand", "fr-unstranded"]}
+          "items": {"type": "string",
+            "enum": ["fr-firststrand",
+              "fr-secondstrand",
+              "fr-unstranded",
+            "f", "r"]}
         },
         "min_intron": {
           "type": "integer", "required": true,

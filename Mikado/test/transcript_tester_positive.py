@@ -754,10 +754,10 @@ Chr4\tCufflinks\texon\t15495994\t15495994\t.\t+\t.\tgene_id "cufflinks_star_at.1
 
         self.tr.load_orfs([self.bed1, self.bed2])
 
-        self.assertEqual(self.tr.selected_cds_start, 15490903)
-        self.assertEqual(self.tr.selected_cds_end, 15493007)
+        self.assertEqual(self.tr.selected_cds_start, 15494127)
+        self.assertEqual(self.tr.selected_cds_end, 15495994)
 
-        self.assertEqual(self.tr.combined_cds_end, 15495994)
+        self.assertEqual(self.tr.combined_cds_start, 15490903)
         # The other CDS starts at 15494127
 
         logger = create_default_logger(self.tr.id)

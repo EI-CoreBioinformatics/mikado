@@ -804,6 +804,35 @@ class RetainedIntronTester(unittest.TestCase):
 
         t2 = Transcript()
         t2.chrom, t2.strand, t2.id = 1, "-", "t2"
+        t2.add_exons([(401, 1000), (1201, 1300), (1501, 1800)])
+        t2.add_exons([(1501, 1530),  # 30
+                      (1201, 1300),  # 100
+                      (771, 1000)  # 230
+                      ], features="CDS")
+        t2.finalize()
+
+        sup = Superlocus(t1, json_conf=self.my_json)
+        sup.add_transcript_to_locus(t2)
+
+        sup.find_retained_introns(t2)
+
+        self.assertEqual(sup.transcripts["t2"].retained_introns, ((401, 1000),))
+
+    def test_not_real_retained_neg(self):
+        """Here we verify that a real retained intron is called as such"""
+
+        t1 = Transcript()
+        t1.chrom, t1.strand, t1.id = 1, "-", "t1"
+        t1.add_exons([(101, 500), (801, 1000), (1201, 1300), (1501, 1800)])
+        t1.add_exons([(201, 500),  # 300
+                      (801, 1000),  # 200
+                      (1201, 1300),  # 100
+                      (1501, 1530)  # 30
+                      ], features="CDS")
+        t1.finalize()
+
+        t2 = Transcript()
+        t2.chrom, t2.strand, t2.id = 1, "-", "t2"
         t2.add_exons([(601, 1000), (1201, 1300), (1501, 1800)])
         t2.add_exons([(1501, 1530),  # 30
                       (1201, 1300),  # 100
@@ -816,7 +845,7 @@ class RetainedIntronTester(unittest.TestCase):
 
         sup.find_retained_introns(t2)
 
-        self.assertEqual(sup.transcripts["t2"].retained_introns, ((601, 1000),))
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
 
     def test_not_retained_neg(self):
         """Here we verify that a false retained intron is not called as such"""
@@ -909,7 +938,6 @@ class RetainedIntronTester(unittest.TestCase):
         sup.find_retained_introns(t2)
 
         self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
-
 
     def test_exon_switching_neg(self):
         """Checking that an exon switching is treated correctly as a NON-retained intron. Positive strand case"""

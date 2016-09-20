@@ -528,42 +528,22 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                         (self.strand == "-" and exon[1] not in [_[1] for _ in self.transcripts[tid].exons])):
                     # The first junction must be present for it to be a retained intron
                     continue
+                # Find all the CDS introns which are completely contained within the exon
+                cds_introns = self.transcripts[tid]._cds_introntree.search(exon[0],
+                                                                           exon[1],
+                                                                           strict=True)
                 for frag in exon_interval:
-                    if self.transcripts[tid]._cds_introntree.overlaps_range(frag[0], frag[1]):
-                        self.logger.debug("Exon %s of %s is a retained intron",
-                                          exon, transcript.id)
-                        is_retained = True
-                        retained_introns.append(exon)
+                    if is_retained:
                         break
-            #
-            #
-            # # Monobase exons are a problem
-            # if exon[0] == exon[1]:
-            #     self.logger.debug("Monobase exon found in %s: %s:%d-%d",
-            #                       self.id, self.chrom, exon[0], exon[1])
-            #     continue
-            #
-            #
-            #
-            # # Exclude from consideration any exon which is fully coding
-            # for frag in exon_interval:
-            #     for tid in self.transcripts:
-            #         if tid == transcript.id:
-            #             continue
-            #         if self.transcripts[tid].cds_tree is None:
-            #             self.transcripts[tid].cds_tree = intervaltree.IntervalTree(
-            #                 [intervaltree.Interval(cds[0], max(cds[1], cds[0] + 1))
-            #                  for cds in self.transcripts[tid].combined_cds])
-            #
-            #
-            #
-            #     self.logger.debug("Checking %s from exon %s for retained introns for %s",
-            #                       frag, exon, transcript.id)
-            #     if self._cds_introntree.overlaps_range(frag[0], frag[1]):
-            #         self.logger.debug("Exon %s of %s is a retained intron",
-            #                           exon, transcript.id)
-            #         retained_introns.append(exon)
-            #         break
+                    for intr in cds_introns:
+                        if overlap((frag[0], frag[1]), (intr[0], intr[1])) > 0:
+                            self.logger.debug("Exon %s of %s is a retained intron",
+                                              exon, transcript.id)
+                            is_retained = True
+                            break
+
+            if is_retained:
+                retained_introns.append(exon)
 
         # Sort the exons marked as retained introns
         # self.logger.info("Finished calculating retained introns for %s", transcript.id)

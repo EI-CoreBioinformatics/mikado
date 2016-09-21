@@ -86,14 +86,6 @@
               "fr-secondstrand",
               "fr-unstranded",
             "f", "r"]}
-        },
-        "min_intron": {
-          "type": "integer", "required": true,
-          "default": 20, "minimum": 1
-        },
-        "max_intron": {
-          "type": "integer", "required": true,
-          "default": 10000, "minimum": 1
         }
       }
     },

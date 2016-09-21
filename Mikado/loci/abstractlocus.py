@@ -637,9 +637,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
             assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
 
-        self.logger.warning("Proportion of verified introns for %s: %f",
-                            tid, self.transcripts[tid].proportion_verified_introns_inlocus)
-
         _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
         fraction = _ / len(self.exons)
 

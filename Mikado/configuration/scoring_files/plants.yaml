@@ -1,14 +1,15 @@
 requirements:
-  expression: [((exon_num.multi and cdna_length.multi and max_intron_length and min_intron_length and verified_introns_num), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
+  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length and proportion_verified_introns_inlocus), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
   parameters:
     cdna_length.mono: {operator: gt, value: 200}
     cdna_length.multi: {operator: ge, value: 100}
     combined_cds_length.mono: {operator: gt, value: 100}
+    combined_cds_length.multi: {operator: gt, value: 50}
     exon_num.mono: {operator: eq, value: 1}
     exon_num.multi: {operator: gt, value: 1}
     max_intron_length: {operator: le, value: 20000}
     min_intron_length: {operator: ge, value: 5}
-    verified_introns_num: {operator: gt, value: 0}
+    proportion_verified_introns_inlocus: {operator: gt, value: 0}
 not_fragmentary:
   expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
   parameters:

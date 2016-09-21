@@ -65,13 +65,11 @@ class Sublocus(Abstractlocus):
         self.excluded = None
         self.splitted = False
         # Flag to indicate that we have not calculated the metrics for the transcripts
-        self.metrics_calculated = False
         # Flag to indicate that we have not calculated the scores for the transcripts
         self.scores_calculated = False
         setattr(self, "monoexonic", getattr(span, "monoexonic", None))
         if json_conf is None or not isinstance(json_conf, dict):
             raise ValueError("I am missing the configuration for prioritizing transcripts!")
-        self.locus_verified_introns = set()
 
         # This part is necessary to import modules
         if "modules" in self.json_conf:
@@ -167,8 +165,7 @@ class Sublocus(Abstractlocus):
 
         super().add_transcript_to_locus(transcript)
         # add the verified introns from the outside
-        self.locus_verified_introns = set.union(self.locus_verified_introns,
-                                                transcript.verified_introns)
+
         self.logger.debug("Added %s to %s", transcript.id, self.id)
         # Update the id
 
@@ -239,66 +236,6 @@ class Sublocus(Abstractlocus):
         self.logger.debug("Defined monosubloci for %s", self.id)
         return
 
-    def calculate_metrics(self, tid: str):
-        """
-        :param tid: the name of the transcript to be analysed
-        :type tid: str
-
-        This function will calculate the metrics for a transcript which are relative in nature
-        i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
-        of introns or exons in the sublocus, or the number/fraction of retained introns.
-        """
-
-        self.logger.debug("Calculating metrics for %s", tid)
-        # The transcript must be finalized before we can calculate the score.
-        self.transcripts[tid].finalize()
-
-        _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
-        fraction = _ / len(self.exons)
-
-        self.transcripts[tid].exon_fraction = fraction
-
-        if len(self.introns) > 0:
-            _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
-            fraction = _ / len(self.introns)
-            self.transcripts[tid].intron_fraction = fraction
-        else:
-            self.transcripts[tid].intron_fraction = 0
-        if len(self.selected_cds_introns) > 0:
-            intersecting_introns = len(set.intersection(
-                self.transcripts[tid].selected_cds_introns,
-                set(self.selected_cds_introns)))
-            fraction = intersecting_introns / len(self.selected_cds_introns)
-            self.transcripts[tid].selected_cds_intron_fraction = fraction
-        else:
-            self.transcripts[tid].selected_cds_intron_fraction = 0
-
-        if len(self.combined_cds_introns) > 0:
-            intersecting_introns = len(
-                set.intersection(
-                    set(self.transcripts[tid].combined_cds_introns),
-                    set(self.combined_cds_introns)))
-            fraction = intersecting_introns / len(self.combined_cds_introns)
-            self.transcripts[tid].combined_cds_intron_fraction = fraction
-        else:
-            self.transcripts[tid].combined_cds_intron_fraction = 0
-
-        self.find_retained_introns(self.transcripts[tid])
-        assert isinstance(self.transcripts[tid], Transcript)
-        retained_bases = sum(e[1] - e[0] + 1
-                             for e in self.transcripts[tid].retained_introns)
-        fraction = retained_bases / self.transcripts[tid].cdna_length
-        self.transcripts[tid].retained_fraction = fraction
-        if len(self.locus_verified_introns) > 0:
-            verified = len(
-                set.intersection(self.transcripts[tid].verified_introns,
-                                 self.locus_verified_introns))
-            fraction = verified / len(self.locus_verified_introns)
-            self.transcripts[tid].proportion_verified_introns_inlocus = fraction
-        else:
-            self.transcripts[tid].proportion_verified_introns_inlocus = 0
-        self.logger.debug("Calculated metrics for {0}".format(tid))
-
     def load_scores(self, scores):
         """
         :param scores: an external dictionary with scores
@@ -320,25 +257,11 @@ class Sublocus(Abstractlocus):
         :return:
         """
 
-        self.json_conf["requirements"]["compiled"] = compile(
-            self.json_conf["requirements"]["expression"], "<json>",
-            "eval")
+        self.get_metrics()
         previous_not_passing = set()
         while True:
-            not_passing = set()
-            for tid in iter(tid for tid in self.transcripts if
-                            tid not in previous_not_passing):
-                evaluated = dict()
-                for key in self.json_conf["requirements"]["parameters"]:
-                    value = getattr(self.transcripts[tid],
-                                    self.json_conf["requirements"]["parameters"][key]["name"])
-                    evaluated[key] = self.evaluate(
-                        value,
-                        self.json_conf["requirements"]["parameters"][key])
-                # pylint: disable=eval-used
-                if eval(self.json_conf["requirements"]["compiled"]) is False:
-                    not_passing.add(tid)
-                # pylint: enable=eval-used
+            not_passing = self._check_not_passing(
+                previous_not_passing=previous_not_passing)
             if len(not_passing) == 0:
                 return
             for tid in not_passing:
@@ -542,30 +465,6 @@ class Sublocus(Abstractlocus):
                              self.scores[tid][_[0]] != row[_[0]])
                     ))
             yield row
-
-    def get_metrics(self):
-
-        """Quick wrapper to calculate the metrics for all the transcripts."""
-
-        # TODO: Find an intelligent way ot restoring this check
-        # I disabled it because otherwise the values for surviving transcripts would be wrong
-        # But this effectively leads to a doubling of run time. A possibility would be to cache the results.
-        if self.metrics_calculated is True:
-            return
-
-        # self.logger.info("Calculating the intron tree for %s", self.id)
-        assert len(self._cds_introntree) == len(self.combined_cds_introns)
-
-        # self.logger.info("Calculated the intron tree for %s, length %d",
-        #                  self.id, len(self._cds_introntree))
-
-        for tid in sorted(self.transcripts):
-            self.calculate_metrics(tid)
-
-        self.logger.debug("Finished to calculate the metrics for %s", self.id)
-
-        self.metrics_calculated = True
-        return
 
     # ############## Class methods ################
 

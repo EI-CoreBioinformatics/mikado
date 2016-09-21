@@ -51,10 +51,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.monoexonic = True
         self.chrom = None
         self.cds_introns = set()
+        self.__locus_verified_introns = set()
         self.json_conf = dict()
         self.__cds_introntree = intervaltree.IntervalTree()
         self.__regressor = None
         self.session = None
+        self.metrics_calculated = False
 
     @abc.abstractmethod
     def __str__(self, *args, **kwargs):
@@ -376,6 +378,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.selected_cds_introns.update(transcript.selected_cds_introns)
 
         self.exons.update(set(transcript.exons))
+        assert isinstance(self.locus_verified_introns, set)
+        assert isinstance(transcript.verified_introns, set)
+        self.locus_verified_introns = set.union(self.locus_verified_introns,
+                                                transcript.verified_introns)
+        if transcript.verified_introns_num > 0:
+            assert len(self.locus_verified_introns) > 0
 
         if self.initialized is False:
             self.initialized = True
@@ -578,6 +586,129 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         return
 
+    def get_metrics(self):
+
+        """Quick wrapper to calculate the metrics for all the transcripts."""
+
+        # TODO: Find an intelligent way ot restoring this check
+        # I disabled it because otherwise the values for surviving transcripts would be wrong
+        # But this effectively leads to a doubling of run time. A possibility would be to cache the results.
+        if self.metrics_calculated is True:
+            return
+
+        assert len(self._cds_introntree) == len(self.combined_cds_introns)
+
+        for tid in sorted(self.transcripts):
+            self.calculate_metrics(tid)
+
+        self.logger.debug("Finished to calculate the metrics for %s", self.id)
+
+        self.metrics_calculated = True
+        return
+
+    def calculate_metrics(self, tid: str):
+        """
+        :param tid: the name of the transcript to be analysed
+        :type tid: str
+
+        This function will calculate the metrics for a transcript which are relative in nature
+        i.e. that depend on the other transcripts in the sublocus. Examples include the fraction
+        of introns or exons in the sublocus, or the number/fraction of retained introns.
+        """
+
+        self.logger.debug("Calculating metrics for %s", tid)
+        # The transcript must be finalized before we can calculate the score.
+        # self.transcripts[tid].finalize()
+
+        if len(self.locus_verified_introns) == 0 and self.transcripts[tid].verified_introns_num > 0:
+            raise ValueError("Locus {} has 0 verified introns, but its transcript {} has {}!".format(
+                self.id, tid, len(self.transcripts[tid].verified_introns)))
+
+        if self.transcripts[tid].verified_introns_num > 0:
+            verified = len(
+                set.intersection(self.transcripts[tid].verified_introns,
+                                 self.locus_verified_introns))
+            fraction = verified / len(self.locus_verified_introns)
+
+            self.transcripts[tid].proportion_verified_introns_inlocus = fraction
+        else:
+            self.transcripts[tid].proportion_verified_introns_inlocus = 1
+
+        if len(self.locus_verified_introns) and self.transcripts[tid].verified_introns_num > 0:
+            assert self.transcripts[tid].proportion_verified_introns_inlocus > 0
+
+        self.logger.warning("Proportion of verified introns for %s: %f",
+                            tid, self.transcripts[tid].proportion_verified_introns_inlocus)
+
+        _ = len(set.intersection(self.exons, self.transcripts[tid].exons))
+        fraction = _ / len(self.exons)
+
+        self.transcripts[tid].exon_fraction = fraction
+
+        if len(self.introns) > 0:
+            _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
+            fraction = _ / len(self.introns)
+            self.transcripts[tid].intron_fraction = fraction
+        else:
+            self.transcripts[tid].intron_fraction = 0
+        if len(self.selected_cds_introns) > 0:
+            intersecting_introns = len(set.intersection(
+                self.transcripts[tid].selected_cds_introns,
+                set(self.selected_cds_introns)))
+            fraction = intersecting_introns / len(self.selected_cds_introns)
+            self.transcripts[tid].selected_cds_intron_fraction = fraction
+        else:
+            self.transcripts[tid].selected_cds_intron_fraction = 0
+
+        if len(self.combined_cds_introns) > 0:
+            intersecting_introns = len(
+                set.intersection(
+                    set(self.transcripts[tid].combined_cds_introns),
+                    set(self.combined_cds_introns)))
+            fraction = intersecting_introns / len(self.combined_cds_introns)
+            self.transcripts[tid].combined_cds_intron_fraction = fraction
+        else:
+            self.transcripts[tid].combined_cds_intron_fraction = 0
+
+        self.find_retained_introns(self.transcripts[tid])
+        assert isinstance(self.transcripts[tid], Transcript)
+        retained_bases = sum(e[1] - e[0] + 1
+                             for e in self.transcripts[tid].retained_introns)
+        fraction = retained_bases / self.transcripts[tid].cdna_length
+        self.transcripts[tid].retained_fraction = fraction
+        self.logger.debug("Calculated metrics for {0}".format(tid))
+
+    def _check_not_passing(self, previous_not_passing=set()):
+        """
+        This private method will identify all transcripts which do not pass
+        the minimum muster specified in the configuration. It will *not* delete them;
+        how to deal with them is left to the specifics of the subclass.
+        :return:
+        """
+
+        self.get_metrics()
+        if ("compiled" not in self.json_conf["requirements"] or
+                self.json_conf["requirements"]["compiled"] is None):
+            self.json_conf["requirements"]["compiled"] = compile(
+                self.json_conf["requirements"]["expression"], "<json>",
+                "eval")
+
+        not_passing = set()
+        not_passing = set()
+        for tid in iter(tid for tid in self.transcripts if
+                        tid not in previous_not_passing):
+            evaluated = dict()
+            for key in self.json_conf["requirements"]["parameters"]:
+                value = getattr(self.transcripts[tid],
+                                self.json_conf["requirements"]["parameters"][key]["name"])
+                evaluated[key] = self.evaluate(
+                    value,
+                    self.json_conf["requirements"]["parameters"][key])
+            # pylint: disable=eval-used
+            if eval(self.json_conf["requirements"]["compiled"]) is False:
+                not_passing.add(tid)
+        return not_passing
+
     @classmethod
     @abc.abstractmethod
     def is_intersecting(cls, *args, **kwargs):
@@ -716,3 +847,15 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.logger.debug("Set regressor")
 
+    @property
+    def locus_verified_introns(self):
+        return self.__locus_verified_introns
+
+    @locus_verified_introns.setter
+    def locus_verified_introns(self, *args):
+
+        if not isinstance(args[0], set):
+            raise ValueError("Invalid value for verified introns: %s",
+                             type(args[0]))
+
+        self.__locus_verified_introns = args[0]

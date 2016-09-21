@@ -17,13 +17,17 @@ R2 = config["short_reads"]["r2"]
 SAMPLES = config["short_reads"]["samples"]
 STRANDEDNESS = config["short_reads"]["strandedness"]
 
+L_FILES = config["long_reads"]["files"]
+L_SAMPLES = config["long_reads"]["samples"]
+L_STRANDEDNESS = config["long_reads"]["strandedness"]
+
 REF = config["reference"]["genome"]
 REF_TRANS = config["reference"]["transcriptome"]
+MIN_INTRON = config["reference"]["min_intron"]
+MAX_INTRON = config["reference"]["max_intron"]
 
 NAME = config["name"]
 OUT_DIR = config["out_dir"]
-MIN_INTRON = config["short_reads"]["min_intron"]
-MAX_INTRON = config["short_reads"]["max_intron"]
 if "threads" in config:
     THREADS = int(config["threads"])
 else:
@@ -33,6 +37,7 @@ TGG_MAX_MEM = config["tgg_max_mem"]
 
 # List of alignment and assembly methods to test
 ALIGNMENT_METHODS = config["align_methods"]
+L_ALIGNMENT_METHODS = config["long_read_align_methods"]
 ASSEMBLY_METHODS = config["asm_methods"]
 
 
@@ -59,16 +64,34 @@ INPUT_1_MAP = {}
 INPUT_2_MAP = {}
 EXT_MAP = {}
 for i in range(len(SAMPLES)):
-	SAMPLE_MAP[SAMPLES[i]] = STRANDEDNESS[i]
+	SAMPLE_MAP[SAMPLES[i]] = STRANDEDNESS[i].lower()
 	name, ext = os.path.splitext(R1[i])
 	r1 = READS_DIR+"/"+SAMPLES[i]+".R1.fq"
-	r2 = READS_DIR+"/"+SAMPLES[i]+".R2.fq"
+	r2 = READS_DIR+"/"+SAMPLES[i]+".R2.fq" if R2[i] else ""
 	if ext == ".gz" or ext == ".bz2":
 		r1 += ext
-		r2 += ext
+		r2 += ext if R2[i] else ""
 	EXT_MAP[SAMPLES[i]] = ext
 	INPUT_1_MAP[SAMPLES[i]] = r1
 	INPUT_2_MAP[SAMPLES[i]] = r2
+
+L_SAMPLE_MAP = {}
+L_INPUT_MAP = {}
+L_EXT_MAP = {}
+for i in range(len(L_SAMPLES)):
+	L_SAMPLE_MAP[L_SAMPLES[i]] = L_STRANDEDNESS[i].lower()
+	ext = L_FILES[i].split(sep=".")[-1]
+	print (ext)
+	lr = ""
+	if ext in ("fasta", "fa", "fna"):
+		lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fa"
+	elif ext in ("fastq", "fq"):
+		lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fq"
+	else:
+		exit(1)
+	L_EXT_MAP[L_SAMPLES[i]] = ext
+	L_INPUT_MAP[L_SAMPLES[i]] = lr
+	print(lr)
 
 
 ALIGN_RUNS = []
@@ -77,6 +100,12 @@ for aln in ALIGNMENT_METHODS:
 		for index, setting in enumerate(ALIGNMENT_METHODS[aln]):
 			ALIGN_RUNS.append(aln+"-"+samp+"-"+str(index))
 
+L_ALIGN_RUNS = []
+for aln in L_ALIGNMENT_METHODS:
+	for samp in L_SAMPLES:
+		for index, setting in enumerate(L_ALIGNMENT_METHODS[aln]):
+			L_ALIGN_RUNS.append(aln+"-"+samp+"-"+str(index))
+
 def makeAlignRunArray(aligner):
 	RUNS = []
 	if aligner in ALIGNMENT_METHODS:
@@ -84,10 +113,20 @@ def makeAlignRunArray(aligner):
         	        RUNS.append(index)
 	return RUNS
 
+def makeLAlignRunArray(aligner):
+	RUNS = []
+	if aligner in L_ALIGNMENT_METHODS:
+	        for index, setting in enumerate(L_ALIGNMENT_METHODS[aligner]):
+        	        RUNS.append(index)
+	return RUNS
+
 TOPHAT_RUNS = makeAlignRunArray("tophat")
 GSNAP_RUNS = makeAlignRunArray("gsnap")
 STAR_RUNS = makeAlignRunArray("star")
 HISAT_RUNS = makeAlignRunArray("hisat")
+
+LR_GMAP_RUNS = makeLAlignRunArray("gmap")
+LR_STAR_RUNS = makeLAlignRunArray("star")
 
 def makeAsmRunArray(assembler):
 	RUNS = []
@@ -111,7 +150,7 @@ PORTCULLIS_IN = {}
 for a in ALIGN_RUNS :
 	PORTCULLIS_IN[a] = ALIGN_DIR+"/output/" + a + ".sorted.bam"
 
-aln_abrv = {"tophat":"tph", "star":"sta", "gsnap":"gsp", "hisat":"hst"}
+aln_abrv = {"tophat":"tph", "star":"sta", "gsnap":"gsp", "hisat":"hst", "gmap":"gmp"}
 asm_abrv = {"cufflinks":"cuf", "stringtie":"stn", "class":"cls", "trinity":"trn"}
 	
 GTF_ASSEMBLY_METHODS = []
@@ -150,9 +189,55 @@ TRANSCRIPTS_STR = ",".join(TRANSCRIPT_ARRAY)
 LABEL_STR = ",".join(LABEL_ARRAY)
 SS_STR = ",".join(SS_ARRAY)
 
+
+LR_ARRAY=[]
+LR_LABEL_ARRAY=[]
+LR_SS_ARRAY=[]
+for samp in L_SAMPLES:
+	for aln in L_ALIGNMENT_METHODS:
+		for aln_idx, setting in enumerate(L_ALIGNMENT_METHODS[aln]):
+			samp_idx = "-" + samp + "-" + str(aln_idx)
+			aln_str = "lr_" + aln + samp_idx
+			abv_aln_str = "lr_" + aln_abrv[aln] + samp_idx
+			filename = aln_str + ".gff"
+			LR_ARRAY.append(ALIGN_DIR + "/lr_output/" + filename)
+			LR_LABEL_ARRAY.append(abv_aln_str)
+			if not L_SAMPLE_MAP[samp] == "u":
+				L_SS_ARRAY.append(TRANSCRIPT_ARRAY[-1])
+
+LR_STR = ",".join(LR_ARRAY)
+LR_LABEL_STR = ",".join(LR_LABEL_ARRAY)
+LR_SS_STR = ",".join(LR_SS_ARRAY)
+
+MIKADO_IN_STR = ",".join([TRANSCRIPTS_STR,LR_STR])
+MIKADO_LABEL_STR = ",".join([LABEL_STR,LR_LABEL_STR])
+MIKADO_SS_STR = ",".join([SS_STR,LR_SS_STR])
+
+def seSample(sample):
+	s = SAMPLE_MAP[sample]
+	if (s == "f" or s == "r"):
+		if not INPUT_2_MAP[sample]:
+			return True
+		else:
+			i=0
+			# Should throw an error here
+	return False		
+			
+			
+def tophatInput(sample):
+        if not seSample(sample):
+                return INPUT_1_MAP[sample] + " " + INPUT_2_MAP[sample]
+        else:
+                return INPUT_1_MAP[sample]
+
 # This also works for cufflinks
 def tophatStrandOption(sample):
-	return "--library-type=" + SAMPLE_MAP[sample]
+	if SAMPLE_MAP[sample] == "f":
+		return "--library-type=fr-secondstrand"
+	elif SAMPLE_MAP[sample] == "r":
+		return "--library-type=fr-firststrand"
+	else:
+		return "--library-type=" + SAMPLE_MAP[sample]
 
 def starCompressionOption(sample):
 	if EXT_MAP[sample] == ".gz":
@@ -162,13 +247,32 @@ def starCompressionOption(sample):
 	else:
 		return ""
 
+def starInput(sample):
+	if not seSample(sample):
+		return "--readFilesIn " + os.path.abspath(INPUT_1_MAP[sample]) + " " + os.path.abspath(INPUT_2_MAP[sample])
+	else:
+		return "--readFilesIn " + os.path.abspath(INPUT_1_MAP[sample])
+
+def starLongInput(sample):
+	return "--readFilesIn " + os.path.abspath(L_INPUT_MAP[sample])
+
 def hisatStrandOption(sample):
 	if SAMPLE_MAP[sample] == "fr-firststrand":
 		return "--rna-strandness=RF"
 	elif SAMPLE_MAP[sample] == "fr-secondstrand":
 		return "--rna-strandness=FR"
+	elif SAMPLE_MAP[sample] == "f":
+		return "--rna-strandness=F"
+	elif SAMPLE_MAP[sample] == "r":
+		return "--rna-strandness=R"
 	else:
 		return ""
+
+def hisatInput(sample):
+	if not seSample(sample):
+		return "-1 " + INPUT_1_MAP[sample] + " -2 " + INPUT_2_MAP[sample]
+	else:
+		return "-U " + INPUT_1_MAP[sample]
 
 
 def extractSample(align_run):
@@ -181,6 +285,10 @@ def trinityStrandOption(sample):
 		return "--SS_lib_type=RF"
 	elif SAMPLE_MAP[sample] == "fr-secondstrand":
 		return "--SS_lib_type=FR"
+	elif SAMPLE_MAP[sample] == "f":
+		return "--SS_lib_type=F"
+	elif SAMPLE_MAP[sample] == "r":
+		return "--SS_lib_type=R"
 	else:
 		return ""
 
@@ -205,12 +313,13 @@ def loadPre(command):
 #########################
 Rules
 
-localrules: mikado_cfg, tophat_all, gsnap_all, star_all, hisat_all, cufflinks_all, trinity_all, stringtie_all, class_all, clean, all
+localrules: mikado_cfg, tophat_all, gsnap_all, star_all, hisat_all, cufflinks_all, trinity_all, stringtie_all, class_all, lr_gmap_all, lr_star_all, clean, align_all, lreads_all, asm_all, all
 
 rule all:
 	input:
 		mikado=OUT_DIR + "/mikado.yaml",
 		align=ALIGN_DIR+"/alignment.stats",
+		#l_align=ALIGN_DIR+"/lr_alignment.stats",
 		asm=ASM_DIR+"/assembly.stats"
 
 rule clean:
@@ -232,7 +341,6 @@ rule align_tophat_index:
 rule align_tophat:
 	input:
 		r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
-		r2=lambda wildcards: INPUT_2_MAP[wildcards.sample],
 		index=rules.align_tophat_index.output
 	output:
 		link=ALIGN_DIR+"/output/tophat-{sample}-{run,\d+}.bam"
@@ -244,12 +352,13 @@ rule align_tophat:
 		extra=lambda wildcards: config["align_methods"]["tophat"][int(wildcards.run)],
 		link_src="../tophat/{sample}-{run}/accepted_hits.bam",
 		strand=lambda wildcards: tophatStrandOption(wildcards.sample),
+		infiles=lambda wildcards: tophatInput(wildcards.sample),
 		#trans="--GTF=" + REF_TRANS if REF_TRANS else ""
 		trans=""
 	log: ALIGN_DIR + "/tophat-{sample}-{run}.log"
 	threads: THREADS
-	message: "Aligning RNAseq data with tophat (run {wildcards.run}): {input.r1}; {input.r2}"
-	shell: "{params.load} tophat2 --output-dir={params.outdir} --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} {params.extra} {params.indexdir} {input.r1} {input.r2} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	message: "Aligning RNAseq data with tophat (sample - {wildcards.sample} - run {wildcards.run})"
+	shell: "{params.load} tophat2 --output-dir={params.outdir} --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} {params.extra} {params.indexdir} {params.infiles} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule tophat_all:
 	input: expand(ALIGN_DIR+"/output/tophat-{sample}-{run}.bam", sample=SAMPLES, run=TOPHAT_RUNS)
@@ -269,7 +378,6 @@ rule align_gsnap_index:
 rule align_gsnap:
 	input:
 		r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
-		r2=lambda wildcards: INPUT_2_MAP[wildcards.sample],
 		index=rules.align_gsnap_index.output
 	output:
 		bam=ALIGN_DIR+"/gsnap/{sample}-{run,\d+}/gsnap.bam",
@@ -278,11 +386,12 @@ rule align_gsnap:
 		load=loadPre(config["load"]["gmap"]),
 		load_sam=loadPre(config["load"]["samtools"]),
 		extra=lambda wildcards: config["align_methods"]["gsnap"][int(wildcards.run)],
-		link_src="../gsnap/{sample}-{run}/gsnap.bam"
+		link_src="../gsnap/{sample}-{run}/gsnap.bam",
+		infiles=lambda wildcards: tophatInput(wildcards.sample)	# Can use tophat function safely here
 	log: ALIGN_DIR+"/gsnap-{sample}-{run}.log"
 	threads: THREADS
-	message: "Aligning RNAseq with gsnap (run {wildcards.run}): {input.r1}; {input.r2}"
-	shell: "{params.load} {params.load_sam} gsnap --dir={ALIGN_DIR}/gsnap/index --db={NAME} {params.extra} --novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {input.r1} {input.r2} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	message: "Aligning RNAseq with gsnap (sample {wildcards.sample} - run {wildcards.run})"
+	shell: "{params.load} {params.load_sam} gsnap --dir={ALIGN_DIR}/gsnap/index --db={NAME} {params.extra} --novelsplicing=1 --localsplicedist={MAX_INTRON} --nthreads={threads} --format=sam --npaths=20 {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule gsnap_all:
 	input: expand(ALIGN_DIR+"/output/gsnap-{sample}-{run}.bam", sample=SAMPLES, run=GSNAP_RUNS)
@@ -306,8 +415,7 @@ rule align_star_index:
 
 rule align_star:
 	input:
-		r1=lambda wildcards: os.path.abspath(INPUT_1_MAP[wildcards.sample]),
-		r2=lambda wildcards: os.path.abspath(INPUT_2_MAP[wildcards.sample]),
+		r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
 		index=rules.align_star_index.output
 	output:
 		bam=ALIGN_DIR+"/star/{sample}-{run,\d+}/Aligned.out.bam",
@@ -319,11 +427,12 @@ rule align_star:
 		extra=lambda wildcards: config["align_methods"]["star"][int(wildcards.run)],
 		link_src="../star/{sample}-{run}/Aligned.out.bam",
 		trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
-		rfc=lambda wildcards: starCompressionOption(wildcards.sample)
+		rfc=lambda wildcards: starCompressionOption(wildcards.sample),
+		infiles=lambda wildcards: starInput(wildcards.sample)		
 	log: ALIGN_DIR_FULL+"/star-{sample}-{run}.log"
 	threads: int(THREADS)
-	message: "Aligning input with star (run {wildcards.run}): {input.r1}; {input.r2}"
-	shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} --readFilesIn {input.r1} {input.r2} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --alignMatesGapMax 20000 --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	message: "Aligning input with star (sample {wildcards.sample} - run {wildcards.run})"
+	shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --alignMatesGapMax 20000 --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule star_all:
 	input: expand(ALIGN_DIR+"/output/star-{sample}-{run}.bam", sample=SAMPLES, run=STAR_RUNS)
@@ -342,7 +451,6 @@ rule align_hisat_index:
 rule align_hisat:
 	input:
 		r1=lambda wildcards: INPUT_1_MAP[wildcards.sample],
-		r2=lambda wildcards: INPUT_2_MAP[wildcards.sample],
 		index=rules.align_hisat_index.output
 	output:
 		bam=ALIGN_DIR+"/hisat/{sample}-{run,\d+}/hisat.bam",
@@ -355,11 +463,12 @@ rule align_hisat:
 		extra=lambda wildcards: config["align_methods"]["hisat"][int(wildcards.run)],
 		ss_gen="hisat2_extract_splice_sites.py " + REF_TRANS + " > " + ALIGN_DIR + "/hisat/{sample}-{run}/splice_sites.txt &&" if REF_TRANS else "",
 		trans="--known-splicesite-infile=" + ALIGN_DIR + "/hisat/{sample}-{run}/splice_sites.txt" if REF_TRANS else "",
-		strand=lambda wildcards: hisatStrandOption(wildcards.sample)
+		strand=lambda wildcards: hisatStrandOption(wildcards.sample),
+		infiles=lambda wildcards: hisatInput(wildcards.sample)
 	log: ALIGN_DIR+"/hisat-{sample}-{run}.log"
 	threads: THREADS
-	message: "Aligning input with hisat (run {wildcards.run}): {input.r1}; {input.r2}"
-    	shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} -1 {input.r1} -2 {input.r2} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	message: "Aligning input with hisat (sample {wildcards.sample} - run {wildcards.run})"
+    	shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule hisat_all:
 	input: expand(ALIGN_DIR+"/output/hisat-{sample}-{run}.bam", sample=SAMPLES, run=HISAT_RUNS)
@@ -372,7 +481,7 @@ rule bam_sort:
 	output: ALIGN_DIR+"/output/{align_run}.sorted.bam"
 	params:
 		load=loadPre(config["load"]["samtools"]),
-		temp=ALIGN_DIR+"/sort_{align.run}"
+		temp=ALIGN_DIR+"/sort_{align_run}"
 	threads: int(THREADS)
 	message: "Using samtools to sort {input.bam}"
 	shell: "{params.load} samtools sort -o {output} -O bam -m 1G -T {params.temp} -@ {threads} {input.bam}"
@@ -457,11 +566,20 @@ rule asm_trinitygg:
 	message: "Using trinity in genome guided mode to assemble (run {wildcards.run2}): {input.bam}"
 	shell: "{params.load} Trinity --seqType=fq {params.strand} --output={params.outdir} --genome_guided_bam={input.bam} {params.extra} --full_cleanup --genome_guided_max_intron={MAX_INTRON} --max_memory={TGG_MAX_MEM} --CPU={threads} > {log} 2>&1"
 
+rule gmap_index:
+        input: REF
+        output: ALIGN_DIR +"/gmap/index/"+NAME+"/"+NAME+".sachildguide1024"
+	params:	load=loadPre(config["load"]["gmap"])
+	threads: 1
+        log: ALIGN_DIR+"/gmap.index.log"
+        message: "Indexing genome with gmap"
+        shell: "{params.load} gmap_build --dir={ALIGN_DIR}/gmap/index --db={NAME} {input} > {log} 2>&1"
+
 
 rule asm_map_trinitygg:
 	input: 
 		transcripts=rules.asm_trinitygg.output,
-		index=ASM_DIR +"/gmap_index/"+NAME+"/"+NAME+".sachildguide1024"
+		index=rules.gmap_index.output
 	output: 
 		gff=ASM_DIR+"/output/trinity-{run2,\d+}-{alrun}.gff"
 	params: 
@@ -470,22 +588,55 @@ rule asm_map_trinitygg:
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ASM_DIR}/gmap_index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 rule trinity_all:
 	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
 	output: ASM_DIR+"/trinity.done"
 	shell: "touch {output}"	
 
-rule asm_gmap_index:
-        input: REF
-        output: ASM_DIR +"/gmap_index/"+NAME+"/"+NAME+".sachildguide1024"
-	params:	load=loadPre(config["load"]["gmap"])
-	threads: 1
-        log: ASM_DIR+"/trinity_gmap_index.log"
-        message: "Indexing genome with gmap"
-        shell: "{params.load} gmap_build --dir={ASM_DIR}/gmap_index --db={NAME} {input} > {log} 2>&1"
 
+rule lr_gmap:
+	input:
+		index=rules.gmap_index.output,
+		reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
+	output: gff=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff"
+	params: load=loadPre(config["load"]["gmap"]),
+		gff=ALIGN_DIR+"/lr_gmap-{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
+		link_src="../lr_gmap-{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"
+	threads: THREADS
+	message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.reads} > {params.gff} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+
+rule lr_star:
+	input:
+		index=rules.align_star_index.output,
+		reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
+	output: gtf=ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gff"
+	params: load=loadPre(config["load"]["star"]),
+		outdir=ALIGN_DIR_FULL+"/lr_star/{lsample}-{lrun}",
+                indexdir=ALIGN_DIR_FULL+"/star/index",
+                bam="../lr_star/{lsample}-{lrun}/Aligned.out.bam",
+                trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
+                #rfc=lambda wildcards: starCompressionOption(wildcards.lsample),
+                infiles=lambda wildcards: starLongInput(wildcards.lsample)
+	log: ALIGN_DIR_FULL+"/lr_star-{lsample}-{lrun}.log"
+	threads: THREADS
+	message: "Mapping long reads to the genome with star (sample: {wildcards.lsample} - run: {wildcards.lrun})"
+	shell: "{params.load} cd {params.outdir}; STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD --readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 --scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 --scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 --alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"
+
+
+
+
+rule lr_gmap_all:
+	input: expand(ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff", lsample=L_SAMPLES, lrun=LR_GMAP_RUNS)
+	output: ALIGN_DIR+"/lr_gmap.done"
+	shell: "touch {output}"	
+
+rule lr_star_all:
+	input: expand(ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gff", lsample=L_SAMPLES, lrun=LR_STAR_RUNS)
+	output: ALIGN_DIR+"/lr_star.done"
+	shell: "touch {output}"	
 
 rule asm_stringtie:
 	input: 
@@ -545,6 +696,21 @@ rule asm_gff_stats:
 rule asm_all:
 	input: expand("{asm_run}.stats", asm_run=TRANSCRIPT_ARRAY)
 	output:	ASM_DIR+"/output/all.done"
+	threads: 1
+	shell: "touch {output}"
+
+rule lreads_stats:
+	input: ALIGN_DIR + "/lr_output/{lr_run}"
+	output: ALIGN_DIR + "/lr_output/{lr_run}.stats"
+	params: load=loadPre(config["load"]["mikado"])
+	threads: 1
+	message: "Computing long read stats for: {input}"
+	shell: "{params.load} mikado util stats {input} > {output}"
+
+
+rule lreads_all:
+	input: expand("{lr_run}.stats", lr_run=LR_ARRAY)
+	output: ALIGN_DIR+"/lr_output/lreads.all.done"
 	threads: 1
 	shell: "touch {output}"
 
@@ -621,6 +787,7 @@ rule portcullis_merge:
 rule mikado_cfg:
 	input:
 		asm=rules.asm_all.output,
+		lr=rules.lreads_all.output,
 		portcullis=rules.portcullis_merge.output,
 		cfg=CFG,
 		ref=REF
@@ -633,5 +800,5 @@ rule mikado_cfg:
 	log: OUT_DIR + "/mikado.yaml.log"
 	threads: 1
 	message: "Creating Mikado configuration file"
-	shell: "{params.load} mikado configure --full --gff={TRANSCRIPTS_STR} --labels={LABEL_STR} --strand-specific-assemblies={SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"
+	shell: "{params.load} mikado configure --full --gff={MIKADO_IN_STR} --labels={MIKADO_LABEL_STR} --strand-specific-assemblies={MIKADO_SS_STR} {params.junctions} --scoring {params.scoring} --reference={input.ref} --external={input.cfg} {output} 2> {log}"
 

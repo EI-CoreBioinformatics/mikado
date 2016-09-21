@@ -200,6 +200,8 @@ def assemble_transcripts_pipeline(args):
     LABELS = doc["short_reads"]["samples"]
     R1 = doc["short_reads"]["r1"]
     R2 = doc["short_reads"]["r2"]
+    LR_LABELS = doc["long_reads"]["samples"]
+    LR_FILES = doc["long_reads"]["files"]
     READS_DIR = doc["out_dir"] + "/1-reads"
     SCHEDULER = doc["scheduler"] if doc["scheduler"] else ""
     CWD = os.path.abspath(".")
@@ -215,6 +217,10 @@ def assemble_transcripts_pipeline(args):
 
     if (len(R1) != len(R2)) and (len(R1) != len(LABELS)):
         print("R1, R2 and LABELS lists are not the same length.  Please check and try again")
+        exit(1)
+
+    if len(LR_LABELS) != len(LR_FILES):
+        print("long read samples and file arrays in the configuration file are not the same length.  Please check and try again")
         exit(1)
 
     if not os.path.exists(READS_DIR):
@@ -234,6 +240,20 @@ def assemble_transcripts_pipeline(args):
 
         if not os.path.islink(r2out):
             os.symlink(os.path.abspath(read2), r2out)
+    
+    for lr_file, label in zip(LR_FILES, LR_LABELS):
+        suffix = lr_file.split(".")[-1]
+        if suffix in ("fa", "fna", "fasta"):
+            suffix = ".fa"
+        elif suffix in ("fq", "fastq"):
+            suffix = ".fq"
+        else:
+            suffix = ".{}".format(suffix)
+
+        out = READS_DIR + "/" + label + ".long{}".format(suffix)
+        if not os.path.islink(out):
+            os.symlink(os.path.abspath(lr_file), out)
+
 
     # Launch using SnakeMake
     assert pkg_resources.resource_exists("Mikado",

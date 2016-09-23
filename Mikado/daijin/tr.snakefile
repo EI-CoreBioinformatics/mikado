@@ -612,21 +612,25 @@ rule lr_star:
 	input:
 		index=rules.align_star_index.output,
 		reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
-	output: bam=ALIGN_DIR+"/lr_star/{lsample}-{lrun}/Aligned.out.bam",
-		gtf=ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gff"
+	output: bam=ALIGN_DIR+"/lr_star/{lsample}-{lrun}/Aligned.out.bam"
 	params: load=loadPre(config["load"]["star"]),
 		outdir=ALIGN_DIR_FULL+"/lr_star/{lsample}-{lrun}",
                 indexdir=ALIGN_DIR_FULL+"/star/index",
-                bam="../lr_star/{lsample}-{lrun}/Aligned.out.bam",
                 trans="--sjdbGTFfile " + os.path.abspath(REF_TRANS) if REF_TRANS else "",
                 #rfc=lambda wildcards: starCompressionOption(wildcards.lsample),
                 infiles=lambda wildcards: starLongInput(wildcards.lsample)
 	log: ALIGN_DIR_FULL+"/lr_star-{lsample}-{lrun}.log"
 	threads: THREADS
 	message: "Mapping long reads to the genome with star (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-	shell: "{params.load} STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD --readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 --scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 --scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 --alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD} && ln -sf {params.bam} {output.gtf} && touch -h {output.gtf}"
+	shell: "{params.load} STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD --readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 --scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 --scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 --alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD}"
 
 
+rule starbam2gtf:
+	input: rules.lr_star.output.bam
+	output: gtf=ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gtf"
+	params: load=loadPre(config["load"]["mikado"])
+	message: "Converting STAR long reads from BAM to GTF (sample: {wildcards.lsample} - run: {wildcards.lrun})"
+	shell: "{params.load} bam2gtf.py {input} > {output.gtf}"
 
 
 rule lr_gmap_all:
@@ -635,7 +639,7 @@ rule lr_gmap_all:
 	shell: "touch {output}"	
 
 rule lr_star_all:
-	input: expand(ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gff", lsample=L_SAMPLES, lrun=LR_STAR_RUNS)
+	input: expand(ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gtf", lsample=L_SAMPLES, lrun=LR_STAR_RUNS)
 	output: ALIGN_DIR+"/lr_star.done"
 	shell: "touch {output}"	
 

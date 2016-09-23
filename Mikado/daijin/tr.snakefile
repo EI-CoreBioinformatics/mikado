@@ -81,7 +81,6 @@ L_EXT_MAP = {}
 for i in range(len(L_SAMPLES)):
 	L_SAMPLE_MAP[L_SAMPLES[i]] = L_STRANDEDNESS[i].lower()
 	ext = L_FILES[i].split(sep=".")[-1]
-	print (ext)
 	lr = ""
 	if ext in ("fasta", "fa", "fna"):
 		lr = READS_DIR+"/"+L_SAMPLES[i]+".long.fa"
@@ -91,7 +90,6 @@ for i in range(len(L_SAMPLES)):
 		exit(1)
 	L_EXT_MAP[L_SAMPLES[i]] = ext
 	L_INPUT_MAP[L_SAMPLES[i]] = lr
-	print(lr)
 
 
 ALIGN_RUNS = []
@@ -199,7 +197,7 @@ for samp in L_SAMPLES:
 			samp_idx = "-" + samp + "-" + str(aln_idx)
 			aln_str = "lr_" + aln + samp_idx
 			abv_aln_str = "lr_" + aln_abrv[aln] + samp_idx
-			filename = aln_str + ".gff"
+			filename = aln_str + (".gff" if aln == "gmap" else ".gtf")
 			LR_ARRAY.append(ALIGN_DIR + "/lr_output/" + filename)
 			LR_LABEL_ARRAY.append(abv_aln_str)
 			if not L_SAMPLE_MAP[samp] == "u":
@@ -211,7 +209,7 @@ LR_SS_STR = ",".join(LR_SS_ARRAY)
 
 MIKADO_IN_STR = ",".join([TRANSCRIPTS_STR,LR_STR])
 MIKADO_LABEL_STR = ",".join([LABEL_STR,LR_LABEL_STR])
-MIKADO_SS_STR = ",".join([SS_STR,LR_SS_STR])
+MIKADO_SS_STR = ",".join(filter(None, [SS_STR,LR_SS_STR]))
 
 def seSample(sample):
 	s = SAMPLE_MAP[sample]
@@ -586,9 +584,10 @@ rule asm_map_trinitygg:
 		load=loadPre(config["load"]["gmap"]),
 		gff=ASM_DIR+"/trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff",
 		link_src="../trinity-{run2}-{alrun}/trinity-{run2}-{alrun}.gff"
+	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON}  --max-intronlength-middle={MAX_INTRON} --max-intronlength-ends={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 rule trinity_all:
 	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
@@ -600,19 +599,21 @@ rule lr_gmap:
 	input:
 		index=rules.gmap_index.output,
 		reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
-	output: gff=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff"
+	output: link=ALIGN_DIR+"/lr_output/lr_gmap-{lsample}-{lrun}.gff",
+		gff=ALIGN_DIR+"/gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"		
 	params: load=loadPre(config["load"]["gmap"]),
-		gff=ALIGN_DIR+"/lr_gmap-{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff",
-		link_src="../lr_gmap-{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"
+		link_src="../gmap/{lsample}-{lrun}/lr_gmap-{lsample}-{lrun}.gff"
+	log: ALIGN_DIR+"/gmap-{lsample}-{lrun}.log"
 	threads: THREADS
 	message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.reads} > {params.gff} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --max-intronlength-middle={MAX_INTRON} --max-intronlength-ends={MAX_INTRON}  --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule lr_star:
 	input:
 		index=rules.align_star_index.output,
 		reads=lambda wildcards: L_INPUT_MAP[wildcards.lsample]
-	output: gtf=ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gff"
+	output: bam=ALIGN_DIR+"/lr_star/{lsample}-{lrun}/Aligned.out.bam",
+		gtf=ALIGN_DIR+"/lr_output/lr_star-{lsample}-{lrun}.gff"
 	params: load=loadPre(config["load"]["star"]),
 		outdir=ALIGN_DIR_FULL+"/lr_star/{lsample}-{lrun}",
                 indexdir=ALIGN_DIR_FULL+"/star/index",
@@ -623,7 +624,7 @@ rule lr_star:
 	log: ALIGN_DIR_FULL+"/lr_star-{lsample}-{lrun}.log"
 	threads: THREADS
 	message: "Mapping long reads to the genome with star (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-	shell: "{params.load} cd {params.outdir}; STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD --readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 --scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 --scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 --alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.gtf} && touch -h {output.gtf}"
+	shell: "{params.load} STARlong --runThreadN {threads} --runMode alignReads --outSAMattributes NH HI NM MD --readNameSeparator space --outFilterMultimapScoreRange 1 --outFilterMismatchNmax 2000 --scoreGapNoncan -20 --scoreGapGCAG -4 --scoreGapATAC -8 --scoreDelOpen -1 --scoreDelBase -1 --scoreInsOpen -1 --scoreInsBase -1 --alignEndsType Local --seedSearchStartLmax 50 --seedPerReadNmax 100000 --seedPerWindowNmax 1000 --alignTranscriptsPerReadNmax 100000 --alignTranscriptsPerWindowNmax 10000 --genomeDir {params.indexdir} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --outFileNamePrefix {params.outdir}/ > {log} 2>&1 && cd {CWD} && ln -sf {params.bam} {output.gtf} && touch -h {output.gtf}"
 
 
 

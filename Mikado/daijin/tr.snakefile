@@ -197,7 +197,7 @@ for samp in L_SAMPLES:
 			samp_idx = "-" + samp + "-" + str(aln_idx)
 			aln_str = "lr_" + aln + samp_idx
 			abv_aln_str = "lr_" + aln_abrv[aln] + samp_idx
-			filename = aln_str + ".gff"
+			filename = aln_str + (".gff" if aln == "gmap" else ".gtf")
 			LR_ARRAY.append(ALIGN_DIR + "/lr_output/" + filename)
 			LR_LABEL_ARRAY.append(abv_aln_str)
 			if not L_SAMPLE_MAP[samp] == "u":
@@ -209,7 +209,7 @@ LR_SS_STR = ",".join(LR_SS_ARRAY)
 
 MIKADO_IN_STR = ",".join([TRANSCRIPTS_STR,LR_STR])
 MIKADO_LABEL_STR = ",".join([LABEL_STR,LR_LABEL_STR])
-MIKADO_SS_STR = ",".join([SS_STR,LR_SS_STR])
+MIKADO_SS_STR = ",".join(filter(None, [SS_STR,LR_SS_STR]))
 
 def seSample(sample):
 	s = SAMPLE_MAP[sample]

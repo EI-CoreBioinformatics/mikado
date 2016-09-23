@@ -398,7 +398,7 @@
             },
             "min_score_perc": {
               "type": "number",
-              "default": 0.6,
+              "default": 0.75,
               "minimum": 0,
               "maximum": 1
             },

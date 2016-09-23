@@ -60,7 +60,7 @@ setup(
     scripts=glob.glob("util/*.py"),
     entry_points={"console_scripts": ["mikado = Mikado:main",
                                       "daijin = Mikado.daijin:main",
-                                      "bam2gtf.py = util.bam2gtf.main [bam]"]},
+                                      ]},
     install_requires=[line.rstrip() for line in open("requirements.txt", "rt")],
     extras_require={
         "postgresql": ["psycopg2"],

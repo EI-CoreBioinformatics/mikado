@@ -587,7 +587,7 @@ rule asm_map_trinitygg:
 	log: ASM_DIR+"/trinitygmap-{run2}-{alrun}.log"
 	threads: THREADS
 	message: "Mapping trinity transcripts to the genome (run {wildcards.run2}): {input.transcripts}"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON}  --max-intronlength-middle={MAX_INTRON} --max-intronlength-ends={MAX_INTRON} --format=3 {input.transcripts} > {params.gff} 2> {log} && ln -sf {params.link_src} {output.gff} && touch -h {output.gff}"
 
 rule trinity_all:
 	input: expand(ASM_DIR+"/output/trinity-{run2}-{alrun}.gff", run2=TRINITY_RUNS, alrun=ALIGN_RUNS)
@@ -606,7 +606,7 @@ rule lr_gmap:
 	log: ALIGN_DIR+"/gmap-{lsample}-{lrun}.log"
 	threads: THREADS
 	message: "Mapping long reads to the genome with gmap (sample: {wildcards.lsample} - run: {wildcards.lrun})"
-	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --intronlength={MAX_INTRON} --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} gmap --dir={ALIGN_DIR}/gmap/index --db={NAME} --min-intronlength={MIN_INTRON} --max-intronlength-middle={MAX_INTRON} --max-intronlength-ends={MAX_INTRON}  --format=3 {input.reads} > {output.gff} 2> {log} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule lr_star:
 	input:

@@ -197,11 +197,25 @@ def assemble_transcripts_pipeline(args):
     check_config(doc)
 
     # pylint: disable=invalid-name
-    LABELS = doc["short_reads"]["samples"]
-    R1 = doc["short_reads"]["r1"]
-    R2 = doc["short_reads"]["r2"]
-    LR_LABELS = doc["long_reads"]["samples"]
-    LR_FILES = doc["long_reads"]["files"]
+
+    if not "short_reads" in doc and not "long_reads" in doc:
+        print("No short reads section or long reads sections was present in the configuration.  Please include your samples and try again")
+        exit(1)
+
+    LABELS = []
+    R1 = []
+    R2 = []
+    LR_LABELS = []
+    LR_FILES = []
+    
+    if "short_reads" in doc:
+        LABELS = doc["short_reads"]["samples"]
+        R1 = doc["short_reads"]["r1"]
+        R2 = doc["short_reads"]["r2"]
+    
+    if "long_reads" in doc:
+        LR_LABELS = doc["long_reads"]["samples"]
+        LR_FILES = doc["long_reads"]["files"]
     READS_DIR = doc["out_dir"] + "/1-reads"
     SCHEDULER = doc["scheduler"] if doc["scheduler"] else ""
     CWD = os.path.abspath(".")

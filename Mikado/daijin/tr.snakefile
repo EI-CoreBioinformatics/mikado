@@ -12,19 +12,38 @@ from shutil import which
 CFG=workflow.overwrite_configfile
 
 # Get shortcuts from configuration file
-R1 = config["short_reads"]["r1"]
-R2 = config["short_reads"]["r2"]
-SAMPLES = config["short_reads"]["samples"]
-STRANDEDNESS = config["short_reads"]["strandedness"]
+	
 
-L_FILES = config["long_reads"]["files"]
-L_SAMPLES = config["long_reads"]["samples"]
-L_STRANDEDNESS = config["long_reads"]["strandedness"]
+# Short read fields
+R1 = []
+R2 = []
+SAMPLES = []
+STRANDEDNESS = []
+if "short_reads" in config:
+	R1 = config["short_reads"]["r1"]
+	R2 = config["short_reads"]["r2"]
+	SAMPLES = config["short_reads"]["samples"]
+	STRANDEDNESS = config["short_reads"]["strandedness"]
 
+# Long read fields
+L_FILES = []
+L_SAMPLES = []
+L_STRANDEDNESS = []
+if "long_reads" in config:
+	L_FILES = config["long_reads"]["files"]
+	L_SAMPLES = config["long_reads"]["samples"]
+	L_STRANDEDNESS = config["long_reads"]["strandedness"]
+
+# Required reference fields
 REF = config["reference"]["genome"]
-REF_TRANS = config["reference"]["transcriptome"]
 MIN_INTRON = config["reference"]["min_intron"]
 MAX_INTRON = config["reference"]["max_intron"]
+
+# Optional reference fields
+REF_TRANS = ""
+if "transcriptome" in config["reference"]:
+	REF_TRANS = config["reference"]["transcriptome"]
+
 
 NAME = config["name"]
 OUT_DIR = config["out_dir"]
@@ -37,7 +56,9 @@ TGG_MAX_MEM = config["tgg_max_mem"]
 
 # List of alignment and assembly methods to test
 ALIGNMENT_METHODS = config["align_methods"]
-L_ALIGNMENT_METHODS = config["long_read_align_methods"]
+L_ALIGNMENT_METHODS = []
+if "long_read_align_methods" in config:
+	config["long_read_align_methods"]
 ASSEMBLY_METHODS = config["asm_methods"]
 
 
@@ -356,7 +377,7 @@ rule align_tophat:
 	log: ALIGN_DIR + "/tophat-{sample}-{run}.log"
 	threads: THREADS
 	message: "Aligning RNAseq data with tophat (sample - {wildcards.sample} - run {wildcards.run})"
-	shell: "{params.load} tophat2 --output-dir={params.outdir} --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} {params.extra} {params.indexdir} {params.infiles} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} tophat2 --output-dir={params.outdir} --no-sort-bam --num-threads={threads} --min-intron-length={MIN_INTRON} --max-intron-length={MAX_INTRON} {params.strand} {params.trans} {params.extra} {params.indexdir} {params.infiles} > {log} 2>&1 && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule tophat_all:
 	input: expand(ALIGN_DIR+"/output/tophat-{sample}-{run}.bam", sample=SAMPLES, run=TOPHAT_RUNS)
@@ -430,7 +451,7 @@ rule align_star:
 	log: ALIGN_DIR_FULL+"/star-{sample}-{run}.log"
 	threads: int(THREADS)
 	message: "Aligning input with star (sample {wildcards.sample} - run {wildcards.run})"
-	shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} {params.infiles} --outSAMtype BAM Unsorted --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --alignMatesGapMax 20000 --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+	shell: "{params.load} cd {params.outdir}; STAR --runThreadN {threads} --runMode alignReads --genomeDir {params.indexdir} {params.rfc} {params.infiles} --outSAMtype BAM Unsorted --outSAMattributes NH HI AS nM XS NM MD --outSAMstrandField intronMotif --alignIntronMin {MIN_INTRON} --alignIntronMax {MAX_INTRON} {params.trans} --alignMatesGapMax {MAX_INTRON} --outFileNamePrefix {params.outdir}/ {params.extra} > {log} 2>&1 && cd {CWD} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule star_all:
 	input: expand(ALIGN_DIR+"/output/star-{sample}-{run}.bam", sample=SAMPLES, run=STAR_RUNS)

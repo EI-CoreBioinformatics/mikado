@@ -1,8 +1,8 @@
 requirements:
-  expression: [(combined_cds_ratio.ncrna or combined_cds_ratio.coding) and ((exon_num.multi and cdna_length.multi and max_intron_length and min_intron_length and verified_introns_num), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
+  expression: [(combined_cds_fraction.ncrna or combined_cds_fraction.coding) and ((exon_num.multi and cdna_length.multi and max_intron_length and min_intron_length and verified_introns_num), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
   parameters:
-    combined_cds_ratio.ncrna: {operator: eq, value: 0}
-    combined_cds_ratio.coding: {operator: gt, value: 0.35}
+    combined_cds_fraction.ncrna: {operator: eq, value: 0}
+    combined_cds_fraction.coding: {operator: gt, value: 0.35}
     cdna_length.mono: {operator: gt, value: 200}
     cdna_length.multi: {operator: ge, value: 100}
     combined_cds_length.mono: {operator: gt, value: 100}

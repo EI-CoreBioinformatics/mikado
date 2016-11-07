@@ -22,7 +22,7 @@ not_fragmentary:
 #    combined_cds_length.mono: {operator: gt, value: 200}
   expression: [combined_cds_length]
   parameters:
-    combined_cds_length: {operator: gt, value: 0}
+    combined_cds_length: {operator: gt, value: 300}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}

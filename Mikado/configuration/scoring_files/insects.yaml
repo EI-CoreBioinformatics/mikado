@@ -1,6 +1,8 @@
 requirements:
-  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length and proportion_verified_introns_inlocus), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
+  expression: [(combined_cds_ratio.ncrna or combined_cds_ratio.coding) and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length and proportion_verified_introns_inlocus), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
   parameters:
+    combined_cds_ratio.ncrna: {operator: eq, value: 0}
+    combined_cds_ratio.coding: {operator: gt, value: 0.35}
     cdna_length.mono: {operator: gt, value: 200}
     cdna_length.multi: {operator: ge, value: 100}
     combined_cds_length.mono: {operator: gt, value: 100}
@@ -11,13 +13,16 @@ requirements:
     min_intron_length: {operator: ge, value: 20}
     proportion_verified_introns_inlocus: {operator: gt, value: 0}
 not_fragmentary:
-  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
+#  expression: [((exon_num.multi and (cdna_length.multi or combined_cds_length.multi)), or, (exon_num.mono and combined_cds_length.mono))]
+#  parameters:
+#    exon_num.multi: {operator: gt, value: 1}
+#    cdna_length.multi: {operator: ge, value: 200}
+#    combined_cds_length.multi: {operator: gt, value: 150}
+#    exon_num.mono: {operator: eq, value: 1}
+#    combined_cds_length.mono: {operator: gt, value: 200}
+  expression: [combined_cds_length]
   parameters:
-    exon_num.multi: {operator: gt, value: 1}
-    cdna_length.multi: {operator: ge, value: 200}
-    combined_cds_length.multi: {operator: gt, value: 150}
-    exon_num.mono: {operator: eq, value: 1}
-    combined_cds_length.mono: {operator: gt, value: 200}
+    combined_cds_length: {operator: gt, value: 0}
 scoring:
   blast_score: {rescaling: max}
   cdna_length: {rescaling: max}

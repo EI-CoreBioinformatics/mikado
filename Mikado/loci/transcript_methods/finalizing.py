@@ -20,10 +20,34 @@ def __basic_final_checks(transcript):
     """
 
     if len(transcript.exons) == 0:
-        exc=InvalidTranscript(
-            "No exon defined for the transcript {0}. Aborting".format(transcript.id))
-        transcript.logger.exception(exc)
-        raise exc
+        if len(transcript.combined_cds) == 0:
+            exc=InvalidTranscript(
+                "No exon defined for the transcript {0}. Aborting".format(transcript.id))
+            transcript.logger.exception(exc)
+            raise exc
+        else:
+            # Let us try to derive exons from CDS ...
+            transcript.exons = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_cds])
+            if len(transcript.combined_utr) == 0:
+                # Enlarge the terminal exons to include the starts
+                if transcript.start is not None:
+                    transcript.exons[0] = (transcript.start, transcript.exons[0][1])
+                if transcript.end is not None:
+                    transcript.exons[-1] = (transcript.exons[-1][0], transcript.end)
+            else:
+                __utr = sorted([tuple([int(exon[0]), int(exon[1])]) for exon in transcript.combined_utr])
+                try:
+                    __before = [_ for _ in __utr if _[1] < transcript.exons[0][0]]
+                except IndexError:
+                    raise IndexError((__utr, transcript.exons))
+                if __before[-1][1] == transcript.exons[0][0] - 1:
+                    transcript.exons[0] = (__before[-1][0], transcript.exons[0][1])
+                    __before.pop()
+                __after = [_ for _ in __utr if _[0] > transcript.exons[-1][1]]
+                if __after[0][0] == transcript.exons[-1][1] + 1:
+                    transcript.exons[-1] = (transcript.exons[-1][0], __after[0][1])
+                    __after = __after[1:]
+                transcript.exons = __before + transcript.exons + __after
 
     if not isinstance(transcript.exons[0], tuple):
         _ = [tuple([int(exon[0]), int(exon[1])]) for exon in transcript.exons]

@@ -356,6 +356,33 @@ Chr2    TAIR10    three_prime_UTR    629070    629176    .    +    .    Parent=A
                          exons,
                          self.tr.exons)
 
+    def test_no_exons(self):
+
+        self.tr.finalized = False
+        self.tr.exons = []
+        self.tr.finalize()
+        self.assertEqual(self.tr.chrom, "Chr2")
+        self.assertEqual(self.tr.strand, "+")
+        self.assertEqual(self.tr.exon_num, 12)
+        self.assertEqual(self.tr.exon_num, len(self.tr.exons))
+        self.assertEqual(self.tr.start, 626642)
+        self.assertEqual(self.tr.end, 629176)
+        exons = [(626642, 626780),
+                 (626842, 626880),
+                 (626963, 627059),
+                 (627137, 627193),
+                 (627312, 627397),
+                 (627488, 627559),
+                 (627696, 627749),
+                 (627840, 627915),
+                 (628044, 628105),
+                 (628182, 628241),
+                 (628465, 628676),
+                 (629070, 629176)]
+        self.assertEqual(self.tr.exons,
+                         exons,
+                         self.tr.exons)
+
     def test_cds(self):
         self.assertEqual(self.tr.combined_cds, self.tr.selected_cds)
         cds = [(626878, 626880),

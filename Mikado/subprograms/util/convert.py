@@ -51,7 +51,6 @@ def launch(args):
         elif line.is_transcript is True:
             current.add(Transcript(line))
         elif line.is_exon is True:
-            assert line.gene == current.id
             current.add_exon(line)
     if current is not None:
         print(current.format(out_format), file=args.out)

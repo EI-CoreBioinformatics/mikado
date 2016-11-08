@@ -13,6 +13,7 @@ from .monosublocus import Monosublocus
 from .transcript import Transcript
 from ..parsers.GFF import GffLine
 from sys import version_info
+import numpy
 from sklearn.ensemble import RandomForestClassifier
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
@@ -352,11 +353,14 @@ class Sublocus(Abstractlocus):
                         else:
                             val = 0
                     row.append(val)
+                # Necessary for sklearn ..
+                row = numpy.array(row)
+                row = row.reshape(1, -1)
                 metric_rows[tid] = row
             # scores = SortedDict.fromkeys(metric_rows.keys())
             if isinstance(self.regressor, RandomForestClassifier):
                 # We have to pick the second probability (correct)
-                pred_scores = self.regressor.predict_proba(list(metric_rows.values()))[1]
+                pred_scores = self.regressor.predict_proba(list(metric_rows.values()))[0][1]
             else:
                 pred_scores = self.regressor.predict(list(metric_rows.values()))
             for pos, score in enumerate(pred_scores):

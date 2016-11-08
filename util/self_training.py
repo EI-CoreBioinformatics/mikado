@@ -254,7 +254,7 @@ def main():
     #     ))
 
     # Create the dictionary
-    clf = dict(("scoring", clf))
+    clf = {"scoring": clf}
     with open(args.scoring) as sco:
         orig = yaml.load(sco)
     clf["requirements"] = orig["requirements"]

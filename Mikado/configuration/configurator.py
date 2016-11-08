@@ -20,7 +20,7 @@ import jsonschema
 from multiprocessing import get_start_method
 from pkg_resources import resource_stream, resource_filename
 import pickle
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 # from frozendict import frozendict
 
 __author__ = "Luca Venturini"
@@ -439,7 +439,7 @@ def check_json(json_conf, simple=False, external_dict=None):
             with open(json_conf["pick"]["scoring_file"], "rb") as forest:
                 scoring = pickle.load(forest)
                 assert isinstance(scoring, dict)
-                assert "scoring" in scoring and isinstance(scoring["scoring"], RandomForestRegressor)
+                assert "scoring" in scoring and isinstance(scoring["scoring"], (RandomForestRegressor, RandomForestClassifier))
                 del scoring["scoring"]
                 json_conf = merge_dictionaries(json_conf, scoring)
                 json_conf = check_all_requirements(json_conf)

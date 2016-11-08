@@ -62,3 +62,4 @@ scoring:
     filter: {operator: lt, value: 3}
     rescaling: target
     value: 1
+  combined_cds_locus_fraction: {rescaling: max}

@@ -158,6 +158,8 @@ class Transcript:
         self.__cdna_length = None
         self._combined_cds_introns = set()
         self._selected_cds_introns = set()
+        self.__selected_cds_locus_fraction = 0
+        self.__combined_cds_locus_fraction = 0
         self._trust_orf = trust_orf  # This is used inside finalizing.__check_internal_orf
         self.__combined_utr = []
         # pylint: enable=invalid-name
@@ -202,6 +204,7 @@ class Transcript:
         self.__cds_tree = None
         self.__expandable = False
         self.__cds_introntree = intervaltree.IntervalTree()
+        self.__cds_bases = set()
         # self.query_id = None
 
         if len(args) == 0:
@@ -1384,7 +1387,6 @@ class Transcript:
         if ((not isinstance(combined, list)) or
                 any(self.__wrong_combined_entry(comb) for comb in combined)):
             raise TypeError("Invalid value for combined CDS: {0}".format(combined))
-
         # if len(combined) > 0:
         #     if isinstance(combined[0], tuple):
         #         try:
@@ -1395,6 +1397,8 @@ class Transcript:
         #         assert isinstance(combined[0], intervaltree.Interval)
 
         self.__combined_cds = combined
+        if len(combined) > 0:
+            self.__cds_bases = set.union(*[set(range(*_)) for _ in combined])
 
     @staticmethod
     def __wrong_combined_entry(to_test):
@@ -1448,6 +1452,11 @@ class Transcript:
             return self.combined_cds[-1][1]
 
     @property
+    def combined_cds_bases(self):
+        """This property returns the CDS bases of the transcript as a set"""
+        return self.__cds_bases
+
+    @property
     def _cds_introntree(self):
 
         """
@@ -1468,7 +1477,15 @@ class Transcript:
         else:
             self.__selected_cds = [segment[1] for segment in self.selected_internal_orf if
                                    segment[0] == "CDS"]
+
         return self.__selected_cds
+
+    @property
+    def selected_cds_bases(self):
+        if len(self.selected_cds):
+            return set.union(set(range(*_) for _ in self.selected_cds))
+        else:
+            return set()
 
     @property
     def selected_cds_start(self):
@@ -1915,6 +1932,38 @@ index {3}, internal ORFs: {4}".format(
         self.__intron_fraction = args[0]
 
     intron_fraction.category = "Locus"
+
+    @Metric
+    def combined_cds_locus_fraction(self):
+        """This metric returns the fraction of CDS bases of the transcript
+        vs. the total of CDS bases in the locus."""
+        return self.__combined_cds_locus_fraction
+
+    @combined_cds_locus_fraction.setter
+    def combined_cds_locus_fraction(self, value):
+        if not isinstance(value, (int, float)) and 0 <= value <= 1:
+            raise TypeError("The fraction should be a number between 0 and 1")
+        elif self.combined_cds_length == 0 and value > 0:
+            raise ValueError("{} has no CDS, its CDS fraction cannot be greater than 0!")
+        self.__combined_cds_locus_fraction = value
+
+    combined_cds_locus_fraction.category = "Locus"
+
+    @Metric
+    def selected_cds_locus_fraction(self):
+        """This metric returns the fraction of CDS bases of the transcript
+        vs. the total of CDS bases in the locus."""
+        return self.__combined_cds_locus_fraction
+
+    @selected_cds_locus_fraction.setter
+    def selected_cds_locus_fraction(self, value):
+        if not isinstance(value, (int, float)) and 0 <= value <= 1:
+            raise TypeError("The fraction should be a number between 0 and 1")
+        elif self.selected_cds_length == 0 and value > 0:
+            raise ValueError("{} has no CDS, its CDS fraction cannot be greater than 0!")
+        self.__selected_cds_locus_fraction = value
+
+    selected_cds_locus_fraction.category = "Locus"
 
     @Metric
     def max_intron_length(self):

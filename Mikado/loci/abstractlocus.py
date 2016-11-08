@@ -642,6 +642,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.transcripts[tid].exon_fraction = fraction
 
+        cds_bases = set()
+        selected_bases = set()
+        for tid in self.transcripts:
+            cds_bases.update(self.transcripts[tid].combined_cds_bases)
+            selected_bases.update(self.transcripts[tid].selected_cds_bases)
+
+        for tid in self.transcripts:
+            if len(cds_bases) == 0:
+                self.transcripts[tid].combined_cds_locus_fraction = 0
+                self.transcripts[tid].selected_cds_locus_fraction = 0
+            else:
+                self.transcripts[tid].combined_cds_locus_fraction = len(
+                    set.intersection(self.transcripts[tid].combined_cds_bases, cds_bases))/len(
+                    cds_bases)
+                self.transcripts[tid].selected_cds_locus_fraction = len(
+                    set.intersection(self.transcripts[tid].selected_cds_bases, cds_bases)) / len(
+                    selected_bases)
+
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))
             fraction = _ / len(self.introns)

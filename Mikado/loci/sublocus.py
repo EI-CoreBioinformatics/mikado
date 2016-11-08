@@ -355,7 +355,8 @@ class Sublocus(Abstractlocus):
                 metric_rows[tid] = row
             # scores = SortedDict.fromkeys(metric_rows.keys())
             if isinstance(self.regressor, RandomForestClassifier):
-                pred_scores = self.regressor.predict_proba(list(metric_rows.values()))
+                # We have to pick the second probability (correct)
+                pred_scores = self.regressor.predict_proba(list(metric_rows.values()))[1]
             else:
                 pred_scores = self.regressor.predict(list(metric_rows.values()))
             for pos, score in enumerate(pred_scores):

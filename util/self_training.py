@@ -138,18 +138,18 @@ def main():
     subset.add_argument("-r", "--random", type=int,
                         default=None,
                         help="A fixed of models to select for training.")
-    subset.add_argument("-c", "--conf",
-                        required=True,
-                        help="File with the configuration for selecting best and worst transcripts.")
     subset.add_argument("-p", "--proportion", type=float,
                         default=None,
                         help="Proportion of the models to be used for training.")
+    parser.add_argument("-c", "--conf",
+                        required=True,
+                        help="File with the configuration for selecting best and worst transcripts.")
     # parser.add_argument("-t", "--tmap",
     #                     help="The TMAP file with the comparison results.",
     #                     required=True)
     parser.add_argument("-m", "--metrics", help="The metrics file.", required=True)
     parser.add_argument("-o", "--out", help="Output file.", default="forest.model")
-    # parser.add_argument("-s", "--scoring", help="The original scoring file, to retrieve info on fragments.")
+    parser.add_argument("-s", "--scoring", help="The original scoring file, to retrieve info on fragments.")
     args = parser.parse_args()
 
     # X should contain a matrix of features derived from the portcullis tab file
@@ -180,10 +180,12 @@ def main():
     # ref = bed12.loadbed(args.reference, False, False)
     # metrics = pandas.read_csv(args.metrics, delimiter="\t")
 
-    metrics = load_metrics(args.metrics)
+    metrics_pandas = pandas.read_csv(args.metrics_pandas)
 
-    zeros = metrics[(((metrics.exon_num==1) & (metrics.combined_cds_length==0) & (metrics.cdna_length < 300 )) | ((metrics.exon_num>1) & (metrics.combined_cds_intron_fraction==0) & (metrics.retained_fraction>0.5 )) )].tid
-    hundreds = metrics[(metrics.proportion_verified_introns_inlocus==1) & (metrics.snowy_blast_score>10) & (metrics.retained_fraction==0) & (((metrics.exon_num>1) & (metrics.verified_introns_num>2) ) | ((metrics.exon_num==1) & (metrics.utr_num==2)) )].tid
+    zeros = metrics_pandas[(((metrics_pandas.exon_num==1) & (metrics_pandas.combined_cds_length==0) & (metrics_pandas.cdna_length < 300 )) | ((metrics_pandas.exon_num>1) & (metrics_pandas.combined_cds_intron_fraction==0) & (metrics_pandas.retained_fraction>0.5 )) )].tid
+    hundreds = metrics_pandas[(metrics_pandas.proportion_verified_introns_inlocus==1) & (metrics_pandas.snowy_blast_score>10) & (metrics_pandas.retained_fraction==0) & (((metrics_pandas.exon_num>1) & (metrics_pandas.verified_introns_num>2) ) | ((metrics_pandas.exon_num==1) & (metrics_pandas.utr_num==2)) )].tid
+
+    metrics = load_metrics(args.metrics)
 
     scores = dict()
     for z in zeros:

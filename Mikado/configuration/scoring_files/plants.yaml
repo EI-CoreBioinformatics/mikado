@@ -1,5 +1,12 @@
 requirements:
-  expression: [(combined_cds_fraction.ncrna or combined_cds_fraction.coding) and ((exon_num.multi and (cdna_length.multi or combined_cds_length.multi) and max_intron_length and min_intron_length and proportion_verified_introns_inlocus), or, (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))]
+  expression:
+    - (combined_cds_fraction.ncrna or combined_cds_fraction.coding), and,
+    - ((exon_num.multi and (cdna_length.multi, or,
+    - combined_cds_length.multi) and max_intron_length,
+    - and,
+    - min_intron_length and proportion_verified_introns_inlocus),
+    - or,
+    - (exon_num.mono and (combined_cds_length.mono or cdna_length.mono)))
   parameters:
     combined_cds_fraction.ncrna: {operator: eq, value: 0}
     combined_cds_fraction.coding: {operator: gt, value: 0.35}

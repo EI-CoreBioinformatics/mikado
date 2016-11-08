@@ -355,17 +355,20 @@ class Sublocus(Abstractlocus):
                     row.append(val)
                 # Necessary for sklearn ..
                 row = numpy.array(row)
-                row = row.reshape(1, -1)
+                # row = row.reshape(1, -1)
                 metric_rows[tid] = row
             # scores = SortedDict.fromkeys(metric_rows.keys())
             if isinstance(self.regressor, RandomForestClassifier):
                 # We have to pick the second probability (correct)
-                pred_scores = self.regressor.predict_proba(list(metric_rows.values()))[0][1]
+                for tid in metric_rows:
+                    score = self.regressor.predict_proba(metric_rows[tid])[0][1]
+                    self.scores[tid]["score"] = score
+                    self.transcripts[tid].score = score
             else:
                 pred_scores = self.regressor.predict(list(metric_rows.values()))
-            for pos, score in enumerate(pred_scores):
-                self.scores[list(metric_rows.keys())[pos]]["score"] = score
-                self.transcripts[list(metric_rows.keys())[pos]].score = score
+                for pos, score in enumerate(pred_scores):
+                    self.scores[list(metric_rows.keys())[pos]]["score"] = score
+                    self.transcripts[list(metric_rows.keys())[pos]].score = score
 
         self.metric_lines_store = [_ for _ in self.prepare_metrics()]
         self.scores_calculated = True

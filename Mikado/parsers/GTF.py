@@ -62,29 +62,35 @@ class GtfLine(GFAnnotation):
         :return:
         """
 
-        info_list = []
+        # info_list = []
         for info in iter(x for x in self._attr.rstrip().split(';') if x != ''):
-            info = info.strip()
-            info_list.append(info)
-            info = info.lstrip().split(' ')
-            try:
-                self.attributes[info[0]] = info[1].replace('"', '')
-            except IndexError:
-                raise IndexError(info_list, info)
+            info = info.strip().split(' ')
+            # info_list.append(info)
+            # info = info.lstrip().split(' ')
+            self.attributes[info[0]] = info[1].replace('"', '')
+            if info[0] == "exon_number":
+                self.attributes['exon_number'] = int(self.attributes['exon_number'])
+            # elif info[0] in ("nearest_ref", "tss_id"):
+            #     setattr(self, info[0], info[1])
 
-        if 'exon_number' in self.attributes:
-            self.attributes['exon_number'] = int(self.attributes['exon_number'])
+            # try:
+            #
+            # except IndexError:
+            #     raise IndexError(info_list, info)
+
+        # if 'exon_number' in self.attributes:
+        #     self.attributes['exon_number'] = int(self.attributes['exon_number'])
         assert 'gene_id', 'transcript_id' in self.attributes
 
-        if 'nearest_ref' in self.attributes:
-            self.nearest_ref = self.attributes['nearest_ref']
-        if 'tss_id' in self.attributes:
-            self.tss_id = self.attributes['tss_id']
+        # if 'nearest_ref' in self.attributes:
+        #     self.nearest_ref = self.attributes['nearest_ref']
+        # if 'tss_id' in self.attributes:
+        #     self.tss_id = self.attributes['tss_id']
 
-        for tag in iter(att for att in self.attributes if
-                        att not in ('gene_id', 'transcript_id', 'nearest_ref',
-                                    'tss_id', 'class_code')):
-            self.__dict__[tag.lower()] = self.attributes[tag]
+        # for tag in iter(att for att in self.attributes if
+        #                 att not in ('gene_id', 'transcript_id', 'nearest_ref',
+        #                             'tss_id', 'class_code')):
+        #     self.__dict__[tag.lower()] = self.attributes[tag]
 
     def _format_attributes(self):
 

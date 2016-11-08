@@ -13,6 +13,7 @@ from .monosublocus import Monosublocus
 from .transcript import Transcript
 from ..parsers.GFF import GffLine
 from sys import version_info
+from sklearn.ensemble import RandomForestClassifier
 if version_info.minor < 5:
     from sortedcontainers import SortedDict
 else:
@@ -353,7 +354,11 @@ class Sublocus(Abstractlocus):
                     row.append(val)
                 metric_rows[tid] = row
             # scores = SortedDict.fromkeys(metric_rows.keys())
-            for pos, score in enumerate(self.regressor.predict(list(metric_rows.values()))):
+            if isinstance(self.regressor, RandomForestClassifier):
+                pred_scores = self.regressor.predict_proba(list(metric_rows.values()))
+            else:
+                pred_scores = self.regressor.predict(list(metric_rows.values()))
+            for pos, score in enumerate(pred_scores):
                 self.scores[list(metric_rows.keys())[pos]]["score"] = score
                 self.transcripts[list(metric_rows.keys())[pos]].score = score
 

@@ -304,7 +304,7 @@
               "type": "number",
               "minimum": 0,
               "maximum": 1,
-              "default": 0.5
+              "default": 0.3
             },
             "min_cdna_overlap": {
               "type": "number",
@@ -398,7 +398,7 @@
             },
             "min_score_perc": {
               "type": "number",
-              "default": 0.75,
+              "default": 0.5,
               "minimum": 0,
               "maximum": 1
             },

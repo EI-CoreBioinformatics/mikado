@@ -205,7 +205,6 @@ class Transcript:
         self.__cds_tree = None
         self.__expandable = False
         self.__cds_introntree = IntervalTree()
-        self.__cds_bases = set()
         # self.query_id = None
 
         if len(args) == 0:
@@ -1402,8 +1401,6 @@ class Transcript:
         #         assert isinstance(combined[0], intervaltree.Interval)
 
         self.__combined_cds = combined
-        if len(combined) > 0:
-            self.__cds_bases = set.union(*[set(range(*_)) for _ in combined])
 
     @staticmethod
     def __wrong_combined_entry(to_test):
@@ -1457,11 +1454,6 @@ class Transcript:
             return self.combined_cds[-1][1]
 
     @property
-    def combined_cds_bases(self):
-        """This property returns the CDS bases of the transcript as a set"""
-        return self.__cds_bases
-
-    @property
     def _cds_introntree(self):
 
         """
@@ -1484,13 +1476,6 @@ class Transcript:
                                    segment[0] == "CDS"]
 
         return self.__selected_cds
-
-    @property
-    def selected_cds_bases(self):
-        if len(self.selected_cds):
-            return set.union(set(range(*_) for _ in self.selected_cds))
-        else:
-            return set()
 
     @property
     def selected_cds_start(self):

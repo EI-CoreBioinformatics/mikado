@@ -13,6 +13,7 @@ import re
 import inspect
 import intervaltree
 from ..utilities.log_utils import create_null_logger
+from ..utilities.intervaltree import Interval, IntervalTree
 from sqlalchemy.sql.expression import desc, asc  # SQLAlchemy imports
 from sqlalchemy import and_
 from sqlalchemy.ext import baked
@@ -203,7 +204,7 @@ class Transcript:
         # Initialisation of the CDS segments used for finding retained introns
         self.__cds_tree = None
         self.__expandable = False
-        self.__cds_introntree = intervaltree.IntervalTree()
+        self.__cds_introntree = IntervalTree()
         self.__cds_bases = set()
         # self.query_id = None
 
@@ -383,6 +384,10 @@ class Transcript:
         elif isinstance(gffline, intervaltree.Interval):
             start, end = gffline[0], gffline[1]
             phase = None
+            if feature is None:
+                feature = "exon"
+        elif isinstance(gffline, Interval):
+            start, end = gffline.start, gffline.end
             if feature is None:
                 feature = "exon"
         elif not isinstance(gffline, (GtfLine, GffLine)):
@@ -1464,8 +1469,8 @@ class Transcript:
         """
 
         if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = intervaltree.IntervalTree(
-                [intervaltree.Interval(_[0], _[1] + 1) for _ in self.combined_cds_introns])
+            self.__cds_introntree = IntervalTree.from_tuples(
+                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
         return self.__cds_introntree
 
     @property
@@ -1566,8 +1571,7 @@ index {3}, internal ORFs: {4}".format(
 
         if segments is None:
             pass
-
-        elif isinstance(segments, intervaltree.IntervalTree):
+        elif isinstance(segments, IntervalTree):
             assert len(segments) == len(self.combined_cds)
         else:
             raise TypeError("Invalid cds segments: %s, type %s",

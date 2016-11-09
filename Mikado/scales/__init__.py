@@ -14,6 +14,7 @@ This module defines the classes needed for the "compare" script, namely:
 """
 
 from . import resultstorer
+from ..utilities import intervaltree
 from .f1 import calc_f1
 
 
@@ -38,7 +39,6 @@ from .f1 import calc_f1
 # noinspection PyPep8
 from . import accountant
 # noinspection PyPep8
-from . import intervaltree
 from . import assigner
 from . import compare
 from .assigner import Assigner

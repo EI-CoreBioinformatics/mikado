@@ -324,6 +324,14 @@ cdef class Interval:
             # >=
             return self == other or self > other
 
+    def __getitem__(self, int index):
+        if index == 0:
+            return self.start
+        elif index == 1:
+            return self.end
+        else:
+            raise IndexError("Intervals only have starts and ends!")
+
 cdef class IntervalTree:
     """
     Data structure for performing window intersect queries on a set of
@@ -398,20 +406,31 @@ cdef class IntervalTree:
 
     add = insert
 
-    def find( self, int start, int end, int max_distance=0, int num_intervals=100):
+    def find(self, int start, int end, bint strict=0, int max_distance=0, int num_intervals=100):
         """
         Return a sorted list of all intervals overlapping [start,end).
         """
+
         if self.root is None:
             return []
 
         if max_distance == 0:
-            return self.root.find( start, end )
+            found=self.root.find( start, end )
         else:
             found = self.root.find( start, end )
             found.extend(self.before( start, num_intervals=num_intervals, max_dist=max_distance))
             found.extend(self.after( end, num_intervals=num_intervals, max_dist=max_distance))
-            return found
+            # Emulate the behaviour of the intervaltree library
+
+        if strict is True:
+            # cdef list new_found
+            new_found = []
+            for _ in found:
+                if _.start >= start and _.end <= end:
+                    new_found.append(_)
+            found = new_found
+
+        return found
 
     search = find
 
@@ -446,7 +465,7 @@ cdef class IntervalTree:
         attributes)
         """
         self.insert( interval.start, interval.end, interval )
-        self.num_intervals += 1
+        # self.num_intervals += 1
 
     add_interval = insert_interval
 

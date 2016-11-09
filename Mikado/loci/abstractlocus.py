@@ -11,14 +11,13 @@ import logging
 import itertools
 from sys import maxsize
 from .clique_methods import find_cliques, find_communities, define_graph
-import intervaltree
 import networkx
 from ..exceptions import NotInLocusError
 from ..utilities import overlap, merge_ranges
 from ..utilities.log_utils import create_null_logger
+from ..utilities.intervaltree import Interval, IntervalTree
 from .transcript import Transcript
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-
 
 # I do not care that there are too many attributes: this IS a massive class!
 # pylint: disable=too-many-instance-attributes,too-many-public-methods
@@ -54,7 +53,7 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         self.cds_introns = set()
         self.__locus_verified_introns = set()
         self.json_conf = dict()
-        self.__cds_introntree = intervaltree.IntervalTree()
+        self.__cds_introntree = IntervalTree()
         self.__regressor = None
         self.session = None
         self.metrics_calculated = False
@@ -511,24 +510,34 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         if transcript.cds_tree is None:
             # Enlarge the CDS segments if they are of length 1
-            transcript.cds_tree = intervaltree.IntervalTree(
-                [intervaltree.Interval(cds[0], max(cds[1], cds[0]+1))
-                 for cds in transcript.combined_cds])
+            transcript.cds_tree = IntervalTree.from_tuples(
+                [(cds[0], max(cds[1], cds[0] + 1)) for cds in transcript.combined_cds])
+
+            # transcript.cds_tree = intervaltree.IntervalTree(
+            #     [intervaltree.Interval(cds[0], max(cds[1], cds[0]+1))
+            #      for cds in transcript.combined_cds])
 
         for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
             # Ignore stuff that is at the 5'
-            if ((transcript.strand == "+" and exon[1] < transcript.combined_cds_start) or
-                    (transcript.strand == "-" and exon[0] > transcript.combined_cds_start)):
-                continue
+            if transcript.combined_cds_length > 0:
+                if transcript.strand == "+" and exon[1] < transcript.combined_cds_start:
+                    continue
+                elif transcript.strand == "-" and exon[0] > transcript.combined_cds_start:
+                    continue
 
-            exon_interval = intervaltree.IntervalTree([
-                intervaltree.Interval(exon[0], max(exon[1], exon[0] + 1))])
+            cds_segments = sorted(transcript.cds_tree.search(*exon))
+            if not cds_segments:
+                frags = [exon]
+            else:
+                frags = []
+                if cds_segments[0].start > exon[0]:
+                    frags.append((exon[0], cds_segments[0].start -1))
+                for before, after in zip(cds_segments[:-1], cds_segments[1:]):
+                    frags.append((before.end + 1, max(after.start -1, before.end + 1)))
+                if cds_segments[-1].end < exon[1]:
+                    frags.append((cds_segments[-1].end + 1, exon[1]))
 
-            for cds_segment in transcript.cds_tree.search(*exon):
-                exon_interval.chop(cds_segment[0], cds_segment[1])
-
-            if not exon_interval:
-                # If the exon is completely coding, no sense in analysing it
+            if not frags:
                 continue
 
             is_retained = False
@@ -538,10 +547,13 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 if tid == transcript.id or transcript.strand != self.transcripts[tid].strand:
                     # We cannot call retained introns against oneself or against stuff on the opposite strand
                     continue
-                cds_introns = self.transcripts[tid]._cds_introntree.search(exon[0],
-                                                                           exon[1],
-                                                                           strict=True)
-                for frag in exon_interval:
+
+                cds_introns = self.transcripts[tid]._cds_introntree.find(exon[0],
+                                                                         exon[1],
+                                                                         strict=True)
+                # cds_introns = [_ for _ in cds_introns if _.start >= exon[0] and _.end <= exon[1]]
+
+                for frag in frags:
                     if is_retained:
                         break
                     for intr in cds_introns:
@@ -642,7 +654,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         fraction = _ / len(self.exons)
 
         self.transcripts[tid].exon_fraction = fraction
-
 
         cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
             itertools.chain(*[
@@ -836,12 +847,12 @@ class Abstractlocus(metaclass=abc.ABCMeta):
     def _cds_introntree(self):
 
         """
-        :rtype: intervaltree.IntervalTree
+        :rtype: IntervalTree
         """
 
         if len(self.__cds_introntree) != len(self.combined_cds_introns):
-            self.__cds_introntree = intervaltree.IntervalTree(
-                [intervaltree.Interval(_[0], _[1] + 1) for _ in self.combined_cds_introns])
+            self.__cds_introntree = IntervalTree.from_tuples(
+                [(_[0], _[1] + 1) for _ in self.combined_cds_introns])
         return self.__cds_introntree
 
     @property

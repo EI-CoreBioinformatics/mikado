@@ -845,7 +845,8 @@ class RetainedIntronTester(unittest.TestCase):
 
         sup.find_retained_introns(t2)
 
-        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0,
+                         sup.transcripts["t2"].retained_introns)
 
     def test_not_retained_neg(self):
         """Here we verify that a false retained intron is not called as such"""
@@ -937,7 +938,8 @@ class RetainedIntronTester(unittest.TestCase):
 
         sup.find_retained_introns(t2)
 
-        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0)
+        self.assertEqual(sup.transcripts["t2"].retained_intron_num, 0,
+                         sup.transcripts["t2"].retained_introns)
 
     def test_exon_switching_neg(self):
         """Checking that an exon switching is treated correctly as a NON-retained intron. Positive strand case"""

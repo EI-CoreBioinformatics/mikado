@@ -6,7 +6,7 @@ This class is the main workhorse of the compare.py utility.
 
 import sys
 import csv
-from .intervaltree import IntervalTree
+from ..utilities.intervaltree import IntervalTree
 from logging import handlers as log_handlers
 import queue
 import logging
@@ -140,7 +140,7 @@ class Assigner:
         """
         This class method is used to find the possible matches of a given prediction key.
         :param keys: the start
-        :type keys: Mikado.scales.intervaltree.IntervalTree
+        :type keys: Mikado.utilities.intervaltree.IntervalTree
 
         :param position: the position of my prediction in the genome
         :type position: (int, int)

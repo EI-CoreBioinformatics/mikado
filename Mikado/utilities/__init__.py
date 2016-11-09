@@ -138,3 +138,33 @@ def merge_dictionaries(dict_a, dict_b, path=None):
         else:
             dict_a[key] = dict_b[key]
     return dict_a
+
+
+def merge_ranges(ranges):
+    """
+    Merge overlapping and adjacent ranges and yield the merged ranges
+    in order. The argument must be an iterable of pairs (start, stop).
+
+    >>> list(merge_ranges([(5,7), (3,5), (-1,3)]))
+    [(-1, 7)]
+    >>> list(merge_ranges([(5,6), (3,4), (1,2)]))
+    [(1, 2), (3, 4), (5, 6)]
+    >>> list(merge_ranges([]))
+    []
+    """
+    ranges = iter(sorted(ranges))
+    new_ranges = []
+    current_start, current_stop = next(ranges)
+    for start, stop in ranges:
+        if start > current_stop:
+            # Gap between segments: output current segment and start a new one.
+            new_ranges.append((current_start, current_stop))
+            current_start, current_stop = start, stop
+        else:
+            # Segments adjacent or overlapping: merge.
+            current_stop = max(current_stop, stop)
+    new_ranges.append((current_start, current_stop))
+    return new_ranges
+
+
+

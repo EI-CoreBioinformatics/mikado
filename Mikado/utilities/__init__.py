@@ -153,18 +153,19 @@ def merge_ranges(ranges):
     []
     """
     ranges = iter(sorted(ranges))
-    new_ranges = []
-    current_start, current_stop = next(ranges)
+    try:
+        _ = next(ranges)
+        current_start, current_stop = _
+    except ValueError:
+        raise ValueError((_, list(ranges)))
+    except StopIteration:
+        return
     for start, stop in ranges:
         if start > current_stop:
             # Gap between segments: output current segment and start a new one.
-            new_ranges.append((current_start, current_stop))
+            yield current_start, current_stop
             current_start, current_stop = start, stop
         else:
             # Segments adjacent or overlapping: merge.
             current_stop = max(current_stop, stop)
-    new_ranges.append((current_start, current_stop))
-    return new_ranges
-
-
-
+    yield current_start, current_stop

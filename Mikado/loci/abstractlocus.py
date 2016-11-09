@@ -516,6 +516,11 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                  for cds in transcript.combined_cds])
 
         for exon in iter(_ for _ in transcript.exons if _ not in transcript.combined_cds):
+            # Ignore stuff that is at the 5'
+            if ((transcript.strand == "+" and exon[1] < transcript.combined_cds_start) or
+                    (transcript.strand == "-" and exon[0] > transcript.combined_cds_start)):
+                continue
+
             exon_interval = intervaltree.IntervalTree([
                 intervaltree.Interval(exon[0], max(exon[1], exon[0] + 1))])
 
@@ -533,11 +538,6 @@ class Abstractlocus(metaclass=abc.ABCMeta):
                 if tid == transcript.id or transcript.strand != self.transcripts[tid].strand:
                     # We cannot call retained introns against oneself or against stuff on the opposite strand
                     continue
-                if ((self.strand == "+" and exon[0] not in [_[0] for _ in self.transcripts[tid].exons]) or
-                        (self.strand == "-" and exon[1] not in [_[1] for _ in self.transcripts[tid].exons])):
-                    # The first junction must be present for it to be a retained intron
-                    continue
-                # Find all the CDS introns which are completely contained within the exon
                 cds_introns = self.transcripts[tid]._cds_introntree.search(exon[0],
                                                                            exon[1],
                                                                            strict=True)
@@ -643,16 +643,24 @@ class Abstractlocus(metaclass=abc.ABCMeta):
 
         self.transcripts[tid].exon_fraction = fraction
 
-        cds_bases = merge_ranges(itertools.chain(self.transcripts[_].combined_cds for _ in self.transcripts))
-        selected_bases = merge_ranges(itertools.chain(self.transcripts[_].selected_cds for _ in self.transcripts))
+
+        cds_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].combined_cds for _ in self.transcripts
+                if self.transcripts[_].combined_cds])))
+
+        selected_bases = sum(_[1] - _[0] + 1 for _ in merge_ranges(
+            itertools.chain(*[
+                self.transcripts[_].selected_cds for _ in self.transcripts
+                if self.transcripts[_].selected_cds])))
 
         for tid in self.transcripts:
             if cds_bases == 0:
                 self.transcripts[tid].combined_cds_locus_fraction = 0
                 self.transcripts[tid].selected_cds_locus_fraction = 0
             else:
-                self.transcripts[tid].combined_cds_locus_fraction = self.transcripts[_].combined_cds_length / cds_bases
-                self.transcripts[tid].selected_cds_locus_fraction = self.transcripts[_].selected_cds_length / selected_bases
+                self.transcripts[tid].combined_cds_locus_fraction = self.transcripts[tid].combined_cds_length / cds_bases
+                self.transcripts[tid].selected_cds_locus_fraction = self.transcripts[tid].selected_cds_length / selected_bases
 
         if len(self.introns) > 0:
             _ = len(set.intersection(self.transcripts[tid].introns, self.introns))

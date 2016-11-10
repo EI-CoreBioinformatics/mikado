@@ -804,7 +804,7 @@ rule portcullis_merge:
 	message: "Taking intersection of portcullis results"
 	run:
 		if RUN_PORTCULLIS:
-			shell("{params.load} bed_merge.py --prefix=portcullis_merged --output={output.bed} {input} > {log} || touch {output.bed}")
+			shell("{params.load} junctools set --prefix=portcullis_merged --output={output.bed} --operator=mean union {input} > {log} || touch {output.bed}")
 		else:
 			shell("touch {output}")
 

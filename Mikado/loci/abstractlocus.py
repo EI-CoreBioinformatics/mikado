@@ -149,6 +149,14 @@ class Abstractlocus(metaclass=abc.ABCMeta):
         # Set the logger to NullHandler
         self.logger = create_null_logger(self)
 
+    def __iter__(self):
+        return iter(self.transcripts.keys())
+
+    def __getitem__(self, item):
+
+        return self.transcripts[item]
+
+
     # #### Static methods #######
     @staticmethod
     def overlap(first_interval: tuple([int, int]),

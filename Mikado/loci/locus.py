@@ -591,67 +591,66 @@ class Locus(Sublocus, Abstractlocus):
 
         return is_valid, main_ccode, main_result
 
-    if __name__ == '__main__':
-        if __name__ == '__main__':
-            if __name__ == '__main__':
-                def pad_transcripts(self):
+    def pad_transcripts(self):
 
-                    """This method will pad the genomic coordinates of transcripts,
-                    so to uniform their 5' and 3' ends. It will perform such an operation
-                    *only if*:
-                    - either two transcripts share the same terminal exon boundary
-                    OR
-                    - there is an intron retention, ie the boundary is either upstream (5') or downstream (3')
-                    of the final boundary.
-                    """
+        """This method will pad the genomic coordinates of transcripts,
+        so to uniform their 5' and 3' ends. It will perform such an operation
+        *only if*:
+        - either two transcripts share the same terminal exon boundary
+        OR
+        - there is an intron retention, ie the boundary is either upstream (5') or downstream (3')
+        of the final boundary.
+        """
 
-                    # start by sorting transcripts by their start site
+        # start by sorting transcripts by their start site
 
-                    __sorted_transcripts = sorted(self.transcripts.keys,
-                                                  key=lambda tid: self.transcripts[tid].splices  )
+        __sorted_transcripts = sorted(self.transcripts.keys,
+                                      key=lambda tid: self.transcripts[tid].splices  )
 
-                    # Start from the five end
-                    def __share_five(first, second):
+        # Start from the five end
+        def __share_five(first, second):
 
-                        if first.splices and second.splices:
-                            first_splices = sorted(first.splices)
-                            second_splices = sorted(second.splices)
-                            if first_splices[0] == second_splices[0]:
-                                return True
-                            elif first_splices[0] < second_splices[0]:
-                                if second_splices[0] > first_splices[1]:
-                                    return True
-                                else:
-                                    return False
-                            else:
-                                if first_splices[0] > second_splices[1]:
-                                    return True
-                                else:
-                                    return False
-                        elif first.splices:  # the second is monoexonic
-                            first_splices = sorted(first.splices)
-                            if second.start < first_splices[0] and second.end > first_splices[1]:
-                                return True
-                            else:
-                                return False
-                        elif second.splices:
-                            second_splices = sorted(second.splices)
-                            if first.start < second_splices[0] and first.end > second_splices[1]:
-                                return True
-                            else:
-                                return False
-                        else:
-                            if overlap(first.start, first.end, second.start, second.end):
-                                return True
-                            else:
-                                return False
+            if first.splices and second.splices:
+                first_splices = sorted(first.splices)
+                second_splices = sorted(second.splices)
+                if first_splices[0] == second_splices[0]:
+                    return True
+                elif first_splices[0] < second_splices[0]:
+                    if second_splices[0] > first_splices[1]:
+                        return True
+                    else:
+                        return False
+                else:
+                    if first_splices[0] > second_splices[1]:
+                        return True
+                    else:
+                        return False
+            elif first.splices:  # the second is monoexonic
+                first_splices = sorted(first.splices)
+                if second.start < first_splices[0] and second.end > first_splices[1]:
+                    return True
+                else:
+                    return False
+            elif second.splices:
+                second_splices = sorted(second.splices)
+                if first.start < second_splices[0] and first.end > second_splices[1]:
+                    return True
+                else:
+                    return False
+            else:
+                if overlap(first.start, first.end, second.start, second.end):
+                    return True
+                else:
+                    return False
 
-                    sharing_five = self.define_graph(self.transcripts, __share_five)
-                    cliques_five = self.find_cliques(sharing_five)
+        sharing_five = self.define_graph(self.transcripts, __share_five)
+        cliques_five = self.find_cliques(sharing_five)
 
-                    # Now we have to iterate throughout the cliques
-                    # and define them in a unique way.
-                    # Then, we need to do the same for the three prime portion.
+        # Now we have to iterate throughout the cliques
+        # and define them in a unique way.
+        # Then, we need to do the same for the three prime portion.
+
+
 
 
     @property

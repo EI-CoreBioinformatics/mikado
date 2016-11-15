@@ -260,9 +260,9 @@ def tophatStrandOption(sample):
 
 def starCompressionOption(sample):
 	if EXT_MAP[sample] == ".gz":
-		return "--readFilesCommand=zcat"
-	elif EXT_MAP[sample] == ".gz":
-		return "--readFilesCommand=bzcat"
+		return "--readFilesCommand zcat"
+	elif EXT_MAP[sample] == ".bz":
+		return "--readFilesCommand bzcat"
 	else:
 		return ""
 

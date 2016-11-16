@@ -58,7 +58,7 @@ TGG_MAX_MEM = config["tgg_max_mem"]
 ALIGNMENT_METHODS = config["align_methods"]
 L_ALIGNMENT_METHODS = []
 if "long_read_align_methods" in config:
-	config["long_read_align_methods"]
+	L_ALIGNMENT_METHODS = config["long_read_align_methods"]
 ASSEMBLY_METHODS = config["asm_methods"]
 
 
@@ -222,7 +222,7 @@ for samp in L_SAMPLES:
 			LR_ARRAY.append(ALIGN_DIR + "/lr_output/" + filename)
 			LR_LABEL_ARRAY.append(abv_aln_str)
 			if not L_SAMPLE_MAP[samp] == "u":
-				L_SS_ARRAY.append(TRANSCRIPT_ARRAY[-1])
+				LR_SS_ARRAY.append(TRANSCRIPT_ARRAY[-1])
 
 LR_STR = ",".join(LR_ARRAY)
 LR_LABEL_STR = ",".join(LR_LABEL_ARRAY)
@@ -487,7 +487,7 @@ rule align_hisat:
 	log: ALIGN_DIR+"/hisat-{sample}-{run}.log"
 	threads: THREADS
 	message: "Aligning input with hisat (sample {wildcards.sample} - run {wildcards.run})"
-    	shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
+    	shell: "{params.load} {params.load_samtools} {params.ss_gen} hisat2 -p {threads} --min-intronlen={MIN_INTRON} --max-intronlen={MAX_INTRON} {params.trans} {params.strand} {params.extra} -x {params.indexdir} --dta-cufflinks {params.infiles} 2> {log} | samtools view -b -@ {threads} - > {output.bam} && ln -sf {params.link_src} {output.link} && touch -h {output.link}"
 
 rule hisat_all:
 	input: expand(ALIGN_DIR+"/output/hisat-{sample}-{run}.bam", sample=SAMPLES, run=HISAT_RUNS)

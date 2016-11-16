@@ -73,6 +73,8 @@ the internal junction has been recovered.""")
                         action="store_true", default=False,
                         help="""Unless this flag is set, compare will save an index of the
                         reference to quicken multiple calls.""")
+    parser.add_argument("-erm", "--extended-refmap", action="store_true", default=False,
+                        help="Flag. If set, the RefMap will also contain recall and precision statistics - not just the F1.")
     parser.add_argument("-l", "--log", default=None, type=str)
     parser.add_argument("-v", "--verbose",
                         action="store_true",

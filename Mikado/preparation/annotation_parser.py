@@ -8,6 +8,7 @@ from .. import exceptions
 from sys import intern
 import pickle
 import os
+import shelve
 
 __author__ = 'Luca Venturini'
 
@@ -16,7 +17,6 @@ class AnnotationParser(multiprocessing.Process):
 
     def __init__(self,
                  submission_queue,
-                 return_queue,
                  logging_queue,
                  identifier,
                  tempdir,
@@ -25,7 +25,6 @@ class AnnotationParser(multiprocessing.Process):
 
         super().__init__()
         self.submission_queue = submission_queue
-        self.return_queue = return_queue
         self.__strip_cds = strip_cds
         self.logging_queue = logging_queue
         self.log_level = log_level
@@ -53,38 +52,43 @@ class AnnotationParser(multiprocessing.Process):
 
     def run(self):
 
-        exon_lines = collections.defaultdict(dict)
+        # exon_lines = collections.defaultdict(dict)
         found_ids = set()
         self.logger.debug("Starting to listen to the queue")
+        counter = 0
         while True:
-
             results = self.submission_queue.get()
             try:
-                label, handle, strand_specific = results
+                label, handle, strand_specific, shelf_name = results
             except ValueError as exc:
                 raise ValueError("{}.\tValues: {}".format(exc, ", ".join([str(_) for _ in results])))
             if handle == "EXIT":
-                self.submission_queue.put(("EXIT", "EXIT", "EXIT"))
+                self.submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT"))
                 break
-            self.logger.debug("Received %s (label: %s; SS: %s)", handle, label, strand_specific)
+            counter += 1
+            self.logger.debug("Received %s (label: %s; SS: %s, shelf_name: %s)",
+                              handle,
+                              label,
+                              strand_specific,
+                              shelf_name)
             try:
                 gff_handle = to_gff(handle)
                 if gff_handle.__annot_type__ == "gff3":
-                    exon_lines, new_ids = load_from_gff(exon_lines,
-                                                        gff_handle,
-                                                        label,
-                                                        found_ids,
-                                                        self.logger,
-                                                        strip_cds=self.__strip_cds,
-                                                        strand_specific=strand_specific)
+                    new_ids = load_from_gff(shelf_name,
+                                            gff_handle,
+                                            label,
+                                            found_ids,
+                                            self.logger,
+                                            strip_cds=self.__strip_cds,
+                                            strand_specific=strand_specific)
                 else:
-                    exon_lines, new_ids = load_from_gtf(exon_lines,
-                                                        gff_handle,
-                                                        label,
-                                                        found_ids,
-                                                        self.logger,
-                                                        strip_cds=self.__strip_cds,
-                                                        strand_specific=strand_specific)
+                    new_ids = load_from_gtf(shelf_name,
+                                            gff_handle,
+                                            label,
+                                            found_ids,
+                                            self.logger,
+                                            strip_cds=self.__strip_cds,
+                                            strand_specific=strand_specific)
                 if len(new_ids) == 0:
                     raise exceptions.InvalidAssembly(
                         "No valid transcripts found in {0}{1}!".format(
@@ -98,13 +102,7 @@ class AnnotationParser(multiprocessing.Process):
                 self.logger.exception(exc)
                 raise
 
-        temp = os.path.join(self.tempdir, "parsed-{0}.pickle".format(self.identifier))
-        self.logger.debug("Finished parsing files, pickling into %s", temp)
-        with open(temp, "wb") as out:
-            pickle.dump(exon_lines, out)
-
-        self.return_queue.put(out.name)
-        self.logger.debug("Sending %s back, exiting.", temp)
+        self.logger.debug("Sending %s back, exiting.", counter)
 
     @property
     def identifier(self):
@@ -147,7 +145,7 @@ def __raise_invalid(row_id, name, label):
             "(label: {0})".format(label) if label != '' else ""))
 
 
-def load_from_gff(exon_lines,
+def load_from_gff(shelf_name,
                   gff_handle,
                   label,
                   found_ids,
@@ -171,8 +169,7 @@ def load_from_gff(exon_lines,
     :return:
     """
 
-    if exon_lines is None:
-        exon_lines = collections.defaultdict(dict)
+    exon_lines = shelve.open(shelf_name, flag="n", writeback=True)
 
     transcript2genes = dict()
     new_ids = set()
@@ -193,6 +190,8 @@ def load_from_gff(exon_lines,
                     row.id)
                 to_ignore.add(row.id)
                 continue
+            if row.id not in exon_lines:
+                exon_lines[row.id] = dict()
             exon_lines[row.id]["source"] = row.source
             transcript2genes[row.id] = row.parent[0]
             if row.id in found_ids:
@@ -227,6 +226,7 @@ def load_from_gff(exon_lines,
                     elif tid in to_ignore:
                         continue
                     if tid not in exon_lines:
+                        exon_lines[tid] = dict()
                         exon_lines[tid]["attributes"] = row.attributes.copy()
                         if label:
                             exon_lines[tid]["source"] = label
@@ -253,10 +253,17 @@ def load_from_gff(exon_lines,
             else:
                 continue
     gff_handle.close()
-    return exon_lines, new_ids
+
+    # if shelf_name is not None:
+    #     with shelve.open(shelf_name, flag="n") as shelf:
+    #         for tid in exon_lines:
+    #             shelf[tid] = exon_lines[tid]
+    #     exon_lines = collections.defaultdict(dict)
+
+    return new_ids
 
 
-def load_from_gtf(exon_lines,
+def load_from_gtf(shelf_name,
                   gff_handle,
                   label,
                   found_ids,
@@ -281,8 +288,7 @@ def load_from_gtf(exon_lines,
     :return:
     """
 
-    if exon_lines is None:
-        exon_lines = collections.defaultdict(dict)
+    exon_lines = shelve.open(shelf_name, flag="n", writeback=True)
 
     # Reduce memory footprint
     [intern(_) for _ in ["chrom", "features", "strand", "attributes", "tid", "parent", "attributes"]]
@@ -301,19 +307,24 @@ def load_from_gtf(exon_lines,
                 to_ignore.add(row.id)
                 continue
                 # __raise_invalid(row.transcript, gff_handle.name, label)
+            if row.transcript not in exon_lines:
+                exon_lines[row.transcript] = dict()
             if label:
                 exon_lines[row.transcript]["source"] = label
             else:
                 exon_lines[row.transcript]["source"] = row.source
+            exon_lines.sync()
+
             exon_lines[row.transcript]["features"] = dict()
             exon_lines[row.transcript]["chrom"] = row.chrom
             exon_lines[row.transcript]["strand"] = row.strand
             exon_lines[row.transcript]["attributes"] = row.attributes.copy()
             exon_lines[row.transcript]["tid"] = row.id
             exon_lines[row.transcript]["parent"] = row.gene
-            exon_lines[row.id]["strand_specific"] = strand_specific
-            if "exon_number" in exon_lines[row.id]["attributes"]:
+            exon_lines[row.transcript]["strand_specific"] = strand_specific
+            if "exon_number" in exon_lines[row.transcript]["attributes"]:
                 del exon_lines[row.id]["attributes"]["exon_number"]
+
 
             continue
         if row.is_exon is False or (row.is_cds is True and strip_cds is True):
@@ -324,6 +335,7 @@ def load_from_gtf(exon_lines,
             __raise_redundant(row.transcript, gff_handle.name, label)
         assert row.transcript is not None
         if row.transcript not in exon_lines:
+            exon_lines[row.transcript] = dict()
             if label:
                 exon_lines[row.transcript]["source"] = label
             else:
@@ -350,4 +362,5 @@ def load_from_gtf(exon_lines,
         exon_lines[row.transcript]["features"][row.feature].append((row.start, row.end))
         new_ids.add(row.transcript)
     gff_handle.close()
-    return exon_lines, new_ids
+
+    return new_ids

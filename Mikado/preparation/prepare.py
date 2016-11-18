@@ -16,13 +16,15 @@ import multiprocessing
 import multiprocessing.connection
 import multiprocessing.sharedctypes
 import pyfaidx
+import shelve
 import logging
 from ..utilities import path_join, to_gff, merge_partial
+from collections import Counter
 
 __author__ = 'Luca Venturini'
 
 
-def store_transcripts(exon_lines, logger, min_length=0):
+def store_transcripts(shelf_stacks, logger, min_length=0):
 
     """
     Function that analyses the exon lines from the original file
@@ -41,33 +43,35 @@ def store_transcripts(exon_lines, logger, min_length=0):
     :rtype: transcripts
     """
 
-    logger.info("Starting to organise %d transcripts", len(exon_lines))
     transcripts = collections.defaultdict(dict)
-    for tid in exon_lines:
-        if "features" not in exon_lines[tid]:
-            raise KeyError("{0}: {1}\n{2}".format(tid, "features", exon_lines[tid]))
 
-        if ("exon" not in exon_lines[tid]["features"] or
-                len(exon_lines[tid]["features"]["exon"]) == 0):
-            logger.warning("No valid exon feature for %s, continuing", tid)
+    for shelf_name, exon_lines in shelf_stacks.items():
+        for tid in exon_lines:
+            if "features" not in exon_lines[tid]:
+                raise KeyError("{0}: {1}\n{2}".format(tid, "features", exon_lines[tid]))
 
-        chrom = exon_lines[tid]["chrom"]
-        start = min((_[0] for _ in exon_lines[tid]["features"]["exon"]))
-        end = max((_[1] for _ in exon_lines[tid]["features"]["exon"]))
-        tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
-        # Discard transcript under a certain size
-        if tlength < min_length:
-            logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
-                         tid, tlength, min_length)
-            continue
+            if ("exon" not in exon_lines[tid]["features"] or
+                    len(exon_lines[tid]["features"]["exon"]) == 0):
+                logger.warning("No valid exon feature for %s, continuing", tid)
 
-        if (start, end) not in transcripts[chrom]:
-            transcripts[chrom][(start, end)] = []
-        transcripts[chrom][(start, end)].append(tid)
+            chrom = exon_lines[tid]["chrom"]
+            start = min((_[0] for _ in exon_lines[tid]["features"]["exon"]))
+            end = max((_[1] for _ in exon_lines[tid]["features"]["exon"]))
+            tlength = sum(exon[1] + 1 - exon[0] for exon in exon_lines[tid]["features"]["exon"])
+            # Discard transcript under a certain size
+            if tlength < min_length:
+                logger.debug("Discarding %s because its size (%d) is under the minimum of %d",
+                             tid, tlength, min_length)
+                continue
 
-    logger.info("Starting to sort %d transcripts", len(exon_lines))
+            if (start, end) not in transcripts[chrom]:
+                transcripts[chrom][(start, end)] = []
+            transcripts[chrom][(start, end)].append((tid, shelf_name))
+
+    # logger.info("Starting to sort %d transcripts", len(exon_lines))
     # keys = []
     # counter = 0
+
     for chrom in sorted(transcripts.keys()):
 
         logger.debug("Starting with %s (%d positions)",
@@ -79,19 +83,19 @@ def store_transcripts(exon_lines, logger, min_length=0):
             tids = transcripts[chrom][key]
             if len(tids) > 1:
                 exons = collections.defaultdict(list)
-                for tid in tids:
+                for tid, shelf in tids:
                     exon_set = tuple(sorted(
-                        [(exon[0], exon[1], exon_lines[tid]["strand"]) for exon in
-                         exon_lines[tid]["features"]["exon"]],
+                        [(exon[0], exon[1], shelf_stacks[shelf][tid]["strand"]) for exon in
+                         shelf_stacks[shelf][tid]["features"]["exon"]],
                         key=operator.itemgetter(0, 1)))
-                    exons[exon_set].append(tid)
+                    exons[exon_set].append((tid, shelf))
                 tids = []
                 logger.debug("%d intron chains for pos %s",
                              len(exons), "{}:{}-{}".format(chrom, key[0], key[1]))
                 for tid_list in exons.values():
                     if len(tid_list) > 1:
                         logger.debug("The following transcripts are redundant: %s",
-                                     ",".join(tid_list))
+                                     ",".join([_[0] for _ in tid_list]))
                         to_keep = random.choice(tid_list)
                         logger.debug("Keeping only %s out of the list",
                                      to_keep)
@@ -110,7 +114,7 @@ def store_transcripts(exon_lines, logger, min_length=0):
     # return keys
 
 
-def perform_check(keys, exon_lines, args, logger):
+def perform_check(keys, shelve_stacks, args, logger):
 
     """
     This is the most important method. After preparing the data structure,
@@ -130,6 +134,8 @@ def perform_check(keys, exon_lines, args, logger):
     # FASTA extraction *has* to be done at the main process level, it's too slow
     # to create an index in each process.
 
+
+
     if args.json_conf["prepare"]["single"] is True or args.procs == 1:
 
         # Use functools to pre-configure the function
@@ -142,11 +148,12 @@ def perform_check(keys, exon_lines, args, logger):
             logger=logger)
 
         for tid, chrom, key in keys:
+            tid, shelf_name = tid
             transcript_object = partial_checker(
-                exon_lines[tid],
+                shelve_stacks[shelf_name][tid],
                 str(args.json_conf["reference"]["genome"][chrom][key[0]-1:key[1]]),
                 key[0], key[1],
-                strand_specific=exon_lines[tid]["strand_specific"])
+                strand_specific=shelve_stacks[shelf_name][tid]["strand_specific"])
             if transcript_object is None:
                 continue
             counter += 1
@@ -180,7 +187,8 @@ def perform_check(keys, exon_lines, args, logger):
 
         for counter, keys in enumerate(keys):
             tid, chrom, (pos) = keys
-            submission_queue.put((exon_lines[tid], pos[0], pos[1], counter + 1))
+            tid, shelf_name = tid
+            submission_queue.put((shelve_stacks[shelf_name][tid], pos[0], pos[1], counter + 1))
 
         submission_queue.put(tuple(["EXIT"]*4))
 
@@ -202,13 +210,13 @@ def perform_check(keys, exon_lines, args, logger):
     args.json_conf["prepare"]["files"]["out"].close()
 
     logger.setLevel(logging.INFO)
-    logger.info("Finished to analyse %d transcripts (%d retained)",
-                len(exon_lines), counter)
+    # logger.info("Finished to analyse %d transcripts (%d retained)",
+    #             len(exon_lines), counter)
     logger.setLevel(args.level)
     return
 
 
-def load_exon_lines(args, logger):
+def load_exon_lines(args, shelve_names, logger):
 
     """This function loads all exon lines from the GFF inputs into a
      defaultdict instance.
@@ -221,14 +229,14 @@ def load_exon_lines(args, logger):
 
     threads = min([len(args.json_conf["prepare"]["files"]["gff"]), args.procs])
     strip_cds = args.json_conf["prepare"]["strip_cds"]
-    exon_lines = collections.defaultdict(dict)
 
     if args.json_conf["prepare"]["single"] is True or threads == 1:
 
         logger.info("Starting to load lines from %d files (single-threaded)",
                     len(args.json_conf["prepare"]["files"]["gff"]))
         previous_file_ids = collections.defaultdict(set)
-        for label, strand_specific, gff_name in zip(
+        for new_shelf, label, strand_specific, gff_name in zip(
+                shelve_names,
                 args.json_conf["prepare"]["files"]["labels"],
                 args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
                 args.json_conf["prepare"]["files"]["gff"]):
@@ -236,86 +244,73 @@ def load_exon_lines(args, logger):
             gff_handle = to_gff(gff_name)
             found_ids = set.union(set(), *previous_file_ids.values())
             if gff_handle.__annot_type__ == "gff3":
-                exon_lines, new_ids = load_from_gff(exon_lines, gff_handle,
-                                                    label, found_ids,
-                                                    logger,
-                                                    strip_cds=strip_cds,
-                                                    strand_specific=strand_specific)
+                new_ids = load_from_gff(new_shelf,
+                                        gff_handle,
+                                        label,
+                                        found_ids,
+                                        logger,
+                                        strip_cds=strip_cds,
+                                        strand_specific=strand_specific)
             else:
-                exon_lines, new_ids = load_from_gtf(exon_lines, gff_handle,
-                                                    label, found_ids,
-                                                    logger,
-                                                    strip_cds=strip_cds,
-                                                    strand_specific=strand_specific)
+                new_ids = load_from_gtf(new_shelf,
+                                        gff_handle,
+                                        label,
+                                        found_ids,
+                                        logger,
+                                        strip_cds=strip_cds,
+                                        strand_specific=strand_specific)
 
             previous_file_ids[gff_handle.name] = new_ids
     else:
         logger.info("Starting to load lines from %d files (using %d processes)",
                     len(args.json_conf["prepare"]["files"]["gff"]), threads)
         submission_queue = multiprocessing.Queue(-1)
-        return_queue = multiprocessing.Queue(-1)
 
         working_processes = [AnnotationParser(
             submission_queue,
-            return_queue,
             args.logging_queue,
             _ + 1,
             args.tempdir.name,
             log_level=args.level,
             strip_cds=strip_cds) for _ in range(threads)]
+
         [_.start() for _ in working_processes]
-        for label, strand_specific, gff_name in zip(
+        for new_shelf, label, strand_specific, gff_name in zip(
+                shelve_names,
                 args.json_conf["prepare"]["files"]["labels"],
                 args.json_conf["prepare"]["files"]["strand_specific_assemblies"],
                 args.json_conf["prepare"]["files"]["gff"]):
-            submission_queue.put((label, gff_name, strand_specific))
 
-        submission_queue.put(("EXIT", "EXIT", "EXIT"))
+            submission_queue.put((label, gff_name, strand_specific, new_shelf))
+
+        submission_queue.put(("EXIT", "EXIT", "EXIT", "EXIT"))
 
         [_.join() for _ in working_processes]
-        return_queue.put("EXIT")
 
-        while True:
-            result = return_queue.get()
-            if result == "EXIT":
-                break
-            logger.debug("Loading %s back into memory", result)
-            with open(result, "rb") as inp_file:
-                result = pickle.load(inp_file)
+        tid_counter = Counter()
+        for shelf in shelve_names:
+            with shelve.open(shelf, flag="r") as shelf:
+                tid_counter.update(shelf.keys())
+                if tid_counter.most_common()[0][1] > 1:
+                    if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
+                        exception = exceptions.RedundantNames(
+                            """Found redundant names during multiprocessed file analysis.
+                            Please repeat using distinct labels for your input files. Aborting.""")
+                    else:
+                        exception = exceptions.RedundantNames(
+                            """Found redundant names during multiprocessed file analysis, even if
+                            unique labels were provided. Please try to repeat with a different and
+                            more unique set of labels. Aborting.""")
+                    logger.exception(exception)
+                    raise exception
 
-            os.remove(inp_file.name)
-            if (not isinstance(result, collections.defaultdict) or
-                    result.default_factory != exon_lines.default_factory):
-                exception = TypeError(
-                    """I received a wrong result; I expected a defaultdict(dict) instance but
-                    I received a {0}{1} instance instead. Aborting.""".format(
-                        type(result),
-                        " (default factory: {0})".format(result.default_factory) if
-                        isinstance(result, collections.defaultdict) else ""))
-                logger.exception(exception)
-                raise exception
-            if len(set.intersection(set(result.keys()), set(exon_lines.keys()))) > 0:
-                if set(args.json_conf["prepare"]["files"]["labels"]) == {""}:
-                    exception = exceptions.RedundantNames(
-                        """Found redundant names during multiprocessed file analysis.
-                        Please repeat using distinct labels for your input files. Aborting.""")
-                else:
-                    exception = exceptions.RedundantNames(
-                        """Found redundant names during multiprocessed file analysis, even if
-                        unique labels were provided. Please try to repeat with a different and
-                        more unique set of labels. Aborting.""")
-                logger.exception(exception)
-                raise exception
-
-            exon_lines.update(result)
-            logger.debug("Loaded %s back into memory", inp_file.name)
         del working_processes
         gc.collect()
 
     logger.info("Finished loading lines from %d files",
                 len(args.json_conf["prepare"]["files"]["gff"]))
 
-    return exon_lines
+    return
 
 
 def prepare(args, logger):
@@ -349,14 +344,16 @@ def prepare(args, logger):
             (member in args.json_conf["prepare"]["files"]["strand_specific_assemblies"])
             for member in args.json_conf["prepare"]["files"]["gff"]]
 
+    shelve_names = ["mikado_shelf_{}.shelf".format(str(_).zfill(5)) for _ in
+                    range(len(args.json_conf["prepare"]["files"]["gff"]))]
+    logger.error(shelve_names)
+    logger.error(args.json_conf["prepare"]["files"]["gff"])
+
     logger.propagate = False
     if args.json_conf["prepare"]["single"] is False and args.procs > 1:
         multiprocessing.set_start_method(args.json_conf["multiprocessing_method"],
                                          force=True)
         args.logging_queue = multiprocessing.Queue(-1)
-        args.tempdir = tempfile.TemporaryDirectory(prefix="mikado_prepare_tmp",
-                                                   dir=args.json_conf["prepare"]["files"]["output_dir"])
-
         log_queue_handler = logging.handlers.QueueHandler(args.logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
         # logger.addHandler(log_queue_handler)
@@ -377,31 +374,38 @@ def prepare(args, logger):
     logger.info("Finished loading genome file")
     logger.info("Started loading exon lines")
 
-    exon_lines = load_exon_lines(args, logger)
+    try:
+        load_exon_lines(args, shelve_names, logger)
 
-    logger.info("Finished loading exon lines")
+        logger.info("Finished loading exon lines")
 
-    # Prepare the sorted data structure
-    sorter = functools.partial(
-        store_transcripts,
-        logger=logger,
-        min_length=args.json_conf["prepare"]["minimum_length"]
-    )
+        # Prepare the sorted data structure
+        sorter = functools.partial(
+            store_transcripts,
+            logger=logger,
+            min_length=args.json_conf["prepare"]["minimum_length"]
+        )
 
-    perform_check(sorter(exon_lines), exon_lines, args, logger)
+        try:
+            shelf_stacks = dict((_, shelve.open(_, flag="r")) for _ in shelve_names)
+        except Exception as exc:
+            raise TypeError((shelve_names, exc))
+        perform_check(sorter(shelf_stacks), shelf_stacks, args, logger)
+    except Exception as exc:
+        logger.exception(exc)
+        # [os.remove(_) for _ in shelve_names if os.path.exists(_)]
+        logger.error("Mikado has encountered an error, exiting")
+        sys.exit(1)
 
     # args.json_conf["prepare"]["files"]["out"].close()
     # args.json_conf["prepare"]["files"]["out_fasta"].close()
 
     if args.json_conf["prepare"]["single"] is False and args.procs > 1:
-        try:
-            args.tempdir.cleanup()
-        except (FileExistsError, FileNotFoundError, OSError):
-            logger.warning("Failed to remove temporary directory %s", args.tempdir.name)
-
         args.listener.enqueue_sentinel()
 
     logger.setLevel(logging.INFO)
+    [os.remove(_) for _ in shelve_names if os.path.exists(_)]
     logger.info("Finished")
+    sys.exit(0)
     # for handler in logger.handlers:
     #     handler.close()

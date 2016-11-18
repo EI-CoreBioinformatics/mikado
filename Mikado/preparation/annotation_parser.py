@@ -227,7 +227,11 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["strand"] = row.strand
                         exon_lines[tid]["features"] = dict()
                         exon_lines[row.id]["tid"] = tid
-                        exon_lines[row.id]["parent"] = transcript2genes[tid]
+                        if "match" in row.feature:
+                            # These features do not have a proper parent
+                            exon_lines[row.id]["parent"] = ""
+                        else:
+                            exon_lines[row.id]["parent"] = transcript2genes[tid]
                         exon_lines[row.id]["strand_specific"] = strand_specific
                     else:
                         if "exon_number" in row.attributes:

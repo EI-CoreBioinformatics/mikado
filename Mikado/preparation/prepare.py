@@ -390,7 +390,13 @@ def prepare(args, logger):
         perform_check(sorter(shelf_stacks), shelf_stacks, args, logger)
     except Exception as exc:
         logger.exception(exc)
-        # [os.remove(_) for _ in shelve_names if os.path.exists(_)]
+        for fn in os.listdir(args.json_conf["prepare"]["files"]["output_dir"]):
+            if ("shelf" in fn and
+                    (path_join(args.json_conf["prepare"]["files"]["output_dir"], fn) in shelve_names or
+                    path_join(args.json_conf["prepare"]["files"]["output_dir"],
+                              os.path.splitext(os.path.basename(fn))[0]) in shelve_names)):
+                os.remove(path_join(args.json_conf["prepare"]["files"]["output_dir"], fn))
+
         logger.error("Mikado has encountered an error, exiting")
         sys.exit(1)
 
@@ -402,7 +408,12 @@ def prepare(args, logger):
         args.listener.enqueue_sentinel()
 
     logger.setLevel(logging.INFO)
-    [os.remove(_) for _ in shelve_names if os.path.exists(_)]
+    for fn in os.listdir(args.json_conf["prepare"]["files"]["output_dir"]):
+        if ("shelf" in fn and
+                (path_join(args.json_conf["prepare"]["files"]["output_dir"], fn) in shelve_names or
+                         path_join(args.json_conf["prepare"]["files"]["output_dir"],
+                                   os.path.splitext(os.path.basename(fn))[0]) in shelve_names)):
+            os.remove(path_join(args.json_conf["prepare"]["files"]["output_dir"], fn))
     logger.info("Finished")
     sys.exit(0)
     # for handler in logger.handlers:

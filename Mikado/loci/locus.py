@@ -7,6 +7,7 @@ i.e. the locus.
 
 import itertools
 import operator
+import functools
 from .transcript import Transcript
 from ..scales.assigner import Assigner
 from .sublocus import Sublocus
@@ -607,50 +608,54 @@ class Locus(Sublocus, Abstractlocus):
         __sorted_transcripts = sorted(self.transcripts.keys,
                                       key=lambda tid: self.transcripts[tid].splices  )
 
-        # Start from the five end
-        def __share_five(first, second):
-
-            if first.splices and second.splices:
-                first_splices = sorted(first.splices)
-                second_splices = sorted(second.splices)
-                if first_splices[0] == second_splices[0]:
-                    return True
-                elif first_splices[0] < second_splices[0]:
-                    if second_splices[0] > first_splices[1]:
-                        return True
-                    else:
-                        return False
-                else:
-                    if first_splices[0] > second_splices[1]:
-                        return True
-                    else:
-                        return False
-            elif first.splices:  # the second is monoexonic
-                first_splices = sorted(first.splices)
-                if second.start < first_splices[0] and second.end > first_splices[1]:
-                    return True
-                else:
-                    return False
-            elif second.splices:
-                second_splices = sorted(second.splices)
-                if first.start < second_splices[0] and first.end > second_splices[1]:
-                    return True
-                else:
-                    return False
-            else:
-                if overlap(first.start, first.end, second.start, second.end):
-                    return True
-                else:
-                    return False
-
-        sharing_five = self.define_graph(self.transcripts, __share_five)
+        sharing_five = self.define_graph(self.transcripts, self._share_extreme, five_prime=True)
         cliques_five = self.find_cliques(sharing_five)
 
-        # Now we have to iterate throughout the cliques
-        # and define them in a unique way.
-        # Then, we need to do the same for the three prime portion.
+        sharing_three = self.define_graph(self.transcripts, self._share_extreme, five_prime=False)
+        cliques_three = self.find_cliques(sharing_three)
 
+        # Now we have to expand
 
+    def _share_extreme(self, first, second, five_prime=True):
+
+        """Private method to verify that two transcripts should be considered as sharing a final
+        coordinate, for padding."""
+
+        # Logical XOR
+        if five_prime ^ (first.strand == "+"):
+            attribute = "end"
+        else:
+            attribute = "start"
+        first, second = sorted([first, second], key=operator.attrgetter(attribute))
+        sorter = functools.partial(sorted, reverse=(five_prime ^ (first.strand == "+")))
+
+        first_exons = sorter(first.exons)
+        second_exons = sorter(second.exons)
+
+        if first.splices:
+            first_splices = sorter(first.splices)
+        if second.splices:
+            second_splices = sorter(second.splices)
+
+        if first.splices and second.splices:
+            if first_splices[0] == second_splices[0]:
+                return True
+            # elif attribute == "start" and first.start < second_splices[0]:
+            #    return True
+            elif overlap(first_exons[0], second_exons[0]) > 0 and second_splices[0] in first_splices:
+                return True
+            elif (overlap(first_exons[0], second_exons[0]) > 0 and
+                      (overlap(first_exons[0], second_exons[1]) > 0 or
+                               overlap(first_exons[1], second_exons[0]) > 0)):
+                return True
+
+            # elif attribute == "end" and second.end > first_splices[0]:
+            #    return True
+            else:
+                return False
+        elif overlap(first_exons[0], second_exons[0]) > 0:
+            return True
+        return False
 
 
     @property

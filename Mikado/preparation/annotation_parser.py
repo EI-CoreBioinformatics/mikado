@@ -19,7 +19,6 @@ class AnnotationParser(multiprocessing.Process):
                  submission_queue,
                  logging_queue,
                  identifier,
-                 tempdir,
                  log_level="WARNING",
                  strip_cds=False):
 
@@ -28,7 +27,6 @@ class AnnotationParser(multiprocessing.Process):
         self.__strip_cds = strip_cds
         self.logging_queue = logging_queue
         self.log_level = log_level
-        self.__tempdir = tempdir
         self.__identifier = identifier
         self.name = "AnnotationParser-{0}".format(self.identifier)
         self.logger = None
@@ -111,10 +109,6 @@ class AnnotationParser(multiprocessing.Process):
         :return:
         """
         return self.__identifier
-
-    @property
-    def tempdir(self):
-        return self.__tempdir
 
 
 def __raise_redundant(row_id, name, label):

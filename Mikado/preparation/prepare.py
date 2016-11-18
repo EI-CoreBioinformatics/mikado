@@ -198,7 +198,7 @@ def perform_check(keys, shelve_stacks, args, logger):
                                     "{0}-{1}".format(
                                         os.path.basename(args.json_conf["prepare"]["files"]["out"].name),
                                         _ + 1)) for _ in range(args.procs)]
-        counter = merge_partial(partial_gtf, args.json_conf["prepare"]["files"]["out"])
+        merge_partial(partial_gtf, args.json_conf["prepare"]["files"]["out"])
 
         partial_fasta = [os.path.join(
             args.tempdir.name,
@@ -270,7 +270,6 @@ def load_exon_lines(args, shelve_names, logger):
             submission_queue,
             args.logging_queue,
             _ + 1,
-            args.tempdir.name,
             log_level=args.level,
             strip_cds=strip_cds) for _ in range(threads)]
 
@@ -346,8 +345,6 @@ def prepare(args, logger):
 
     shelve_names = ["mikado_shelf_{}.shelf".format(str(_).zfill(5)) for _ in
                     range(len(args.json_conf["prepare"]["files"]["gff"]))]
-    logger.error(shelve_names)
-    logger.error(args.json_conf["prepare"]["files"]["gff"])
 
     logger.propagate = False
     if args.json_conf["prepare"]["single"] is False and args.procs > 1:
@@ -357,6 +354,7 @@ def prepare(args, logger):
         log_queue_handler = logging.handlers.QueueHandler(args.logging_queue)
         log_queue_handler.setLevel(logging.DEBUG)
         # logger.addHandler(log_queue_handler)
+        args.tempdir = tempfile.TemporaryDirectory(dir=args.json_conf["prepare"]["files"]["output_dir"])
         args.listener = logging.handlers.QueueListener(args.logging_queue, logger)
         args.listener.propagate = False
         args.listener.start()
@@ -401,6 +399,7 @@ def prepare(args, logger):
     # args.json_conf["prepare"]["files"]["out_fasta"].close()
 
     if args.json_conf["prepare"]["single"] is False and args.procs > 1:
+        args.tempdir.cleanup()
         args.listener.enqueue_sentinel()
 
     logger.setLevel(logging.INFO)

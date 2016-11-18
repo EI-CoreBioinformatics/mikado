@@ -1009,6 +1009,7 @@ class AssignerTester(unittest.TestCase):
         args.protein_coding = False
         args.index = False
         args.self = False
+        args.extended_refmap = False
 
         Mikado.scales.compare.compare(args)
 

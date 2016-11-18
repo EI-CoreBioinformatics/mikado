@@ -66,7 +66,9 @@ class Locus(Sublocus, Abstractlocus):
         self.attributes["is_fragment"] = False
         self.metric_lines_store = []
         self.__id = None
-        if self.json_conf["reference"]["genome"]:
+        if (isinstance(self.json_conf, dict) and
+                "reference" in self.json_conf and
+                self.json_conf["reference"]["genome"]):
             self.fai = pyfaidx.Fasta(self.json_conf["reference"]["genome"])
         else:
             self.fai = None

@@ -341,7 +341,8 @@ def prepare(args, logger):
             (member in args.json_conf["prepare"]["files"]["strand_specific_assemblies"])
             for member in args.json_conf["prepare"]["files"]["gff"]]
 
-    shelve_names = ["mikado_shelf_{}.shelf".format(str(_).zfill(5)) for _ in
+    shelve_names = [path_join(args.json_conf["prepare"]["files"]["output_dir"],
+                              "mikado_shelf_{}.shelf".format(str(_).zfill(5))) for _ in
                     range(len(args.json_conf["prepare"]["files"]["gff"]))]
 
     logger.propagate = False

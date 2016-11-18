@@ -208,8 +208,17 @@ def load_from_gff(shelf_name,
             continue
         elif row.is_exon is True:
             if not row.is_cds or (row.is_cds is True and strip_cds is False):
-                if label != '':
+                if len(row.parent) == 0 and "match" in row.feature:
+                    if label == '':
+                        __tid = row.id
+                    else:
+                        __tid = "{0}_{1}".format(label, row.id)
+                    row.parent = __tid
+                    transcript2genes[__tid] = "{}_match".format(row.transcript)
+                    row.feature = "exon"
+                elif label != '':
                     row.transcript = ["{0}_{1}".format(label, tid) for tid in row.transcript]
+
                 parents = row.transcript[:]
                 for tid in parents:
                     if tid in found_ids:
@@ -226,13 +235,9 @@ def load_from_gff(shelf_name,
                         exon_lines[tid]["chrom"] = row.chrom
                         exon_lines[tid]["strand"] = row.strand
                         exon_lines[tid]["features"] = dict()
-                        exon_lines[row.id]["tid"] = tid
-                        if "match" in row.feature:
-                            # These features do not have a proper parent
-                            exon_lines[row.id]["parent"] = "{}_match".format(row.id)
-                        else:
-                            exon_lines[row.id]["parent"] = transcript2genes[tid]
-                        exon_lines[row.id]["strand_specific"] = strand_specific
+                        exon_lines[tid]["tid"] = tid
+                        exon_lines[tid]["parent"] = transcript2genes[tid]
+                        exon_lines[tid]["strand_specific"] = strand_specific
                     else:
                         if "exon_number" in row.attributes:
                             del row.attributes["exon_number"]

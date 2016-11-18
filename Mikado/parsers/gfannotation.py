@@ -245,7 +245,8 @@ class GFAnnotation(metaclass=abc.ABCMeta):
         if self.feature is None:
             return False
         _ = self.feature.lower()
-        if "cds" in _ or _.endswith("exon") or "utr" in _ or "codon" in _ or _ == "cDNA_match" or _ == "match_part":
+        if ("cds" in _ or _.endswith("exon") or "utr" in _ or "codon" in _
+            or _ == "cdna_match" or _ == "match_part"):
             return True
         return False
 

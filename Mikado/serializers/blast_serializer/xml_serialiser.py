@@ -34,8 +34,8 @@ class _XmlPickler(multiprocessing.Process):
     def __init__(self,
                  queries,
                  targets,
-                 # filequeue: multiprocessing.Queue,
-                 # returnqueue,
+                 filequeue: multiprocessing.Queue,
+                 returnqueue,
                  default_header,
                  identifier,
                  logging_queue,
@@ -57,8 +57,8 @@ class _XmlPickler(multiprocessing.Process):
         self.logger = logging.getLogger(self.name)
         self.logger.addHandler(self.handler)
         self.logger.setLevel(self.level)
-        # self.filequeue = filequeue
-        # self.returnqueue = returnqueue
+        self.filequeue = filequeue
+        self.returnqueue = returnqueue
         self.default_header = default_header
         self.maxobjects = maxobjects
         self.__max_target_seqs = max_target_seqs
@@ -721,8 +721,8 @@ class XmlSerializer:
             procs = [_XmlPickler(
                 queries,
                 targets,
-                # filequeue,
-                # returnqueue,
+                filequeue,
+                returnqueue,
                 self.header,
                 _,
                 logging_queue=self.logging_queue,

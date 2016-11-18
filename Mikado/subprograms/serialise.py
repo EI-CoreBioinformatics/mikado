@@ -271,6 +271,8 @@ def serialise(args):
 
     args, logger = setup(args)
 
+    logger.info("Command line: %s",  " ".join(sys.argv))
+
     if args.json_conf["serialise"]["force"] is True:
         logger.warn("Removing old data because force option in place")
         engine = dbutils.connect(args.json_conf)

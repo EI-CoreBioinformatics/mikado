@@ -405,6 +405,20 @@
             "only_confirmed_introns":{
               "type": "boolean",
               "default": true
+            },
+            "ts_distance": {
+              "type": "integer",
+              "default": 300,
+              "minimum": 0
+            },
+            "pad": {
+              "type": "boolean",
+              "default": true
+            },
+            "ts_max_splices": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 1
             }
           }
         },

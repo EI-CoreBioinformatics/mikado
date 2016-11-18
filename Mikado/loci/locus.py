@@ -193,6 +193,10 @@ class Locus(Sublocus, Abstractlocus):
                 break
             elif not to_remove:
                 break
+
+        if self.json_conf["pick"]["alternative_splicing"]["pad"] is True:
+            self.pad_transcripts()
+
         return
 
     def add_transcript_to_locus(self, transcript: Transcript, **kwargs):
@@ -618,7 +622,7 @@ class Locus(Sublocus, Abstractlocus):
 
         # First do the 5' end
 
-        while five_comm:
+        while len(five_comm) > 0:
 
             comm = five_comm.popleft()
             comm = deque(sorted(list(set.difference(set(comm), five_found)),
@@ -628,18 +632,30 @@ class Locus(Sublocus, Abstractlocus):
             first = comm.popleft()
             five_found.add(first)
             comm_start = self[first].start
+            # self[first].strip_cds()
             for tid in comm:
                 if ((self[tid].start - comm_start + 1) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
                         len([_ for _ in self.splices if comm_start <= _ <= self[tid].start]) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                    # self[tid].strip_cds()
                     self[tid].unfinalize()
                     self[tid].start = comm_start
+                    __exon = self[tid].exons[0]
+
+                    self[tid].remove_exon(__exon)
+                    assert __exon not in self[tid].exons
+                    assert not any((_[0], _[1]) == __exon for _ in self[tid].segments)
+
+                    self[tid].add_exon((comm_start, __exon[1]))
                     self[tid].finalize()
-                    comm.popleft()
+                    # comm.popleft()
                     five_found.add(tid)
+                    self.logger.error("Enlarged 5' of %s to %d", tid, comm_start)
                 else:
                     continue
+            comm = deque([_ for _ in comm if _ not in five_found])
+
             if comm:
                 five_comm.appendleft(comm)
 
@@ -647,9 +663,9 @@ class Locus(Sublocus, Abstractlocus):
 
         three_found = set()
 
-        while three_comm:
+        while len(three_comm) > 0:
 
-            comm = five_comm.popleft()
+            comm = three_comm.popleft()
             comm = deque(sorted(list(set.difference(set(comm), three_found)),
                          key=lambda tid: self[tid].end, reverse=True))
             if len(comm) == 1:
@@ -662,10 +678,12 @@ class Locus(Sublocus, Abstractlocus):
                         self.json_conf["pick"]["alternative_splicing"]["ts_distance"] and
                         len([_ for _ in self.splices if self[tid].end <= _ <= comm_end]) <
                         self.json_conf["pick"]["alternative_splicing"]["ts_max_splices"]):
+                    # self[tid].strip_cds()
                     self[tid].unfinalize()
-                    if self[tid].cds_length > 0:
-                        # Case + strand
-                        three_exon = self.fai[self.chrom][self[tid].exons[-1]-1:comm_end]
+
+                    # if self[tid].cds_length > 0:
+                    #     # Case + strand
+                    #     three_exon = self.fai[self.chrom][self[tid].exons[-1]-1:comm_end]
 
                         # if self.strand == "-":
                         #     three_exon = three_exon.reverse.complement
@@ -683,13 +701,19 @@ class Locus(Sublocus, Abstractlocus):
                         #
                         #
 
-
                     self[tid].end = comm_end
+                    __exon = self[tid].exons[-1]
+                    self[tid].remove_exon(__exon)
+                    assert __exon not in self[tid].exons
+                    assert not any((_[0], _[1]) == __exon for _ in self[tid].segments)
+                    self[tid].add_exon((__exon[0], comm_end))
                     self[tid].finalize()
-                    comm.popleft()
-                    five_found.add(tid)
+                    # comm.popleft()
+                    self.logger.error("Enlarged 3' of %s to %d", tid, comm_end)
+                    three_found.add(tid)
                 else:
                     continue
+            comm = deque([_ for _ in comm if _ not in three_found ])
             if comm:
                 three_comm.appendleft(comm)
 

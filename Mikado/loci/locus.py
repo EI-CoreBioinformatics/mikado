@@ -665,21 +665,21 @@ class Locus(Sublocus, Abstractlocus):
                         # Case + strand
                         three_exon = self.fai[self.chrom][self[tid].exons[-1]-1:comm_end]
 
-                        if self.strand == "-":
-                            three_exon = three_exon.reverse.complement
-                            codons =
-
-
-                            if self[tid].cds_start == self[tid].end:
-                                first_codon = three_exon[0+self[tid].phases[0]:0+self[tid].phases[0]+3]
-                                # TODO: this should allow flexibility for different species
-                                if first_codon == "ATG":
-
-
-                        else:
-
-
-
+                        # if self.strand == "-":
+                        #     three_exon = three_exon.reverse.complement
+                        #
+                        #
+                        #
+                        #     if self[tid].cds_start == self[tid].end:
+                        #         first_codon = three_exon[0+self[tid].phases[0]:0+self[tid].phases[0]+3]
+                        #         # TODO: this should allow flexibility for different species
+                        #         if first_codon == "ATG":
+                        #
+                        #
+                        # else:
+                        #
+                        #
+                        #
 
 
                     self[tid].end = comm_end
